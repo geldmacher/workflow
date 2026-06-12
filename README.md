@@ -8,6 +8,8 @@ Compact Cursor workflows for model-agnostic delegation:
 
 The user chooses which model or agent performs each role. The plugin does not assume a model hierarchy.
 
+The typical split: a strong model compiles the handoff and reviews the delivery, while a cheaper or faster model executes it. The packet carries intent, scope, exact changes, and verification, so the executor never has to reconstruct the plan — it implements step by step and stops instead of guessing when something is missing. Because the roles stay model-agnostic, any other assignment works too.
+
 ## Installation
 
 Copy or clone this plugin to `~/.cursor/plugins/local/workflow/` so Cursor discovers it automatically, or install it from a marketplace that lists this repository.
