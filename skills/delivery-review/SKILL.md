@@ -1,0 +1,51 @@
+---
+name: delivery-review
+description: Review completed work against the original intent, handoff packet, and verification evidence. Use after delegated or multi-step implementation.
+---
+
+# Delivery Review
+
+## Goal
+
+Check whether the delivered work matches intent and evidence. Start with gaps and risks.
+
+## Review Inputs
+
+- original user goal
+- handoff packet or explicit plan
+- actual changed files or artifacts
+- tests, checks, screenshots, or command output
+- known deviations or skipped validation
+
+If evidence is missing, say so.
+
+## Independent Review
+
+When independence matters — especially when the implementing agent would review its own work — delegate this review to the `delivery-reviewer` agent instead of reviewing inline. The output structure below applies either way.
+
+## Output
+
+Use this concise structure:
+
+- **Verdict**: `fully achieved` | `mostly achieved` | `partially achieved` | `not achieved`
+- **Matches intent**: evidence-backed bullets
+- **Gaps or risks**: specific bullets
+- **Deviations**: justified, unjustified, or `none`
+- **Missing validation**: checks not run or evidence not available
+- **Recommended next handoff**: `none` or a compact handoff packet
+
+## Follow-Up Handoff
+
+When follow-up work is useful, write `Recommended next handoff` using the canonical packet:
+
+1. `Intent and success condition`
+2. `Scope and non-goals`
+3. `Context packet`
+4. `Target files and symbols`
+5. `References to existing patterns`
+6. `Executable agent plan`
+7. `Verification`
+8. `Escalate instead of guessing when`
+9. `Open questions`
+
+Delivery review is recommended by risk and usefulness, not required by default.

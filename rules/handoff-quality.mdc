@@ -1,0 +1,28 @@
+---
+description: Keep delegation handoffs compact, model-agnostic, and executable without hidden context.
+alwaysApply: false
+---
+
+# Handoff Quality
+
+Use this rule when creating, executing, or reviewing delegated implementation work.
+
+- Treat `planner`, `executor`, `reviewer`, and `user` as roles. Do not encode model strength, speed, vendor, or capability into the workflow.
+- Prefer one concise handoff packet over a long narrative.
+- A handoff is ready only when it names concrete targets, exact changes, verification, and stop conditions.
+- The executor must not broaden scope, invent adjacent refactors, or reinterpret the goal when the packet is incomplete.
+- Delivery review is risk-based and recommended when useful; it is not mandatory by default.
+
+## Canonical Handoff Packet
+
+This rule is the canonical source for the packet. Keep copies in skills, agents, and the README in sync with this list.
+
+1. `Intent and success condition`
+2. `Scope and non-goals`
+3. `Context packet`
+4. `Target files and symbols`
+5. `References to existing patterns`
+6. `Executable agent plan`
+7. `Verification`
+8. `Escalate instead of guessing when`
+9. `Open questions`
