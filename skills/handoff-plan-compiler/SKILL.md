@@ -27,6 +27,7 @@ If execution-critical information is missing, ask before compiling.
 When available in Cursor:
 
 - Use `AskQuestion` for execution-critical ambiguity.
+- Request Plan Mode, or use Cursor's plan artifact surface when available, before compiling the handoff.
 - Request a mode switch, or use Cursor's mode-switch action when available, when the user asks to move from planning to implementation.
 - Use a normal Cursor plan artifact by default for `/compile-handoff` and for manual requests that say to compile or create a handoff plan.
 - If Plan Mode is active and a current or attached plan artifact already exists, refine that plan in place instead of creating a second plan.

@@ -10,6 +10,7 @@ Use this rule when creating, executing, or reviewing delegated implementation wo
 - Treat `planner`, `executor`, `reviewer`, and `user` as roles. Do not encode model strength, speed, vendor, or capability into the workflow.
 - Prefer one concise handoff packet over a long narrative.
 - A handoff is ready only when it names concrete targets, exact changes, verification, and stop conditions.
+- Any review follow-up handoff must meet the same execution standard as a compiled handoff.
 - The executor must not broaden scope, invent adjacent refactors, or reinterpret the goal when the packet is incomplete.
 - Delivery review is risk-based and recommended when useful; it is not mandatory by default.
 
@@ -26,3 +27,14 @@ This rule is the canonical source for the packet. Keep copies in skills, agents,
 7. `Verification`
 8. `Escalate instead of guessing when`
 9. `Open questions`
+
+## Executable Step Quality
+
+Each numbered item in `Executable agent plan` must include:
+
+- target files or symbols
+- exact change
+- key constraint or non-goal
+- reference pattern, if any
+- verification check
+- escalation trigger

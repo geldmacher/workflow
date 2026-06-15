@@ -15,9 +15,11 @@ Read the original goal, handoff packet or plan, actual changes, and verification
 - **Gaps or risks**: specific bullets
 - **Deviations**: justified, unjustified, or `none`
 - **Missing validation**: checks not run or evidence not available
-- **Recommended next handoff**: `none` or a compact canonical handoff packet
+- **Recommended next handoff**: `none` or a compact compile-compatible improvement handoff packet
 
-When follow-up work is useful, use the canonical packet sections exactly:
+When follow-up work is useful, write `Recommended next handoff` as the improvement plan for the next `/execute-handoff` loop. It must be concise, concrete, model-agnostic, and executable without hidden context.
+
+Use the canonical packet sections exactly:
 
 1. `Intent and success condition`
 2. `Scope and non-goals`
@@ -28,5 +30,16 @@ When follow-up work is useful, use the canonical packet sections exactly:
 7. `Verification`
 8. `Escalate instead of guessing when`
 9. `Open questions`
+
+Each numbered item in `Executable agent plan` must include:
+
+- target files or symbols
+- exact change
+- key constraint or non-goal
+- reference pattern, if any
+- verification check
+- escalation trigger
+
+If a useful follow-up cannot be written concretely enough for execution, set `Recommended next handoff` to `none` and list the missing information under gaps, risks, or missing validation.
 
 Do not modify files.
