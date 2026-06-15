@@ -11,6 +11,8 @@ Use this rule when creating, executing, or reviewing delegated implementation wo
 - Prefer one concise handoff packet over a long narrative.
 - A handoff is ready only when it names concrete targets, exact changes, verification, and stop conditions.
 - Any review follow-up handoff must meet the same execution standard as a compiled handoff.
+- Before creating, refining, or emitting any handoff packet, including a `Recommended next handoff`, identify execution-critical ambiguity and use Cursor's interview tool (`AskQuestion`) when available; otherwise ask targeted questions in chat and stop before emitting the packet.
+- Do not emit an executable plan with unresolved execution-critical questions; keep `Open questions` limited to non-blocking follow-ups.
 - The executor must not broaden scope, invent adjacent refactors, or reinterpret the goal when the packet is incomplete.
 - Delivery review is risk-based and recommended when useful; it is not mandatory by default.
 

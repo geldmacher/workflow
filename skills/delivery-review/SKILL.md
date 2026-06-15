@@ -38,6 +38,8 @@ Use this concise structure:
 
 When follow-up work is useful, write `Recommended next handoff` as the improvement plan for the next `/execute-handoff` loop. It must meet the same execution standard as a `/compile-handoff` output: concise, concrete, model-agnostic, and executable without hidden context.
 
+Before emitting a `Recommended next handoff`, identify whether any execution-critical detail is missing. If the next improvement plan would require guessing about intent, scope, target files, exact changes, verification, or stop conditions, use Cursor's interview tool (`AskQuestion`) when available. If `AskQuestion` is unavailable, set `Recommended next handoff` to `none` and list the needed clarification under gaps, risks, or missing validation.
+
 Use the canonical packet:
 
 1. `Intent and success condition`
@@ -59,6 +61,6 @@ Each numbered item in `Executable agent plan` must include:
 - verification check
 - escalation trigger
 
-If a useful follow-up cannot be written concretely enough for execution, set `Recommended next handoff` to `none` and list the missing information under gaps, risks, or missing validation.
+If a useful follow-up cannot be written concretely enough for execution, set `Recommended next handoff` to `none` and list the missing information under gaps, risks, or missing validation. Do not put execution-critical unresolved questions into `Open questions`; reserve that section for non-blocking follow-ups.
 
 Delivery review is recommended by risk and usefulness, not required by default.

@@ -10,6 +10,8 @@ The user chooses which model or agent performs each role. The plugin does not as
 
 The typical split: a planner compiles the handoff into a durable Cursor plan artifact, an executor implements it, and a readonly reviewer checks delivery when risk justifies it. When review finds useful follow-up work, it emits a compile-compatible `Recommended next handoff`; `/execute-handoff` treats that improvement plan as the preferred scope for the next loop. Because the roles stay model-agnostic, any assignment works.
 
+Every initial handoff and review-generated improvement handoff must pass a clarification gate before it is emitted: if the agent lacks execution-critical details, it must use Cursor's interview tool (`AskQuestion`) when available. Executable plans must not hide blocking uncertainty in `Open questions`.
+
 ## Installation
 
 Copy or clone this plugin to `~/.cursor/plugins/local/geldmacher-workflow/` so Cursor discovers it automatically, or install it from a marketplace that lists this repository.
@@ -22,7 +24,7 @@ The intended flow:
 2. For risky, large, or ambiguous handoffs, the `handoff-readiness-reviewer` agent validates the packet before handoff.
 3. Run `/execute-handoff` (with any model or agent) to implement exactly that packet, ideally with each numbered plan step tracked as visible execution progress in Cursor.
 4. Run `/review-delivery` when risk justifies it; it delegates to the readonly `delivery-reviewer` agent.
-5. If the review returns `Recommended next handoff`, run `/execute-handoff` again to implement that improvement plan.
+5. If the review returns `Recommended next handoff`, run `/execute-handoff` again to implement that improvement plan. If critical details are missing, the reviewer should ask via `AskQuestion` or emit no improvement plan and list the needed answers.
 6. Repeat review and execution as often as the user wants.
 
 ## Components
@@ -53,5 +55,7 @@ All handoff plan artifacts use the same packet as their body:
 The canonical definition lives in `rules/handoff-quality.mdc`; keep all other copies in sync with it. The rule defines the packet content, while the `compile-handoff` command and `handoff-plan-compiler` skill define Cursor's default delivery surface: a normal plan artifact.
 
 Every `Recommended next handoff` from delivery review must use the same packet format and executable step quality as a compiled handoff, so it can become the next `/execute-handoff` scope without reinterpretation.
+
+`Open questions` is for non-blocking follow-ups only. Anything that would change intent, scope, targets, exact edits, verification, or stop conditions must be clarified before the plan is emitted.
 
 Keep output short by default. Add detail only when it reduces execution ambiguity.

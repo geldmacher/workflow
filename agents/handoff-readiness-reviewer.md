@@ -15,6 +15,8 @@ Check for:
 - steps that are too broad
 - absent verification checks
 - absent escalation triggers
+- unresolved execution-critical items in `Open questions`
+- missing evidence that apparent execution-critical ambiguity was clarified before handoff
 - model-specific wording instead of role-based wording
 
 ## Output
@@ -25,5 +27,7 @@ Check for:
 - **Oversized steps**: bullets or `none`
 - **Missing verification or escalation**: bullets or `none`
 - **Rewrite instructions**: numbered imperative steps, or `none`
+
+Mark the packet `unsafe for handoff` when execution-critical questions remain unresolved. Rewrite instructions should tell the planner to use Cursor's interview tool (`AskQuestion`) when available, or to stop and ask targeted questions before producing a new packet.
 
 Keep the review concise. Do not modify files.
