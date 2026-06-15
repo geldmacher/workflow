@@ -12,7 +12,7 @@ The typical split: a planner compiles the handoff into a durable Cursor plan art
 
 ## Installation
 
-Copy or clone this plugin to `~/.cursor/plugins/local/workflow/` so Cursor discovers it automatically, or install it from a marketplace that lists this repository.
+Copy or clone this plugin to `~/.cursor/plugins/local/geldmacher-workflow/` so Cursor discovers it automatically, or install it from a marketplace that lists this repository.
 
 ## Usage
 
@@ -29,6 +29,10 @@ The intended flow:
 - **Skills**: `handoff-plan-compiler`, `handoff-executor`, `delivery-review` — auto-triggered counterparts of the commands; they carry the detailed instructions.
 - **Agents**: `handoff-readiness-reviewer` (readonly check that a packet is executable without guessing), `delivery-reviewer` (independent readonly review of delivered work).
 - **Rule**: `handoff-quality` — quality bar for handoffs and the canonical definition of the handoff packet.
+
+## Publishing Notes
+
+Before publishing or submitting the plugin, check that `.cursor-plugin/plugin.json` is valid JSON, `logo` points to an existing relative asset, and all commands, skills, agents, and rules keep their required frontmatter. Hooks, MCP servers, and scripts are intentionally omitted because this workflow only needs commands, skills, agents, and one rule.
 
 ## Handoff Packet
 

@@ -1,9 +1,11 @@
 {
-  "name": "workflow",
+  "name": "geldmacher-workflow",
+  "displayName": "Geldmacher Workflow Handoffs",
   "description": "LLM-agnostic workflow handoffs, scoped execution, and delivery review.",
   "version": "1.1.0",
   "author": {
-    "name": "Dennis Geldmacher"
+    "name": "Dennis Geldmacher",
+    "email": "geldmacher.dennis@outlook.de"
   },
   "license": "MIT",
   "keywords": [
@@ -12,5 +14,6 @@
     "planning",
     "review",
     "agents"
-  ]
+  ],
+  "logo": "assets/logo.svg"
 }

@@ -1,0 +1,9 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Workflow Handoffs logo</title>
+  <desc id="desc">Three connected workflow steps forming a compact handoff path.</desc>
+  <rect width="128" height="128" rx="28" fill="#111827"/>
+  <path d="M35 43H70C82.1503 43 92 52.8497 92 65V65C92 77.1503 82.1503 87 70 87H39" stroke="#F9FAFB" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="35" cy="43" r="13" fill="#60A5FA"/>
+  <circle cx="92" cy="65" r="13" fill="#34D399"/>
+  <circle cx="39" cy="87" r="13" fill="#FBBF24"/>
+</svg>
