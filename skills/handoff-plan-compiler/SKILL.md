@@ -1,13 +1,13 @@
 ---
 name: handoff-plan-compiler
-description: Compile an idea, ticket, or high-level plan into a compact executor-ready handoff. Use before handing work to another agent or model.
+description: Compile an idea, ticket, or high-level plan into a normal Cursor plan artifact containing a compact executor-ready handoff. Use before handing work to another agent or model.
 ---
 
 # Handoff Plan Compiler
 
 ## Goal
 
-Produce a copy-pasteable handoff packet that an executor can follow without reconstructing hidden intent.
+Produce a normal Cursor plan artifact containing a copy-pasteable handoff packet that an executor can follow without reconstructing hidden intent.
 
 ## Inputs
 
@@ -28,11 +28,13 @@ When available in Cursor:
 
 - Use `AskQuestion` for execution-critical ambiguity.
 - Request a mode switch, or use Cursor's mode-switch action when available, when the user asks to move from planning to implementation.
-- Use a plan artifact only when the user wants durable planning or the task is large enough to benefit from one.
+- Use a normal Cursor plan artifact by default for `/compile-handoff` and for manual requests that say to compile or create a handoff plan.
+- If Plan Mode is active and a current or attached plan artifact already exists, refine that plan in place instead of creating a second plan.
+- Only return the packet directly in chat when Cursor plan artifacts are unavailable, the user explicitly asks for chat-only output, or the handoff is intentionally transient.
 
 ## Output
 
-Return only this packet, in this order:
+The Cursor plan body must contain only this packet, in this order:
 
 1. `Intent and success condition`
 2. `Scope and non-goals`
@@ -43,6 +45,8 @@ Return only this packet, in this order:
 7. `Verification`
 8. `Escalate instead of guessing when`
 9. `Open questions`
+
+When creating the plan artifact, use a concise plan name that describes the handoff outcome, and put the packet in the artifact body. The final chat response should only mention that the plan was created and where to find it; do not duplicate the packet in chat unless the user asks.
 
 ## Readiness Check
 
