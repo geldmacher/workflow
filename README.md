@@ -8,9 +8,7 @@ Compact Cursor workflows for model-agnostic delegation:
 
 The user chooses which model or agent performs each role. The plugin does not assume a model hierarchy.
 
-The typical split: a planner compiles the handoff into a durable Cursor plan artifact, an executor implements it, and a readonly reviewer checks delivery when risk justifies it. When review finds useful follow-up work, it emits a compile-compatible `Recommended next handoff`; `/execute-handoff` treats that improvement plan as the preferred scope for the next loop. Because the roles stay model-agnostic, any assignment works.
-
-Every initial handoff and review-generated improvement handoff must pass a clarification gate before it is emitted: if the agent lacks execution-critical details, it must use Cursor's interview tool (`AskQuestion`) when available. Executable plans must not hide blocking uncertainty in `Open questions`.
+Agent-facing workflow rules live in `AGENTS.md`.
 
 ## Installation
 
@@ -22,9 +20,9 @@ The intended flow:
 
 1. Run `/compile-handoff` to produce a normal Cursor plan artifact whose body is the canonical handoff packet.
 2. For risky, large, or ambiguous handoffs, the `handoff-readiness-reviewer` agent validates the packet before handoff.
-3. Run `/execute-handoff` (with any model or agent) to implement exactly that packet, ideally with each numbered plan step tracked as visible execution progress in Cursor.
+3. Run `/execute-handoff` (with any model or agent) to implement that packet.
 4. Run `/review-delivery` when risk justifies it; it delegates to the readonly `delivery-reviewer` agent.
-5. If the review returns `Recommended next handoff`, run `/execute-handoff` again to implement that improvement plan. If critical details are missing, the reviewer should ask via `AskQuestion` or emit no improvement plan and list the needed answers.
+5. If the review returns `Recommended next handoff`, run `/execute-handoff` again to implement that improvement plan.
 6. Repeat review and execution as often as the user wants.
 
 ## Components
@@ -40,22 +38,4 @@ Before publishing or submitting the plugin, check that `.cursor-plugin/plugin.js
 
 ## Handoff Packet
 
-All handoff plan artifacts use the same packet as their body:
-
-1. `Intent and success condition`
-2. `Scope and non-goals`
-3. `Context packet`
-4. `Target files and symbols`
-5. `References to existing patterns`
-6. `Executable agent plan`
-7. `Verification`
-8. `Escalate instead of guessing when`
-9. `Open questions`
-
-The canonical definition lives in `rules/handoff-quality.mdc`; keep all other copies in sync with it. The rule defines the packet content, while the `compile-handoff` command and `handoff-plan-compiler` skill define Cursor's default delivery surface: a normal plan artifact.
-
-Every `Recommended next handoff` from delivery review must use the same packet format and executable step quality as a compiled handoff, so it can become the next `/execute-handoff` scope without reinterpretation.
-
-`Open questions` is for non-blocking follow-ups only. Anything that would change intent, scope, targets, exact edits, verification, or stop conditions must be clarified before the plan is emitted.
-
-Keep output short by default. Add detail only when it reduces execution ambiguity.
+The canonical packet definition lives in `rules/handoff-quality.mdc`; agent-facing usage rules live in `AGENTS.md`.
