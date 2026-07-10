@@ -1,5 +1,5 @@
 ---
-description: Keep delegation handoffs compact, model-agnostic, and executable without hidden context.
+description: Keep delegation handoffs compact, evidence-based, and executable without hidden context.
 alwaysApply: false
 ---
 
@@ -8,36 +8,57 @@ alwaysApply: false
 Use this rule when creating, executing, or reviewing delegated implementation work.
 
 - Treat `planner`, `executor`, `reviewer`, and `user` as roles. Do not encode model strength, speed, vendor, or capability into the workflow.
-- Prefer one concise handoff packet over a long narrative.
-- A handoff is ready only when it names concrete targets, exact changes, verification, and stop conditions.
-- Any review follow-up handoff must meet the same execution standard as a compiled handoff.
-- Before creating, refining, or emitting any handoff packet, including a `Recommended next handoff`, identify execution-critical ambiguity and use Cursor's interview tool (`AskQuestion`) when available; otherwise ask targeted questions in chat and stop before emitting the packet.
-- Do not emit an executable plan with unresolved execution-critical questions; keep `Open questions` limited to non-blocking follow-ups.
+- Prefer one concise handoff packet over a long narrative, but never omit evidence or a decision that the executor needs.
+- A handoff is ready only when its acceptance criteria, confirmed repository evidence, targets, exact changes, verification, risk policy, and stop conditions are explicit.
+- Any review-generated handoff meets the same standard as an initial handoff.
+- Before emitting a handoff, identify execution-critical ambiguity and use Cursor's interview tool (`AskQuestion`) when available; otherwise ask targeted questions in chat and stop before emitting the packet.
+- Do not emit an executable plan with unresolved execution-critical questions. `Open questions` is only for non-blocking follow-ups.
 - The executor must not broaden scope, invent adjacent refactors, or reinterpret the goal when the packet is incomplete.
 - Delivery review is risk-based and recommended when useful; it is not mandatory by default.
-- Keep output short by default. Add detail only when it reduces execution ambiguity.
+- Keep output short by default. Add detail when it removes ambiguity, proves a claim, or makes verification executable.
 
 ## Canonical Handoff Packet
 
 This rule is the canonical source for the packet. Keep copies in skills, agents, and the README in sync with this list.
 
-1. `Intent and success condition`
-2. `Scope and non-goals`
-3. `Context packet`
-4. `Target files and symbols`
-5. `References to existing patterns`
-6. `Executable agent plan`
-7. `Verification`
-8. `Escalate instead of guessing when`
-9. `Open questions`
+1. `Handoff metadata`
+2. `Intent and acceptance criteria`
+3. `Scope boundaries and non-goals`
+4. `Repository evidence`
+5. `Target files and symbols`
+6. `Reference patterns`
+7. `Executable agent plan`
+8. `Verification matrix`
+9. `Risk and deviation policy`
+10. `Escalate instead of guessing when`
+11. `Delivery evidence requirements`
+12. `Open questions`
+
+## Packet Requirements
+
+- `Handoff metadata` includes a concise handoff ID, source, status `ready`, predecessor when applicable, planning baseline, and risk level: `low`, `medium`, or `high`.
+- `Intent and acceptance criteria` uses observable IDs such as `AC-1`. Every implementation step and verification check names the ACs it covers.
+- `Repository evidence` records the project instructions read, confirmed current behavior, confirmed targets, relevant tests, and constraints discovered in the repository. Do not present assumptions as evidence.
+- `Target files and symbols` separates `must modify`, `may modify`, `generated or incidental`, and `must not modify` targets.
+- `Verification matrix` gives every required check an ID, working directory, exact command or inspection, expected result, AC coverage, and required status.
+- `Delivery evidence requirements` defines the required completion summary, verification evidence, deviation log, residual risks, and review recommendation.
 
 ## Executable Step Quality
 
 Each numbered item in `Executable agent plan` must include:
 
+- step ID and covered acceptance criteria
 - target files or symbols
 - exact change
 - key constraint or non-goal
 - reference pattern, if any
-- verification check
-- escalation trigger
+- step-level verification check
+- deviation trigger and required action
+
+## Risk and Deviation Policy
+
+- `low`: only explicitly permitted mechanical deviations may proceed without a question; record them in the deviation log.
+- `medium`: only explicitly permitted minor deviations may proceed without a question. Material deviations require approval through `AskQuestion` before editing.
+- `high`: every deviation requires approval before editing.
+- Changes to architecture, public APIs, data models, migrations, authentication, security, dependencies, destructive operations, or required verification always require a stop and a tightened handoff.
+- Every deviation records the planned behavior, actual change, reason, affected files, approval status, and verification evidence. State `none` when there were no deviations.

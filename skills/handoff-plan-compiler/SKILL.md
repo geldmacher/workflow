@@ -1,30 +1,31 @@
 ---
 name: handoff-plan-compiler
-description: Compile an idea, ticket, or high-level plan into a normal Cursor plan artifact containing a compact executor-ready handoff. Use before handing work to another agent or model.
+description: Compile an idea, ticket, or high-level plan into a normal Cursor plan artifact containing a compact, evidence-based executor handoff. Use before handing work to another agent or model.
 ---
 
 # Handoff Plan Compiler
 
 ## Goal
 
-Produce a normal Cursor plan artifact containing a copy-pasteable handoff packet that an executor can follow without reconstructing hidden intent.
+Produce a normal Cursor plan artifact containing a copy-pasteable handoff packet that an executor can follow without reconstructing hidden intent or inventing repository facts.
 
-## Inputs
+## Repository Discovery
 
-Gather only what is needed:
+Gather only what the executor needs, and confirm it in the repository before writing the packet:
 
 - user goal or ticket outcome
-- current plan or decision
-- target files, symbols, or areas
-- patterns to reuse
-- verification command or check
-- non-goals and stop conditions
+- project instructions and applicable rules
+- workspace baseline and known pre-existing changes
+- current behavior, target files, and symbols
+- patterns to reuse and the reason each applies
+- relevant tests, verification commands, or inspection methods
+- non-goals, stop conditions, and risk factors
 
-If execution-critical information is missing, ask before compiling. Do not use `Open questions` as a substitute for resolving blockers.
+If execution-critical information is missing, ask before compiling. Do not use `Open questions` as a substitute for resolving blockers. Do not present an unconfirmed path, symbol, behavior, or pattern as repository evidence.
 
 ## Clarification Gate
 
-Before creating or refining a handoff plan, identify any ambiguity that would make the executor guess about intent, scope, target files, exact changes, verification, or stop conditions.
+Before creating or refining a handoff plan, identify any ambiguity that would make the executor guess about intent, scope, target files, exact changes, verification, risk, or stop conditions.
 
 - MUST use Cursor's interview tool (`AskQuestion`) for execution-critical ambiguity when available.
 - If `AskQuestion` is unavailable, ask targeted questions in chat and stop before compiling.
@@ -46,31 +47,43 @@ When available in Cursor:
 
 The Cursor plan body must contain only this packet, in this order:
 
-1. `Intent and success condition`
-2. `Scope and non-goals`
-3. `Context packet`
-4. `Target files and symbols`
-5. `References to existing patterns`
-6. `Executable agent plan`
-7. `Verification`
-8. `Escalate instead of guessing when`
-9. `Open questions`
+1. `Handoff metadata`
+2. `Intent and acceptance criteria`
+3. `Scope boundaries and non-goals`
+4. `Repository evidence`
+5. `Target files and symbols`
+6. `Reference patterns`
+7. `Executable agent plan`
+8. `Verification matrix`
+9. `Risk and deviation policy`
+10. `Escalate instead of guessing when`
+11. `Delivery evidence requirements`
+12. `Open questions`
+
+`Handoff metadata` contains a concise handoff ID, source, status `ready`, predecessor when applicable, planning baseline, and risk level. Define observable acceptance criteria with IDs such as `AC-1`; every step and every verification entry must name the criteria it covers.
 
 When creating the plan artifact, use a concise plan name that describes the handoff outcome, and put the packet in the artifact body. The final chat response should only mention that the plan was created and where to find it; do not duplicate the packet in chat unless the user asks.
 
 ## Readiness Check
 
-For risky, large, or ambiguous handoffs, run the `handoff-readiness-reviewer` agent on the compiled packet and apply its rewrite instructions before handing off. Skip the check for small, unambiguous packets.
+Classify risk before handoff:
+
+- `low`: localized work with no contract, data, security, dependency, or infrastructure impact
+- `medium`: multi-file behavior or an internal contract with limited blast radius
+- `high`: public APIs, data, migrations, authentication, security, dependencies, infrastructure, or architectural decisions
+
+Run the `handoff-readiness-reviewer` agent on every medium- and high-risk packet and apply its rewrite instructions before handing off. Use it for low-risk work when evidence or scope is ambiguous.
 
 ## Step Rules
 
-In `Executable agent plan`, each numbered step must include:
+Each numbered item in `Executable agent plan` must include:
 
+- step ID and covered acceptance criteria
 - target files or symbols
 - exact change
 - key constraint or non-goal
 - reference pattern, if any
-- verification check
-- escalation trigger
+- step-level verification check
+- deviation trigger and required action
 
-Keep the packet concise. Add detail only when it prevents drift.
+Every acceptance criterion must appear in at least one implementation step and one verification matrix entry. Define the risk and deviation policy before the executor receives the packet. Keep the packet concise. Add detail only when it prevents drift.

@@ -1,16 +1,12 @@
 # Workflow
 
-Compact Cursor workflows for model-agnostic delegation:
+Cursor workflows for evidence-based planning, controlled execution, and delivery review.
 
-1. `compile-handoff` turns an idea or plan into a normal Cursor plan artifact containing an executor-ready handoff.
-2. `execute-handoff` implements the active Cursor handoff plan or the latest review-delivery improvement plan and stops instead of guessing.
-3. `review-delivery` delegates a readonly check of the result against intent, scope, and evidence, then optionally returns the next improvement handoff.
+1. `compile-handoff` turns an idea or plan into a normal Cursor plan artifact with confirmed repository evidence, acceptance criteria, verification, and risk boundaries.
+2. `execute-handoff` implements the active handoff through a preflight, step-level checks, controlled deviations, and final evidence reconciliation.
+3. `review-delivery` checks the actual diff and evidence against the active handoff, then creates a precise next handoff when corrective work is justified.
 
-The user chooses which model or agent performs each role. The plugin does not assume a model hierarchy.
-
-The typical split: a planner compiles the handoff into a durable Cursor plan artifact, an executor implements it, and a readonly reviewer checks delivery when risk justifies it. When review finds useful follow-up work, it emits a compile-compatible `Recommended next handoff`; `/execute-handoff` treats that improvement plan as the preferred scope for the next loop. Because the roles stay model-agnostic, any assignment works.
-
-Initial handoffs and review-generated improvement handoffs pass a clarification gate before they are emitted. When execution-critical details are missing, the compiling or reviewing agent asks for them instead of hiding blocking uncertainty in `Open questions`.
+The user chooses which model or agent performs each role. The plugin keeps the roles model-agnostic while giving each role a concrete contract.
 
 ## Installation
 
@@ -20,40 +16,64 @@ Copy or clone this plugin to `~/.cursor/plugins/local/geldmacher-workflow/` so C
 
 The intended flow:
 
-1. Run `/compile-handoff` to produce a normal Cursor plan artifact whose body is the canonical handoff packet.
-2. For risky, large, or ambiguous handoffs, the `handoff-readiness-reviewer` agent validates the packet before handoff.
-3. Run `/execute-handoff` (with any model or agent) to implement that packet.
-4. Run `/review-delivery` when risk justifies it; it delegates to the readonly `delivery-reviewer` agent.
-5. If the review returns `Recommended next handoff`, run `/execute-handoff` again to implement that improvement plan.
-6. Repeat review and execution as often as the user wants.
-
-## Components
-
-- **Commands**: `/compile-handoff`, `/execute-handoff`, `/review-delivery` — explicit entry points for each role. `/compile-handoff` creates a Cursor plan artifact by default.
-- **Skills**: `handoff-plan-compiler`, `handoff-executor`, `delivery-review` — auto-triggered counterparts of the commands; they carry the detailed instructions.
-- **Agents**: `handoff-readiness-reviewer` (readonly check that a packet is executable without guessing), `delivery-reviewer` (independent readonly review of delivered work).
-- **Rule**: `handoff-quality` — quality bar for handoffs and the canonical definition of the handoff packet.
-
-## Publishing Notes
-
-Before publishing or submitting the plugin, check that `.cursor-plugin/plugin.json` is valid JSON, `logo` points to an existing relative asset, and all commands, skills, agents, and rules keep their required frontmatter. Hooks, MCP servers, and scripts are intentionally omitted because this workflow only needs commands, skills, agents, and one rule.
+1. Run `/compile-handoff` in Plan Mode to produce a durable Cursor plan artifact.
+2. For medium- and high-risk work, the `handoff-readiness-reviewer` checks the packet before implementation.
+3. Run `/execute-handoff` with the implementation model.
+4. Run `/review-delivery` when risk, uncertainty, or incomplete validation justifies review.
+5. In Ask Mode, the selected main model performs the delivery review directly. In a mode that can edit files, review is delegated to the readonly `delivery-reviewer`.
+6. If review emits an explicitly linked `Recommended next handoff`, run `/execute-handoff` again.
 
 ## Handoff Packet
 
-All handoff plan artifacts use the same packet as their body:
+Every handoff plan artifact uses this packet as its body:
 
-1. `Intent and success condition`
-2. `Scope and non-goals`
-3. `Context packet`
-4. `Target files and symbols`
-5. `References to existing patterns`
-6. `Executable agent plan`
-7. `Verification`
-8. `Escalate instead of guessing when`
-9. `Open questions`
+1. `Handoff metadata`
+2. `Intent and acceptance criteria`
+3. `Scope boundaries and non-goals`
+4. `Repository evidence`
+5. `Target files and symbols`
+6. `Reference patterns`
+7. `Executable agent plan`
+8. `Verification matrix`
+9. `Risk and deviation policy`
+10. `Escalate instead of guessing when`
+11. `Delivery evidence requirements`
+12. `Open questions`
 
-The canonical definition lives in `rules/handoff-quality.mdc`; keep all other copies in sync with it. The rule defines the packet content, while the `compile-handoff` command and `handoff-plan-compiler` skill define Cursor's default delivery surface: a normal plan artifact.
+The canonical definition lives in `rules/handoff-quality.mdc`. The packet establishes a complete execution contract:
 
-Every `Recommended next handoff` from delivery review must use the same packet format and executable step quality as a compiled handoff, so it can become the next `/execute-handoff` scope without reinterpretation.
+- Metadata identifies the handoff, source, status, predecessor when applicable, planning baseline, and risk level.
+- Acceptance criteria use observable IDs such as `AC-1`; steps and checks name the criteria they cover.
+- Repository evidence distinguishes confirmed facts from assumptions.
+- Target files separate required, permitted, incidental, and prohibited changes.
+- Every verification entry names its working directory, exact command or inspection, expected result, required status, and acceptance criteria.
+- The risk policy controls when an executor may continue, must ask, or must stop.
+- The executor ends with delivery summary, verification evidence, deviation log, residual risks, and review recommendation.
 
-`Open questions` is for non-blocking follow-ups only. Anything that would change intent, scope, targets, exact edits, verification, or stop conditions must be clarified before the plan is emitted.
+`Open questions` is only for non-blocking follow-ups. Anything that could change intent, scope, targets, exact edits, verification, risk, or stop conditions must be resolved before the handoff is emitted.
+
+## Deviation Policy
+
+- `low`: explicitly permitted mechanical deviations may proceed and must be logged.
+- `medium`: only explicitly permitted minor deviations may proceed; material changes require approval before editing.
+- `high`: every deviation requires approval before editing.
+- Architecture, public API, data, migration, authentication, security, dependency, destructive, and required-verification changes always stop for a tightened handoff.
+
+## Components
+
+- **Commands**: `/compile-handoff`, `/execute-handoff`, `/review-delivery`.
+- **Skills**: `handoff-plan-compiler`, `handoff-executor`, `delivery-review`.
+- **Agents**: `handoff-readiness-reviewer` and `delivery-reviewer`, both readonly and configured to inherit the active model.
+- **Rule**: `handoff-quality`, the canonical packet and quality contract.
+- **Validator**: `scripts/validate-plugin.mjs`, which checks plugin structure and packet consistency.
+
+## Validation
+
+Run the following before publishing or reloading the local plugin:
+
+```bash
+node scripts/validate-plugin.mjs
+git diff --check
+```
+
+The validator checks the manifest, logo, expected plugin files, frontmatter, reviewer configuration, packet-section order, and required execution language.

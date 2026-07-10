@@ -1,66 +1,65 @@
 ---
 name: delivery-review
-description: Review completed work against the original intent, handoff packet, and verification evidence. Use after delegated or multi-step implementation.
+description: Review completed work against the active handoff, acceptance criteria, actual diff, and verification evidence. Use after delegated or multi-step implementation.
 ---
 
 # Delivery Review
 
 ## Goal
 
-Check whether the delivered work matches intent and evidence. Start with gaps and risks.
+Check whether the delivered work matches the handoff, acceptance criteria, actual diff, and verification evidence. Start with gaps and risks.
 
 ## Review Inputs
 
 - original user goal
-- handoff packet or explicit plan
-- actual changed files or artifacts
+- active handoff packet or explicit plan
+- workspace baseline when available
+- current diff, changed files, and untracked files
 - tests, checks, screenshots, or command output
-- known deviations or skipped validation
+- delivery evidence and deviation log
 
-If evidence is missing, say so.
+Independently inspect the repository and diff when the current mode permits reading them. Treat the delivery summary and deviation log as claims to verify, not as substitutes for evidence. If evidence is missing, say so.
 
-## Readonly Delegation
+## Review Mode
 
-Always delegate this review to the `delivery-reviewer` agent instead of reviewing inline. The reviewer is configured readonly and should receive the review inputs above. If delegation is unavailable, report that blocker instead of performing the delivery review inline.
+- In Ask Mode, perform the review directly in the current chat so the selected model reviews the work.
+- In a mode that can edit files, delegate to the `delivery-reviewer` agent. It is configured readonly and receives the complete review inputs.
+- A delegated reviewer reports execution-critical clarification needs to the parent. The parent asks the user before producing another executable handoff.
 
 ## Output
 
 Use this concise structure:
 
 - **Verdict**: `fully achieved` | `mostly achieved` | `partially achieved` | `not achieved`
-- **Matches intent**: evidence-backed bullets
-- **Gaps or risks**: specific bullets
-- **Deviations**: justified, unjustified, or `none`
-- **Missing validation**: checks not run or evidence not available
-- **Recommended next handoff**: `none` or a compact compile-compatible improvement handoff packet
+- **Acceptance criteria**: each AC with achieved, not achieved, or insufficient evidence
+- **Findings**: gaps and risks first; each includes severity, affected ACs, file or symbol evidence, and reasoning
+- **Scope and deviations**: approved, unapproved, undisclosed, or `none`
+- **Missing validation**: required evidence not available
+- **Recommended next handoff**: `none` or a compact executable improvement handoff packet
 
 ## Follow-Up Handoff
 
-When follow-up work is useful, write `Recommended next handoff` as the improvement plan for the next `/execute-handoff` loop. It must meet the same execution standard as a `/compile-handoff` output: concise, concrete, model-agnostic, and executable without hidden context.
+When follow-up work is useful, write `Recommended next handoff` as the improvement plan for the next `/execute-handoff` loop. It must be concise, concrete, model-agnostic, and executable without hidden context. Its metadata names source `review`, status `ready`, and the active handoff as predecessor.
 
-Before emitting a `Recommended next handoff`, identify whether any execution-critical detail is missing. If the next improvement plan would require guessing about intent, scope, target files, exact changes, verification, or stop conditions, use Cursor's interview tool (`AskQuestion`) when available. If `AskQuestion` is unavailable, set `Recommended next handoff` to `none` and list the needed clarification under gaps, risks, or missing validation.
+Before emitting a `Recommended next handoff`, identify whether any execution-critical detail is missing. If the next improvement plan would require guessing about intent, scope, target files, exact changes, verification, risk, or stop conditions, use Cursor's interview tool (`AskQuestion`) when available. If `AskQuestion` is unavailable, set `Recommended next handoff` to `none` and list the needed clarification under findings or missing validation.
 
 Use the canonical packet:
 
-1. `Intent and success condition`
-2. `Scope and non-goals`
-3. `Context packet`
-4. `Target files and symbols`
-5. `References to existing patterns`
-6. `Executable agent plan`
-7. `Verification`
-8. `Escalate instead of guessing when`
-9. `Open questions`
+1. `Handoff metadata`
+2. `Intent and acceptance criteria`
+3. `Scope boundaries and non-goals`
+4. `Repository evidence`
+5. `Target files and symbols`
+6. `Reference patterns`
+7. `Executable agent plan`
+8. `Verification matrix`
+9. `Risk and deviation policy`
+10. `Escalate instead of guessing when`
+11. `Delivery evidence requirements`
+12. `Open questions`
 
-Each numbered item in `Executable agent plan` must include:
+Each numbered item in `Executable agent plan` must include step ID, covered acceptance criteria, targets, exact change, key constraint, reference pattern when relevant, step-level verification, and deviation trigger.
 
-- target files or symbols
-- exact change
-- key constraint or non-goal
-- reference pattern, if any
-- verification check
-- escalation trigger
-
-If a useful follow-up cannot be written concretely enough for execution, set `Recommended next handoff` to `none` and list the missing information under gaps, risks, or missing validation. Do not put execution-critical unresolved questions into `Open questions`; reserve that section for non-blocking follow-ups.
+If a useful follow-up cannot be written concretely enough for execution, set `Recommended next handoff` to `none` and list the missing information under findings or missing validation. Do not put execution-critical unresolved questions into `Open questions`; reserve that section for non-blocking follow-ups.
 
 Delivery review is recommended by risk and usefulness, not required by default.

@@ -2,7 +2,7 @@
   "name": "geldmacher-workflow",
   "displayName": "Workflow",
   "description": "LLM-agnostic workflow handoffs, scoped execution, and delivery review.",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": {
     "name": "Dennis Geldmacher",
     "email": "geldmacher.dennis@outlook.de"
