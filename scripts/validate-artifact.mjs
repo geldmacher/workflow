@@ -14246,6 +14246,7 @@ var hardTriggers = /* @__PURE__ */ new Set([
 var objectivePattern = /\bOBJ-[1-9][0-9]*\b/g;
 var fixPattern = /\bFIX-[1-9][0-9]*\b/g;
 var checkPattern = /\bCHECK-[1-9][0-9]*\b/g;
+var learningPattern = /\bLRN-[A-Za-z0-9][A-Za-z0-9-]*\b/g;
 var requiredScopeCategories = ["required", "permitted", "prohibited"];
 var baselineKinds = ["repository", "head", "dirty-files", "known-failures", "targets-and-prerequisites"];
 var sectionAliases = Object.freeze({
@@ -14285,7 +14286,8 @@ var headerAliases = Object.freeze({
   prerequisites: ["prerequisite", "prerequisites", "dependencies"],
   "prerequisite fingerprints": ["prerequisite fingerprints", "dependency fingerprints", "reuse evidence"],
   "relevant fingerprints": ["relevant fingerprints", "dependency fingerprints", "reuse evidence"],
-  "finding key": ["finding", "finding key"]
+  "finding key": ["finding", "finding key"],
+  "learning id": ["learning", "learning id", "candidate", "candidate id"]
 });
 var optionalTableCells = /* @__PURE__ */ new Set(["prerequisite fingerprints", "relevant fingerprints"]);
 var tables = Object.freeze({
@@ -14312,7 +14314,8 @@ var tables = Object.freeze({
   correctionMeta: ["Correction ID", "Root Plan", "Source Review", "Base Evidence", "Predecessor Correction", "Risk"],
   fixes: ["FIX ID", "Finding keys", "Root Objectives", "Root Checks", "Required outcome", "Evidence"],
   correctionSteps: ["Step ID", "FIX IDs", "Targets", "Required outcome", "Implementation latitude", "Completion probe", "Check IDs", "Deviation action"],
-  correctionChecks: ["Check ID", "FIX IDs", "Working Directory", "Command or Inspection", "Expected Result", "Required", "Cost Class", "Prerequisites"]
+  correctionChecks: ["Check ID", "FIX IDs", "Working Directory", "Command or Inspection", "Expected Result", "Required", "Cost Class", "Prerequisites"],
+  learningCandidates: ["Learning ID", "Finding keys", "Reusable guidance", "Candidate targets", "Confirmation evidence"]
 });
 var assuranceFactors = Object.freeze([
   ["Failure impact", 0, 3],
@@ -14846,7 +14849,7 @@ function validateEvidence(parsed, sections, failures) {
   if (operationalEvidence && !/^not applicable\.?$/i.test(operationalEvidence)) requireTable(sections, "Operational evidence", tables.operationalEvidence, failures);
   if (/production (?:is|was) (?:healthy|successful|verified)/i.test(operationalEvidence)) failures.push("repository evidence must not claim observed production success");
 }
-function parseCorrection(parsed, sections, failures) {
+function parseCorrection(parsed, sections, failures, diagnostics) {
   const content = sections.get("Correction plan") ?? "";
   if (parsed.fields.next_action !== "correct") {
     if (content.trim() && !noneLike(content)) failures.push("Correction plan is allowed only when next_action is correct");
@@ -14866,6 +14869,21 @@ function parseCorrection(parsed, sections, failures) {
   if (fixes.rows.length === 0) failures.push("Correction plan requires a FIX table");
   if (steps.rows.length === 0) failures.push("Correction plan requires a step table");
   if (checks.rows.length === 0) failures.push("Correction plan requires a Check table");
+  const declaredLearnings = Array.isArray(parsed.fields.learning_candidates) ? parsed.fields.learning_candidates : [];
+  const learningMatches = tableMatching(content, tables.learningCandidates);
+  let learnings = { rows: [] };
+  if (declaredLearnings.length === 0 && learningMatches.length === 0) {
+    diagnostics.push("legacy correction has no learning candidates");
+  } else {
+    const pseudoLearning = /* @__PURE__ */ new Map([["Correction plan", content]]);
+    learnings = requireTable(pseudoLearning, "Correction plan", tables.learningCandidates, failures, { normalizations: parsed.normalizations });
+    const learningIds = exactIdSet(learnings.rows, "Learning ID", learningPattern, "Correction learning", failures);
+    if (!sameSet(learningIds, new Set(declaredLearnings))) failures.push("Correction learning table must exactly match learning_candidates");
+    for (const row of learnings.rows) {
+      const keys = String(row["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean);
+      if (keys.length === 0 || keys.some((key) => !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(key))) failures.push(`Learning ${row["Learning ID"]} needs valid source Finding keys`);
+    }
+  }
   const fixIds = exactIdSet(fixes.rows, "FIX ID", /FIX-[1-9][0-9]*/, "Correction FIX", failures);
   exactIdSet(steps.rows, "Step ID", /STEP-[1-9][0-9]*/, "Correction steps", failures);
   const checkIds = exactIdSet(checks.rows, "Check ID", /CHECK-[1-9][0-9]*/, "Correction checks", failures);
@@ -14893,9 +14911,9 @@ function parseCorrection(parsed, sections, failures) {
     });
   }
   validateCostOrder(checks.rows, "Cost Class", "Correction checks", parsed);
-  return { id: headings[0], metadata: metadata.rows[0], fixes: fixes.rows, steps: steps.rows, checks: checks.rows };
+  return { id: headings[0], metadata: metadata.rows[0], fixes: fixes.rows, steps: steps.rows, checks: checks.rows, learnings: learnings.rows };
 }
-function validateCompactReview(parsed, sections, failures) {
+function validateCompactReview(parsed, sections, failures, diagnostics) {
   const options = { normalizations: parsed.normalizations };
   const assessment = sections.get("Assessment") ?? "";
   if (!assessment.toLowerCase().includes(String(parsed.fields.assessment).toLowerCase())) failures.push("Assessment section must state frontmatter assessment");
@@ -14959,12 +14977,17 @@ function validateCompactReview(parsed, sections, failures) {
   }
   if (parsed.fields.next_action === "none" && parsed.fields.assessment !== "achieved") failures.push("next_action none requires assessment achieved");
   if (parsed.fields.next_action === "correct" && findings.rows.length === 0) failures.push("correct review requires findings");
+  if (parsed.fields.next_action !== "correct" && Array.isArray(parsed.fields.learning_candidates)) failures.push("learning_candidates are allowed only when next_action is correct");
   if (parsed.fields.next_action === "retry-review" && parsed.fields.assessment !== "insufficient-evidence") failures.push("retry-review requires assessment insufficient-evidence");
-  const correction = parseCorrection(parsed, sections, failures);
+  const correction = parseCorrection(parsed, sections, failures, diagnostics);
   if (correction) {
     for (const fix of correction.fixes) {
       const referenced = String(fix["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean);
       for (const key of referenced) if (!keys.has(key)) failures.push(`Correction ${fix["FIX ID"]} references unknown Finding key ${key}`);
+    }
+    for (const learning of correction.learnings) {
+      const referenced = String(learning["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean);
+      for (const key of referenced) if (!keys.has(key)) failures.push(`Learning ${learning["Learning ID"]} references unknown Finding key ${key}`);
     }
   }
   parsed.effective = {
@@ -15016,7 +15039,7 @@ function buildArtifact(text, root, options = {}) {
     rejectPlaceholders(parsed, schema, sections, failures);
     if (parsed.fields.artifact === "work-plan") validatePlan(parsed, sections, failures);
     if (parsed.fields.artifact === "delivery-evidence") validateEvidence(parsed, sections, failures);
-    if (parsed.fields.artifact === "work-review") parsed.correction = validateCompactReview(parsed, sections, failures);
+    if (parsed.fields.artifact === "work-review") parsed.correction = validateCompactReview(parsed, sections, failures, diagnostics);
   }
   return { failures: unique(failures), diagnostics: unique(diagnostics), normalizations: unique(normalizations), parsed };
 }
@@ -15290,6 +15313,12 @@ function inspectCompactArtifactSet(entries, root = defaultRoot) {
       }
     }
     const ordered = linearChain(reviews, "predecessor_review_id", `${rootId}: review`, errors);
+    const learningOwners = /* @__PURE__ */ new Map();
+    for (const review of ordered) for (const learning of review.correction?.learnings ?? []) {
+      const id = learning["Learning ID"];
+      if (learningOwners.has(id)) errors.push(`${review.label}: learning candidate ${id} duplicates ${learningOwners.get(id)} within root ${rootId}`);
+      else learningOwners.set(id, review.label);
+    }
     const reviewIndex = new Map(ordered.map((review, index) => [review.fields.id, index]));
     const rootEvidence = orderedEvidenceByRoot.get(rootId) ?? [];
     for (let index = 0; index < ordered.length; index += 1) {
@@ -15368,7 +15397,7 @@ function validateArtifactSet(entries, root = defaultRoot) {
   return inspectCompactArtifactSet(entries, root).errors;
 }
 function effectiveCliSummary(inspection) {
-  if (!(inspection.effective instanceof Map)) return { evidence_tips: {}, review_tips: {}, actionable_reviews: [] };
+  if (!(inspection.effective instanceof Map)) return { evidence_tips: {}, review_tips: {}, actionable_reviews: [], learning_candidates: [] };
   const artifacts = [...inspection.effective.values()];
   const tips = (type, predecessorField) => {
     const items = artifacts.filter((artifact) => artifact.fields.artifact === type);
@@ -15378,7 +15407,18 @@ function effectiveCliSummary(inspection) {
   return {
     evidence_tips: tips("delivery-evidence", "predecessor_evidence_id"),
     review_tips: tips("work-review", "predecessor_review_id"),
-    actionable_reviews: artifacts.filter((artifact) => artifact.fields.artifact === "work-review" && artifact.fields.next_action === "correct").map((artifact) => ({ root_plan_id: artifact.fields.root_plan_id, review_id: artifact.fields.id, correction_id: artifact.fields.correction_id, base_evidence_id: artifact.fields.latest_evidence_id }))
+    actionable_reviews: artifacts.filter((artifact) => artifact.fields.artifact === "work-review" && artifact.fields.next_action === "correct").map((artifact) => ({ root_plan_id: artifact.fields.root_plan_id, review_id: artifact.fields.id, correction_id: artifact.fields.correction_id, base_evidence_id: artifact.fields.latest_evidence_id })),
+    learning_candidates: artifacts.filter((artifact) => artifact.fields.artifact === "work-review" && artifact.correction?.learnings?.length > 0).flatMap((artifact) => artifact.correction.learnings.map((learning) => {
+      const evidence = artifacts.find((candidate) => candidate.fields.artifact === "delivery-evidence" && candidate.fields.subject_id === artifact.fields.correction_id && candidate.fields.status === "complete");
+      return {
+        root_plan_id: artifact.fields.root_plan_id,
+        review_id: artifact.fields.id,
+        correction_id: artifact.fields.correction_id,
+        learning_id: learning["Learning ID"],
+        correction_evidence_id: evidence?.fields.id ?? null,
+        evidence_confirmed: Boolean(evidence)
+      };
+    }))
   };
 }
 function runCli() {
@@ -15411,6 +15451,7 @@ function runCli() {
 if (process.argv[1] && realpathSync(resolve(process.argv[1])) === realpathSync(fileURLToPath(import.meta.url))) runCli();
 export {
   defaultRoot,
+  effectiveCliSummary,
   inspectArtifactSet,
   inspectArtifactText,
   parseArtifact,

@@ -11,6 +11,7 @@ test("commands declare their intended Cursor mode without capability gates", () 
     ["plan-work", "work-planning", "Plan"],
     ["review-work", "work-review", "Ask"],
     ["correct-work", "work-execution", "Agent"],
+    ["learn-from-work", "work-learning", "Agent"],
   ]) {
     const text = read(`commands/${command}.md`);
     assert.match(text, new RegExp(`designed for Cursor ${mode} Mode`, "i"));
@@ -69,6 +70,69 @@ test("correction uses available Agent capabilities and keeps semantic preflight"
   assert.doesNotMatch(runtime, /Require Agent Mode with edit\+terminal|unique OS-temp|Evidence is chat-only/i);
 });
 
+test("learning closeout directly persists only confirmed project guidance", () => {
+  const runtime = [
+    read("commands/learn-from-work.md"),
+    read("skills/work-learning/SKILL.md"),
+    read("references/learning-contract.md"),
+    read("skills/work-review/SKILL.md"),
+    read("skills/work-execution/SKILL.md"),
+  ].join("\n");
+  assert.match(runtime, /entire trailing command text.*one supplemental/i);
+  assert.match(runtime, /exactly one (?:valid )?root/i);
+  assert.match(runtime, /complete .*evidence.*subject_id/i);
+  assert.match(runtime, /current repository inspection/i);
+  assert.match(runtime, /smallest (?:direct change|update|type-specific component)/i);
+  assert.match(runtime, /docs\/workflow-learnings\.md/i);
+  assert.match(runtime, /applied\|already-covered\|skipped-unconfirmed\|needs-clarification/i);
+  assert.match(runtime, /do not (?:change|materialize).*product source/i);
+  assert.match(runtime, /do not materialize correction learning candidates/i);
+  assert.match(runtime, /Every new correction includes at least one root-unique `LRN-\*` candidate/i);
+});
+
+test("learning closeout follows the fixed target-routing order", () => {
+  const runtime = [read("skills/work-learning/SKILL.md"), read("references/learning-contract.md")].join("\n");
+  const ordered = [
+    /1\. Leave equal or stronger existing guidance unchanged/i,
+    /2\. Extend the closest suitable existing document or component in place/i,
+    /3\. If reusable behavior has a clear trigger or bounded role, create the smallest type-specific component/i,
+    /4\. Only otherwise use the documentation fallback/i,
+  ];
+  let cursor = -1;
+  for (const pattern of ordered) {
+    const next = runtime.search(pattern);
+    assert.ok(next > cursor, `${pattern} must follow the previous routing decision`);
+    cursor = next;
+  }
+  assert.match(runtime, /another Cursor-supported project path/i);
+  assert.match(runtime, /docs structure is suitable only when project-discoverable and reachable from existing navigation/i);
+  assert.match(runtime, /a `docs\/` directory alone is insufficient/i);
+  assert.match(runtime, /Prefer a component (?:over|despite).*docs.*trigger.*reus.*delegat/i);
+  assert.match(runtime, /do not duplicate (?:the component body|it|its body) in docs/i);
+});
+
+test("learning closeout defines type-correct Cursor component targets", () => {
+  const contract = read("references/learning-contract.md");
+  assert.match(contract, /normative behavior.*`\.cursor\/rules\/<name>\.mdc`.*`description`.*`globs`.*`alwaysApply`/is);
+  assert.match(contract, /`true` only when (?:genuinely )?universal/i);
+  assert.match(contract, /prefer a scoped Rule for new guidance/i);
+  assert.match(contract, /conditional multi-step procedure.*`\.agents\/skills\/<name>\/SKILL\.md`.*only `name` and trigger-rich `description` frontmatter/i);
+  assert.match(contract, /folder and `name` (?:must )?match/i);
+  assert.match(contract, /specialist research\/review\/audit role.*`\.cursor\/agents\/<name>\.md`.*`name`, `description`, `model: inherit`/i);
+  assert.match(contract, /body defines task, inputs, boundaries, output/i);
+  assert.match(contract, /human-started workflow.*`\.cursor\/commands\/<name>\.md`.*plain Markdown unless the project has a valid command-frontmatter convention/i);
+  assert.match(contract, /collision-safe kebab-case (?:names|components)/i);
+  assert.match(contract, /Validate (?:every )?new components? structurally/i);
+});
+
+test("learning docs fallback is last-resort, linked, and migratable", () => {
+  const contract = read("references/learning-contract.md");
+  assert.match(contract, /Use `docs\/workflow-learnings\.md` only when no suitable guidance exists, no clear component trigger\/independent workflow exists, and a durable general note still helps/i);
+  assert.match(contract, /Link it from existing README, contributor, or agent navigation/i);
+  assert.match(contract, /remove a fallback entry later superseded by a component/i);
+  assert.match(contract, /Repeated closeout with identical effective inputs produces no diff/i);
+});
+
 test("auditors inherit Cursor mode and model without capability declarations", () => {
   for (const name of ["work-plan-auditor", "delivery-auditor", "risk-auditor"]) {
     const fields = parseFrontmatter(join(defaultRoot, "agents", `${name}.md`));
@@ -83,9 +147,10 @@ test("auditors inherit Cursor mode and model without capability declarations", (
 test("runtime surface contains no retired protocol or branding", () => {
   const paths = [
     "README.md",
-    "commands/plan-work.md", "commands/review-work.md", "commands/correct-work.md",
-    "skills/work-planning/SKILL.md", "skills/work-review/SKILL.md", "skills/work-execution/SKILL.md",
+    "commands/plan-work.md", "commands/review-work.md", "commands/correct-work.md", "commands/learn-from-work.md",
+    "skills/work-planning/SKILL.md", "skills/work-review/SKILL.md", "skills/work-execution/SKILL.md", "skills/work-learning/SKILL.md",
     "references/artifact-protocol.md", "references/executable-contract.md", "references/delivery-evidence-contract.md",
+    "references/learning-contract.md",
   ];
   const removed = /session-state|operational-constraints|constraint_ids|review_ready|compile-handoff|execute-handoff|review-delivery|work-delta|\/run-work/i;
   for (const path of paths) assert.doesNotMatch(read(path), removed, path);

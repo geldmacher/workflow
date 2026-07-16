@@ -1,8 +1,8 @@
 {
   "name": "geldmacher-workflow",
   "displayName": "Workflow",
-  "description": "Human-governed Cursor workflow with intent-ready plans, tolerant validation, progressive evidence, and bounded correction loops.",
-  "version": "2.0.0",
+  "description": "Human-governed Cursor workflow with intent-ready plans, progressive evidence, bounded correction loops, and optional learning closeout.",
+  "version": "2.1.0",
   "author": {
     "name": "Dennis Geldmacher",
     "email": "geldmacher.dennis@outlook.de"
@@ -24,7 +24,8 @@
     "adaptive-assurance",
     "progressive-evidence",
     "tolerant-validation",
-    "economic-efficiency"
+    "economic-efficiency",
+    "workflow-learning"
   ],
   "tags": [
     "planning",
@@ -34,7 +35,8 @@
     "review",
     "human-governance",
     "adaptive-assurance",
-    "progressive-evidence"
+    "progressive-evidence",
+    "learning-closeout"
   ],
   "logo": "assets/logo.svg"
 }

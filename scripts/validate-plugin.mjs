@@ -13,12 +13,12 @@ const namePattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const semverPattern = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 const globPattern = /[*?[{]/;
 const expected = Object.freeze({
-  commands: ["correct-work", "plan-work", "review-work"],
+  commands: ["correct-work", "learn-from-work", "plan-work", "review-work"],
   agents: ["delivery-auditor", "risk-auditor", "work-plan-auditor"],
-  skills: ["work-execution", "work-planning", "work-review"],
+  skills: ["work-execution", "work-learning", "work-planning", "work-review"],
   rules: [],
   artifacts: ["delivery-evidence", "work-plan", "work-review"],
-  references: ["artifact-protocol", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "executable-contract", "plan-container-contract", "review-contract"],
+  references: ["artifact-protocol", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "executable-contract", "learning-contract", "plan-container-contract", "review-contract"],
 });
 
 const readText = (path) => readFileSync(path, "utf8");

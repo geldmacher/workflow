@@ -25,6 +25,12 @@
     "reused_objectives": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^OBJ-[1-9][0-9]*$" } },
     "inspected_checks": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^CHECK-[1-9][0-9]*$" } },
     "reused_checks": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^CHECK-[1-9][0-9]*$" } },
+    "learning_candidates": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^LRN-[A-Za-z0-9][A-Za-z0-9-]*$" }
+    },
     "auditors_run": { "type": "array", "uniqueItems": true, "items": { "enum": ["inline", "delivery-auditor", "risk-auditor"] } }
   },
   "allOf": [

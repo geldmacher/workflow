@@ -27,7 +27,7 @@ test("reviewer budgets include their self-contained audit instructions", () => {
 
 test("economic and former hard targets always diagnose without blocking", () => {
   assert.equal(limits.flowTokens, 2200);
-  assert.deepEqual(economicTargets, { plan: 2000, correction: 2000, review: 2000 });
+  assert.deepEqual(economicTargets, { plan: 2000, correction: 2000, review: 2000, learning: 2000 });
   const measurement = structuredClone(measureContext(defaultRoot));
   measurement.flows.plan = 2100;
   assert.deepEqual(budgetFailures(measurement), []);

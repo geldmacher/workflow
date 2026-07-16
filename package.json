@@ -1,8 +1,8 @@
 {
   "name": "geldmacher-workflow-plugin-development",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
-  "description": "Development validation for the tolerant, adaptive-assurance Geldmacher Workflow Cursor plugin.",
+  "description": "Development validation for the tolerant, adaptive-assurance Geldmacher Workflow Cursor plugin with learning closeout.",
   "engines": {
     "node": ">=22"
   },

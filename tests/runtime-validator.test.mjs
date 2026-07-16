@@ -51,6 +51,7 @@ test("the shipped artifact validator runs in a clean plugin cache without node_m
     const state = JSON.parse(effective.stdout);
     assert.equal(state.status, "passed");
     assert.equal(state.evidence_tips["wp-20260712T150503Z-configurable-retry-multiplier"], "de-20260712T150505Z-initial-retry-delivery");
+    assert.deepEqual(state.learning_candidates, []);
   } finally {
     rmSync(cache, { recursive: true, force: true });
   }

@@ -14,6 +14,7 @@ reused_objectives: []
 inspected_checks: [CHECK-1, CHECK-2]
 reused_checks: []
 auditors_run: [inline, delivery-auditor]
+learning_candidates: [LRN-whitespace-boundary-matrix]
 ---
 ## Assessment
 mostly-achieved: OBJ-1 lacks one explicit whitespace boundary test; the remaining root result is sound.
@@ -52,3 +53,7 @@ correct: apply the focused correction, then review the cumulative root result ag
 | Check ID | FIX IDs | Working Directory | Command or Inspection | Expected Result | Required | Cost Class | Prerequisites |
 |---|---|---|---|---|---|---|---|
 | CHECK-101 | FIX-1 | repository root | npm test | All retry tests including whitespace-only input pass. | yes | standard | `src/retry-policy.js`, `test/retry-policy.test.js`, `package.json` |
+
+| Learning ID | Finding keys | Reusable guidance | Candidate targets | Confirmation evidence |
+|---|---|---|---|---|
+| LRN-whitespace-boundary-matrix | missing-whitespace-boundary | When bounded environment values are parsed, include whitespace-only input in the malformed-value boundary matrix. | Test guidance or contributor checklist covering configuration parsing. | Complete correction evidence shows the whitespace-only assertion and CHECK-101 passing. |

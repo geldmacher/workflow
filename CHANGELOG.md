@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.1.0
+
+- Added optional `/learn-from-work [instruction]` and `work-learning` for direct, project-local learning closeout at any human-selected workflow stop.
+- Added root-unique `LRN-*` correction candidates with Finding links, reusable guidance, candidate destinations, and confirmation evidence.
+- Added semantic validation and root-chain uniqueness for declared candidates while preserving legacy schema-2 corrections as diagnostic, candidate-free input.
+- Kept learning candidates output-only during review and correction; only complete correction evidence plus current repository support makes them eligible for closeout.
+- Added deterministic target routing that first updates existing guidance, then materializes reusable Learnings as type-correct Cursor Rules, Skills, Subagents, or Commands; the linked docs page is a true last fallback.
+- Added idempotency, semantic deduplication, fallback migration, and safety guidance without shipping rules, hooks, MCP servers, or autonomous publishing.
+
 ## 2.0.0
 
 - Added the human-governed Plan → native implementation → Ask review → Agent correction loop.

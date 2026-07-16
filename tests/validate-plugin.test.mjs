@@ -14,16 +14,16 @@ async function createFixture(explicitPaths) {
   const root = await mkdtemp(join(tmpdir(), "workflow-plugin-"));
   const manifest = { name: "fixture-plugin", ...(explicitPaths ? { commands: "./commands/", agents: "./agents/", skills: "./skills/" } : {}) };
   await write(join(root, ".cursor-plugin", "plugin.json"), JSON.stringify(manifest));
-  for (const name of ["correct-work", "plan-work", "review-work"]) {
+  for (const name of ["correct-work", "learn-from-work", "plan-work", "review-work"]) {
     await write(join(root, "commands", `${name}.md`), `---\nname: ${name}\ndescription: Command.\n---\n`);
   }
   for (const name of ["delivery-auditor", "risk-auditor", "work-plan-auditor"]) {
     await write(join(root, "agents", `${name}.md`), `---\nname: ${name}\ndescription: Audit.\nmodel: inherit\n---\n`);
   }
-  for (const name of ["work-execution", "work-planning", "work-review"]) {
+  for (const name of ["work-execution", "work-learning", "work-planning", "work-review"]) {
     await write(join(root, "skills", name, "SKILL.md"), `---\nname: ${name}\ndescription: Skill.\n---\n`);
   }
-  for (const name of ["artifact-protocol", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "executable-contract", "plan-container-contract", "review-contract"]) {
+  for (const name of ["artifact-protocol", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "executable-contract", "learning-contract", "plan-container-contract", "review-contract"]) {
     await write(join(root, "references", `${name}.md`), `# ${name}\n`);
   }
   await write(join(root, "schemas", "cursor-plan-wrapper.schema.json"), JSON.stringify({

@@ -14,6 +14,7 @@ reused_objectives: [OBJ-2]
 inspected_checks: [CHECK-1]
 reused_checks: [CHECK-2]
 auditors_run: [inline, delivery-auditor]
+learning_candidates: [LRN-accepted-upper-bound-matrix]
 ---
 ## Assessment
 mostly-achieved: OBJ-1 still lacks a direct accepted upper-bound assertion; OBJ-2 remains safely reusable.
@@ -52,3 +53,7 @@ correct: add the focused upper-bound proof and review the root result again.
 | Check ID | FIX IDs | Working Directory | Command or Inspection | Expected Result | Required | Cost Class | Prerequisites |
 |---|---|---|---|---|---|---|---|
 | CHECK-201 | FIX-1 | repository root | npm test | All multiplier tests including value 10 pass. | yes | standard | `src/retry-policy.js`, `test/retry-policy.test.js`, `package.json` |
+
+| Learning ID | Finding keys | Reusable guidance | Candidate targets | Confirmation evidence |
+|---|---|---|---|---|
+| LRN-accepted-upper-bound-matrix | missing-upper-bound | For bounded configuration ranges, test the accepted upper boundary directly alongside rejection cases. | Test guidance or contributor checklist covering boundary matrices. | Complete correction evidence shows value 10 asserted and CHECK-201 passing. |

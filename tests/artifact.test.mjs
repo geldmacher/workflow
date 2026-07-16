@@ -4,6 +4,7 @@ import { join } from "node:path";
 import test from "node:test";
 import {
   defaultRoot,
+  effectiveCliSummary,
   inspectArtifactSet,
   inspectArtifactText,
   validateArtifactSet,
@@ -199,6 +200,61 @@ test("corrections remain Finding-backed and inside root scope", () => {
   assert.match(validateArtifactText(unknown).join("\n"), /unknown Finding key unrelated-gap/);
   const scope = artifacts.correctionReview.replace("| STEP-1 | FIX-1 | `test/retry-policy.test.js` |", "| STEP-1 | FIX-1 | `src/unrelated.js` |");
   assert.match(validateArtifactSet([["plan", artifacts.plan], ["evidence", artifacts.initialEvidence], ["review", scope]]).join("\n"), /outside root scope/);
+});
+
+test("validates correction learning candidates while tolerating legacy corrections", () => {
+  const inspected = inspectArtifactText(artifacts.correctionReview);
+  assert.deepEqual(inspected.errors, []);
+  assert.deepEqual(inspected.artifact.fields.learning_candidates, ["LRN-whitespace-boundary-matrix"]);
+  assert.equal(inspected.artifact.correction.learnings.length, 1);
+
+  const legacy = artifacts.correctionReview
+    .replace(/^learning_candidates:.*\n/m, "")
+    .replace(/\n\| Learning ID \| Finding keys \| Reusable guidance \| Candidate targets \| Confirmation evidence \|[\s\S]*$/, "");
+  const legacyInspected = inspectArtifactText(legacy);
+  assert.deepEqual(legacyInspected.errors, []);
+  assert.ok(legacyInspected.diagnostics.some((item) => /legacy correction has no learning candidates/.test(item)));
+});
+
+test("summarizes correction-evidence eligibility for learning closeout", () => {
+  const complete = effectiveCliSummary(inspectArtifactSet(fullChain()));
+  assert.deepEqual(complete.learning_candidates.map((candidate) => [candidate.learning_id, candidate.evidence_confirmed]), [
+    ["LRN-whitespace-boundary-matrix", true],
+    ["LRN-accepted-upper-bound-matrix", true],
+  ]);
+
+  const open = effectiveCliSummary(inspectArtifactSet([
+    ["plan", artifacts.plan],
+    ["initialEvidence", artifacts.initialEvidence],
+    ["correctionReview", artifacts.correctionReview],
+  ]));
+  assert.deepEqual(open.learning_candidates.map((candidate) => [candidate.learning_id, candidate.evidence_confirmed]), [
+    ["LRN-whitespace-boundary-matrix", false],
+  ]);
+});
+
+test("rejects malformed, unbacked, and root-duplicate learning candidates", () => {
+  const mismatch = artifacts.correctionReview.replace(
+    "learning_candidates: [LRN-whitespace-boundary-matrix]",
+    "learning_candidates: [LRN-different-candidate]",
+  );
+  assert.match(validateArtifactText(mismatch).join("\n"), /must exactly match learning_candidates/);
+
+  const unknownFinding = artifacts.correctionReview.replace(
+    "| LRN-whitespace-boundary-matrix | missing-whitespace-boundary |",
+    "| LRN-whitespace-boundary-matrix | unrelated-gap |",
+  );
+  assert.match(validateArtifactText(unknownFinding).join("\n"), /references unknown Finding key unrelated-gap/);
+
+  const invalidId = artifacts.correctionReview.replaceAll("LRN-whitespace-boundary-matrix", "learning_invalid");
+  assert.match(validateArtifactText(invalidId).join("\n"), /pattern|invalid ID/);
+
+  const duplicate = artifacts.secondCorrectionReview.replaceAll("LRN-accepted-upper-bound-matrix", "LRN-whitespace-boundary-matrix");
+  const duplicateErrors = validateArtifactSet(fullChain().map(([label, value]) => [label, label === "secondCorrectionReview" ? duplicate : value]));
+  assert.match(duplicateErrors.join("\n"), /learning candidate LRN-whitespace-boundary-matrix duplicates/);
+
+  const nonCorrection = artifacts.achievedReview.replace("auditors_run: [inline]", "auditors_run: [inline]\nlearning_candidates: [LRN-not-allowed]");
+  assert.match(validateArtifactText(nonCorrection).join("\n"), /allowed only when next_action is correct/);
 });
 
 function repeatedFindingChain({ progress }) {

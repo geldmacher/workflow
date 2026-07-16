@@ -13,7 +13,7 @@ export const limits = Object.freeze({
   flowTokens: 2200,
   reviewerTokens: 650,
 });
-export const economicTargets = Object.freeze({ plan: 2000, correction: 2000, review: 2000 });
+export const economicTargets = Object.freeze({ plan: 2000, correction: 2000, review: 2000, learning: 2000 });
 const estimate = (characters) => Math.ceil(characters / 4);
 const read = (root, file) => readFileSync(join(root, file), "utf8");
 
@@ -65,6 +65,7 @@ export function measureContext(root = defaultRoot) {
     evidenceOutput: read(rootPath, "references/delivery-evidence-output-contract.md"),
     correction: read(rootPath, "references/correction-contract.md"),
     review: read(rootPath, "references/review-contract.md"),
+    learning: read(rootPath, "references/learning-contract.md"),
   };
   const flow = (command, skill, activeReferences) => estimate(
     read(rootPath, `commands/${command}.md`).length
@@ -86,6 +87,7 @@ export function measureContext(root = defaultRoot) {
       plan: flow("plan-work", "work-planning", ["core", "container", "executable"]),
       correction: flow("correct-work", "work-execution", ["core", "correction", "evidence", "evidenceOutput"]),
       review: flow("review-work", "work-review", ["evidence", "review"]),
+      learning: flow("learn-from-work", "work-learning", ["core", "learning"]),
     },
     reviewerTokens,
     limits,

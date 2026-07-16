@@ -1,4 +1,4 @@
-Schema 2 supports `work-plan|delivery-evidence|work-review`; an embedded `cp-*` belongs to one review. The immutable `wp-*` roots every delivery and review. Native **Implement Plan** approves initial execution; argument-free `/correct-work` approves only the newest unique actionable correction. The human controls execution, correction, repetition, and stopping.
+Schema 2 supports `work-plan|delivery-evidence|work-review`; embedded `cp-*` may carry output-only `LRN-*` candidates. The immutable `wp-*` roots all artifacts. Native **Implement Plan** approves initial execution; argument-free `/correct-work` approves the latest actionable correction. Optional `/learn-from-work` persists confirmed candidates at a human-selected stop. The human controls the loop.
 
 Artifact IDs use the type prefix plus a stable unique slug; timestamps are optional metadata and never determine topology. External constraints are copied directly into the root plan. Resume is reconstructed from repository state, Completion Probes, and the latest effective evidence.
 
