@@ -1,0 +1,62 @@
+[
+  {
+    "name": "latest actionable review proceeds",
+    "state": { "mode": "agent", "argumentCount": 0, "actionableReviewIds": ["wr-1"], "latestReviewId": "wr-1", "chainValid": true, "baselineMatches": true, "rootRisk": "medium", "discoveredRisk": "medium", "stepStates": ["pending", "partial"] },
+    "expected": { "action": "proceed", "reason": "correction-preflight-satisfied" }
+  },
+  {
+    "name": "arguments are forbidden",
+    "state": { "mode": "agent", "argumentCount": 1, "actionableReviewIds": ["wr-1"] },
+    "expected": { "action": "stop", "reason": "arguments-not-allowed" }
+  },
+  {
+    "name": "missing actionable review stops",
+    "state": { "mode": "agent", "argumentCount": 0, "actionableReviewIds": [] },
+    "expected": { "action": "stop", "reason": "missing-actionable-review" }
+  },
+  {
+    "name": "ambiguous actionable reviews stop",
+    "state": { "mode": "agent", "argumentCount": 0, "actionableReviewIds": ["wr-1", "wr-2"] },
+    "expected": { "action": "stop", "reason": "ambiguous-actionable-review" }
+  },
+  {
+    "name": "non-latest review stops",
+    "state": { "mode": "agent", "argumentCount": 0, "actionableReviewIds": ["wr-1"], "latestReviewId": "wr-2" },
+    "expected": { "action": "stop", "reason": "review-is-not-latest" }
+  },
+  {
+    "name": "stalled correction loop remains human approvable",
+    "state": { "mode": "agent", "argumentCount": 0, "actionableReviewIds": ["wr-1"], "latestReviewId": "wr-1", "loopState": "stalled", "chainValid": true, "baselineMatches": true, "rootRisk": "medium", "discoveredRisk": "medium", "stepStates": ["pending"] },
+    "expected": { "action": "proceed", "reason": "correction-preflight-satisfied" }
+  },
+  {
+    "name": "invalid chain stops",
+    "state": { "mode": "agent", "argumentCount": 0, "actionableReviewIds": ["wr-1"], "latestReviewId": "wr-1", "chainValid": false },
+    "expected": { "action": "stop", "reason": "invalid-root-review-correction-chain" }
+  },
+  {
+    "name": "compatible repository drift is reclassified",
+    "state": { "mode": "agent", "argumentCount": 0, "actionableReviewIds": ["wr-1"], "latestReviewId": "wr-1", "chainValid": true, "baselineMatches": false, "driftMaterial": false, "rootRisk": "low", "discoveredRisk": "low", "stepStates": ["partial"] },
+    "expected": { "action": "proceed", "reason": "correction-preflight-satisfied" }
+  },
+  {
+    "name": "material repository drift stops",
+    "state": { "mode": "agent", "argumentCount": 0, "actionableReviewIds": ["wr-1"], "latestReviewId": "wr-1", "chainValid": true, "baselineMatches": false, "driftMaterial": true },
+    "expected": { "action": "stop", "reason": "material-repository-drift" }
+  },
+  {
+    "name": "raised risk stops",
+    "state": { "mode": "agent", "argumentCount": 0, "actionableReviewIds": ["wr-1"], "latestReviewId": "wr-1", "chainValid": true, "baselineMatches": true, "rootRisk": "medium", "discoveredRisk": "high" },
+    "expected": { "action": "stop", "reason": "risk-floor-raised" }
+  },
+  {
+    "name": "conflicted step stops",
+    "state": { "mode": "agent", "argumentCount": 0, "actionableReviewIds": ["wr-1"], "latestReviewId": "wr-1", "chainValid": true, "baselineMatches": true, "rootRisk": "medium", "discoveredRisk": "medium", "stepStates": ["conflicted"] },
+    "expected": { "action": "stop", "reason": "conflicted-correction-step" }
+  },
+  {
+    "name": "already satisfied correction verifies only",
+    "state": { "mode": "agent", "argumentCount": 0, "actionableReviewIds": ["wr-1"], "latestReviewId": "wr-1", "chainValid": true, "baselineMatches": true, "rootRisk": "medium", "discoveredRisk": "medium", "stepStates": ["satisfied", "satisfied"] },
+    "expected": { "action": "verify-only", "reason": "correction-already-satisfied" }
+  }
+]

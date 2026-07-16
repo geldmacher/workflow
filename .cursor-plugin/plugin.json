@@ -1,19 +1,40 @@
 {
   "name": "geldmacher-workflow",
   "displayName": "Workflow",
-  "description": "LLM-agnostic workflow handoffs, scoped execution, and delivery review.",
-  "version": "1.2.0",
+  "description": "Human-governed Cursor workflow with intent-ready plans, tolerant validation, progressive evidence, and bounded correction loops.",
+  "version": "2.0.0",
   "author": {
     "name": "Dennis Geldmacher",
     "email": "geldmacher.dennis@outlook.de"
   },
   "license": "MIT",
+  "homepage": "https://github.com/geldmacher/workflow",
+  "repository": "https://github.com/geldmacher/workflow",
+  "category": "developer-tools",
   "keywords": [
-    "handoff",
-    "delegation",
+    "work-plan",
+    "correction",
+    "evidence",
     "planning",
     "review",
-    "agents"
+    "cursor",
+    "quality",
+    "outer-loop",
+    "intent-readiness",
+    "adaptive-assurance",
+    "progressive-evidence",
+    "tolerant-validation",
+    "economic-efficiency"
+  ],
+  "tags": [
+    "planning",
+    "correction",
+    "evidence",
+    "verification",
+    "review",
+    "human-governance",
+    "adaptive-assurance",
+    "progressive-evidence"
   ],
   "logo": "assets/logo.svg"
 }

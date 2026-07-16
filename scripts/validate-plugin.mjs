@@ -1,142 +1,273 @@
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+#!/usr/bin/env node
+import { existsSync, globSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
+import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import Ajv from "ajv";
+import addFormats from "ajv-formats";
+import { parseDocument } from "yaml";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const packetSections = [
-  "Handoff metadata",
-  "Intent and acceptance criteria",
-  "Scope boundaries and non-goals",
-  "Repository evidence",
-  "Target files and symbols",
-  "Reference patterns",
-  "Executable agent plan",
-  "Verification matrix",
-  "Risk and deviation policy",
-  "Escalate instead of guessing when",
-  "Delivery evidence requirements",
-  "Open questions",
-];
+const scriptDirectory = dirname(fileURLToPath(import.meta.url));
+export const defaultRoot = dirname(scriptDirectory);
+const manifestSchemaPath = join(defaultRoot, "schemas", "plugin.schema.json");
+const namePattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const semverPattern = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
+const globPattern = /[*?[{]/;
+const expected = Object.freeze({
+  commands: ["correct-work", "plan-work", "review-work"],
+  agents: ["delivery-auditor", "risk-auditor", "work-plan-auditor"],
+  skills: ["work-execution", "work-planning", "work-review"],
+  rules: [],
+  artifacts: ["delivery-evidence", "work-plan", "work-review"],
+  references: ["artifact-protocol", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "executable-contract", "plan-container-contract", "review-contract"],
+});
 
-const packetSources = [
-  "rules/handoff-quality.mdc",
-  "skills/handoff-plan-compiler/SKILL.md",
-  "skills/delivery-review/SKILL.md",
-  "agents/delivery-reviewer.md",
-  "README.md",
-];
+const readText = (path) => readFileSync(path, "utf8");
 
-const expectedFiles = [
-  ".cursor-plugin/plugin.json",
-  "assets/logo.svg",
-  "commands/compile-handoff.md",
-  "commands/execute-handoff.md",
-  "commands/review-delivery.md",
-  "rules/handoff-quality.mdc",
-  "skills/handoff-plan-compiler/SKILL.md",
-  "skills/handoff-executor/SKILL.md",
-  "skills/delivery-review/SKILL.md",
-  "agents/handoff-readiness-reviewer.md",
-  "agents/delivery-reviewer.md",
-  "README.md",
-];
-
-const errors = [];
-const absolute = (file) => resolve(root, file);
-const read = (file) => readFileSync(absolute(file), "utf8");
-const report = (message) => errors.push(message);
-
-for (const file of expectedFiles) {
-  if (!existsSync(absolute(file))) report(`Missing required file: ${file}`);
+function listFiles(directory, predicate) {
+  if (!existsSync(directory)) return [];
+  const files = [];
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) files.push(...listFiles(path, predicate));
+    else if (entry.isFile() && predicate(path)) files.push(path);
+  }
+  return files.sort();
 }
 
-if (errors.length === 0) {
-  let manifest;
-  try {
-    manifest = JSON.parse(read(".cursor-plugin/plugin.json"));
-  } catch (error) {
-    report(`Invalid plugin manifest JSON: ${error.message}`);
-  }
+function isWithin(root, target) {
+  const path = relative(root, target);
+  return path === "" || (!path.startsWith(`..${sep}`) && path !== ".." && !isAbsolute(path));
+}
 
-  if (manifest) {
-    for (const key of ["name", "displayName", "description", "version", "author", "license", "logo"]) {
-      if (!(key in manifest)) report(`Plugin manifest is missing '${key}'.`);
+function staticPath(path) {
+  const match = path.match(globPattern);
+  if (!match) return path;
+  const prefix = path.slice(0, match.index);
+  return prefix.endsWith("/") ? prefix.slice(0, -1) : dirname(prefix);
+}
+
+function expandDeclaredPath(root, value, predicate) {
+  const candidate = resolve(root, staticPath(value));
+  if (!globPattern.test(value)) {
+    if (!existsSync(candidate)) return [];
+    if (statSync(candidate).isDirectory()) return listFiles(candidate, predicate);
+    return predicate(candidate) ? [candidate] : [];
+  }
+  if (!existsSync(candidate)) return [];
+  return globSync(value, { cwd: root }).map((file) => resolve(root, file))
+    .filter((file) => existsSync(file) && statSync(file).isFile() && predicate(file));
+}
+
+function validateExplicitCoverage(root, manifest, recordsByType, failures) {
+  for (const [type, records] of Object.entries(recordsByType)) {
+    if (!manifest[type]) continue;
+    const declared = new Set();
+    const predicate = type === "commands"
+      ? (file) => [".md", ".txt"].includes(extname(file))
+      : type === "agents"
+        ? (file) => extname(file) === ".md"
+        : type === "skills"
+          ? (file) => basename(file) === "SKILL.md"
+          : (file) => [".md", ".mdc"].includes(extname(file));
+    for (const value of Array.isArray(manifest[type]) ? manifest[type] : [manifest[type]]) {
+      const matches = expandDeclaredPath(root, value, predicate);
+      if (matches.length === 0) failures.push(`plugin.json ${type}: declared path has no component matches: ${value}`);
+      for (const file of matches) declared.add(realpathSync(file));
     }
-    if (typeof manifest.logo === "string" && !existsSync(absolute(manifest.logo))) {
-      report(`Plugin logo does not exist: ${manifest.logo}`);
-    }
+    const actual = new Set(records.map((record) => realpathSync(record.file)));
+    const missing = [...actual].filter((file) => !declared.has(file)).map((file) => relative(root, file));
+    const extra = [...declared].filter((file) => !actual.has(file)).map((file) => relative(root, file));
+    if (missing.length > 0 || extra.length > 0) failures.push(`plugin.json ${type}: explicit paths do not cover the public surface; missing [${missing.join(", ")}], extra [${extra.join(", ")}]`);
   }
 }
 
-function frontmatter(file) {
-  const content = read(file);
-  const match = content.match(/^---\n([\s\S]*?)\n---/);
+function formatAjvError(error) {
+  const location = error.instancePath || "/";
+  return error.keyword === "additionalProperties"
+    ? `plugin.json ${location}: ${error.message}: ${error.params.additionalProperty}`
+    : `plugin.json ${location}: ${error.message}`;
+}
+
+export function parseFrontmatter(file, failures = []) {
+  const match = readText(file).match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
   if (!match) {
-    report(`Missing frontmatter: ${file}`);
-    return "";
+    failures.push(`${file}: missing or malformed frontmatter`);
+    return {};
   }
-  return match[1];
+  const document = parseDocument(match[1], { prettyErrors: false, uniqueKeys: true });
+  if (document.errors.length > 0) {
+    for (const error of document.errors) failures.push(`${file}: invalid YAML: ${error.message}`);
+    return {};
+  }
+  const fields = document.toJS();
+  if (!fields || typeof fields !== "object" || Array.isArray(fields)) {
+    failures.push(`${file}: frontmatter must be a YAML object`);
+    return {};
+  }
+  return fields;
 }
 
-for (const file of [
-  "commands/compile-handoff.md",
-  "commands/execute-handoff.md",
-  "commands/review-delivery.md",
-  "skills/handoff-plan-compiler/SKILL.md",
-  "skills/handoff-executor/SKILL.md",
-  "skills/delivery-review/SKILL.md",
-]) {
-  const header = frontmatter(file);
-  for (const key of ["name:", "description:"]) {
-    if (!header.includes(key)) report(`Frontmatter in ${file} is missing '${key}'.`);
-  }
-}
-
-for (const file of ["agents/handoff-readiness-reviewer.md", "agents/delivery-reviewer.md"]) {
-  const header = frontmatter(file);
-  for (const key of ["name:", "description:", "model: inherit", "readonly: true"]) {
-    if (!header.includes(key)) report(`Frontmatter in ${file} is missing '${key}'.`);
+function requireString(fields, field, label, failures) {
+  if (typeof fields[field] !== "string" || fields[field].trim() === "") {
+    failures.push(`${label}: missing non-empty string field ${field}`);
   }
 }
 
-const ruleHeader = frontmatter("rules/handoff-quality.mdc");
-for (const key of ["description:", "alwaysApply:"]) {
-  if (!ruleHeader.includes(key)) report(`Frontmatter in rules/handoff-quality.mdc is missing '${key}'.`);
+function validateDeclaredPath(root, rootReal, value, label, failures) {
+  if (typeof value !== "string" || value.trim() === "") return failures.push(`${label}: path must be a non-empty string`);
+  if (isAbsolute(value)) return failures.push(`${label}: absolute paths are not allowed: ${value}`);
+  const candidate = resolve(root, staticPath(value));
+  if (!isWithin(root, candidate)) return failures.push(`${label}: path escapes plugin root: ${value}`);
+  if (!existsSync(candidate)) return failures.push(`${label}: target does not exist: ${value}`);
+  if (!isWithin(rootReal, realpathSync(candidate))) failures.push(`${label}: target resolves outside plugin root: ${value}`);
 }
 
-function extractPacketSections(file) {
-  const content = read(file);
-  const start = content.indexOf("1. `Handoff metadata`");
-  if (start === -1) {
-    report(`Canonical packet is missing from ${file}.`);
-    return [];
+function validateNames(records, type, expectedNames, failures) {
+  const names = records.map((record) => record.fields.name).filter(Boolean).sort();
+  if (names.join("\n") !== expectedNames.join("\n")) {
+    failures.push(`${type}: expected [${expectedNames.join(", ")}], received [${names.join(", ")}]`);
   }
-  const entries = [...content.slice(start).matchAll(/^\d+\. `([^`]+)`$/gm)]
-    .slice(0, packetSections.length)
-    .map((match) => match[1]);
-  if (entries.length !== packetSections.length) {
-    report(`Canonical packet in ${file} has ${entries.length} sections; expected ${packetSections.length}.`);
-  }
-  return entries;
+  if (new Set(names).size !== names.length) failures.push(`${type}: duplicate component name`);
 }
 
-for (const file of packetSources) {
-  const actual = extractPacketSections(file);
-  if (actual.join("\n") !== packetSections.join("\n")) {
-    report(`Canonical packet section order differs in ${file}.`);
+function validateRelease(root, manifest, failures) {
+  for (const field of ["displayName", "description", "version", "author", "license", "logo", "homepage", "repository", "category", "keywords", "tags"]) {
+    if (!manifest[field] || (Array.isArray(manifest[field]) && manifest[field].length === 0)) failures.push(`release metadata is missing ${field}`);
   }
+  const packageJson = JSON.parse(readText(join(root, "package.json")));
+  if (packageJson.version !== manifest.version) failures.push("package.json version differs from plugin.json");
+  if (!readText(join(root, "CHANGELOG.md")).includes(`## ${manifest.version}`)) failures.push(`CHANGELOG.md has no ${manifest.version} heading`);
+  const readme = readText(join(root, "README.md"));
+  for (const heading of ["## Intent and expectations", "## Installation", "## Usage", "## Artifact protocol", "## Components", "## Development"]) {
+    if (!readme.includes(heading)) failures.push(`README.md is missing ${heading}`);
+  }
+  if (!existsSync(join(root, "docs", "release-checklist.md"))) failures.push("docs/release-checklist.md is missing");
+  if (!existsSync(join(root, "docs", "release-validation.md"))) failures.push("docs/release-validation.md is missing");
+  if (!existsSync(join(root, "THIRD_PARTY_NOTICES.md"))) failures.push("THIRD_PARTY_NOTICES.md is missing");
 }
 
-for (const file of expectedFiles.filter((file) => file.endsWith(".md") || file.endsWith(".mdc"))) {
-  if (read(file).includes("when possible")) {
-    report(`Replace non-deterministic verification wording in ${file}.`);
+export function validatePlugin(root = defaultRoot, options = {}) {
+  const failures = [];
+  const rootPath = resolve(root);
+  const rootReal = realpathSync(rootPath);
+  const manifestPath = join(rootPath, ".cursor-plugin", "plugin.json");
+  if (!existsSync(manifestPath)) return [".cursor-plugin/plugin.json is missing"];
+
+  let manifest;
+  try { manifest = JSON.parse(readText(manifestPath)); }
+  catch (error) { return [`plugin.json is invalid JSON: ${error.message}`]; }
+
+  const ajv = new Ajv({ allErrors: true, strict: false });
+  addFormats(ajv);
+  const validateManifest = ajv.compile(JSON.parse(readText(manifestSchemaPath)));
+  if (!validateManifest(manifest)) failures.push(...validateManifest.errors.map(formatAjvError));
+  if (manifest.version && !semverPattern.test(manifest.version)) failures.push(`plugin.json version is not semantic: ${manifest.version}`);
+
+  for (const field of ["commands", "agents", "skills", "rules"]) {
+    if (!manifest[field]) continue;
+    for (const value of Array.isArray(manifest[field]) ? manifest[field] : [manifest[field]]) {
+      validateDeclaredPath(rootPath, rootReal, value, `plugin.json ${field}`, failures);
+    }
   }
+  if (manifest.logo && !/^https?:\/\//.test(manifest.logo)) validateDeclaredPath(rootPath, rootReal, manifest.logo, "plugin.json logo", failures);
+
+  const commands = listFiles(join(rootPath, "commands"), (file) => [".md", ".txt"].includes(extname(file)))
+    .map((file) => ({ file, label: relative(rootPath, file), fields: parseFrontmatter(file, failures) }));
+  const agents = listFiles(join(rootPath, "agents"), (file) => extname(file) === ".md")
+    .map((file) => ({ file, label: relative(rootPath, file), fields: parseFrontmatter(file, failures) }));
+  const skills = listFiles(join(rootPath, "skills"), (file) => basename(file) === "SKILL.md")
+    .map((file) => ({ file, label: relative(rootPath, file), fields: parseFrontmatter(file, failures) }));
+  const rules = listFiles(join(rootPath, "rules"), (file) => [".md", ".mdc"].includes(extname(file)))
+    .map((file) => ({ file, label: relative(rootPath, file), fields: parseFrontmatter(file, failures) }));
+  validateExplicitCoverage(rootPath, manifest, { commands, agents, skills, rules }, failures);
+
+  for (const record of commands) {
+    requireString(record.fields, "name", record.label, failures);
+    requireString(record.fields, "description", record.label, failures);
+    if (record.fields.name !== basename(record.file, extname(record.file))) failures.push(`${record.label}: name must match filename`);
+    if (record.fields.name && !namePattern.test(record.fields.name)) failures.push(`${record.label}: invalid name`);
+  }
+  for (const record of skills) {
+    requireString(record.fields, "name", record.label, failures);
+    requireString(record.fields, "description", record.label, failures);
+    if (record.fields.name !== basename(dirname(record.file))) failures.push(`${record.label}: name must match parent folder`);
+    if (record.fields.name && !namePattern.test(record.fields.name)) failures.push(`${record.label}: invalid name`);
+  }
+  for (const record of agents) {
+    requireString(record.fields, "name", record.label, failures);
+    requireString(record.fields, "description", record.label, failures);
+    if (record.fields.name !== basename(record.file, ".md")) failures.push(`${record.label}: name must match filename`);
+    if (record.fields.model !== "inherit") failures.push(`${record.label}: model must be inherit`);
+  }
+  validateNames(commands, "commands", expected.commands, failures);
+  validateNames(agents, "agents", expected.agents, failures);
+  validateNames(skills, "skills", expected.skills, failures);
+  validateNames(rules, "rules", expected.rules, failures);
+
+  const artifactFiles = listFiles(join(rootPath, "schemas", "artifacts"), (file) => extname(file) === ".json");
+  const artifactNames = artifactFiles.map((file) => basename(file, ".schema.json")).sort();
+  if (artifactNames.join("\n") !== expected.artifacts.join("\n")) failures.push(`artifact schemas differ: [${artifactNames.join(", ")}]`);
+  for (const file of artifactFiles) {
+    const schema = JSON.parse(readText(file));
+    const artifactName = basename(file, ".schema.json");
+    const expectedId = `urn:geldmacher:cursor-artifact:${artifactName}:2`;
+    if (schema.additionalProperties !== true) failures.push(`${relative(rootPath, file)}: additionalProperties must be true for tolerant metadata`);
+    if (schema.$schema !== "http://json-schema.org/draft-07/schema#") failures.push(`${relative(rootPath, file)}: $schema must be JSON Schema draft-07`);
+    if (schema.$id !== expectedId) failures.push(`${relative(rootPath, file)}: schema id must equal ${expectedId}`);
+    const sections = schema["x-required-sections"] ?? schema["x-markdown-sections"];
+    if (!Array.isArray(sections) || sections.length === 0) failures.push(`${relative(rootPath, file)}: missing markdown sections`);
+  }
+  const wrapperSchemaPath = join(rootPath, "schemas", "cursor-plan-wrapper.schema.json");
+  if (!existsSync(wrapperSchemaPath)) failures.push("schemas/cursor-plan-wrapper.schema.json is missing");
+  else {
+    const wrapperSchema = JSON.parse(readText(wrapperSchemaPath));
+    if (wrapperSchema.additionalProperties !== true) failures.push("schemas/cursor-plan-wrapper.schema.json: additionalProperties must be true");
+    if (wrapperSchema.$id !== "urn:geldmacher:cursor-plan-wrapper:1") failures.push("schemas/cursor-plan-wrapper.schema.json: invalid schema id");
+    for (const field of ["todos", "isProject"]) if (!wrapperSchema.required?.includes(field)) failures.push(`schemas/cursor-plan-wrapper.schema.json: missing required ${field}`);
+  }
+
+  const references = listFiles(join(rootPath, "references"), (file) => extname(file) === ".md")
+    .map((file) => ({ file, label: relative(rootPath, file), fields: {} }));
+  const runtime = [...commands, ...agents, ...skills, ...rules, ...references].map((record) => readText(record.file)).join("\n");
+  const capabilityRules = [
+    /MODE (?:GATE|PREREQUISITE)/i,
+    /MODE REQUIRED:/i,
+    /use only Read\/Search/i,
+    /edit\+terminal/i,
+    /native Plan creation exists/i,
+  ];
+  if (capabilityRules.some((pattern) => pattern.test(runtime))) failures.push("runtime guidance contains a Cursor capability gate or tool allowlist");
+  const foreignProducts = [...runtime.matchAll(/\bgeldmacher-[a-z0-9-]+\b/gi)].map((match) => match[0]).filter((name) => name.toLowerCase() !== manifest.name.toLowerCase());
+  if (foreignProducts.length > 0) failures.push("runtime guidance contains a foreign product name");
+  const foreignCommands = ["setup-rtk", "create-rtk-filter", "budget-efficiency", "compact-context", "optimize-context", "review-efficiency"];
+  if (foreignCommands.some((name) => new RegExp(`/${name}\\b`, "i").test(runtime))) failures.push("runtime guidance contains a foreign command");
+  const foreignComponents = [...foreignCommands, "rtk-setup", "rtk-filter-design", "efficiency-budget", "context-compaction", "context-optimization", "efficiency-review", "efficiency-auditor", "rtk-filter-auditor", "context-change-auditor"];
+  const foreignPathPattern = new RegExp(`(?:commands|skills|agents|rules)/(?:${foreignComponents.join("|")})(?:/|\\.md|\\.txt|\\.mdc|\\b)`, "i");
+  if (foreignPathPattern.test(runtime)) failures.push("runtime guidance contains a foreign component path");
+  if (manifest.hooks || manifest.mcpServers || existsSync(join(rootPath, "hooks")) || existsSync(join(rootPath, "mcp.json"))) failures.push("hooks and MCP servers are outside the component contract");
+  for (const name of expected.references) {
+    if (!existsSync(join(rootPath, "references", `${name}.md`))) failures.push(`references/${name}.md is missing`);
+  }
+  for (const record of [...commands, ...agents, ...skills]) {
+    for (const match of readText(record.file).matchAll(/`((?:\.\.\/)+references\/[^`]+\.md)`/g)) {
+      const target = resolve(dirname(record.file), match[1]);
+      if (!isWithin(rootPath, target) || !existsSync(target)) failures.push(`${record.label}: missing runtime reference ${match[1]}`);
+    }
+  }
+  if (options.release) validateRelease(rootPath, manifest, failures);
+  return [...new Set(failures.map((failure) => failure.replace(`${rootPath}${sep}`, "")))];
 }
 
-if (errors.length > 0) {
-  console.error("Plugin validation failed:\n");
-  for (const error of errors) console.error(`- ${error}`);
-  process.exitCode = 1;
-} else {
-  console.log("Plugin validation passed.");
+function runCli() {
+  const rootArgument = process.argv.find((argument, index) => index > 1 && !argument.startsWith("--"));
+  const failures = validatePlugin(rootArgument ? resolve(rootArgument) : defaultRoot, { release: process.argv.includes("--release") });
+  if (failures.length > 0) {
+    console.error("Plugin validation failed:");
+    for (const failure of failures) console.error(`- ${failure}`);
+    process.exitCode = 1;
+    return;
+  }
+  console.log(process.argv.includes("--release") ? "Plugin release validation passed." : "Plugin validation passed.");
 }
+
+if (resolve(process.argv[1]) === fileURLToPath(import.meta.url)) runCli();

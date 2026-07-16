@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:geldmacher:cursor-artifact:delivery-evidence:2",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "artifact", "schema", "id", "status", "root_plan_id", "subject_id", "representation",
+    "affected_objectives", "reused_objectives", "executed_checks", "reused_checks"
+  ],
+  "properties": {
+    "artifact": { "const": "delivery-evidence" },
+    "schema": { "const": 2 },
+    "id": { "type": "string", "pattern": "^de-[A-Za-z0-9][A-Za-z0-9-]*$" },
+    "status": { "enum": ["complete", "blocked"] },
+    "created_at": { "type": "string", "format": "date-time" },
+    "source": { "type": "string", "minLength": 1 },
+    "root_plan_id": { "type": "string", "pattern": "^wp-[A-Za-z0-9][A-Za-z0-9-]*$" },
+    "subject_id": { "type": "string", "pattern": "^(?:wp|cp)-[A-Za-z0-9][A-Za-z0-9-]*$" },
+    "source_review_id": { "type": ["string", "null"], "pattern": "^wr-[A-Za-z0-9][A-Za-z0-9-]*$" },
+    "predecessor_evidence_id": { "type": ["string", "null"], "pattern": "^de-[A-Za-z0-9][A-Za-z0-9-]*$" },
+    "representation": { "enum": ["full", "delta"] },
+    "affected_objectives": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^OBJ-[1-9][0-9]*$" } },
+    "reused_objectives": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^OBJ-[1-9][0-9]*$" } },
+    "executed_checks": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^CHECK-[1-9][0-9]*$" } },
+    "reused_checks": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^CHECK-[1-9][0-9]*$" } }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "subject_id": { "pattern": "^wp-" } } },
+      "then": {
+        "properties": {
+          "source_review_id": { "type": ["null"] },
+          "predecessor_evidence_id": { "type": ["null"] },
+          "representation": { "const": "full" },
+          "reused_objectives": { "maxItems": 0 },
+          "reused_checks": { "maxItems": 0 }
+        }
+      },
+      "else": {
+        "required": ["source_review_id", "predecessor_evidence_id"],
+        "properties": { "source_review_id": { "type": "string" }, "predecessor_evidence_id": { "type": "string" } }
+      }
+    }
+  ],
+  "x-required-sections": ["Summary", "Objective outcomes", "Repository snapshot", "Checks"]
+}

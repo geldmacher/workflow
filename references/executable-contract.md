@@ -1,0 +1,13 @@
+# Executable root plan
+
+Required identity fields are `artifact: work-plan`, `schema: 2`, stable `id`, `status`, `intent_ready`, `runtime_relevant`, `risk`, and `assurance_profile`. `created_at` and `source` are optional. Hard triggers default to empty, no override defaults to `none`, and assurance score is derived from the plan's factors. Objectives come from plan content, not duplicated frontmatter.
+
+Root construction starts only after the Planning skill's Intent Interview resolves every material human decision. Record answers as `DEC-*` sources; an allowed blocking prose fallback never accompanies a plan draft.
+
+The plan semantically covers intent/decisions, Objectives, baseline evidence, scope, execution steps, verification, operational readiness, and risk/closeout. The parser tolerates aliases in received artifacts, but native generation uses the canonical H2 and table form in the Plan container contract. Readiness resolves Goal, Actor, Outcome, Non-goals, Constraints, Repository boundary, Acceptance evidence, Critical assumptions, Operational impact, Review risk, and material open decisions. A ready plan requires no remaining material open decision. Trivial lean work may omit DEC, incidental-scope, and explicit control boilerplate.
+
+Each Objective maps to at least one outcome-oriented step, Completion Probe, and required Root Check. Required/permitted/prohibited scope remains explicit. Check definitions preserve an expected outcome; execution may use an equivalent in-scope method when it documents the actual method and rationale without weakening evidence. Security or hard-trigger substitutions require equally strong proof or `replan`.
+
+Assurance factors remain Failure impact 0–3, Irreversibility 0–2, Uncertainty 0–2, Evidence weakness 0–2, and Change surface 0–1. Derived profiles are lean 0–3, standard 4–6, deep 7–10; any hard trigger forces deep. Lowering still requires an explicit human DEC and is impossible for a hard trigger. Expensive Pareto decisions are recorded only when included, deferred, or trigger-required.
+
+Runtime-relevant work plans repository-verifiable signal, failure detection, and recovery. Native execution verifies the result and emits full initial evidence. Publishing, production access, and production-success claims remain outside the repository-delivery boundary.

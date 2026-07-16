@@ -1,79 +1,62 @@
 # Workflow
 
-Cursor workflows for evidence-based planning, controlled execution, and delivery review.
+Cursor-native planning, implementation, evidence-based review, and human-approved correction loops for repository delivery.
 
-1. `compile-handoff` turns an idea or plan into a normal Cursor plan artifact with confirmed repository evidence, acceptance criteria, verification, and risk boundaries.
-2. `execute-handoff` implements the active handoff through a preflight, step-level checks, controlled deviations, and final evidence reconciliation.
-3. `review-delivery` checks the actual diff and evidence against the active handoff, then creates a precise next handoff when corrective work is justified.
+## Intent and expectations
 
-The user chooses which model or agent performs each role. The plugin keeps the roles model-agnostic while giving each role a concrete contract.
+Workflow gives work a durable root intent and enough evidence for a human to steer the outer loop economically. Plan Mode establishes outcome, scope, checks, and assurance; Cursor's native **Implement Plan** performs initial delivery; Ask Mode reviews the cumulative result; Agent Mode applies only a correction the human explicitly chooses through `/correct-work`.
+
+Cursor owns mode capabilities and sandbox boundaries. The plugin does not infer modes from tools or maintain tool allow/deny lists. Ask may use every capability Cursor exposes, including semantic search, browser/documentation access, MCPs, and subagents, while the native Ask boundary keeps the review non-mutating.
+
+Delivery ends at the repository boundary. Workflow does not merge, push, create pull requests, deploy, access production, or infer production health from repository evidence.
 
 ## Installation
 
-Copy or clone this plugin to `~/.cursor/plugins/local/geldmacher-workflow/` so Cursor discovers it automatically, or install it from a marketplace that lists this repository.
+Clone or link this standalone repository at `~/.cursor/plugins/local/geldmacher-workflow/`, then reload Cursor. No additional mode configuration or bundled MCP server is required.
 
 ## Usage
 
-The intended flow:
+1. Select Cursor Plan Mode and run `/plan-work <goal>`. The planner investigates only enough to identify execution-critical decisions, uses Cursor's native Ask Question Tool when an Intent Interview is needed, and creates the root plan only after those decisions are resolved. Clear intent proceeds directly; a failed native question invocation may fall back to a blocking prose question without a plan draft.
+2. Review the plan and choose Cursor's native **Implement Plan** action. That action is the human approval of the immutable `wp-*` root and finishes with `delivery-evidence`.
+3. Select Cursor Ask Mode and run `/review-work [<wp-id>]`. In a fresh task, attach the root plan and latest evidence. Ask may use any capabilities available in that mode to compare the cumulative delivery with the root intent.
+4. If the review recommends `correct`, inspect its embedded `cp-*`, switch the same task to Agent Mode, and run `/correct-work`. Invocation approves the newest unique actionable correction.
+5. Return to Ask Mode and run `/review-work` again. Repeat or stop under human control.
 
-1. Run `/compile-handoff` in Plan Mode to produce a durable Cursor plan artifact.
-2. For medium- and high-risk work, the `handoff-readiness-reviewer` checks the packet before implementation.
-3. Run `/execute-handoff` with the implementation model.
-4. Run `/review-delivery` when risk, uncertainty, or incomplete validation justifies review.
-5. In Ask Mode, the selected main model performs the delivery review directly. In a mode that can edit files, review is delegated to the readonly `delivery-reviewer`.
-6. If review emits an explicitly linked `Recommended next handoff`, run `/execute-handoff` again.
+See [the complete workflow example](docs/usage-example.md).
 
-## Handoff Packet
+### Cursor mode boundary
 
-Every handoff plan artifact uses this packet as its body:
+[Cursor Commands](https://docs.cursor.com/en/agent/chat/commands) do not bind a mode declaratively. Select Plan, Ask, or Agent before invoking the corresponding command. Runtime prompts describe Workflow outcomes and authorization boundaries but do not redefine the capabilities of those modes.
 
-1. `Handoff metadata`
-2. `Intent and acceptance criteria`
-3. `Scope boundaries and non-goals`
-4. `Repository evidence`
-5. `Target files and symbols`
-6. `Reference patterns`
-7. `Executable agent plan`
-8. `Verification matrix`
-9. `Risk and deviation policy`
-10. `Escalate instead of guessing when`
-11. `Delivery evidence requirements`
-12. `Open questions`
+## Artifact protocol
 
-The canonical definition lives in `rules/handoff-quality.mdc`. The packet establishes a complete execution contract:
+The unpublished schema 2 supports:
 
-- Metadata identifies the handoff, source, status, predecessor when applicable, planning baseline, and risk level.
-- Acceptance criteria use observable IDs such as `AC-1`; steps and checks name the criteria they cover.
-- Repository evidence distinguishes confirmed facts from assumptions.
-- Target files separate required, permitted, incidental, and prohibited changes.
-- Every verification entry names its working directory, exact command or inspection, expected result, required status, and acceptance criteria.
-- The risk policy controls when an executor may continue, must ask, or must stop.
-- The executor ends with delivery summary, verification evidence, deviation log, residual risks, and review recommendation.
+- `work-plan` (`wp-*`): immutable root intent, scope, checks, and assurance.
+- `delivery-evidence` (`de-*`): full initial evidence or a compact correction delta.
+- `work-review` (`wr-*`): cumulative assessment against the root and optional embedded correction.
+- embedded correction (`cp-*`): Findings-backed in-scope work approved through `/correct-work`.
 
-`Open questions` is only for non-blocking follow-ups. Anything that could change intent, scope, targets, exact edits, verification, risk, or stop conditions must be resolved before the handoff is emitted.
+IDs use a stable type-prefixed slug; timestamps are optional and topology follows explicit predecessor links. Constraints are copied directly into the root plan. Resume is reconstructed from repository state, Completion Probes, and the latest effective evidence.
 
-## Deviation Policy
+Validation is syntactically tolerant and semantically strict. Additional metadata, heading aliases, reordered content, and derived values do not block the flow. Ambiguous roots/tips, unsafe reuse, missing decision evidence, scope/risk expansion, or absent human approval do.
 
-- `low`: explicitly permitted mechanical deviations may proceed and must be logged.
-- `medium`: only explicitly permitted minor deviations may proceed; material changes require approval before editing.
-- `high`: every deviation requires approval before editing.
-- Architecture, public API, data, migration, authentication, security, dependency, destructive, and required-verification changes always stop for a tightened handoff.
+Risk describes possible harm; assurance describes justified proof effort. Lean/standard begins economically and escalates on evidence. Equivalent Checks and change-impact reuse are allowed when evidence strength is preserved. Named auditors help but are not formal success tokens.
 
 ## Components
 
-- **Commands**: `/compile-handoff`, `/execute-handoff`, `/review-delivery`.
-- **Skills**: `handoff-plan-compiler`, `handoff-executor`, `delivery-review`.
-- **Agents**: `handoff-readiness-reviewer` and `delivery-reviewer`, both readonly and configured to inherit the active model.
-- **Rule**: `handoff-quality`, the canonical packet and quality contract.
-- **Validator**: `scripts/validate-plugin.mjs`, which checks plugin structure and packet consistency.
+- **Commands**: `/plan-work`, `/review-work`, `/correct-work`
+- **Skills**: `work-planning`, `work-review`, `work-execution`
+- **Agents**: `work-plan-auditor`, `delivery-auditor`, `risk-auditor`
+- **Rules, hooks, bundled MCP servers**: none
 
-## Validation
-
-Run the following before publishing or reloading the local plugin:
+## Development
 
 ```bash
-node scripts/validate-plugin.mjs
-git diff --check
+npm ci
+npm run build:runtime-validator
+npm test
+npm run release-check
 ```
 
-The validator checks the manifest, logo, expected plugin files, frontmatter, reviewer configuration, packet-section order, and required execution language.
+Use the ignored `.tests/` directory for local development and scratch tests. Functional Cursor tests use `cursor-agent` exclusively with `/private/tmp/cursor-plugin-harness`; see [the release checklist](docs/release-checklist.md). Existing harness changes must remain byte-identical.

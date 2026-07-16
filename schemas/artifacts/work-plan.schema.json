@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:geldmacher:cursor-artifact:work-plan:2",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["artifact", "schema", "id", "status", "intent_ready", "runtime_relevant", "risk", "assurance_profile"],
+  "properties": {
+    "artifact": { "const": "work-plan" },
+    "schema": { "const": 2 },
+    "id": { "type": "string", "pattern": "^wp-[A-Za-z0-9][A-Za-z0-9-]*$" },
+    "status": { "enum": ["ready", "blocked"] },
+    "created_at": { "type": "string", "format": "date-time" },
+    "source": { "type": "string", "minLength": 1 },
+    "intent_ready": { "type": "boolean" },
+    "decision_boundary": { "const": "repository-delivery" },
+    "runtime_relevant": { "type": "boolean" },
+    "risk": { "enum": ["low", "medium", "high"] },
+    "assurance_score": { "type": "integer", "minimum": 0, "maximum": 10 },
+    "assurance_profile": { "enum": ["lean", "standard", "deep"] },
+    "assurance_override": { "enum": ["none", "raised", "lowered"] },
+    "assurance_override_decision_id": { "type": ["string", "null"], "pattern": "^DEC-[1-9][0-9]*$" },
+    "hard_triggers": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "security-secrets",
+          "destructive-data",
+          "regulated-or-monetary",
+          "breaking-external-contract",
+          "irreversible-external-effect",
+          "no-recovery-path",
+          "broad-runtime-impact",
+          "material-uncertainty"
+        ]
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "ready" } } },
+      "then": { "properties": { "intent_ready": { "const": true } } }
+    },
+    {
+      "if": { "properties": { "assurance_override": { "const": "lowered" } }, "required": ["assurance_override"] },
+      "then": { "required": ["assurance_override_decision_id"], "properties": { "assurance_override_decision_id": { "type": "string" } } }
+    }
+  ],
+  "x-required-sections": ["Intent and decisions", "Objectives", "Evidence and baseline", "Scope and targets", "Execution steps", "Verification", "Operational readiness", "Risk and closeout"]
+}

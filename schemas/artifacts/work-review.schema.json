@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:geldmacher:cursor-artifact:work-review:2",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "artifact", "schema", "id", "root_plan_id", "latest_evidence_id", "assessment", "next_action",
+    "inspected_objectives", "reused_objectives", "inspected_checks", "reused_checks"
+  ],
+  "properties": {
+    "artifact": { "const": "work-review" },
+    "schema": { "const": 2 },
+    "id": { "type": "string", "pattern": "^wr-[A-Za-z0-9][A-Za-z0-9-]*$" },
+    "status": { "enum": ["complete"] },
+    "created_at": { "type": "string", "format": "date-time" },
+    "source": { "type": "string", "minLength": 1 },
+    "root_plan_id": { "type": "string", "pattern": "^wp-[A-Za-z0-9][A-Za-z0-9-]*$" },
+    "latest_evidence_id": { "type": "string", "pattern": "^de-[A-Za-z0-9][A-Za-z0-9-]*$" },
+    "assessment": { "enum": ["achieved", "mostly-achieved", "partially-achieved", "not-achieved", "insufficient-evidence"] },
+    "review_route": { "enum": ["inline", "targeted", "full"] },
+    "next_action": { "enum": ["none", "correct", "clarify", "replan", "retry-review"] },
+    "correction_id": { "type": ["string", "null"], "pattern": "^cp-[A-Za-z0-9][A-Za-z0-9-]*$" },
+    "predecessor_review_id": { "type": ["string", "null"], "pattern": "^wr-[A-Za-z0-9][A-Za-z0-9-]*$" },
+    "inspected_objectives": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^OBJ-[1-9][0-9]*$" } },
+    "reused_objectives": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^OBJ-[1-9][0-9]*$" } },
+    "inspected_checks": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^CHECK-[1-9][0-9]*$" } },
+    "reused_checks": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^CHECK-[1-9][0-9]*$" } },
+    "auditors_run": { "type": "array", "uniqueItems": true, "items": { "enum": ["inline", "delivery-auditor", "risk-auditor"] } }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "assessment": { "const": "achieved" } }, "required": ["assessment"] },
+      "then": { "properties": { "next_action": { "const": "none" } } }
+    }
+  ],
+  "x-required-sections": ["Assessment", "Next action"]
+}
