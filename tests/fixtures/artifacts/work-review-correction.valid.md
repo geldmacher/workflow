@@ -1,6 +1,6 @@
 ---
 artifact: work-review
-schema: 2
+schema: 3
 id: wr-20260712T150506Z-retry-gap-review
 status: complete
 root_plan_id: wp-20260712T150503Z-configurable-retry-multiplier
@@ -8,6 +8,7 @@ latest_evidence_id: de-20260712T150505Z-initial-retry-delivery
 assessment: mostly-achieved
 review_route: targeted
 next_action: correct
+correction_id: cp-20260712T150506Z-complete-whitespace-case
 predecessor_review_id: null
 inspected_objectives: [OBJ-1, OBJ-2]
 reused_objectives: []

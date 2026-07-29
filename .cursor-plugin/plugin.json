@@ -1,8 +1,8 @@
 {
   "name": "geldmacher-workflow",
   "displayName": "Workflow",
-  "description": "Human-governed Cursor workflow with intent-ready plans, progressive evidence, bounded correction loops, and optional learning closeout.",
-  "version": "2.1.0",
+  "description": "Cursor-native software factory with manual, auto-gated, and fail-closed unattended-eligible workflows.",
+  "version": "3.0.0",
   "author": {
     "name": "Dennis Geldmacher",
     "email": "geldmacher.dennis@outlook.de"
@@ -25,7 +25,10 @@
     "progressive-evidence",
     "tolerant-validation",
     "economic-efficiency",
-    "workflow-learning"
+    "workflow-learning",
+    "software-factory",
+    "model-routing",
+    "auto-gated"
   ],
   "tags": [
     "planning",
@@ -36,7 +39,11 @@
     "human-governance",
     "adaptive-assurance",
     "progressive-evidence",
-    "learning-closeout"
+    "learning-closeout",
+    "software-factory",
+    "model-attestation",
+    "unattended-eligible"
   ],
-  "logo": "assets/logo.svg"
+  "logo": "assets/logo.svg",
+  "mcpServers": "mcp.json"
 }

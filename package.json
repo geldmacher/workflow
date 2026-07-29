@@ -1,8 +1,8 @@
 {
   "name": "geldmacher-workflow-plugin-development",
-  "version": "2.1.0",
+  "version": "3.0.0",
   "private": true,
-  "description": "Development validation for the tolerant, adaptive-assurance Geldmacher Workflow Cursor plugin with learning closeout.",
+  "description": "Development and controller validation for the Cursor-native Geldmacher Workflow software factory.",
   "engines": {
     "node": ">=22"
   },
@@ -10,10 +10,16 @@
     "validate": "node scripts/validate-plugin.mjs",
     "test": "node --test",
     "context-budget": "node scripts/measure-context.mjs --check",
+    "context-baseline": "node scripts/measure-context.mjs --update-baseline",
     "link-check": "node scripts/check-markdown-links.mjs",
     "build:runtime-validator": "node scripts/build-runtime-validator.mjs",
     "check:runtime-validator": "node scripts/build-runtime-validator.mjs --check",
-    "release-check": "npm run check:runtime-validator && npm test && npm run context-budget && node scripts/validate-plugin.mjs --release && node scripts/check-markdown-links.mjs",
+    "build:controller": "node scripts/build-controller.mjs",
+    "check:controller": "node scripts/build-controller.mjs --check",
+    "provision:worker-runtime": "node scripts/provision-worker-runtime.mjs",
+    "capability-spike": "node scripts/capability-spike.mjs",
+    "capability-spike:crash": "node scripts/sdk-crash-probe.mjs",
+    "release-check": "npm run check:runtime-validator && npm run check:controller && npm test && npm run context-budget && node scripts/validate-plugin.mjs --release && node scripts/check-markdown-links.mjs",
     "validate-artifact": "node scripts/validate-artifact.mjs"
   },
   "devDependencies": {
@@ -21,5 +27,10 @@
     "ajv-formats": "^3.0.1",
     "esbuild": "^0.25.12",
     "yaml": "^2.8.1"
+  },
+  "dependencies": {
+    "@cursor/sdk": "1.0.24",
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "zod": "4.4.3"
   }
 }

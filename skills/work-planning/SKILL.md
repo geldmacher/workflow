@@ -1,24 +1,22 @@
 ---
 name: work-planning
-description: Create an intent-ready native root plan with economically adaptive assurance.
+description: Create an intent-ready Workflow root.
 ---
 
-Intended for Cursor Plan Mode; Cursor determines capabilities.
+Use Cursor Plan Mode; Cursor determines capabilities.
 
 ## Intent Interview
 
-Investigate only enough repository truth to separate facts from human decisions. Use Intent Readiness, not broad brainstorming. If a decision materially changes outcome, scope, public behavior, data/security, risk, or acceptance, use the ask question tool directly before planning. Ask at most three related decision questions with concrete options, effects, and a reasoned recommendation.
+Investigate only enough repository truth to distinguish facts from human decisions. Use Intent Readiness, not broad brainstorming. If a choice materially changes outcome, scope, public behavior, data/security, risk, or acceptance, invoke the ask question tool before planning. Ask at most three related questions with concrete options, effects, and a recommendation.
 
-Never search repository/plugin text, docs, or MCP catalogs to discover the tool or probe it. Before the answer, do not load detailed planning contracts, schemas, fixtures, example plans, or assurance boilerplate. Wait for the human answer; only decision-independent fact-finding may continue.
-
-Only when Cursor does not expose the tool or rejects its invocation, use a compact blocking prose fallback with the same choices. Emit no plan or plan draft until the answer arrives. A clear goal proceeds without an interview.
+Never search repository/plugin text, docs, or MCP catalogs to discover or probe that tool. Before the answer, do not load detailed planning contracts, schemas, fixtures, example plans, or assurance boilerplate. Wait for the human answer; only decision-independent fact-finding may continue. If Cursor does not expose the tool or rejects it, ask one compact blocking prose question with the same choices. Emit no plan or draft before the answer. Clear intent proceeds without an interview.
 
 ## Root Planning
 
-After all material decisions are answered—or none exist—read [protocol](../../references/artifact-protocol.md), [plan](../../references/executable-contract.md), and [native output](../../references/plan-container-contract.md) completely. Record each human answer as the source of a `DEC-*`. Only a plan whose Material open decisions resolve to none may be `ready` with `intent_ready: true`.
+Once no material decision remains, read [root semantics](../../references/executable-contract.md) and [native output](../../references/plan-container-contract.md) completely. Read [design depth](../../references/design-contract.md) only for `compact` or `full`. Record every human answer as a `DEC-*` source.
 
-Produce one immutable native schema-2 root. Every OBJ maps to a STEP/PROBE and required CHECK with prerequisites. Score assurance, enforce hard triggers and human-only lowering. Pareto rows are needed only for expensive/deferred controls or triggers; trivial Lean work may omit DEC, incidental scope, and controls.
+Schema-2 or mixed input requires replanning, never conversion.
 
-Before calling `CreatePlan`, self-check all eight Root Planning areas: Intent and decisions, Objectives, Evidence and baseline, Scope and targets, Execution steps, Verification, Operational readiness, and Risk and closeout. Repair omissions. Emit `yaml artifact-envelope` and the contract's canonical semantic tables even for Lean work; do not replace them with bullets or reduced ID/description tables. Mark non-runtime operations not applicable.
+Construct one immutable schema-3 root. Before `CreatePlan`, self-check all eight Root Planning areas: Intent and decisions, Objectives, Evidence and baseline, Scope and targets, Execution steps, Verification, Operational readiness, and Risk and closeout. Repair omissions and use the contracts' canonical envelope and tables.
 
-Keep steps outcome-oriented with implementation latitude and order Checks economically. Runtime work includes repository-verifiable signal/failure/recovery. The last native todo verifies and returns full evidence. Native **Implement Plan** alone approves initial execution; publishing and production remain out of boundary.
+Do not invent `extensions`; preserve existing values as opaque audit metadata without interpreting, quoting, summarizing, explaining, or passing their contents onward. Keep steps outcome-oriented and Checks economic. Slice size is only a heuristic. Auto-capable roots require complete frozen bounds; manual roots omit them. Native **Implement Plan** remains the sole approval for initial manual execution, and delivery stops at the repository boundary.

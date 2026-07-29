@@ -1,0 +1,30 @@
+{
+  "measurement_version": 2,
+  "flow_matrix_hash": "d56079f335bc87d87bb58d34488ff08fbda58967d0d6019ba5d2aea958e34227",
+  "always_on_tokens": 0,
+  "discoverability_tokens": 326,
+  "phase_flows": {
+    "plan_intake": 648,
+    "plan_oneshot": 1863,
+    "plan_compact_full": 2252,
+    "review_base": 1989,
+    "review_correction": 2461,
+    "correction": 2000,
+    "learning": 1809,
+    "explanation": 1157
+  },
+  "automation_flows": {
+    "prepare_or_approve": 1214,
+    "status": 909,
+    "watch": 890,
+    "control": 1499,
+    "models": 853
+  },
+  "reviewer_tokens": {
+    "delivery-auditor": 491,
+    "risk-auditor": 384,
+    "work-design-auditor": 180,
+    "work-explainer": 200,
+    "work-plan-auditor": 469
+  }
+}

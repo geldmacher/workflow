@@ -3770,6 +3770,7 @@ var require_fast_uri = __commonJS({
       return uriTokens.join("");
     }
     var URI_PARSE = /^(?:([^#/:?]+):)?(?:\/\/((?:([^#/?@]*)@)?(\[[^#/?\]]+\]|[^#/:?]*)(?::(\d*))?))?([^#?]*)(?:\?([^#]*))?(?:#((?:.|[\n\r])*))?/u;
+    var AUTHORITY_PREFIX = /^(?:[^#/:?]+:)?\/\/([^/?#]*)/;
     function getParseError(parsed, matches) {
       if (matches[2] !== void 0 && parsed.path && parsed.path[0] !== "/") {
         return 'URI path must start with "/" when authority is present.';
@@ -3798,6 +3799,11 @@ var require_fast_uri = __commonJS({
         } else {
           uri = "//" + uri;
         }
+      }
+      const authorityMatch = uri.match(AUTHORITY_PREFIX);
+      if (authorityMatch !== null && authorityMatch[1].indexOf("\\") !== -1) {
+        parsed.error = "URI authority must not contain a literal backslash.";
+        malformedAuthorityOrPort = true;
       }
       const matches = uri.match(URI_PARSE);
       if (matches) {
@@ -14222,7 +14228,8 @@ var import_ajv = __toESM(require_ajv(), 1);
 var import_ajv_formats = __toESM(require_dist(), 1);
 var import_yaml = __toESM(require_dist2(), 1);
 import { existsSync, readFileSync, realpathSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { createHash } from "node:crypto";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 var scriptDirectory = dirname(fileURLToPath(import.meta.url));
 var defaultRoot = dirname(scriptDirectory);
@@ -14246,6 +14253,7 @@ var hardTriggers = /* @__PURE__ */ new Set([
 var objectivePattern = /\bOBJ-[1-9][0-9]*\b/g;
 var fixPattern = /\bFIX-[1-9][0-9]*\b/g;
 var checkPattern = /\bCHECK-[1-9][0-9]*\b/g;
+var slicePattern = /\bSLICE-[1-9][0-9]*\b/g;
 var learningPattern = /\bLRN-[A-Za-z0-9][A-Za-z0-9-]*\b/g;
 var requiredScopeCategories = ["required", "permitted", "prohibited"];
 var baselineKinds = ["repository", "head", "dirty-files", "known-failures", "targets-and-prerequisites"];
@@ -14283,6 +14291,7 @@ var headerAliases = Object.freeze({
   "command or inspection": ["command", "inspection", "command or inspection", "execution"],
   "working directory": ["working directory", "cwd"],
   "cost class": ["cost", "cost class"],
+  "evidence class": ["evidence class", "verification owner", "evidence owner"],
   prerequisites: ["prerequisite", "prerequisites", "dependencies"],
   "prerequisite fingerprints": ["prerequisite fingerprints", "dependency fingerprints", "reuse evidence"],
   "relevant fingerprints": ["relevant fingerprints", "dependency fingerprints", "reuse evidence"],
@@ -14298,6 +14307,11 @@ var tables = Object.freeze({
   scope: ["Category", "Targets", "Boundary"],
   steps: ["Step ID", "Objectives", "Targets", "Required outcome", "Implementation latitude", "Completion probe", "Check IDs", "Deviation action"],
   verification: ["Check ID", "Objectives", "Working Directory", "Command or Inspection", "Expected Result", "Required", "Cost Class", "Prerequisites"],
+  verificationWithClass: ["Check ID", "Objectives", "Working Directory", "Command or Inspection", "Expected Result", "Required", "Evidence Class", "Cost Class", "Prerequisites"],
+  productRequirements: ["Requirement ID", "Need", "Actor", "Observable outcome", "Non-goal or constraint"],
+  systemImpact: ["Surface", "Current state", "Required change", "Invariant", "Evidence"],
+  programDesign: ["Design ID", "Responsibility", "Interfaces", "Invariants", "Failure handling"],
+  slices: ["Slice ID", "Objectives", "Dependencies", "Targets", "Observable outcome", "Check IDs", "Human review"],
   operational: ["Concern", "Requirement", "Repository proof"],
   assuranceFactors: ["Factor", "Score", "Evidence"],
   controls: ["Control ID", "Control", "Objective or failure mode", "Expected benefit", "Cost class", "Decision", "Rationale"],
@@ -14347,24 +14361,13 @@ function ids(value, pattern) {
 function sameSet(left, right) {
   return left.size === right.size && [...left].every((value) => right.has(value));
 }
-function normalizeDerivedFields(parsed) {
-  const { fields, normalizations } = parsed;
-  if (fields.artifact === "work-plan") {
-    if (!Array.isArray(fields.hard_triggers)) {
-      fields.hard_triggers = [];
-      normalizations.push("hard_triggers defaulted to empty");
-    }
-    if (!fields.assurance_override) {
-      fields.assurance_override = "none";
-      normalizations.push("assurance_override defaulted to none");
-    }
-    if (!("assurance_override_decision_id" in fields)) fields.assurance_override_decision_id = null;
-  }
-  if (fields.artifact === "work-review") {
-    if (!fields.status) fields.status = "complete";
-    if (!Array.isArray(fields.auditors_run)) fields.auditors_run = [];
-    if (!fields.review_route) fields.review_route = fields.auditors_run.includes("risk-auditor") ? "full" : fields.auditors_run.includes("delivery-auditor") ? "targeted" : "inline";
-  }
+function stableValue(value) {
+  if (Array.isArray(value)) return value.map(stableValue);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stableValue(value[key])]));
+}
+function sha256(value) {
+  return createHash("sha256").update(String(value)).digest("hex");
 }
 function yamlObject(source, label, failures) {
   const document = (0, import_yaml.parseDocument)(source, { prettyErrors: false, uniqueKeys: true });
@@ -14436,6 +14439,45 @@ function parseArtifact(text, failures = [], normalizations = []) {
   if (["name", "overview", "todos", "isProject"].some((field) => field in fields)) return parsePlanContainer(source.slice(match.index + match[0].length), fields, failures, normalizations);
   failures.push("artifact type is missing");
   return null;
+}
+function artifactYamlCandidate(text) {
+  const source = String(text);
+  const candidates = [];
+  const frontmatterExpression = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/gm;
+  for (const match of source.matchAll(frontmatterExpression)) {
+    const failures = [];
+    const fields = yamlObject(match[1], "frontmatter", failures);
+    if (failures.length === 0 && typeof fields?.artifact === "string") candidates.push({ match, yaml: match[1] });
+  }
+  const envelopeExpression = /```yaml(?: artifact-envelope)?\r?\n([\s\S]*?)\r?\n```(?:\r?\n|$)/g;
+  for (const match of source.matchAll(envelopeExpression)) {
+    const failures = [];
+    const fields = yamlObject(match[1], "artifact envelope", failures);
+    if (failures.length === 0 && typeof fields?.artifact === "string") candidates.push({ match, yaml: match[1] });
+  }
+  if (candidates.length !== 1) throw new Error(`artifact text requires exactly one Workflow YAML candidate; observed ${candidates.length}`);
+  const candidate = candidates[0];
+  const start = candidate.match.index + candidate.match[0].indexOf(candidate.yaml);
+  return { source, yaml: candidate.yaml, start, end: start + candidate.yaml.length };
+}
+function opaqueExtensionsFromArtifactText(text) {
+  const candidate = artifactYamlCandidate(text);
+  const document = (0, import_yaml.parseDocument)(candidate.yaml, { prettyErrors: false, uniqueKeys: true });
+  if (document.errors.length > 0) throw new Error(`invalid Workflow YAML: ${document.errors.map((error) => error.message).join("; ")}`);
+  const fields = document.toJS();
+  return Object.hasOwn(fields, "extensions") ? { present: true, value: structuredClone(fields.extensions) } : { present: false, value: null };
+}
+function replaceOpaqueExtensions(text, opaque = { present: false, value: null }) {
+  const candidate = artifactYamlCandidate(text);
+  const document = (0, import_yaml.parseDocument)(candidate.yaml, { prettyErrors: false, uniqueKeys: true });
+  if (document.errors.length > 0) throw new Error(`invalid Workflow YAML: ${document.errors.map((error) => error.message).join("; ")}`);
+  document.delete("extensions");
+  if (opaque.present === true) {
+    if (!opaque.value || typeof opaque.value !== "object" || Array.isArray(opaque.value)) throw new Error("opaque extensions must be an object");
+    document.set("extensions", structuredClone(opaque.value));
+  }
+  const yaml = document.toString({ lineWidth: 0 }).trimEnd();
+  return `${candidate.source.slice(0, candidate.start)}${yaml}${candidate.source.slice(candidate.end)}`;
 }
 function maskFences(text) {
   let fence = null;
@@ -14559,6 +14601,15 @@ function tableMatching(content, headers) {
 function tableRows(content, headers) {
   return tableMatching(content, headers)[0]?.rows ?? [];
 }
+function subsection(content, name) {
+  const structural = maskFences(content);
+  const matches = [...structural.matchAll(/^### ([^\r\n]+)$/gm)];
+  const index = matches.findIndex((match) => normalizedHeader(match[1]) === normalizedHeader(name));
+  if (index < 0) return "";
+  const start = matches[index].index + matches[index][0].length;
+  const end = matches[index + 1]?.index ?? content.length;
+  return content.slice(start, end).trim();
+}
 function noneLike(value) {
   return /^(?:none\.?|no (?:findings|changes|deviations|candidates|correction|open decisions)\.?)$/i.test(String(value).trim());
 }
@@ -14641,12 +14692,16 @@ function planData(artifact) {
   const checks = tableRows(artifact.sections.get("Verification") ?? "", tables.verification);
   const steps = tableRows(artifact.sections.get("Execution steps") ?? "", tables.steps);
   const scope = tableRows(artifact.sections.get("Scope and targets") ?? "", tables.scope);
+  const verificationWithClass = tableRows(artifact.sections.get("Verification") ?? "", tables.verificationWithClass);
+  const slices = tableRows(subsection(artifact.sections.get("Execution steps") ?? "", "Vertical slices"), tables.slices);
   const objectiveDependencies = new Map(objectives.map((row) => [row["Objective ID"], /* @__PURE__ */ new Set()]));
   for (const check of checks) for (const objective of ids(check.Objectives, objectivePattern)) for (const target of targetTokens(check.Prerequisites)) objectiveDependencies.get(objective)?.add(target);
   return {
     objectives: new Set(objectives.map((row) => row["Objective ID"])),
     checks: new Set(checks.map((row) => row["Check ID"])),
     checkRows: new Map(checks.map((row) => [row["Check ID"], row])),
+    evidenceClasses: new Map(verificationWithClass.map((row) => [row["Check ID"], row["Evidence Class"]])),
+    slices,
     steps: new Set(steps.map((row) => row["Step ID"])),
     requiredChecks: new Set(checks.filter((row) => row.Required === "yes").map((row) => row["Check ID"])),
     allowedTargets: scope.filter((row) => ["required", "permitted", "incidental"].includes(row.Category)).flatMap((row) => targetTokens(row.Targets)),
@@ -14714,6 +14769,8 @@ function validatePlan(parsed, sections, failures) {
   }
   if (!sameSet(coveredObjectives, objectiveIds)) failures.push("Execution steps must cover every objective");
   const checks = requireTable(sections, "Verification", tables.verification, failures, options);
+  const classifiedChecks = tableRows(sections.get("Verification") ?? "", tables.verificationWithClass);
+  const classifications = new Map(classifiedChecks.map((row) => [row["Check ID"], row["Evidence Class"]]));
   const checkIds = exactIdSet(checks.rows, "Check ID", /CHECK-[1-9][0-9]*/, "Verification", failures);
   for (const row of checks.rows) {
     const covered = ids(row.Objectives, objectivePattern);
@@ -14724,11 +14781,49 @@ function validatePlan(parsed, sections, failures) {
     if (!/^(?:yes|no)$/.test(row.Required)) failures.push(`Verification: ${row["Check ID"]} Required must be yes|no`);
     if (!/^(?:cheap|standard|expensive)$/.test(row["Cost Class"])) failures.push(`Verification: ${row["Check ID"]} invalid Cost Class`);
     if (targetTokens(row.Prerequisites).length === 0) failures.push(`Verification: ${row["Check ID"]} needs concrete Prerequisites`);
+    const evidenceClass = classifications.get(row["Check ID"]);
+    if (!evidenceClass) failures.push(`Verification: ${row["Check ID"]} needs Evidence Class`);
+    if (evidenceClass && !/^(?:machine-verifiable|human-review-required|human-approval-required)$/.test(evidenceClass)) failures.push(`Verification: ${row["Check ID"]} invalid Evidence Class`);
   }
   validateCostOrder(checks.rows, "Cost Class", "Verification", parsed);
   for (const check of referencedChecks) if (!checkIds.has(check)) failures.push(`Execution steps reference unknown ${check}`);
   for (const objective of objectiveIds) if (!checks.rows.some((row) => ids(row.Objectives, objectivePattern).includes(objective))) failures.push(`${objective} has no verification Check`);
   for (const objective of objectiveIds) if (!checks.rows.some((row) => row.Required === "yes" && ids(row.Objectives, objectivePattern).includes(objective))) failures.push(`${objective} has no required verification Check`);
+  const intentContent = sections.get("Intent and decisions") ?? "";
+  const scopeContent = sections.get("Scope and targets") ?? "";
+  const executionContent = sections.get("Execution steps") ?? "";
+  const productRequirements = tableRows(subsection(intentContent, "Product requirements"), tables.productRequirements);
+  const systemImpact = tableRows(subsection(scopeContent, "System architecture"), tables.systemImpact);
+  const programDesign = tableRows(subsection(scopeContent, "Program design"), tables.programDesign);
+  const slices = tableRows(subsection(executionContent, "Vertical slices"), tables.slices);
+  if (["compact", "full"].includes(parsed.fields.design_depth)) {
+    if (systemImpact.length === 0) failures.push(`${parsed.fields.design_depth} design requires a System architecture table`);
+    if (slices.length === 0) failures.push(`${parsed.fields.design_depth} design requires a Vertical slices table`);
+  }
+  if (parsed.fields.design_depth === "full") {
+    if (productRequirements.length === 0) failures.push("full design requires a Product requirements table");
+    if (programDesign.length === 0) failures.push("full design requires a Program design table");
+  }
+  const sliceIds = exactIdSet(slices, "Slice ID", /SLICE-[1-9][0-9]*/, "Vertical slices", failures);
+  for (const row of slices) {
+    const sliceObjectives = ids(row.Objectives, objectivePattern);
+    if (sliceObjectives.length === 0) failures.push(`Vertical slices: ${row["Slice ID"]} has no objective`);
+    for (const objective of sliceObjectives) if (!objectiveIds.has(objective)) failures.push(`Vertical slices: ${row["Slice ID"]} references unknown ${objective}`);
+    for (const dependency of ids(row.Dependencies, slicePattern)) if (!sliceIds.has(dependency)) failures.push(`Vertical slices: ${row["Slice ID"]} references unknown ${dependency}`);
+    const sliceChecks = ids(row["Check IDs"], checkPattern);
+    if (sliceChecks.length === 0) failures.push(`Vertical slices: ${row["Slice ID"]} has no Check ID`);
+    for (const check of sliceChecks) if (!checkIds.has(check)) failures.push(`Vertical slices: ${row["Slice ID"]} references unknown ${check}`);
+    if (!/^(?:yes|no)$/.test(row["Human review"])) failures.push(`Vertical slices: ${row["Slice ID"]} Human review must be yes|no`);
+  }
+  if (parsed.fields.automation_profile_max !== "manual") {
+    const bounds = parsed.fields.automation_bounds;
+    if (!bounds) failures.push(`${parsed.fields.automation_profile_max} plan requires automation_bounds`);
+    else {
+      const scopedTargets = scope.rows.filter((row) => ["required", "permitted"].includes(row.Category)).flatMap((row) => targetTokens(row.Targets));
+      for (const target of bounds.allowed_targets ?? []) if (!scopedTargets.some((scopeTarget) => targetMatches(target, scopeTarget))) failures.push(`automation_bounds target ${target} is outside required/permitted scope`);
+      if ((riskRank[bounds.max_risk] ?? 0) > (riskRank[parsed.fields.risk] ?? 0)) failures.push("automation_bounds max_risk cannot exceed root risk");
+    }
+  }
   const operational = requireTable(sections, "Operational readiness", tables.operational, failures, options);
   const concerns = new Set(operational.rows.map((row) => row.Concern));
   const notApplicable = concerns.has("Not applicable");
@@ -14751,10 +14846,7 @@ function validatePlan(parsed, sections, failures) {
     if (!Number.isInteger(value) || value < minimum || value > maximum) failures.push(`Assurance factor ${factor} Score must be an integer ${minimum}..${maximum}`);
     else score += value;
   }
-  if (score !== parsed.fields.assurance_score) {
-    parsed.fields.assurance_score = score;
-    parsed.normalizations.push(`assurance_score computed as ${score}`);
-  }
+  if (score !== parsed.fields.assurance_score) failures.push(`assurance_score must equal computed score ${score}`);
   const triggers = parsed.fields.hard_triggers ?? [];
   for (const trigger of triggers) if (!hardTriggers.has(trigger)) failures.push(`unknown hard trigger ${trigger}`);
   const derived = derivedAssurance(score, triggers);
@@ -14849,7 +14941,7 @@ function validateEvidence(parsed, sections, failures) {
   if (operationalEvidence && !/^not applicable\.?$/i.test(operationalEvidence)) requireTable(sections, "Operational evidence", tables.operationalEvidence, failures);
   if (/production (?:is|was) (?:healthy|successful|verified)/i.test(operationalEvidence)) failures.push("repository evidence must not claim observed production success");
 }
-function parseCorrection(parsed, sections, failures, diagnostics) {
+function parseCorrection(parsed, sections, failures) {
   const content = sections.get("Correction plan") ?? "";
   if (parsed.fields.next_action !== "correct") {
     if (content.trim() && !noneLike(content)) failures.push("Correction plan is allowed only when next_action is correct");
@@ -14858,8 +14950,7 @@ function parseCorrection(parsed, sections, failures, diagnostics) {
   const headings = [...maskFences(content).matchAll(/^### (cp-[^\r\n]+)$/gm)].map((match) => match[1]);
   if (headings.length !== 1) failures.push("correct review must embed exactly one cp-* correction as an H3");
   if (headings.length === 1) {
-    if (parsed.fields.correction_id && parsed.fields.correction_id !== headings[0]) failures.push("embedded correction ID conflicts with frontmatter");
-    parsed.fields.correction_id = headings[0];
+    if (parsed.fields.correction_id !== headings[0]) failures.push("embedded correction ID conflicts with frontmatter");
   }
   const pseudo = /* @__PURE__ */ new Map([["Correction plan", content]]);
   const metadata = requireTable(pseudo, "Correction plan", tables.correctionMeta, failures, { normalizations: parsed.normalizations });
@@ -14870,19 +14961,13 @@ function parseCorrection(parsed, sections, failures, diagnostics) {
   if (steps.rows.length === 0) failures.push("Correction plan requires a step table");
   if (checks.rows.length === 0) failures.push("Correction plan requires a Check table");
   const declaredLearnings = Array.isArray(parsed.fields.learning_candidates) ? parsed.fields.learning_candidates : [];
-  const learningMatches = tableMatching(content, tables.learningCandidates);
-  let learnings = { rows: [] };
-  if (declaredLearnings.length === 0 && learningMatches.length === 0) {
-    diagnostics.push("legacy correction has no learning candidates");
-  } else {
-    const pseudoLearning = /* @__PURE__ */ new Map([["Correction plan", content]]);
-    learnings = requireTable(pseudoLearning, "Correction plan", tables.learningCandidates, failures, { normalizations: parsed.normalizations });
-    const learningIds = exactIdSet(learnings.rows, "Learning ID", learningPattern, "Correction learning", failures);
-    if (!sameSet(learningIds, new Set(declaredLearnings))) failures.push("Correction learning table must exactly match learning_candidates");
-    for (const row of learnings.rows) {
-      const keys = String(row["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean);
-      if (keys.length === 0 || keys.some((key) => !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(key))) failures.push(`Learning ${row["Learning ID"]} needs valid source Finding keys`);
-    }
+  const pseudoLearning = /* @__PURE__ */ new Map([["Correction plan", content]]);
+  const learnings = requireTable(pseudoLearning, "Correction plan", tables.learningCandidates, failures, { normalizations: parsed.normalizations });
+  const learningIds = exactIdSet(learnings.rows, "Learning ID", learningPattern, "Correction learning", failures);
+  if (!sameSet(learningIds, new Set(declaredLearnings))) failures.push("Correction learning table must exactly match learning_candidates");
+  for (const row of learnings.rows) {
+    const keys = String(row["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean);
+    if (keys.length === 0 || keys.some((key) => !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(key))) failures.push(`Learning ${row["Learning ID"]} needs valid source Finding keys`);
   }
   const fixIds = exactIdSet(fixes.rows, "FIX ID", /FIX-[1-9][0-9]*/, "Correction FIX", failures);
   exactIdSet(steps.rows, "Step ID", /STEP-[1-9][0-9]*/, "Correction steps", failures);
@@ -14913,7 +14998,7 @@ function parseCorrection(parsed, sections, failures, diagnostics) {
   validateCostOrder(checks.rows, "Cost Class", "Correction checks", parsed);
   return { id: headings[0], metadata: metadata.rows[0], fixes: fixes.rows, steps: steps.rows, checks: checks.rows, learnings: learnings.rows };
 }
-function validateCompactReview(parsed, sections, failures, diagnostics) {
+function validateCompactReview(parsed, sections, failures) {
   const options = { normalizations: parsed.normalizations };
   const assessment = sections.get("Assessment") ?? "";
   if (!assessment.toLowerCase().includes(String(parsed.fields.assessment).toLowerCase())) failures.push("Assessment section must state frontmatter assessment");
@@ -14961,10 +15046,7 @@ function validateCompactReview(parsed, sections, failures, diagnostics) {
   if (coverage.rows.length > 0 && !sameSet(visibleAuditors, actualAuditors)) parsed.normalizations.push("Evidence coverage: auditor summary derived from frontmatter");
   const routeRank = { inline: 1, targeted: 2, full: 3 };
   let minimumRoute = actualAuditors.has("risk-auditor") || findings.rows.some((row) => /^(?:high|critical)$/.test(row.Severity)) ? "full" : actualAuditors.has("delivery-auditor") ? "targeted" : "inline";
-  if (routeRank[parsed.fields.review_route] < routeRank[minimumRoute]) {
-    parsed.fields.review_route = minimumRoute;
-    parsed.normalizations.push(`review_route raised to computed minimum ${minimumRoute}`);
-  }
+  if (routeRank[parsed.fields.review_route] < routeRank[minimumRoute]) failures.push(`review_route must be at least computed minimum ${minimumRoute}`);
   const routeAuditors = parsed.fields.review_route === "inline" ? ["inline"] : parsed.fields.review_route === "targeted" ? ["inline", "delivery-auditor"] : ["inline", "delivery-auditor", "risk-auditor"];
   const missingAuditors = routeAuditors.filter((auditor) => !actualAuditors.has(auditor));
   const next = sections.get("Next action") ?? "";
@@ -14979,7 +15061,7 @@ function validateCompactReview(parsed, sections, failures, diagnostics) {
   if (parsed.fields.next_action === "correct" && findings.rows.length === 0) failures.push("correct review requires findings");
   if (parsed.fields.next_action !== "correct" && Array.isArray(parsed.fields.learning_candidates)) failures.push("learning_candidates are allowed only when next_action is correct");
   if (parsed.fields.next_action === "retry-review" && parsed.fields.assessment !== "insufficient-evidence") failures.push("retry-review requires assessment insufficient-evidence");
-  const correction = parseCorrection(parsed, sections, failures, diagnostics);
+  const correction = parseCorrection(parsed, sections, failures);
   if (correction) {
     for (const fix of correction.fixes) {
       const referenced = String(fix["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean);
@@ -15017,7 +15099,6 @@ function buildArtifact(text, root, options = {}) {
   const parsed = parseArtifact(text, failures, normalizations);
   if (!parsed) return { failures, diagnostics, normalizations, parsed: null };
   parsed.normalizations = normalizations;
-  normalizeDerivedFields(parsed);
   const path = schemaFor(root, parsed.fields.artifact);
   if (!existsSync(path)) return { failures: [`unsupported artifact type: ${parsed.fields.artifact}`], diagnostics, normalizations, parsed };
   const ajv = new import_ajv.default({ allErrors: true, strict: false });
@@ -15028,8 +15109,6 @@ function buildArtifact(text, root, options = {}) {
     if (!validateWrapper(parsed.wrapper)) failures.push(...validateWrapper.errors.map((error) => `Cursor wrapper ${formatAjv(error)}`));
   }
   const schema = JSON.parse(readFileSync(path, "utf8"));
-  const knownFields = new Set(Object.keys(schema.properties ?? {}));
-  for (const field of Object.keys(parsed.fields)) if (!knownFields.has(field)) diagnostics.push(`ignored additional metadata field ${field}`);
   const validate = ajv.compile(schema);
   if (!validate(parsed.fields)) failures.push(...validate.errors.map(formatAjv));
   const requiredSections = schema["x-required-sections"] ?? schema["x-markdown-sections"] ?? [];
@@ -15039,7 +15118,7 @@ function buildArtifact(text, root, options = {}) {
     rejectPlaceholders(parsed, schema, sections, failures);
     if (parsed.fields.artifact === "work-plan") validatePlan(parsed, sections, failures);
     if (parsed.fields.artifact === "delivery-evidence") validateEvidence(parsed, sections, failures);
-    if (parsed.fields.artifact === "work-review") parsed.correction = validateCompactReview(parsed, sections, failures, diagnostics);
+    if (parsed.fields.artifact === "work-review") parsed.correction = validateCompactReview(parsed, sections, failures);
   }
   return { failures: unique(failures), diagnostics: unique(diagnostics), normalizations: unique(normalizations), parsed };
 }
@@ -15054,6 +15133,45 @@ function inspectArtifactText(text, root = defaultRoot, options = {}) {
     normalizations: built.normalizations,
     effective: built.parsed?.effective ?? null,
     artifact: built.parsed ?? null
+  };
+}
+function authoritativeArtifactProjectionFromText(text, root = defaultRoot) {
+  const inspected = inspectArtifactText(text, root);
+  if (inspected.errors.length > 0 || !inspected.artifact?.fields?.artifact) {
+    return { errors: inspected.errors.length > 0 ? inspected.errors : ["input is not a Workflow artifact"] };
+  }
+  const artifact = inspected.artifact;
+  const schema = JSON.parse(readFileSync(schemaFor(root, artifact.fields.artifact), "utf8"));
+  const fields = Object.fromEntries(Object.keys(schema.properties ?? {}).filter((key) => key !== "extensions" && Object.hasOwn(artifact.fields, key)).map((key) => [key, structuredClone(artifact.fields[key])]));
+  const sections = (schema["x-required-sections"] ?? schema["x-markdown-sections"] ?? []).map((name) => ({ name, content: artifact.sections.get(name) ?? "" }));
+  const projection = stableValue({ fields, sections });
+  const projectionText = JSON.stringify(projection, null, 2);
+  return {
+    errors: [],
+    projection,
+    projection_text: projectionText,
+    projection_hash: sha256(projectionText)
+  };
+}
+function executionContractFromArtifactText(text, root = defaultRoot) {
+  const inspected = inspectArtifactText(text, root);
+  if (inspected.errors.length > 0 || inspected.artifact?.fields.artifact !== "work-plan") {
+    return { errors: inspected.errors.length > 0 ? inspected.errors : ["input is not a work-plan"] };
+  }
+  const artifact = inspected.artifact;
+  const data = planData(artifact);
+  const authoritative = authoritativeArtifactProjectionFromText(text, root);
+  return {
+    errors: [],
+    fields: structuredClone(authoritative.projection.fields),
+    objectives: [...data.objectives],
+    checks: [...data.checkRows.values()].map((row) => ({ ...row, "Evidence Class": data.evidenceClasses.get(row["Check ID"]) })),
+    slices: data.slices.map((row) => ({ ...row })),
+    allowedTargets: [...data.allowedTargets],
+    prohibitedTargets: [...data.prohibitedTargets],
+    authoritative_projection: authoritative.projection,
+    authoritative_projection_text: authoritative.projection_text,
+    authoritative_projection_hash: authoritative.projection_hash
   };
 }
 function setUnion(left, right) {
@@ -15273,7 +15391,7 @@ function inspectCompactArtifactSet(entries, root = defaultRoot) {
     built.failures.forEach((failure) => errors.push(`${label}: ${failure}`));
     built.diagnostics.forEach((item) => diagnostics.push(`${label}: ${item}`));
     built.normalizations.forEach((item) => normalizations.push(`${label}: ${item}`));
-    if (!built.parsed?.fields.id) continue;
+    if (built.failures.length > 0 || !built.parsed?.fields.id) continue;
     if (artifacts.has(built.parsed.fields.id)) errors.push(`${label}: duplicate artifact ID ${built.parsed.fields.id}`);
     artifacts.set(built.parsed.fields.id, { label, ...built.parsed });
   }
@@ -15305,13 +15423,6 @@ function inspectCompactArtifactSet(entries, root = defaultRoot) {
       continue;
     }
     const plan = planData(rootPlan);
-    for (const review of reviews) if (!review.fields.predecessor_review_id) {
-      const evidence = artifacts.get(review.fields.latest_evidence_id);
-      if (evidence?.fields.source_review_id) {
-        review.fields.predecessor_review_id = evidence.fields.source_review_id;
-        normalizations.push(`${review.label}: predecessor_review_id inferred from latest evidence`);
-      }
-    }
     const ordered = linearChain(reviews, "predecessor_review_id", `${rootId}: review`, errors);
     const learningOwners = /* @__PURE__ */ new Map();
     for (const review of ordered) for (const learning of review.correction?.learnings ?? []) {
@@ -15336,10 +15447,7 @@ function inspectCompactArtifactSet(entries, root = defaultRoot) {
       disjointCoverage(review.fields.inspected_checks, review.fields.reused_checks, plan.requiredChecks, `${review.label}: Check review`, errors);
       if (index === 0 && ((review.fields.reused_objectives ?? []).length > 0 || (review.fields.reused_checks ?? []).length > 0)) errors.push(`${review.label}: first review must inspect all root evidence`);
       if ((rootPlan.fields.assurance_profile === "deep" || (rootPlan.fields.hard_triggers ?? []).length > 0) && review.fields.review_route !== "full") {
-        review.fields.review_route = "full";
-        normalizations.push(`${review.label}: review_route raised to computed minimum full`);
-        review.effective.assuranceUsed = "deep";
-        review.effective.missingAuditors = ["inline", "delivery-auditor", "risk-auditor"].filter((auditor) => !(review.fields.auditors_run ?? []).includes(auditor));
+        errors.push(`${review.label}: deep or hard-trigger root requires review_route full`);
       }
       for (const objective of review.fields.reused_objectives ?? []) {
         if (!evidence.fields.reused_objectives.includes(objective)) errors.push(`${review.label}: reused review objective ${objective} lacks delta-evidence reuse`);
@@ -15448,13 +15556,17 @@ function runCli() {
     inspection.diagnostics.forEach((item) => console.log(`DIAGNOSTIC: ${item}`));
   }
 }
-if (process.argv[1] && realpathSync(resolve(process.argv[1])) === realpathSync(fileURLToPath(import.meta.url))) runCli();
+if (process.argv[1] && ["validate-artifact.source.mjs", "validate-artifact.mjs"].includes(basename(process.argv[1])) && realpathSync(resolve(process.argv[1])) === realpathSync(fileURLToPath(import.meta.url))) runCli();
 export {
+  authoritativeArtifactProjectionFromText,
   defaultRoot,
   effectiveCliSummary,
+  executionContractFromArtifactText,
   inspectArtifactSet,
   inspectArtifactText,
+  opaqueExtensionsFromArtifactText,
   parseArtifact,
+  replaceOpaqueExtensions,
   validateArtifactSet,
   validateArtifactText
 };

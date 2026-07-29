@@ -9,16 +9,17 @@ import { parseDocument } from "yaml";
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 export const defaultRoot = dirname(scriptDirectory);
 const manifestSchemaPath = join(defaultRoot, "schemas", "plugin.schema.json");
+const marketplaceSchemaPath = join(defaultRoot, "schemas", "marketplace.schema.json");
 const namePattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const semverPattern = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 const globPattern = /[*?[{]/;
 const expected = Object.freeze({
-  commands: ["correct-work", "learn-from-work", "plan-work", "review-work"],
-  agents: ["delivery-auditor", "risk-auditor", "work-plan-auditor"],
-  skills: ["work-execution", "work-learning", "work-planning", "work-review"],
+  commands: ["auto-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-control", "work-models", "work-status", "work-watch"],
+  agents: ["delivery-auditor", "risk-auditor", "work-design-auditor", "work-explainer", "work-plan-auditor"],
+  skills: ["work-automation", "work-execution", "work-explanation", "work-learning", "work-planning", "work-review"],
   rules: [],
   artifacts: ["delivery-evidence", "work-plan", "work-review"],
-  references: ["artifact-protocol", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "executable-contract", "learning-contract", "plan-container-contract", "review-contract"],
+  references: ["artifact-protocol", "automation-contract", "automation-preparation-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "learning-contract", "model-routing-contract", "plan-container-contract", "review-contract", "state-contract"],
 });
 
 const readText = (path) => readFileSync(path, "utf8");
@@ -144,6 +145,7 @@ function validateRelease(root, manifest, failures) {
   if (!existsSync(join(root, "docs", "release-checklist.md"))) failures.push("docs/release-checklist.md is missing");
   if (!existsSync(join(root, "docs", "release-validation.md"))) failures.push("docs/release-validation.md is missing");
   if (!existsSync(join(root, "THIRD_PARTY_NOTICES.md"))) failures.push("THIRD_PARTY_NOTICES.md is missing");
+  if (!existsSync(join(root, "CONTROLLER_THIRD_PARTY_NOTICES.md"))) failures.push("CONTROLLER_THIRD_PARTY_NOTICES.md is missing");
 }
 
 export function validatePlugin(root = defaultRoot, options = {}) {
@@ -162,6 +164,16 @@ export function validatePlugin(root = defaultRoot, options = {}) {
   const validateManifest = ajv.compile(JSON.parse(readText(manifestSchemaPath)));
   if (!validateManifest(manifest)) failures.push(...validateManifest.errors.map(formatAjvError));
   if (manifest.version && !semverPattern.test(manifest.version)) failures.push(`plugin.json version is not semantic: ${manifest.version}`);
+
+  const marketplacePath = join(rootPath, ".cursor-plugin", "marketplace.json");
+  if (existsSync(marketplacePath)) {
+    try {
+      const marketplace = JSON.parse(readText(marketplacePath));
+      const validateMarketplace = ajv.compile(JSON.parse(readText(marketplaceSchemaPath)));
+      if (!validateMarketplace(marketplace)) failures.push(...validateMarketplace.errors.map((error) => `marketplace.json ${error.instancePath || "/"}: ${error.message}`));
+      if (marketplace.plugins?.length !== 1 || marketplace.plugins[0]?.name !== manifest.name || marketplace.plugins[0]?.source !== ".") failures.push("marketplace.json must expose exactly the current plugin with source .");
+    } catch (error) { failures.push(`marketplace.json is invalid: ${error.message}`); }
+  } else if (options.release) failures.push(".cursor-plugin/marketplace.json is missing");
 
   for (const field of ["commands", "agents", "skills", "rules"]) {
     if (!manifest[field]) continue;
@@ -210,8 +222,10 @@ export function validatePlugin(root = defaultRoot, options = {}) {
   for (const file of artifactFiles) {
     const schema = JSON.parse(readText(file));
     const artifactName = basename(file, ".schema.json");
-    const expectedId = `urn:geldmacher:cursor-artifact:${artifactName}:2`;
-    if (schema.additionalProperties !== true) failures.push(`${relative(rootPath, file)}: additionalProperties must be true for tolerant metadata`);
+    const expectedId = `urn:geldmacher:cursor-artifact:${artifactName}:3`;
+    if (schema.additionalProperties !== false) failures.push(`${relative(rootPath, file)}: additionalProperties must be false for schema-3 artifacts`);
+    if (schema.properties?.schema?.const !== 3) failures.push(`${relative(rootPath, file)}: artifact schema must require 3`);
+    if (schema.properties?.extensions?.type !== "object" || schema.properties.extensions.additionalProperties !== true) failures.push(`${relative(rootPath, file)}: extensions must be the only open metadata object`);
     if (schema.$schema !== "http://json-schema.org/draft-07/schema#") failures.push(`${relative(rootPath, file)}: $schema must be JSON Schema draft-07`);
     if (schema.$id !== expectedId) failures.push(`${relative(rootPath, file)}: schema id must equal ${expectedId}`);
     const sections = schema["x-required-sections"] ?? schema["x-markdown-sections"];
@@ -244,7 +258,25 @@ export function validatePlugin(root = defaultRoot, options = {}) {
   const foreignComponents = [...foreignCommands, "rtk-setup", "rtk-filter-design", "efficiency-budget", "context-compaction", "context-optimization", "efficiency-review", "efficiency-auditor", "rtk-filter-auditor", "context-change-auditor"];
   const foreignPathPattern = new RegExp(`(?:commands|skills|agents|rules)/(?:${foreignComponents.join("|")})(?:/|\\.md|\\.txt|\\.mdc|\\b)`, "i");
   if (foreignPathPattern.test(runtime)) failures.push("runtime guidance contains a foreign component path");
-  if (manifest.hooks || manifest.mcpServers || existsSync(join(rootPath, "hooks")) || existsSync(join(rootPath, "mcp.json"))) failures.push("hooks and MCP servers are outside the component contract");
+  if (manifest.hooks || existsSync(join(rootPath, "hooks"))) failures.push("hooks are outside the component contract");
+  if (manifest.mcpServers !== undefined) {
+    if (manifest.mcpServers !== "mcp.json") failures.push("plugin.json mcpServers must reference mcp.json");
+    const mcpPath = join(rootPath, "mcp.json");
+    if (!existsSync(mcpPath)) failures.push("mcp.json is missing");
+    else {
+      try {
+        const mcp = JSON.parse(readText(mcpPath));
+        const servers = Object.entries(mcp.mcpServers ?? {});
+        if (servers.length !== 1 || servers[0][0] !== "geldmacher-workflow") failures.push("mcp.json must declare exactly geldmacher-workflow");
+        const definition = servers[0]?.[1];
+        if (definition?.command !== "node") failures.push("geldmacher-workflow MCP must use the bundled Node entrypoint");
+        if (JSON.stringify(definition?.args) !== JSON.stringify(["${CURSOR_PLUGIN_ROOT}/dist/workflow-mcp.mjs"])) failures.push("geldmacher-workflow MCP must use the CURSOR_PLUGIN_ROOT bundle path");
+        if (JSON.stringify(mcp).includes("npx") || JSON.stringify(mcp).includes("latest")) failures.push("mcp.json must not install or resolve latest packages at runtime");
+      } catch (error) { failures.push(`mcp.json is invalid JSON: ${error.message}`); }
+    }
+    for (const name of ["workflow-mcp.mjs", "workflow-runner.mjs", "workflow-worker.mjs"]) if (!existsSync(join(rootPath, "dist", name))) failures.push(`dist/${name} is missing`);
+    if (existsSync(join(rootPath, "dist", "node_modules"))) failures.push("dist/node_modules must not vendor the external Cursor SDK runtime");
+  }
   for (const name of expected.references) {
     if (!existsSync(join(rootPath, "references", `${name}.md`))) failures.push(`references/${name}.md is missing`);
   }

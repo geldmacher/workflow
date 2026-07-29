@@ -1,15 +1,16 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "urn:geldmacher:cursor-artifact:work-review:2",
+  "$id": "urn:geldmacher:cursor-artifact:work-review:3",
   "type": "object",
-  "additionalProperties": true,
+  "additionalProperties": false,
   "required": [
     "artifact", "schema", "id", "root_plan_id", "latest_evidence_id", "assessment", "next_action",
+    "status", "review_route", "auditors_run", "correction_id", "predecessor_review_id",
     "inspected_objectives", "reused_objectives", "inspected_checks", "reused_checks"
   ],
   "properties": {
     "artifact": { "const": "work-review" },
-    "schema": { "const": 2 },
+    "schema": { "const": 3 },
     "id": { "type": "string", "pattern": "^wr-[A-Za-z0-9][A-Za-z0-9-]*$" },
     "status": { "enum": ["complete"] },
     "created_at": { "type": "string", "format": "date-time" },
@@ -31,12 +32,24 @@
       "uniqueItems": true,
       "items": { "type": "string", "pattern": "^LRN-[A-Za-z0-9][A-Za-z0-9-]*$" }
     },
-    "auditors_run": { "type": "array", "uniqueItems": true, "items": { "enum": ["inline", "delivery-auditor", "risk-auditor"] } }
+    "auditors_run": { "type": "array", "uniqueItems": true, "items": { "enum": ["inline", "work-design-auditor", "delivery-auditor", "risk-auditor"] } },
+    "extensions": { "type": "object", "additionalProperties": true }
   },
   "allOf": [
     {
       "if": { "properties": { "assessment": { "const": "achieved" } }, "required": ["assessment"] },
       "then": { "properties": { "next_action": { "const": "none" } } }
+    },
+    {
+      "if": { "properties": { "next_action": { "const": "correct" } }, "required": ["next_action"] },
+      "then": {
+        "required": ["learning_candidates"],
+        "properties": { "correction_id": { "type": "string" } }
+      },
+      "else": {
+        "properties": { "correction_id": { "type": "null" } },
+        "not": { "required": ["learning_candidates"] }
+      }
     }
   ],
   "x-required-sections": ["Assessment", "Next action"]

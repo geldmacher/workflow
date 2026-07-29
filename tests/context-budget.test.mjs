@@ -1,38 +1,107 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { budgetDiagnostics, budgetFailures, defaultRoot, economicTargets, limits, measureContext } from "../scripts/measure-context.mjs";
+import {
+  baselineFromMeasurement,
+  budgetDiagnostics,
+  budgetFailures,
+  defaultRoot,
+  economicTargets,
+  evaluateRatchet,
+  flowMatrix,
+  limits,
+  measureContext,
+  measurementVersion,
+  targetFailures,
+  validateFlowMatrix,
+} from "../scripts/measure-context.mjs";
 
-test("context budgets are diagnostic rather than release blocking", () => {
-  assert.deepEqual(budgetFailures(measureContext(defaultRoot)), []);
-});
-
-test("workflow has no always-on context", () => {
-  assert.equal(measureContext(defaultRoot).alwaysOnTokens, 0);
-});
-
-test("discoverability includes public commands as well as skills and agents", () => {
+test("context targets and the checked baseline both pass", () => {
   const measurement = measureContext(defaultRoot);
-  assert.ok(measurement.discoverabilityTokensByType.commands > 0);
-  assert.ok(measurement.discoverabilityTokensByType.skills > 0);
-  assert.ok(measurement.discoverabilityTokensByType.agents > 0);
-  assert.ok(measurement.discoverabilityTokens >= measurement.discoverabilityTokensByType.commands);
+  assert.deepEqual(targetFailures(measurement), []);
+  assert.deepEqual(budgetFailures(measurement), []);
+  assert.equal(measurement.ratchet_status.status, "passed");
 });
 
-test("reviewer budgets include their self-contained audit instructions", () => {
-  const reviewers = measureContext(defaultRoot).reviewerTokens;
-  assert.ok(reviewers["work-plan-auditor"] > 0);
-  assert.ok(reviewers["delivery-auditor"] > 0);
-  assert.ok(reviewers["risk-auditor"] > 0);
+test("workflow has no always-on context and bounded discoverability", () => {
+  const measurement = measureContext(defaultRoot);
+  assert.equal(measurement.alwaysOnTokens, 0);
+  assert.ok(measurement.discoverabilityTokens <= limits.discoverabilityTokens);
+  assert.deepEqual(Object.keys(measurement.discoverabilityTokensByType), ["commands", "skills", "agents"]);
+  assert.ok(Object.values(measurement.discoverabilityTokensByType).every((tokens) => tokens > 0));
 });
 
-test("economic and former hard targets always diagnose without blocking", () => {
-  assert.equal(limits.flowTokens, 2200);
-  assert.deepEqual(economicTargets, { plan: 2000, correction: 2000, review: 2000, learning: 2000 });
-  const measurement = structuredClone(measureContext(defaultRoot));
-  measurement.flows.plan = 2100;
-  assert.deepEqual(budgetFailures(measurement), []);
-  assert.ok(budgetDiagnostics(measurement).includes("plan economic target: 2100 > 2000"));
-  measurement.flows.plan = 2201;
-  assert.deepEqual(budgetFailures(measurement), []);
-  assert.ok(budgetDiagnostics(measurement).includes("plan: 2201 > 2200"));
+test("manual phase flows model progressive contract loading", () => {
+  const measurement = measureContext(defaultRoot);
+  assert.equal(measurement.measurement_version, measurementVersion);
+  assert.deepEqual(Object.keys(measurement.phase_flows), Object.keys(flowMatrix.phase_flows));
+  assert.ok(!Object.hasOwn(measurement.flow_breakdown.plan_oneshot, "references/design-contract.md"));
+  assert.ok(Object.hasOwn(measurement.flow_breakdown.plan_compact_full, "references/design-contract.md"));
+  assert.ok(!Object.hasOwn(measurement.flow_breakdown.review_base, "references/correction-contract.md"));
+  assert.ok(!Object.hasOwn(measurement.flow_breakdown.review_base, "references/learning-contract.md"));
+  assert.ok(Object.hasOwn(measurement.flow_breakdown.review_correction, "references/correction-contract.md"));
+  assert.ok(!Object.hasOwn(measurement.flow_breakdown.review_correction, "references/learning-contract.md"));
+  assert.ok(Object.hasOwn(measurement.flow_breakdown.learning, "references/learning-contract.md"));
+});
+
+test("load graph matches direct Command and Skill contract links", () => {
+  assert.deepEqual(validateFlowMatrix(defaultRoot), []);
+
+  const removedContract = structuredClone(flowMatrix);
+  removedContract.phase_flows.plan_compact_full = removedContract.phase_flows.plan_compact_full.filter((file) => file !== "references/design-contract.md");
+  assert.match(validateFlowMatrix(defaultRoot, removedContract).join("\n"), /design-contract\.md is not measured in a flow containing the Skill/);
+
+  const phantomContract = structuredClone(flowMatrix);
+  phantomContract.phase_flows.review_base.push("references/learning-contract.md");
+  assert.match(validateFlowMatrix(defaultRoot, phantomContract).join("\n"), /review_base: references\/learning-contract\.md is not linked from skills\/work-review\/SKILL\.md/);
+
+  const duplicateFile = structuredClone(flowMatrix);
+  duplicateFile.automation_flows.status.push("references/state-contract.md");
+  assert.match(validateFlowMatrix(defaultRoot, duplicateFile).join("\n"), /automation_flows\.status: duplicate file entry/);
+
+  const missingFile = structuredClone(flowMatrix);
+  missingFile.phase_flows.plan_oneshot.push("references/missing-contract.md");
+  assert.match(validateFlowMatrix(defaultRoot, missingFile).join("\n"), /plan_oneshot: missing file references\/missing-contract\.md/);
+});
+
+test("every measured flow has a unique actionable file breakdown", () => {
+  const measurement = measureContext(defaultRoot);
+  for (const [name, files] of Object.entries(measurement.flow_breakdown)) {
+    assert.equal(new Set(Object.keys(files)).size, Object.keys(files).length, name);
+    const expected = measurement.phase_flows[name] ?? measurement.automationFlows[name];
+    assert.equal(Object.values(files).reduce((sum, tokens) => sum + tokens, 0), expected, name);
+  }
+});
+
+test("manual, expanded, automation, and auditor targets are explicit", () => {
+  const measurement = measureContext(defaultRoot);
+  for (const [name, maximum] of Object.entries(limits.phaseFlows)) assert.ok(measurement.phase_flows[name] <= maximum, name);
+  for (const [name, maximum] of Object.entries(limits.automationFlows)) assert.ok(measurement.automationFlows[name] <= maximum, name);
+  for (const [name, tokens] of Object.entries(measurement.reviewerTokens)) assert.ok(tokens <= limits.reviewerTokens, name);
+  assert.deepEqual(economicTargets, { plan: 2000, correction: 2000, review: 2000, learning: 2000, explanation: 1200, automation: 1500 });
+  assert.deepEqual(budgetDiagnostics(measurement), []);
+});
+
+test("ratchet rejects growth but accepts reductions", () => {
+  const measurement = measureContext(defaultRoot);
+  const baseline = baselineFromMeasurement(measurement);
+  const grown = structuredClone(measurement);
+  grown.phase_flows.review_base += 1;
+  assert.equal(evaluateRatchet(grown, baseline).status, "regressed");
+  assert.match(evaluateRatchet(grown, baseline).regressions.join("\n"), /phase_flows\.review_base/);
+  const reduced = structuredClone(measurement);
+  reduced.phase_flows.review_base -= 1;
+  assert.equal(evaluateRatchet(reduced, baseline).status, "passed");
+});
+
+test("ratchet rejects measurement or load-graph drift", () => {
+  const measurement = measureContext(defaultRoot);
+  const baseline = baselineFromMeasurement(measurement);
+  assert.equal(evaluateRatchet(measurement, { ...baseline, measurement_version: measurementVersion - 1 }).status, "regressed");
+  assert.equal(evaluateRatchet(measurement, { ...baseline, flow_matrix_hash: "changed" }).status, "regressed");
+});
+
+test("automation measures the worst real phase-specific path", () => {
+  const measurement = measureContext(defaultRoot);
+  assert.deepEqual(Object.keys(measurement.automationFlows), Object.keys(flowMatrix.automation_flows));
+  assert.equal(measurement.flows.automation, Math.max(...Object.values(measurement.automationFlows)));
 });

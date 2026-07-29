@@ -1,15 +1,16 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "urn:geldmacher:cursor-artifact:delivery-evidence:2",
+  "$id": "urn:geldmacher:cursor-artifact:delivery-evidence:3",
   "type": "object",
-  "additionalProperties": true,
+  "additionalProperties": false,
   "required": [
     "artifact", "schema", "id", "status", "root_plan_id", "subject_id", "representation",
+    "source_review_id", "predecessor_evidence_id",
     "affected_objectives", "reused_objectives", "executed_checks", "reused_checks"
   ],
   "properties": {
     "artifact": { "const": "delivery-evidence" },
-    "schema": { "const": 2 },
+    "schema": { "const": 3 },
     "id": { "type": "string", "pattern": "^de-[A-Za-z0-9][A-Za-z0-9-]*$" },
     "status": { "enum": ["complete", "blocked"] },
     "created_at": { "type": "string", "format": "date-time" },
@@ -22,7 +23,8 @@
     "affected_objectives": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^OBJ-[1-9][0-9]*$" } },
     "reused_objectives": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^OBJ-[1-9][0-9]*$" } },
     "executed_checks": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^CHECK-[1-9][0-9]*$" } },
-    "reused_checks": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^CHECK-[1-9][0-9]*$" } }
+    "reused_checks": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^CHECK-[1-9][0-9]*$" } },
+    "extensions": { "type": "object", "additionalProperties": true }
   },
   "allOf": [
     {

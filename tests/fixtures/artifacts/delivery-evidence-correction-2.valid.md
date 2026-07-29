@@ -1,6 +1,6 @@
 ---
 artifact: delivery-evidence
-schema: 2
+schema: 3
 id: de-20260712T150510Z-rollback-correction
 status: complete
 root_plan_id: wp-20260712T150503Z-configurable-retry-multiplier

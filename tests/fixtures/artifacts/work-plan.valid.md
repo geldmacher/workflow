@@ -9,20 +9,24 @@ todos:
     content: "STEP-2: Implement and verify the bounded retry multiplier within the approved targets."
     status: pending
   - id: closeout-evidence
-    content: "After the final change verify every required root Check, capture the final repository snapshot, and emit one schema-2 delivery-evidence artifact; perform no later repository write and require no further Workflow command."
+    content: "After the final change verify every required root Check, capture the final repository snapshot, and emit one schema-3 delivery-evidence artifact; perform no later repository write and require no further Workflow command."
     status: pending
 isProject: true
 ---
 # Configurable retry multiplier
 ```yaml artifact-envelope
 artifact: work-plan
-schema: 2
+schema: 3
 id: wp-20260712T150503Z-configurable-retry-multiplier
 status: ready
 intent_ready: true
 decision_boundary: repository-delivery
+design_depth: oneshot
+automation_profile_max: manual
+writer_tier_required: economy
 runtime_relevant: true
 risk: medium
+assurance_score: 4
 assurance_profile: standard
 assurance_override: none
 assurance_override_decision_id: null
@@ -77,10 +81,10 @@ Keep changes inside src/retry-policy.js and test/retry-policy.test.js.
 ## Verification
 Run the retry policy test suite from the repository root.
 
-| Check ID | Objectives | Working Directory | Command or Inspection | Expected Result | Required | Cost Class | Prerequisites |
-|---|---|---|---|---|---|---|---|
-| CHECK-2 | OBJ-2 | repository root | npm run test:retry-regression | Existing retry limit and delay tests pass. | yes | cheap | `src/retry-policy.js`, `package.json` |
-| CHECK-1 | OBJ-1 | repository root | npm test | All retry multiplier tests pass. | yes | standard | `src/retry-policy.js`, `test/retry-policy.test.js`, `package.json` |
+| Check ID | Objectives | Working Directory | Command or Inspection | Expected Result | Required | Evidence Class | Cost Class | Prerequisites |
+|---|---|---|---|---|---|---|---|---|
+| CHECK-2 | OBJ-2 | repository root | npm run test:retry-regression | Existing retry limit and delay tests pass. | yes | machine-verifiable | cheap | `src/retry-policy.js`, `package.json` |
+| CHECK-1 | OBJ-1 | repository root | npm test | All retry multiplier tests pass. | yes | machine-verifiable | standard | `src/retry-policy.js`, `test/retry-policy.test.js`, `package.json` |
 ## Operational readiness
 | Concern | Requirement | Repository proof |
 |---|---|---|
@@ -114,4 +118,4 @@ Record in-scope deviations; stop before scope or risk expansion.
 ### Stop conditions
 Stop on conflict, unavailable required checks, new public behavior, or production access.
 ### Closeout
-Return schema-2 delivery evidence; no merge, push, PR, deployment, production access, or correction command is part of initial implementation.
+Return schema-3 delivery evidence; no merge, push, PR, deployment, production access, or correction command is part of initial implementation.
