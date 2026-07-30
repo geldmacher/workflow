@@ -1,7 +1,3 @@
-# Execution evidence output
+Return a concise outcome and one Schema-4 `delivery-evidence` artifact. Bind the immutable Intent hash and current Strategy revision. Include objective outcomes, repository snapshot, executed Checks, granular evidence entries, deviations, and limitations.
 
-Return a concise outcome and one schema-3 `delivery-evidence` artifact. Initial implementation uses full evidence with null source/predecessor links; corrections normally use delta evidence with explicit source-review and direct-predecessor IDs. Include the current snapshot, affected/executed detail, and a defensible reuse basis for inherited proof.
-
-Before changing the delivery, resolve the unique root, latest actionable review, correction, evidence tip, scope, and risk. Use the shipped validator when readily available, or perform the same semantic preflight from current context. Missing terminal access, temporary-file support, or validator execution is not itself a blocker.
-
-Do not create repository files solely for Workflow serialization. Report conflicts, unsupported scope/risk changes, failed verification, and residual risks honestly. Never claim deployment or production success.
+Use `complete` only when the aggregate grade is verified, `provisional` only for supported/partial/unavailable evidence with no known failure, and `blocked` for a known failed required Check or hard boundary. Never claim production success from repository evidence.

@@ -4,7 +4,7 @@
 
 Artifact `extensions` are opaque audit metadata and are excluded from explanations and explainer handoffs.
 
-Resolve by `artifact`, never filename, and require a complete schema-3 chain. Report schema-2/mixed chains as incompatible; replan is the next safe action and their delivery is not explained.
+Resolve by `artifact`, never filename, and require a complete Schema-4 chain. Report Workflow-3 history as read-only and mixed or invalid chains as incompatible; their delivery is not promoted as current proof.
 
 Return compact sections for intent and outcome; architecture/control/data flow; change map; decisions and invariants; verification; operational risks; current state and blockers; and where future changes belong. Cite Workflow IDs plus repository paths or symbols for material claims. Distinguish executor claims from independently inspected repository evidence.
 

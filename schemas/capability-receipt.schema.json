@@ -7,17 +7,18 @@
   "required": [
     "schema", "generated_by", "issued_at", "expires_at", "plugin_version", "artifact_schema", "controller_protocol",
     "sdk_version", "platform", "node_version", "os_version", "cursor_version", "marketplace_git_commit", "plugin_hash",
-    "worker_hash", "runtime_hash", "lockfile_hash", "attested_route_hash", "model_catalog_hash", "planning_harness_hash",
-    "cursor_harness_hash", "model_attestation", "audit", "observations", "evidence_hashes", "automation_safe"
+    "worker_hash", "runtime_hash", "lockfile_hash", "attested_route_pool_hash", "model_catalog_hash", "planning_harness_hash",
+    "cursor_harness_hash", "verification_profile_hash", "model_attestation", "certified_models", "audit", "observations",
+    "capability_vector", "qualification_bindings", "profile_eligibility", "evidence_hashes", "automation_safe"
   ],
   "properties": {
-    "schema": { "const": 2 },
+    "schema": { "const": 3 },
     "generated_by": { "const": "geldmacher-workflow-capability-spike" },
     "issued_at": { "type": "string", "format": "date-time" },
     "expires_at": { "type": "string", "format": "date-time" },
     "plugin_version": { "type": "string" },
-    "artifact_schema": { "const": 3 },
-    "controller_protocol": { "const": 3 },
+    "artifact_schema": { "const": 4 },
+    "controller_protocol": { "const": 4 },
     "sdk_version": { "type": "string" },
     "platform": { "type": "string" },
     "node_version": { "type": "string" },
@@ -28,10 +29,11 @@
     "worker_hash": { "$ref": "#/$defs/hash" },
     "runtime_hash": { "$ref": "#/$defs/hash" },
     "lockfile_hash": { "$ref": "#/$defs/hash" },
-    "attested_route_hash": { "$ref": "#/$defs/hash" },
+    "attested_route_pool_hash": { "$ref": "#/$defs/hash" },
     "model_catalog_hash": { "$ref": "#/$defs/hash" },
     "planning_harness_hash": { "$ref": "#/$defs/hash" },
     "cursor_harness_hash": { "$ref": "#/$defs/hash" },
+    "verification_profile_hash": { "$ref": "#/$defs/hash" },
     "model_attestation": {
       "type": "object", "additionalProperties": false,
       "required": ["requested", "accepted", "observed", "request_ids", "agent_ids", "run_ids"],
@@ -49,6 +51,31 @@
         "critical": { "type": "integer", "minimum": 0 }, "moderate": { "type": "integer", "minimum": 0 },
         "risk_acceptance_hash": { "oneOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] }
       }
+    },
+    "certified_models": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/model" } },
+    "capability_vector": {
+      "type": "object", "additionalProperties": false,
+      "required": ["write_boundary", "network_isolation", "secret_isolation", "budget_cancel", "planning", "verification_profile", "route_pool"],
+      "properties": {
+        "write_boundary": { "type": "boolean" }, "network_isolation": { "type": "boolean" },
+        "secret_isolation": { "type": "boolean" }, "budget_cancel": { "type": "boolean" },
+        "planning": { "type": "boolean" }, "verification_profile": { "type": "boolean" }, "route_pool": { "type": "boolean" }
+      }
+    },
+    "qualification_bindings": {
+      "type": "array", "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["task_class", "verification_profile_hash", "route_pool_hash", "certified_region"],
+        "properties": {
+          "task_class": { "enum": ["bugfix", "refactor", "performance", "feature", "investigation", "verify-existing"] },
+          "verification_profile_hash": { "$ref": "#/$defs/hash" }, "route_pool_hash": { "$ref": "#/$defs/hash" },
+          "certified_region": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "profile_eligibility": {
+      "type": "object", "additionalProperties": false, "required": ["supervised", "autonomous"],
+      "properties": { "supervised": { "type": "boolean" }, "autonomous": { "type": "boolean" } }
     },
     "observations": {
       "type": "object", "additionalProperties": false,
@@ -71,7 +98,7 @@
     "models": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/model" } },
     "model": {
       "type": "object", "additionalProperties": false, "required": ["role", "id", "params"],
-      "properties": { "role": { "enum": ["planner", "writer", "writer_escalated", "reviewer", "explainer"] }, "id": { "type": "string", "minLength": 1 }, "params": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["id", "value"], "properties": { "id": { "type": "string" }, "value": { "type": "string" } } } } }
+      "properties": { "role": { "enum": ["planner", "investigator", "writer", "writer_escalated", "verifier", "reviewer", "explainer"] }, "id": { "type": "string", "minLength": 1 }, "params": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["id", "value"], "properties": { "id": { "type": "string" }, "value": { "type": "string" } } } } }
     },
     "observation": { "type": "object", "additionalProperties": false, "required": ["verified", "repetitions", "evidence_hash"], "properties": { "verified": { "type": "boolean" }, "repetitions": { "type": "integer", "minimum": 0 }, "evidence_hash": { "$ref": "#/$defs/hash" } } }
   }

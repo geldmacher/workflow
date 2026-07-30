@@ -1,111 +1,71 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "urn:geldmacher:cursor-artifact:work-plan:3",
+  "$id": "urn:geldmacher:cursor-artifact:work-plan:4",
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "artifact", "schema", "id", "status", "intent_ready", "decision_boundary",
-    "runtime_relevant", "risk", "design_depth", "automation_profile_max", "writer_tier_required",
-    "assurance_score", "assurance_profile", "assurance_override", "assurance_override_decision_id",
-    "hard_triggers"
+    "artifact", "schema", "id", "status", "intent_ready",
+    "profile_max", "contract_level", "risk", "hard_triggers", "goal", "acceptance",
+    "non_goals", "constraints", "authority"
   ],
   "properties": {
     "artifact": { "const": "work-plan" },
-    "schema": { "const": 3 },
+    "schema": { "const": 4 },
     "id": { "type": "string", "pattern": "^wp-[A-Za-z0-9][A-Za-z0-9-]*$" },
     "status": { "enum": ["ready", "blocked"] },
     "created_at": { "type": "string", "format": "date-time" },
     "source": { "type": "string", "minLength": 1 },
     "intent_ready": { "type": "boolean" },
-    "decision_boundary": { "const": "repository-delivery" },
-    "design_depth": { "enum": ["oneshot", "compact", "full"] },
-    "automation_profile_max": { "enum": ["manual", "auto-gated", "unattended-eligible"] },
-    "writer_tier_required": { "enum": ["economy", "escalated"] },
-    "extensions": { "type": "object", "additionalProperties": true },
-    "automation_bounds": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "allowed_targets", "max_risk", "dependencies", "external_effects", "delivery",
-        "max_active_minutes", "max_total_tokens", "max_cost_usd", "max_correction_cycles", "max_writer_escalations"
-      ],
+    "profile_max": { "enum": ["manual", "supervised", "autonomous"] },
+    "contract_level": { "enum": ["lean", "controlled", "certified"] },
+    "risk": { "enum": ["low", "medium", "high"] },
+    "hard_triggers": {
+      "type": "array", "uniqueItems": true,
+      "items": { "enum": ["security-secrets", "destructive-data", "regulated-or-monetary", "breaking-external-contract", "irreversible-external-effect", "no-recovery-path", "broad-runtime-impact", "material-uncertainty"] }
+    },
+    "goal": { "type": "string", "minLength": 8 },
+    "acceptance": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 3 } },
+    "non_goals": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "constraints": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "authority": {
+      "type": "object", "additionalProperties": false,
+      "required": ["allowed_roots", "protected_paths", "approval_required_paths", "dependencies", "external_effects", "delivery"],
       "properties": {
-        "allowed_targets": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
-        "max_risk": { "enum": ["low", "medium", "high"] },
+        "allowed_roots": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "protected_paths": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "approval_required_paths": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
         "dependencies": { "enum": ["deny", "allow-listed"] },
         "allowed_dependencies": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
         "external_effects": { "const": "none" },
         "delivery": { "const": "repository-only" },
         "max_active_minutes": { "type": "integer", "minimum": 1 },
         "max_total_tokens": { "type": "integer", "minimum": 1 },
-        "max_cost_usd": { "type": "number", "exclusiveMinimum": 0 },
-        "max_correction_cycles": { "type": "integer", "minimum": 0 },
-        "max_writer_escalations": { "const": 1 }
+        "max_cost_usd": { "type": "number", "exclusiveMinimum": 0 }
       },
-      "allOf": [
-        {
-          "if": { "properties": { "dependencies": { "const": "allow-listed" } }, "required": ["dependencies"] },
-          "then": { "required": ["allowed_dependencies"], "properties": { "allowed_dependencies": { "minItems": 1 } } }
-        }
-      ]
+      "allOf": [{
+        "if": { "properties": { "dependencies": { "const": "allow-listed" } }, "required": ["dependencies"] },
+        "then": { "required": ["allowed_dependencies"], "properties": { "allowed_dependencies": { "minItems": 1 } } }
+      }]
     },
-    "runtime_relevant": { "type": "boolean" },
-    "risk": { "enum": ["low", "medium", "high"] },
-    "assurance_score": { "type": "integer", "minimum": 0, "maximum": 10 },
-    "assurance_profile": { "enum": ["lean", "standard", "deep"] },
-    "assurance_override": { "enum": ["none", "raised", "lowered"] },
-    "assurance_override_decision_id": { "type": ["string", "null"], "pattern": "^DEC-[1-9][0-9]*$" },
-    "hard_triggers": {
-      "type": "array",
-      "uniqueItems": true,
-      "items": {
-        "enum": [
-          "security-secrets",
-          "destructive-data",
-          "regulated-or-monetary",
-          "breaking-external-contract",
-          "irreversible-external-effect",
-          "no-recovery-path",
-          "broad-runtime-impact",
-          "material-uncertainty"
-        ]
+    "certification": {
+      "type": "object", "additionalProperties": false,
+      "required": ["verification_profile_id", "verification_profile_hash", "task_recipe", "certified_region", "route_pool_hash"],
+      "properties": {
+        "verification_profile_id": { "type": "string", "pattern": "^verify-[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "verification_profile_hash": { "$ref": "#/$defs/hash" },
+        "task_recipe": { "enum": ["bugfix", "refactor", "performance", "feature", "investigation", "verify-existing"] },
+        "certified_region": { "type": "string", "minLength": 1 },
+        "route_pool_hash": { "$ref": "#/$defs/hash" }
       }
-    }
+    },
+    "extensions": { "type": "object", "additionalProperties": true }
   },
   "allOf": [
-    {
-      "if": { "properties": { "status": { "const": "ready" } } },
-      "then": { "properties": { "intent_ready": { "const": true } } }
-    },
-    {
-      "if": { "properties": { "assurance_override": { "const": "lowered" } }, "required": ["assurance_override"] },
-      "then": { "required": ["assurance_override_decision_id"], "properties": { "assurance_override_decision_id": { "type": "string" } } }
-    },
-    {
-      "if": { "properties": { "assurance_override": { "const": "none" } }, "required": ["assurance_override"] },
-      "then": { "properties": { "assurance_override_decision_id": { "type": "null" } } }
-    },
-    {
-      "if": {
-        "anyOf": [
-          { "properties": { "design_depth": { "const": "full" } }, "required": ["design_depth"] },
-          { "properties": { "assurance_profile": { "const": "deep" } }, "required": ["assurance_profile"] },
-          { "properties": { "hard_triggers": { "minItems": 1 } }, "required": ["hard_triggers"] }
-        ]
-      },
-      "then": { "properties": { "writer_tier_required": { "const": "escalated" } } }
-    },
-    {
-      "if": { "properties": { "automation_profile_max": { "const": "manual" } }, "required": ["automation_profile_max"] },
-      "then": { "not": { "required": ["automation_bounds"] } }
-    },
-    {
-      "if": {
-        "properties": { "automation_profile_max": { "enum": ["auto-gated", "unattended-eligible"] } },
-        "required": ["automation_profile_max"]
-      },
-      "then": { "required": ["automation_bounds"] }
-    }
+    { "if": { "properties": { "status": { "const": "ready" } } }, "then": { "properties": { "intent_ready": { "const": true } } } },
+    { "if": { "properties": { "profile_max": { "const": "manual" } }, "required": ["profile_max"] }, "then": { "properties": { "contract_level": { "const": "lean" } } } },
+    { "if": { "properties": { "profile_max": { "const": "supervised" } }, "required": ["profile_max"] }, "then": { "properties": { "contract_level": { "const": "controlled" }, "authority": { "required": ["max_active_minutes", "max_total_tokens", "max_cost_usd"] } } } },
+    { "if": { "properties": { "profile_max": { "const": "autonomous" } }, "required": ["profile_max"] }, "then": { "required": ["certification"], "properties": { "contract_level": { "const": "certified" }, "authority": { "required": ["max_active_minutes", "max_total_tokens", "max_cost_usd"] } } } }
   ],
-  "x-required-sections": ["Intent and decisions", "Objectives", "Evidence and baseline", "Scope and targets", "Execution steps", "Verification", "Operational readiness", "Risk and closeout"]
+  "$defs": { "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" } },
+  "x-required-sections": ["Intent", "Acceptance", "Boundaries", "Risks"]
 }

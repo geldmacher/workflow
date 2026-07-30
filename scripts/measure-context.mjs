@@ -28,6 +28,7 @@ export const limits = Object.freeze({
     watch: 1500,
     control: 1500,
     models: 1500,
+    verification: 1500,
   }),
   reviewerTokens: 650,
 });
@@ -50,6 +51,7 @@ export const flowMatrix = Object.freeze({
     watch: Object.freeze(["commands/work-watch.md", "skills/work-automation/SKILL.md", "references/state-contract.md"]),
     control: Object.freeze(["commands/work-control.md", "skills/work-automation/SKILL.md", "references/state-contract.md", "references/automation-contract.md"]),
     models: Object.freeze(["commands/work-models.md", "skills/work-automation/SKILL.md", "references/model-routing-contract.md"]),
+    verification: Object.freeze(["commands/work-verification.md", "skills/work-automation/SKILL.md", "references/verification-profile-contract.md"]),
   }),
 });
 

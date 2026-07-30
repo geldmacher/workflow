@@ -1,9 +1,9 @@
-# Model routing contract
+# Model Pool contract
 
-A user route profile defines exactly `planner`, `writer`, `writer_escalated`, `reviewer`, and `explainer`. Each route requires a concrete `model_id`, `reasoning_effort`, scalar `model_options`, `fallback: deny`, and non-negative per-million input/output/cache pricing used for budget accounting.
+User Config Schema 2 defines ordered approved Pools for `planner`, `investigator`, `writer`, `writer_escalated`, `verifier`, `reviewer`, and `explainer`. Every candidate has a concrete model ID, reasoning setting, scalar options, and non-negative price. Pool selection is `ordered`; fallback is only `approved-pool`.
 
-The live catalog must contain the exact model and an explicit reasoning-effort parameter/value. Unknown options and aliases are rejected. Every phase records requested, catalog-accepted and SDK-observed selections, SDK version, request and agent IDs, duration, token usage, configured-cost estimate, remap status, and the authoritative artifact-projection hash used as model context. The final Planner receipt also records the controller-derived projection hash of its normalized output. Missing or conflicting observed configuration stops automation.
+The first available compatible candidate is selected. Aliases, free choice, silent remapping, and candidates outside the Pool are rejected. Receipts bind Pool hash, selected candidate, selection reason, requested/catalog-accepted/SDK-observed configuration, request and agent IDs, usage, configured cost, and Intent projection hash.
 
-Auto-Planning is a dedicated pre-Run phase using exactly `planner`, Plan mode, no setting sources, and `fallback: deny`. Technical schema repairs resume the same Planner Agent within the closed Preflight budget; material Intent questions stop instead of switching models or interviewing headlessly. Every Planner turn includes Route and Harness hashes in its receipt. Review uses `reviewer`. Implementation and first correction use `writer` unless the root requires the escalated tier, uses full/deep design, or another hard complexity trigger applies. The controller escalates at most once at the review-to-correction boundary when a Finding key repeats or the second correction begins. The escalated writer then remains active; no downgrade and no per-step model churn occurs.
+Writer affinity persists through a phase. Repeated findings or invalid outputs may escalate only at an artifact or correction boundary to the next approved candidate; no turn-by-turn churn. Autonomous runs may use only candidates positively named in the Capability Receipt.
 
-Default user configuration is `~/.cursor/geldmacher-workflow/config.yaml`; optional project ceilings are `.cursor/workflow-policy.yaml`. `CURSOR_API_KEY` is inherited only from the process environment and is never serialized.
+Default user configuration is `~/.cursor/geldmacher-workflow/config.yaml`. `CURSOR_API_KEY` is process-only and never serialized.

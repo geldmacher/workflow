@@ -1,65 +1,63 @@
 ---
 artifact: delivery-evidence
-schema: 3
-id: de-20260712T150505Z-initial-retry-delivery
+schema: 4
+id: de-adaptive-retry
 status: complete
-root_plan_id: wp-20260712T150503Z-configurable-retry-multiplier
-subject_id: wp-20260712T150503Z-configurable-retry-multiplier
+root_plan_id: wp-adaptive-retry
+subject_id: wp-adaptive-retry
 source_review_id: null
 predecessor_evidence_id: null
 representation: full
-affected_objectives: [OBJ-1, OBJ-2]
+intent_hash: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+strategy_revision: 1
+overall_grade: verified
+affected_objectives:
+  - OBJ-1
 reused_objectives: []
-executed_checks: [CHECK-2, CHECK-1]
+executed_checks:
+  - CHECK-1
 reused_checks: []
+check_evidence:
+  - check_id: CHECK-1
+    feature_id: retry-path
+    grade: verified
+    surface: repository-test
+    method: deterministic command
+    baseline_or_patched: patched
+    expected: Retry verification passes twice
+    observed: Passed twice
+    repetitions: 2
+    artifact_hashes:
+      - bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+    limitations: []
 ---
-## Summary
-The root implementation is complete and both required checks passed.
 
-## Subject results
-| Objective ID | Result | Evidence |
-|---|---|---|
-| OBJ-1 | achieved | Bounded multiplier parsing and focused coverage are present. |
-| OBJ-2 | achieved | Existing retry behavior remains covered. |
+## Summary
+
+The authorized repository change is complete and verified.
 
 ## Objective outcomes
+
 | Objective ID | Status | Evidence |
 |---|---|---|
-| OBJ-1 | achieved | Focused multiplier behavior passed. |
-| OBJ-2 | achieved | Regression behavior passed. |
-
-## Changes
-| Path or Symbol | Change | Objective Coverage |
-|---|---|---|
-| `src/retry-policy.js` | Added bounded multiplier parsing. | OBJ-1, OBJ-2 |
-| `test/retry-policy.test.js` | Added focused multiplier coverage. | OBJ-1, OBJ-2 |
+| OBJ-1 | achieved | CHECK-1 passed twice |
 
 ## Repository snapshot
+
 | Snapshot ID | HEAD | Working tree | Changed paths | Relevant fingerprints | Known failures |
 |---|---|---|---|---|---|
-| rs-20260712T150505Z-initial-retry-delivery | abc123 | modified | `src/retry-policy.js`, `test/retry-policy.test.js` | `src/retry-policy.js`=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; `test/retry-policy.test.js`=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; `package.json`=cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc | None. |
+| SNAP-1 | abc123 | clean isolated worktree | src/retry.mjs | src=abc123; tests=def456 | none |
 
 ## Checks
+
 | Check ID | Observed Result | Status | Prerequisite fingerprints |
 |---|---|---|---|
-| CHECK-2 | Existing retry limit and delay tests passed. | passed | `src/retry-policy.js`=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; `package.json`=cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc |
-| CHECK-1 | All retry multiplier tests passed. | passed | `src/retry-policy.js`=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; `test/retry-policy.test.js`=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; `package.json`=cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc |
-
-## Idempotency and resume
-| Step ID | State | Completion probe | Evidence |
-|---|---|---|---|
-| STEP-1 | satisfied | PROBE-1: repository baseline was refreshed. | Current repository state recorded. |
-| STEP-2 | satisfied | PROBE-2: behavior and tests exist and pass. | Required checks passed. |
+| CHECK-1 | passed twice | passed | src=abc123; tests=def456 |
 
 ## Deviations
+
 None.
 
 ## Operational evidence
-| Concern | Plan requirement | Repository proof | Status |
-|---|---|---|---|
-| Observable signal | Invalid values use the default. | Boundary tests inspect returned values. | satisfied |
-| Failure condition | Invalid values are rejected. | Negative test matrix. | satisfied |
-| Recovery or rollback | Localized removal remains possible. | Diff is confined to root targets. | satisfied |
 
-## Residual risks
-No unresolved repository risk; no production observation is claimed.
+Not applicable.

@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:geldmacher:workflow-project-policy:2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "supervised_enabled", "autonomous_enabled", "scope_envelope", "certified_regions", "minimum_qualifying_runs", "dependencies", "allowed_dependencies", "external_effects", "max_risk", "maximum_budgets"],
+  "properties": {
+    "schema": { "const": 2 }, "supervised_enabled": { "type": "boolean" }, "autonomous_enabled": { "type": "boolean" },
+    "scope_envelope": {
+      "type": "object", "additionalProperties": false, "required": ["allowed_roots", "protected_paths", "approval_required_paths"],
+      "properties": { "allowed_roots": { "$ref": "#/$defs/paths" }, "protected_paths": { "$ref": "#/$defs/paths" }, "approval_required_paths": { "$ref": "#/$defs/paths" } }
+    },
+    "verification_profile": {
+      "type": "object", "additionalProperties": false, "required": ["profile_id", "manifest_path", "activated_hash"],
+      "properties": { "profile_id": { "type": "string" }, "manifest_path": { "type": "string" }, "activated_hash": { "$ref": "#/$defs/hash" } }
+    },
+    "certified_regions": { "$ref": "#/$defs/paths" }, "minimum_qualifying_runs": { "type": "integer", "minimum": 1 },
+    "dependencies": { "enum": ["deny", "allow-listed"] }, "allowed_dependencies": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "external_effects": { "const": "none" }, "max_risk": { "enum": ["low", "medium", "high"] },
+    "maximum_budgets": {
+      "type": "object", "additionalProperties": false, "required": ["max_active_minutes", "max_total_tokens", "max_cost_usd", "max_correction_cycles"],
+      "properties": { "max_active_minutes": { "type": "integer", "minimum": 1 }, "max_total_tokens": { "type": "integer", "minimum": 1 }, "max_cost_usd": { "type": "number", "exclusiveMinimum": 0 }, "max_correction_cycles": { "type": "integer", "minimum": 0 } }
+    },
+    "extensions": { "type": "object" }
+  },
+  "$defs": { "paths": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }, "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" } }
+}

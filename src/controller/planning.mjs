@@ -14,7 +14,7 @@ import { assertCompatiblePreparation } from "./protocol.mjs";
 import { repositoryBaseline } from "./worktree.mjs";
 import { validateIntentBlockerReport } from "../worker/planning-output.mjs";
 
-const profileRank = Object.freeze({ manual: 0, "auto-gated": 1, "unattended-eligible": 2 });
+const profileRank = Object.freeze({ manual: 0, supervised: 1, autonomous: 2 });
 const harnessFiles = Object.freeze([
   "skills/work-planning/SKILL.md",
   "references/artifact-protocol.md",
@@ -50,14 +50,11 @@ function rootProjection(rootPlanText, pluginRoot) {
   const artifact = inspection.artifact;
   const fields = artifact.fields;
   return {
-    intent: stable({ id: fields.id, status: fields.status, intent_ready: fields.intent_ready, decision_boundary: fields.decision_boundary, runtime_relevant: fields.runtime_relevant, source: fields.source ?? null, content: section(artifact, "Intent and decisions") }),
-    objectives: section(artifact, "Objectives"),
-    scope: section(artifact, "Scope and targets"),
-    checks: section(artifact, "Verification"),
-    design: stable({ design_depth: fields.design_depth, intent: section(artifact, "Intent and decisions"), scope: section(artifact, "Scope and targets"), execution: section(artifact, "Execution steps") }),
-    risk: stable({ risk: fields.risk, assurance_score: fields.assurance_score, assurance_profile: fields.assurance_profile, hard_triggers: fields.hard_triggers, content: section(artifact, "Risk and closeout") }),
-    writer_tier: fields.writer_tier_required,
-    automation_bounds: stable({ automation_profile_max: fields.automation_profile_max, automation_bounds: fields.automation_bounds ?? null }),
+    intent: stable({ id: fields.id, status: fields.status, intent_ready: fields.intent_ready, goal: fields.goal, acceptance: fields.acceptance, non_goals: fields.non_goals, constraints: fields.constraints, content: section(artifact, "Intent") }),
+    authority: stable(fields.authority),
+    profile: stable({ profile_max: fields.profile_max, contract_level: fields.contract_level }),
+    risk: stable({ risk: fields.risk, hard_triggers: fields.hard_triggers, content: section(artifact, "Risks") }),
+    certification: stable(fields.certification ?? null),
   };
 }
 
@@ -90,11 +87,8 @@ export function plannerReceiptBlockers(receipt) {
 }
 
 export function expectedPlannerReceiptBlockers(receipt, preparation, acceptedModel) {
-  const expectedRequested = {
-    id: preparation.route_config.planner.model_id,
-    reasoning_effort: preparation.route_config.planner.reasoning_effort,
-    model_options: preparation.route_config.planner.model_options ?? {},
-  };
+  const selected = preparation.route_validation.routes?.planner?.selected_candidate;
+  const expectedRequested = { id: selected?.model_id, reasoning_effort: selected?.reasoning_effort, model_options: selected?.model_options ?? {} };
   const blockers = [];
   if (JSON.stringify(stable(receipt?.requested_model)) !== JSON.stringify(stable(expectedRequested))) blockers.push("planner-requested-model-mismatch");
   if (JSON.stringify(stable(receipt?.accepted_model)) !== JSON.stringify(stable(acceptedModel))) blockers.push("planner-accepted-model-mismatch");
@@ -136,12 +130,12 @@ export function loadPlanningHarness(pluginRoot) {
 function planningPrompt(preparation, harness) {
   const source = preparation.source_kind === "goal"
     ? `GOAL\n${preparation.goal}`
-    : `EXISTING VALID SCHEMA-3 ROOT AUTHORITATIVE PROJECTION\n${preparation.input_root_contract.authoritative_projection_text}`;
+    : `EXISTING VALID SCHEMA-4 INTENT ROOT AUTHORITATIVE PROJECTION\n${preparation.input_root_contract.authoritative_projection_text}`;
   return [
     "Act as the configured Workflow planner in read-only Cursor Plan mode.",
     "Inspect the repository, but do not modify it or cause any external effect.",
     "If one or more material product decisions remain open, call report_intent_blockers exactly once with at most three concrete questions, do not call CreatePlan, and stop.",
-    "Otherwise call Cursor CreatePlan exactly once. Its plan argument must be one complete, ready, native schema-3 Workflow root satisfying the full harness below.",
+    "Otherwise call Cursor CreatePlan exactly once. Its plan argument must be one complete, ready, native schema-4 Workflow intent root satisfying the harness below.",
     "For an existing valid root, retain it unchanged when already adequate or propose a complete improved root. Never imply that an improvement is already approved.",
     `REQUESTED AUTO PROFILE\n${preparation.requested_profile}`,
     `REPOSITORY BASELINE\n${JSON.stringify(preparation.baseline, null, 2)}`,
@@ -164,7 +158,7 @@ function normalizePlannerRootOutput(rootPlanText, preparation) {
 
 function repairPrompt(errors, repairsRemaining) {
   return [
-    "The preceding CreatePlan output failed deterministic schema-3 validation.",
+    "The preceding CreatePlan output failed deterministic schema-4 validation.",
     "This is a technical contract repair only. Preserve the established product intent and use the same planner model and agent context.",
     `Call CreatePlan exactly once with a complete corrected root. Do not call report_intent_blockers unless a genuinely material product decision is now discovered. Repairs remaining after this turn: ${repairsRemaining}.`,
     `VALIDATOR ERRORS\n${errors.map((error) => `- ${error}`).join("\n")}`,
@@ -201,7 +195,7 @@ export class PlanningEngine {
 
   prepare({ goal, rootPlan, requestedProfile, routeProfile = "default", idempotencyKey }) {
     if (Boolean(goal) === Boolean(rootPlan)) throw new Error("workflow_prepare requires exactly one of goal or root_plan");
-    if (!["auto-gated", "unattended-eligible"].includes(requestedProfile)) throw new Error("workflow_prepare supports auto-gated or unattended-eligible");
+    if (!["supervised", "autonomous"].includes(requestedProfile)) throw new Error("workflow_prepare supports supervised or autonomous");
     if (typeof idempotencyKey !== "string" || idempotencyKey.length < 8) throw new Error("workflow_prepare requires an idempotency key");
 
     let inputContract = null;
@@ -234,7 +228,7 @@ export class PlanningEngine {
     const technicalBlockers = [
       ...(routeValidation.errors ?? []),
       ...(routeValidation.verified !== true ? ["model-catalog-not-verified"] : []),
-      ...(!config.project.automation_enabled ? ["project-automation-disabled"] : []),
+      ...(!config.project.supervised_enabled ? ["project-supervised-disabled"] : []),
       ...(!capabilities.sandbox_boundary_verified ? ["hard-sandbox-not-verified"] : []),
       ...(!capabilities.worker_network_isolated ? ["worker-network-boundary-not-verified"] : []),
       ...(!capabilities.sdk_secret_isolated ? ["sdk-secret-boundary-not-verified"] : []),
@@ -285,7 +279,6 @@ export class PlanningEngine {
     assertCompatiblePreparation(preparation);
     if (preparation.status !== "planning") throw new Error(`preparation is not planning: ${preparation.status}`);
     if (Date.parse(preparation.expires_at) <= Date.now()) return this.finish(preparation, "expired", ["preparation-expired"]);
-    if (!sameBaseline(preparation.baseline, repositoryBaseline(this.workspaceRoot))) return this.finish(preparation, "failed", ["material-repository-drift"]);
     const harness = loadPlanningHarness(this.pluginRoot);
     if (harness.hash !== preparation.harness_hash) return this.finish(preparation, "failed", ["planning-harness-drift"]);
     const adapter = this.adapterFactory(preparation);
@@ -299,10 +292,11 @@ export class PlanningEngine {
       const beforeUsage = planningUsage(preparation.planner_receipts ?? [], preparation.created_at);
       const beforeBudgetBlockers = planningBudgetBlockers(beforeUsage, preparation.planning_budget);
       if (beforeBudgetBlockers.length > 0) return this.finish(preparation, "failed", beforeBudgetBlockers, beforeUsage);
-      if (!sameBaseline(preparation.baseline, repositoryBaseline(this.workspaceRoot))) return this.finish(preparation, "failed", ["material-repository-drift"], beforeUsage);
       const remainingMs = Math.max(1, Date.parse(preparation.expires_at) - Date.now());
       const phase = adapter.runPlanningPhase({
-        route: preparation.route_config.planner,
+        route: preparation.route_validation.routes.planner.selected_candidate,
+        routePoolHash: preparation.route_validation.routes.planner.pool_hash,
+        selectionReason: preparation.route_validation.routes.planner.selection_reason,
         acceptedModel,
         prompt,
         cwd: this.workspaceRoot,
@@ -314,7 +308,7 @@ export class PlanningEngine {
         deniedReadPaths: [
           join(this.workspaceRoot, ".git"),
           join(this.workspaceRoot, ".cursor", "workflow-policy.yaml"),
-          ...preparation.project_policy.protected_oracles.map((path) => join(this.workspaceRoot, path)),
+          ...preparation.project_policy.protected_paths.map((path) => join(this.workspaceRoot, path)),
         ],
       });
       agentId = phase.receipt.agent_id ?? agentId;
@@ -338,7 +332,6 @@ export class PlanningEngine {
         ...planningBudgetBlockers(usage, preparation.planning_budget),
         ...(!phase.response.ok ? [phase.response.error?.message ?? "planner-failed"] : []),
       ];
-      if (!sameBaseline(preparation.baseline, repositoryBaseline(this.workspaceRoot))) blockers.push("material-repository-drift");
       if (blockers.length > 0) return this.finish(preparation, "failed", blockers, usage);
       if (phase.planningOutput?.kind === "manual-planning-required") {
         let report;
@@ -362,7 +355,7 @@ export class PlanningEngine {
       const contract = executionContractFromArtifactText(rootPlanText, this.pluginRoot);
       const validationErrors = [...contract.errors];
       if (validationErrors.length === 0 && (contract.fields.status !== "ready" || contract.fields.intent_ready !== true)) validationErrors.push("root plan must be ready with intent_ready true");
-      if (validationErrors.length === 0 && !maximumProfileAllows(preparation.requested_profile, contract.fields.automation_profile_max)) validationErrors.push(`root plan permits at most ${contract.fields.automation_profile_max}`);
+      if (validationErrors.length === 0 && !maximumProfileAllows(preparation.requested_profile, contract.fields.profile_max)) validationErrors.push(`root plan permits at most ${contract.fields.profile_max}`);
       if (validationErrors.length === 0) {
         const semanticDiff = semanticRootDiff(preparation.input_root_text, rootPlanText, this.pluginRoot);
         return this.update(preparation, (draft) => ({

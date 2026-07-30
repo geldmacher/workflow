@@ -163,7 +163,14 @@ export class RunStore {
 
   appendEvent(runId, type, payload = {}) {
     mkdirSync(this.runDirectory(runId), { recursive: true, mode: 0o700 });
-    appendFileSync(this.eventPath(runId), `${JSON.stringify({ id: randomUUID(), at: new Date().toISOString(), type, payload })}\n`, { mode: 0o600 });
+    const prior = this.events(runId).at(-1);
+    const event = { id: randomUUID(), at: new Date().toISOString(), type, payload, previous_hash: prior?.event_hash ?? null };
+    event.event_hash = createHash("sha256").update(JSON.stringify(event)).digest("hex");
+    appendFileSync(this.eventPath(runId), `${JSON.stringify(event)}\n`, { mode: 0o600 });
+  }
+
+  appendDecision(runId, { phase, actor_receipt = null, decision, reason, input_hashes = [], strategy_revision = null, evidence_refs = [], result = null, supersedes = null }) {
+    this.appendEvent(runId, "decision", { phase, actor_receipt, decision, reason, input_hashes, strategy_revision, evidence_refs, result, supersedes });
   }
 
   events(runId, after = 0) {
@@ -181,17 +188,19 @@ export class RunStore {
 
   active() {
     return this.list().filter((run) => classifyRunCompatibility(run).compatible
-      && !["achieved", "stopped", "failed"].includes(run.lifecycle));
+      && !["achieved", "accepted-provisional", "blocked", "stopped", "failed"].includes(run.lifecycle));
   }
 
-  qualifyingHistory() {
+  qualifyingHistory(qualificationKey = null) {
     return this.list().filter((run) => classifyRunCompatibility(run).compatible
       && run.lifecycle === "achieved"
-      && run.effective_profile === "auto-gated"
+      && run.effective_profile === "supervised"
       && run.root_review_complete === true
       && run.review?.assessment === "achieved"
       && (run.blockers ?? []).length === 0
-      && run.delivery_accepted === true).length;
+      && run.delivery_accepted === true
+      && run.evidence_grade === "verified"
+      && (!qualificationKey || run.qualification_key === qualificationKey)).length;
   }
 }
 

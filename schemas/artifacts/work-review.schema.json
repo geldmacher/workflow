@@ -1,25 +1,26 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "urn:geldmacher:cursor-artifact:work-review:3",
+  "$id": "urn:geldmacher:cursor-artifact:work-review:4",
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "artifact", "schema", "id", "root_plan_id", "latest_evidence_id", "assessment", "next_action",
+    "artifact", "schema", "id", "root_plan_id", "latest_evidence_id", "assessment", "delivery_status", "next_action",
     "status", "review_route", "auditors_run", "correction_id", "predecessor_review_id",
     "inspected_objectives", "reused_objectives", "inspected_checks", "reused_checks"
   ],
   "properties": {
     "artifact": { "const": "work-review" },
-    "schema": { "const": 3 },
+    "schema": { "const": 4 },
     "id": { "type": "string", "pattern": "^wr-[A-Za-z0-9][A-Za-z0-9-]*$" },
     "status": { "enum": ["complete"] },
     "created_at": { "type": "string", "format": "date-time" },
     "source": { "type": "string", "minLength": 1 },
     "root_plan_id": { "type": "string", "pattern": "^wp-[A-Za-z0-9][A-Za-z0-9-]*$" },
     "latest_evidence_id": { "type": "string", "pattern": "^de-[A-Za-z0-9][A-Za-z0-9-]*$" },
-    "assessment": { "enum": ["achieved", "mostly-achieved", "partially-achieved", "not-achieved", "insufficient-evidence"] },
+    "assessment": { "enum": ["achieved", "provisional", "mostly-achieved", "partially-achieved", "not-achieved", "insufficient-evidence"] },
+    "delivery_status": { "enum": ["verified", "provisional", "blocked"] },
     "review_route": { "enum": ["inline", "targeted", "full"] },
-    "next_action": { "enum": ["none", "correct", "clarify", "replan", "retry-review"] },
+    "next_action": { "enum": ["none", "accept-provisional", "correct", "clarify", "replan", "retry-review"] },
     "correction_id": { "type": ["string", "null"], "pattern": "^cp-[A-Za-z0-9][A-Za-z0-9-]*$" },
     "predecessor_review_id": { "type": ["string", "null"], "pattern": "^wr-[A-Za-z0-9][A-Za-z0-9-]*$" },
     "inspected_objectives": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^OBJ-[1-9][0-9]*$" } },
@@ -38,7 +39,11 @@
   "allOf": [
     {
       "if": { "properties": { "assessment": { "const": "achieved" } }, "required": ["assessment"] },
-      "then": { "properties": { "next_action": { "const": "none" } } }
+      "then": { "properties": { "delivery_status": { "const": "verified" }, "next_action": { "const": "none" } } }
+    },
+    {
+      "if": { "properties": { "delivery_status": { "const": "provisional" } }, "required": ["delivery_status"] },
+      "then": { "properties": { "next_action": { "const": "accept-provisional" } } }
     },
     {
       "if": { "properties": { "next_action": { "const": "correct" } }, "required": ["next_action"] },

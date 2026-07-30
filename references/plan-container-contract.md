@@ -1,4 +1,4 @@
-Cursor owns native Plan UI and capabilities. Generate canonical form: one H1, then a fenced `yaml artifact-envelope` containing the schema-3 `work-plan`; never use a generic `text` fence. Use the eight exact, unnumbered H2 names from the Planning skill.
+Cursor owns native Plan UI and capabilities. Generate canonical form: one H1, then a fenced `yaml artifact-envelope` containing the Schema-4 `work-plan`; never use a generic `text` fence. Include meaningful Intent, Acceptance, Boundaries, and Risks sections; choose prose, lists, or tables to fit the task.
 
 Ready plans use these table columns:
 

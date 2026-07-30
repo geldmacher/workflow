@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:geldmacher:workflow-execution-strategy:1",
+  "type": "object", "additionalProperties": false,
+  "required": ["strategy_schema", "strategy_id", "revision", "parent_hash", "root_projection_hash", "task_class", "recipe_version", "primary_targets", "steps", "checks", "evidence_requirements", "deviations", "rationale", "created_by", "strategy_hash"],
+  "properties": {
+    "strategy_schema": { "const": 1 }, "strategy_id": { "type": "string" }, "revision": { "type": "integer", "minimum": 0 },
+    "parent_hash": { "oneOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] }, "root_projection_hash": { "$ref": "#/$defs/hash" },
+    "task_class": { "enum": ["bugfix", "refactor", "performance", "feature", "investigation", "verify-existing"] }, "recipe_version": { "type": "string" },
+    "primary_targets": { "type": "array", "items": { "type": "string" } }, "steps": { "type": "array", "items": { "type": "object" } },
+    "checks": { "type": "array", "items": { "type": "object" } }, "evidence_requirements": { "type": "string" },
+    "deviations": { "type": "array", "items": { "type": "object" } }, "rationale": { "type": "string" }, "created_by": { "type": "string" }, "strategy_hash": { "$ref": "#/$defs/hash" }
+  },
+  "$defs": { "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" } }
+}

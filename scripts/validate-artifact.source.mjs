@@ -37,6 +37,10 @@ const requiredScopeCategories = ["required", "permitted", "prohibited"];
 const baselineKinds = ["repository", "head", "dirty-files", "known-failures", "targets-and-prerequisites"];
 
 const sectionAliases = Object.freeze({
+  Intent: ["intent", "goal", "intent contract"],
+  Acceptance: ["acceptance", "acceptance outcomes", "success criteria"],
+  Boundaries: ["boundaries", "authority", "authority envelope"],
+  Risks: ["risks", "risk summary"],
   "Intent and decisions": ["intent", "intent readiness", "intent and decisions"],
   Objectives: ["objectives", "goals"],
   "Evidence and baseline": ["baseline", "baseline evidence", "evidence and baseline"],
@@ -494,6 +498,46 @@ function derivedAssurance(score, triggers) {
 }
 
 function planData(artifact) {
+  if (artifact.fields.schema === 4) {
+    const objectives = artifact.fields.acceptance.map((outcome, index) => ({
+      "Objective ID": `OBJ-${index + 1}`,
+      "Observable outcome": outcome,
+      "Acceptance evidence": outcome,
+    }));
+    const declaredChecks = tableRows(artifact.sections.get("Verification") ?? "", tables.verification);
+    const declaredWithClass = tableRows(artifact.sections.get("Verification") ?? "", tables.verificationWithClass);
+    const checks = declaredChecks.length > 0 ? declaredChecks : objectives.map((objective, index) => ({
+      "Check ID": `CHECK-${index + 1}`,
+      Objectives: objective["Objective ID"],
+      "Working Directory": "repository root",
+      "Command or Inspection": "verification-profile",
+      "Expected Result": objective["Observable outcome"],
+      Required: "yes",
+      "Cost Class": "standard",
+      Prerequisites: artifact.fields.authority.allowed_roots.join(", "),
+    }));
+    const evidenceClasses = declaredWithClass.length > 0
+      ? new Map(declaredWithClass.map((row) => [row["Check ID"], row["Evidence Class"]]))
+      : new Map(checks.map((row) => [row["Check ID"], "human-review-required"]));
+    const objectiveIds = objectives.map((row) => row["Objective ID"]);
+    return {
+      objectives: new Set(objectiveIds),
+      checks: new Set(checks.map((row) => row["Check ID"])),
+      checkRows: new Map(checks.map((row) => [row["Check ID"], row])),
+      evidenceClasses,
+      slices: [{
+        "Slice ID": "SLICE-1", Objectives: objectiveIds.join(", "), Dependencies: "None.",
+        Targets: artifact.fields.authority.allowed_roots.join(", "),
+        "Observable outcome": artifact.fields.goal,
+        "Check IDs": checks.map((row) => row["Check ID"]).join(", "), "Human review": "no",
+      }],
+      steps: new Set(["STEP-1"]),
+      requiredChecks: new Set(checks.filter((row) => row.Required === "yes").map((row) => row["Check ID"])),
+      allowedTargets: [...artifact.fields.authority.allowed_roots],
+      prohibitedTargets: [...artifact.fields.authority.protected_paths, ...artifact.fields.authority.approval_required_paths],
+      objectiveDependencies: new Map(objectiveIds.map((id) => [id, new Set(artifact.fields.authority.allowed_roots)])),
+    };
+  }
   const objectives = tableRows(artifact.sections.get("Objectives") ?? "", tables.objectives);
   const checks = tableRows(artifact.sections.get("Verification") ?? "", tables.verification);
   const steps = tableRows(artifact.sections.get("Execution steps") ?? "", tables.steps);
@@ -514,6 +558,36 @@ function planData(artifact) {
     prohibitedTargets: scope.filter((row) => row.Category === "prohibited").flatMap((row) => targetTokens(row.Targets)),
     objectiveDependencies,
   };
+}
+
+function validatePlanV4(parsed, sections, failures) {
+  for (const section of ["Intent", "Acceptance", "Boundaries", "Risks"]) {
+    if (!(sections.get(section) ?? "").trim()) failures.push(`${section}: section must not be empty`);
+  }
+  const expectedLevel = { manual: "lean", supervised: "controlled", autonomous: "certified" }[parsed.fields.profile_max];
+  if (parsed.fields.contract_level !== expectedLevel) failures.push(`contract_level must be ${expectedLevel} for ${parsed.fields.profile_max}`);
+  if (parsed.fields.status === "ready" && parsed.fields.intent_ready !== true) failures.push("ready work-plan requires intent_ready true");
+  if (parsed.fields.profile_max === "autonomous" && (parsed.fields.hard_triggers ?? []).length > 0) failures.push("hard-trigger work cannot be autonomous");
+  const authority = parsed.fields.authority ?? {};
+  for (const path of [...(authority.allowed_roots ?? []), ...(authority.protected_paths ?? []), ...(authority.approval_required_paths ?? [])]) {
+    if (path.startsWith("/") || path === ".." || path.startsWith("../")) failures.push(`authority path must remain repository-relative: ${path}`);
+  }
+  if (["controlled", "certified"].includes(parsed.fields.contract_level)) {
+    for (const field of ["max_active_minutes", "max_total_tokens", "max_cost_usd"]) if (!Number.isFinite(authority[field]) || authority[field] <= 0) failures.push(`controlled authority requires ${field}`);
+  }
+  const data = planData(parsed);
+  const verification = tableRows(sections.get("Verification") ?? "", tables.verificationWithClass);
+  for (const row of verification) {
+    if (!/^CHECK-[1-9][0-9]*$/.test(row["Check ID"])) failures.push(`Verification: invalid Check ID ${row["Check ID"]}`);
+    if (!/^(?:yes|no)$/.test(row.Required)) failures.push(`Verification: ${row["Check ID"]} Required must be yes|no`);
+    if (!/^(?:machine-verifiable|human-review-required|human-approval-required)$/.test(row["Evidence Class"])) failures.push(`Verification: ${row["Check ID"]} invalid Evidence Class`);
+  }
+  if (verification.length === 0) parsed.normalizations.push("synthesized strategy checks from acceptance outcomes");
+  if (data.objectives.size !== parsed.fields.acceptance.length) failures.push("acceptance outcomes must map one-to-one to objectives");
+  if (parsed.wrapper) {
+    const final = String(parsed.wrapper.todos?.at(-1)?.content ?? "");
+    if (!/verify|check|evidence|snapshot/i.test(final)) failures.push("final native todo must verify or evidence the implemented result");
+  }
 }
 
 function evidenceData(artifact) {
@@ -745,6 +819,16 @@ function validateEvidence(parsed, sections, failures) {
     for (const [path, hash] of prerequisites) if (snapshotFingerprints.get(path) !== hash) failures.push(`Checks: ${row["Check ID"]} prerequisite ${path} must match Repository snapshot`);
     if (row.Status === "blocked" && !/^blocked-by:CHECK-[1-9][0-9]*\b/.test(row["Observed Result"])) failures.push(`Checks: ${row["Check ID"]} blocked status needs blocked-by:CHECK-N evidence`);
   }
+  if (parsed.fields.schema === 4) {
+    const entries = parsed.fields.check_evidence ?? [];
+    const patched = new Map(entries.filter((entry) => entry.baseline_or_patched === "patched").map((entry) => [entry.check_id, entry]));
+    for (const check of parsed.fields.executed_checks ?? []) if (!patched.has(check)) failures.push(`check_evidence requires patched evidence for ${check}`);
+    const grades = entries.map((entry) => entry.grade);
+    if (grades.includes("failed") && parsed.fields.overall_grade !== "failed") failures.push("failed check evidence requires overall_grade failed");
+    if (parsed.fields.status === "complete" && parsed.fields.overall_grade !== "verified") failures.push("complete evidence requires overall_grade verified");
+    if (parsed.fields.status === "provisional" && !["supported", "partial", "unavailable"].includes(parsed.fields.overall_grade)) failures.push("provisional evidence requires supported, partial, or unavailable grade");
+    if (parsed.fields.status !== "blocked" && grades.includes("failed")) failures.push("failed check evidence must be blocked");
+  }
 
   const resume = requireTable(sections, "Idempotency and resume", tables.resume, failures, { optional: true, normalizations: parsed.normalizations });
   exactIdSet(resume.rows, "Step ID", /STEP-[1-9][0-9]*/, "Idempotency and resume", failures);
@@ -759,7 +843,7 @@ function validateEvidence(parsed, sections, failures) {
     if (results.rows.some((row) => row.Result === "blocked")) failures.push("complete evidence cannot contain blocked subject results");
     if (checks.rows.some((row) => row.Status === "blocked")) failures.push("complete evidence cannot contain blocked Checks");
     if (resume.rows.some((row) => ["pending", "partial", "conflicted"].includes(row.State))) failures.push("complete evidence requires every step state satisfied");
-  } else if (!results.rows.some((row) => row.Result === "blocked") && !checks.rows.some((row) => row.Status === "blocked") && !/BLOCKER:\s*\S.{10,}/i.test(sections.get("Summary") ?? "")) {
+  } else if (parsed.fields.status === "blocked" && !results.rows.some((row) => row.Result === "blocked") && !checks.rows.some((row) => row.Status === "blocked") && !/BLOCKER:\s*\S.{10,}/i.test(sections.get("Summary") ?? "")) {
     failures.push("blocked evidence requires blocked work or a concrete BLOCKER reason");
   }
   const operationalEvidence = (sections.get("Operational evidence") ?? "").trim();
@@ -888,6 +972,11 @@ function validateCompactReview(parsed, sections, failures) {
     if (coverage.rows.length > 0 && (normalizedHeader(snapshotRow?.Result) !== "consistent" || noneLike(snapshotRow?.Inspected))) failures.push("achieved review coverage contradicts current snapshot consistency");
   }
   if (parsed.fields.next_action === "none" && parsed.fields.assessment !== "achieved") failures.push("next_action none requires assessment achieved");
+  if (parsed.fields.schema === 4) {
+    if (parsed.fields.delivery_status === "verified" && parsed.fields.assessment !== "achieved") failures.push("verified delivery requires achieved assessment");
+    if (parsed.fields.delivery_status === "provisional" && parsed.fields.next_action !== "accept-provisional") failures.push("provisional delivery requires accept-provisional");
+    if (parsed.fields.next_action === "accept-provisional" && parsed.fields.delivery_status !== "provisional") failures.push("accept-provisional requires provisional delivery");
+  }
   if (parsed.fields.next_action === "correct" && findings.rows.length === 0) failures.push("correct review requires findings");
   if (parsed.fields.next_action !== "correct" && Array.isArray(parsed.fields.learning_candidates)) failures.push("learning_candidates are allowed only when next_action is correct");
   if (parsed.fields.next_action === "retry-review" && parsed.fields.assessment !== "insufficient-evidence") failures.push("retry-review requires assessment insufficient-evidence");
@@ -951,7 +1040,10 @@ function buildArtifact(text, root, options = {}) {
   parsed.sections = sections;
   if (sections.size > 0) {
     rejectPlaceholders(parsed, schema, sections, failures);
-    if (parsed.fields.artifact === "work-plan") validatePlan(parsed, sections, failures);
+    if (parsed.fields.artifact === "work-plan") {
+      if (parsed.fields.schema === 4) validatePlanV4(parsed, sections, failures);
+      else validatePlan(parsed, sections, failures);
+    }
     if (parsed.fields.artifact === "delivery-evidence") validateEvidence(parsed, sections, failures);
     if (parsed.fields.artifact === "work-review") parsed.correction = validateCompactReview(parsed, sections, failures);
   }
@@ -1011,6 +1103,21 @@ export function executionContractFromArtifactText(text, root = defaultRoot) {
     slices: data.slices.map((row) => ({ ...row })),
     allowedTargets: [...data.allowedTargets],
     prohibitedTargets: [...data.prohibitedTargets],
+    strategy: artifact.fields.schema === 4 ? {
+      strategy_id: `strategy-${artifact.fields.id.slice(3)}`,
+      revision: 0,
+      parent_hash: null,
+      root_projection_hash: authoritative.projection_hash,
+      task_class: artifact.fields.certification?.task_recipe ?? null,
+      recipe_version: "workflow-recipe-1",
+      primary_targets: [...data.allowedTargets],
+      steps: data.slices.map((row) => ({ ...row })),
+      checks: [...data.checkRows.values()].map((row) => ({ ...row, "Evidence Class": data.evidenceClasses.get(row["Check ID"]) })),
+      evidence_requirements: artifact.fields.profile_max === "autonomous" ? "verified" : "provisional-allowed",
+      deviations: [],
+      rationale: "initial strategy derived from the approved intent root",
+      created_by: "planner",
+    } : null,
     authoritative_projection: authoritative.projection,
     authoritative_projection_text: authoritative.projection_text,
     authoritative_projection_hash: authoritative.projection_hash,
@@ -1087,7 +1194,9 @@ function materializeEvidence(artifact, artifacts, cache, failures, active = new 
   const data = evidenceData(artifact);
   const currentFingerprints = fingerprintMap(data.snapshot?.["Relevant fingerprints"]);
   const reuseBasis = data.snapshot?.["Relevant fingerprints"] ?? "";
-  const strongReuse = root.fields.assurance_profile === "deep" || (root.fields.hard_triggers ?? []).length > 0;
+  const strongReuse = root.fields.schema === 4
+    ? root.fields.contract_level === "certified" || (root.fields.hard_triggers ?? []).length > 0
+    : root.fields.assurance_profile === "deep" || (root.fields.hard_triggers ?? []).length > 0;
   const predecessor = artifact.fields.predecessor_evidence_id ? artifacts.get(artifact.fields.predecessor_evidence_id) : null;
   const predecessorEffective = predecessor?.fields.artifact === "delivery-evidence" ? materializeEvidence(predecessor, artifacts, cache, failures, active) : null;
   if (artifact.fields.predecessor_evidence_id && !predecessorEffective) failures.push(`${artifact.label}: missing predecessor evidence ${artifact.fields.predecessor_evidence_id}`);
@@ -1153,7 +1262,12 @@ function materializeEvidence(artifact, artifacts, cache, failures, active = new 
 
   const operationalContent = (artifact.sections.get("Operational evidence") ?? "").trim();
   let operationalReady = true;
-  if (root.fields.runtime_relevant === true) {
+  if (root.fields.schema === 4) {
+    if (operationalContent && !/^not applicable\.?$/i.test(operationalContent)) {
+      const operationalRows = tableRows(operationalContent, tables.operationalEvidence);
+      operationalReady = operationalRows.length > 0 && operationalRows.every((row) => row.Status === "satisfied");
+    }
+  } else if (root.fields.runtime_relevant === true) {
     const operationalRows = tableRows(operationalContent, tables.operationalEvidence);
     const byConcern = new Map(operationalRows.map((row) => [normalizedHeader(row.Concern), row]));
     for (const concern of ["Observable signal", "Failure condition", "Recovery or rollback"]) {
@@ -1183,7 +1297,10 @@ function materializeEvidence(artifact, artifacts, cache, failures, active = new 
     }
   }
 
-  const reviewReady = artifact.fields.status === "complete" && operationalReady && [...plan.requiredChecks].every((id) => checks.get(id)?.status === "passed");
+  const reviewReady = artifact.fields.status === "complete"
+    && (artifact.fields.schema !== 4 || artifact.fields.overall_grade === "verified")
+    && operationalReady
+    && [...plan.requiredChecks].every((id) => checks.get(id)?.status === "passed");
   const effective = { root, plan, objectives, checks, snapshot: data.snapshot, snapshotFingerprints: currentFingerprints, operationalReady, reviewReady, predecessor: predecessorEffective };
   artifact.effective = effective;
   cache.set(artifact.fields.id, effective);
@@ -1310,8 +1427,11 @@ function inspectCompactArtifactSet(entries, root = defaultRoot) {
       disjointCoverage(review.fields.inspected_objectives, review.fields.reused_objectives, plan.objectives, `${review.label}: objective review`, errors);
       disjointCoverage(review.fields.inspected_checks, review.fields.reused_checks, plan.requiredChecks, `${review.label}: Check review`, errors);
       if (index === 0 && ((review.fields.reused_objectives ?? []).length > 0 || (review.fields.reused_checks ?? []).length > 0)) errors.push(`${review.label}: first review must inspect all root evidence`);
-      if ((rootPlan.fields.assurance_profile === "deep" || (rootPlan.fields.hard_triggers ?? []).length > 0) && review.fields.review_route !== "full") {
-        errors.push(`${review.label}: deep or hard-trigger root requires review_route full`);
+      const fullReviewRequired = rootPlan.fields.schema === 4
+        ? rootPlan.fields.contract_level === "certified" || (rootPlan.fields.hard_triggers ?? []).length > 0
+        : rootPlan.fields.assurance_profile === "deep" || (rootPlan.fields.hard_triggers ?? []).length > 0;
+      if (fullReviewRequired && review.fields.review_route !== "full") {
+        errors.push(`${review.label}: certified or hard-trigger root requires review_route full`);
       }
       for (const objective of review.fields.reused_objectives ?? []) {
         if (!evidence.fields.reused_objectives.includes(objective)) errors.push(`${review.label}: reused review objective ${objective} lacks delta-evidence reuse`);
@@ -1326,10 +1446,13 @@ function inspectCompactArtifactSet(entries, root = defaultRoot) {
         if ([...plan.objectives].some((id) => effective?.objectives.get(id)?.status !== "achieved")) errors.push(`${review.label}: achieved requires every effective root objective achieved`);
         if (reviewData(review).findings.length > 0) errors.push(`${review.label}: achieved cannot contain findings`);
       }
+      const plannedAssurance = rootPlan.fields.schema === 4
+        ? ({ lean: "lean", controlled: "standard", certified: "deep" }[rootPlan.fields.contract_level] ?? "standard")
+        : rootPlan.fields.assurance_profile;
       review.effective = {
         ...review.effective,
-        plannedAssurance: rootPlan.fields.assurance_profile,
-        assuranceUsed: review.fields.review_route === "full" ? "deep" : review.fields.review_route === "targeted" ? "standard" : rootPlan.fields.assurance_profile,
+        plannedAssurance,
+        assuranceUsed: review.fields.review_route === "full" ? "deep" : review.fields.review_route === "targeted" ? "standard" : plannedAssurance,
         snapshotId: effective?.snapshot?.["Snapshot ID"] ?? null,
         correctionRound: candidates.length - 1,
         reviewReady: effective?.reviewReady ?? false,

@@ -1,8 +1,8 @@
 {
   "name": "geldmacher-workflow-plugin-development",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "private": true,
-  "description": "Development and controller validation for the Cursor-native Geldmacher Workflow software factory.",
+  "description": "Development and controller validation for the adaptive, evidence-calibrated Cursor-native Geldmacher Workflow.",
   "engines": {
     "node": ">=22"
   },

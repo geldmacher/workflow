@@ -1,8 +1,8 @@
 {
   "name": "geldmacher-workflow",
   "displayName": "Workflow",
-  "description": "Cursor-native software factory with manual, auto-gated, and fail-closed unattended-eligible workflows.",
-  "version": "3.0.0",
+  "description": "Adaptive, evidence-calibrated Cursor-native workflow with manual, supervised, and certified autonomous delivery.",
+  "version": "4.0.0",
   "author": {
     "name": "Dennis Geldmacher",
     "email": "geldmacher.dennis@outlook.de"
@@ -28,7 +28,7 @@
     "workflow-learning",
     "software-factory",
     "model-routing",
-    "auto-gated"
+    "supervised"
   ],
   "tags": [
     "planning",
@@ -42,7 +42,7 @@
     "learning-closeout",
     "software-factory",
     "model-attestation",
-    "unattended-eligible"
+    "autonomous"
   ],
   "logo": "assets/logo.svg",
   "mcpServers": "mcp.json"

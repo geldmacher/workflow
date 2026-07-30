@@ -13,10 +13,10 @@ Never search repository/plugin text, docs, or MCP catalogs to discover or probe 
 
 ## Root Planning
 
-Once no material decision remains, read [root semantics](../../references/executable-contract.md) and [native output](../../references/plan-container-contract.md) completely. Read [design depth](../../references/design-contract.md) only for `compact` or `full`. Record every human answer as a `DEC-*` source.
+Once no material decision remains, read [root semantics](../../references/executable-contract.md), [native output](../../references/plan-container-contract.md), and [adaptive design](../../references/design-contract.md) completely. Preserve the substance of every human answer in the Intent Root.
 
-Schema-2 or mixed input requires replanning, never conversion.
+Workflow-3 or mixed input remains read-only and requires a fresh Workflow-4 Root, never automatic conversion.
 
-Construct one immutable schema-3 root. Before `CreatePlan`, self-check all eight Root Planning areas: Intent and decisions, Objectives, Evidence and baseline, Scope and targets, Execution steps, Verification, Operational readiness, and Risk and closeout. Repair omissions and use the contracts' canonical envelope and tables.
+Construct one immutable Schema-4 Intent Root. Before `CreatePlan`, self-check goal, observable acceptance, non-goals, constraints, authority, risk, hard triggers, and the selected profile contract. Use meaningful Intent, Acceptance, Boundaries, and Risks sections; choose prose, lists, or tables rather than padding the Root with fixed tables. Keep mutable steps and check tactics in the initial Strategy projection.
 
-Do not invent `extensions`; preserve existing values as opaque audit metadata without interpreting, quoting, summarizing, explaining, or passing their contents onward. Keep steps outcome-oriented and Checks economic. Slice size is only a heuristic. Auto-capable roots require complete frozen bounds; manual roots omit them. Native **Implement Plan** remains the sole approval for initial manual execution, and delivery stops at the repository boundary.
+Do not invent `extensions`; preserve existing values as opaque audit metadata without interpreting, quoting, summarizing, explaining, or passing their contents onward. Keep Strategy steps outcome-oriented and Checks economic. Controlled/certified roots require complete budgets; lean roots keep only meaningful bounds. Native **Implement Plan** remains the sole approval for initial manual execution, and delivery stops at the repository boundary.

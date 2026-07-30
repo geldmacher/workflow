@@ -2,6 +2,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { runSandboxedProcess } from "./sandbox.mjs";
 import { estimateCost } from "./policy.mjs";
 import { PLUGIN_VERSION } from "./protocol.mjs";
@@ -16,6 +17,17 @@ function bundledWorkerEntrypoint() {
   ];
   const entrypoint = candidates.find(existsSync);
   if (!entrypoint) throw new Error("bundled workflow-worker.mjs is missing");
+  return resolve(entrypoint);
+}
+
+function fanoutEntrypoint() {
+  const candidates = [
+    fileURLToPath(new URL("./read-fanout-runner.mjs", import.meta.url)),
+    fileURLToPath(new URL("../../dist/workflow-fanout.mjs", import.meta.url)),
+    fileURLToPath(new URL("./workflow-fanout.mjs", import.meta.url)),
+  ];
+  const entrypoint = candidates.find(existsSync);
+  if (!entrypoint) throw new Error("bundled read-only fanout runner is missing");
   return resolve(entrypoint);
 }
 
@@ -102,6 +114,25 @@ export function validateRouteAgainstCatalog(route, catalog) {
   return { valid: errors.length === 0, errors, model: { id: route.model_id, params }, catalog_model: model };
 }
 
+export function validatePoolAgainstCatalog(pool, catalog) {
+  const candidates = (pool?.candidates ?? []).map((candidate, index) => ({
+    ...validateRouteAgainstCatalog(candidate, catalog),
+    candidate,
+    index,
+  }));
+  const selected = candidates.find((candidate) => candidate.valid) ?? null;
+  return {
+    valid: Boolean(selected),
+    errors: selected ? [] : candidates.flatMap((candidate) => candidate.errors.map((error) => `candidate[${candidate.index}]: ${error}`)),
+    candidates,
+    selected_index: selected?.index ?? null,
+    selected_candidate: selected?.candidate ?? null,
+    model: selected?.model ?? null,
+    pool_hash: createHash("sha256").update(JSON.stringify(pool)).digest("hex"),
+    selection_reason: selected ? (selected.index === 0 ? "primary-available" : "approved-pool-fallback") : "no-approved-candidate-available",
+  };
+}
+
 export function configurationsMatch(requested, observed) {
   if (!requested || !observed || requested.id !== observed.id) return false;
   const normalize = (params = []) => [...params].map(({ id, value }) => [id, String(value)]).sort(([a], [b]) => a.localeCompare(b));
@@ -158,8 +189,8 @@ export class CursorWorkerAdapter {
     if (!response.ok) return { verified: false, errors: [response.error?.message ?? "model catalog failed"], sdk_version: sdkVersion };
     const routes = {};
     const errors = [];
-    for (const [role, route] of Object.entries(profile)) {
-      const validation = validateRouteAgainstCatalog(route, response.models);
+    for (const [role, pool] of Object.entries(profile)) {
+      const validation = validatePoolAgainstCatalog(pool, response.models);
       routes[role] = validation;
       errors.push(...validation.errors.map((error) => `${role}: ${error}`));
     }
@@ -172,7 +203,7 @@ export class CursorWorkerAdapter {
     };
   }
 
-  runPhase({ role, route, acceptedModel, prompt, cwd, mode = "agent", agentId = null, force = false, writerWritablePaths = [], writerDeniedPaths = [], timeoutMs = 300_000, cancelGraceMs = 5_000, configurationHash = null, harnessHash = null, artifactProjectionHash = null }) {
+  runPhase({ role, route, routePoolHash = null, selectionReason = "primary-available", acceptedModel, prompt, cwd, mode = "agent", agentId = null, force = false, writerWritablePaths = [], writerDeniedPaths = [], verifierArtifactPaths = [], timeoutMs = 300_000, cancelGraceMs = 5_000, configurationHash = null, harnessHash = null, artifactProjectionHash = null }) {
     const home = this.workerHome();
     const storePath = join(home, "cursor-store");
     mkdirSync(storePath, { recursive: true, mode: 0o700 });
@@ -194,7 +225,7 @@ export class CursorWorkerAdapter {
         deadline_at: new Date(Date.now() + Math.max(1_000, timeoutMs - cancelGraceMs)).toISOString(),
         cancel_grace_ms: cancelGraceMs,
       },
-      writablePaths: [home, ...(role === "writer" || role === "writer_escalated" ? writerWritablePaths : [])],
+      writablePaths: [home, ...(role === "writer" || role === "writer_escalated" ? writerWritablePaths : []), ...(role === "verifier" ? verifierArtifactPaths : [])],
       deniedPaths: role === "writer" || role === "writer_escalated" ? writerDeniedPaths : [],
       deniedReadPaths: this.controllerStatePaths(),
       network: true,
@@ -207,6 +238,8 @@ export class CursorWorkerAdapter {
       started_at: started,
       finished_at: new Date().toISOString(),
       requested_model: { id: route.model_id, reasoning_effort: route.reasoning_effort, model_options: route.model_options ?? {} },
+      route_pool_hash: routePoolHash,
+      selection_reason: selectionReason,
       accepted_model: acceptedModel,
       observed_model: response.observed_model ?? null,
       model_attested: configurationsMatch(acceptedModel, response.observed_model),
@@ -230,8 +263,52 @@ export class CursorWorkerAdapter {
     return { response, receipt };
   }
 
+  runReadOnlyFanout(phases) {
+    if (!Array.isArray(phases) || phases.length < 1 || phases.length > 2) throw new Error("read-only fanout requires one or two phases");
+    const started = new Date().toISOString();
+    const tasks = phases.map((phase, index) => {
+      if (["writer", "writer_escalated"].includes(phase.role)) throw new Error("read-only fanout cannot contain a writer role");
+      const home = join(this.runDirectory, `fanout-${index}`);
+      const storePath = join(home, "cursor-store");
+      mkdirSync(storePath, { recursive: true, mode: 0o700 });
+      return {
+        entrypoint: this.workerEntrypoint,
+        payload: {
+          operation: "run-phase", role: phase.role, model: phase.acceptedModel, prompt: phase.prompt,
+          cwd: phase.cwd, mode: "agent", agent_id: null, force: false, store_path: storePath,
+          sdk_version: sdkVersion, control_path: this.controlPath(),
+          deadline_at: new Date(Date.now() + Math.max(1_000, (phase.timeoutMs ?? 300_000) - 5_000)).toISOString(), cancel_grace_ms: 5_000,
+        },
+        writablePaths: [home, ...(phase.verifierArtifactPaths ?? [])], deniedPaths: [], deniedReadPaths: this.controllerStatePaths(),
+        network: true, timeoutMs: phase.timeoutMs ?? 300_000, environment: workerEnvironment(home),
+      };
+    });
+    const child = spawnSync(process.execPath, [fanoutEntrypoint()], { input: `${JSON.stringify({ tasks })}\n`, encoding: "utf8", timeout: Math.max(...tasks.map((task) => task.timeoutMs)) + 10_000, maxBuffer: 32 * 1024 * 1024, env: process.env });
+    if (child.error) throw child.error;
+    const marker = child.stdout.split("\n").findLast((line) => line.startsWith("WORKFLOW_FANOUT="));
+    if (!marker) throw new Error(`read-only fanout returned no result: ${child.stderr?.trim() || child.stdout?.trim()}`);
+    const responses = JSON.parse(marker.slice("WORKFLOW_FANOUT=".length));
+    return phases.map((phase, index) => {
+      const response = responses[index];
+      const receipt = {
+        phase: phase.role, started_at: started, finished_at: new Date().toISOString(),
+        requested_model: { id: phase.route.model_id, reasoning_effort: phase.route.reasoning_effort, model_options: phase.route.model_options ?? {} },
+        route_pool_hash: phase.routePoolHash, selection_reason: phase.selectionReason,
+        accepted_model: phase.acceptedModel, observed_model: response.observed_model ?? null,
+        model_attested: configurationsMatch(phase.acceptedModel, response.observed_model), sdk_version: sdkVersion,
+        configuration_hash: phase.configurationHash, route_hash: phase.configurationHash,
+        harness_hash: phase.harnessHash ?? null, artifact_projection_hash: phase.artifactProjectionHash ?? null,
+        request_id: response.request_id ?? null, agent_id: response.agent_id ?? null, worker_run_id: response.run_id ?? null,
+        duration_ms: response.duration_ms ?? null, usage: response.usage ?? null,
+        cost_usd: estimateCost(response.usage, phase.route.pricing_usd_per_million), remap: response.observed_model && !configurationsMatch(phase.acceptedModel, response.observed_model),
+        status: response.status ?? "error", error: response.error ?? null, cancel: response.cancel ?? null, worker_provenance: this.runtimeProvenance(),
+      };
+      return { response, receipt };
+    });
+  }
 
-  runPlanningPhase({ route, acceptedModel, prompt, cwd, agentId = null, timeoutMs = 300_000, cancelGraceMs = 5_000, configurationHash = null, harnessHash, artifactProjectionHash = null, deniedReadPaths = [] }) {
+
+  runPlanningPhase({ route, routePoolHash = null, selectionReason = "primary-available", acceptedModel, prompt, cwd, agentId = null, timeoutMs = 300_000, cancelGraceMs = 5_000, configurationHash = null, harnessHash, artifactProjectionHash = null, deniedReadPaths = [] }) {
     const home = this.workerHome();
     const storePath = join(home, "cursor-store");
     mkdirSync(storePath, { recursive: true, mode: 0o700 });
@@ -266,6 +343,8 @@ export class CursorWorkerAdapter {
       started_at: started,
       finished_at: new Date().toISOString(),
       requested_model: { id: route.model_id, reasoning_effort: route.reasoning_effort, model_options: route.model_options ?? {} },
+      route_pool_hash: routePoolHash,
+      selection_reason: selectionReason,
       accepted_model: acceptedModel,
       observed_model: response.observed_model ?? null,
       model_attested: configurationsMatch(acceptedModel, response.observed_model),

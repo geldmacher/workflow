@@ -1,10 +1,10 @@
 # Learning closeout
 
-`/learn-from-work [instruction]` is optional Agent Mode closeout and direct authorization for bounded project-guidance edits. Its entire argument is one manual Learning, never an artifact selector. Resolve exactly one valid root under schema 3 and its linear review/evidence chain or stop before mutation. Schema-2 or mixed chains require replanning and are never learning input.
+`/learn-from-work [instruction]` is optional Agent Mode closeout and direct authorization for bounded project-guidance edits. Its entire argument is one manual Learning, never an artifact selector. Resolve exactly one valid Schema-4 Root and its linear review/evidence chain or stop before mutation. Workflow-3-only or mixed chains are never learning input.
 
 ## Correction candidates
 
-Every new correction includes at least one root-unique `LRN-*` candidate. Its schema-3 review therefore uses `next_action: correct`, declares non-empty `learning_candidates: [LRN-*]`, and embeds the table `Learning ID | Finding keys | Reusable guidance | Candidate targets | Confirmation evidence`. Rows reference existing Findings, state reusable guidance and later proof, and remain output-only during review/correction.
+Every new correction may include root-unique `LRN-*` candidates. Its Schema-4 review uses `next_action: correct` and ties candidates to Findings and confirmation evidence. Candidates remain output-only until a human invokes learning; transcripts never publish rules automatically.
 
 Confirm an automatic candidate only when valid complete `delivery-evidence` names its `cp-*` as `subject_id` and current repository inspection supports its Confirmation evidence. Skip pending, blocked, unexecuted, or contradicted work. A manual Learning needs no correction evidence but must be project-relevant and non-conflicting.
 

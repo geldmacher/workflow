@@ -28,7 +28,7 @@ function recordInterruption(signal) {
   try {
     if (runId) {
       const run = store.get(runId);
-      if (!["achieved", "stopped", "failed"].includes(run.lifecycle)) store.update(runId, run.revision, null, (draft) => ({ ...draft, lifecycle: "interrupted", blockers: [`runner-${signal.toLowerCase()}`], runner_pid: null }), "runner-interrupted");
+      if (!["achieved", "accepted-provisional", "blocked", "stopped", "failed"].includes(run.lifecycle)) store.update(runId, run.revision, null, (draft) => ({ ...draft, lifecycle: "interrupted", blockers: [`runner-${signal.toLowerCase()}`], runner_pid: null }), "runner-interrupted");
     } else {
       const preparation = preparationStore.get(preparationId);
       if (preparation.status === "planning") preparationStore.update(preparationId, preparation.revision, null, (draft) => ({ ...draft, status: "interrupted", blockers: [`planner-${signal.toLowerCase()}`], runner_pid: null }), "planner-interrupted");

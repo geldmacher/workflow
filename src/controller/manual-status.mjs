@@ -87,6 +87,16 @@ export function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot
   if (rootRecords.length > 1) return invalid(rootPlanId, entries, observedAt, ["manual-root-artifact-ambiguous"]);
 
   const relatedEntries = related.map(({ entry }) => entry);
+  const schemas = new Set(related.map(({ inspection }) => inspection.artifact.fields.schema));
+  if (schemas.size === 1 && schemas.has(3)) {
+    const input = baseInput(rootPlanId, relatedEntries, observedAt);
+    return {
+      snapshot: deriveWorkflowState({ ...input, lifecycle: "stopped", compatibility: "read-only-workflow-3", blockers: ["legacy-workflow-3-read-only"] }),
+      artifact_summary: summary(rootPlanId, relatedEntries),
+      diagnostics: ["Workflow 3 artifacts are preserved as read-only history and are not converted"],
+    };
+  }
+  if (schemas.size > 1) return invalid(rootPlanId, relatedEntries, observedAt, ["mixed Workflow artifact schemas are not supported"]);
   const individualErrors = related.flatMap(({ entry, inspection }) => inspection.errors.map((error) => `${entry.label}: ${error}`));
   if (individualErrors.length > 0) return invalid(rootPlanId, relatedEntries, observedAt, individualErrors, related.flatMap(({ inspection }) => inspection.diagnostics));
 
@@ -110,7 +120,7 @@ export function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot
     && evidence?.fields.subject_id === review.fields.correction_id);
   const input = {
     ...baseInput(rootPlanId, relatedEntries, observedAt),
-    design_depth: root.fields.design_depth,
+    contract_level: root.fields.contract_level,
     root_schema_valid: true,
     artifact_chain_valid: true,
     plan_status: root.fields.status,

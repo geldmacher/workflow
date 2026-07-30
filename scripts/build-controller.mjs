@@ -36,6 +36,7 @@ const entries = [
   [join(root, "src", "mcp", "workflow-mcp.mjs"), join(root, "dist", "workflow-mcp.mjs")],
   [join(root, "src", "worker", "cursor-worker.mjs"), join(root, "dist", "workflow-worker.mjs")],
   [join(root, "src", "controller", "runner.mjs"), join(root, "dist", "workflow-runner.mjs")],
+  [join(root, "src", "controller", "read-fanout-runner.mjs"), join(root, "dist", "workflow-fanout.mjs")],
 ];
 const results = await Promise.all(entries.map(([entry, outfile]) => build({
   ...common,

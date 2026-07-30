@@ -1061,10 +1061,10 @@ var require_util = __commonJS({
     var codegen_1 = require_codegen();
     var code_1 = require_code();
     function toHash(arr) {
-      const hash2 = {};
+      const hash5 = {};
       for (const item of arr)
-        hash2[item] = true;
-      return hash2;
+        hash5[item] = true;
+      return hash5;
     }
     exports.toHash = toHash;
     function alwaysValidSchema(it, schema) {
@@ -2235,8 +2235,8 @@ var require_resolve = __commonJS({
       }
       return count;
     }
-    function getFullPath(resolver, id = "", normalize2) {
-      if (normalize2 !== false)
+    function getFullPath(resolver, id = "", normalize3) {
+      if (normalize3 !== false)
         id = normalizeId(id);
       const p = resolver.parse(id);
       return _getFullPath(resolver, p);
@@ -2984,7 +2984,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve11.call(this, root, ref);
+      let _sch = resolve12.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a = root.localRefs) === null || _a === void 0 ? void 0 : _a[ref];
         const { schemaId } = this.opts;
@@ -3011,7 +3011,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve11(root, ref) {
+    function resolve12(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3632,27 +3632,27 @@ var require_fast_uri = __commonJS({
     "use strict";
     var { normalizeIPv6, removeDotSegments, recomposeAuthority, normalizePercentEncoding, normalizePathEncoding, escapePreservingEscapes, reescapeHostDelimiters, isIPv4, nonSimpleDomain } = require_utils();
     var { SCHEMES, getSchemeHandler } = require_schemes();
-    function normalize2(uri, options) {
+    function normalize3(uri, options) {
       if (typeof uri === "string") {
         uri = /** @type {T} */
         normalizeString(uri, options);
       } else if (typeof uri === "object") {
         uri = /** @type {T} */
-        parse2(serialize(uri, options), options);
+        parse3(serialize(uri, options), options);
       }
       return uri;
     }
-    function resolve11(baseURI, relativeURI, options) {
+    function resolve12(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
-      const resolved = resolveComponent(parse2(baseURI, schemelessOptions), parse2(relativeURI, schemelessOptions), schemelessOptions, true);
+      const resolved = resolveComponent(parse3(baseURI, schemelessOptions), parse3(relativeURI, schemelessOptions), schemelessOptions, true);
       schemelessOptions.skipEscape = true;
       return serialize(resolved, schemelessOptions);
     }
     function resolveComponent(base, relative3, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
-        base = parse2(serialize(base, options), options);
-        relative3 = parse2(serialize(relative3, options), options);
+        base = parse3(serialize(base, options), options);
+        relative3 = parse3(serialize(relative3, options), options);
       }
       options = options || {};
       if (!options.tolerant && relative3.scheme) {
@@ -3740,12 +3740,12 @@ var require_fast_uri = __commonJS({
       if (options.reference !== "suffix" && component.scheme) {
         uriTokens.push(component.scheme, ":");
       }
-      const authority = recomposeAuthority(component);
-      if (authority !== void 0) {
+      const authority2 = recomposeAuthority(component);
+      if (authority2 !== void 0) {
         if (options.reference !== "suffix") {
           uriTokens.push("//");
         }
-        uriTokens.push(authority);
+        uriTokens.push(authority2);
         if (component.path && component.path[0] !== "/") {
           uriTokens.push("/");
         }
@@ -3755,7 +3755,7 @@ var require_fast_uri = __commonJS({
         if (!options.absolutePath && (!schemeHandler || !schemeHandler.absolutePath)) {
           s = removeDotSegments(s);
         }
-        if (authority === void 0 && s[0] === "/" && s[1] === "/") {
+        if (authority2 === void 0 && s[0] === "/" && s[1] === "/") {
           s = "/%2F" + s.slice(2);
         }
         uriTokens.push(s);
@@ -3881,7 +3881,7 @@ var require_fast_uri = __commonJS({
       }
       return { parsed, malformedAuthorityOrPort };
     }
-    function parse2(uri, opts) {
+    function parse3(uri, opts) {
       return parseWithStatus(uri, opts).parsed;
     }
     function normalizeString(uri, opts) {
@@ -3905,12 +3905,12 @@ var require_fast_uri = __commonJS({
     }
     var fastUri = {
       SCHEMES,
-      normalize: normalize2,
-      resolve: resolve11,
+      normalize: normalize3,
+      resolve: resolve12,
       resolveComponent,
       equal,
       serialize,
-      parse: parse2
+      parse: parse3
     };
     module.exports = fastUri;
     module.exports.default = fastUri;
@@ -4037,7 +4037,7 @@ var require_core = __commonJS({
         uriResolver
       };
     }
-    var Ajv2 = class {
+    var Ajv3 = class {
       constructor(opts = {}) {
         this.schemas = {};
         this.refs = {};
@@ -4407,9 +4407,9 @@ var require_core = __commonJS({
         }
       }
     };
-    Ajv2.ValidationError = validation_error_1.default;
-    Ajv2.MissingRefError = ref_error_1.default;
-    exports.default = Ajv2;
+    Ajv3.ValidationError = validation_error_1.default;
+    Ajv3.MissingRefError = ref_error_1.default;
+    exports.default = Ajv3;
     function checkOptions(checkOpts, options, msg, log = "error") {
       for (const key in checkOpts) {
         const opt = key;
@@ -6520,7 +6520,7 @@ var require_ajv = __commonJS({
     var draft7MetaSchema = require_json_schema_draft_07();
     var META_SUPPORT_DATA = ["/properties"];
     var META_SCHEMA_ID = "http://json-schema.org/draft-07/schema";
-    var Ajv2 = class extends core_1.default {
+    var Ajv3 = class extends core_1.default {
       _addVocabularies() {
         super._addVocabularies();
         draft7_1.default.forEach((v) => this.addVocabulary(v));
@@ -6539,11 +6539,11 @@ var require_ajv = __commonJS({
         return this.opts.defaultMeta = super.defaultMeta() || (this.getSchema(META_SCHEMA_ID) ? META_SCHEMA_ID : void 0);
       }
     };
-    exports.Ajv = Ajv2;
-    module.exports = exports = Ajv2;
-    module.exports.Ajv = Ajv2;
+    exports.Ajv = Ajv3;
+    module.exports = exports = Ajv3;
+    module.exports.Ajv = Ajv3;
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.default = Ajv2;
+    exports.default = Ajv3;
     var validate_1 = require_validate();
     Object.defineProperty(exports, "KeywordCxt", { enumerable: true, get: function() {
       return validate_1.KeywordCxt;
@@ -10856,10 +10856,10 @@ var require_resolve_block_map = __commonJS({
       let offset = bm.offset;
       let commentEnd = null;
       for (const collItem of bm.items) {
-        const { start, key, sep: sep4, value } = collItem;
+        const { start, key, sep: sep5, value } = collItem;
         const keyProps = resolveProps.resolveProps(start, {
           indicator: "explicit-key-ind",
-          next: key ?? sep4?.[0],
+          next: key ?? sep5?.[0],
           offset,
           onError,
           parentIndent: bm.indent,
@@ -10873,7 +10873,7 @@ var require_resolve_block_map = __commonJS({
             else if ("indent" in key && key.indent !== bm.indent)
               onError(offset, "BAD_INDENT", startColMsg);
           }
-          if (!keyProps.anchor && !keyProps.tag && !sep4) {
+          if (!keyProps.anchor && !keyProps.tag && !sep5) {
             commentEnd = keyProps.end;
             if (keyProps.comment) {
               if (map.comment)
@@ -10897,7 +10897,7 @@ var require_resolve_block_map = __commonJS({
         ctx.atKey = false;
         if (utilMapIncludes.mapIncludes(ctx, map.items, keyNode))
           onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
-        const valueProps = resolveProps.resolveProps(sep4 ?? [], {
+        const valueProps = resolveProps.resolveProps(sep5 ?? [], {
           indicator: "map-value-ind",
           next: value,
           offset: keyNode.range[2],
@@ -10913,7 +10913,7 @@ var require_resolve_block_map = __commonJS({
             if (ctx.options.strict && keyProps.start < valueProps.found.offset - 1024)
               onError(keyNode.range, "KEY_OVER_1024_CHARS", "The : indicator must be at most 1024 chars after the start of an implicit block mapping key");
           }
-          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep4, null, valueProps, onError);
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep5, null, valueProps, onError);
           if (ctx.schema.compat)
             utilFlowIndentCheck.flowIndentCheck(bm.indent, value, onError);
           offset = valueNode.range[2];
@@ -11004,7 +11004,7 @@ var require_resolve_end = __commonJS({
       let comment = "";
       if (end) {
         let hasSpace = false;
-        let sep4 = "";
+        let sep5 = "";
         for (const token of end) {
           const { source, type } = token;
           switch (type) {
@@ -11018,13 +11018,13 @@ var require_resolve_end = __commonJS({
               if (!comment)
                 comment = cb;
               else
-                comment += sep4 + cb;
-              sep4 = "";
+                comment += sep5 + cb;
+              sep5 = "";
               break;
             }
             case "newline":
               if (comment)
-                sep4 += source;
+                sep5 += source;
               hasSpace = true;
               break;
             default:
@@ -11067,18 +11067,18 @@ var require_resolve_flow_collection = __commonJS({
       let offset = fc.offset + fc.start.source.length;
       for (let i = 0; i < fc.items.length; ++i) {
         const collItem = fc.items[i];
-        const { start, key, sep: sep4, value } = collItem;
+        const { start, key, sep: sep5, value } = collItem;
         const props = resolveProps.resolveProps(start, {
           flow: fcName,
           indicator: "explicit-key-ind",
-          next: key ?? sep4?.[0],
+          next: key ?? sep5?.[0],
           offset,
           onError,
           parentIndent: fc.indent,
           startOnNewline: false
         });
         if (!props.found) {
-          if (!props.anchor && !props.tag && !sep4 && !value) {
+          if (!props.anchor && !props.tag && !sep5 && !value) {
             if (i === 0 && props.comma)
               onError(props.comma, "UNEXPECTED_TOKEN", `Unexpected , in ${fcName}`);
             else if (i < fc.items.length - 1)
@@ -11132,8 +11132,8 @@ var require_resolve_flow_collection = __commonJS({
             }
           }
         }
-        if (!isMap && !sep4 && !props.found) {
-          const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep4, null, props, onError);
+        if (!isMap && !sep5 && !props.found) {
+          const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep5, null, props, onError);
           coll.items.push(valueNode);
           offset = valueNode.range[2];
           if (isBlock(value))
@@ -11145,7 +11145,7 @@ var require_resolve_flow_collection = __commonJS({
           if (isBlock(key))
             onError(keyNode.range, "BLOCK_IN_FLOW", blockMsg);
           ctx.atKey = false;
-          const valueProps = resolveProps.resolveProps(sep4 ?? [], {
+          const valueProps = resolveProps.resolveProps(sep5 ?? [], {
             flow: fcName,
             indicator: "map-value-ind",
             next: value,
@@ -11156,8 +11156,8 @@ var require_resolve_flow_collection = __commonJS({
           });
           if (valueProps.found) {
             if (!isMap && !props.found && ctx.options.strict) {
-              if (sep4)
-                for (const st of sep4) {
+              if (sep5)
+                for (const st of sep5) {
                   if (st === valueProps.found)
                     break;
                   if (st.type === "newline") {
@@ -11174,7 +11174,7 @@ var require_resolve_flow_collection = __commonJS({
             else
               onError(valueProps.start, "MISSING_CHAR", `Missing , or : between ${fcName} items`);
           }
-          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep4, null, valueProps, onError) : null;
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep5, null, valueProps, onError) : null;
           if (valueNode) {
             if (isBlock(value))
               onError(valueNode.range, "BLOCK_IN_FLOW", blockMsg);
@@ -11354,7 +11354,7 @@ var require_resolve_block_scalar = __commonJS({
           chompStart = i + 1;
       }
       let value = "";
-      let sep4 = "";
+      let sep5 = "";
       let prevMoreIndented = false;
       for (let i = 0; i < contentStart; ++i)
         value += lines[i][0].slice(trimIndent) + "\n";
@@ -11371,24 +11371,24 @@ var require_resolve_block_scalar = __commonJS({
           indent = "";
         }
         if (type === Scalar.Scalar.BLOCK_LITERAL) {
-          value += sep4 + indent.slice(trimIndent) + content;
-          sep4 = "\n";
+          value += sep5 + indent.slice(trimIndent) + content;
+          sep5 = "\n";
         } else if (indent.length > trimIndent || content[0] === "	") {
-          if (sep4 === " ")
-            sep4 = "\n";
-          else if (!prevMoreIndented && sep4 === "\n")
-            sep4 = "\n\n";
-          value += sep4 + indent.slice(trimIndent) + content;
-          sep4 = "\n";
+          if (sep5 === " ")
+            sep5 = "\n";
+          else if (!prevMoreIndented && sep5 === "\n")
+            sep5 = "\n\n";
+          value += sep5 + indent.slice(trimIndent) + content;
+          sep5 = "\n";
           prevMoreIndented = true;
         } else if (content === "") {
-          if (sep4 === "\n")
+          if (sep5 === "\n")
             value += "\n";
           else
-            sep4 = "\n";
+            sep5 = "\n";
         } else {
-          value += sep4 + content;
-          sep4 = " ";
+          value += sep5 + content;
+          sep5 = " ";
           prevMoreIndented = false;
         }
       }
@@ -11570,25 +11570,25 @@ var require_resolve_flow_scalar = __commonJS({
       if (!match)
         return source;
       let res = match[1];
-      let sep4 = " ";
+      let sep5 = " ";
       let pos = first.lastIndex;
       line.lastIndex = pos;
       while (match = line.exec(source)) {
         if (match[1] === "") {
-          if (sep4 === "\n")
-            res += sep4;
+          if (sep5 === "\n")
+            res += sep5;
           else
-            sep4 = "\n";
+            sep5 = "\n";
         } else {
-          res += sep4 + match[1];
-          sep4 = " ";
+          res += sep5 + match[1];
+          sep5 = " ";
         }
         pos = line.lastIndex;
       }
       const last = /[ \t]*(.*)/sy;
       last.lastIndex = pos;
       match = last.exec(source);
-      return res + sep4 + (match?.[1] ?? "");
+      return res + sep5 + (match?.[1] ?? "");
     }
     function doubleQuotedValue(source, onError) {
       let res = "";
@@ -12398,14 +12398,14 @@ var require_cst_stringify = __commonJS({
         }
       }
     }
-    function stringifyItem({ start, key, sep: sep4, value }) {
+    function stringifyItem({ start, key, sep: sep5, value }) {
       let res = "";
       for (const st of start)
         res += st.source;
       if (key)
         res += stringifyToken(key);
-      if (sep4)
-        for (const st of sep4)
+      if (sep5)
+        for (const st of sep5)
           res += st.source;
       if (value)
         res += stringifyToken(value);
@@ -13572,18 +13572,18 @@ var require_parser = __commonJS({
         if (this.type === "map-value-ind") {
           const prev = getPrevProps(this.peek(2));
           const start = getFirstKeyStartProps(prev);
-          let sep4;
+          let sep5;
           if (scalar.end) {
-            sep4 = scalar.end;
-            sep4.push(this.sourceToken);
+            sep5 = scalar.end;
+            sep5.push(this.sourceToken);
             delete scalar.end;
           } else
-            sep4 = [this.sourceToken];
+            sep5 = [this.sourceToken];
           const map = {
             type: "block-map",
             offset: scalar.offset,
             indent: scalar.indent,
-            items: [{ start, key: scalar, sep: sep4 }]
+            items: [{ start, key: scalar, sep: sep5 }]
           };
           this.onKeyLine = true;
           this.stack[this.stack.length - 1] = map;
@@ -13736,15 +13736,15 @@ var require_parser = __commonJS({
                 } else if (isFlowToken(it.key) && !includesToken(it.sep, "newline")) {
                   const start2 = getFirstKeyStartProps(it.start);
                   const key = it.key;
-                  const sep4 = it.sep;
-                  sep4.push(this.sourceToken);
+                  const sep5 = it.sep;
+                  sep5.push(this.sourceToken);
                   delete it.key;
                   delete it.sep;
                   this.stack.push({
                     type: "block-map",
                     offset: this.offset,
                     indent: this.indent,
-                    items: [{ start: start2, key, sep: sep4 }]
+                    items: [{ start: start2, key, sep: sep5 }]
                   });
                 } else if (start.length > 0) {
                   it.sep = it.sep.concat(start, this.sourceToken);
@@ -13938,13 +13938,13 @@ var require_parser = __commonJS({
             const prev = getPrevProps(parent);
             const start = getFirstKeyStartProps(prev);
             fixFlowSeqItems(fc);
-            const sep4 = fc.end.splice(1, fc.end.length);
-            sep4.push(this.sourceToken);
+            const sep5 = fc.end.splice(1, fc.end.length);
+            sep5.push(this.sourceToken);
             const map = {
               type: "block-map",
               offset: fc.offset,
               indent: fc.indent,
-              items: [{ start, key: fc, sep: sep4 }]
+              items: [{ start, key: fc, sep: sep5 }]
             };
             this.onKeyLine = true;
             this.stack[this.stack.length - 1] = map;
@@ -14122,7 +14122,7 @@ var require_public_api = __commonJS({
       }
       return doc;
     }
-    function parse2(src, reviver, options) {
+    function parse3(src, reviver, options) {
       let _reviver = void 0;
       if (typeof reviver === "function") {
         _reviver = reviver;
@@ -14163,7 +14163,7 @@ var require_public_api = __commonJS({
         return value.toString(options);
       return new Document.Document(value, _replacer, options).toString(options);
     }
-    exports.parse = parse2;
+    exports.parse = parse3;
     exports.parseAllDocuments = parseAllDocuments;
     exports.parseDocument = parseDocument2;
     exports.stringify = stringify;
@@ -14223,7 +14223,7 @@ var require_dist2 = __commonJS({
 });
 
 // src/controller/runner.mjs
-import { dirname as dirname8, resolve as resolve10 } from "node:path";
+import { dirname as dirname9, resolve as resolve11 } from "node:path";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
 
 // src/controller/store.mjs
@@ -14232,11 +14232,18 @@ import { createHash, randomUUID } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
 
 // src/controller/protocol.mjs
-var PLUGIN_VERSION = "3.0.0";
-var ARTIFACT_SCHEMA = 3;
-var RUN_RECORD_SCHEMA = 1;
-var PREPARATION_RECORD_SCHEMA = 1;
-var CONTROLLER_PROTOCOL = 3;
+var PLUGIN_VERSION = "4.0.0";
+var ARTIFACT_SCHEMA = 4;
+var RUN_RECORD_SCHEMA = 2;
+var PREPARATION_RECORD_SCHEMA = 2;
+var CONTROLLER_PROTOCOL = 4;
+var LEGACY_WORKFLOW_3 = Object.freeze({
+  plugin_version: "3.0.0",
+  artifact_schema: 3,
+  run_record_schema: 1,
+  preparation_record_schema: 1,
+  controller_protocol: 3
+});
 function protocolFields() {
   return {
     run_record_schema: RUN_RECORD_SCHEMA,
@@ -14255,10 +14262,12 @@ function preparationProtocolFields() {
 }
 function classifyRunCompatibility(run) {
   const compatible = run?.run_record_schema === RUN_RECORD_SCHEMA && run?.artifact_schema === ARTIFACT_SCHEMA && run?.controller_protocol === CONTROLLER_PROTOCOL && run?.plugin_version === PLUGIN_VERSION;
+  const legacy = run?.run_record_schema === LEGACY_WORKFLOW_3.run_record_schema && run?.artifact_schema === LEGACY_WORKFLOW_3.artifact_schema && run?.controller_protocol === LEGACY_WORKFLOW_3.controller_protocol && run?.plugin_version === LEGACY_WORKFLOW_3.plugin_version;
   return {
     compatible,
-    compatibility: compatible ? "compatible" : "read-only-incompatible",
-    blocker: compatible ? null : "incompatible-run-protocol"
+    legacy,
+    compatibility: compatible ? "compatible" : legacy ? "read-only-workflow-3" : "read-only-incompatible",
+    blocker: compatible ? null : legacy ? "legacy-workflow-3-read-only" : "incompatible-run-protocol"
   };
 }
 function assertCompatibleRun(run) {
@@ -14268,10 +14277,12 @@ function assertCompatibleRun(run) {
 }
 function classifyPreparationCompatibility(preparation) {
   const compatible = preparation?.preparation_record_schema === PREPARATION_RECORD_SCHEMA && preparation?.artifact_schema === ARTIFACT_SCHEMA && preparation?.controller_protocol === CONTROLLER_PROTOCOL && preparation?.plugin_version === PLUGIN_VERSION;
+  const legacy = preparation?.preparation_record_schema === LEGACY_WORKFLOW_3.preparation_record_schema && preparation?.artifact_schema === LEGACY_WORKFLOW_3.artifact_schema && preparation?.controller_protocol === LEGACY_WORKFLOW_3.controller_protocol && preparation?.plugin_version === LEGACY_WORKFLOW_3.plugin_version;
   return {
     compatible,
-    compatibility: compatible ? "compatible" : "read-only-incompatible",
-    blocker: compatible ? null : "incompatible-preparation-protocol"
+    legacy,
+    compatibility: compatible ? "compatible" : legacy ? "read-only-workflow-3" : "read-only-incompatible",
+    blocker: compatible ? null : legacy ? "legacy-workflow-3-read-only" : "incompatible-preparation-protocol"
   };
 }
 function assertCompatiblePreparation(preparation) {
@@ -14442,8 +14453,14 @@ var RunStore = class {
   }
   appendEvent(runId2, type, payload = {}) {
     mkdirSync(this.runDirectory(runId2), { recursive: true, mode: 448 });
-    appendFileSync(this.eventPath(runId2), `${JSON.stringify({ id: randomUUID(), at: (/* @__PURE__ */ new Date()).toISOString(), type, payload })}
+    const prior = this.events(runId2).at(-1);
+    const event = { id: randomUUID(), at: (/* @__PURE__ */ new Date()).toISOString(), type, payload, previous_hash: prior?.event_hash ?? null };
+    event.event_hash = createHash("sha256").update(JSON.stringify(event)).digest("hex");
+    appendFileSync(this.eventPath(runId2), `${JSON.stringify(event)}
 `, { mode: 384 });
+  }
+  appendDecision(runId2, { phase, actor_receipt = null, decision, reason, input_hashes = [], strategy_revision = null, evidence_refs = [], result = null, supersedes = null }) {
+    this.appendEvent(runId2, "decision", { phase, actor_receipt, decision, reason, input_hashes, strategy_revision, evidence_refs, result, supersedes });
   }
   events(runId2, after = 0) {
     if (!existsSync(this.eventPath(runId2))) return [];
@@ -14455,10 +14472,10 @@ var RunStore = class {
     return readdirSync(root, { withFileTypes: true }).filter((entry) => entry.isDirectory() && existsSync(this.runPath(entry.name))).map((entry) => this.get(entry.name));
   }
   active() {
-    return this.list().filter((run) => classifyRunCompatibility(run).compatible && !["achieved", "stopped", "failed"].includes(run.lifecycle));
+    return this.list().filter((run) => classifyRunCompatibility(run).compatible && !["achieved", "accepted-provisional", "blocked", "stopped", "failed"].includes(run.lifecycle));
   }
-  qualifyingHistory() {
-    return this.list().filter((run) => classifyRunCompatibility(run).compatible && run.lifecycle === "achieved" && run.effective_profile === "auto-gated" && run.root_review_complete === true && run.review?.assessment === "achieved" && (run.blockers ?? []).length === 0 && run.delivery_accepted === true).length;
+  qualifyingHistory(qualificationKey2 = null) {
+    return this.list().filter((run) => classifyRunCompatibility(run).compatible && run.lifecycle === "achieved" && run.effective_profile === "supervised" && run.root_review_complete === true && run.review?.assessment === "achieved" && (run.blockers ?? []).length === 0 && run.delivery_accepted === true && run.evidence_grade === "verified" && (!qualificationKey2 || run.qualification_key === qualificationKey2)).length;
   }
 };
 var PreparationStore = class {
@@ -14574,9 +14591,10 @@ var PreparationStore = class {
 };
 
 // src/controller/engine.mjs
-import { existsSync as existsSync10, readFileSync as readFileSync8, statSync } from "node:fs";
-import { resolve as resolve9 } from "node:path";
-import { spawnSync as spawnSync3 } from "node:child_process";
+import { createHash as createHash9 } from "node:crypto";
+import { existsSync as existsSync11, mkdirSync as mkdirSync8, readFileSync as readFileSync9, statSync as statSync2 } from "node:fs";
+import { join as join11, resolve as resolve10 } from "node:path";
+import { spawnSync as spawnSync4 } from "node:child_process";
 
 // scripts/validate-artifact.source.mjs
 var import_ajv = __toESM(require_ajv(), 1);
@@ -14613,6 +14631,10 @@ var learningPattern = /\bLRN-[A-Za-z0-9][A-Za-z0-9-]*\b/g;
 var requiredScopeCategories = ["required", "permitted", "prohibited"];
 var baselineKinds = ["repository", "head", "dirty-files", "known-failures", "targets-and-prerequisites"];
 var sectionAliases = Object.freeze({
+  Intent: ["intent", "goal", "intent contract"],
+  Acceptance: ["acceptance", "acceptance outcomes", "success criteria"],
+  Boundaries: ["boundaries", "authority", "authority envelope"],
+  Risks: ["risks", "risk summary"],
   "Intent and decisions": ["intent", "intent readiness", "intent and decisions"],
   Objectives: ["objectives", "goals"],
   "Evidence and baseline": ["baseline", "baseline evidence", "evidence and baseline"],
@@ -15043,6 +15065,47 @@ function derivedAssurance(score, triggers) {
   return "deep";
 }
 function planData(artifact) {
+  if (artifact.fields.schema === 4) {
+    const objectives2 = artifact.fields.acceptance.map((outcome, index) => ({
+      "Objective ID": `OBJ-${index + 1}`,
+      "Observable outcome": outcome,
+      "Acceptance evidence": outcome
+    }));
+    const declaredChecks = tableRows(artifact.sections.get("Verification") ?? "", tables.verification);
+    const declaredWithClass = tableRows(artifact.sections.get("Verification") ?? "", tables.verificationWithClass);
+    const checks2 = declaredChecks.length > 0 ? declaredChecks : objectives2.map((objective, index) => ({
+      "Check ID": `CHECK-${index + 1}`,
+      Objectives: objective["Objective ID"],
+      "Working Directory": "repository root",
+      "Command or Inspection": "verification-profile",
+      "Expected Result": objective["Observable outcome"],
+      Required: "yes",
+      "Cost Class": "standard",
+      Prerequisites: artifact.fields.authority.allowed_roots.join(", ")
+    }));
+    const evidenceClasses = declaredWithClass.length > 0 ? new Map(declaredWithClass.map((row) => [row["Check ID"], row["Evidence Class"]])) : new Map(checks2.map((row) => [row["Check ID"], "human-review-required"]));
+    const objectiveIds = objectives2.map((row) => row["Objective ID"]);
+    return {
+      objectives: new Set(objectiveIds),
+      checks: new Set(checks2.map((row) => row["Check ID"])),
+      checkRows: new Map(checks2.map((row) => [row["Check ID"], row])),
+      evidenceClasses,
+      slices: [{
+        "Slice ID": "SLICE-1",
+        Objectives: objectiveIds.join(", "),
+        Dependencies: "None.",
+        Targets: artifact.fields.authority.allowed_roots.join(", "),
+        "Observable outcome": artifact.fields.goal,
+        "Check IDs": checks2.map((row) => row["Check ID"]).join(", "),
+        "Human review": "no"
+      }],
+      steps: /* @__PURE__ */ new Set(["STEP-1"]),
+      requiredChecks: new Set(checks2.filter((row) => row.Required === "yes").map((row) => row["Check ID"])),
+      allowedTargets: [...artifact.fields.authority.allowed_roots],
+      prohibitedTargets: [...artifact.fields.authority.protected_paths, ...artifact.fields.authority.approval_required_paths],
+      objectiveDependencies: new Map(objectiveIds.map((id) => [id, new Set(artifact.fields.authority.allowed_roots)]))
+    };
+  }
   const objectives = tableRows(artifact.sections.get("Objectives") ?? "", tables.objectives);
   const checks = tableRows(artifact.sections.get("Verification") ?? "", tables.verification);
   const steps = tableRows(artifact.sections.get("Execution steps") ?? "", tables.steps);
@@ -15063,6 +15126,35 @@ function planData(artifact) {
     prohibitedTargets: scope.filter((row) => row.Category === "prohibited").flatMap((row) => targetTokens(row.Targets)),
     objectiveDependencies
   };
+}
+function validatePlanV4(parsed, sections, failures) {
+  for (const section2 of ["Intent", "Acceptance", "Boundaries", "Risks"]) {
+    if (!(sections.get(section2) ?? "").trim()) failures.push(`${section2}: section must not be empty`);
+  }
+  const expectedLevel = { manual: "lean", supervised: "controlled", autonomous: "certified" }[parsed.fields.profile_max];
+  if (parsed.fields.contract_level !== expectedLevel) failures.push(`contract_level must be ${expectedLevel} for ${parsed.fields.profile_max}`);
+  if (parsed.fields.status === "ready" && parsed.fields.intent_ready !== true) failures.push("ready work-plan requires intent_ready true");
+  if (parsed.fields.profile_max === "autonomous" && (parsed.fields.hard_triggers ?? []).length > 0) failures.push("hard-trigger work cannot be autonomous");
+  const authority2 = parsed.fields.authority ?? {};
+  for (const path of [...authority2.allowed_roots ?? [], ...authority2.protected_paths ?? [], ...authority2.approval_required_paths ?? []]) {
+    if (path.startsWith("/") || path === ".." || path.startsWith("../")) failures.push(`authority path must remain repository-relative: ${path}`);
+  }
+  if (["controlled", "certified"].includes(parsed.fields.contract_level)) {
+    for (const field of ["max_active_minutes", "max_total_tokens", "max_cost_usd"]) if (!Number.isFinite(authority2[field]) || authority2[field] <= 0) failures.push(`controlled authority requires ${field}`);
+  }
+  const data = planData(parsed);
+  const verification = tableRows(sections.get("Verification") ?? "", tables.verificationWithClass);
+  for (const row of verification) {
+    if (!/^CHECK-[1-9][0-9]*$/.test(row["Check ID"])) failures.push(`Verification: invalid Check ID ${row["Check ID"]}`);
+    if (!/^(?:yes|no)$/.test(row.Required)) failures.push(`Verification: ${row["Check ID"]} Required must be yes|no`);
+    if (!/^(?:machine-verifiable|human-review-required|human-approval-required)$/.test(row["Evidence Class"])) failures.push(`Verification: ${row["Check ID"]} invalid Evidence Class`);
+  }
+  if (verification.length === 0) parsed.normalizations.push("synthesized strategy checks from acceptance outcomes");
+  if (data.objectives.size !== parsed.fields.acceptance.length) failures.push("acceptance outcomes must map one-to-one to objectives");
+  if (parsed.wrapper) {
+    const final = String(parsed.wrapper.todos?.at(-1)?.content ?? "");
+    if (!/verify|check|evidence|snapshot/i.test(final)) failures.push("final native todo must verify or evidence the implemented result");
+  }
 }
 function evidenceData(artifact) {
   const results = tableRows(artifact.sections.get("Subject results") ?? "", tables.results);
@@ -15274,8 +15366,18 @@ function validateEvidence(parsed, sections, failures) {
   for (const row of checks.rows) {
     if (!/^(?:passed|failed|blocked|skipped)$/.test(row.Status)) failures.push(`Checks: ${row["Check ID"]} invalid Status`);
     const prerequisites = fingerprintMap(row["Prerequisite fingerprints"]);
-    for (const [path, hash2] of prerequisites) if (snapshotFingerprints.get(path) !== hash2) failures.push(`Checks: ${row["Check ID"]} prerequisite ${path} must match Repository snapshot`);
+    for (const [path, hash5] of prerequisites) if (snapshotFingerprints.get(path) !== hash5) failures.push(`Checks: ${row["Check ID"]} prerequisite ${path} must match Repository snapshot`);
     if (row.Status === "blocked" && !/^blocked-by:CHECK-[1-9][0-9]*\b/.test(row["Observed Result"])) failures.push(`Checks: ${row["Check ID"]} blocked status needs blocked-by:CHECK-N evidence`);
+  }
+  if (parsed.fields.schema === 4) {
+    const entries = parsed.fields.check_evidence ?? [];
+    const patched = new Map(entries.filter((entry) => entry.baseline_or_patched === "patched").map((entry) => [entry.check_id, entry]));
+    for (const check of parsed.fields.executed_checks ?? []) if (!patched.has(check)) failures.push(`check_evidence requires patched evidence for ${check}`);
+    const grades = entries.map((entry) => entry.grade);
+    if (grades.includes("failed") && parsed.fields.overall_grade !== "failed") failures.push("failed check evidence requires overall_grade failed");
+    if (parsed.fields.status === "complete" && parsed.fields.overall_grade !== "verified") failures.push("complete evidence requires overall_grade verified");
+    if (parsed.fields.status === "provisional" && !["supported", "partial", "unavailable"].includes(parsed.fields.overall_grade)) failures.push("provisional evidence requires supported, partial, or unavailable grade");
+    if (parsed.fields.status !== "blocked" && grades.includes("failed")) failures.push("failed check evidence must be blocked");
   }
   const resume = requireTable(sections, "Idempotency and resume", tables.resume, failures, { optional: true, normalizations: parsed.normalizations });
   exactIdSet(resume.rows, "Step ID", /STEP-[1-9][0-9]*/, "Idempotency and resume", failures);
@@ -15289,7 +15391,7 @@ function validateEvidence(parsed, sections, failures) {
     if (results.rows.some((row) => row.Result === "blocked")) failures.push("complete evidence cannot contain blocked subject results");
     if (checks.rows.some((row) => row.Status === "blocked")) failures.push("complete evidence cannot contain blocked Checks");
     if (resume.rows.some((row) => ["pending", "partial", "conflicted"].includes(row.State))) failures.push("complete evidence requires every step state satisfied");
-  } else if (!results.rows.some((row) => row.Result === "blocked") && !checks.rows.some((row) => row.Status === "blocked") && !/BLOCKER:\s*\S.{10,}/i.test(sections.get("Summary") ?? "")) {
+  } else if (parsed.fields.status === "blocked" && !results.rows.some((row) => row.Result === "blocked") && !checks.rows.some((row) => row.Status === "blocked") && !/BLOCKER:\s*\S.{10,}/i.test(sections.get("Summary") ?? "")) {
     failures.push("blocked evidence requires blocked work or a concrete BLOCKER reason");
   }
   const operationalEvidence = (sections.get("Operational evidence") ?? "").trim();
@@ -15413,6 +15515,11 @@ function validateCompactReview(parsed, sections, failures) {
     if (coverage.rows.length > 0 && (normalizedHeader(snapshotRow?.Result) !== "consistent" || noneLike(snapshotRow?.Inspected))) failures.push("achieved review coverage contradicts current snapshot consistency");
   }
   if (parsed.fields.next_action === "none" && parsed.fields.assessment !== "achieved") failures.push("next_action none requires assessment achieved");
+  if (parsed.fields.schema === 4) {
+    if (parsed.fields.delivery_status === "verified" && parsed.fields.assessment !== "achieved") failures.push("verified delivery requires achieved assessment");
+    if (parsed.fields.delivery_status === "provisional" && parsed.fields.next_action !== "accept-provisional") failures.push("provisional delivery requires accept-provisional");
+    if (parsed.fields.next_action === "accept-provisional" && parsed.fields.delivery_status !== "provisional") failures.push("accept-provisional requires provisional delivery");
+  }
   if (parsed.fields.next_action === "correct" && findings.rows.length === 0) failures.push("correct review requires findings");
   if (parsed.fields.next_action !== "correct" && Array.isArray(parsed.fields.learning_candidates)) failures.push("learning_candidates are allowed only when next_action is correct");
   if (parsed.fields.next_action === "retry-review" && parsed.fields.assessment !== "insufficient-evidence") failures.push("retry-review requires assessment insufficient-evidence");
@@ -15471,7 +15578,10 @@ function buildArtifact(text, root, options = {}) {
   parsed.sections = sections;
   if (sections.size > 0) {
     rejectPlaceholders(parsed, schema, sections, failures);
-    if (parsed.fields.artifact === "work-plan") validatePlan(parsed, sections, failures);
+    if (parsed.fields.artifact === "work-plan") {
+      if (parsed.fields.schema === 4) validatePlanV4(parsed, sections, failures);
+      else validatePlan(parsed, sections, failures);
+    }
     if (parsed.fields.artifact === "delivery-evidence") validateEvidence(parsed, sections, failures);
     if (parsed.fields.artifact === "work-review") parsed.correction = validateCompactReview(parsed, sections, failures);
   }
@@ -15521,6 +15631,21 @@ function executionContractFromArtifactText(text, root = defaultRoot) {
     slices: data.slices.map((row) => ({ ...row })),
     allowedTargets: [...data.allowedTargets],
     prohibitedTargets: [...data.prohibitedTargets],
+    strategy: artifact.fields.schema === 4 ? {
+      strategy_id: `strategy-${artifact.fields.id.slice(3)}`,
+      revision: 0,
+      parent_hash: null,
+      root_projection_hash: authoritative.projection_hash,
+      task_class: artifact.fields.certification?.task_recipe ?? null,
+      recipe_version: "workflow-recipe-1",
+      primary_targets: [...data.allowedTargets],
+      steps: data.slices.map((row) => ({ ...row })),
+      checks: [...data.checkRows.values()].map((row) => ({ ...row, "Evidence Class": data.evidenceClasses.get(row["Check ID"]) })),
+      evidence_requirements: artifact.fields.profile_max === "autonomous" ? "verified" : "provisional-allowed",
+      deviations: [],
+      rationale: "initial strategy derived from the approved intent root",
+      created_by: "planner"
+    } : null,
     authoritative_projection: authoritative.projection,
     authoritative_projection_text: authoritative.projection_text,
     authoritative_projection_hash: authoritative.projection_hash
@@ -15591,7 +15716,7 @@ function materializeEvidence(artifact, artifacts, cache, failures, active = /* @
   const data = evidenceData(artifact);
   const currentFingerprints = fingerprintMap(data.snapshot?.["Relevant fingerprints"]);
   const reuseBasis = data.snapshot?.["Relevant fingerprints"] ?? "";
-  const strongReuse = root.fields.assurance_profile === "deep" || (root.fields.hard_triggers ?? []).length > 0;
+  const strongReuse = root.fields.schema === 4 ? root.fields.contract_level === "certified" || (root.fields.hard_triggers ?? []).length > 0 : root.fields.assurance_profile === "deep" || (root.fields.hard_triggers ?? []).length > 0;
   const predecessor = artifact.fields.predecessor_evidence_id ? artifacts.get(artifact.fields.predecessor_evidence_id) : null;
   const predecessorEffective = predecessor?.fields.artifact === "delivery-evidence" ? materializeEvidence(predecessor, artifacts, cache, failures, active) : null;
   if (artifact.fields.predecessor_evidence_id && !predecessorEffective) failures.push(`${artifact.label}: missing predecessor evidence ${artifact.fields.predecessor_evidence_id}`);
@@ -15631,7 +15756,7 @@ function materializeEvidence(artifact, artifacts, cache, failures, active = /* @
     if (!planned) failures.push(`${artifact.label}: executed unknown ${id}`);
     else {
       const prerequisiteFingerprints = fingerprintMap(row["Prerequisite fingerprints"]);
-      for (const [prerequisite, hash2] of prerequisiteFingerprints) if (currentFingerprints.get(prerequisite) !== hash2) failures.push(`${artifact.label}: ${id} fingerprint ${prerequisite} is not current`);
+      for (const [prerequisite, hash5] of prerequisiteFingerprints) if (currentFingerprints.get(prerequisite) !== hash5) failures.push(`${artifact.label}: ${id} fingerprint ${prerequisite} is not current`);
     }
     checks.set(id, { status: row.Status, observed: row["Observed Result"], fingerprints: row["Prerequisite fingerprints"], source: artifact.fields.id });
   }
@@ -15651,7 +15776,12 @@ function materializeEvidence(artifact, artifacts, cache, failures, active = /* @
   }
   const operationalContent = (artifact.sections.get("Operational evidence") ?? "").trim();
   let operationalReady = true;
-  if (root.fields.runtime_relevant === true) {
+  if (root.fields.schema === 4) {
+    if (operationalContent && !/^not applicable\.?$/i.test(operationalContent)) {
+      const operationalRows = tableRows(operationalContent, tables.operationalEvidence);
+      operationalReady = operationalRows.length > 0 && operationalRows.every((row) => row.Status === "satisfied");
+    }
+  } else if (root.fields.runtime_relevant === true) {
     const operationalRows = tableRows(operationalContent, tables.operationalEvidence);
     const byConcern = new Map(operationalRows.map((row) => [normalizedHeader(row.Concern), row]));
     for (const concern of ["Observable signal", "Failure condition", "Recovery or rollback"]) {
@@ -15679,7 +15809,7 @@ function materializeEvidence(artifact, artifacts, cache, failures, active = /* @
       for (const check of correction.checks.filter((row) => row.Required === "yes")) if (!executed.has(check["Check ID"])) failures.push(`${artifact.label}: missing executed correction Check ${check["Check ID"]}`);
     }
   }
-  const reviewReady = artifact.fields.status === "complete" && operationalReady && [...plan.requiredChecks].every((id) => checks.get(id)?.status === "passed");
+  const reviewReady = artifact.fields.status === "complete" && (artifact.fields.schema !== 4 || artifact.fields.overall_grade === "verified") && operationalReady && [...plan.requiredChecks].every((id) => checks.get(id)?.status === "passed");
   const effective = { root, plan, objectives, checks, snapshot: data.snapshot, snapshotFingerprints: currentFingerprints, operationalReady, reviewReady, predecessor: predecessorEffective };
   artifact.effective = effective;
   cache.set(artifact.fields.id, effective);
@@ -15798,8 +15928,9 @@ function inspectCompactArtifactSet(entries, root = defaultRoot) {
       disjointCoverage(review.fields.inspected_objectives, review.fields.reused_objectives, plan.objectives, `${review.label}: objective review`, errors);
       disjointCoverage(review.fields.inspected_checks, review.fields.reused_checks, plan.requiredChecks, `${review.label}: Check review`, errors);
       if (index === 0 && ((review.fields.reused_objectives ?? []).length > 0 || (review.fields.reused_checks ?? []).length > 0)) errors.push(`${review.label}: first review must inspect all root evidence`);
-      if ((rootPlan.fields.assurance_profile === "deep" || (rootPlan.fields.hard_triggers ?? []).length > 0) && review.fields.review_route !== "full") {
-        errors.push(`${review.label}: deep or hard-trigger root requires review_route full`);
+      const fullReviewRequired = rootPlan.fields.schema === 4 ? rootPlan.fields.contract_level === "certified" || (rootPlan.fields.hard_triggers ?? []).length > 0 : rootPlan.fields.assurance_profile === "deep" || (rootPlan.fields.hard_triggers ?? []).length > 0;
+      if (fullReviewRequired && review.fields.review_route !== "full") {
+        errors.push(`${review.label}: certified or hard-trigger root requires review_route full`);
       }
       for (const objective of review.fields.reused_objectives ?? []) {
         if (!evidence.fields.reused_objectives.includes(objective)) errors.push(`${review.label}: reused review objective ${objective} lacks delta-evidence reuse`);
@@ -15813,10 +15944,11 @@ function inspectCompactArtifactSet(entries, root = defaultRoot) {
         if ([...plan.objectives].some((id) => effective?.objectives.get(id)?.status !== "achieved")) errors.push(`${review.label}: achieved requires every effective root objective achieved`);
         if (reviewData(review).findings.length > 0) errors.push(`${review.label}: achieved cannot contain findings`);
       }
+      const plannedAssurance = rootPlan.fields.schema === 4 ? { lean: "lean", controlled: "standard", certified: "deep" }[rootPlan.fields.contract_level] ?? "standard" : rootPlan.fields.assurance_profile;
       review.effective = {
         ...review.effective,
-        plannedAssurance: rootPlan.fields.assurance_profile,
-        assuranceUsed: review.fields.review_route === "full" ? "deep" : review.fields.review_route === "targeted" ? "standard" : rootPlan.fields.assurance_profile,
+        plannedAssurance,
+        assuranceUsed: review.fields.review_route === "full" ? "deep" : review.fields.review_route === "targeted" ? "standard" : plannedAssurance,
         snapshotId: effective?.snapshot?.["Snapshot ID"] ?? null,
         correctionRound: candidates.length - 1,
         reviewReady: effective?.reviewReady ?? false,
@@ -15917,20 +16049,26 @@ var states = /* @__PURE__ */ new Set([
   "architecture-aligned",
   "program-design-aligned",
   "slice-ready",
+  "strategy-ready",
+  "baseline-verification",
   "implementing",
   "host-verifying",
   "slice-review",
   "root-review",
   "delivery-ready",
+  "delivery-ready-verified",
+  "delivery-ready-provisional",
   "waiting-human",
   "replan",
   "achieved",
+  "accepted-provisional",
+  "blocked",
   "paused",
   "interrupted",
   "stopped",
   "failed"
 ]);
-var terminalLifecycle = /* @__PURE__ */ new Set(["stopped", "failed"]);
+var terminalLifecycle = /* @__PURE__ */ new Set(["achieved", "accepted-provisional", "blocked", "stopped", "failed"]);
 function snapshot(input, state, overrides = {}) {
   if (!states.has(state)) throw new Error(`unsupported workflow state ${state}`);
   const snapshotSource = input.snapshot_source ?? (input.run_id ? "controller-run" : "artifact-chain");
@@ -15939,7 +16077,7 @@ function snapshot(input, state, overrides = {}) {
     root_plan_id: input.root_plan_id ?? null,
     requested_profile: input.requested_profile ?? "manual",
     effective_profile: input.effective_profile ?? input.requested_profile ?? "manual",
-    design_depth: input.design_depth ?? null,
+    contract_level: input.plan?.fields?.contract_level ?? input.contract_level ?? null,
     compatibility: input.compatibility ?? "compatible",
     state,
     snapshot_source: snapshotSource,
@@ -15950,6 +16088,14 @@ function snapshot(input, state, overrides = {}) {
     review_tip: input.review_tip ?? null,
     blockers: [...new Set(input.blockers ?? [])],
     downgrade_reason: input.downgrade_reason ?? null,
+    intent_hash: input.intent_hash ?? input.root_authoritative_projection_hash ?? null,
+    strategy_revision: input.strategy_revision ?? input.strategy?.revision ?? null,
+    strategy_hash: input.strategy?.strategy_hash ?? null,
+    deviations: input.deviations ?? input.strategy?.deviations ?? [],
+    evidence_grade: input.evidence_grade ?? null,
+    delivery_status: input.delivery_status ?? null,
+    dirty_baseline_hash: input.dirty_baseline_hash ?? null,
+    qualification_key: input.qualification_key ?? null,
     revision: input.revision ?? (snapshotSource === "artifact-chain" ? null : 0),
     artifact_set_hash: input.artifact_set_hash ?? null,
     observed_at: input.observed_at ?? (/* @__PURE__ */ new Date()).toISOString(),
@@ -15977,27 +16123,23 @@ function deriveWorkflowState(input = {}) {
   if (input.artifact_chain_valid === false) return snapshot(input, "replan", {
     allowed_actions: manualArtifacts ? ["replan"] : ["replan", "stop"],
     required_actor: "human",
-    next_action: manualArtifacts ? "replan" : "create-schema-3-root"
+    next_action: manualArtifacts ? "replan" : "create-schema-4-root"
   });
-  if (input.downgrade_pending) return waiting(input, input.downgrade_reason ?? "profile-downgrade-requires-approval", "approve-downgrade");
   if ((input.blockers ?? []).length > 0 || input.lifecycle === "waiting-human") return waiting(input, null, input.next_action ?? "answer");
   if (!input.goal && !input.root_plan_id) return snapshot(input, "intake", { allowed_actions: ["provide-goal", "provide-root-plan"], required_actor: "human", next_action: "provide-intent" });
   if (input.material_open_decisions) return snapshot(input, "intent-clarification", { allowed_actions: manualArtifacts ? ["answer", "replan"] : ["answer", "stop"], required_actor: "human", next_action: "resolve-intent" });
   if (!input.root_plan_id || input.plan_status === "draft") return snapshot(input, "root-plan-review", { allowed_actions: ["inspect", "approve", "stop"], required_actor: input.plan_status === "draft" ? "human" : "planner", next_action: input.plan_status === "draft" ? "approve-plan" : "create-root-plan" });
   if (!input.plan_approved) return snapshot(input, "root-plan-review", manualArtifacts ? { allowed_actions: ["inspect", "implement", "replan"], required_actor: "human", next_action: "implement-plan" } : { allowed_actions: ["inspect", "approve", "stop"], required_actor: "human", next_action: "approve-plan" });
   if (!input.intent_ready) return snapshot(input, "replan", { allowed_actions: ["replan", "stop"], required_actor: "human", next_action: "replan", blockers: ["root-plan-not-intent-ready"] });
-  const depth = input.design_depth;
-  if (input.root_schema_valid === false || !["oneshot", "compact", "full"].includes(depth)) return snapshot(input, "replan", {
+  if (input.root_schema_valid === false) return snapshot(input, "replan", {
     allowed_actions: ["replan", "stop"],
     required_actor: "human",
-    next_action: "create-schema-3-root",
-    blockers: [input.root_schema_valid === false ? "invalid-schema-3-root" : "missing-or-invalid-design-depth"]
+    next_action: "create-schema-4-root",
+    blockers: ["invalid-schema-4-root"]
   });
-  if (depth !== "oneshot" && !input.product_aligned) return snapshot(input, "intent-ready", { allowed_actions: ["align-product", "replan"], required_actor: "planner", next_action: "align-product" });
-  if (["compact", "full"].includes(depth) && !input.architecture_aligned) return snapshot(input, "product-aligned", { allowed_actions: ["align-architecture", "replan"], required_actor: "planner", next_action: "align-architecture" });
-  if (depth === "full" && !input.program_design_aligned) return snapshot(input, "architecture-aligned", { allowed_actions: ["align-program-design", "replan"], required_actor: "planner", next_action: "align-program-design" });
-  if (depth === "full" && !input.slices_ready) return snapshot(input, "program-design-aligned", { allowed_actions: ["prepare-slices", "replan"], required_actor: "planner", next_action: "prepare-slices" });
-  if (!input.execution_started) return snapshot(input, manualArtifacts ? "root-plan-review" : "slice-ready", manualArtifacts ? { allowed_actions: ["inspect", "implement", "replan"], required_actor: "human", next_action: "implement-plan" } : { allowed_actions: ["implement", "pause", "stop"], required_actor: "writer", next_action: "implement-slice" });
+  if (!input.execution_started) return snapshot(input, manualArtifacts ? "root-plan-review" : "strategy-ready", manualArtifacts ? { allowed_actions: ["inspect", "implement", "replan"], required_actor: "human", next_action: "implement-plan" } : { allowed_actions: ["execute", "pause", "stop"], required_actor: "controller", next_action: "execute-strategy" });
+  if (input.phase === "baseline-verification") return snapshot(input, "baseline-verification", { allowed_actions: ["pause", "stop"], required_actor: "verifier", next_action: "capture-baseline" });
+  if (input.phase === "strategy-ready") return snapshot(input, "strategy-ready", { allowed_actions: ["execute", "pause", "stop"], required_actor: "controller", next_action: "execute-strategy" });
   if (input.phase === "implementing") return snapshot(input, "implementing", { allowed_actions: ["pause", "stop"], required_actor: "writer", next_action: "finish-slice" });
   if (input.phase === "host-verifying") return snapshot(input, "host-verifying", { allowed_actions: ["pause", "stop"], required_actor: "controller", next_action: "verify-slice" });
   if (input.phase === "slice-review") return snapshot(input, "slice-review", { allowed_actions: ["pause", "stop"], required_actor: "reviewer", next_action: "review-slice" });
@@ -16009,83 +16151,114 @@ function deriveWorkflowState(input = {}) {
   if (nextAction === "retry-review") return manualArtifacts ? snapshot(input, "root-review", { allowed_actions: ["review"], required_actor: "reviewer", next_action: "retry-review" }) : snapshot(input, "slice-review", { allowed_actions: ["retry-review", "pause", "stop"], required_actor: "reviewer", next_action: "retry-review" });
   if (input.more_slices) return snapshot(input, "slice-ready", { allowed_actions: ["implement", "pause", "stop"], required_actor: "writer", next_action: "implement-next-slice" });
   if (!input.root_review_complete) return snapshot(input, "root-review", { allowed_actions: manualArtifacts ? ["review"] : ["review", "pause", "stop"], required_actor: "reviewer", next_action: "review-root" });
+  if (input.phase === "delivery-ready-provisional" || input.delivery_status === "provisional") return snapshot(input, "delivery-ready-provisional", { allowed_actions: ["accept-provisional", "inspect", "stop"], required_actor: "human", next_action: "accept-provisional" });
+  if (input.phase === "delivery-ready-verified" || input.delivery_status === "verified" && !input.delivery_accepted) return snapshot(input, "delivery-ready-verified", { allowed_actions: ["accept-verified", "inspect", "stop"], required_actor: "human", next_action: "accept-verified" });
   if (input.review?.assessment !== "achieved") return snapshot(input, "replan", { allowed_actions: ["replan", "stop"], required_actor: "human", next_action: "replan", blockers: ["root-review-not-achieved"] });
-  if (input.effective_profile === "auto-gated" && !input.delivery_accepted) return snapshot(input, "delivery-ready", { allowed_actions: ["accept", "inspect", "stop"], required_actor: "human", next_action: "accept-delivery" });
   return snapshot(input, "achieved", { allowed_actions: ["explain", "learn"], required_actor: "human", next_action: "none" });
 }
 var workflowStates = Object.freeze([...states]);
 
 // src/controller/policy.mjs
 var riskRank2 = Object.freeze({ low: 1, medium: 2, high: 3 });
-function completeBudgets(bounds) {
-  return bounds && Number.isInteger(bounds.max_active_minutes) && bounds.max_active_minutes > 0 && Number.isInteger(bounds.max_total_tokens) && bounds.max_total_tokens > 0 && Number.isFinite(bounds.max_cost_usd) && bounds.max_cost_usd > 0 && Number.isInteger(bounds.max_correction_cycles) && bounds.max_correction_cycles >= 0 && bounds.max_writer_escalations === 1;
+function authority(plan) {
+  return plan?.authority ?? {};
 }
-function evaluateEligibility({ requestedProfile, plan, project, capabilities = {}, configErrors = [] }) {
-  if (requestedProfile === "manual") return { requested_profile: "manual", effective_profile: "manual", eligible: true, downgrade_pending: false, blockers: [], reasons: [] };
+function completeBudgets(bounds) {
+  return bounds && Number.isInteger(bounds.max_active_minutes) && bounds.max_active_minutes > 0 && Number.isInteger(bounds.max_total_tokens) && bounds.max_total_tokens > 0 && Number.isFinite(bounds.max_cost_usd) && bounds.max_cost_usd > 0;
+}
+function pathInside(path, roots = []) {
+  return roots.some((root) => root === "." || path === root || path.startsWith(`${root.replace(/\/$/, "")}/`));
+}
+function qualificationKey({ taskClass, verificationProfileHash, routePoolHash, certifiedRegion }) {
+  return [taskClass, verificationProfileHash, routePoolHash, certifiedRegion].map((value) => value || "missing").join(":");
+}
+function evaluateEligibility({ requestedProfile, plan, project, capabilities = {}, configErrors = [], qualifyingRuns = 0, taskClass = plan?.certification?.task_recipe }) {
+  if (requestedProfile === "manual") return {
+    requested_profile: "manual",
+    effective_profile: "manual",
+    eligible: true,
+    downgraded: false,
+    blockers: [],
+    reasons: []
+  };
+  const bounds = authority(plan);
   const blockers = [...configErrors];
-  if (!project.automation_enabled) blockers.push("project-automation-disabled");
-  if (!completeBudgets(plan.automation_bounds)) blockers.push("automation-budgets-missing-or-incomplete");
-  if (plan.automation_bounds?.external_effects !== "none") blockers.push("external-effects-not-none");
-  if (plan.automation_bounds?.delivery !== "repository-only") blockers.push("delivery-not-repository-only");
-  if ((riskRank2[plan.automation_bounds?.max_risk] ?? 0) > (riskRank2[plan.risk] ?? 0)) blockers.push("automation-risk-exceeds-root");
+  if (!project.supervised_enabled) blockers.push("project-supervised-disabled");
+  if (!completeBudgets(bounds)) blockers.push("authority-budgets-missing-or-incomplete");
+  if (bounds.external_effects !== "none") blockers.push("external-effects-not-none");
+  if (bounds.delivery !== "repository-only") blockers.push("delivery-not-repository-only");
   if ((riskRank2[plan.risk] ?? 99) > (riskRank2[project.max_risk] ?? 0)) blockers.push("root-risk-exceeds-project-policy");
   const ceiling = project.maximum_budgets;
   if (ceiling) {
-    for (const key of ["max_active_minutes", "max_total_tokens", "max_cost_usd", "max_correction_cycles"]) if ((plan.automation_bounds?.[key] ?? Number.POSITIVE_INFINITY) > ceiling[key]) blockers.push(`root-${key}-exceeds-project-policy`);
+    for (const key of ["max_active_minutes", "max_total_tokens", "max_cost_usd"]) {
+      if ((bounds[key] ?? Number.POSITIVE_INFINITY) > ceiling[key]) blockers.push(`root-${key}-exceeds-project-policy`);
+    }
   }
-  if (!capabilities.model_catalog_verified) blockers.push("model-catalog-not-verified");
-  if (!capabilities.sandbox_boundary_verified) blockers.push("hard-sandbox-not-verified");
-  if (!capabilities.worker_network_isolated) blockers.push("worker-network-boundary-not-verified");
-  if (!capabilities.sdk_secret_isolated) blockers.push("sdk-secret-boundary-not-verified");
-  if (!capabilities.sdk_budget_cancel_verified) blockers.push("sdk-budget-cancel-not-verified");
-  if (!capabilities.planner_submission_verified) blockers.push("planner-submission-not-verified");
-  if (requestedProfile === "auto-gated") return { requested_profile: requestedProfile, effective_profile: "auto-gated", eligible: blockers.length === 0, downgrade_pending: false, blockers: [...new Set(blockers)], reasons: [] };
-  const reasons = [];
-  if (plan.design_depth === "full") reasons.push("full-design-not-unattended-v1");
-  if ((plan.hard_triggers ?? []).length > 0) reasons.push("hard-trigger-present");
-  if (plan.automation_bounds?.dependencies !== "deny" || project.dependencies !== "deny") reasons.push("dependency-change-not-denied");
-  if (project.external_effects !== "none") reasons.push("project-external-effects-not-none");
-  if (!project.unattended_enabled) reasons.push("project-unattended-disabled");
-  if (project.protected_oracles.length === 0) reasons.push("protected-oracle-missing");
-  if (!project.harness_version) reasons.push("harness-not-certified");
-  if (!capabilities.harness_certified) reasons.push("harness-capability-receipt-mismatch");
-  if (project.certified_regions.length === 0) reasons.push("repository-region-not-certified");
-  else for (const target of plan.automation_bounds?.allowed_targets ?? []) if (!project.certified_regions.some((region) => target === region || target.startsWith(`${region.replace(/\/$/, "")}/`))) reasons.push(`target-not-certified:${target}`);
-  if (!Number.isInteger(project.minimum_qualifying_runs) || project.qualifying_runs < project.minimum_qualifying_runs) reasons.push("qualifying-history-insufficient");
-  if (!capabilities.model_attestation_observed) reasons.push("observed-model-attestation-missing");
-  if (plan.human_review_gates === true) reasons.push("planned-human-gate-present");
-  if (blockers.length > 0 || reasons.length > 0) return {
+  for (const capability of ["model_catalog_verified", "sandbox_boundary_verified", "worker_network_isolated", "sdk_secret_isolated", "sdk_budget_cancel_verified", "planner_submission_verified"]) {
+    if (!capabilities[capability]) blockers.push(`${capability.replaceAll("_", "-")}-missing`);
+  }
+  const uniqueBlockers = [...new Set(blockers)];
+  if (requestedProfile === "supervised") return {
     requested_profile: requestedProfile,
-    effective_profile: "auto-gated",
-    eligible: false,
-    downgrade_pending: true,
-    blockers: [...new Set(blockers)],
-    reasons: [...new Set(reasons)],
-    downgrade_reason: [.../* @__PURE__ */ new Set([...blockers, ...reasons])].join(",")
+    effective_profile: "supervised",
+    eligible: uniqueBlockers.length === 0,
+    downgraded: false,
+    blockers: uniqueBlockers,
+    reasons: []
   };
-  return { requested_profile: requestedProfile, effective_profile: requestedProfile, eligible: true, downgrade_pending: false, blockers: [], reasons: [] };
+  const reasons = [];
+  if (plan.contract_level !== "certified") reasons.push("certified-contract-required");
+  if (!project.autonomous_enabled) reasons.push("project-autonomous-disabled");
+  if (!plan.certification?.task_recipe) reasons.push("task-recipe-not-bound");
+  if (plan.certification?.task_recipe && taskClass !== plan.certification.task_recipe) reasons.push("task-recipe-mismatch");
+  if (!plan.certification?.verification_profile_hash) reasons.push("verification-profile-not-bound");
+  if (plan.certification?.verification_profile_hash !== project.verification_profile?.activated_hash) reasons.push("verification-profile-hash-mismatch");
+  if (!capabilities.verification_profile_certified) reasons.push("verification-profile-not-certified");
+  if (capabilities.verification_profile_hash && plan.certification?.verification_profile_hash !== capabilities.verification_profile_hash) reasons.push("capability-verification-profile-mismatch");
+  if (!capabilities.route_pool_certified) reasons.push("route-pool-not-certified");
+  if (capabilities.attested_route_hash && plan.certification?.route_pool_hash !== capabilities.attested_route_hash) reasons.push("capability-route-pool-mismatch");
+  if (!capabilities.route_pool_models_certified) reasons.push("selected-model-not-certified");
+  if (!plan.certification?.certified_region || !project.certified_regions.includes(plan.certification.certified_region)) reasons.push("repository-region-not-certified");
+  if ((plan.hard_triggers ?? []).length > 0) reasons.push("hard-trigger-present");
+  if (plan.human_review_gates === true) reasons.push("planned-human-gate-present");
+  if (qualifyingRuns < (project.minimum_qualifying_runs ?? Number.POSITIVE_INFINITY)) reasons.push("qualification-history-insufficient");
+  const exactBinding = (capabilities.qualification_bindings ?? []).some((binding) => binding.task_class === taskClass && binding.verification_profile_hash === plan.certification?.verification_profile_hash && binding.route_pool_hash === plan.certification?.route_pool_hash && binding.certified_region === plan.certification?.certified_region);
+  if (!exactBinding) reasons.push("qualification-binding-missing");
+  const uniqueReasons = [...new Set(reasons)];
+  return {
+    requested_profile: requestedProfile,
+    effective_profile: uniqueReasons.length > 0 ? "supervised" : "autonomous",
+    eligible: uniqueBlockers.length === 0,
+    downgraded: uniqueReasons.length > 0,
+    blockers: uniqueBlockers,
+    reasons: uniqueReasons,
+    downgrade_reason: uniqueReasons.join(",")
+  };
 }
-function evaluateAuthorization({ plan, changedPaths: changedPaths2 = [], changedDependencies = [], dependencyChanged = changedDependencies.length > 0, discoveredRisk = plan.risk, externalEffect = false, repositoryDrift = false, usage = {} }) {
+function evaluateAuthorization({ plan, changedPaths: changedPaths2 = [], changedDependencies = [], dependencyChanged = changedDependencies.length > 0, discoveredRisk = plan.risk, externalEffect = false, usage = {} }) {
   const blockers = [];
-  const bounds = plan.automation_bounds;
-  if (!bounds) return { authorized: false, blockers: ["automation-bounds-missing"] };
-  for (const path of changedPaths2) if (!(bounds.allowed_targets ?? []).some((target) => path === target || path.startsWith(`${target.replace(/\/$/, "")}/`))) blockers.push(`out-of-scope:${path}`);
-  if ((riskRank2[discoveredRisk] ?? riskRank2[plan.risk] ?? 3) > (riskRank2[bounds.max_risk] ?? 0)) blockers.push("risk-bound-exceeded");
+  const bounds = authority(plan);
+  if (!completeBudgets(bounds)) return { authorized: false, blockers: ["authority-bounds-missing"] };
+  for (const path of changedPaths2) {
+    if (!pathInside(path, bounds.allowed_roots ?? [])) blockers.push(`out-of-envelope:${path}`);
+    if (pathInside(path, bounds.protected_paths ?? [])) blockers.push(`protected-path:${path}`);
+    if (pathInside(path, bounds.approval_required_paths ?? [])) blockers.push(`approval-required-path:${path}`);
+  }
+  if ((riskRank2[discoveredRisk] ?? riskRank2[plan.risk] ?? 3) > (riskRank2[plan.risk] ?? 0)) blockers.push("risk-bound-exceeded");
   if (dependencyChanged && bounds.dependencies !== "allow-listed") blockers.push("dependency-change-not-authorized");
   if (bounds.dependencies === "allow-listed") {
     for (const dependency of changedDependencies) if (!(bounds.allowed_dependencies ?? []).includes(dependency)) blockers.push(`dependency-not-allow-listed:${dependency}`);
   }
   if (externalEffect || bounds.external_effects !== "none") blockers.push("external-effect-not-authorized");
-  if (repositoryDrift) blockers.push("material-repository-drift");
   if ((usage.totalTokens ?? 0) > bounds.max_total_tokens) blockers.push("token-budget-exhausted");
   if ((usage.costUsd ?? 0) > bounds.max_cost_usd) blockers.push("cost-budget-exhausted");
   if ((usage.activeMinutes ?? 0) > bounds.max_active_minutes) blockers.push("time-budget-exhausted");
-  if ((usage.correctionCycles ?? 0) > bounds.max_correction_cycles) blockers.push("correction-budget-exhausted");
+  if ((usage.correctionCycles ?? 0) > (plan.max_correction_cycles ?? 3)) blockers.push("correction-budget-exhausted");
   return { authorized: blockers.length === 0, blockers: [...new Set(blockers)] };
 }
 function selectWriterRoute({ plan, correctionCycle = 0, findingRepeated = false, alreadyEscalated = false }) {
   if (alreadyEscalated) return { role: "writer_escalated", escalated: true, reason: "writer-affinity-escalated" };
-  if (plan.writer_tier_required === "escalated" || plan.design_depth === "full" || plan.assurance_profile === "deep") return { role: "writer_escalated", escalated: true, reason: "root-complexity" };
+  if (plan.contract_level === "certified" || plan.risk === "high" || (plan.hard_triggers ?? []).length > 0) return { role: "writer_escalated", escalated: true, reason: "root-complexity" };
   if (findingRepeated || correctionCycle >= 2) return { role: "writer_escalated", escalated: true, reason: findingRepeated ? "repeated-finding" : "second-correction-cycle" };
   return { role: "writer", escalated: false, reason: "economy-default" };
 }
@@ -16203,6 +16376,7 @@ import { existsSync as existsSync5, mkdirSync as mkdirSync4 } from "node:fs";
 import { dirname as dirname5, join as join5, resolve as resolve5 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 import { createHash as createHash4 } from "node:crypto";
+import { spawnSync as spawnSync2 } from "node:child_process";
 
 // src/controller/runtime.mjs
 import { createHash as createHash3, randomUUID as randomUUID2 } from "node:crypto";
@@ -16315,6 +16489,16 @@ function bundledWorkerEntrypoint() {
   if (!entrypoint) throw new Error("bundled workflow-worker.mjs is missing");
   return resolve5(entrypoint);
 }
+function fanoutEntrypoint() {
+  const candidates = [
+    fileURLToPath2(new URL("./read-fanout-runner.mjs", import.meta.url)),
+    fileURLToPath2(new URL("../../dist/workflow-fanout.mjs", import.meta.url)),
+    fileURLToPath2(new URL("./workflow-fanout.mjs", import.meta.url))
+  ];
+  const entrypoint = candidates.find(existsSync5);
+  if (!entrypoint) throw new Error("bundled read-only fanout runner is missing");
+  return resolve5(entrypoint);
+}
 function resolveWorkerRuntime({ workerEntrypoint, runtimeRoot, pluginRoot: pluginRoot2 } = {}) {
   if (workerEntrypoint) return {
     entrypoint: resolve5(workerEntrypoint),
@@ -16393,10 +16577,28 @@ function validateRouteAgainstCatalog(route, catalog) {
   }
   return { valid: errors.length === 0, errors, model: { id: route.model_id, params }, catalog_model: model };
 }
+function validatePoolAgainstCatalog(pool, catalog) {
+  const candidates = (pool?.candidates ?? []).map((candidate, index) => ({
+    ...validateRouteAgainstCatalog(candidate, catalog),
+    candidate,
+    index
+  }));
+  const selected = candidates.find((candidate) => candidate.valid) ?? null;
+  return {
+    valid: Boolean(selected),
+    errors: selected ? [] : candidates.flatMap((candidate) => candidate.errors.map((error) => `candidate[${candidate.index}]: ${error}`)),
+    candidates,
+    selected_index: selected?.index ?? null,
+    selected_candidate: selected?.candidate ?? null,
+    model: selected?.model ?? null,
+    pool_hash: createHash4("sha256").update(JSON.stringify(pool)).digest("hex"),
+    selection_reason: selected ? selected.index === 0 ? "primary-available" : "approved-pool-fallback" : "no-approved-candidate-available"
+  };
+}
 function configurationsMatch(requested, observed) {
   if (!requested || !observed || requested.id !== observed.id) return false;
-  const normalize2 = (params = []) => [...params].map(({ id, value }) => [id, String(value)]).sort(([a], [b]) => a.localeCompare(b));
-  return JSON.stringify(normalize2(requested.params)) === JSON.stringify(normalize2(observed.params));
+  const normalize3 = (params = []) => [...params].map(({ id, value }) => [id, String(value)]).sort(([a], [b]) => a.localeCompare(b));
+  return JSON.stringify(normalize3(requested.params)) === JSON.stringify(normalize3(observed.params));
 }
 var CursorWorkerAdapter = class {
   constructor({ runDirectory, workerEntrypoint, runtimeRoot, pluginRoot: pluginRoot2, sandbox = runSandboxedProcess } = {}) {
@@ -16444,8 +16646,8 @@ var CursorWorkerAdapter = class {
     if (!response.ok) return { verified: false, errors: [response.error?.message ?? "model catalog failed"], sdk_version: sdkVersion };
     const routes = {};
     const errors = [];
-    for (const [role, route] of Object.entries(profile)) {
-      const validation = validateRouteAgainstCatalog(route, response.models);
+    for (const [role, pool] of Object.entries(profile)) {
+      const validation = validatePoolAgainstCatalog(pool, response.models);
       routes[role] = validation;
       errors.push(...validation.errors.map((error) => `${role}: ${error}`));
     }
@@ -16457,7 +16659,7 @@ var CursorWorkerAdapter = class {
       catalog_hash: createHash4("sha256").update(JSON.stringify(response.models)).digest("hex")
     };
   }
-  runPhase({ role, route, acceptedModel, prompt, cwd, mode = "agent", agentId = null, force = false, writerWritablePaths = [], writerDeniedPaths = [], timeoutMs = 3e5, cancelGraceMs = 5e3, configurationHash = null, harnessHash = null, artifactProjectionHash = null }) {
+  runPhase({ role, route, routePoolHash = null, selectionReason = "primary-available", acceptedModel, prompt, cwd, mode = "agent", agentId = null, force = false, writerWritablePaths = [], writerDeniedPaths = [], verifierArtifactPaths = [], timeoutMs = 3e5, cancelGraceMs = 5e3, configurationHash = null, harnessHash = null, artifactProjectionHash = null }) {
     const home = this.workerHome();
     const storePath = join5(home, "cursor-store");
     mkdirSync4(storePath, { recursive: true, mode: 448 });
@@ -16479,7 +16681,7 @@ var CursorWorkerAdapter = class {
         deadline_at: new Date(Date.now() + Math.max(1e3, timeoutMs - cancelGraceMs)).toISOString(),
         cancel_grace_ms: cancelGraceMs
       },
-      writablePaths: [home, ...role === "writer" || role === "writer_escalated" ? writerWritablePaths : []],
+      writablePaths: [home, ...role === "writer" || role === "writer_escalated" ? writerWritablePaths : [], ...role === "verifier" ? verifierArtifactPaths : []],
       deniedPaths: role === "writer" || role === "writer_escalated" ? writerDeniedPaths : [],
       deniedReadPaths: this.controllerStatePaths(),
       network: true,
@@ -16492,6 +16694,8 @@ var CursorWorkerAdapter = class {
       started_at: started,
       finished_at: (/* @__PURE__ */ new Date()).toISOString(),
       requested_model: { id: route.model_id, reasoning_effort: route.reasoning_effort, model_options: route.model_options ?? {} },
+      route_pool_hash: routePoolHash,
+      selection_reason: selectionReason,
       accepted_model: acceptedModel,
       observed_model: response.observed_model ?? null,
       model_attested: configurationsMatch(acceptedModel, response.observed_model),
@@ -16514,7 +16718,78 @@ var CursorWorkerAdapter = class {
     };
     return { response, receipt };
   }
-  runPlanningPhase({ route, acceptedModel, prompt, cwd, agentId = null, timeoutMs = 3e5, cancelGraceMs = 5e3, configurationHash = null, harnessHash, artifactProjectionHash = null, deniedReadPaths = [] }) {
+  runReadOnlyFanout(phases) {
+    if (!Array.isArray(phases) || phases.length < 1 || phases.length > 2) throw new Error("read-only fanout requires one or two phases");
+    const started = (/* @__PURE__ */ new Date()).toISOString();
+    const tasks = phases.map((phase, index) => {
+      if (["writer", "writer_escalated"].includes(phase.role)) throw new Error("read-only fanout cannot contain a writer role");
+      const home = join5(this.runDirectory, `fanout-${index}`);
+      const storePath = join5(home, "cursor-store");
+      mkdirSync4(storePath, { recursive: true, mode: 448 });
+      return {
+        entrypoint: this.workerEntrypoint,
+        payload: {
+          operation: "run-phase",
+          role: phase.role,
+          model: phase.acceptedModel,
+          prompt: phase.prompt,
+          cwd: phase.cwd,
+          mode: "agent",
+          agent_id: null,
+          force: false,
+          store_path: storePath,
+          sdk_version: sdkVersion,
+          control_path: this.controlPath(),
+          deadline_at: new Date(Date.now() + Math.max(1e3, (phase.timeoutMs ?? 3e5) - 5e3)).toISOString(),
+          cancel_grace_ms: 5e3
+        },
+        writablePaths: [home, ...phase.verifierArtifactPaths ?? []],
+        deniedPaths: [],
+        deniedReadPaths: this.controllerStatePaths(),
+        network: true,
+        timeoutMs: phase.timeoutMs ?? 3e5,
+        environment: workerEnvironment(home)
+      };
+    });
+    const child = spawnSync2(process.execPath, [fanoutEntrypoint()], { input: `${JSON.stringify({ tasks })}
+`, encoding: "utf8", timeout: Math.max(...tasks.map((task) => task.timeoutMs)) + 1e4, maxBuffer: 32 * 1024 * 1024, env: process.env });
+    if (child.error) throw child.error;
+    const marker = child.stdout.split("\n").findLast((line) => line.startsWith("WORKFLOW_FANOUT="));
+    if (!marker) throw new Error(`read-only fanout returned no result: ${child.stderr?.trim() || child.stdout?.trim()}`);
+    const responses = JSON.parse(marker.slice("WORKFLOW_FANOUT=".length));
+    return phases.map((phase, index) => {
+      const response = responses[index];
+      const receipt = {
+        phase: phase.role,
+        started_at: started,
+        finished_at: (/* @__PURE__ */ new Date()).toISOString(),
+        requested_model: { id: phase.route.model_id, reasoning_effort: phase.route.reasoning_effort, model_options: phase.route.model_options ?? {} },
+        route_pool_hash: phase.routePoolHash,
+        selection_reason: phase.selectionReason,
+        accepted_model: phase.acceptedModel,
+        observed_model: response.observed_model ?? null,
+        model_attested: configurationsMatch(phase.acceptedModel, response.observed_model),
+        sdk_version: sdkVersion,
+        configuration_hash: phase.configurationHash,
+        route_hash: phase.configurationHash,
+        harness_hash: phase.harnessHash ?? null,
+        artifact_projection_hash: phase.artifactProjectionHash ?? null,
+        request_id: response.request_id ?? null,
+        agent_id: response.agent_id ?? null,
+        worker_run_id: response.run_id ?? null,
+        duration_ms: response.duration_ms ?? null,
+        usage: response.usage ?? null,
+        cost_usd: estimateCost(response.usage, phase.route.pricing_usd_per_million),
+        remap: response.observed_model && !configurationsMatch(phase.acceptedModel, response.observed_model),
+        status: response.status ?? "error",
+        error: response.error ?? null,
+        cancel: response.cancel ?? null,
+        worker_provenance: this.runtimeProvenance()
+      };
+      return { response, receipt };
+    });
+  }
+  runPlanningPhase({ route, routePoolHash = null, selectionReason = "primary-available", acceptedModel, prompt, cwd, agentId = null, timeoutMs = 3e5, cancelGraceMs = 5e3, configurationHash = null, harnessHash, artifactProjectionHash = null, deniedReadPaths = [] }) {
     const home = this.workerHome();
     const storePath = join5(home, "cursor-store");
     mkdirSync4(storePath, { recursive: true, mode: 448 });
@@ -16549,6 +16824,8 @@ var CursorWorkerAdapter = class {
       started_at: started,
       finished_at: (/* @__PURE__ */ new Date()).toISOString(),
       requested_model: { id: route.model_id, reasoning_effort: route.reasoning_effort, model_options: route.model_options ?? {} },
+      route_pool_hash: routePoolHash,
+      selection_reason: selectionReason,
       accepted_model: acceptedModel,
       observed_model: response.observed_model ?? null,
       model_attested: configurationsMatch(acceptedModel, response.observed_model),
@@ -16605,7 +16882,7 @@ var CursorWorkerAdapter = class {
 };
 
 // src/controller/capabilities.mjs
-var CAPABILITY_RECEIPT_SCHEMA = 2;
+var CAPABILITY_RECEIPT_SCHEMA = 3;
 var CAPABILITY_RECEIPT_VALIDITY_DAYS = 30;
 var REQUIRED_OBSERVATIONS = [
   "local_mcp",
@@ -16649,13 +16926,18 @@ var TOP_LEVEL_FIELDS = /* @__PURE__ */ new Set([
   "worker_hash",
   "runtime_hash",
   "lockfile_hash",
-  "attested_route_hash",
+  "attested_route_pool_hash",
   "model_catalog_hash",
   "planning_harness_hash",
   "cursor_harness_hash",
+  "verification_profile_hash",
   "model_attestation",
+  "certified_models",
   "audit",
   "observations",
+  "capability_vector",
+  "qualification_bindings",
+  "profile_eligibility",
   "evidence_hashes",
   "automation_safe"
 ]);
@@ -16671,10 +16953,10 @@ function hashString(value) {
   return typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
 }
 function modelConfiguration(value) {
-  return plainObject(value) && ["planner", "writer", "writer_escalated", "reviewer", "explainer"].includes(value.role) && typeof value.id === "string" && value.id.length > 0 && Array.isArray(value.params) && Object.keys(value).length === 3 && value.params.every((parameter) => exactFields(parameter, /* @__PURE__ */ new Set(["id", "value"])) && typeof parameter.id === "string" && typeof parameter.value === "string");
+  return plainObject(value) && ["planner", "investigator", "writer", "writer_escalated", "verifier", "reviewer", "explainer"].includes(value.role) && typeof value.id === "string" && value.id.length > 0 && Array.isArray(value.params) && Object.keys(value).length === 3 && value.params.every((parameter) => exactFields(parameter, /* @__PURE__ */ new Set(["id", "value"])) && typeof parameter.id === "string" && typeof parameter.value === "string");
 }
-function receiptAutomationSafe(receipt) {
-  if (!plainObject(receipt?.observations)) return false;
+function receiptProfileEligibility(receipt) {
+  if (!plainObject(receipt?.observations)) return { supervised: false, autonomous: false };
   const observationsSafe = REQUIRED_OBSERVATIONS.every((key) => {
     const observation = receipt.observations[key];
     const minimum = THREE_RUN_OBSERVATIONS.has(key) ? 3 : 1;
@@ -16682,7 +16964,13 @@ function receiptAutomationSafe(receipt) {
   });
   const auditSafe = receipt.audit?.high === 0 && receipt.audit?.critical === 0 && (receipt.audit?.moderate === 0 || hashString(receipt.audit?.risk_acceptance_hash));
   const modelsExact = JSON.stringify(receipt.model_attestation?.requested) === JSON.stringify(receipt.model_attestation?.accepted) && JSON.stringify(receipt.model_attestation?.accepted) === JSON.stringify(receipt.model_attestation?.observed);
-  return observationsSafe && auditSafe && modelsExact;
+  const vector = receipt.capability_vector ?? {};
+  const supervised = vector.write_boundary === true && vector.network_isolation === true && vector.secret_isolation === true && vector.budget_cancel === true && vector.planning === true && vector.route_pool === true;
+  const autonomous = supervised && vector.verification_profile === true && observationsSafe && auditSafe && modelsExact && Array.isArray(receipt.qualification_bindings) && receipt.qualification_bindings.length > 0 && Array.isArray(receipt.certified_models) && receipt.certified_models.length > 0;
+  return { supervised, autonomous };
+}
+function receiptAutomationSafe(receipt) {
+  return receiptProfileEligibility(receipt)?.autonomous === true;
 }
 function validateCapabilityReceipt(receipt, expected = {}, now = Date.now()) {
   const errors = [];
@@ -16702,7 +16990,7 @@ function validateCapabilityReceipt(receipt, expected = {}, now = Date.now()) {
   if (!Number.isFinite(issued) || !Number.isFinite(expires) || expires <= issued || expires - issued > maximumValidity) errors.push("receipt-validity-invalid");
   else if (now < issued || now >= expires) errors.push("receipt-expired-or-not-yet-valid");
   if (typeof receipt.marketplace_git_commit !== "string" || !/^[a-f0-9]{40}([a-f0-9]{24})?$/.test(receipt.marketplace_git_commit)) errors.push("marketplace_git_commit-invalid");
-  for (const field of ["plugin_hash", "worker_hash", "runtime_hash", "lockfile_hash", "attested_route_hash", "model_catalog_hash", "planning_harness_hash", "cursor_harness_hash"]) {
+  for (const field of ["plugin_hash", "worker_hash", "runtime_hash", "lockfile_hash", "attested_route_pool_hash", "model_catalog_hash", "planning_harness_hash", "cursor_harness_hash", "verification_profile_hash"]) {
     if (!hashString(receipt[field])) errors.push(`${field}-invalid`);
   }
   if (typeof receipt.cursor_version !== "string" || receipt.cursor_version.length === 0) errors.push("cursor-version-missing");
@@ -16712,10 +17000,11 @@ function validateCapabilityReceipt(receipt, expected = {}, now = Date.now()) {
     for (const field of ["request_ids", "agent_ids", "run_ids"]) if (!Array.isArray(receipt.model_attestation[field]) || receipt.model_attestation[field].length === 0 || !receipt.model_attestation[field].every((id) => typeof id === "string" && id.length > 0)) errors.push(`model-attestation-${field}-invalid`);
     const modelCount = receipt.model_attestation.requested?.length ?? 0;
     if (receipt.model_attestation.accepted?.length !== modelCount || receipt.model_attestation.observed?.length !== modelCount || receipt.model_attestation.request_ids?.length !== modelCount || receipt.model_attestation.agent_ids?.length !== modelCount || receipt.model_attestation.run_ids?.length !== modelCount) errors.push("model-attestation-cardinality-mismatch");
-    for (const role of ["planner", "writer", "writer_escalated", "reviewer", "explainer"]) {
-      if ((receipt.model_attestation.requested ?? []).filter((model) => model.role === role).length < 3) errors.push(`model-attestation-${role}-repetitions-insufficient`);
+    for (const role of ["planner", "investigator", "writer", "writer_escalated", "verifier", "reviewer", "explainer"]) {
+      if ((receipt.model_attestation.requested ?? []).filter((model) => model.role === role).length < 1) errors.push(`model-attestation-${role}-missing`);
     }
   }
+  if (!Array.isArray(receipt.certified_models) || receipt.certified_models.length === 0 || !receipt.certified_models.every(modelConfiguration)) errors.push("certified-models-invalid");
   const auditFields = /* @__PURE__ */ new Set(["lockfile_hash", "evidence_hash", "production_packages", "high", "critical", "moderate", "risk_acceptance_hash"]);
   if (!exactFields(receipt.audit, auditFields)) errors.push("audit-shape-invalid");
   else {
@@ -16731,11 +17020,19 @@ function validateCapabilityReceipt(receipt, expected = {}, now = Date.now()) {
     else if (typeof observation.verified !== "boolean" || !Number.isInteger(observation.repetitions) || observation.repetitions < 0 || !hashString(observation.evidence_hash)) errors.push(`observation-${key}-invalid`);
   }
   if (!plainObject(receipt.evidence_hashes) || Object.keys(receipt.evidence_hashes).length === 0 || !Object.values(receipt.evidence_hashes).every(hashString)) errors.push("evidence-hashes-invalid");
+  const vectorFields = /* @__PURE__ */ new Set(["write_boundary", "network_isolation", "secret_isolation", "budget_cancel", "planning", "verification_profile", "route_pool"]);
+  if (!exactFields(receipt.capability_vector, vectorFields) || Object.values(receipt.capability_vector ?? {}).some((value) => typeof value !== "boolean")) errors.push("capability-vector-invalid");
+  if (!Array.isArray(receipt.qualification_bindings)) errors.push("qualification-bindings-invalid");
+  else for (const binding of receipt.qualification_bindings) {
+    if (!exactFields(binding, /* @__PURE__ */ new Set(["task_class", "verification_profile_hash", "route_pool_hash", "certified_region"]))) errors.push("qualification-binding-shape-invalid");
+    else if (!["bugfix", "refactor", "performance", "feature", "investigation", "verify-existing"].includes(binding.task_class) || !hashString(binding.verification_profile_hash) || !hashString(binding.route_pool_hash) || typeof binding.certified_region !== "string" || binding.certified_region === "") errors.push("qualification-binding-invalid");
+  }
+  const derivedProfiles = receiptProfileEligibility(receipt);
+  if (!exactFields(receipt.profile_eligibility, /* @__PURE__ */ new Set(["supervised", "autonomous"])) || receipt.profile_eligibility.supervised !== derivedProfiles.supervised || receipt.profile_eligibility.autonomous !== derivedProfiles.autonomous) errors.push("profile-eligibility-not-derived");
   for (const [field, value] of Object.entries(expected)) if (value !== void 0 && receipt[field] !== value) errors.push(`${field}-mismatch`);
   const derivedSafe = receiptAutomationSafe(receipt);
   if (receipt.automation_safe !== derivedSafe) errors.push("automation-safe-not-derived");
-  if (receipt.automation_safe !== true) errors.push("automation-not-safe");
-  return { valid: errors.length === 0, errors, derived_safe: derivedSafe };
+  return { valid: errors.length === 0, errors, derived_safe: derivedSafe, profile_eligibility: derivedProfiles };
 }
 function capabilityReceiptPath(stateRoot2) {
   return join6(stateRoot2, "capability-receipt.json");
@@ -16763,7 +17060,7 @@ function resolveCapabilities(stateRoot2, additions = {}, context = {}) {
       runtime_hash: runtime.manifest.runtime_hash,
       lockfile_hash: runtime.manifest.lockfile_hash
     } : {},
-    ...additions.expected_route_hash ? { attested_route_hash: additions.expected_route_hash } : {},
+    ...additions.expected_route_hash ? { attested_route_pool_hash: additions.expected_route_hash } : {},
     ...additions.expected_planning_harness_hash ? { planning_harness_hash: additions.expected_planning_harness_hash } : {}
   };
   const cursorVersion = context.cursorVersion ?? process.env.GELDMACHER_WORKFLOW_CURSOR_VERSION ?? process.env.CURSOR_VERSION;
@@ -16783,18 +17080,24 @@ function resolveCapabilities(stateRoot2, additions = {}, context = {}) {
     restart_resume_verified: receipt?.observations.restart_resume.verified === true,
     marketplace_mcp_verified: receipt?.observations.marketplace_mcp.verified === true,
     marketplace_worker_runtime_verified: receipt?.observations.marketplace_worker_runtime.verified === true,
-    attested_route_hash: receipt?.attested_route_hash ?? null,
+    attested_route_hash: receipt?.attested_route_pool_hash ?? null,
     certified_harness_hash: receipt?.planning_harness_hash ?? null,
     sandbox_boundary_verified: outer.verified === true && receipt?.observations.sdk_write_boundary.verified === true,
     capability_receipt: receipt,
-    automation_safe: receipt?.automation_safe === true && runtime.valid
+    route_pool_certified: receipt?.profile_eligibility?.supervised === true,
+    verification_profile_certified: receipt?.capability_vector?.verification_profile === true,
+    verification_profile_hash: receipt?.verification_profile_hash ?? null,
+    qualification_bindings: receipt?.qualification_bindings ?? [],
+    certified_models: receipt?.certified_models ?? [],
+    profile_eligibility: receipt?.profile_eligibility ?? { supervised: false, autonomous: false },
+    automation_safe: receipt?.profile_eligibility?.autonomous === true && runtime.valid
   };
   for (const [key, value] of Object.entries(additions)) if (!key.startsWith("expected_")) output[key] = value;
   return output;
 }
 
 // src/controller/planning.mjs
-import { createHash as createHash5 } from "node:crypto";
+import { createHash as createHash6 } from "node:crypto";
 import { existsSync as existsSync9, readFileSync as readFileSync7 } from "node:fs";
 import { join as join9, resolve as resolve8 } from "node:path";
 
@@ -16803,21 +17106,20 @@ var import_yaml2 = __toESM(require_dist2(), 1);
 import { existsSync as existsSync7, readFileSync as readFileSync5, realpathSync as realpathSync2 } from "node:fs";
 import { homedir as homedir2 } from "node:os";
 import { isAbsolute, join as join7, normalize, resolve as resolve6, sep as sep2 } from "node:path";
-var routingRoles = Object.freeze(["planner", "writer", "writer_escalated", "reviewer", "explainer"]);
-var routeKeys = Object.freeze(["model_id", "reasoning_effort", "model_options", "fallback", "pricing_usd_per_million"]);
+var routingRoles = Object.freeze(["planner", "investigator", "writer", "writer_escalated", "verifier", "reviewer", "explainer"]);
+var poolKeys = Object.freeze(["selection", "fallback", "candidates"]);
+var candidateKeys = Object.freeze(["model_id", "reasoning_effort", "model_options", "pricing_usd_per_million"]);
 var pricingKeys = Object.freeze(["input", "output", "cache_read", "cache_write"]);
 var budgetKeys = Object.freeze(["max_active_minutes", "max_total_tokens", "max_cost_usd", "max_validation_repairs"]);
 var policyBudgetKeys = Object.freeze(["max_active_minutes", "max_total_tokens", "max_cost_usd", "max_correction_cycles"]);
 var configKeys = Object.freeze(["schema", "route_profiles", "planning_preflight_budget", "extensions"]);
 var policyKeys = Object.freeze([
   "schema",
-  "automation_enabled",
-  "unattended_enabled",
-  "allowed_write_roots",
-  "protected_paths",
-  "protected_oracles",
+  "supervised_enabled",
+  "autonomous_enabled",
+  "scope_envelope",
+  "verification_profile",
   "certified_regions",
-  "harness_version",
   "minimum_qualifying_runs",
   "dependencies",
   "allowed_dependencies",
@@ -16826,6 +17128,8 @@ var policyKeys = Object.freeze([
   "maximum_budgets",
   "extensions"
 ]);
+var scopeEnvelopeKeys = Object.freeze(["allowed_roots", "protected_paths", "approval_required_paths"]);
+var verificationProfileKeys = Object.freeze(["profile_id", "manifest_path", "activated_hash"]);
 function defaultUserConfigPath() {
   return join7(homedir2(), ".cursor", "geldmacher-workflow", "config.yaml");
 }
@@ -16849,31 +17153,43 @@ function rejectUnknown(value, allowed, label, errors) {
 function validateExtensions(value, label, errors) {
   if (value !== void 0 && !objectLike(value)) errors.push(`${label}.extensions must be an object`);
 }
-function validateRoute(route, label, errors) {
-  if (!route || typeof route !== "object" || Array.isArray(route)) return errors.push(`${label} is missing`);
-  rejectUnknown(route, routeKeys, label, errors);
-  if (typeof route.model_id !== "string" || route.model_id.trim() === "") errors.push(`${label}.model_id must be a concrete non-empty ID`);
-  if (route.fallback !== "deny") errors.push(`${label}.fallback must be deny`);
-  if (typeof route.reasoning_effort !== "string" || route.reasoning_effort.trim() === "") errors.push(`${label}.reasoning_effort is required`);
-  if (route.model_options !== void 0 && (!route.model_options || typeof route.model_options !== "object" || Array.isArray(route.model_options))) errors.push(`${label}.model_options must be an object`);
-  for (const [key, value] of Object.entries(route.model_options ?? {})) if (!["string", "number", "boolean"].includes(typeof value)) errors.push(`${label}.model_options.${key} must be scalar`);
-  const pricing = route.pricing_usd_per_million;
+function validateCandidate(candidate, label, errors) {
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return errors.push(`${label} is missing`);
+  rejectUnknown(candidate, candidateKeys, label, errors);
+  if (typeof candidate.model_id !== "string" || candidate.model_id.trim() === "") errors.push(`${label}.model_id must be a concrete non-empty ID`);
+  if (typeof candidate.reasoning_effort !== "string" || candidate.reasoning_effort.trim() === "") errors.push(`${label}.reasoning_effort is required`);
+  if (candidate.model_options !== void 0 && (!candidate.model_options || typeof candidate.model_options !== "object" || Array.isArray(candidate.model_options))) errors.push(`${label}.model_options must be an object`);
+  for (const [key, value] of Object.entries(candidate.model_options ?? {})) if (!["string", "number", "boolean"].includes(typeof value)) errors.push(`${label}.model_options.${key} must be scalar`);
+  const pricing = candidate.pricing_usd_per_million;
   if (!pricing || typeof pricing !== "object") errors.push(`${label}.pricing_usd_per_million is required for enforceable cost budgets`);
   else {
     rejectUnknown(pricing, pricingKeys, `${label}.pricing_usd_per_million`, errors);
     for (const key of pricingKeys) if (!Number.isFinite(pricing[key]) || pricing[key] < 0) errors.push(`${label}.pricing_usd_per_million.${key} must be non-negative`);
   }
 }
+function validateRoutePool(pool, label, errors) {
+  if (!pool || typeof pool !== "object" || Array.isArray(pool)) return errors.push(`${label} is missing`);
+  rejectUnknown(pool, poolKeys, label, errors);
+  if (pool.selection !== "ordered") errors.push(`${label}.selection must be ordered`);
+  if (pool.fallback !== "approved-pool") errors.push(`${label}.fallback must be approved-pool`);
+  if (!Array.isArray(pool.candidates) || pool.candidates.length === 0) errors.push(`${label}.candidates must be a non-empty array`);
+  const ids2 = /* @__PURE__ */ new Set();
+  for (const [index, candidate] of (pool.candidates ?? []).entries()) {
+    validateCandidate(candidate, `${label}.candidates[${index}]`, errors);
+    if (ids2.has(candidate?.model_id)) errors.push(`${label}.candidates contains duplicate model_id ${candidate.model_id}`);
+    if (candidate?.model_id) ids2.add(candidate.model_id);
+  }
+}
 function validateWorkflowConfig(config) {
   const errors = [];
   rejectUnknown(config, configKeys, "config", errors);
   validateExtensions(config?.extensions, "config", errors);
-  if (config?.schema !== 1) errors.push("config schema must be 1");
+  if (config?.schema !== 2) errors.push("config schema must be 2");
   const profiles = config?.route_profiles;
   if (!profiles || typeof profiles !== "object" || Array.isArray(profiles) || Object.keys(profiles).length === 0) errors.push("at least one route_profile is required");
   for (const [profileName, profile] of Object.entries(profiles ?? {})) {
     rejectUnknown(profile, routingRoles, `route_profiles.${profileName}`, errors);
-    for (const role of routingRoles) validateRoute(profile?.[role], `route_profiles.${profileName}.${role}`, errors);
+    for (const role of routingRoles) validateRoutePool(profile?.[role], `route_profiles.${profileName}.${role}`, errors);
   }
   if (config?.planning_preflight_budget === void 0) errors.push("planning_preflight_budget is required for auto planning");
   else {
@@ -16888,15 +17204,16 @@ function validateWorkflowConfig(config) {
 }
 function normalizePolicy(policy = {}) {
   const immutableProtectedPaths = [".git", ".cursor/workflow-policy.yaml"];
+  const envelope = objectLike(policy.scope_envelope) ? policy.scope_envelope : {};
   return {
-    schema: policy.schema ?? 1,
-    automation_enabled: policy.automation_enabled === true,
-    unattended_enabled: policy.unattended_enabled === true,
-    allowed_write_roots: Array.isArray(policy.allowed_write_roots) ? policy.allowed_write_roots : [],
-    protected_paths: [.../* @__PURE__ */ new Set([...immutableProtectedPaths, ...Array.isArray(policy.protected_paths) ? policy.protected_paths : []])],
-    protected_oracles: Array.isArray(policy.protected_oracles) ? policy.protected_oracles : [],
+    schema: policy.schema ?? 2,
+    supervised_enabled: policy.supervised_enabled === true,
+    autonomous_enabled: policy.autonomous_enabled === true,
+    allowed_write_roots: Array.isArray(envelope.allowed_roots) ? envelope.allowed_roots : [],
+    protected_paths: [.../* @__PURE__ */ new Set([...immutableProtectedPaths, ...Array.isArray(envelope.protected_paths) ? envelope.protected_paths : []])],
+    approval_required_paths: Array.isArray(envelope.approval_required_paths) ? envelope.approval_required_paths : [],
+    verification_profile: objectLike(policy.verification_profile) ? structuredClone(policy.verification_profile) : null,
     certified_regions: Array.isArray(policy.certified_regions) ? policy.certified_regions : [],
-    harness_version: typeof policy.harness_version === "string" ? policy.harness_version : null,
     minimum_qualifying_runs: Number.isInteger(policy.minimum_qualifying_runs) ? policy.minimum_qualifying_runs : null,
     qualifying_runs: 0,
     dependencies: policy.dependencies ?? "deny",
@@ -16911,28 +17228,32 @@ function validateRawProjectPolicy(policy, required) {
   const errors = [];
   rejectUnknown(policy, policyKeys, "project policy", errors);
   validateExtensions(policy?.extensions, "project policy", errors);
-  if (required && policy?.schema !== 1) errors.push("project policy schema must be 1");
+  if (required && policy?.schema !== 2) errors.push("project policy schema must be 2");
+  if (policy?.scope_envelope !== void 0) {
+    rejectUnknown(policy.scope_envelope, scopeEnvelopeKeys, "project policy scope_envelope", errors);
+    for (const key of scopeEnvelopeKeys) if (!Array.isArray(policy.scope_envelope?.[key])) errors.push(`project policy scope_envelope.${key} must be an array`);
+  }
+  if (policy?.verification_profile !== void 0) rejectUnknown(policy.verification_profile, verificationProfileKeys, "project policy verification_profile", errors);
   if (policy?.maximum_budgets !== void 0) rejectUnknown(policy.maximum_budgets, policyBudgetKeys, "project policy maximum_budgets", errors);
   return errors;
 }
 function validateProjectPolicy(policy) {
   const errors = [];
-  if (policy.schema !== 1) errors.push("project policy schema must be 1");
-  if (policy.automation_enabled && policy.allowed_write_roots.length === 0) errors.push("automation_enabled requires allowed_write_roots");
-  for (const path of [...policy.allowed_write_roots, ...policy.protected_paths, ...policy.protected_oracles, ...policy.certified_regions]) {
+  if (policy.schema !== 2) errors.push("project policy schema must be 2");
+  if (policy.supervised_enabled && policy.allowed_write_roots.length === 0) errors.push("supervised_enabled requires scope_envelope.allowed_roots");
+  for (const path of [...policy.allowed_write_roots, ...policy.protected_paths, ...policy.approval_required_paths, ...policy.certified_regions]) {
     const normalized = normalize(String(path));
     if (!path || isAbsolute(String(path)) || normalized === ".." || normalized.startsWith(`..${sep2}`)) errors.push(`project policy path must stay repository-relative: ${path}`);
   }
-  if (policy.unattended_enabled) {
-    if (!policy.automation_enabled) errors.push("unattended_enabled requires automation_enabled");
-    if (policy.protected_oracles.length === 0) errors.push("unattended_enabled requires protected_oracles");
-    if (policy.certified_regions.length === 0) errors.push("unattended_enabled requires certified_regions");
-    if (!policy.harness_version) errors.push("unattended_enabled requires harness_version");
-    if (!Number.isInteger(policy.minimum_qualifying_runs) || policy.minimum_qualifying_runs < 1) errors.push("unattended_enabled requires an explicit positive minimum_qualifying_runs");
+  if (policy.autonomous_enabled) {
+    if (!policy.supervised_enabled) errors.push("autonomous_enabled requires supervised_enabled");
+    if (policy.certified_regions.length === 0) errors.push("autonomous_enabled requires certified_regions");
+    if (!policy.verification_profile?.profile_id || !policy.verification_profile?.manifest_path || !/^[a-f0-9]{64}$/.test(policy.verification_profile?.activated_hash ?? "")) errors.push("autonomous_enabled requires an activated verification_profile");
+    if (!Number.isInteger(policy.minimum_qualifying_runs) || policy.minimum_qualifying_runs < 1) errors.push("autonomous_enabled requires an explicit positive minimum_qualifying_runs");
   }
   if (!["deny", "allow-listed"].includes(policy.dependencies)) errors.push("project policy dependencies must be deny or allow-listed");
   if (policy.dependencies === "allow-listed" && policy.allowed_dependencies.length === 0) errors.push("allow-listed project dependencies require allowed_dependencies");
-  if (policy.external_effects !== "none") errors.push("v1 project policy external_effects must be none");
+  if (policy.external_effects !== "none") errors.push("Workflow 4 project policy external_effects must be none");
   if (!Object.hasOwn({ low: true, medium: true, high: true }, policy.max_risk)) errors.push("project policy max_risk must be low, medium, or high");
   if (policy.maximum_budgets) {
     for (const key of ["max_active_minutes", "max_total_tokens", "max_correction_cycles"]) if (!Number.isInteger(policy.maximum_budgets[key]) || policy.maximum_budgets[key] < (key === "max_correction_cycles" ? 0 : 1)) errors.push(`project policy maximum_budgets.${key} is invalid`);
@@ -16944,7 +17265,7 @@ function loadWorkflowConfig(workspaceRoot, options = {}) {
   const workspace2 = realpathSync2(resolve6(workspaceRoot));
   const userPath = options.userConfigPath ?? process.env.GELDMACHER_WORKFLOW_CONFIG ?? defaultUserConfigPath();
   const projectPath = options.projectPolicyPath ?? defaultProjectPolicyPath(workspace2);
-  const user = readYaml(userPath) ?? { schema: 1, route_profiles: {} };
+  const user = readYaml(userPath) ?? { schema: 2, route_profiles: {} };
   const rawProject = readYaml(projectPath) ?? {};
   const project = normalizePolicy(rawProject);
   const errors = [
@@ -16952,9 +17273,9 @@ function loadWorkflowConfig(workspaceRoot, options = {}) {
     ...validateRawProjectPolicy(rawProject, existsSync7(projectPath)),
     ...validateProjectPolicy(project)
   ];
-  if (project.unattended_enabled) {
-    for (const path of project.protected_oracles) if (!existsSync7(join7(workspace2, path))) errors.push(`protected oracle does not exist: ${path}`);
+  if (project.autonomous_enabled) {
     for (const path of project.certified_regions) if (!existsSync7(join7(workspace2, path))) errors.push(`certified region does not exist: ${path}`);
+    if (project.verification_profile?.manifest_path && !existsSync7(join7(workspace2, project.verification_profile.manifest_path))) errors.push(`verification profile manifest does not exist: ${project.verification_profile.manifest_path}`);
   }
   return {
     workspace: workspace2,
@@ -16972,15 +17293,56 @@ function resolveRouteProfile(config, name = "default") {
 }
 
 // src/controller/worktree.mjs
-import { existsSync as existsSync8, mkdirSync as mkdirSync6, mkdtempSync as mkdtempSync2, readFileSync as readFileSync6, rmSync as rmSync3, writeFileSync as writeFileSync5 } from "node:fs";
+import { existsSync as existsSync8, mkdirSync as mkdirSync6, mkdtempSync as mkdtempSync2, readFileSync as readFileSync6, rmSync as rmSync3, statSync, writeFileSync as writeFileSync5 } from "node:fs";
+import { createHash as createHash5 } from "node:crypto";
 import { homedir as homedir3, tmpdir as tmpdir2 } from "node:os";
 import { dirname as dirname7, isAbsolute as isAbsolute2, join as join8, relative as relative2, resolve as resolve7, sep as sep3 } from "node:path";
-import { spawnSync as spawnSync2 } from "node:child_process";
+import { spawnSync as spawnSync3 } from "node:child_process";
 function git(workspace2, args, options = {}) {
-  const result = spawnSync2("git", ["-C", workspace2, ...args], { encoding: "utf8", timeout: options.timeout ?? 12e4 });
+  const result = spawnSync3("git", ["-C", workspace2, ...args], { encoding: "utf8", timeout: options.timeout ?? 12e4, input: options.input });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`git ${args.join(" ")} failed: ${result.stderr.trim() || result.stdout.trim()}`);
-  return result.stdout.trimEnd();
+  return options.raw ? result.stdout : result.stdout.trimEnd();
+}
+var snapshotSecretPatterns = [/(?:^|\n)-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/, /\bAKIA[0-9A-Z]{16}\b/, /\bgh[opsu]_[A-Za-z0-9]{30,}\b/, /\bsk-[A-Za-z0-9_-]{32,}\b/];
+var snapshotFileLimit = 2 * 1024 * 1024;
+var snapshotTotalLimit = 10 * 1024 * 1024;
+function hash(value) {
+  return createHash5("sha256").update(typeof value === "string" ? value : JSON.stringify(value)).digest("hex");
+}
+function captureDirtySnapshot(workspaceRoot) {
+  const baseline = repositoryBaseline(workspaceRoot);
+  const staged_patch = git(workspaceRoot, ["diff", "--binary", "--cached", baseline.head], { raw: true });
+  const unstaged_patch = git(workspaceRoot, ["diff", "--binary"], { raw: true });
+  if (snapshotSecretPatterns.some((pattern) => pattern.test(staged_patch) || pattern.test(unstaged_patch))) {
+    throw new Error("secret material detected in tracked dirty snapshot");
+  }
+  const untrackedNames = git(workspaceRoot, ["ls-files", "--others", "--exclude-standard", "-z"]).split("\0").filter(Boolean).sort();
+  const untracked = [];
+  let total = Buffer.byteLength(staged_patch) + Buffer.byteLength(unstaged_patch);
+  for (const path of untrackedNames) {
+    const absolute = assertContainedPath(workspaceRoot, path);
+    const stats = statSync(absolute);
+    if (!stats.isFile()) throw new Error(`dirty snapshot supports files only: ${path}`);
+    if (stats.size > snapshotFileLimit) throw new Error(`dirty snapshot file exceeds 2 MiB: ${path}`);
+    total += stats.size;
+    if (total > snapshotTotalLimit) throw new Error("dirty snapshot exceeds 10 MiB");
+    const bytes = readFileSync6(absolute);
+    const text = bytes.toString("utf8");
+    if (snapshotSecretPatterns.some((pattern) => pattern.test(text))) throw new Error(`secret material detected in dirty snapshot: ${path}`);
+    untracked.push({ path, mode: stats.mode & 511, size: stats.size, hash: hash(bytes), content_base64: bytes.toString("base64") });
+  }
+  const payload = { schema: 1, head: baseline.head, branch: baseline.branch, status: baseline.status, staged_patch, unstaged_patch, untracked };
+  return { ...payload, snapshot_hash: hash(payload), dirty: baseline.status !== "" || untracked.length > 0 };
+}
+function applyDirtySnapshot(worktreePath, snapshot2) {
+  if (snapshot2.staged_patch) git(worktreePath, ["apply", "--index", "--binary", "-"], { input: snapshot2.staged_patch });
+  if (snapshot2.unstaged_patch) git(worktreePath, ["apply", "--binary", "-"], { input: snapshot2.unstaged_patch });
+  for (const entry of snapshot2.untracked ?? []) {
+    const target = assertContainedPath(worktreePath, entry.path);
+    mkdirSync6(dirname7(target), { recursive: true, mode: 448 });
+    writeFileSync5(target, Buffer.from(entry.content_base64, "base64"), { mode: entry.mode });
+  }
 }
 function defaultWorktreeRoot(workspaceRoot) {
   return join8(homedir3(), ".cursor", "geldmacher-workflow", "worktrees", repositoryKey(workspaceRoot));
@@ -16998,10 +17360,23 @@ function createRunWorktree(workspaceRoot, runId2, options = {}) {
   if (existsSync8(path)) throw new Error(`worktree path already exists: ${path}`);
   mkdirSync6(dirname7(path), { recursive: true, mode: 448 });
   const branch = `workflow/${runId2}`;
-  const baseline = repositoryBaseline(workspaceRoot);
-  if (baseline.status !== "") throw new Error("repository has uncommitted changes; auto-run denied");
+  const dirtySnapshot = options.dirtySnapshot ?? captureDirtySnapshot(workspaceRoot);
+  const baseline = { head: dirtySnapshot.head, branch: dirtySnapshot.branch, status: dirtySnapshot.status };
   git(workspaceRoot, ["worktree", "add", "-b", branch, path, baseline.head]);
-  return { path, branch, baseline };
+  applyDirtySnapshot(path, dirtySnapshot);
+  const humanBaseline = checkpoint(path, "human-baseline");
+  const persisted = { ...dirtySnapshot, staged_patch: void 0, unstaged_patch: void 0, untracked: dirtySnapshot.untracked.map(({ content_base64, ...entry }) => entry) };
+  if (options.snapshotPath) writeFileSync5(options.snapshotPath, `${JSON.stringify(persisted, null, 2)}
+`, { mode: 384 });
+  return { path, branch, baseline, dirty_snapshot_hash: dirtySnapshot.snapshot_hash, human_baseline: humanBaseline.commit, dirty: dirtySnapshot.dirty };
+}
+function createComparisonBaselineWorktree(workspaceRoot, runId2, head, options = {}) {
+  const root = resolve7(options.root ?? defaultWorktreeRoot(workspaceRoot));
+  const path = join8(root, `${runId2}-baseline`);
+  if (existsSync8(path)) throw new Error(`comparison baseline worktree path already exists: ${path}`);
+  mkdirSync6(dirname7(path), { recursive: true, mode: 448 });
+  git(workspaceRoot, ["worktree", "add", "--detach", path, head]);
+  return { path, head, mode: "read-only-comparison" };
 }
 function changedPaths(worktreePath) {
   const lines = git(worktreePath, ["status", "--porcelain=v1", "-uall"]);
@@ -17120,7 +17495,7 @@ function runHostCheck(worktreePath, command, timeoutMs = 3e5) {
       `TMPDIR=${temporary}`,
       `HOME=${temporary}`
     ];
-    const result = spawnSync2(executable, ["-f", profile, "/usr/bin/env", "-i", ...childEnvironment, command[0], ...command.slice(1)], {
+    const result = spawnSync3(executable, ["-f", profile, "/usr/bin/env", "-i", ...childEnvironment, command[0], ...command.slice(1)], {
       cwd: worktreePath,
       encoding: "utf8",
       timeout: timeoutMs,
@@ -17156,7 +17531,7 @@ function validateIntentBlockerReport(value) {
 }
 
 // src/controller/planning.mjs
-var profileRank = Object.freeze({ manual: 0, "auto-gated": 1, "unattended-eligible": 2 });
+var profileRank = Object.freeze({ manual: 0, supervised: 1, autonomous: 2 });
 var harnessFiles = Object.freeze([
   "skills/work-planning/SKILL.md",
   "references/artifact-protocol.md",
@@ -17167,8 +17542,8 @@ var harnessFiles = Object.freeze([
   "schemas/artifacts/work-plan.schema.json",
   "schemas/cursor-plan-wrapper.schema.json"
 ]);
-function hash(value) {
-  return createHash5("sha256").update(typeof value === "string" ? value : JSON.stringify(stable(value))).digest("hex");
+function hash2(value) {
+  return createHash6("sha256").update(typeof value === "string" ? value : JSON.stringify(stable(value))).digest("hex");
 }
 function stable(value) {
   if (Array.isArray(value)) return value.map(stable);
@@ -17187,14 +17562,11 @@ function rootProjection(rootPlanText, pluginRoot2) {
   const artifact = inspection.artifact;
   const fields = artifact.fields;
   return {
-    intent: stable({ id: fields.id, status: fields.status, intent_ready: fields.intent_ready, decision_boundary: fields.decision_boundary, runtime_relevant: fields.runtime_relevant, source: fields.source ?? null, content: section(artifact, "Intent and decisions") }),
-    objectives: section(artifact, "Objectives"),
-    scope: section(artifact, "Scope and targets"),
-    checks: section(artifact, "Verification"),
-    design: stable({ design_depth: fields.design_depth, intent: section(artifact, "Intent and decisions"), scope: section(artifact, "Scope and targets"), execution: section(artifact, "Execution steps") }),
-    risk: stable({ risk: fields.risk, assurance_score: fields.assurance_score, assurance_profile: fields.assurance_profile, hard_triggers: fields.hard_triggers, content: section(artifact, "Risk and closeout") }),
-    writer_tier: fields.writer_tier_required,
-    automation_bounds: stable({ automation_profile_max: fields.automation_profile_max, automation_bounds: fields.automation_bounds ?? null })
+    intent: stable({ id: fields.id, status: fields.status, intent_ready: fields.intent_ready, goal: fields.goal, acceptance: fields.acceptance, non_goals: fields.non_goals, constraints: fields.constraints, content: section(artifact, "Intent") }),
+    authority: stable(fields.authority),
+    profile: stable({ profile_max: fields.profile_max, contract_level: fields.contract_level }),
+    risk: stable({ risk: fields.risk, hard_triggers: fields.hard_triggers, content: section(artifact, "Risks") }),
+    certification: stable(fields.certification ?? null)
   };
 }
 function semanticRootDiff(beforeText, afterText, pluginRoot2) {
@@ -17203,10 +17575,10 @@ function semanticRootDiff(beforeText, afterText, pluginRoot2) {
   const after = rootProjection(afterText, pluginRoot2);
   const categories = Object.keys(before).filter((key) => JSON.stringify(before[key]) !== JSON.stringify(after[key]));
   return {
-    changed: hash(beforeText) !== hash(afterText),
+    changed: hash2(beforeText) !== hash2(afterText),
     categories,
-    before_root_hash: hash(beforeText),
-    after_root_hash: hash(afterText)
+    before_root_hash: hash2(beforeText),
+    after_root_hash: hash2(afterText)
   };
 }
 function plannerReceiptBlockers(receipt) {
@@ -17224,11 +17596,8 @@ function plannerReceiptBlockers(receipt) {
   return blockers;
 }
 function expectedPlannerReceiptBlockers(receipt, preparation, acceptedModel) {
-  const expectedRequested = {
-    id: preparation.route_config.planner.model_id,
-    reasoning_effort: preparation.route_config.planner.reasoning_effort,
-    model_options: preparation.route_config.planner.model_options ?? {}
-  };
+  const selected = preparation.route_validation.routes?.planner?.selected_candidate;
+  const expectedRequested = { id: selected?.model_id, reasoning_effort: selected?.reasoning_effort, model_options: selected?.model_options ?? {} };
   const blockers = [];
   if (JSON.stringify(stable(receipt?.requested_model)) !== JSON.stringify(stable(expectedRequested))) blockers.push("planner-requested-model-mismatch");
   if (JSON.stringify(stable(receipt?.accepted_model)) !== JSON.stringify(stable(acceptedModel))) blockers.push("planner-accepted-model-mismatch");
@@ -17261,17 +17630,17 @@ function loadPlanningHarness(pluginRoot2) {
     if (!existsSync9(absolute)) throw new Error(`planning harness file is missing: ${path}`);
     return { path, content: readFileSync7(absolute, "utf8") };
   });
-  return { sources, hash: hash(sources) };
+  return { sources, hash: hash2(sources) };
 }
 function planningPrompt(preparation, harness) {
   const source = preparation.source_kind === "goal" ? `GOAL
-${preparation.goal}` : `EXISTING VALID SCHEMA-3 ROOT AUTHORITATIVE PROJECTION
+${preparation.goal}` : `EXISTING VALID SCHEMA-4 INTENT ROOT AUTHORITATIVE PROJECTION
 ${preparation.input_root_contract.authoritative_projection_text}`;
   return [
     "Act as the configured Workflow planner in read-only Cursor Plan mode.",
     "Inspect the repository, but do not modify it or cause any external effect.",
     "If one or more material product decisions remain open, call report_intent_blockers exactly once with at most three concrete questions, do not call CreatePlan, and stop.",
-    "Otherwise call Cursor CreatePlan exactly once. Its plan argument must be one complete, ready, native schema-3 Workflow root satisfying the full harness below.",
+    "Otherwise call Cursor CreatePlan exactly once. Its plan argument must be one complete, ready, native schema-4 Workflow intent root satisfying the harness below.",
     "For an existing valid root, retain it unchanged when already adequate or propose a complete improved root. Never imply that an improvement is already approved.",
     `REQUESTED AUTO PROFILE
 ${preparation.requested_profile}`,
@@ -17295,24 +17664,21 @@ function normalizePlannerRootOutput(rootPlanText, preparation) {
 }
 function repairPrompt(errors, repairsRemaining) {
   return [
-    "The preceding CreatePlan output failed deterministic schema-3 validation.",
+    "The preceding CreatePlan output failed deterministic schema-4 validation.",
     "This is a technical contract repair only. Preserve the established product intent and use the same planner model and agent context.",
     `Call CreatePlan exactly once with a complete corrected root. Do not call report_intent_blockers unless a genuinely material product decision is now discovered. Repairs remaining after this turn: ${repairsRemaining}.`,
     `VALIDATOR ERRORS
 ${errors.map((error) => `- ${error}`).join("\n")}`
   ].join("\n\n");
 }
-function sameBaseline(left, right) {
-  return left?.head === right?.head && left?.branch === right?.branch && left?.status === right?.status;
-}
 function maximumProfileAllows(requested, maximum) {
   return (profileRank[requested] ?? 99) <= (profileRank[maximum] ?? -1);
 }
 function preparationRequestHash({ goal, rootPlan, requestedProfile, routeProfile }) {
-  return hash({
+  return hash2({
     source_kind: goal ? "goal" : "root-plan",
     goal: goal ?? null,
-    input_root_hash: rootPlan ? hash(rootPlan) : null,
+    input_root_hash: rootPlan ? hash2(rootPlan) : null,
     requested_profile: requestedProfile,
     route_profile: routeProfile
   });
@@ -17328,7 +17694,7 @@ var PlanningEngine = class {
   }
   prepare({ goal, rootPlan, requestedProfile, routeProfile = "default", idempotencyKey }) {
     if (Boolean(goal) === Boolean(rootPlan)) throw new Error("workflow_prepare requires exactly one of goal or root_plan");
-    if (!["auto-gated", "unattended-eligible"].includes(requestedProfile)) throw new Error("workflow_prepare supports auto-gated or unattended-eligible");
+    if (!["supervised", "autonomous"].includes(requestedProfile)) throw new Error("workflow_prepare supports supervised or autonomous");
     if (typeof idempotencyKey !== "string" || idempotencyKey.length < 8) throw new Error("workflow_prepare requires an idempotency key");
     let inputContract = null;
     if (rootPlan) {
@@ -17348,9 +17714,9 @@ var PlanningEngine = class {
     const budget = structuredClone(config.user.planning_preflight_budget);
     const baseline = repositoryBaseline(this.workspaceRoot);
     const harness = loadPlanningHarness(this.pluginRoot);
-    const routeHash = hash(route);
-    const policyHash = hash(config.project);
-    const configHash = hash({ route_profile: routeProfile, route, planning_preflight_budget: budget });
+    const routeHash = hash2(route);
+    const policyHash = hash2(config.project);
+    const configHash = hash2({ route_profile: routeProfile, route, planning_preflight_budget: budget });
     const capabilities = this.capabilitiesFactory({ expected_route_hash: routeHash, expected_planning_harness_hash: harness.hash });
     let routeValidation;
     try {
@@ -17361,7 +17727,7 @@ var PlanningEngine = class {
     const technicalBlockers = [
       ...routeValidation.errors ?? [],
       ...routeValidation.verified !== true ? ["model-catalog-not-verified"] : [],
-      ...!config.project.automation_enabled ? ["project-automation-disabled"] : [],
+      ...!config.project.supervised_enabled ? ["project-supervised-disabled"] : [],
       ...!capabilities.sandbox_boundary_verified ? ["hard-sandbox-not-verified"] : [],
       ...!capabilities.worker_network_isolated ? ["worker-network-boundary-not-verified"] : [],
       ...!capabilities.sdk_secret_isolated ? ["sdk-secret-boundary-not-verified"] : [],
@@ -17374,7 +17740,7 @@ var PlanningEngine = class {
       source_kind: goal ? "goal" : "root-plan",
       goal: goal ?? null,
       input_root_text: rootPlan ?? null,
-      input_root_hash: rootPlan ? hash(rootPlan) : null,
+      input_root_hash: rootPlan ? hash2(rootPlan) : null,
       input_root_contract: inputContract,
       input_root_authoritative_projection_hash: inputContract?.authoritative_projection_hash ?? null,
       requested_profile: requestedProfile,
@@ -17411,7 +17777,6 @@ var PlanningEngine = class {
     assertCompatiblePreparation(preparation);
     if (preparation.status !== "planning") throw new Error(`preparation is not planning: ${preparation.status}`);
     if (Date.parse(preparation.expires_at) <= Date.now()) return this.finish(preparation, "expired", ["preparation-expired"]);
-    if (!sameBaseline(preparation.baseline, repositoryBaseline(this.workspaceRoot))) return this.finish(preparation, "failed", ["material-repository-drift"]);
     const harness = loadPlanningHarness(this.pluginRoot);
     if (harness.hash !== preparation.harness_hash) return this.finish(preparation, "failed", ["planning-harness-drift"]);
     const adapter = this.adapterFactory(preparation);
@@ -17424,10 +17789,11 @@ var PlanningEngine = class {
       const beforeUsage = planningUsage(preparation.planner_receipts ?? [], preparation.created_at);
       const beforeBudgetBlockers = planningBudgetBlockers(beforeUsage, preparation.planning_budget);
       if (beforeBudgetBlockers.length > 0) return this.finish(preparation, "failed", beforeBudgetBlockers, beforeUsage);
-      if (!sameBaseline(preparation.baseline, repositoryBaseline(this.workspaceRoot))) return this.finish(preparation, "failed", ["material-repository-drift"], beforeUsage);
       const remainingMs = Math.max(1, Date.parse(preparation.expires_at) - Date.now());
       const phase = adapter.runPlanningPhase({
-        route: preparation.route_config.planner,
+        route: preparation.route_validation.routes.planner.selected_candidate,
+        routePoolHash: preparation.route_validation.routes.planner.pool_hash,
+        selectionReason: preparation.route_validation.routes.planner.selection_reason,
         acceptedModel,
         prompt,
         cwd: this.workspaceRoot,
@@ -17439,7 +17805,7 @@ var PlanningEngine = class {
         deniedReadPaths: [
           join9(this.workspaceRoot, ".git"),
           join9(this.workspaceRoot, ".cursor", "workflow-policy.yaml"),
-          ...preparation.project_policy.protected_oracles.map((path) => join9(this.workspaceRoot, path))
+          ...preparation.project_policy.protected_paths.map((path) => join9(this.workspaceRoot, path))
         ]
       });
       agentId = phase.receipt.agent_id ?? agentId;
@@ -17463,7 +17829,6 @@ var PlanningEngine = class {
         ...planningBudgetBlockers(usage, preparation.planning_budget),
         ...!phase.response.ok ? [phase.response.error?.message ?? "planner-failed"] : []
       ];
-      if (!sameBaseline(preparation.baseline, repositoryBaseline(this.workspaceRoot))) blockers.push("material-repository-drift");
       if (blockers.length > 0) return this.finish(preparation, "failed", blockers, usage);
       if (phase.planningOutput?.kind === "manual-planning-required") {
         let report;
@@ -17489,14 +17854,14 @@ var PlanningEngine = class {
       const contract = executionContractFromArtifactText(rootPlanText, this.pluginRoot);
       const validationErrors = [...contract.errors];
       if (validationErrors.length === 0 && (contract.fields.status !== "ready" || contract.fields.intent_ready !== true)) validationErrors.push("root plan must be ready with intent_ready true");
-      if (validationErrors.length === 0 && !maximumProfileAllows(preparation.requested_profile, contract.fields.automation_profile_max)) validationErrors.push(`root plan permits at most ${contract.fields.automation_profile_max}`);
+      if (validationErrors.length === 0 && !maximumProfileAllows(preparation.requested_profile, contract.fields.profile_max)) validationErrors.push(`root plan permits at most ${contract.fields.profile_max}`);
       if (validationErrors.length === 0) {
         const semanticDiff = semanticRootDiff(preparation.input_root_text, rootPlanText, this.pluginRoot);
         return this.update(preparation, (draft) => ({
           ...draft,
           status: "root-ready",
           root_plan_text: rootPlanText,
-          root_plan_hash: hash(rootPlanText),
+          root_plan_hash: hash2(rootPlanText),
           root_authoritative_projection_hash: contract.authoritative_projection_hash,
           root_plan_contract: contract,
           planner_receipts: draft.planner_receipts.map((receipt, index, receipts2) => index === receipts2.length - 1 ? { ...receipt, produced_artifact_projection_hash: contract.authoritative_projection_hash } : receipt),
@@ -17538,33 +17903,241 @@ function configurationHashes(workspaceRoot, routeProfile = "default") {
   if (config.errors.length > 0) throw new Error(`workflow configuration invalid: ${config.errors.join("; ")}`);
   const route = resolveRouteProfile(config, routeProfile);
   return {
-    route_hash: hash(route),
-    config_hash: hash({ route_profile: routeProfile, route, planning_preflight_budget: config.user.planning_preflight_budget }),
-    policy_hash: hash(config.project)
+    route_hash: hash2(route),
+    config_hash: hash2({ route_profile: routeProfile, route, planning_preflight_budget: config.user.planning_preflight_budget }),
+    policy_hash: hash2(config.project)
   };
 }
 
+// src/controller/strategy.mjs
+import { createHash as createHash7 } from "node:crypto";
+var TASK_RECIPES = Object.freeze({
+  bugfix: Object.freeze({ version: "recipe-1", baseline_repetitions: 2, patched_repetitions: 2, writer_allowed: true, comparison: "same-surface" }),
+  refactor: Object.freeze({ version: "recipe-1", baseline_repetitions: 1, patched_repetitions: 1, writer_allowed: true, comparison: "characterization-or-equivalence" }),
+  performance: Object.freeze({ version: "recipe-1", baseline_repetitions: 1, patched_repetitions: 1, writer_allowed: true, comparison: "baseline-and-post-trace" }),
+  feature: Object.freeze({ version: "recipe-1", baseline_repetitions: 1, patched_repetitions: 1, writer_allowed: true, comparison: "acceptance-and-regression" }),
+  investigation: Object.freeze({ version: "recipe-1", baseline_repetitions: 1, patched_repetitions: 0, writer_allowed: false, comparison: "read-only-findings" }),
+  "verify-existing": Object.freeze({ version: "recipe-1", baseline_repetitions: 2, patched_repetitions: 2, writer_allowed: false, comparison: "same-input-candidate-comparison" })
+});
+function stable2(value) {
+  if (Array.isArray(value)) return value.map(stable2);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable2(value[key])]));
+}
+function strategyHash(strategy) {
+  return createHash7("sha256").update(JSON.stringify(stable2(strategy))).digest("hex");
+}
+function inferTaskClass(goal) {
+  const source = String(goal ?? "").toLowerCase();
+  if (/verify|validate|existing (?:fix|commit|change)|bestehenden? (?:fix|commit|änderung)/.test(source)) return "verify-existing";
+  if (/performance|latency|throughput|profil|trace|slow|langsam/.test(source)) return "performance";
+  if (/refactor|restructure|cleanup|vereinfach|umbau/.test(source)) return "refactor";
+  if (/investigat|diagnos|analyse|explain|ursache finden/.test(source)) return "investigation";
+  if (/bug|fix|defect|fehler|regression|crash/.test(source)) return "bugfix";
+  return "feature";
+}
+function createInitialStrategy(contract) {
+  const seed = structuredClone(contract.strategy ?? {});
+  const taskClass = TASK_RECIPES[seed.task_class] ? seed.task_class : inferTaskClass(contract.fields.goal);
+  const value = {
+    strategy_schema: 1,
+    strategy_id: seed.strategy_id ?? `strategy-${contract.fields.id.slice(3)}`,
+    revision: 0,
+    parent_hash: null,
+    root_projection_hash: contract.authoritative_projection_hash,
+    task_class: taskClass,
+    recipe_version: TASK_RECIPES[taskClass].version,
+    primary_targets: seed.primary_targets ?? [...contract.allowedTargets],
+    steps: seed.steps ?? contract.slices,
+    checks: seed.checks ?? contract.checks,
+    evidence_requirements: seed.evidence_requirements ?? (contract.fields.profile_max === "autonomous" ? "verified" : "provisional-allowed"),
+    deviations: [],
+    rationale: seed.rationale ?? "initial strategy derived from the approved intent root",
+    created_by: seed.created_by ?? "planner"
+  };
+  return { ...value, strategy_hash: strategyHash(value) };
+}
+function inside(path, roots) {
+  return roots.some((root) => root === "." || path === root || path.startsWith(`${root.replace(/\/$/, "")}/`));
+}
+function reviseStrategy(current, patch, { reason, createdBy, authority: authority2 }) {
+  const nextTargets = patch.primary_targets ?? current.primary_targets;
+  for (const target of nextTargets) if (!inside(target, authority2.allowed_roots ?? [])) throw new Error(`strategy target escapes authority: ${target}`);
+  if (patch.task_class && !TASK_RECIPES[patch.task_class]) throw new Error(`unknown task recipe: ${patch.task_class}`);
+  const baseHash = current.strategy_hash ?? strategyHash(Object.fromEntries(Object.entries(current).filter(([key]) => key !== "strategy_hash")));
+  const taskClass = patch.task_class ?? current.task_class;
+  const next = {
+    ...structuredClone(current),
+    ...structuredClone(patch),
+    revision: current.revision + 1,
+    parent_hash: baseHash,
+    task_class: taskClass,
+    recipe_version: TASK_RECIPES[taskClass].version,
+    rationale: reason,
+    created_by: createdBy,
+    deviations: [...current.deviations ?? [], ...patch.deviations ?? []]
+  };
+  delete next.strategy_hash;
+  return { ...next, strategy_hash: strategyHash(next) };
+}
+function evidenceGrade(receipt) {
+  if (receipt?.passed === true) return "verified";
+  if (receipt?.passed === false) return "failed";
+  if (receipt?.supported === true) return "supported";
+  if (receipt?.unavailable === true) return "unavailable";
+  return "partial";
+}
+function aggregateEvidence(entries) {
+  const grades = entries.map((entry) => entry.grade);
+  if (grades.includes("failed")) return { grade: "failed", delivery: "blocked" };
+  if (entries.length > 0 && grades.every((grade) => grade === "verified")) return { grade: "verified", delivery: "verified" };
+  if (grades.includes("unavailable")) return { grade: "unavailable", delivery: "provisional" };
+  if (grades.includes("partial")) return { grade: "partial", delivery: "provisional" };
+  return { grade: "supported", delivery: "provisional" };
+}
+function checkEvidence(check, receipt, baselineOrPatched = "patched") {
+  return {
+    check_id: check["Check ID"],
+    feature_id: null,
+    grade: evidenceGrade(receipt),
+    surface: receipt?.surface ?? "repository",
+    method: Array.isArray(receipt?.command) ? receipt.command.join(" ") : receipt?.method ?? check["Command or Inspection"] ?? "verification-profile",
+    baseline_or_patched: baselineOrPatched,
+    expected: check["Expected Result"] ?? "",
+    observed: receipt?.passed === true ? "passed" : receipt?.passed === false ? receipt.error ?? receipt.stderr ?? "failed" : receipt?.reason ?? "not fully observed",
+    repetitions: receipt?.repetitions ?? (receipt?.passed === true || receipt?.passed === false ? 1 : 0),
+    artifact_hashes: receipt?.artifact_hashes ?? [],
+    limitations: receipt?.limitations ?? (receipt?.unavailable ? [receipt.reason ?? "verification unavailable"] : [])
+  };
+}
+function calibrateRecipeEvidence(taskClass, entries, stage, baselineEntries = []) {
+  const recipe = TASK_RECIPES[taskClass];
+  if (!recipe) throw new Error(`unknown task recipe: ${taskClass}`);
+  const minimum = stage === "baseline" ? recipe.baseline_repetitions : recipe.patched_repetitions;
+  const baselineByCheck = new Map(baselineEntries.map((entry) => [entry.check_id, entry]));
+  return entries.map((entry) => {
+    const limitations = [...entry.limitations ?? []];
+    let grade = entry.grade;
+    if (grade === "verified" && entry.repetitions < minimum) {
+      grade = "partial";
+      limitations.push(`${taskClass} recipe requires ${minimum} ${stage} repetitions`);
+    }
+    if (stage === "patched" && ["bugfix", "performance", "verify-existing"].includes(taskClass)) {
+      const baseline = baselineByCheck.get(entry.check_id);
+      if (baseline && baseline.surface !== entry.surface) {
+        if (grade === "verified") grade = "partial";
+        limitations.push(`${taskClass} recipe requires comparable baseline and patched surfaces`);
+      }
+    }
+    if (grade === "verified" && taskClass === "refactor" && !/(?:characterization|snapshot|equivalence)/i.test(`${entry.method} ${entry.observed}`)) {
+      grade = "partial";
+      limitations.push("refactor recipe requires characterization, snapshot, or equivalence evidence");
+    }
+    if (grade === "verified" && taskClass === "performance" && !/(?:benchmark|trace|latency|throughput|metric)/i.test(`${entry.method} ${entry.expected} ${entry.observed}`)) {
+      grade = "partial";
+      limitations.push("performance recipe requires an explicit comparable metric or trace");
+    }
+    return { ...entry, grade, limitations: [...new Set(limitations)] };
+  });
+}
+
+// src/controller/verification-profile.mjs
+var import_ajv2 = __toESM(require_ajv(), 1);
+var import_yaml3 = __toESM(require_dist2(), 1);
+import { createHash as createHash8, randomUUID as randomUUID3 } from "node:crypto";
+import { existsSync as existsSync10, mkdirSync as mkdirSync7, readFileSync as readFileSync8, renameSync as renameSync4, writeFileSync as writeFileSync6 } from "node:fs";
+import { dirname as dirname8, isAbsolute as isAbsolute3, join as join10, normalize as normalize2, resolve as resolve9, sep as sep4 } from "node:path";
+var VERIFICATION_CAPABILITIES = Object.freeze(["launch", "doctor", "drive", "observe", "evidence", "reset", "cleanup"]);
+function stable3(value) {
+  if (Array.isArray(value)) return value.map(stable3);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable3(value[key])]));
+}
+function hash3(value) {
+  return createHash8("sha256").update(typeof value === "string" ? value : JSON.stringify(stable3(value))).digest("hex");
+}
+function safeRelative(path) {
+  const value = normalize2(String(path));
+  return Boolean(path) && !isAbsolute3(String(path)) && value !== ".." && !value.startsWith(`..${sep4}`);
+}
+function inspectVerificationProfile(workspaceRoot, manifestPath = ".cursor/workflow-verification.yaml", pluginRoot2) {
+  const workspace2 = resolve9(workspaceRoot);
+  if (!safeRelative(manifestPath)) return { valid: false, errors: ["verification manifest path must be repository-relative"] };
+  const absolute = join10(workspace2, manifestPath);
+  if (!existsSync10(absolute)) return { valid: false, errors: [`verification manifest is missing: ${manifestPath}`] };
+  let manifest;
+  try {
+    manifest = (0, import_yaml3.parse)(readFileSync8(absolute, "utf8"));
+  } catch (error) {
+    return { valid: false, errors: [`verification manifest YAML is invalid: ${error.message}`] };
+  }
+  const schema = JSON.parse(readFileSync8(join10(pluginRoot2, "schemas", "verification-profile.schema.json"), "utf8"));
+  const validate = new import_ajv2.default({ allErrors: true, strict: false }).compile(schema);
+  const errors = validate(manifest) ? [] : validate.errors.map((error) => `${error.instancePath || "/"}: ${error.message}`);
+  for (const field of ["skill_path", "feature_map_path"]) {
+    if (!safeRelative(manifest?.[field])) errors.push(`${field} must be repository-relative`);
+    else if (!existsSync10(join10(workspace2, manifest[field]))) errors.push(`${field} does not exist: ${manifest[field]}`);
+  }
+  for (const capability of VERIFICATION_CAPABILITIES) if (!(manifest?.capabilities ?? []).includes(capability)) errors.push(`verification capability is missing: ${capability}`);
+  if (errors.length > 0) return { valid: false, errors: [...new Set(errors)], manifest };
+  const sources = [manifestPath, manifest.skill_path, manifest.feature_map_path].map((path) => ({ path, content: readFileSync8(join10(workspace2, path), "utf8") }));
+  return { valid: true, errors: [], manifest, sources, profile_hash: hash3(sources) };
+}
+function approvalPath(stateRoot2, profileId) {
+  return join10(resolve9(stateRoot2), "verification-profiles", `${profileId}.json`);
+}
+function loadVerificationApproval(stateRoot2, profileId) {
+  const path = approvalPath(stateRoot2, profileId);
+  if (!existsSync10(path)) return null;
+  try {
+    return JSON.parse(readFileSync8(path, "utf8"));
+  } catch {
+    return null;
+  }
+}
+function auditVerificationProfile(workspaceRoot, manifestPath, pluginRoot2, stateRoot2) {
+  const inspection = inspectVerificationProfile(workspaceRoot, manifestPath, pluginRoot2);
+  if (!inspection.valid) return { status: "blocked", ...inspection };
+  const approval = loadVerificationApproval(stateRoot2, inspection.manifest.profile_id);
+  if (!approval || approval.approved_hash !== inspection.profile_hash) return { status: "changed", ...inspection, approval };
+  return { status: "clean", ...inspection, approval };
+}
+
 // src/controller/engine.mjs
-var profileRank2 = Object.freeze({ manual: 0, "auto-gated": 1, "unattended-eligible": 2 });
+var profileRank2 = Object.freeze({ manual: 0, supervised: 1, autonomous: 2 });
 var secretPatterns = [/(?:^|\n)-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/, /\bAKIA[0-9A-Z]{16}\b/, /\bgh[opsu]_[A-Za-z0-9]{30,}\b/, /\bsk-[A-Za-z0-9_-]{32,}\b/];
-function boolCell(value) {
-  return /^(?:yes|true|required)$/i.test(String(value ?? "").trim());
+function hash4(value) {
+  return createHash9("sha256").update(typeof value === "string" ? value : JSON.stringify(value)).digest("hex");
+}
+function jsonObject(text) {
+  const source = String(text ?? "");
+  const fenced = source.match(/```json\s*([\s\S]*?)```/i)?.[1];
+  const candidate = fenced ?? source.slice(source.indexOf("{"), source.lastIndexOf("}") + 1);
+  return JSON.parse(candidate);
 }
 function jsonDecision(text) {
-  const fenced = String(text).match(/```json\s*([\s\S]*?)```/i)?.[1];
-  const candidate = fenced ?? String(text).slice(String(text).indexOf("{"), String(text).lastIndexOf("}") + 1);
-  const value = JSON.parse(candidate);
-  if (!["achieved", "mostly-achieved", "partially-achieved", "not-achieved", "insufficient-evidence"].includes(value.assessment)) throw new Error("review decision has invalid assessment");
-  if (!["none", "correct", "clarify", "replan", "retry-review"].includes(value.next_action)) throw new Error("review decision has invalid next_action");
+  const value = jsonObject(text);
+  if (!["achieved", "provisional", "mostly-achieved", "partially-achieved", "not-achieved", "insufficient-evidence"].includes(value.assessment)) throw new Error("review decision has invalid assessment");
+  if (!["none", "accept-provisional", "correct", "clarify", "replan", "retry-review"].includes(value.next_action)) throw new Error("review decision has invalid next_action");
   if (!Array.isArray(value.finding_keys)) throw new Error("review decision requires finding_keys");
+  value.delivery_status ??= value.assessment === "achieved" ? "verified" : value.next_action === "accept-provisional" ? "provisional" : "blocked";
   return value;
 }
-function routeReceipt(validation, role) {
+function routeSelection(validation, role) {
   const result = validation.routes?.[role];
-  if (!result?.valid) throw new Error(`route ${role} is not validated`);
-  return result.model;
+  if (!result?.valid || !result.selected_candidate || !result.model) throw new Error(`route ${role} has no validated candidate`);
+  return {
+    route: result.selected_candidate,
+    acceptedModel: result.model,
+    routePoolHash: result.pool_hash,
+    selectionReason: result.selection_reason
+  };
 }
-function phaseReceiptBlockers(receipt, role, expectedArtifactProjectionHash = null) {
+function selectedModelsCertified(routeValidation, certifiedModels) {
+  if (!Array.isArray(certifiedModels) || certifiedModels.length === 0) return false;
+  return Object.entries(routeValidation.routes ?? {}).every(([role, route]) => certifiedModels.some((model) => model.role === role && model.id === route.model?.id && JSON.stringify(model.params ?? []) === JSON.stringify(route.model?.params ?? [])));
+}
+function phaseReceiptBlockers(receipt, role, expectedProjectionHash = null) {
   const blockers = [];
   if (!receipt?.model_attested) blockers.push(`${role}-model-mismatch`);
   if (typeof receipt?.request_id !== "string" || receipt.request_id === "") blockers.push(`${role}-request-id-missing`);
@@ -17572,19 +18145,22 @@ function phaseReceiptBlockers(receipt, role, expectedArtifactProjectionHash = nu
   if (!Number.isFinite(receipt?.duration_ms) || receipt.duration_ms < 0) blockers.push(`${role}-duration-missing`);
   if (!Number.isFinite(receipt?.usage?.totalTokens) || receipt.usage.totalTokens < 0) blockers.push(`${role}-token-usage-missing`);
   if (!Number.isFinite(receipt?.cost_usd) || receipt.cost_usd < 0) blockers.push(`${role}-cost-missing`);
-  if (expectedArtifactProjectionHash && receipt?.artifact_projection_hash !== expectedArtifactProjectionHash) blockers.push(`${role}-artifact-projection-mismatch`);
+  if (expectedProjectionHash && receipt?.artifact_projection_hash !== expectedProjectionHash) blockers.push(`${role}-artifact-projection-mismatch`);
   return blockers;
 }
 function withinProfile(requested, maximum) {
   return (profileRank2[requested] ?? 99) <= (profileRank2[maximum] ?? -1);
 }
+function pathInside2(path, roots) {
+  return roots.some((root) => root === "." || path === root || path.startsWith(`${root.replace(/\/$/, "")}/`));
+}
 function containsSensitiveChange(worktree, paths) {
   for (const path of paths) {
     const candidate = assertContainedPath(worktree, path);
-    if (!existsSync10(candidate) || !statSync(candidate).isFile() || statSync(candidate).size > 2 * 1024 * 1024) continue;
+    if (!existsSync11(candidate) || !statSync2(candidate).isFile() || statSync2(candidate).size > 2 * 1024 * 1024) continue;
     let source;
     try {
-      source = readFileSync8(candidate, "utf8");
+      source = readFileSync9(candidate, "utf8");
     } catch {
       continue;
     }
@@ -17592,13 +18168,55 @@ function containsSensitiveChange(worktree, paths) {
   }
   return false;
 }
+function currentBaselineDiffers(left, right) {
+  return left?.head !== right?.head || left?.branch !== right?.branch || left?.status !== right?.status;
+}
+function guardReadOnlyRepository(cwd, operation) {
+  const before = repositoryBaseline(cwd);
+  const value = operation();
+  const after = repositoryBaseline(cwd);
+  return { value, unchanged: !currentBaselineDiffers(before, after), before, after };
+}
+function usageForRun(run) {
+  const usage = { totalTokens: 0, costUsd: 0, correctionCycles: run.correction_cycles ?? 0, activeMinutes: 0 };
+  for (const receipt of run.receipts ?? []) {
+    usage.totalTokens += receipt.usage?.totalTokens ?? 0;
+    usage.costUsd += receipt.cost_usd ?? 0;
+    usage.activeMinutes += (receipt.duration_ms ?? 0) / 6e4;
+  }
+  for (const receipt of run.check_receipts ?? []) usage.activeMinutes += (receipt.duration_ms ?? 0) / 6e4;
+  return usage;
+}
+function budgetBoundaryBlockers(run) {
+  return evaluateAuthorization({ plan: run.plan.fields, usage: usageForRun(run) }).blockers.filter((blocker) => ["token-budget-exhausted", "cost-budget-exhausted", "time-budget-exhausted", "correction-budget-exhausted"].includes(blocker));
+}
+function runIntegrityBlockers(run, pluginRoot2) {
+  const blockers = [];
+  let root;
+  try {
+    root = executionContractFromArtifactText(run.root_plan_text, pluginRoot2);
+  } catch (error) {
+    return [`intent-root-unreadable:${error.message}`];
+  }
+  if (root.errors.length > 0) blockers.push("intent-root-invalid");
+  if (root.raw_hash !== run.root_plan_hash) blockers.push("intent-root-content-hash-mismatch");
+  if (root.authoritative_projection_hash !== run.root_authoritative_projection_hash || root.authoritative_projection_hash !== run.intent_hash) blockers.push("intent-root-projection-hash-mismatch");
+  if (hash4(root.fields) !== hash4(run.plan?.fields)) blockers.push("intent-root-state-mismatch");
+  if (run.strategy?.root_projection_hash !== run.intent_hash) blockers.push("strategy-root-projection-mismatch");
+  if (run.strategy) {
+    const { strategy_hash: declaredHash, ...projection } = run.strategy;
+    if (strategyHash(projection) !== declaredHash) blockers.push("strategy-hash-mismatch");
+  } else blockers.push("strategy-missing");
+  return [...new Set(blockers)];
+}
 var WorkflowEngine = class {
-  constructor({ workspaceRoot, store: store2, preparationStore: preparationStore2, pluginRoot: pluginRoot2, stateRoot: stateRoot2, adapterFactory, capabilitiesFactory } = {}) {
-    this.workspaceRoot = resolve9(workspaceRoot);
+  constructor({ workspaceRoot, store: store2, preparationStore: preparationStore2, pluginRoot: pluginRoot2, stateRoot: stateRoot2, worktreeRoot, adapterFactory, capabilitiesFactory } = {}) {
+    this.workspaceRoot = resolve10(workspaceRoot);
     this.store = store2;
     this.preparationStore = preparationStore2;
-    this.pluginRoot = resolve9(pluginRoot2);
-    this.stateRoot = resolve9(stateRoot2);
+    this.pluginRoot = resolve10(pluginRoot2);
+    this.stateRoot = resolve10(stateRoot2);
+    this.worktreeRoot = worktreeRoot ? resolve10(worktreeRoot) : null;
     this.adapterFactory = adapterFactory ?? ((run) => new CursorWorkerAdapter({ runDirectory: this.store.runDirectory(run.run_id), pluginRoot: this.pluginRoot }));
     this.capabilitiesFactory = capabilitiesFactory ?? ((additions = {}) => resolveCapabilities(this.stateRoot, additions, { pluginRoot: this.pluginRoot }));
   }
@@ -17608,7 +18226,6 @@ var WorkflowEngine = class {
       ...run,
       lifecycle: "stopped",
       compatibility: compatibility.compatibility,
-      design_depth: null,
       blockers: [.../* @__PURE__ */ new Set([...run.blockers ?? [], compatibility.blocker])]
     });
     return deriveWorkflowState({
@@ -17616,12 +18233,12 @@ var WorkflowEngine = class {
       compatibility: compatibility.compatibility,
       root_plan_id: run.plan?.fields?.id ?? null,
       root_schema_valid: run.plan ? run.plan.fields?.schema === ARTIFACT_SCHEMA : void 0,
-      design_depth: run.plan?.fields?.design_depth ?? null,
       intent_ready: run.plan?.fields?.intent_ready === true,
-      product_aligned: run.plan?.fields?.design_depth === "oneshot" || Boolean(run.plan),
-      architecture_aligned: run.plan?.fields?.design_depth === "oneshot" || Boolean(run.plan),
-      program_design_aligned: run.plan?.fields?.design_depth !== "full" || Boolean(run.plan),
-      slices_ready: Boolean(run.plan)
+      product_aligned: Boolean(run.plan),
+      architecture_aligned: Boolean(run.plan),
+      program_design_aligned: Boolean(run.plan),
+      slices_ready: Boolean(run.strategy?.steps?.length),
+      strategy_revision: run.strategy?.revision ?? null
     });
   }
   start({ preparationId: preparationId2, approvedRootHash, expectedPreparationRevision, idempotencyKey }) {
@@ -17637,9 +18254,6 @@ var WorkflowEngine = class {
     if (preparation.revision !== expectedPreparationRevision) throw new Error(`preparation revision conflict: expected ${expectedPreparationRevision}, current ${preparation.revision}`);
     if (preparation.root_plan_hash !== approvedRootHash) throw new Error("approved-root-hash-mismatch");
     if (Date.parse(preparation.expires_at) <= Date.now()) throw new Error("preparation-expired");
-    const currentBaseline = repositoryBaseline(this.workspaceRoot);
-    if (currentBaseline.head !== preparation.baseline.head || currentBaseline.branch !== preparation.baseline.branch || currentBaseline.status !== preparation.baseline.status) throw new Error("material-repository-drift");
-    if (currentBaseline.status !== "") throw new Error("repository-baseline-not-clean");
     const hashes = configurationHashes(this.workspaceRoot, preparation.route_profile);
     if (hashes.route_hash !== preparation.route_hash) throw new Error("route-configuration-drift");
     if (hashes.config_hash !== preparation.config_hash) throw new Error("planning-configuration-drift");
@@ -17649,17 +18263,15 @@ var WorkflowEngine = class {
     if (contract.errors.length > 0) throw new Error(`invalid prepared root plan: ${contract.errors.join("; ")}`);
     if (contract.authoritative_projection_hash !== preparation.root_authoritative_projection_hash) throw new Error("prepared-root-authoritative-projection-mismatch");
     if (contract.fields.status !== "ready" || contract.fields.intent_ready !== true) throw new Error("prepared root plan must be ready with intent_ready true");
-    if (!withinProfile(preparation.requested_profile, contract.fields.automation_profile_max)) throw new Error(`prepared root plan permits at most ${contract.fields.automation_profile_max}`);
+    if (!withinProfile(preparation.requested_profile, contract.fields.profile_max)) throw new Error(`prepared root plan permits at most ${contract.fields.profile_max}`);
     const usage = planningUsage(preparation.planner_receipts ?? [], preparation.created_at);
     const receiptBlockers = (preparation.planner_receipts ?? []).flatMap(plannerReceiptBlockers);
-    if (preparation.planner_receipts.length === 0) receiptBlockers.push("planner-receipt-missing");
+    if ((preparation.planner_receipts ?? []).length === 0) receiptBlockers.push("planner-receipt-missing");
     const preparedAcceptedModel = preparation.route_validation.routes?.planner?.model;
     for (const [index, receipt] of (preparation.planner_receipts ?? []).entries()) {
       receiptBlockers.push(...expectedPlannerReceiptBlockers(receipt, preparation, preparedAcceptedModel));
       if (receipt.agent_id !== preparation.planner_agent_id) receiptBlockers.push("planner-agent-affinity-mismatch");
-      if (index === preparation.planner_receipts.length - 1 && receipt.produced_artifact_projection_hash !== preparation.root_authoritative_projection_hash) {
-        receiptBlockers.push("planner-produced-artifact-projection-mismatch");
-      }
+      if (index === preparation.planner_receipts.length - 1 && receipt.produced_artifact_projection_hash !== preparation.root_authoritative_projection_hash) receiptBlockers.push("planner-produced-artifact-projection-mismatch");
     }
     const preflightBlockers = [.../* @__PURE__ */ new Set([...receiptBlockers, ...planningBudgetBlockers(usage, preparation.planning_budget)])];
     if (preflightBlockers.length > 0) throw new Error(`planner preflight invalid: ${preflightBlockers.join("; ")}`);
@@ -17671,27 +18283,23 @@ var WorkflowEngine = class {
     }
     if (!routeValidation.verified) throw new Error(`route validation failed: ${(routeValidation.errors ?? []).join("; ")}`);
     if (JSON.stringify(routeValidation.routes?.planner?.model) !== JSON.stringify(preparedAcceptedModel)) throw new Error("planner-catalog-attestation-drift");
-    if (preparation.route_validation.sdk_version && routeValidation.sdk_version !== preparation.route_validation.sdk_version) throw new Error("planner-sdk-version-drift");
-    const capabilities = this.capabilitiesFactory({
-      model_catalog_verified: true,
-      expected_route_hash: preparation.route_hash,
-      expected_planning_harness_hash: preparation.harness_hash
+    const strategy = createInitialStrategy(contract);
+    const cert = contract.fields.certification ?? {};
+    const key = qualificationKey({
+      taskClass: strategy.task_class,
+      verificationProfileHash: cert.verification_profile_hash,
+      routePoolHash: cert.route_pool_hash ?? preparation.route_hash,
+      certifiedRegion: cert.certified_region
     });
-    capabilities.model_attestation_observed = capabilities.capability_receipt?.observations?.model_configuration_exact?.verified === true && capabilities.attested_route_hash === preparation.route_hash;
-    capabilities.harness_certified = capabilities.certified_harness_hash === preparation.harness_hash;
-    const creation = this.store.createFromPreparation(this.preparationStore, {
-      preparationId: preparationId2,
-      approvedRootHash,
-      expectedPreparationRevision,
-      idempotencyKey
-    }, {
+    const sourceNow = repositoryBaseline(this.workspaceRoot);
+    const capabilities = this.capabilitiesFactory({ model_catalog_verified: true, expected_route_hash: preparation.route_hash, expected_planning_harness_hash: preparation.harness_hash });
+    const creation = this.store.createFromPreparation(this.preparationStore, { preparationId: preparationId2, approvedRootHash, expectedPreparationRevision, idempotencyKey }, {
       workspace_root: this.workspaceRoot,
-      goal: preparation.goal,
+      goal: contract.fields.goal,
       requested_profile: preparation.requested_profile,
       effective_profile: preparation.requested_profile,
       route_profile: preparation.route_profile,
       route_config: preparation.route_config,
-      planning_preflight_budget: preparation.planning_budget,
       route_validation: routeValidation,
       base_config_errors: [],
       config_errors: routeValidation.errors ?? [],
@@ -17700,26 +18308,29 @@ var WorkflowEngine = class {
       root_plan_text: preparation.root_plan_text,
       root_plan_hash: preparation.root_plan_hash,
       root_authoritative_projection_hash: preparation.root_authoritative_projection_hash,
+      intent_hash: preparation.root_authoritative_projection_hash,
       plan: contract,
+      strategy,
+      qualification_key: key,
       plan_status: "ready",
       plan_approved: true,
-      root_approval: {
-        preparation_id: preparation.preparation_id,
-        preparation_revision: preparation.revision,
-        approved_root_hash: preparation.root_plan_hash,
-        approved_at: (/* @__PURE__ */ new Date()).toISOString()
-      },
+      root_approval: { preparation_id: preparation.preparation_id, preparation_revision: preparation.revision, approved_root_hash: preparation.root_plan_hash, approved_at: (/* @__PURE__ */ new Date()).toISOString() },
       planning_receipts: structuredClone(preparation.planner_receipts),
       planning_usage: usage,
       lifecycle: "waiting-human",
       phase: "intent-ready",
       next_action: "eligibility-preflight",
       baseline: preparation.baseline,
+      source_drift_at_start: currentBaselineDiffers(preparation.baseline, sourceNow),
+      source_baseline_at_start: sourceNow,
       policy_hash: preparation.policy_hash,
       harness_hash: preparation.harness_hash,
       route_hash: preparation.route_hash,
       config_hash: preparation.config_hash,
       execution_started: false,
+      evidence_entries: [],
+      evidence_grade: null,
+      delivery_status: null,
       receipts: [],
       blockers: []
     });
@@ -17730,237 +18341,469 @@ var WorkflowEngine = class {
     const current = this.store.get(runId2);
     return this.store.update(runId2, current.revision, null, mutator, eventType);
   }
-  approve(runId2, { acceptDowngrade = false } = {}) {
+  approve(runId2) {
     let run = this.store.get(runId2);
-    if (!run.plan) throw new Error("run has no valid root plan");
-    if (!withinProfile(run.requested_profile, run.plan.fields.automation_profile_max)) throw new Error(`root plan permits at most ${run.plan.fields.automation_profile_max}`);
+    if (!run.plan || !withinProfile(run.requested_profile, run.plan.fields.profile_max)) throw new Error("run has no compatible approved intent root");
     let routeValidation;
     try {
       routeValidation = this.adapterFactory(run).validateProfile(run.route_config);
     } catch (error) {
       routeValidation = { verified: false, errors: [error.message] };
     }
+    const manifestPath = run.project_policy.verification_profile?.manifest_path;
+    const verificationAudit = manifestPath ? auditVerificationProfile(this.workspaceRoot, manifestPath, this.pluginRoot, this.stateRoot) : { status: "blocked", valid: false, errors: ["verification profile not configured"] };
     const capabilities = this.capabilitiesFactory({
       model_catalog_verified: routeValidation.verified === true,
+      verification_profile_certified: verificationAudit.status === "clean",
       expected_route_hash: run.route_hash,
       expected_planning_harness_hash: run.harness_hash
     });
-    capabilities.model_attestation_observed = capabilities.capability_receipt?.observations?.model_configuration_exact?.verified === true && capabilities.attested_route_hash === run.route_hash;
-    capabilities.harness_certified = capabilities.certified_harness_hash === run.harness_hash;
-    const effectiveProjectPolicy = { ...run.project_policy, qualifying_runs: this.store.qualifyingHistory() };
-    run = this.update(runId2, (draft) => ({
-      ...draft,
-      route_validation: routeValidation,
-      capabilities,
-      project_policy: effectiveProjectPolicy,
-      config_errors: [...draft.base_config_errors ?? [], ...routeValidation.errors ?? []]
-    }), "approval-preflight-refreshed");
-    const eligibility = evaluateEligibility({
-      requestedProfile: run.requested_profile,
-      plan: {
-        ...run.plan.fields,
-        human_review_gates: run.plan.checks.some((check) => ["human-review-required", "human-approval-required"].includes(check["Evidence Class"])) || run.plan.slices.some((slice) => boolCell(slice["Human review"]))
-      },
-      project: effectiveProjectPolicy,
-      capabilities: run.capabilities,
-      configErrors: run.config_errors
-    });
-    if (eligibility.downgrade_pending && !acceptDowngrade) return this.update(runId2, (draft) => ({ ...draft, ...eligibility, lifecycle: "waiting-human", plan_approved: true, next_action: "approve-downgrade" }), "downgrade-proposed");
-    const effectiveProfile = eligibility.downgrade_pending ? "auto-gated" : eligibility.effective_profile;
-    const hardBlockers = eligibility.blockers;
-    if (hardBlockers.length > 0) return this.update(runId2, (draft) => ({ ...draft, ...eligibility, effective_profile: effectiveProfile, lifecycle: "waiting-human", plan_approved: true, blockers: hardBlockers, next_action: "resolve-capability-blockers" }), "eligibility-blocked");
-    return this.update(runId2, (draft) => ({
-      ...draft,
-      requested_profile: run.requested_profile,
-      effective_profile: effectiveProfile,
-      downgrade_pending: false,
-      downgrade_reason: eligibility.downgrade_reason ?? null,
-      plan_approved: true,
-      lifecycle: "queued",
-      phase: "slice-ready",
-      blockers: [],
-      next_action: "implement-slice"
-    }), "run-approved");
+    capabilities.route_pool_certified = capabilities.route_pool_certified === true && routeValidation.verified === true;
+    capabilities.route_pool_models_certified = capabilities.route_pool_models_certified === true || selectedModelsCertified(routeValidation, capabilities.certified_models);
+    const qualifyingRuns = this.store.qualifyingHistory(run.qualification_key);
+    run = this.update(runId2, (draft) => ({ ...draft, route_validation: routeValidation, capabilities, verification_audit: verificationAudit, config_errors: [...draft.base_config_errors ?? [], ...routeValidation.errors ?? []] }), "approval-preflight-refreshed");
+    const eligibility = evaluateEligibility({ requestedProfile: run.requested_profile, plan: run.plan.fields, project: run.project_policy, capabilities, configErrors: run.config_errors, qualifyingRuns, taskClass: run.strategy.task_class });
+    if (eligibility.blockers.length > 0) return this.update(runId2, (draft) => ({ ...draft, ...eligibility, lifecycle: "waiting-human", next_action: "resolve-capability-blockers" }), "eligibility-blocked");
+    run = this.update(runId2, (draft) => ({ ...draft, ...eligibility, lifecycle: "queued", phase: "strategy-ready", blockers: [], next_action: "execute-strategy" }), eligibility.downgraded ? "profile-auto-downgraded" : "run-approved");
+    if (eligibility.downgraded) this.store.appendDecision(runId2, { phase: "eligibility", decision: "continue-supervised", reason: eligibility.downgrade_reason, input_hashes: [run.intent_hash], strategy_revision: run.strategy.revision, result: "queued" });
+    return run;
   }
   execute(runId2) {
     let run = this.store.get(runId2);
     if (!run.plan_approved || run.lifecycle !== "queued") throw new Error("run is not approved and queued");
-    if (typeof run.plan?.authoritative_projection_text !== "string" || typeof run.plan?.authoritative_projection_hash !== "string" || run.plan.authoritative_projection_hash !== run.root_authoritative_projection_hash) {
-      throw new Error("root-authoritative-projection-mismatch");
-    }
-    if (!run.capabilities.worker_network_isolated || !run.capabilities.sandbox_boundary_verified) throw new Error("auto execution denied without verified SDK write and worker network boundaries");
-    if (!run.capabilities.sdk_secret_isolated) throw new Error("auto execution denied without verified SDK secret isolation");
-    if (!run.capabilities.sdk_budget_cancel_verified) throw new Error("auto execution denied without verified SDK budget cancellation");
-    const currentBaseline = repositoryBaseline(this.workspaceRoot);
-    if (currentBaseline.head !== run.baseline.head || currentBaseline.status !== run.baseline.status) return this.update(runId2, (draft) => ({ ...draft, lifecycle: "waiting-human", blockers: ["material-repository-drift"], next_action: "replan" }), "repository-drift");
+    const integrityBlockers = runIntegrityBlockers(run, this.pluginRoot);
+    if (integrityBlockers.length > 0) return this.block(run, integrityBlockers);
+    for (const capability of ["worker_network_isolated", "sandbox_boundary_verified", "sdk_secret_isolated", "sdk_budget_cancel_verified"]) if (!run.capabilities[capability]) throw new Error(`automated writing denied without ${capability}`);
     if (!run.worktree) {
-      const worktree = createRunWorktree(this.workspaceRoot, runId2);
-      run = this.update(runId2, (draft) => ({ ...draft, worktree, lifecycle: "running", execution_started: true, phase: "implementing", current_slice: draft.current_slice ?? 0 }), "worktree-created");
+      let worktree;
+      try {
+        worktree = createRunWorktree(this.workspaceRoot, runId2, {
+          ...this.worktreeRoot ? { root: this.worktreeRoot } : {},
+          snapshotPath: join11(this.store.runDirectory(runId2), "dirty-snapshot.json")
+        });
+      } catch (error) {
+        return this.block(run, [`dirty-snapshot-blocked:${error.message}`]);
+      }
+      run = this.update(runId2, (draft) => ({ ...draft, worktree, dirty_baseline_hash: worktree.dirty_snapshot_hash, lifecycle: "running", execution_started: true, phase: "baseline-verification", current_slice: draft.current_slice ?? 0, checkpoints: [{ slice_id: "HUMAN-BASELINE", commit: worktree.human_baseline, empty: !worktree.dirty }] }), "human-baseline-created");
     } else run = this.update(runId2, (draft) => ({ ...draft, lifecycle: "running", execution_started: true }), "run-resumed");
-    const slices = run.plan.slices.length > 0 ? run.plan.slices : [{ "Slice ID": "SLICE-ROOT", Objectives: run.plan.objectives.join(", "), Dependencies: "None.", Targets: run.plan.allowedTargets.join(", "), "Observable outcome": "All approved root objectives and checks are satisfied.", "Check IDs": run.plan.checks.map((item) => item["Check ID"]).join(", "), "Human review": "no" }];
+    if (run.strategy.task_class === "verify-existing" && !run.comparison_baseline_worktree) {
+      let comparisonBaselineWorktree;
+      try {
+        comparisonBaselineWorktree = createComparisonBaselineWorktree(this.workspaceRoot, runId2, run.worktree.baseline.head, { ...this.worktreeRoot ? { root: this.worktreeRoot } : {} });
+      } catch (error) {
+        return this.block(run, [`comparison-baseline-blocked:${error.message}`]);
+      }
+      run = this.update(runId2, (draft) => ({ ...draft, comparison_baseline_worktree: comparisonBaselineWorktree }), "comparison-baseline-created");
+    }
+    const adapter = this.adapterFactory(run);
+    if (!(run.evidence_entries ?? []).some((entry) => entry.baseline_or_patched === "baseline")) {
+      const baseline = this.verify(run, run.strategy.steps[0], "baseline", adapter);
+      if (baseline.hard_error) return this.block(run, baseline.blockers);
+      run = this.update(runId2, (draft) => ({ ...draft, phase: "implementing", evidence_entries: [...draft.evidence_entries ?? [], ...baseline.entries], receipts: [...draft.receipts, ...baseline.receipt ? [baseline.receipt] : []] }), "baseline-evidence-recorded");
+      const budgetBlockers = budgetBoundaryBlockers(run);
+      if (budgetBlockers.length > 0) return this.block(run, budgetBlockers);
+    }
+    const recipe = TASK_RECIPES[run.strategy.task_class];
+    if (!recipe.writer_allowed) {
+      if (run.strategy.task_class === "verify-existing") {
+        const patched = this.verify(run, run.strategy.steps[0], "patched", adapter);
+        if (patched.hard_error) return this.block(run, patched.blockers);
+        run = this.update(runId2, (draft) => ({ ...draft, evidence_entries: [...draft.evidence_entries, ...patched.entries], receipts: [...draft.receipts, ...patched.receipt ? [patched.receipt] : []] }), "candidate-evidence-recorded");
+        const budgetBlockers = budgetBoundaryBlockers(run);
+        if (budgetBlockers.length > 0) return this.block(run, budgetBlockers);
+      }
+      return this.finalReview(runId2);
+    }
+    const slices = run.strategy.steps.length > 0 ? run.strategy.steps : [{ "Slice ID": "SLICE-1", "Check IDs": run.strategy.checks.map((item) => item["Check ID"]).join(", ") }];
     for (let index = run.current_slice ?? 0; index < slices.length; index += 1) {
-      run = this.store.get(runId2);
-      if (["paused", "stopped"].includes(run.lifecycle)) return run;
-      const sourceNow = repositoryBaseline(this.workspaceRoot);
-      if (sourceNow.head !== run.baseline.head || sourceNow.status !== run.baseline.status) return this.wait(run, ["material-repository-drift"]);
-      const slice = slices[index];
-      const result = this.executeSlice(run, slice, index);
+      const result = this.executeSlice(run, slices[index], index);
       if (!result.completed) return result.run;
       run = result.run;
-      const sliceCheckpoint = checkpoint(run.worktree.path, `${slice["Slice ID"]}`);
-      run = this.update(runId2, (draft) => ({
-        ...draft,
-        current_slice: index + 1,
-        more_slices: index + 1 < slices.length,
-        phase: "slice-ready",
-        checkpoints: [...draft.checkpoints ?? [], { slice_id: slice["Slice ID"], ...sliceCheckpoint }]
-      }), "slice-complete");
-      if (boolCell(slice["Human review"]) && run.effective_profile === "auto-gated") return this.update(runId2, (draft) => ({ ...draft, lifecycle: "waiting-human", next_action: "approve-slice", blockers: [] }), "slice-gate");
+      const sliceCheckpoint = checkpoint(run.worktree.path, `${slices[index]["Slice ID"]}`);
+      run = this.update(runId2, (draft) => ({ ...draft, current_slice: index + 1, more_slices: index + 1 < slices.length, phase: "strategy-ready", checkpoints: [...draft.checkpoints ?? [], { slice_id: slices[index]["Slice ID"], ...sliceCheckpoint }] }), "slice-complete");
     }
     return this.finalReview(runId2);
   }
-  executeSlice(run, slice, index) {
+  executeSlice(run, slice) {
     const adapter = this.adapterFactory(run);
-    let correctionCycle = 0;
-    let previousFindingKeys = [];
+    let correctionCycle = run.correction_cycles ?? 0;
+    let previousFindingKeys = run.review?.finding_keys ?? [];
     let writerAgentId = run.writer_agent_id ?? null;
     let escalated = run.writer_escalated === true;
     while (true) {
-      const prePhaseAuthorization = evaluateAuthorization({ plan: run.plan.fields, usage: this.usage(run) });
-      if (!prePhaseAuthorization.authorized) return { completed: false, run: this.wait(run, prePhaseAuthorization.blockers) };
+      const pre = evaluateAuthorization({ plan: run.plan.fields, usage: this.usage(run) });
+      if (!pre.authorized) {
+        const budgetBlockers2 = budgetBoundaryBlockers(run);
+        return { completed: false, run: budgetBlockers2.length > 0 ? this.block(run, budgetBlockers2) : this.wait(run, pre.blockers) };
+      }
       const routeChoice = selectWriterRoute({ plan: run.plan.fields, correctionCycle, findingRepeated: run.finding_repeated === true, alreadyEscalated: escalated });
-      const role = routeChoice.role;
       if (routeChoice.escalated && !escalated) {
         escalated = true;
         writerAgentId = null;
       }
-      const route = run.route_config[role];
-      const acceptedModel = routeReceipt(run.route_validation, role);
-      const prompt = correctionCycle === 0 ? `Implement only ${slice["Slice ID"]} from the approved root plan. Do not change policy, state, .git, or protected oracle paths. Do not push, create a PR, merge, or deploy.
-
-AUTHORITATIVE ROOT PROJECTION
-${run.plan.authoritative_projection_text}
-
-SLICE
-${JSON.stringify(slice, null, 2)}` : `Correct the current worktree using this fresh review decision. Preserve the approved root intent and targets; you remain the writer.
-
-REVIEW
-${JSON.stringify(run.review, null, 2)}
-
-AUTHORITATIVE ROOT PROJECTION
-${run.plan.authoritative_projection_text}`;
-      const rootTargets = run.plan.fields.automation_bounds.allowed_targets;
-      const writablePaths = rootTargets.filter((target) => run.project_policy.allowed_write_roots.some((ceiling) => target === ceiling || target.startsWith(`${ceiling.replace(/\/$/, "")}/`))).map((target) => assertContainedPath(run.worktree.path, target));
-      if (writablePaths.length !== rootTargets.length) return { completed: false, run: this.wait(run, ["root-target-exceeds-project-policy"]) };
-      const writerDeniedPaths = [...run.project_policy.protected_paths, ...run.project_policy.protected_oracles].map((target) => assertContainedPath(run.worktree.path, target));
-      const phase = adapter.runPhase({ role, route, acceptedModel, prompt, cwd: run.worktree.path, agentId: writerAgentId, writerWritablePaths: writablePaths, writerDeniedPaths, configurationHash: run.route_hash, artifactProjectionHash: run.root_authoritative_projection_hash });
+      const role = routeChoice.role;
+      const selected = routeSelection(run.route_validation, role);
+      const prompt = [
+        correctionCycle === 0 ? "Implement the current adaptive strategy slice." : "Correct the current worktree using the fresh review decision.",
+        "Stay inside the immutable intent authority. You may adapt method and adjacent files inside allowed_roots. Do not push, create a PR, merge, deploy, or cause external effects.",
+        `IMMUTABLE INTENT
+${run.plan.authoritative_projection_text}`,
+        `CURRENT STRATEGY
+${JSON.stringify(run.strategy, null, 2)}`,
+        `SLICE
+${JSON.stringify(slice, null, 2)}`,
+        correctionCycle > 0 ? `REVIEW
+${JSON.stringify(run.review, null, 2)}` : ""
+      ].filter(Boolean).join("\n\n");
+      const roots = run.plan.fields.authority.allowed_roots;
+      const writablePaths = roots.filter((target) => pathInside2(target, run.project_policy.allowed_write_roots)).map((target) => assertContainedPath(run.worktree.path, target));
+      if (writablePaths.length !== roots.length) return { completed: false, run: this.wait(run, ["intent-authority-exceeds-project-policy"]) };
+      const denied = [.../* @__PURE__ */ new Set([...run.project_policy.protected_paths, ...run.project_policy.approval_required_paths, ...run.plan.fields.authority.protected_paths, ...run.plan.fields.authority.approval_required_paths])].map((target) => assertContainedPath(run.worktree.path, target));
+      const phase = adapter.runPhase({ role, ...selected, prompt, cwd: run.worktree.path, agentId: writerAgentId, writerWritablePaths: writablePaths, writerDeniedPaths: denied, configurationHash: run.route_hash, artifactProjectionHash: run.intent_hash });
       writerAgentId = phase.receipt.agent_id;
       run = this.update(run.run_id, (draft) => ({ ...draft, phase: "host-verifying", writer_agent_id: writerAgentId, writer_escalated: escalated, receipts: [...draft.receipts, phase.receipt] }), "writer-finished");
-      if (["paused", "stopped", "interrupted"].includes(run.lifecycle)) return { completed: false, run };
       if (phase.response.status === "interrupted") return { completed: false, run: this.update(run.run_id, (draft) => ({ ...draft, lifecycle: "interrupted", blockers: ["worker-hard-cancelled"], next_action: "resume" }), "worker-interrupted") };
-      const writerReceiptBlockers = phaseReceiptBlockers(phase.receipt, role, run.root_authoritative_projection_hash);
-      if (!phase.response.ok || writerReceiptBlockers.length > 0) return { completed: false, run: this.rollbackAndWait(run, [phase.response.error?.message, ...writerReceiptBlockers].filter(Boolean)) };
+      const writerBlockers = phaseReceiptBlockers(phase.receipt, role, run.intent_hash);
+      if (!phase.response.ok || writerBlockers.length > 0) return { completed: false, run: this.rollbackAndWait(run, [phase.response.error?.message, ...writerBlockers].filter(Boolean)) };
       const paths = changedPaths(run.worktree.path);
-      const changedDependencies = detectDependencyChanges(run.worktree.path, run.baseline.head, paths);
+      const changedDependencies = detectDependencyChanges(run.worktree.path, run.worktree.human_baseline, paths);
       const authorization = evaluateAuthorization({ plan: run.plan.fields, changedPaths: paths, changedDependencies, usage: this.usage(run) });
-      if (changedDependencies.length > 0 && run.project_policy.dependencies === "deny") authorization.blockers.push("project-dependency-change-denied");
+      if (run.project_policy.dependencies === "deny" && changedDependencies.length > 0) authorization.blockers.push("project-dependency-change-denied");
       if (run.project_policy.dependencies === "allow-listed") {
         for (const dependency of changedDependencies) if (!run.project_policy.allowed_dependencies.includes(dependency)) authorization.blockers.push(`project-dependency-not-allow-listed:${dependency}`);
       }
-      const protectedTargets = [...run.project_policy.protected_paths, ...run.project_policy.protected_oracles];
-      const protectedChanges = paths.filter((path) => protectedTargets.some((target) => path === target || path.startsWith(`${target.replace(/\/$/, "")}/`)));
-      if (protectedChanges.length > 0) authorization.blockers.push(...protectedChanges.map((path) => `protected-path:${path}`));
       if (containsSensitiveChange(run.worktree.path, paths)) authorization.blockers.push("secret-material-detected");
-      if (!authorization.authorized || authorization.blockers.length > 0) return { completed: false, run: this.rollbackAndWait(run, authorization.blockers) };
-      const checkIds = String(slice["Check IDs"] ?? slice.Checks ?? "").split(",").map((item) => item.trim()).filter(Boolean);
-      const relevantChecks = run.plan.checks.filter((check) => checkIds.length === 0 || checkIds.includes(check["Check ID"]));
-      const checkReceipts = relevantChecks.map((check) => {
-        const command = check["Command or Inspection"];
+      if (!authorization.authorized || authorization.blockers.length > 0) {
+        const restored = this.rollbackAndWait(run, authorization.blockers);
+        const budgetBlockers2 = authorization.blockers.filter((blocker) => ["token-budget-exhausted", "cost-budget-exhausted", "time-budget-exhausted", "correction-budget-exhausted"].includes(blocker));
+        return { completed: false, run: budgetBlockers2.length > 0 ? this.block(restored, budgetBlockers2) : restored };
+      }
+      const certifiedRegion = run.plan.fields.certification?.certified_region;
+      const regionEscapes = certifiedRegion ? paths.filter((path) => !pathInside2(path, [certifiedRegion])) : [];
+      if (run.effective_profile === "autonomous" && regionEscapes.length > 0) {
+        run = this.update(run.run_id, (draft) => ({
+          ...draft,
+          effective_profile: "supervised",
+          downgraded: true,
+          downgrade_reason: `certified-region-exceeded:${regionEscapes.join(",")}`
+        }), "profile-auto-downgraded");
+        this.store.appendDecision(run.run_id, {
+          phase: "scope",
+          actor_receipt: phase.receipt.request_id,
+          decision: "continue-supervised",
+          reason: run.downgrade_reason,
+          input_hashes: [run.intent_hash, run.strategy.strategy_hash],
+          strategy_revision: run.strategy.revision,
+          result: "supervised"
+        });
+      }
+      const adjacentPaths = paths.filter((path) => !pathInside2(path, run.strategy.primary_targets ?? []));
+      const alreadyRecorded = new Set((run.strategy.deviations ?? []).filter((item) => item.kind === "adjacent-scope").flatMap((item) => item.paths ?? []));
+      const newAdjacentPaths = adjacentPaths.filter((path) => !alreadyRecorded.has(path));
+      if (newAdjacentPaths.length > 0) {
+        const deviation2 = { id: `DEV-${run.strategy.revision + 1}`, kind: "adjacent-scope", paths: newAdjacentPaths, at: (/* @__PURE__ */ new Date()).toISOString() };
+        const strategy2 = reviseStrategy(run.strategy, { deviations: [deviation2] }, { reason: `adjacent in-envelope scope: ${newAdjacentPaths.join(", ")}`, createdBy: role, authority: run.plan.fields.authority });
+        run = this.update(run.run_id, (draft) => ({ ...draft, strategy: strategy2 }), "strategy-revised");
+        this.store.appendDecision(run.run_id, {
+          phase: "adapt",
+          actor_receipt: phase.receipt.request_id,
+          decision: "record-adjacent-scope",
+          reason: strategy2.rationale,
+          input_hashes: [run.intent_hash, strategy2.parent_hash],
+          strategy_revision: strategy2.revision,
+          result: strategy2.strategy_hash
+        });
+      }
+      const checkIds = String(slice["Check IDs"] ?? "").split(",").map((item) => item.trim()).filter(Boolean);
+      const checks = run.strategy.checks.filter((check) => checkIds.length === 0 || checkIds.includes(check["Check ID"]));
+      const hostReceipts = checks.map((check) => {
+        if (check["Evidence Class"] !== "machine-verifiable" || check["Command or Inspection"] === "verification-profile") return { check_id: check["Check ID"], unavailable: true, reason: "verification-profile-required" };
         try {
-          return { check_id: check["Check ID"], ...runHostCheck(run.worktree.path, parseHostCommand(command)) };
+          return { check_id: check["Check ID"], ...runHostCheck(run.worktree.path, parseHostCommand(check["Command or Inspection"])) };
         } catch (error) {
-          return { check_id: check["Check ID"], command, passed: false, error: error.message };
+          return { check_id: check["Check ID"], unavailable: true, reason: error.message };
         }
       });
-      run = this.update(run.run_id, (draft) => ({ ...draft, phase: "slice-review", check_receipts: [...draft.check_receipts ?? [], ...checkReceipts] }), "host-checks-finished");
-      const review = this.review(run, slice, checkReceipts, adapter);
-      run = this.update(run.run_id, (draft) => ({ ...draft, review: review.decision, receipts: [...draft.receipts, review.receipt], ...review.interrupted ? { lifecycle: "interrupted", blockers: ["reviewer-hard-cancelled"], next_action: "resume" } : {} }), "slice-reviewed");
-      if (["paused", "stopped", "interrupted"].includes(run.lifecycle)) return { completed: false, run };
+      const verifier = this.verify(run, slice, "patched", adapter, hostReceipts);
+      if (verifier.hard_error) return { completed: false, run: this.block(run, verifier.blockers) };
+      const byCheck = new Map(verifier.entries.map((entry) => [entry.check_id, entry]));
+      const entries = checks.map((check) => byCheck.get(check["Check ID"]) ?? checkEvidence(check, hostReceipts.find((receipt) => receipt.check_id === check["Check ID"]), "patched"));
+      run = this.update(run.run_id, (draft) => ({ ...draft, phase: "slice-review", check_receipts: [...draft.check_receipts ?? [], ...hostReceipts], evidence_entries: [...(draft.evidence_entries ?? []).filter((entry) => !(entry.baseline_or_patched === "patched" && entries.some((candidate) => candidate.check_id === entry.check_id))), ...entries], receipts: [...draft.receipts, ...verifier.receipt ? [verifier.receipt] : []] }), "verification-finished");
+      let budgetBlockers = budgetBoundaryBlockers(run);
+      if (budgetBlockers.length > 0) return { completed: false, run: this.block(run, budgetBlockers) };
+      const review = this.review(run, slice, entries, adapter);
+      if (review.hard_error) return { completed: false, run: this.block(run, review.blockers) };
+      run = this.update(run.run_id, (draft) => ({ ...draft, review: review.decision, receipts: [...draft.receipts, review.receipt] }), "slice-reviewed");
+      budgetBlockers = budgetBoundaryBlockers(run);
+      if (budgetBlockers.length > 0) return { completed: false, run: this.block(run, budgetBlockers) };
       if (!review.decision) return { completed: false, run: this.wait(run, review.blockers) };
-      if (review.decision.assessment === "achieved" && review.decision.next_action === "none" && checkReceipts.every((item) => item.passed)) return { completed: true, run };
+      const aggregate = aggregateEvidence(run.evidence_entries.filter((entry) => entry.baseline_or_patched === "patched"));
+      if (aggregate.delivery === "blocked") {
+        return { completed: false, run: this.update(run.run_id, (draft) => ({
+          ...draft,
+          lifecycle: "blocked",
+          delivery_status: "blocked",
+          evidence_grade: "failed",
+          blockers: ["known-check-failure"],
+          next_action: "correct-or-replan"
+        }), "delivery-blocked") };
+      }
+      if (review.decision.assessment === "achieved" && review.decision.next_action === "none" && aggregate.delivery !== "blocked") return { completed: true, run };
       if (["clarify", "replan"].includes(review.decision.next_action)) return { completed: false, run: this.wait(run, [`review-${review.decision.next_action}`]) };
+      if (review.decision.next_action !== "correct") return { completed: false, run: this.wait(run, ["review-not-actionable"]) };
       correctionCycle += 1;
       const findingRepeated = review.decision.finding_keys.some((key) => previousFindingKeys.includes(key));
       previousFindingKeys = review.decision.finding_keys;
-      const bounds = run.plan.fields.automation_bounds;
-      if (correctionCycle > bounds.max_correction_cycles) return { completed: false, run: this.wait(run, ["correction-budget-exhausted"]) };
-      run = this.update(run.run_id, (draft) => ({ ...draft, correction_cycles: correctionCycle, finding_repeated: findingRepeated, review: review.decision, phase: "implementing" }), "correction-scheduled");
+      const maximum = run.project_policy.maximum_budgets?.max_correction_cycles ?? 3;
+      if (correctionCycle > maximum) return { completed: false, run: this.wait(run, ["correction-budget-exhausted"]) };
+      const deviation = { id: `DEV-${run.strategy.revision + 1}`, kind: "review-correction", finding_keys: review.decision.finding_keys, at: (/* @__PURE__ */ new Date()).toISOString() };
+      const strategy = reviseStrategy(run.strategy, { deviations: [deviation] }, { reason: `review correction ${correctionCycle}`, createdBy: role, authority: run.plan.fields.authority });
+      run = this.update(run.run_id, (draft) => ({ ...draft, strategy, correction_cycles: correctionCycle, finding_repeated: findingRepeated, review: review.decision, phase: "implementing" }), "strategy-revised");
+      this.store.appendDecision(run.run_id, { phase: "adapt", actor_receipt: review.receipt.request_id, decision: "revise-strategy", reason: strategy.rationale, input_hashes: [run.intent_hash, strategy.parent_hash], strategy_revision: strategy.revision, result: strategy.strategy_hash });
     }
   }
-  review(run, slice, checkReceipts, adapter) {
-    const route = run.route_config.reviewer;
-    const acceptedModel = routeReceipt(run.route_validation, "reviewer");
-    const diff = this.gitDiff(run.worktree.path, run.baseline.head);
+  verify(run, slice, stage, adapter, hostReceipts = []) {
+    const checks = run.strategy.checks.filter((check) => {
+      const ids2 = String(slice?.["Check IDs"] ?? "").split(",").map((item) => item.trim()).filter(Boolean);
+      return ids2.length === 0 || ids2.includes(check["Check ID"]);
+    });
+    const hostEntries = hostReceipts.filter((receipt) => receipt.passed === true || receipt.passed === false).map((receipt) => checkEvidence(checks.find((check) => check["Check ID"] === receipt.check_id), receipt, stage));
+    const unresolved = checks.filter((check) => !hostEntries.some((entry) => entry.check_id === check["Check ID"]));
+    if (unresolved.length === 0) return {
+      entries: calibrateRecipeEvidence(run.strategy.task_class, hostEntries, stage, run.evidence_entries ?? []),
+      receipt: null
+    };
+    let selected;
+    try {
+      selected = routeSelection(run.route_validation, "verifier");
+    } catch (error) {
+      return {
+        entries: calibrateRecipeEvidence(run.strategy.task_class, [...hostEntries, ...unresolved.map((check) => checkEvidence(check, { unavailable: true, reason: error.message }, stage))], stage, run.evidence_entries ?? []),
+        receipt: null
+      };
+    }
+    const artifactDirectory = join11(this.store.runDirectory(run.run_id), "artifacts", `strategy-${run.strategy.revision}`, stage);
+    mkdirSync8(artifactDirectory, { recursive: true, mode: 448 });
+    const recipe = TASK_RECIPES[run.strategy.task_class];
     const prompt = [
-      "Independently review the current slice. You are read-only and have no writer conversation.",
-      "Judge only the approved root plan, repository diff and host check receipts.",
-      "Return one JSON object with assessment, next_action, finding_keys, and findings. Use next_action none only with assessment achieved.",
-      `AUTHORITATIVE ROOT PROJECTION
+      `Act as a read-only verifier for the ${stage} state. Do not modify repository files.`,
+      `Use task recipe ${run.strategy.task_class}: ${JSON.stringify(recipe)}.`,
+      "Return one JSON object with entries. Each entry requires check_id, grade, surface, method, expected, observed, repetitions, artifact_hashes, limitations.",
+      "Grades are verified|supported|partial|unavailable|failed. A reviewer opinion is not verification.",
+      `INTENT
 ${run.plan.authoritative_projection_text}`,
+      `STRATEGY
+${JSON.stringify(run.strategy, null, 2)}`,
+      `CHECKS
+${JSON.stringify(unresolved, null, 2)}`,
+      `ARTIFACT DIRECTORY
+${artifactDirectory}`
+    ].join("\n\n");
+    const verifierCwd = stage === "baseline" && run.strategy.task_class === "verify-existing" && run.comparison_baseline_worktree?.path ? run.comparison_baseline_worktree.path : run.worktree?.path ?? this.workspaceRoot;
+    const guarded = guardReadOnlyRepository(verifierCwd, () => adapter.runPhase({ role: "verifier", ...selected, prompt, cwd: verifierCwd, verifierArtifactPaths: [artifactDirectory], configurationHash: run.route_hash, artifactProjectionHash: run.intent_hash }));
+    const phase = guarded.value;
+    if (!guarded.unchanged) return {
+      entries: [...hostEntries, ...unresolved.map((check) => checkEvidence(check, { passed: false, reason: "reader modified repository" }, stage))],
+      receipt: { ...phase.receipt, reader_repository_unchanged: false },
+      hard_error: true,
+      blockers: ["reader-repository-mutation:verifier"]
+    };
+    const blockers = phaseReceiptBlockers(phase.receipt, "verifier", run.intent_hash);
+    if (!phase.response.ok || blockers.length > 0) return { entries: [...hostEntries, ...unresolved.map((check) => checkEvidence(check, { unavailable: true, reason: blockers.join(",") || phase.response.error?.message }, stage))], receipt: phase.receipt };
+    try {
+      const value = jsonObject(phase.response.result);
+      const returned = Array.isArray(value.entries) ? value.entries : [];
+      const entries = unresolved.map((check) => {
+        const item = returned.find((entry) => entry.check_id === check["Check ID"]);
+        if (!item || !["verified", "supported", "partial", "unavailable", "failed"].includes(item.grade)) return checkEvidence(check, { unavailable: true, reason: "verifier omitted valid evidence" }, stage);
+        return {
+          check_id: check["Check ID"],
+          feature_id: item.feature_id ?? null,
+          grade: item.grade,
+          surface: item.surface ?? "repository",
+          method: item.method ?? "verification-profile",
+          baseline_or_patched: stage,
+          expected: item.expected ?? check["Expected Result"] ?? "",
+          observed: item.observed ?? "",
+          repetitions: Number.isInteger(item.repetitions) ? item.repetitions : 0,
+          artifact_hashes: Array.isArray(item.artifact_hashes) ? item.artifact_hashes.filter((value2) => /^[a-f0-9]{64}$/.test(value2)) : [],
+          limitations: Array.isArray(item.limitations) ? item.limitations : []
+        };
+      });
+      return { entries: calibrateRecipeEvidence(run.strategy.task_class, [...hostEntries, ...entries], stage, run.evidence_entries ?? []), receipt: phase.receipt };
+    } catch (error) {
+      return { entries: [...hostEntries, ...unresolved.map((check) => checkEvidence(check, { unavailable: true, reason: `invalid verifier output: ${error.message}` }, stage))], receipt: phase.receipt };
+    }
+  }
+  review(run, slice, evidenceEntries, adapter) {
+    const selected = routeSelection(run.route_validation, "reviewer");
+    const diff = this.gitDiff(run.worktree.path, run.strategy.task_class === "verify-existing" ? run.worktree.baseline.head : run.worktree.human_baseline);
+    const prompt = [
+      "Independently review the current strategy state. You are read-only and have no writer conversation.",
+      "Judge the immutable intent, current strategy, repository diff and evidence entries. Reviewer opinion must not upgrade evidence.",
+      "Return JSON with assessment, delivery_status, next_action, finding_keys, findings. Known failed evidence can never be provisional or verified.",
+      `INTENT
+${run.plan.authoritative_projection_text}`,
+      `STRATEGY
+${JSON.stringify(run.strategy, null, 2)}`,
       `SLICE
 ${JSON.stringify(slice, null, 2)}`,
       `DIFF
 ${diff}`,
-      `HOST CHECKS
-${JSON.stringify(checkReceipts, null, 2)}`
+      `EVIDENCE
+${JSON.stringify(evidenceEntries, null, 2)}`
     ].join("\n\n");
-    const phase = adapter.runPhase({ role: "reviewer", route, acceptedModel, prompt, cwd: run.worktree.path, configurationHash: run.route_hash, artifactProjectionHash: run.root_authoritative_projection_hash });
-    const blockers = phaseReceiptBlockers(phase.receipt, "reviewer", run.root_authoritative_projection_hash);
+    const guarded = guardReadOnlyRepository(run.worktree.path, () => adapter.runPhase({ role: "reviewer", ...selected, prompt, cwd: run.worktree.path, configurationHash: run.route_hash, artifactProjectionHash: run.intent_hash }));
+    const phase = guarded.value;
+    if (!guarded.unchanged) return { decision: null, receipt: { ...phase.receipt, reader_repository_unchanged: false }, blockers: ["reader-repository-mutation:reviewer"], hard_error: true };
+    const blockers = phaseReceiptBlockers(phase.receipt, "reviewer", run.intent_hash);
     if (!phase.response.ok) blockers.push(phase.response.error?.message ?? "reviewer-failed");
-    if (blockers.length > 0) return { decision: null, receipt: phase.receipt, blockers: [...new Set(blockers)], interrupted: phase.response.status === "interrupted" };
+    if (blockers.length > 0) return { decision: null, receipt: phase.receipt, blockers: [...new Set(blockers)] };
     try {
       return { decision: jsonDecision(phase.response.result), receipt: phase.receipt, blockers: [] };
     } catch (error) {
       return { decision: null, receipt: phase.receipt, blockers: [`reviewer-invalid-decision:${error.message}`] };
     }
   }
+  reviewFanout(run, evidenceEntries, adapter) {
+    if (typeof adapter.runReadOnlyFanout !== "function") return this.review(run, { "Slice ID": "ROOT" }, evidenceEntries, adapter);
+    const diff = this.gitDiff(run.worktree.path, run.strategy.task_class === "verify-existing" ? run.worktree.baseline.head : run.worktree.human_baseline);
+    const prompt = [
+      "Independently judge the immutable intent, current strategy, diff and evidence. You are read-only.",
+      "Return JSON with assessment, delivery_status, next_action, finding_keys, findings. Do not upgrade evidence and never treat a known failure as provisional.",
+      `INTENT
+${run.plan.authoritative_projection_text}`,
+      `STRATEGY
+${JSON.stringify(run.strategy, null, 2)}`,
+      `DIFF
+${diff}`,
+      `EVIDENCE
+${JSON.stringify(evidenceEntries, null, 2)}`
+    ].join("\n\n");
+    const phases = ["reviewer", "investigator"].map((role) => ({
+      role,
+      ...routeSelection(run.route_validation, role),
+      prompt,
+      cwd: run.worktree.path,
+      configurationHash: run.route_hash,
+      artifactProjectionHash: run.intent_hash
+    }));
+    let results;
+    try {
+      const guarded = guardReadOnlyRepository(run.worktree.path, () => adapter.runReadOnlyFanout(phases));
+      results = guarded.value;
+      if (!guarded.unchanged) return { decision: null, receipts: results.map((result) => ({ ...result.receipt, reader_repository_unchanged: false })), blockers: ["reader-repository-mutation:fanout"], hard_error: true };
+    } catch (error) {
+      return { decision: null, receipt: null, receipts: [], blockers: [`read-fanout-failed:${error.message}`] };
+    }
+    const decisions = [];
+    const blockers = [];
+    for (const [index, result] of results.entries()) {
+      const role = phases[index].role;
+      const receiptErrors = phaseReceiptBlockers(result.receipt, role, run.intent_hash);
+      if (!result.response.ok) receiptErrors.push(result.response.error?.message ?? `${role}-failed`);
+      if (receiptErrors.length > 0) {
+        blockers.push(...receiptErrors);
+        continue;
+      }
+      try {
+        decisions.push(jsonDecision(result.response.result));
+      } catch (error) {
+        blockers.push(`${role}-invalid-decision:${error.message}`);
+      }
+    }
+    if (decisions.length === 0) return { decision: null, receipts: results.map((result) => result.receipt), blockers: [...new Set(blockers)] };
+    const actionRank = { replan: 6, clarify: 5, correct: 4, "retry-review": 3, "accept-provisional": 2, none: 1 };
+    const selected = decisions.toSorted((left, right) => actionRank[right.next_action] - actionRank[left.next_action])[0];
+    const bothAchieved = decisions.length === 2 && decisions.every((decision2) => decision2.assessment === "achieved" && decision2.next_action === "none");
+    const decision = {
+      ...selected,
+      assessment: bothAchieved ? "achieved" : selected.assessment === "achieved" ? "provisional" : selected.assessment,
+      delivery_status: bothAchieved ? "verified" : selected.delivery_status === "blocked" ? "blocked" : "provisional",
+      next_action: bothAchieved ? "none" : selected.next_action === "none" ? "accept-provisional" : selected.next_action,
+      finding_keys: [...new Set(decisions.flatMap((item) => item.finding_keys ?? []))],
+      findings: decisions.flatMap((item) => item.findings ?? []),
+      agreement: bothAchieved ? "consensus" : decisions.length === 2 ? "contested" : "single-valid-review"
+    };
+    return { decision, receipts: results.map((result) => result.receipt), blockers };
+  }
   finalReview(runId2) {
     let run = this.store.get(runId2);
     const authorization = evaluateAuthorization({ plan: run.plan.fields, usage: this.usage(run) });
-    if (!authorization.authorized) return this.wait(run, authorization.blockers);
+    if (!authorization.authorized) {
+      const budgetBlockers2 = budgetBoundaryBlockers(run);
+      return budgetBlockers2.length > 0 ? this.block(run, budgetBlockers2) : this.wait(run, authorization.blockers);
+    }
     const adapter = this.adapterFactory(run);
-    const review = this.review(run, { "Slice ID": "ROOT", Checks: run.plan.checks.map((check) => check["Check ID"]).join(",") }, run.check_receipts ?? [], adapter);
-    run = this.update(runId2, (draft) => ({ ...draft, root_review_complete: Boolean(review.decision), review: review.decision, receipts: [...draft.receipts, review.receipt], phase: "root-review", ...review.interrupted ? { lifecycle: "interrupted", blockers: ["reviewer-hard-cancelled"], next_action: "resume" } : {} }), "root-reviewed");
-    if (["paused", "stopped", "interrupted"].includes(run.lifecycle)) return run;
+    const patched = (run.evidence_entries ?? []).filter((entry) => entry.baseline_or_patched === "patched");
+    const evidence = patched.length > 0 ? patched : (run.evidence_entries ?? []).filter((entry) => entry.baseline_or_patched === "baseline");
+    const aggregate = aggregateEvidence(evidence);
+    const review = this.reviewFanout(run, evidence, adapter);
+    const reviewReceipts = review.receipts ?? (review.receipt ? [review.receipt] : []);
+    const sourceBaselineAtDelivery = repositoryBaseline(this.workspaceRoot);
+    const sourceDriftAtDelivery = currentBaselineDiffers(run.source_baseline_at_start ?? run.baseline, sourceBaselineAtDelivery);
+    run = this.update(runId2, (draft) => ({
+      ...draft,
+      root_review_complete: Boolean(review.decision),
+      review: review.decision,
+      receipts: [...draft.receipts, ...reviewReceipts],
+      phase: "root-review",
+      evidence_grade: aggregate.grade,
+      source_baseline_at_delivery: sourceBaselineAtDelivery,
+      source_drift_at_delivery: sourceDriftAtDelivery,
+      integration_warnings: sourceDriftAtDelivery ? ["source-worktree-drift-may-conflict-with-human-integration"] : []
+    }), "root-reviewed");
+    if (review.hard_error) return this.block(run, review.blockers);
+    const budgetBlockers = budgetBoundaryBlockers(run);
+    if (budgetBlockers.length > 0) return this.block(run, budgetBlockers);
     if (!review.decision) return this.wait(run, review.blockers);
-    if (review.decision.assessment !== "achieved" || review.decision.next_action !== "none") return this.wait(run, ["root-review-not-achieved"]);
-    if (run.effective_profile === "auto-gated") return this.update(runId2, (draft) => ({ ...draft, lifecycle: "waiting-human", phase: "delivery-ready", next_action: "accept-delivery", blockers: [] }), "delivery-ready");
-    return this.update(runId2, (draft) => ({ ...draft, lifecycle: "achieved", phase: "achieved", next_action: "none", blockers: [] }), "run-achieved");
+    if (aggregate.delivery === "blocked") return this.update(runId2, (draft) => ({ ...draft, lifecycle: "blocked", delivery_status: "blocked", blockers: ["known-check-failure"], next_action: "correct-or-replan" }), "delivery-blocked");
+    if (["correct", "clarify", "replan", "retry-review"].includes(review.decision.next_action)) return this.wait(run, [`root-review-${review.decision.next_action}`]);
+    const verified = aggregate.delivery === "verified" && review.decision.assessment === "achieved" && review.decision.delivery_status === "verified";
+    const deliveryStatus = verified ? "verified" : "provisional";
+    if (deliveryStatus === "provisional" && run.effective_profile === "autonomous") {
+      run = this.update(runId2, (draft) => ({ ...draft, effective_profile: "supervised", downgraded: true, downgrade_reason: "evidence-shortfall" }), "profile-auto-downgraded");
+    }
+    if (deliveryStatus === "verified" && run.effective_profile === "autonomous") {
+      const achieved = this.update(runId2, (draft) => ({ ...draft, lifecycle: "achieved", delivery_status: "verified", delivery_accepted: false, phase: "achieved", next_action: "none", blockers: [] }), "run-achieved");
+      this.store.appendDecision(runId2, { phase: "delivery", decision: "achieved", reason: "certified evidence and independent review", input_hashes: [run.intent_hash, run.strategy.strategy_hash], strategy_revision: run.strategy.revision, evidence_refs: evidence.flatMap((entry) => entry.artifact_hashes), result: "achieved" });
+      return achieved;
+    }
+    const delivery = this.update(runId2, (draft) => ({ ...draft, lifecycle: "waiting-human", delivery_status: deliveryStatus, phase: deliveryStatus === "verified" ? "delivery-ready-verified" : "delivery-ready-provisional", next_action: deliveryStatus === "verified" ? "accept-verified" : "accept-provisional", blockers: [] }), "delivery-ready");
+    this.store.appendDecision(runId2, { phase: "delivery", decision: `deliver-${deliveryStatus}`, reason: verified ? "all evidence verified" : "no known failure but strongest evidence is incomplete", input_hashes: [run.intent_hash, run.strategy.strategy_hash], strategy_revision: run.strategy.revision, evidence_refs: evidence.flatMap((entry) => entry.artifact_hashes), result: delivery.lifecycle });
+    return delivery;
   }
-  acceptDelivery(runId2) {
-    return this.update(runId2, (draft) => ({ ...draft, lifecycle: "achieved", delivery_accepted: true, phase: "achieved", next_action: "none", blockers: [] }), "delivery-accepted");
+  acceptDelivery(runId2, acceptance) {
+    const run = this.store.get(runId2);
+    if (!["verified", "provisional"].includes(acceptance)) throw new Error("acceptance must be verified or provisional");
+    if (run.lifecycle !== "waiting-human" || run.next_action !== (acceptance === "verified" ? "accept-verified" : "accept-provisional")) throw new Error("delivery is not awaiting this acceptance");
+    if (run.delivery_status !== acceptance) throw new Error(`delivery acceptance mismatch: expected ${run.delivery_status}`);
+    const lifecycle = acceptance === "verified" ? "achieved" : "accepted-provisional";
+    return this.update(runId2, (draft) => ({ ...draft, lifecycle, delivery_accepted: true, accepted_as: acceptance, phase: lifecycle, next_action: "none", blockers: [] }), acceptance === "verified" ? "delivery-accepted" : "provisional-delivery-accepted");
   }
   wait(run, blockers) {
     return this.update(run.run_id, (draft) => ({ ...draft, lifecycle: "waiting-human", blockers: [...new Set(blockers)], next_action: "answer" }), "waiting-human");
   }
+  block(run, blockers) {
+    return this.update(run.run_id, (draft) => ({
+      ...draft,
+      lifecycle: "blocked",
+      delivery_status: "blocked",
+      blockers: [...new Set(blockers)],
+      next_action: "inspect-and-replan"
+    }), "hard-boundary-blocked");
+  }
   rollbackAndWait(run, blockers) {
-    const target = run.checkpoints?.at(-1)?.commit ?? run.worktree?.baseline?.head ?? run.baseline.head;
+    const target = run.checkpoints?.at(-1)?.commit ?? run.worktree?.human_baseline ?? run.baseline.head;
     const rollback = rollbackToCheckpoint(run.worktree.path, target);
     const restored = this.update(run.run_id, (draft) => ({ ...draft, rollbacks: [...draft.rollbacks ?? [], { at: (/* @__PURE__ */ new Date()).toISOString(), target, ...rollback, blockers: [...new Set(blockers)] }] }), "worktree-rolled-back");
     return this.wait(restored, blockers);
   }
   usage(run) {
-    const usage = { totalTokens: 0, costUsd: 0, correctionCycles: run.correction_cycles ?? 0, activeMinutes: 0 };
-    for (const receipt of run.receipts ?? []) {
-      usage.totalTokens += receipt.usage?.totalTokens ?? 0;
-      usage.costUsd += receipt.cost_usd ?? 0;
-      usage.activeMinutes += (receipt.duration_ms ?? 0) / 6e4;
-    }
-    for (const receipt of run.check_receipts ?? []) usage.activeMinutes += (receipt.duration_ms ?? 0) / 6e4;
-    return usage;
+    return usageForRun(run);
   }
   gitDiff(worktreePath, baseline) {
-    const result = spawnSync3("git", ["-C", worktreePath, "diff", baseline, "--"], { encoding: "utf8", maxBuffer: 8 * 1024 * 1024 });
+    const result = spawnSync4("git", ["-C", worktreePath, "diff", baseline, "--"], { encoding: "utf8", maxBuffer: 8 * 1024 * 1024 });
     if (result.status !== 0) throw new Error(result.stderr.trim());
     return result.stdout.slice(-25e4);
   }
@@ -17976,7 +18819,7 @@ var runId = argument("run-id");
 var preparationId = argument("preparation-id");
 var workspace = argument("workspace");
 var stateRoot = argument("state-root");
-var pluginRoot = resolve10(argument("plugin-root") ?? dirname8(dirname8(fileURLToPath3(import.meta.url))));
+var pluginRoot = resolve11(argument("plugin-root") ?? dirname9(dirname9(fileURLToPath3(import.meta.url))));
 if (!action || Boolean(runId) === Boolean(preparationId) || !workspace || !stateRoot) throw new Error("runner requires action, exactly one run-id or preparation-id, workspace, and state-root");
 var store = new RunStore(stateRoot);
 var preparationStore = new PreparationStore(stateRoot);
@@ -17986,7 +18829,7 @@ function recordInterruption(signal) {
   try {
     if (runId) {
       const run = store.get(runId);
-      if (!["achieved", "stopped", "failed"].includes(run.lifecycle)) store.update(runId, run.revision, null, (draft) => ({ ...draft, lifecycle: "interrupted", blockers: [`runner-${signal.toLowerCase()}`], runner_pid: null }), "runner-interrupted");
+      if (!["achieved", "accepted-provisional", "blocked", "stopped", "failed"].includes(run.lifecycle)) store.update(runId, run.revision, null, (draft) => ({ ...draft, lifecycle: "interrupted", blockers: [`runner-${signal.toLowerCase()}`], runner_pid: null }), "runner-interrupted");
     } else {
       const preparation = preparationStore.get(preparationId);
       if (preparation.status === "planning") preparationStore.update(preparationId, preparation.revision, null, (draft) => ({ ...draft, status: "interrupted", blockers: [`planner-${signal.toLowerCase()}`], runner_pid: null }), "planner-interrupted");

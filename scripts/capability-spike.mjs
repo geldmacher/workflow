@@ -15,9 +15,10 @@ import { CursorWorkerAdapter, sdkVersion } from "../src/controller/worker-adapte
 import { ARTIFACT_SCHEMA, CONTROLLER_PROTOCOL, PLUGIN_VERSION } from "../src/controller/protocol.mjs";
 import { loadPlanningHarness } from "../src/controller/planning.mjs";
 import { writeWorkerControl } from "../src/controller/control.mjs";
-import { CAPABILITY_RECEIPT_SCHEMA, REQUIRED_OBSERVATIONS, receiptAutomationSafe, writeCapabilityReceipt } from "../src/controller/capabilities.mjs";
+import { CAPABILITY_RECEIPT_SCHEMA, REQUIRED_OBSERVATIONS, receiptAutomationSafe, receiptProfileEligibility, writeCapabilityReceipt } from "../src/controller/capabilities.mjs";
 import { currentPlatform, hashPluginTree, loadWorkerRuntimeManifest, sha256File, workerRuntimeDirectory } from "../src/controller/runtime.mjs";
 import { estimateCost } from "../src/controller/policy.mjs";
+import { auditVerificationProfile } from "../src/controller/verification-profile.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const temporary = mkdtempSync(join(tmpdir(), "workflow-capability-spike-"));
@@ -97,7 +98,7 @@ async function mcpSmoke(pluginRoot) {
   try {
     await client.connect(transport);
     const tools = (await client.listTools()).tools.map((tool) => tool.name).sort();
-    const expected = ["workflow_answer", "workflow_control", "workflow_prepare", "workflow_start", "workflow_status", "workflow_validate_models", "workflow_watch"];
+    const expected = ["workflow_answer", "workflow_control", "workflow_prepare", "workflow_start", "workflow_status", "workflow_validate_models", "workflow_verification_profile", "workflow_watch"];
     return { verified: JSON.stringify(tools) === JSON.stringify(expected), tools };
   } catch (error) { return { verified: false, error: error.message }; }
   finally { await client.close().catch(() => {}); }
@@ -113,9 +114,9 @@ function stateAndWorktreeSmoke() {
   const stateRoot = join(temporary, "state");
   const store = new RunStore(stateRoot);
   const preparationStore = new PreparationStore(stateRoot);
-  let preparation = preparationStore.create({ status: "planning", source_kind: "goal", requested_profile: "auto-gated", expires_at: new Date(Date.now() + 60_000).toISOString() });
+  let preparation = preparationStore.create({ status: "planning", source_kind: "goal", requested_profile: "supervised", expires_at: new Date(Date.now() + 60_000).toISOString() });
   preparation = preparationStore.update(preparation.preparation_id, preparation.revision, "spike-preparation", (draft) => ({ ...draft, status: "interrupted", runner_pid: null }), "spike-preparation-interrupted");
-  let run = store.create({ requested_profile: "auto-gated", lifecycle: "waiting-human" });
+  let run = store.create({ requested_profile: "supervised", lifecycle: "waiting-human" });
   run = store.update(run.run_id, run.revision, "spike-update", (draft) => ({ ...draft, lifecycle: "paused" }), "spike-paused");
   const reopened = new RunStore(stateRoot).get(run.run_id);
   const worktree = createRunWorktree(repo, run.run_id, { root: join(temporary, "worktrees") });
@@ -183,14 +184,16 @@ async function paidReadOnlyAgentSmoke(workspace) {
   const acceptedModel = validation.routes.explainer.model;
   assertPaidBudgetRemaining("read-only-create");
   const first = firstAdapter.runPhase({
-    role: "explainer", route: profile.explainer, acceptedModel, cwd: workspace,
+    role: "explainer", route: validation.routes.explainer.selected_candidate, routePoolHash: validation.routes.explainer.pool_hash,
+    selectionReason: validation.routes.explainer.selection_reason, acceptedModel, cwd: workspace,
     prompt: "Read package.json and return only its package name. Do not modify any file or perform any external effect.",
   });
   recordPaidCost("read-only-create", first.receipt.cost_usd);
   const resumedAdapter = new CursorWorkerAdapter({ runDirectory, pluginRoot: root });
   assertPaidBudgetRemaining("read-only-resume");
   const second = resumedAdapter.runPhase({
-    role: "explainer", route: profile.explainer, acceptedModel, cwd: workspace, agentId: first.receipt.agent_id,
+    role: "explainer", route: validation.routes.explainer.selected_candidate, routePoolHash: validation.routes.explainer.pool_hash,
+    selectionReason: validation.routes.explainer.selection_reason, acceptedModel, cwd: workspace, agentId: first.receipt.agent_id,
     prompt: "Return the same package name again. Do not modify any file or perform any external effect.",
   });
   recordPaidCost("read-only-resume", second.receipt.cost_usd);
@@ -220,7 +223,9 @@ async function paidPlanningAgentSmoke(workspace) {
   const before = repositoryBaseline(workspace);
   assertPaidBudgetRemaining("planner-create-plan");
   const first = adapter.runPlanningPhase({
-    route: profile.planner,
+    route: validation.routes.planner.selected_candidate,
+    routePoolHash: validation.routes.planner.pool_hash,
+    selectionReason: validation.routes.planner.selection_reason,
     acceptedModel: validation.routes.planner.model,
     cwd: workspace,
     configurationHash: routeHash,
@@ -231,7 +236,9 @@ async function paidPlanningAgentSmoke(workspace) {
   recordPaidCost("planner-create-plan", first.receipt.cost_usd);
   if (first.response.ok) assertPaidBudgetRemaining("planner-technical-resume");
   const second = first.response.ok ? adapter.runPlanningPhase({
-    route: profile.planner,
+    route: validation.routes.planner.selected_candidate,
+    routePoolHash: validation.routes.planner.pool_hash,
+    selectionReason: validation.routes.planner.selection_reason,
     acceptedModel: validation.routes.planner.model,
     cwd: workspace,
     agentId: first.receipt.agent_id,
@@ -268,12 +275,14 @@ async function paidRemainingRouteSmokes(workspace) {
   if (!validation.verified) return { verified: false, errors: validation.errors };
   const before = repositoryBaseline(workspace);
   const repetitions = [];
-  for (const role of ["writer_escalated", "reviewer"]) {
+  for (const role of ["investigator", "writer_escalated", "verifier", "reviewer"]) {
     for (let index = 0; index < 3; index += 1) {
       assertPaidBudgetRemaining(`${role}-attestation-${index}`);
       const phase = adapter.runPhase({
         role,
-        route: profile[role],
+        route: validation.routes[role].selected_candidate,
+        routePoolHash: validation.routes[role].pool_hash,
+        selectionReason: validation.routes[role].selection_reason,
         acceptedModel: validation.routes[role].model,
         cwd: workspace,
         prompt: "Read package.json and return only its package name. Do not modify any file or perform any external effect.",
@@ -284,7 +293,7 @@ async function paidRemainingRouteSmokes(workspace) {
   }
   const after = repositoryBaseline(workspace);
   return {
-    verified: repetitions.length === 6 && repetitions.every((item) => item.phase.response.ok && item.phase.receipt.model_attested)
+    verified: repetitions.length === 12 && repetitions.every((item) => item.phase.response.ok && item.phase.receipt.model_attested)
       && before.head === after.head && before.status === after.status,
     repetitions,
     repository_unchanged: before.head === after.head && before.status === after.status,
@@ -319,7 +328,7 @@ async function paidBoundarySmokes(workspace) {
       assertPaidBudgetRemaining(`boundary-probe-${index}`);
       const networkHitsBefore = await canary.hits();
       const response = adapter.runCapabilityProbe({
-        route: profile.writer,
+        route: validation.routes.writer.selected_candidate,
         acceptedModel: validation.routes.writer.model,
         cwd: probeRoot,
         writerWritablePaths: [allowed],
@@ -333,7 +342,7 @@ async function paidBoundarySmokes(workspace) {
         },
       });
       const networkHitsAfter = await canary.hits();
-      recordPaidCost(`boundary-probe-${index}`, estimateCost(response.usage, profile.writer.pricing_usd_per_million));
+      recordPaidCost(`boundary-probe-${index}`, estimateCost(response.usage, validation.routes.writer.selected_candidate.pricing_usd_per_million));
       const report = response.capability_probe;
       const serialized = JSON.stringify(response);
       repetitions.push({
@@ -382,7 +391,9 @@ async function paidCancelSmokes(workspace) {
     assertPaidBudgetRemaining(`cancel-probe-${index}`);
     const phase = adapter.runPhase({
       role: "explainer",
-      route: profile.explainer,
+      route: validation.routes.explainer.selected_candidate,
+      routePoolHash: validation.routes.explainer.pool_hash,
+      selectionReason: validation.routes.explainer.selection_reason,
       acceptedModel: validation.routes.explainer.model,
       cwd: workspace,
       prompt: "Inspect package.json and produce a detailed read-only explanation. Do not modify files or perform external effects.",
@@ -522,6 +533,15 @@ try {
   const boundaries = await paidBoundarySmokes(workspace);
   const cancellation = await paidCancelSmokes(workspace);
   const cursorHarness = verifiedCursorHarnessReport(argument("cursor-harness-report"), marketplaceRoot ?? root, argument("cursor-version") ?? "");
+  const workflowConfig = loadWorkflowConfig(workspace);
+  const verificationAudit = workflowConfig.errors.length === 0 && workflowConfig.project.verification_profile
+    ? auditVerificationProfile(
+      workspace,
+      workflowConfig.project.verification_profile.manifest_path,
+      root,
+      defaultStateRoot(workspace),
+    )
+    : { status: "blocked", errors: workflowConfig.errors.length > 0 ? workflowConfig.errors : ["verification profile is not configured"] };
   const costTracking = process.argv.includes("--approve-sdk-cost")
     ? paidCostLedger
       ? { verified: paidCostLedger.entries.length > 0, blocker: null, ...paidCostLedger }
@@ -549,6 +569,7 @@ try {
     cancel_probes: cancellation,
     crash_interrupt_resume: crashResume,
     cursor_harness: cursorHarness,
+    verification_profile: verificationAudit,
     dependency_audit: audit,
     cost_tracking: costTracking,
     sdk_write_boundary_verified: boundaries.write_verified === true,
@@ -576,6 +597,7 @@ try {
     && observations.crash_interrupt_resume_verified
     && observations.model_configuration_exact_verified
     && observations.cursor_harness_verified
+    && verificationAudit.status === "clean"
     && audit.verified === true
     && costTracking.verified === true;
   if (process.argv.includes("--issue-receipt")) {
@@ -588,9 +610,18 @@ try {
     });
     const planningHarness = loadPlanningHarness(certifiedPluginRoot);
     const routeProfile = argument("route-profile") ?? "default";
-    const config = loadWorkflowConfig(workspace);
+    const config = workflowConfig;
     const route = config.errors.length === 0 ? resolveRouteProfile(config, routeProfile) : null;
     const routeHash = route ? hash(route) : null;
+    const verificationProfileHash = verificationAudit.profile_hash ?? hash("verification-profile-unapproved");
+    const requestedTaskClass = argument("task-class");
+    const requestedRegion = argument("certified-region");
+    const qualificationBindings = requestedTaskClass && requestedRegion
+      && ["bugfix", "refactor", "performance", "feature", "investigation", "verify-existing"].includes(requestedTaskClass)
+      && config.project.certified_regions.includes(requestedRegion)
+      && verificationAudit.status === "clean" && routeHash
+      ? [{ task_class: requestedTaskClass, verification_profile_hash: verificationProfileHash, route_pool_hash: routeHash, certified_region: requestedRegion }]
+      : [];
     const allPhaseReceipts = [
       ...paidAgentRuns.flatMap((item) => [item.first_receipt, item.resumed_receipt]),
       ...paidPlannerRuns.flatMap((item) => [item.first_receipt, item.resumed_receipt]),
@@ -608,6 +639,7 @@ try {
     const requested = allPhaseReceipts.map((receipt) => canonicalModel(receipt.phase, receipt.accepted_model));
     const accepted = allPhaseReceipts.map((receipt) => canonicalModel(receipt.phase, receipt.accepted_model));
     const observed = allPhaseReceipts.map((receipt) => canonicalModel(receipt.phase, receipt.observed_model));
+    const certifiedModels = [...new Map(accepted.map((model) => [`${model.role}:${model.id}:${JSON.stringify(model.params)}`, model])).values()];
     const receiptObservations = {
       local_mcp: observation(observations.local_mcp),
       marketplace_mcp: observation(observations.marketplace_mcp),
@@ -641,16 +673,18 @@ try {
       worker_hash: runtime.manifest?.worker_hash ?? "",
       runtime_hash: runtime.manifest?.runtime_hash ?? "",
       lockfile_hash: runtime.manifest?.lockfile_hash ?? sha256File(join(certifiedPluginRoot, "package-lock.json")),
-      attested_route_hash: routeHash ?? "",
+      attested_route_pool_hash: routeHash ?? hash("route-pool-unavailable"),
       model_catalog_hash: observations.model_catalog.catalog_hash ?? "",
       planning_harness_hash: planningHarness.hash,
       cursor_harness_hash: cursorHarness.evidence_hash ?? "",
+      verification_profile_hash: verificationProfileHash,
       model_attestation: {
         requested, accepted, observed,
         request_ids: allPhaseReceipts.map((item) => item.request_id).filter(Boolean),
         agent_ids: allPhaseReceipts.map((item) => item.agent_id).filter(Boolean),
         run_ids: allPhaseReceipts.map((item) => item.worker_run_id).filter(Boolean),
       },
+      certified_models: certifiedModels,
       audit: {
         lockfile_hash: runtime.manifest?.lockfile_hash ?? sha256File(join(certifiedPluginRoot, "package-lock.json")),
         evidence_hash: audit.evidence_hash ?? "",
@@ -661,9 +695,21 @@ try {
         risk_acceptance_hash: argument("risk-acceptance") ? sha256File(resolve(argument("risk-acceptance"))) : null,
       },
       observations: receiptObservations,
+      capability_vector: {
+        write_boundary: observations.sdk_write_boundary_verified,
+        network_isolation: observations.worker_network_isolated,
+        secret_isolation: observations.sdk_secret_isolated,
+        budget_cancel: observations.sdk_budget_cancel_verified,
+        planning: observations.planner_submission_verified,
+        verification_profile: verificationAudit.status === "clean",
+        route_pool: observations.model_configuration_exact_verified,
+      },
+      qualification_bindings: qualificationBindings,
+      profile_eligibility: { supervised: false, autonomous: false },
       evidence_hashes: Object.fromEntries(REQUIRED_OBSERVATIONS.map((key) => [key, receiptObservations[key].evidence_hash])),
       automation_safe: false,
     };
+    receipt.profile_eligibility = receiptProfileEligibility(receipt);
     receipt.automation_safe = receiptAutomationSafe(receipt);
     observations.receipt_candidate = receipt;
     if (!observations.automation_safe || !receipt.automation_safe) {
@@ -676,7 +722,7 @@ try {
         worker_hash: receipt.worker_hash,
         runtime_hash: receipt.runtime_hash,
         lockfile_hash: receipt.lockfile_hash,
-        attested_route_hash: receipt.attested_route_hash,
+        attested_route_pool_hash: receipt.attested_route_pool_hash,
         planning_harness_hash: receipt.planning_harness_hash,
       });
       observations.receipt_issued = true;

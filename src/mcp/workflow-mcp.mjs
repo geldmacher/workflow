@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
-import { realpathSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { createHash, randomUUID } from "node:crypto";
+import { lstatSync, mkdirSync, readFileSync, realpathSync, readdirSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -11,6 +12,7 @@ import { PlanningEngine } from "../controller/planning.mjs";
 import { loadWorkflowConfig, resolveRouteProfile } from "../controller/config.mjs";
 import { CursorWorkerAdapter } from "../controller/worker-adapter.mjs";
 import { resolveCapabilities } from "../controller/capabilities.mjs";
+import { approveVerificationProfile, auditVerificationProfile, draftVerificationProfile, inspectVerificationProfile, recordVerificationProof } from "../controller/verification-profile.mjs";
 import { awaitCooperativeExit, clearWorkerControl, writeWorkerControl } from "../controller/control.mjs";
 import { deriveManualWorkflowSnapshot } from "../controller/manual-status.mjs";
 import {
@@ -25,6 +27,31 @@ const server = new McpServer({ name: "geldmacher-workflow", version: PLUGIN_VERS
 
 function result(value, isError = false) {
   return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }], structuredContent: value, isError };
+}
+
+function proofArtifacts(root) {
+  const files = [];
+  const visit = (directory) => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const path = join(directory, entry.name);
+      if (entry.isSymbolicLink()) throw new Error(`verification proof artifact may not be a symlink: ${path}`);
+      if (entry.isDirectory()) visit(path);
+      else if (entry.isFile()) {
+        if (lstatSync(path).size > 10 * 1024 * 1024) throw new Error(`verification proof artifact exceeds 10 MiB: ${path}`);
+        files.push({ path, hash: createHash("sha256").update(readFileSync(path)).digest("hex") });
+      }
+    }
+  };
+  visit(root);
+  return files.sort((left, right) => left.path.localeCompare(right.path));
+}
+
+function proofResult(text) {
+  const source = String(text ?? "");
+  const fenced = source.match(/```json\s*([\s\S]*?)```/i)?.[1];
+  const value = JSON.parse(fenced ?? source.slice(source.indexOf("{"), source.lastIndexOf("}") + 1));
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("verification proof returned no object");
+  return value;
 }
 
 function context(workspaceRoot) {
@@ -77,12 +104,12 @@ async function watchEvents(readEvents, afterEvent, timeoutMs) {
 }
 
 server.registerTool("workflow_prepare", {
-  description: "Run the exact configured planner route in a read-only pre-run phase and produce either one approvable schema-3 root or manual intent questions.",
+  description: "Run the configured planner pool in a read-only pre-run phase and produce either one approvable schema-4 intent root or manual intent questions.",
   inputSchema: {
     workspace_root: z.string().min(1),
     goal: z.string().min(1).optional(),
     root_plan: z.string().min(1).optional(),
-    requested_profile: z.enum(["auto-gated", "unattended-eligible"]),
+    requested_profile: z.enum(["supervised", "autonomous"]),
     route_profile: z.string().min(1).default("default"),
     expected_revision: z.literal(0),
     idempotency_key: z.string().min(8),
@@ -135,7 +162,7 @@ server.registerTool("workflow_start", {
 });
 
 server.registerTool("workflow_status", {
-  description: "Return current status for one planning preparation, run, or stateless manual schema-3 artifact chain.",
+  description: "Return current status for one preparation, adaptive run, or stateless manual schema-4 artifact chain; Workflow-3 subjects remain read-only.",
   inputSchema: {
     workspace_root: z.string().min(1),
     run_id: z.string().min(1).optional(),
@@ -197,10 +224,11 @@ server.registerTool("workflow_watch", {
 });
 
 server.registerTool("workflow_control", {
-  description: "Stop a preparation, or approve a run exception/gate, pause, resume, stop, or accept local delivery using optimistic revision and idempotency.",
+  description: "Stop a preparation, or pause, resume, stop, or accept one Run delivery using optimistic revision and idempotency.",
   inputSchema: {
     workspace_root: z.string().min(1), run_id: z.string().min(1).optional(), preparation_id: z.string().min(1).optional(),
-    action: z.enum(["approve", "pause", "resume", "stop", "accept"]),
+    action: z.enum(["pause", "resume", "stop", "accept"]),
+    acceptance: z.enum(["verified", "provisional"]).optional(),
     expected_revision: z.number().int().min(0), idempotency_key: z.string().min(8),
   },
 }, async (input) => {
@@ -230,21 +258,18 @@ server.registerTool("workflow_control", {
 
     let controlledRunnerPid = null;
     const mutation = idempotentRunMutation(store, input.run_id, input.expected_revision, input.idempotency_key, (before) => {
-      if (input.action === "approve") {
-        if (before.next_action === "approve-slice") engine.update(input.run_id, (draft) => ({ ...draft, lifecycle: "queued", blockers: [], next_action: "implement-slice" }), "slice-approved");
-        else if (before.next_action === "approve-downgrade") engine.approve(input.run_id, { acceptDowngrade: true });
-        else throw new Error("run is not awaiting a slice or downgrade approval");
-      } else if (input.action === "accept") {
-        if (before.next_action !== "accept-delivery") throw new Error("delivery is not awaiting acceptance");
-        engine.acceptDelivery(input.run_id);
+      if (input.action === "accept") {
+        if (!["accept-verified", "accept-provisional"].includes(before.next_action)) throw new Error("delivery is not awaiting acceptance");
+        if (!input.acceptance) throw new Error("delivery acceptance requires verified or provisional");
+        engine.acceptDelivery(input.run_id, input.acceptance);
       } else if (input.action === "pause") {
         controlledRunnerPid = before.runner_pid;
         engine.update(input.run_id, (draft) => ({ ...draft, lifecycle: "paused", next_action: "resume" }), "run-paused");
       } else if (input.action === "resume") {
         if (!["paused", "interrupted"].includes(before.lifecycle)) throw new Error(`cannot resume lifecycle ${before.lifecycle}`);
-        if (!before.plan) throw new Error("cannot resume without a complete schema-3 root plan");
+        if (!before.plan) throw new Error("cannot resume without a complete schema-4 intent root");
         clearWorkerControl(store.runDirectory(input.run_id));
-        engine.update(input.run_id, (draft) => ({ ...draft, lifecycle: "queued", blockers: [], next_action: "implement-slice" }), "run-resumed");
+        engine.update(input.run_id, (draft) => ({ ...draft, lifecycle: "queued", blockers: [], next_action: "execute-strategy" }), "run-resumed");
       } else if (input.action === "stop") {
         controlledRunnerPid = before.runner_pid;
         engine.update(input.run_id, (draft) => ({ ...draft, lifecycle: "stopped", next_action: "none" }), "run-stopped");
@@ -287,7 +312,7 @@ server.registerTool("workflow_answer", {
 });
 
 server.registerTool("workflow_validate_models", {
-  description: "Validate concrete model IDs, reasoning effort, options and fallback-deny routes against the live Cursor catalog.",
+  description: "Validate ordered pools of concrete approved model candidates against the live Cursor catalog.",
   inputSchema: { workspace_root: z.string().min(1), route_profile: z.string().min(1).default("default") },
 }, async ({ workspace_root, route_profile }) => {
   try {
@@ -298,6 +323,70 @@ server.registerTool("workflow_validate_models", {
     const validation = new CursorWorkerAdapter({ runDirectory: resolve(stateRoot, "model-validation"), pluginRoot }).validateProfile(profile);
     return result({ ...validation, capabilities: resolveCapabilities(stateRoot, { model_catalog_verified: validation.verified }, { pluginRoot }) });
   } catch (error) { return result({ verified: false, errors: [error.message] }, true); }
+});
+
+server.registerTool("workflow_verification_profile", {
+  description: "Draft, inspect, prove, approve, or audit one hash-bound project verification profile.",
+  inputSchema: {
+    workspace_root: z.string().min(1),
+    action: z.enum(["draft", "inspect", "prove", "approve", "audit"]),
+    manifest_path: z.string().min(1).default(".cursor/workflow-verification.yaml"),
+    surface: z.string().min(1).optional(),
+    route_profile: z.string().min(1).default("default"),
+    approved_hash: z.string().length(64).optional(),
+  },
+}, async (input) => {
+  try {
+    const { workspace, stateRoot } = context(input.workspace_root);
+    if (input.action === "draft") {
+      if (!input.surface) throw new Error("draft requires surface");
+      return result(draftVerificationProfile(workspace, input.surface, pluginRoot, input.manifest_path));
+    }
+    const inspection = inspectVerificationProfile(workspace, input.manifest_path, pluginRoot);
+    if (input.action === "inspect") return result(inspection, !inspection.valid);
+    if (input.action === "audit") return result(auditVerificationProfile(workspace, input.manifest_path, pluginRoot, stateRoot));
+    if (input.action === "prove") {
+      if (!inspection.valid) throw new Error(`verification profile invalid: ${inspection.errors.join("; ")}`);
+      const config = loadWorkflowConfig(workspace);
+      if (config.errors.length > 0) throw new Error(`workflow configuration invalid: ${config.errors.join("; ")}`);
+      const route = resolveRouteProfile(config, input.route_profile);
+      const proofRoot = join(stateRoot, "verification-proof-artifacts", inspection.profile_hash, randomUUID());
+      mkdirSync(proofRoot, { recursive: true, mode: 0o700 });
+      const adapter = new CursorWorkerAdapter({ runDirectory: join(stateRoot, "verification-proof-runs", inspection.profile_hash), pluginRoot });
+      const validation = adapter.validateProfile(route);
+      const verifier = validation.routes?.verifier;
+      if (!validation.verified || !verifier?.selected_candidate || !verifier.model) throw new Error(`verifier route unavailable: ${(validation.errors ?? []).join("; ")}`);
+      const prompt = [
+        "Execute the referenced project Verification Profile now. Repository files are read-only.",
+        "Perform launch, doctor, one representative feature drive, observe, evidence capture, reset, and cleanup in that order.",
+        "Write every screenshot, trace, log, and receipt only to the external artifact directory. Do not claim a capability without actually performing it.",
+        "Return JSON with capabilities containing boolean launch, doctor, drive, observe, evidence, reset, cleanup plus observations and limitations.",
+        `PROFILE HASH\n${inspection.profile_hash}`,
+        `EXTERNAL ARTIFACT DIRECTORY\n${proofRoot}`,
+        ...inspection.sources.map(({ path, content }) => `SOURCE ${path}\n${content}`),
+      ].join("\n\n");
+      const phase = adapter.runPhase({
+        role: "verifier", route: verifier.selected_candidate, routePoolHash: verifier.pool_hash,
+        selectionReason: verifier.selection_reason, acceptedModel: verifier.model, prompt, cwd: workspace,
+        verifierArtifactPaths: [proofRoot], configurationHash: verifier.pool_hash, artifactProjectionHash: inspection.profile_hash,
+      });
+      if (!phase.response.ok || !phase.receipt.model_attested) throw new Error(phase.response.error?.message ?? "verification proof model was not attested");
+      const reported = proofResult(phase.response.result);
+      const artifacts = proofArtifacts(proofRoot);
+      if (artifacts.length === 0) throw new Error("verification proof produced no external artifacts");
+      return result(recordVerificationProof(stateRoot, inspection, {
+        capabilities: reported.capabilities,
+        observations: reported.observations ?? null,
+        limitations: reported.limitations ?? [],
+        evidence_hashes: artifacts.map((artifact) => artifact.hash),
+        artifacts,
+        actor_receipt: phase.receipt,
+      }));
+    }
+    if (!input.approved_hash) throw new Error("approve requires approved_hash");
+    if (!inspection.valid || inspection.profile_hash !== input.approved_hash) throw new Error("current verification profile does not match approved_hash");
+    return result(approveVerificationProfile(stateRoot, inspection.manifest.profile_id, input.approved_hash));
+  } catch (error) { return result({ error: error.message }, true); }
 });
 
 const transport = new StdioServerTransport();

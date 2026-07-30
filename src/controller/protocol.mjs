@@ -1,8 +1,16 @@
-export const PLUGIN_VERSION = "3.0.0";
-export const ARTIFACT_SCHEMA = 3;
-export const RUN_RECORD_SCHEMA = 1;
-export const PREPARATION_RECORD_SCHEMA = 1;
-export const CONTROLLER_PROTOCOL = 3;
+export const PLUGIN_VERSION = "4.0.0";
+export const ARTIFACT_SCHEMA = 4;
+export const RUN_RECORD_SCHEMA = 2;
+export const PREPARATION_RECORD_SCHEMA = 2;
+export const CONTROLLER_PROTOCOL = 4;
+
+export const LEGACY_WORKFLOW_3 = Object.freeze({
+  plugin_version: "3.0.0",
+  artifact_schema: 3,
+  run_record_schema: 1,
+  preparation_record_schema: 1,
+  controller_protocol: 3,
+});
 
 export function protocolFields() {
   return {
@@ -27,10 +35,15 @@ export function classifyRunCompatibility(run) {
     && run?.artifact_schema === ARTIFACT_SCHEMA
     && run?.controller_protocol === CONTROLLER_PROTOCOL
     && run?.plugin_version === PLUGIN_VERSION;
+  const legacy = run?.run_record_schema === LEGACY_WORKFLOW_3.run_record_schema
+    && run?.artifact_schema === LEGACY_WORKFLOW_3.artifact_schema
+    && run?.controller_protocol === LEGACY_WORKFLOW_3.controller_protocol
+    && run?.plugin_version === LEGACY_WORKFLOW_3.plugin_version;
   return {
     compatible,
-    compatibility: compatible ? "compatible" : "read-only-incompatible",
-    blocker: compatible ? null : "incompatible-run-protocol",
+    legacy,
+    compatibility: compatible ? "compatible" : legacy ? "read-only-workflow-3" : "read-only-incompatible",
+    blocker: compatible ? null : legacy ? "legacy-workflow-3-read-only" : "incompatible-run-protocol",
   };
 }
 
@@ -45,10 +58,15 @@ export function classifyPreparationCompatibility(preparation) {
     && preparation?.artifact_schema === ARTIFACT_SCHEMA
     && preparation?.controller_protocol === CONTROLLER_PROTOCOL
     && preparation?.plugin_version === PLUGIN_VERSION;
+  const legacy = preparation?.preparation_record_schema === LEGACY_WORKFLOW_3.preparation_record_schema
+    && preparation?.artifact_schema === LEGACY_WORKFLOW_3.artifact_schema
+    && preparation?.controller_protocol === LEGACY_WORKFLOW_3.controller_protocol
+    && preparation?.plugin_version === LEGACY_WORKFLOW_3.plugin_version;
   return {
     compatible,
-    compatibility: compatible ? "compatible" : "read-only-incompatible",
-    blocker: compatible ? null : "incompatible-preparation-protocol",
+    legacy,
+    compatibility: compatible ? "compatible" : legacy ? "read-only-workflow-3" : "read-only-incompatible",
+    blocker: compatible ? null : legacy ? "legacy-workflow-3-read-only" : "incompatible-preparation-protocol",
   };
 }
 

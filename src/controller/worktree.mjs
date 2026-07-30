@@ -1,4 +1,5 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { homedir, tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -6,10 +7,55 @@ import { repositoryKey } from "./store.mjs";
 import { buildSandboxProfile } from "./sandbox.mjs";
 
 function git(workspace, args, options = {}) {
-  const result = spawnSync("git", ["-C", workspace, ...args], { encoding: "utf8", timeout: options.timeout ?? 120_000 });
+  const result = spawnSync("git", ["-C", workspace, ...args], { encoding: "utf8", timeout: options.timeout ?? 120_000, input: options.input });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`git ${args.join(" ")} failed: ${result.stderr.trim() || result.stdout.trim()}`);
-  return result.stdout.trimEnd();
+  return options.raw ? result.stdout : result.stdout.trimEnd();
+}
+
+const snapshotSecretPatterns = [/(?:^|\n)-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/, /\bAKIA[0-9A-Z]{16}\b/, /\bgh[opsu]_[A-Za-z0-9]{30,}\b/, /\bsk-[A-Za-z0-9_-]{32,}\b/];
+const snapshotFileLimit = 2 * 1024 * 1024;
+const snapshotTotalLimit = 10 * 1024 * 1024;
+
+function hash(value) {
+  return createHash("sha256").update(typeof value === "string" ? value : JSON.stringify(value)).digest("hex");
+}
+
+export function captureDirtySnapshot(workspaceRoot) {
+  const baseline = repositoryBaseline(workspaceRoot);
+  const staged_patch = git(workspaceRoot, ["diff", "--binary", "--cached", baseline.head], { raw: true });
+  const unstaged_patch = git(workspaceRoot, ["diff", "--binary"], { raw: true });
+  if (snapshotSecretPatterns.some((pattern) => pattern.test(staged_patch) || pattern.test(unstaged_patch))) {
+    throw new Error("secret material detected in tracked dirty snapshot");
+  }
+  const untrackedNames = git(workspaceRoot, ["ls-files", "--others", "--exclude-standard", "-z"])
+    .split("\0").filter(Boolean).sort();
+  const untracked = [];
+  let total = Buffer.byteLength(staged_patch) + Buffer.byteLength(unstaged_patch);
+  for (const path of untrackedNames) {
+    const absolute = assertContainedPath(workspaceRoot, path);
+    const stats = statSync(absolute);
+    if (!stats.isFile()) throw new Error(`dirty snapshot supports files only: ${path}`);
+    if (stats.size > snapshotFileLimit) throw new Error(`dirty snapshot file exceeds 2 MiB: ${path}`);
+    total += stats.size;
+    if (total > snapshotTotalLimit) throw new Error("dirty snapshot exceeds 10 MiB");
+    const bytes = readFileSync(absolute);
+    const text = bytes.toString("utf8");
+    if (snapshotSecretPatterns.some((pattern) => pattern.test(text))) throw new Error(`secret material detected in dirty snapshot: ${path}`);
+    untracked.push({ path, mode: stats.mode & 0o777, size: stats.size, hash: hash(bytes), content_base64: bytes.toString("base64") });
+  }
+  const payload = { schema: 1, head: baseline.head, branch: baseline.branch, status: baseline.status, staged_patch, unstaged_patch, untracked };
+  return { ...payload, snapshot_hash: hash(payload), dirty: baseline.status !== "" || untracked.length > 0 };
+}
+
+function applyDirtySnapshot(worktreePath, snapshot) {
+  if (snapshot.staged_patch) git(worktreePath, ["apply", "--index", "--binary", "-"], { input: snapshot.staged_patch });
+  if (snapshot.unstaged_patch) git(worktreePath, ["apply", "--binary", "-"], { input: snapshot.unstaged_patch });
+  for (const entry of snapshot.untracked ?? []) {
+    const target = assertContainedPath(worktreePath, entry.path);
+    mkdirSync(dirname(target), { recursive: true, mode: 0o700 });
+    writeFileSync(target, Buffer.from(entry.content_base64, "base64"), { mode: entry.mode });
+  }
 }
 
 export function defaultWorktreeRoot(workspaceRoot) {
@@ -30,10 +76,23 @@ export function createRunWorktree(workspaceRoot, runId, options = {}) {
   if (existsSync(path)) throw new Error(`worktree path already exists: ${path}`);
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
   const branch = `workflow/${runId}`;
-  const baseline = repositoryBaseline(workspaceRoot);
-  if (baseline.status !== "") throw new Error("repository has uncommitted changes; auto-run denied");
+  const dirtySnapshot = options.dirtySnapshot ?? captureDirtySnapshot(workspaceRoot);
+  const baseline = { head: dirtySnapshot.head, branch: dirtySnapshot.branch, status: dirtySnapshot.status };
   git(workspaceRoot, ["worktree", "add", "-b", branch, path, baseline.head]);
-  return { path, branch, baseline };
+  applyDirtySnapshot(path, dirtySnapshot);
+  const humanBaseline = checkpoint(path, "human-baseline");
+  const persisted = { ...dirtySnapshot, staged_patch: undefined, unstaged_patch: undefined, untracked: dirtySnapshot.untracked.map(({ content_base64, ...entry }) => entry) };
+  if (options.snapshotPath) writeFileSync(options.snapshotPath, `${JSON.stringify(persisted, null, 2)}\n`, { mode: 0o600 });
+  return { path, branch, baseline, dirty_snapshot_hash: dirtySnapshot.snapshot_hash, human_baseline: humanBaseline.commit, dirty: dirtySnapshot.dirty };
+}
+
+export function createComparisonBaselineWorktree(workspaceRoot, runId, head, options = {}) {
+  const root = resolve(options.root ?? defaultWorktreeRoot(workspaceRoot));
+  const path = join(root, `${runId}-baseline`);
+  if (existsSync(path)) throw new Error(`comparison baseline worktree path already exists: ${path}`);
+  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+  git(workspaceRoot, ["worktree", "add", "--detach", path, head]);
+  return { path, head, mode: "read-only-comparison" };
 }
 
 export function changedPaths(worktreePath) {

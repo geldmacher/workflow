@@ -1,11 +1,11 @@
 const states = new Set([
   "intake", "intent-clarification", "root-plan-review", "intent-ready", "product-aligned",
-  "architecture-aligned", "program-design-aligned", "slice-ready", "implementing",
-  "host-verifying", "slice-review", "root-review", "delivery-ready", "waiting-human",
-  "replan", "achieved", "paused", "interrupted", "stopped", "failed",
+  "architecture-aligned", "program-design-aligned", "slice-ready", "strategy-ready", "baseline-verification", "implementing",
+  "host-verifying", "slice-review", "root-review", "delivery-ready", "delivery-ready-verified", "delivery-ready-provisional", "waiting-human",
+  "replan", "achieved", "accepted-provisional", "blocked", "paused", "interrupted", "stopped", "failed",
 ]);
 
-const terminalLifecycle = new Set(["stopped", "failed"]);
+const terminalLifecycle = new Set(["achieved", "accepted-provisional", "blocked", "stopped", "failed"]);
 
 function snapshot(input, state, overrides = {}) {
   if (!states.has(state)) throw new Error(`unsupported workflow state ${state}`);
@@ -15,7 +15,7 @@ function snapshot(input, state, overrides = {}) {
     root_plan_id: input.root_plan_id ?? null,
     requested_profile: input.requested_profile ?? "manual",
     effective_profile: input.effective_profile ?? input.requested_profile ?? "manual",
-    design_depth: input.design_depth ?? null,
+    contract_level: input.plan?.fields?.contract_level ?? input.contract_level ?? null,
     compatibility: input.compatibility ?? "compatible",
     state,
     snapshot_source: snapshotSource,
@@ -26,6 +26,14 @@ function snapshot(input, state, overrides = {}) {
     review_tip: input.review_tip ?? null,
     blockers: [...new Set(input.blockers ?? [])],
     downgrade_reason: input.downgrade_reason ?? null,
+    intent_hash: input.intent_hash ?? input.root_authoritative_projection_hash ?? null,
+    strategy_revision: input.strategy_revision ?? input.strategy?.revision ?? null,
+    strategy_hash: input.strategy?.strategy_hash ?? null,
+    deviations: input.deviations ?? input.strategy?.deviations ?? [],
+    evidence_grade: input.evidence_grade ?? null,
+    delivery_status: input.delivery_status ?? null,
+    dirty_baseline_hash: input.dirty_baseline_hash ?? null,
+    qualification_key: input.qualification_key ?? null,
     revision: input.revision ?? (snapshotSource === "artifact-chain" ? null : 0),
     artifact_set_hash: input.artifact_set_hash ?? null,
     observed_at: input.observed_at ?? new Date().toISOString(),
@@ -60,9 +68,8 @@ export function deriveWorkflowState(input = {}) {
   if (input.artifact_chain_valid === false) return snapshot(input, "replan", {
     allowed_actions: manualArtifacts ? ["replan"] : ["replan", "stop"],
     required_actor: "human",
-    next_action: manualArtifacts ? "replan" : "create-schema-3-root",
+    next_action: manualArtifacts ? "replan" : "create-schema-4-root",
   });
-  if (input.downgrade_pending) return waiting(input, input.downgrade_reason ?? "profile-downgrade-requires-approval", "approve-downgrade");
   if ((input.blockers ?? []).length > 0 || input.lifecycle === "waiting-human") return waiting(input, null, input.next_action ?? "answer");
   if (!input.goal && !input.root_plan_id) return snapshot(input, "intake", { allowed_actions: ["provide-goal", "provide-root-plan"], required_actor: "human", next_action: "provide-intent" });
   if (input.material_open_decisions) return snapshot(input, "intent-clarification", { allowed_actions: manualArtifacts ? ["answer", "replan"] : ["answer", "stop"], required_actor: "human", next_action: "resolve-intent" });
@@ -72,21 +79,18 @@ export function deriveWorkflowState(input = {}) {
     : { allowed_actions: ["inspect", "approve", "stop"], required_actor: "human", next_action: "approve-plan" });
   if (!input.intent_ready) return snapshot(input, "replan", { allowed_actions: ["replan", "stop"], required_actor: "human", next_action: "replan", blockers: ["root-plan-not-intent-ready"] });
 
-  const depth = input.design_depth;
-  if (input.root_schema_valid === false || !["oneshot", "compact", "full"].includes(depth)) return snapshot(input, "replan", {
+  if (input.root_schema_valid === false) return snapshot(input, "replan", {
     allowed_actions: ["replan", "stop"],
     required_actor: "human",
-    next_action: "create-schema-3-root",
-    blockers: [input.root_schema_valid === false ? "invalid-schema-3-root" : "missing-or-invalid-design-depth"],
+    next_action: "create-schema-4-root",
+    blockers: ["invalid-schema-4-root"],
   });
-  if (depth !== "oneshot" && !input.product_aligned) return snapshot(input, "intent-ready", { allowed_actions: ["align-product", "replan"], required_actor: "planner", next_action: "align-product" });
-  if (["compact", "full"].includes(depth) && !input.architecture_aligned) return snapshot(input, "product-aligned", { allowed_actions: ["align-architecture", "replan"], required_actor: "planner", next_action: "align-architecture" });
-  if (depth === "full" && !input.program_design_aligned) return snapshot(input, "architecture-aligned", { allowed_actions: ["align-program-design", "replan"], required_actor: "planner", next_action: "align-program-design" });
-  if (depth === "full" && !input.slices_ready) return snapshot(input, "program-design-aligned", { allowed_actions: ["prepare-slices", "replan"], required_actor: "planner", next_action: "prepare-slices" });
 
-  if (!input.execution_started) return snapshot(input, manualArtifacts ? "root-plan-review" : "slice-ready", manualArtifacts
+  if (!input.execution_started) return snapshot(input, manualArtifacts ? "root-plan-review" : "strategy-ready", manualArtifacts
     ? { allowed_actions: ["inspect", "implement", "replan"], required_actor: "human", next_action: "implement-plan" }
-    : { allowed_actions: ["implement", "pause", "stop"], required_actor: "writer", next_action: "implement-slice" });
+    : { allowed_actions: ["execute", "pause", "stop"], required_actor: "controller", next_action: "execute-strategy" });
+  if (input.phase === "baseline-verification") return snapshot(input, "baseline-verification", { allowed_actions: ["pause", "stop"], required_actor: "verifier", next_action: "capture-baseline" });
+  if (input.phase === "strategy-ready") return snapshot(input, "strategy-ready", { allowed_actions: ["execute", "pause", "stop"], required_actor: "controller", next_action: "execute-strategy" });
   if (input.phase === "implementing") return snapshot(input, "implementing", { allowed_actions: ["pause", "stop"], required_actor: "writer", next_action: "finish-slice" });
   if (input.phase === "host-verifying") return snapshot(input, "host-verifying", { allowed_actions: ["pause", "stop"], required_actor: "controller", next_action: "verify-slice" });
   if (input.phase === "slice-review") return snapshot(input, "slice-review", { allowed_actions: ["pause", "stop"], required_actor: "reviewer", next_action: "review-slice" });
@@ -105,8 +109,9 @@ export function deriveWorkflowState(input = {}) {
     : snapshot(input, "slice-review", { allowed_actions: ["retry-review", "pause", "stop"], required_actor: "reviewer", next_action: "retry-review" });
   if (input.more_slices) return snapshot(input, "slice-ready", { allowed_actions: ["implement", "pause", "stop"], required_actor: "writer", next_action: "implement-next-slice" });
   if (!input.root_review_complete) return snapshot(input, "root-review", { allowed_actions: manualArtifacts ? ["review"] : ["review", "pause", "stop"], required_actor: "reviewer", next_action: "review-root" });
+  if (input.phase === "delivery-ready-provisional" || input.delivery_status === "provisional") return snapshot(input, "delivery-ready-provisional", { allowed_actions: ["accept-provisional", "inspect", "stop"], required_actor: "human", next_action: "accept-provisional" });
+  if (input.phase === "delivery-ready-verified" || (input.delivery_status === "verified" && !input.delivery_accepted)) return snapshot(input, "delivery-ready-verified", { allowed_actions: ["accept-verified", "inspect", "stop"], required_actor: "human", next_action: "accept-verified" });
   if (input.review?.assessment !== "achieved") return snapshot(input, "replan", { allowed_actions: ["replan", "stop"], required_actor: "human", next_action: "replan", blockers: ["root-review-not-achieved"] });
-  if (input.effective_profile === "auto-gated" && !input.delivery_accepted) return snapshot(input, "delivery-ready", { allowed_actions: ["accept", "inspect", "stop"], required_actor: "human", next_action: "accept-delivery" });
   return snapshot(input, "achieved", { allowed_actions: ["explain", "learn"], required_actor: "human", next_action: "none" });
 }
 

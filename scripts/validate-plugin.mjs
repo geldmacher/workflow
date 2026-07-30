@@ -14,12 +14,12 @@ const namePattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const semverPattern = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 const globPattern = /[*?[{]/;
 const expected = Object.freeze({
-  commands: ["auto-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-control", "work-models", "work-status", "work-watch"],
+  commands: ["auto-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-control", "work-models", "work-status", "work-verification", "work-watch"],
   agents: ["delivery-auditor", "risk-auditor", "work-design-auditor", "work-explainer", "work-plan-auditor"],
   skills: ["work-automation", "work-execution", "work-explanation", "work-learning", "work-planning", "work-review"],
   rules: [],
   artifacts: ["delivery-evidence", "work-plan", "work-review"],
-  references: ["artifact-protocol", "automation-contract", "automation-preparation-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "learning-contract", "model-routing-contract", "plan-container-contract", "review-contract", "state-contract"],
+  references: ["artifact-protocol", "automation-contract", "automation-preparation-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "learning-contract", "model-routing-contract", "plan-container-contract", "review-contract", "state-contract", "verification-profile-contract"],
 });
 
 const readText = (path) => readFileSync(path, "utf8");
@@ -222,9 +222,9 @@ export function validatePlugin(root = defaultRoot, options = {}) {
   for (const file of artifactFiles) {
     const schema = JSON.parse(readText(file));
     const artifactName = basename(file, ".schema.json");
-    const expectedId = `urn:geldmacher:cursor-artifact:${artifactName}:3`;
-    if (schema.additionalProperties !== false) failures.push(`${relative(rootPath, file)}: additionalProperties must be false for schema-3 artifacts`);
-    if (schema.properties?.schema?.const !== 3) failures.push(`${relative(rootPath, file)}: artifact schema must require 3`);
+    const expectedId = `urn:geldmacher:cursor-artifact:${artifactName}:4`;
+    if (schema.additionalProperties !== false) failures.push(`${relative(rootPath, file)}: additionalProperties must be false for Schema-4 artifacts`);
+    if (schema.properties?.schema?.const !== 4) failures.push(`${relative(rootPath, file)}: artifact schema must require 4`);
     if (schema.properties?.extensions?.type !== "object" || schema.properties.extensions.additionalProperties !== true) failures.push(`${relative(rootPath, file)}: extensions must be the only open metadata object`);
     if (schema.$schema !== "http://json-schema.org/draft-07/schema#") failures.push(`${relative(rootPath, file)}: $schema must be JSON Schema draft-07`);
     if (schema.$id !== expectedId) failures.push(`${relative(rootPath, file)}: schema id must equal ${expectedId}`);

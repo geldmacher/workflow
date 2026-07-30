@@ -60,7 +60,7 @@ async function crashAfterAgentCreate({ runtime, runDirectory, workspace, accepte
     child.once("exit", (code, signal) => { if (!stdout.includes("WORKFLOW_PROGRESS=")) { clearTimeout(timer); reject(new Error(`crash probe Worker exited before Agent creation (${signal ?? code}): ${stderr}`)); } });
   });
   const state = new RunStore(join(runDirectory, "controller-state"));
-  const run = state.create({ requested_profile: "auto-gated", lifecycle: "running", runner_pid: child.pid });
+  const run = state.create({ requested_profile: "supervised", lifecycle: "running", runner_pid: child.pid });
   try { process.kill(-child.pid, "SIGKILL"); } catch { /* already terminated */ }
   await new Promise((resolveExit) => child.once("exit", resolveExit));
   rmSync(profilePath, { force: true });

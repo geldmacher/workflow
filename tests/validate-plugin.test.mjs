@@ -14,7 +14,7 @@ async function createFixture(explicitPaths) {
   const root = await mkdtemp(join(tmpdir(), "workflow-plugin-"));
   const manifest = { name: "fixture-plugin", ...(explicitPaths ? { commands: "./commands/", agents: "./agents/", skills: "./skills/" } : {}) };
   await write(join(root, ".cursor-plugin", "plugin.json"), JSON.stringify(manifest));
-  for (const name of ["auto-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-control", "work-models", "work-status", "work-watch"]) {
+  for (const name of ["auto-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-control", "work-models", "work-status", "work-verification", "work-watch"]) {
     await write(join(root, "commands", `${name}.md`), `---\nname: ${name}\ndescription: Command.\n---\n`);
   }
   for (const name of ["delivery-auditor", "risk-auditor", "work-design-auditor", "work-explainer", "work-plan-auditor"]) {
@@ -23,7 +23,7 @@ async function createFixture(explicitPaths) {
   for (const name of ["work-automation", "work-execution", "work-explanation", "work-learning", "work-planning", "work-review"]) {
     await write(join(root, "skills", name, "SKILL.md"), `---\nname: ${name}\ndescription: Skill.\n---\n`);
   }
-  for (const name of ["artifact-protocol", "automation-contract", "automation-preparation-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "learning-contract", "model-routing-contract", "plan-container-contract", "review-contract", "state-contract"]) {
+  for (const name of ["artifact-protocol", "automation-contract", "automation-preparation-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "learning-contract", "model-routing-contract", "plan-container-contract", "review-contract", "state-contract", "verification-profile-contract"]) {
     await write(join(root, "references", `${name}.md`), `# ${name}\n`);
   }
   await write(join(root, "schemas", "cursor-plan-wrapper.schema.json"), JSON.stringify({
@@ -35,9 +35,9 @@ async function createFixture(explicitPaths) {
   for (const name of ["delivery-evidence", "work-plan", "work-review"]) {
     await write(join(root, "schemas", "artifacts", `${name}.schema.json`), JSON.stringify({
       $schema: "http://json-schema.org/draft-07/schema#",
-      $id: `urn:geldmacher:cursor-artifact:${name}:3`,
+      $id: `urn:geldmacher:cursor-artifact:${name}:4`,
       additionalProperties: false,
-      properties: { schema: { const: 3 }, extensions: { type: "object", additionalProperties: true } },
+      properties: { schema: { const: 4 }, extensions: { type: "object", additionalProperties: true } },
       "x-markdown-sections": ["Section"],
     }));
   }
@@ -84,11 +84,11 @@ test("artifact schema metadata is exact", async () => {
   await withFixture(false, async (root) => {
     const path = join(root, "schemas", "artifacts", "work-plan.schema.json");
     const schema = JSON.parse(await readFile(path, "utf8"));
-    schema.$id = "urn:geldmacher:cursor-artifact:wrong:3";
+    schema.$id = "urn:geldmacher:cursor-artifact:wrong:4";
     schema.$schema = "https://json-schema.org/draft/2020-12/schema";
     await writeFile(path, JSON.stringify(schema));
     const failures = validatePlugin(root).join("\n");
-    assert.match(failures, /schema id must equal urn:geldmacher:cursor-artifact:work-plan:3/);
+    assert.match(failures, /schema id must equal urn:geldmacher:cursor-artifact:work-plan:4/);
     assert.match(failures, /\$schema must be JSON Schema draft-07/);
   });
 });
