@@ -149,6 +149,16 @@ test("manual workflow_status is read-only and creates no controller state", asyn
     assert.equal(response.isError, false);
     assert.equal(response.structuredContent.subject_kind, "artifact-chain");
     assert.equal(response.structuredContent.snapshot.next_action, "implement-plan");
+    assert.deepEqual(response.structuredContent.model_inheritance, {
+      authoritative: false,
+      status: "clean",
+      incident_count: 0,
+      last_incident: null,
+      enforcement: "no-incident",
+      evidence_effect: "none",
+      result_policy: "verified-results-remain-usable",
+      qualification_policy: "exact-model-attestation-still-required",
+    });
     const active = await client.callTool({ name: "workflow_status", arguments: { workspace_root: root, artifacts: [plan] } });
     assert.equal(active.isError, false);
     assert.equal(active.structuredContent.snapshot.root_plan_id, rootPlanId);

@@ -14,10 +14,19 @@ async function createFixture(explicitPaths) {
   const root = await mkdtemp(join(tmpdir(), "workflow-plugin-"));
   const manifest = { name: "fixture-plugin", hooks: "./hooks/hooks.json", ...(explicitPaths ? { commands: "./commands/", agents: "./agents/", skills: "./skills/" } : {}) };
   await write(join(root, ".cursor-plugin", "plugin.json"), JSON.stringify(manifest));
+  const command = "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"";
   await write(join(root, "hooks", "hooks.json"), JSON.stringify({
     version: 1,
-    hooks: { subagentStart: [{ type: "command", command: "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"", failClosed: true }] },
+    hooks: {
+      sessionStart: [{ type: "command", command, failClosed: false }],
+      beforeSubmitPrompt: [{ type: "command", command, failClosed: false }],
+      preToolUse: [{ type: "command", command, matcher: "Task", failClosed: true }],
+      subagentStart: [{ type: "command", command, failClosed: true }],
+      subagentStop: [{ type: "command", command, failClosed: false }],
+      postToolUse: [{ type: "command", command, matcher: "Task", failClosed: false }],
+    },
   }));
+  await write(join(root, "hooks", "model-inheritance-state.mjs"), "export const placeholder = true;\n");
   await write(join(root, "hooks", "subagent-guard.mjs"), "process.stdout.write('{}');\n");
   for (const name of ["accept-work", "auto-work", "close-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-control", "work-models", "work-status", "work-verification", "work-watch"]) {
     await write(join(root, "commands", `${name}.md`), `---\nname: ${name}\ndescription: Command.\n---\n`);
@@ -58,7 +67,7 @@ test("accepts default and explicit component discovery", async () => {
   for (const explicit of [false, true]) await withFixture(explicit, async (root) => assert.deepEqual(validatePlugin(root), []));
 });
 
-test("requires the exact bundled fail-closed subagent hook", async () => {
+test("requires the exact bundled fail-closed model-inheritance hook surface", async () => {
   await withFixture(false, async (root) => {
     const path = join(root, "hooks", "hooks.json");
     const config = JSON.parse(await readFile(path, "utf8"));

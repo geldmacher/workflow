@@ -14,7 +14,8 @@
 - [ ] Bugfix, refactor, performance, feature, investigation, and verify-existing recipes enforce their invariants.
 - [ ] Verification Profile prove/approve/audit invalidates on any referenced drift.
 - [ ] Controller Readers cannot write repository content; exactly one canonical Controller Writer owns its worktree.
-- [ ] Every native Implement Plan todo is model-inheritance marked; Workflow subagents without an override are allowed, explicit child models and unknown parents fail closed, and unmarked tasks remain unaffected.
+- [ ] Every native Implement Plan todo is model-inheritance marked; Workflow Task calls allow only omitted model or `inherit`, every concrete model is denied at `preToolUse`, actual Child equality is checked at `subagentStart`, and unmarked tasks remain unaffected.
+- [ ] Parallel and duplicate Task events correlate by hashed ID; missing/mismatched fields are unattestable; executed/returned Children after Deny become `deny-not-enforced` incidents without changing Evidence grade or Review verdict.
 - [ ] Named post-implementation agents declare `readonly: true`, use `model: inherit`, and built-in, general-purpose, unmarked, or writing agents remain blocked during Review and Explanation.
 - [ ] Failed evidence blocks; incomplete evidence may be provisional; accepted-provisional never qualifies.
 - [ ] Autonomous shortfall downgrades visibly to supervised; full verified evidence may achieve.
@@ -23,5 +24,5 @@
 - [ ] State indexes recover from missing metadata, event tail reads use checkpoints, and terminal archive remains explicit and recoverable.
 - [ ] Repository tests, bundle parity, schema/version validation, focused 80% line/70% branch coverage, 10% context headroom, Markdown links, canonical surface, and isolated package dry run pass.
 - [ ] Live Cursor and Marketplace certification is reported separately from repository-only evidence.
-- [ ] Live smokes with two different Cursor-selected parent models confirm that inherited children actually use the same model and that an explicit child-model override is stopped, not only shown as `Couldn't start`.
+- [ ] Cost-bounded live smokes with two different Cursor-selected parent models confirm inherited parallel Children in the actual agent tree, pre-Task override denial, and hook-log evidence that a denied Child did not execute or return.
 - [ ] No push, PR, merge, deployment, production access, automatic integration, or automatic learning occurs.

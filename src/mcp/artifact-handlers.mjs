@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { buildDeliveryEvidence, persistCloseout } from "../controller/delivery-closeout.mjs";
 import { inspectArtifactText } from "../../scripts/validate-artifact.source.mjs";
+import { modelInheritanceSummary } from "../../hooks/model-inheritance-state.mjs";
 
 const bundleSize = (artifacts = []) => artifacts.reduce((total, artifact) => total + artifact.text.length, 0);
 
@@ -21,8 +22,13 @@ export function createArtifactHandlers({ pluginRoot, handoffContext, result }) {
 
   const context = async (input) => {
     try {
-      const { workspace, handoffStore } = await handoffContext(input.workspace_root);
-      return result({ workspace_root: workspace, handoff_authoritative: false, ...handoffStore.context(input.root_plan_id, input.root_plan ?? null) });
+      const { workspace, stateRoot, handoffStore } = await handoffContext(input.workspace_root);
+      return result({
+        workspace_root: workspace,
+        handoff_authoritative: false,
+        ...handoffStore.context(input.root_plan_id, input.root_plan ?? null),
+        model_inheritance: modelInheritanceSummary(stateRoot),
+      });
     } catch (error) { return result({ error: error.message }, true); }
   };
 

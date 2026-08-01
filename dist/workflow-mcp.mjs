@@ -104,8 +104,8 @@ import "./chunks/chunk-IQRLCJ3K.mjs";
 // src/mcp/workflow-mcp.mjs
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdirSync, rmSync } from "node:fs";
-import { dirname, join as join2, resolve as resolve2 } from "node:path";
+import { mkdirSync as mkdirSync2, rmSync as rmSync2 } from "node:fs";
+import { dirname as dirname2, join as join3, resolve as resolve3 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/server.js
@@ -1003,7 +1003,7 @@ var McpServer = class {
     let task = createTaskResult.task;
     const pollInterval = task.pollInterval ?? 5e3;
     while (task.status !== "completed" && task.status !== "failed" && task.status !== "cancelled") {
-      await new Promise((resolve3) => setTimeout(resolve3, pollInterval));
+      await new Promise((resolve4) => setTimeout(resolve4, pollInterval));
       const updatedTask = await extra.taskStore.getTask(taskId);
       if (!updatedTask) {
         throw new McpError(ErrorCode.InternalError, `Task ${taskId} not found during polling`);
@@ -1628,12 +1628,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve3) => {
+    return new Promise((resolve4) => {
       const json = serializeMessage(message);
       if (this._stdout.write(json)) {
-        resolve3();
+        resolve4();
       } else {
-        this._stdout.once("drain", resolve3);
+        this._stdout.once("drain", resolve4);
       }
     });
   }
@@ -1838,6 +1838,134 @@ function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot: plugi
 
 // src/mcp/artifact-handlers.mjs
 import { createHash as createHash2 } from "node:crypto";
+
+// hooks/model-inheritance-state.mjs
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync
+} from "node:fs";
+import { dirname, join, resolve } from "node:path";
+var MODEL_INCIDENT_CAUSES = Object.freeze([
+  "explicit-child-model",
+  "actual-child-mismatch",
+  "parent-model-unavailable",
+  "child-model-unavailable",
+  "uncorrelated-subagent-start",
+  "deny-not-enforced"
+]);
+var CAUSES = new Set(MODEL_INCIDENT_CAUSES);
+var TRANSIENT_TTL_MS = 24 * 60 * 60 * 1e3;
+var modelRoot = (stateRoot) => join(stateRoot, "model-inheritance");
+var incidentDirectory = (stateRoot, incidentId) => join(modelRoot(stateRoot), "incidents", incidentId);
+var incidentPath = (stateRoot, incidentId) => join(incidentDirectory(stateRoot, incidentId), "incident.json");
+function readJson(path) {
+  try {
+    const value = JSON.parse(readFileSync(path, "utf8"));
+    return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+function readIncident(stateRoot, incidentId) {
+  const incident = readJson(incidentPath(stateRoot, incidentId));
+  if (!incident) return null;
+  const observationsDirectory = join(incidentDirectory(stateRoot, incidentId), "observations");
+  let childExecuted = false;
+  let resultReturned = false;
+  let lastObservedAt = incident.recorded_at;
+  if (existsSync(observationsDirectory)) {
+    for (const name of readdirSync(observationsDirectory).sort()) {
+      if (!name.endsWith(".json")) continue;
+      const observation = readJson(join(observationsDirectory, name));
+      if (!observation) continue;
+      childExecuted ||= observation.child_executed === true;
+      resultReturned ||= observation.result_returned === true;
+      if (observation.observed_at && (!lastObservedAt || observation.observed_at > lastObservedAt)) lastObservedAt = observation.observed_at;
+    }
+  }
+  return {
+    ...incident,
+    child_executed: childExecuted,
+    result_returned: resultReturned,
+    last_observed_at: lastObservedAt
+  };
+}
+function publicIncident(value) {
+  if (!value) return null;
+  return {
+    incident_id: value.incident_id,
+    cause: value.cause,
+    status: value.status,
+    phase: value.phase,
+    subagent_type: value.subagent_type,
+    parent_model: value.parent_model,
+    parent_model_id: value.parent_model_id,
+    parent_model_params: value.parent_model_params,
+    requested_child_model: value.requested_child_model,
+    observed_child_model: value.observed_child_model,
+    cursor_version: value.cursor_version,
+    enforcement: value.enforcement,
+    child_executed: value.child_executed,
+    result_returned: value.result_returned,
+    recorded_at: value.recorded_at,
+    last_observed_at: value.last_observed_at
+  };
+}
+function modelInheritanceSummary(stateRoot) {
+  const incidentsRoot = join(modelRoot(stateRoot), "incidents");
+  if (!existsSync(incidentsRoot)) return {
+    authoritative: false,
+    status: "clean",
+    incident_count: 0,
+    last_incident: null,
+    enforcement: "no-incident",
+    evidence_effect: "none",
+    result_policy: "verified-results-remain-usable",
+    qualification_policy: "exact-model-attestation-still-required"
+  };
+  let incidentEntries;
+  try {
+    incidentEntries = readdirSync(incidentsRoot, { withFileTypes: true }).filter((entry) => entry.isDirectory());
+  } catch {
+    return {
+      authoritative: false,
+      status: "unattestable",
+      incident_count: 0,
+      last_incident: null,
+      enforcement: "diagnostic-state-unavailable",
+      evidence_effect: "none",
+      result_policy: "verified-results-remain-usable",
+      qualification_policy: "exact-model-attestation-still-required"
+    };
+  }
+  let unreadable = false;
+  const incidents = incidentEntries.map((entry) => {
+    const incident = readIncident(stateRoot, entry.name);
+    unreadable ||= !incident;
+    return incident;
+  }).filter(Boolean).sort((left, right) => String(left.last_observed_at ?? "").localeCompare(String(right.last_observed_at ?? "")));
+  const hasDeviation = incidents.some((entry) => entry.status === "deviated");
+  const lastIncident = incidents.at(-1) ?? null;
+  return {
+    authoritative: false,
+    status: hasDeviation ? "deviated" : incidents.length > 0 || unreadable ? "unattestable" : "clean",
+    incident_count: incidents.length,
+    last_incident: publicIncident(lastIncident),
+    enforcement: lastIncident?.enforcement ?? (unreadable ? "diagnostic-state-unavailable" : "no-incident"),
+    evidence_effect: "none",
+    result_policy: "verified-results-remain-usable",
+    qualification_policy: "exact-model-attestation-still-required"
+  };
+}
+
+// src/mcp/artifact-handlers.mjs
 var bundleSize = (artifacts = []) => artifacts.reduce((total, artifact2) => total + artifact2.text.length, 0);
 function createArtifactHandlers({ pluginRoot: pluginRoot2, handoffContext: handoffContext2, result: result2 }) {
   const record = async (input) => {
@@ -1857,8 +1985,13 @@ function createArtifactHandlers({ pluginRoot: pluginRoot2, handoffContext: hando
   };
   const context2 = async (input) => {
     try {
-      const { workspace, handoffStore } = await handoffContext2(input.workspace_root);
-      return result2({ workspace_root: workspace, handoff_authoritative: false, ...handoffStore.context(input.root_plan_id, input.root_plan ?? null) });
+      const { workspace, stateRoot, handoffStore } = await handoffContext2(input.workspace_root);
+      return result2({
+        workspace_root: workspace,
+        handoff_authoritative: false,
+        ...handoffStore.context(input.root_plan_id, input.root_plan ?? null),
+        model_inheritance: modelInheritanceSummary(stateRoot)
+      });
     } catch (error) {
       return result2({ error: error.message }, true);
     }
@@ -1924,17 +2057,17 @@ function createArtifactHandlers({ pluginRoot: pluginRoot2, handoffContext: hando
 }
 
 // src/mcp/workspace-roots.mjs
-import { lstatSync, realpathSync, statSync } from "node:fs";
-import { resolve } from "node:path";
+import { lstatSync, realpathSync, statSync as statSync2 } from "node:fs";
+import { resolve as resolve2 } from "node:path";
 import { fileURLToPath } from "node:url";
 function rootPath(root) {
   if (!root || typeof root.uri !== "string") throw new Error("MCP client returned an invalid workspace root");
   const url = new URL(root.uri);
   if (url.protocol !== "file:") throw new Error(`Workflow supports only file workspace roots: ${root.uri}`);
-  const advertised = resolve(fileURLToPath(url));
+  const advertised = resolve2(fileURLToPath(url));
   if (lstatSync(advertised).isSymbolicLink()) throw new Error(`MCP workspace root may not be symlink redirected: ${advertised}`);
   const canonical = realpathSync(advertised);
-  if (!statSync(canonical).isDirectory()) throw new Error(`MCP workspace root is not a directory: ${advertised}`);
+  if (!statSync2(canonical).isDirectory()) throw new Error(`MCP workspace root is not a directory: ${advertised}`);
   return { advertised, canonical };
 }
 var WorkspaceRootAuthority = class {
@@ -1974,7 +2107,7 @@ var WorkspaceRootAuthority = class {
       if (roots.length !== 1) throw new Error("multiple MCP workspace roots require workspace_root");
       return roots[0].canonical;
     }
-    const advertised = resolve(selector);
+    const advertised = resolve2(selector);
     const allowed = roots.find((entry) => entry.advertised === advertised);
     if (!allowed) throw new Error(`workspace_root is not an advertised MCP root: ${advertised}`);
     let canonical;
@@ -1990,10 +2123,10 @@ var WorkspaceRootAuthority = class {
 
 // src/mcp/proof-artifacts.mjs
 import { createHash as createHash3 } from "node:crypto";
-import { lstatSync as lstatSync2, readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { lstatSync as lstatSync2, readFileSync as readFileSync2, readdirSync as readdirSync2 } from "node:fs";
+import { join as join2 } from "node:path";
 var PROOF_LIMITS = Object.freeze({ files: 128, file_bytes: 10 * 1024 * 1024, total_bytes: 32 * 1024 * 1024, depth: 8 });
-function hashStableProofFile(path, stat = lstatSync2, read = readFileSync, before = stat(path)) {
+function hashStableProofFile(path, stat = lstatSync2, read = readFileSync2, before = stat(path)) {
   if (before.size > PROOF_LIMITS.file_bytes) throw new Error(`verification proof artifact exceeds 10 MiB: ${path}`);
   const content = read(path);
   const after = stat(path);
@@ -2005,8 +2138,8 @@ function proofArtifacts(root) {
   let totalBytes = 0;
   const visit = (directory, depth = 0) => {
     if (depth > PROOF_LIMITS.depth) throw new Error(`verification proof artifact depth exceeds ${PROOF_LIMITS.depth}: ${directory}`);
-    for (const entry of readdirSync(directory, { withFileTypes: true })) {
-      const path = join(directory, entry.name);
+    for (const entry of readdirSync2(directory, { withFileTypes: true })) {
+      const path = join2(directory, entry.name);
       if (entry.isSymbolicLink()) throw new Error(`verification proof artifact may not be a symlink: ${path}`);
       if (entry.isDirectory()) visit(path, depth + 1);
       else if (entry.isFile()) {
@@ -2015,7 +2148,7 @@ function proofArtifacts(root) {
         if (before.size > PROOF_LIMITS.file_bytes) throw new Error(`verification proof artifact exceeds 10 MiB: ${path}`);
         totalBytes += before.size;
         if (totalBytes > PROOF_LIMITS.total_bytes) throw new Error("verification proof artifacts exceed 32 MiB total");
-        const stable = hashStableProofFile(path, lstatSync2, readFileSync, before);
+        const stable = hashStableProofFile(path, lstatSync2, readFileSync2, before);
         files.push({ path, hash: stable.hash });
       } else throw new Error(`verification proof artifact must be a regular file or directory: ${path}`);
     }
@@ -2165,7 +2298,7 @@ function toolContract(name) {
 }
 
 // src/mcp/workflow-mcp.mjs
-var pluginRoot = resolve2(process.env.CURSOR_PLUGIN_ROOT ?? dirname(dirname(fileURLToPath2(import.meta.url))));
+var pluginRoot = resolve3(process.env.CURSOR_PLUGIN_ROOT ?? dirname2(dirname2(fileURLToPath2(import.meta.url))));
 var server = new McpServer({ name: "workflow", version: PLUGIN_VERSION });
 var workspaceAuthority = new WorkspaceRootAuthority(() => server.server.listRoots());
 server.server.setNotificationHandler(RootsListChangedNotificationSchema, async () => workspaceAuthority.invalidate());
@@ -2196,7 +2329,7 @@ async function handoffContext(workspaceRoot2) {
 }
 var artifactHandlers = createArtifactHandlers({ pluginRoot, handoffContext, result });
 function runnerPath() {
-  return resolve2(process.env.GELDMACHER_WORKFLOW_RUNNER ?? fileURLToPath2(new URL("./workflow-runner.mjs", import.meta.url)));
+  return resolve3(process.env.GELDMACHER_WORKFLOW_RUNNER ?? fileURLToPath2(new URL("./workflow-runner.mjs", import.meta.url)));
 }
 function launchRunner({ action, workspace, stateRoot, runId = null, preparationId = null }) {
   const subjectArgs = runId ? ["--run-id", runId] : ["--preparation-id", preparationId];
@@ -2284,24 +2417,26 @@ server.registerTool("workflow_status", toolContract("workflow_status"), async (i
     if (input.artifacts) {
       if (input.artifacts.reduce((total, artifact2) => total + artifact2.text.length, 0) > 1e6) throw new Error("manual workflow_status artifact bundle exceeds 1000000 characters");
       const workspace = await workspaceAuthority.resolve(input.workspace_root);
+      const stateRoot2 = defaultStateRoot(workspace);
       const manual = deriveManualWorkflowSnapshot({ rootPlanId: input.root_plan_id, artifacts: input.artifacts, pluginRoot, manualAcceptance: input.manual_acceptance ?? null });
-      return result({ subject_kind: "artifact-chain", run: null, ...manual, workspace_root: workspace });
+      return result({ subject_kind: "artifact-chain", run: null, ...manual, workspace_root: workspace, model_inheritance: modelInheritanceSummary(stateRoot2) });
     }
     if (input.manual_acceptance) throw new Error("workflow_status manual_acceptance requires current-task artifacts");
-    const { store, preparationStore, engine } = await context(input.workspace_root);
+    const { stateRoot, store, preparationStore, engine } = await context(input.workspace_root);
+    const model_inheritance = modelInheritanceSummary(stateRoot);
     if (input.run_id) {
       const run = store.get(input.run_id);
-      return result({ subject_kind: "run", run: runView(run), snapshot: engine.snapshot(run) });
+      return result({ subject_kind: "run", run: runView(run), snapshot: engine.snapshot(run), model_inheritance });
     }
-    if (input.preparation_id) return result({ subject_kind: "preparation", preparation: preparationView(preparationStore.get(input.preparation_id)) });
+    if (input.preparation_id) return result({ subject_kind: "preparation", preparation: preparationView(preparationStore.get(input.preparation_id)), model_inheritance });
     const active = [
       ...store.active().map((run) => ({ kind: "run", value: run })),
       ...preparationStore.active().map((preparation) => ({ kind: "preparation", value: preparation }))
     ];
     if (active.length === 0) throw new Error("no active Workflow Preparation or Run");
     if (active.length > 1) throw new Error("multiple active Workflow subjects require an explicit ID");
-    if (active[0].kind === "run") return result({ subject_kind: "run", run: runView(active[0].value), snapshot: engine.snapshot(active[0].value) });
-    return result({ subject_kind: "preparation", preparation: preparationView(active[0].value) });
+    if (active[0].kind === "run") return result({ subject_kind: "run", run: runView(active[0].value), snapshot: engine.snapshot(active[0].value), model_inheritance });
+    return result({ subject_kind: "preparation", preparation: preparationView(active[0].value), model_inheritance });
   } catch (error) {
     return result({ error: error.message }, true);
   }
@@ -2409,7 +2544,7 @@ server.registerTool("workflow_validate_models", toolContract("workflow_validate_
     const config = loadWorkflowConfig(workspace);
     if (config.errors.length > 0) return result({ verified: false, errors: config.errors, capabilities: resolveCapabilities(stateRoot, {}, { pluginRoot }) });
     const profile = resolveRouteProfile(config, route_profile);
-    const validation = new CursorWorkerAdapter({ runDirectory: resolve2(stateRoot, "model-validation"), pluginRoot }).validateProfile(profile);
+    const validation = new CursorWorkerAdapter({ runDirectory: resolve3(stateRoot, "model-validation"), pluginRoot }).validateProfile(profile);
     return result({ ...validation, capabilities: resolveCapabilities(stateRoot, { model_catalog_verified: validation.verified }, { pluginRoot }) });
   } catch (error) {
     return result({ verified: false, errors: [error.message] }, true);
@@ -2432,10 +2567,10 @@ server.registerTool("workflow_verification_profile", toolContract("workflow_veri
       const config = loadWorkflowConfig(workspace);
       if (config.errors.length > 0) throw new Error(`workflow configuration invalid: ${config.errors.join("; ")}`);
       const route = resolveRouteProfile(config, input.route_profile);
-      const proofRoot = join2(stateRoot, "verification-proof-artifacts", inspection.profile_hash, randomUUID());
+      const proofRoot = join3(stateRoot, "verification-proof-artifacts", inspection.profile_hash, randomUUID());
       ownedProofRoot = proofRoot;
-      mkdirSync(proofRoot, { recursive: true, mode: 448 });
-      const adapter = new CursorWorkerAdapter({ runDirectory: join2(stateRoot, "verification-proof-runs", inspection.profile_hash), pluginRoot });
+      mkdirSync2(proofRoot, { recursive: true, mode: 448 });
+      const adapter = new CursorWorkerAdapter({ runDirectory: join3(stateRoot, "verification-proof-runs", inspection.profile_hash), pluginRoot });
       const validation = adapter.validateProfile(route);
       const verifier = validation.routes?.verifier;
       if (!validation.verified || !verifier?.selected_candidate || !verifier.model) throw new Error(`verifier route unavailable: ${(validation.errors ?? []).join("; ")}`);
@@ -2484,7 +2619,7 @@ ${content}`)
   } catch (error) {
     return result({ error: error.message }, true);
   } finally {
-    if (ownedProofRoot && !retainProof) rmSync(ownedProofRoot, { recursive: true, force: true });
+    if (ownedProofRoot && !retainProof) rmSync2(ownedProofRoot, { recursive: true, force: true });
   }
 });
 var transport = new StdioServerTransport();

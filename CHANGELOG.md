@@ -7,6 +7,7 @@
 - Added atomic rebuildable state/handoff indexes, checkpointed event tails, dry-run terminal archives, and focused coverage gates.
 - Split Artifact validation and MCP contracts/handlers into maintainable modules, and shared controller build chunks where they materially reduce size.
 - Reduced release and context overhead without changing the human-approved Manual delivery path.
+- Expanded the plugin-local model guard across parent capture, Task preflight, Child attestation, and completion observation; added privacy-minimized incidents plus non-authoritative status/context diagnostics without changing Schema 5, Evidence, or Review authority.
 
 ## 5.0.0
 

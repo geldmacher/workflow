@@ -6,6 +6,7 @@ import test from "node:test";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { defaultRoot, inspectArtifactText } from "../scripts/validate-artifact.source.mjs";
 import { workflowClient } from "./mcp-client.mjs";
+import { recordModelIncident, workflowStateRoot } from "../hooks/model-inheritance-state.mjs";
 
 const rootPlan = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8")
   .replace("profile_max: supervised", "profile_max: manual")
@@ -54,6 +55,18 @@ test("MCP records a Root, closes it out, and resolves the exact Evidence in a fr
     assert.equal(closed.structuredContent.handoff_persisted, true);
     assert.deepEqual(inspectArtifactText(closed.structuredContent.artifact, defaultRoot).errors, []);
 
+    recordModelIncident(workflowStateRoot(defaultRoot, { home }), {
+      cause: "actual-child-mismatch",
+      status: "deviated",
+      phase: "review",
+      subagent_type: "delivery-auditor",
+      parent_model: "parent-model",
+      observed_child_model: "foreign-model",
+      enforcement: "denied-at-start",
+      task_hash: "a".repeat(32),
+      recorded_at: "2026-08-01T10:00:00.000Z",
+    });
+
     const context = await client.callTool({
       name: "workflow_artifact_context",
       arguments: { workspace_root: defaultRoot, root_plan_id: "wp-adaptive-retry", root_plan: rootPlan },
@@ -61,6 +74,10 @@ test("MCP records a Root, closes it out, and resolves the exact Evidence in a fr
     assert.equal(context.isError, false);
     assert.equal(context.structuredContent.evidence_tip, closed.structuredContent.delivery_evidence_id);
     assert.equal(context.structuredContent.artifacts.find((entry) => entry.label === context.structuredContent.evidence_tip).text, closed.structuredContent.artifact);
+    assert.equal(context.structuredContent.model_inheritance.authoritative, false);
+    assert.equal(context.structuredContent.model_inheritance.status, "deviated");
+    assert.equal(context.structuredContent.model_inheritance.last_incident.cause, "actual-child-mismatch");
+    assert.equal(context.structuredContent.model_inheritance.evidence_effect, "none");
 
     const duplicate = await client.callTool({
       name: "workflow_closeout",

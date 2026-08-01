@@ -157,8 +157,10 @@ test("runtime surface has one bundled controller and no automatic publication", 
   const manifest = JSON.parse(read(".cursor-plugin/plugin.json"));
   assert.equal("rules" in manifest, false);
   assert.equal(manifest.hooks, "./hooks/hooks.json");
-  assert.match(read("hooks/hooks.json"), /subagentStart/);
-  assert.match(read("hooks/hooks.json"), /failClosed/);
+  const hooks = read("hooks/hooks.json");
+  for (const event of ["sessionStart", "beforeSubmitPrompt", "preToolUse", "subagentStart", "subagentStop", "postToolUse"]) assert.match(hooks, new RegExp(event));
+  assert.match(hooks, /"matcher": "Task"/);
+  assert.match(hooks, /failClosed/);
   assert.equal(manifest.mcpServers, "mcp.json");
   assert.match(read("mcp.json"), /\$\{CURSOR_PLUGIN_ROOT\}\/dist\/workflow-mcp\.mjs/);
   assert.match(read("README.md"), /no automatic push, PR, merge, deployment/i);

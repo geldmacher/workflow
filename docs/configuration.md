@@ -12,7 +12,9 @@ Configuration expresses permission but does not prove the installed environment 
 
 ## Manual model ownership
 
-Controller Route Pools do not select or favor the model for `/plan-work`, **Implement Plan**, `/correct-work`, `/review-work`, or `/explain-work`. The human selects the primary model in Cursor. Workflow subagents are allowed only by inheritance: Task calls omit a model override, and declared plugin agents use `model: inherit`. The primary remains responsible for integration and closeout. Named post-implementation auditors and the explainer are additionally read-only.
+Controller Route Pools do not select or favor the model for `/plan-work`, **Implement Plan**, `/correct-work`, `/review-work`, or `/explain-work`. The human selects the primary model in Cursor. Workflow subagents are allowed only by inheritance: Task calls omit the model field or use the literal `inherit`, and declared plugin agents use `model: inherit`. Any concrete Task model value is denied even when it equals the parent slug. The primary remains responsible for integration and closeout. Named post-implementation auditors and the explainer are additionally read-only.
+
+The repository-specific state stores short-lived hashed Task correlations and durable model incidents without prompts, personal data, or absolute workspace paths. `workflow_status` and `workflow_artifact_context` show the non-authoritative `model_inheritance` summary. A separately verified Child result remains usable and keeps its Evidence grade and Review verdict. For `supervised` and `autonomous`, a model deviation still fails the existing exact model attestation and therefore cannot qualify the affected run.
 
 ## User Config Schema 2
 

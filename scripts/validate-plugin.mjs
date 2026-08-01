@@ -188,11 +188,13 @@ function validateHookSurface(root, manifest, failures) {
   if (manifest.hooks !== expectedPath) failures.push(`plugin.json hooks must reference ${expectedPath}`);
   const directory = join(root, "hooks");
   const configPath = join(directory, "hooks.json");
+  const statePath = join(directory, "model-inheritance-state.mjs");
   const scriptPath = join(directory, "subagent-guard.mjs");
   if (!existsSync(configPath)) failures.push("hooks/hooks.json is missing");
+  if (!existsSync(statePath)) failures.push("hooks/model-inheritance-state.mjs is missing");
   if (!existsSync(scriptPath)) failures.push("hooks/subagent-guard.mjs is missing");
   const files = listFiles(directory, () => true).map((file) => relative(root, file));
-  const expectedFiles = ["hooks/hooks.json", "hooks/subagent-guard.mjs"];
+  const expectedFiles = ["hooks/hooks.json", "hooks/model-inheritance-state.mjs", "hooks/subagent-guard.mjs"];
   if (files.join("\n") !== expectedFiles.join("\n")) failures.push(`hooks: expected [${expectedFiles.join(", ")}], received [${files.join(", ")}]`);
   if (!existsSync(configPath)) return;
   try {
@@ -200,16 +202,24 @@ function validateHookSurface(root, manifest, failures) {
     const topLevelKeys = Object.keys(config).sort();
     if (topLevelKeys.join("\n") !== ["hooks", "version"].join("\n")) failures.push("hooks/hooks.json must contain only version and hooks");
     if (config.version !== 1) failures.push("hooks/hooks.json version must equal 1");
+    const expectedEvents = ["sessionStart", "beforeSubmitPrompt", "preToolUse", "subagentStart", "subagentStop", "postToolUse"];
     const eventNames = Object.keys(config.hooks ?? {});
-    if (eventNames.join("\n") !== "subagentStart") failures.push("hooks/hooks.json must declare only subagentStart");
-    const entries = config.hooks?.subagentStart;
-    if (!Array.isArray(entries) || entries.length !== 1) failures.push("hooks/hooks.json must declare exactly one subagentStart command");
-    else {
+    if (eventNames.join("\n") !== expectedEvents.join("\n")) failures.push(`hooks/hooks.json must declare ${expectedEvents.join(", ")} in order`);
+    for (const eventName of expectedEvents) {
+      const entries = config.hooks?.[eventName];
+      if (!Array.isArray(entries) || entries.length !== 1) {
+        failures.push(`hooks/hooks.json must declare exactly one ${eventName} command`);
+        continue;
+      }
       const [entry] = entries;
-      if (entry?.type !== "command") failures.push("subagentStart hook type must be command");
-      if (entry?.command !== expectedCommand) failures.push("subagentStart hook must use the bundled Node guard through CURSOR_PLUGIN_ROOT");
-      if (entry?.failClosed !== true) failures.push("subagentStart hook must set failClosed true");
-      if (Object.keys(entry ?? {}).sort().join("\n") !== ["command", "failClosed", "type"].join("\n")) failures.push("subagentStart hook contains unsupported fields");
+      const taskMatcher = ["preToolUse", "postToolUse"].includes(eventName);
+      const blockingEvent = ["preToolUse", "subagentStart"].includes(eventName);
+      if (entry?.type !== "command") failures.push(`${eventName} hook type must be command`);
+      if (entry?.command !== expectedCommand) failures.push(`${eventName} hook must use the bundled Node guard through CURSOR_PLUGIN_ROOT`);
+      if (entry?.failClosed !== blockingEvent) failures.push(`${eventName} hook must set failClosed ${blockingEvent}`);
+      if (taskMatcher && entry?.matcher !== "Task") failures.push(`${eventName} hook must match Task`);
+      const expectedKeys = taskMatcher ? ["command", "failClosed", "matcher", "type"] : ["command", "failClosed", "type"];
+      if (Object.keys(entry ?? {}).sort().join("\n") !== expectedKeys.join("\n")) failures.push(`${eventName} hook contains unsupported fields`);
     }
     if (/\bnpx\b|\blatest\b/i.test(JSON.stringify(config))) failures.push("hooks must not install or resolve runtime dependencies");
   } catch (error) {

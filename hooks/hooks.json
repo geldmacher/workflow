@@ -1,11 +1,48 @@
 {
   "version": 1,
   "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"",
+        "failClosed": false
+      }
+    ],
+    "beforeSubmitPrompt": [
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"",
+        "failClosed": false
+      }
+    ],
+    "preToolUse": [
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"",
+        "matcher": "Task",
+        "failClosed": true
+      }
+    ],
     "subagentStart": [
       {
         "type": "command",
         "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"",
         "failClosed": true
+      }
+    ],
+    "subagentStop": [
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"",
+        "failClosed": false
+      }
+    ],
+    "postToolUse": [
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"",
+        "matcher": "Task",
+        "failClosed": false
       }
     ]
   }
