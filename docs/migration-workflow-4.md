@@ -17,6 +17,8 @@ Workflow 4 is intentionally not an in-place artifact migration. Existing Workflo
 - Replace `auto-gated` with `supervised`; replace `unattended-eligible` with exact-key `autonomous`.
 - Accept delivery explicitly as `verified` or `provisional`. A failed Check is never provisional.
 
+The names now describe who controls execution and acceptance: Manual is human-driven, supervised is controller-driven with human delivery acceptance, and autonomous is exact-qualified controller work that may finish only with complete verified evidence. See the [profile guide](profiles.md) for current prerequisites.
+
 ## Rollout
 
 Release manual first. Run supervised in Shadow Mode until live Cursor and Marketplace boundaries are certified. Activate autonomous independently for each `task_class + verification_profile_hash + route_pool_hash + certified_region` key.

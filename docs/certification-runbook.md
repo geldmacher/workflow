@@ -2,6 +2,8 @@
 
 Certification is granular. A positive result applies only to one Plugin/runtime/lock tuple plus Route Pool hash, Verification Profile hash, task class, and certified repository region.
 
+Manual does not need this runbook. Supervised needs the live controller and safety capabilities proved here, but still ends with human delivery acceptance. Autonomous needs those same proofs plus an exact Qualification binding and successful supervised history; only then may a fully verified delivery finish without final acceptance. See the [profile guide](profiles.md) for the plain-language comparison.
+
 1. Run the repository release gate and package dry run.
 2. Validate every candidate with `/work-models`; record exact catalog and observed configurations.
 3. Run `/work-verification draft <surface>`, complete the project Skill and Feature Map, then prove launch, doctor, representative drive, observation, evidence, reset, and cleanup. Store proof externally.

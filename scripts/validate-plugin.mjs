@@ -132,7 +132,7 @@ function validateNames(records, type, expectedNames, failures) {
 }
 
 function validateRelease(root, manifest, failures) {
-  for (const field of ["displayName", "description", "version", "author", "license", "logo", "homepage", "repository", "category", "keywords", "tags"]) {
+  for (const field of ["displayName", "description", "version", "author", "publisher", "license", "logo", "homepage", "repository", "category", "keywords", "tags"]) {
     if (!manifest[field] || (Array.isArray(manifest[field]) && manifest[field].length === 0)) failures.push(`release metadata is missing ${field}`);
   }
   const packageJson = JSON.parse(readText(join(root, "package.json")));
@@ -287,7 +287,10 @@ export function validatePlugin(root = defaultRoot, options = {}) {
     /native Plan creation exists/i,
   ];
   if (capabilityRules.some((pattern) => pattern.test(runtime))) failures.push("runtime guidance contains a Cursor capability gate or tool allowlist");
-  const foreignProducts = [...runtime.matchAll(/\bgeldmacher-[a-z0-9-]+\b/gi)].map((match) => match[0]).filter((name) => name.toLowerCase() !== manifest.name.toLowerCase());
+  const vendorNamespace = `${manifest.publisher ?? ""}-${manifest.name ?? ""}`.toLowerCase();
+  const foreignProducts = [...runtime.matchAll(/\bgeldmacher-[a-z0-9-]+\b/gi)]
+    .map((match) => match[0])
+    .filter((name) => ![manifest.name.toLowerCase(), vendorNamespace].includes(name.toLowerCase()));
   if (foreignProducts.length > 0) failures.push("runtime guidance contains a foreign product name");
   const foreignCommands = ["setup-rtk", "create-rtk-filter", "budget-efficiency", "compact-context", "optimize-context", "review-efficiency"];
   if (foreignCommands.some((name) => new RegExp(`/${name}\\b`, "i").test(runtime))) failures.push("runtime guidance contains a foreign command");
@@ -303,10 +306,10 @@ export function validatePlugin(root = defaultRoot, options = {}) {
       try {
         const mcp = JSON.parse(readText(mcpPath));
         const servers = Object.entries(mcp.mcpServers ?? {});
-        if (servers.length !== 1 || servers[0][0] !== "geldmacher-workflow") failures.push("mcp.json must declare exactly geldmacher-workflow");
+        if (servers.length !== 1 || servers[0][0] !== "workflow") failures.push("mcp.json must declare exactly workflow");
         const definition = servers[0]?.[1];
-        if (definition?.command !== "node") failures.push("geldmacher-workflow MCP must use the bundled Node entrypoint");
-        if (JSON.stringify(definition?.args) !== JSON.stringify(["${CURSOR_PLUGIN_ROOT}/dist/workflow-mcp.mjs"])) failures.push("geldmacher-workflow MCP must use the CURSOR_PLUGIN_ROOT bundle path");
+        if (definition?.command !== "node") failures.push("Workflow MCP must use the bundled Node entrypoint");
+        if (JSON.stringify(definition?.args) !== JSON.stringify(["${CURSOR_PLUGIN_ROOT}/dist/workflow-mcp.mjs"])) failures.push("Workflow MCP must use the CURSOR_PLUGIN_ROOT bundle path");
         if (JSON.stringify(mcp).includes("npx") || JSON.stringify(mcp).includes("latest")) failures.push("mcp.json must not install or resolve latest packages at runtime");
       } catch (error) { failures.push(`mcp.json is invalid JSON: ${error.message}`); }
     }

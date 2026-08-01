@@ -1,5 +1,7 @@
 # Workflow 5 usage example
 
+Choose the smallest profile that fits the task. `manual` means you drive the work in Cursor. `supervised` means the controller drives execution but you accept the delivery. `autonomous` means the same controller may finish a fully verified delivery only for an exact certified Qualification Key. All three keep the same approved Intent, evidence rules, repository-only boundary, and prohibition on automatic push, PR, merge, or deployment. See the [profile guide](profiles.md) for prerequisites.
+
 Manual remains familiar: `/plan-work`, human **Implement Plan**, `/review-work`, optional `/correct-work`, then `/learn-from-work` or `/explain-work`. Select the primary model in Cursor before execution. Workflow does not route the Manual model; the primary agent may use subagents only through model inheritance and remains responsible for their integration. Implement Plan performs closeout automatically; use `/close-work [wp-id]` only if Evidence is missing. The Plan is a compact Schema-5 Intent Root; presentation may be prose, lists, or tables. Low/medium-risk Manual work without Hard Triggers normally returns Lean Evidence.
 
 Every native implementation todo carries an internal model-inheritance marker. In that Workflow context the plugin hook allows subagents when no child-model override is requested and Cursor reports a known parent model. Explicit overrides or an unknown parent fail closed. Start `/review-work` or `/explain-work` in a fresh Ask context after closeout; only the marked, named read-only plugin agents may then be delegated to.
@@ -25,6 +27,8 @@ The new Schema-5 Root receives a fresh `wp-*` ID and binds the predecessor plus 
 
 For supervised execution:
 
+Before this can create a writable Run, configure exact model Pools and budgets, set `supervised_enabled: true`, and provide positive live capability proof for the installed environment. Otherwise the profile remains in Shadow Mode.
+
 ```text
 /work-models default
 /auto-work "Fix retry regression" supervised default
@@ -44,4 +48,4 @@ For a verifiable UI surface:
 /work-verification audit
 ```
 
-Only after exact per-key certification use `autonomous`. An evidence gap automatically becomes supervised provisional delivery. A known failed Check becomes blocked. Neither path publishes, integrates, deploys, or learns automatically.
+Only after exact per-key certification, an approved Verification Profile, and enough accepted verified supervised history should you request `autonomous`. The human still approves the prepared Root. A fully verified delivery may then finish directly; an evidence gap automatically becomes supervised provisional delivery, while a known failed Check becomes blocked. Neither path publishes, integrates, deploys, or learns automatically.

@@ -32633,7 +32633,7 @@ function checkpoint(worktreePath, label) {
   git(worktreePath, ["add", "-A"]);
   const staged = git(worktreePath, ["diff", "--cached", "--name-only"]);
   if (!staged) return { commit: git(worktreePath, ["rev-parse", "HEAD"]), empty: true };
-  git(worktreePath, ["-c", "user.name=Geldmacher Workflow", "-c", "user.email=workflow@local.invalid", "commit", "-m", `workflow checkpoint: ${label}`]);
+  git(worktreePath, ["-c", "user.name=Workflow", "-c", "user.email=workflow@local.invalid", "commit", "-m", `workflow checkpoint: ${label}`]);
   return { commit: git(worktreePath, ["rev-parse", "HEAD"]), empty: false };
 }
 function rollbackToCheckpoint(worktreePath, commit) {
@@ -35036,7 +35036,7 @@ function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot: plugi
 
 // src/mcp/workflow-mcp.mjs
 var pluginRoot = resolve12(process.env.CURSOR_PLUGIN_ROOT ?? dirname11(dirname11(fileURLToPath3(import.meta.url))));
-var server = new McpServer({ name: "geldmacher-workflow", version: PLUGIN_VERSION });
+var server = new McpServer({ name: "workflow", version: PLUGIN_VERSION });
 function result(value, isError = false) {
   return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }], structuredContent: value, isError };
 }

@@ -26,7 +26,7 @@ import {
 } from "../controller/protocol.mjs";
 
 const pluginRoot = resolve(process.env.CURSOR_PLUGIN_ROOT ?? dirname(dirname(fileURLToPath(import.meta.url))));
-const server = new McpServer({ name: "geldmacher-workflow", version: PLUGIN_VERSION });
+const server = new McpServer({ name: "workflow", version: PLUGIN_VERSION });
 
 function result(value, isError = false) {
   return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }], structuredContent: value, isError };

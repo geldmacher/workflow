@@ -7,6 +7,7 @@
     "name": "Dennis Geldmacher",
     "email": "geldmacher.dennis@outlook.de"
   },
+  "publisher": "Geldmacher",
   "license": "MIT",
   "homepage": "https://github.com/geldmacher/workflow",
   "repository": "https://github.com/geldmacher/workflow",

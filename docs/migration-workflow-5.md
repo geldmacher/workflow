@@ -13,6 +13,8 @@ Workflow 5 is a clean protocol cut, not an in-place artifact migration. Finish a
 
 Capability Receipts must be repeated because the Plugin, Artifact, Protocol, runtime, and bundle hashes changed.
 
+The profile meaning is unchanged: Manual is human-driven, supervised delegates execution but not delivery acceptance, and autonomous may omit final acceptance only for an exact qualified Run with complete verified evidence. See the [profile guide](profiles.md) for the current requirements.
+
 ## Manual delivery
 
 The Lean Intent Root and `/plan-work -> Implement Plan -> /review-work -> optional /correct-work` sequence remain unchanged. Implement Plan now ends with deterministic `workflow_closeout`; `/close-work [wp-id]` recovers only a missed closeout without editing repository files. New `delivery-evidence` adds `evidence_mode` and `changed_paths`:

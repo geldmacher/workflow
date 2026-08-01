@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/geldmacher/workflow/schemas/capability-receipt.schema.json",
-  "title": "Geldmacher Workflow Capability Receipt",
+  "title": "Workflow Capability Receipt",
   "type": "object",
   "additionalProperties": false,
   "required": [

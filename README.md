@@ -1,22 +1,33 @@
-# Geldmacher Workflow 5
+# Workflow 5
 
-Cursor-native, human-governed repository delivery with an immutable Intent Root and an adaptive, evidence-calibrated execution Strategy.
+**Turn a Cursor task into a repository change you can trust—without giving AI authority it has not earned.**
+
+Workflow is a Cursor-native delivery system that keeps intent, implementation, evidence, review, correction, and learning connected from the first plan to the final verdict. It gives everyday Manual work a fast, familiar path and adds the governance needed to progress toward supervised and, only after exact certification, autonomous execution.
+
+Instead of treating generated code as “done,” Workflow preserves the outcome you approved, lets the implementation strategy adapt inside explicit boundaries, and requires evidence that matches the actual risk. You stay in control of scope, models, external effects, and acceptance while every important transition remains inspectable.
+
+- **Move faster without losing the plot.** Plan once around an observable outcome, then let execution adapt without silently changing the goal.
+- **Make quality visible.** Connect repository changes to checks, delivery evidence, and a fresh review instead of relying on agent confidence.
+- **Scale trust deliberately.** Start with the human-driven workflow, introduce supervised execution when useful, and unlock autonomous behavior only for an exactly certified environment.
+- **Keep the blast radius bounded.** Protected paths, budgets, dependencies, secrets, repository limits, and external effects remain hard constraints.
+
+The result is not just more automation. It is a controlled path from idea to reviewed repository delivery, with a clear answer to what changed, why it changed, how it was verified, and who authorized it. Read the [product overview](docs/overview.md) for the full story, compare the [three profiles](docs/profiles.md), or jump to the [usage example](docs/usage-example.md).
 
 ## Intent and expectations
 
 Workflow 5 keeps the human-approved delivery intent fixed while allowing the execution strategy to evolve inside an explicit authority envelope. Manual delivery is additionally streamlined through risk-calibrated Lean Evidence and stateless provisional acceptance.
 
-| Profile | Human boundary | Controller behavior |
+| Profile | In simple terms | Needed to use it |
 |---|---|---|
-| `manual` | Human starts implementation and corrections | Lean Schema-5 Root and risk-calibrated Evidence; no controller or certification required |
-| `supervised` | Human approves Intent and accepts every delivery | One canonical Writer may adapt Strategy inside approved roots |
-| `autonomous` | Human approves Intent and exact certification hashes | Only an exact Qualification Key; incomplete evidence downgrades to supervised |
+| `manual` | You start implementation and every correction in Cursor. | The plugin, your selected Cursor model, and Plan approval; no automation configuration or certification. |
+| `supervised` | The controller runs inside your approved boundary; you accept every delivery. | Exact model and budget configuration, repository opt-in, and positive live capability proof. |
+| `autonomous` | An exactly qualified run may complete without final human acceptance only when every required Check is verified. | Everything for supervised plus an approved Verification Profile, exact Qualification Key, certified region and models, and qualifying supervised history. |
 
-The hard kernel never relaxes human Intent, repository boundaries, protected paths, secrets, budgets, external-effect prohibition, or honest evidence. Strategy, slices, tools, adjacent in-root scope, equivalent checks, and approved model fallback remain adaptive.
+All three profiles use the same human-approved Intent Root, repository boundary, evidence semantics, and fresh review. The hard kernel never relaxes human Intent, protected paths, secrets, budgets, external-effect prohibition, or honest evidence. Strategy, slices, tools, adjacent in-root scope, equivalent checks, and approved model fallback remain adaptive. See [Manual, supervised, and autonomous](docs/profiles.md) for the complete requirements and downgrade behavior.
 
 ## Installation
 
-Install or link this directory as the `geldmacher-workflow` Cursor plugin. The plugin manifest is `.cursor-plugin/plugin.json`; controller tools are exposed through `mcp.json`. Project-specific automation additionally needs User Config Schema 2 and Project Policy Schema 2 configuration described in [configuration](docs/configuration.md).
+Install or link this directory as the `workflow` Cursor plugin. The plugin manifest is `.cursor-plugin/plugin.json`; controller tools are exposed through `mcp.json`. Project-specific automation additionally needs User Config Schema 2 and Project Policy Schema 2 configuration described in [configuration](docs/configuration.md).
 
 ## Usage
 
@@ -24,7 +35,7 @@ The normal Manual path remains `/plan-work`, Cursor **Implement Plan**, and `/re
 
 Workflow does not choose, prefer, or remap the Manual model. Delegation must omit a Task model override; declared plugin agents use `model: inherit`. During `/review-work` and `/explain-work`, only marked, named plugin roles are allowed; those roles are `readonly: true`. The hook is plugin-local and does not alter user or project Cursor hook configuration.
 
-Controller operation:
+Controller operation for `supervised` and `autonomous` (`manual` does not use `/auto-work`):
 
 1. `/work-models [route-profile]` validates the seven ordered approved model Pools.
 2. `/work-verification draft <surface>` creates a Verification Profile draft; `prove`, human `approve <hash>`, and `audit` bind and monitor it.
@@ -34,6 +45,8 @@ Controller operation:
 6. `/work-control <run-id> accept` requires `acceptance: verified|provisional` matching delivery.
 
 `achieved` requires complete verified evidence. `accepted-provisional` records a human acceptance with an evidence gap and never counts toward qualification. Manual acceptance is explicitly ephemeral: the next `/work-status` returns `delivery-ready-provisional` again. A known failed required Check is `blocked` and cannot be provisional.
+
+The shipped controller keeps both automated profiles in read-only Shadow Mode until the exact installed environment has positive live capability proof. Repository tests do not activate writable controller work; Manual remains usable without that certification.
 
 ## Artifact protocol
 
@@ -59,7 +72,7 @@ New work uses Artifact Schema 5. The compact `work-plan` stores the immutable In
 - User Config Schema 2
 - Project Policy Schema 2
 
-See [configuration](docs/configuration.md), [Workflow-5 migration](docs/migration-workflow-5.md), and the [certification runbook](docs/certification-runbook.md).
+See the [profile guide](docs/profiles.md), [configuration](docs/configuration.md), [Workflow-5 migration](docs/migration-workflow-5.md), and the [certification runbook](docs/certification-runbook.md).
 
 Repository delivery is the maximum effect: no automatic push, PR, merge, deployment, production access, branch integration, or learning publication.
 

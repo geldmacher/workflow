@@ -1,15 +1,15 @@
 {
-  "name": "geldmacher-workflow-rc",
+  "name": "geldmacher-rc",
   "owner": {
-    "name": "Dennis Geldmacher",
+    "name": "Geldmacher",
     "email": "geldmacher.dennis@outlook.de"
   },
   "metadata": {
-    "description": "Private release-candidate marketplace for the Geldmacher Workflow Cursor plugin."
+    "description": "Private release-candidate marketplace for the Workflow Cursor plugin by Geldmacher."
   },
   "plugins": [
     {
-      "name": "geldmacher-workflow",
+      "name": "workflow",
       "source": ".",
       "description": "Adaptive, evidence-calibrated Cursor-native workflow with manual, supervised, and certified autonomous delivery."
     }

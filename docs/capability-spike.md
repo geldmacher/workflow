@@ -1,6 +1,6 @@
 # Capability spike and activation status
 
-Auto profiles are activation-gated, not merely feature-flagged. The shipped controller must observe all of the following before it may create a writable SDK run:
+Supervised and autonomous are activation-gated, not merely feature-flagged. Manual does not need these observations. Supervised needs all hard controller capabilities before writable execution; autonomous needs additional exact qualification. See the [profile guide](profiles.md) for the user-facing comparison. The shipped controller must observe all of the following before it may create a writable SDK run:
 
 | Capability | Required observation |
 |---|---|

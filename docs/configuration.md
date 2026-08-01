@@ -2,6 +2,14 @@
 
 The controller resolves immutable prohibitions, project ceilings, approved user Pools, then per-Run authority. Lower layers may tighten but never expand a higher boundary.
 
+## Which profile needs configuration?
+
+- `manual` needs neither User Config nor Project Policy. The human chooses the Cursor model and drives the workflow.
+- `supervised` needs both files below, `supervised_enabled: true`, complete budgets, exact model Pools, and positive live capability proof. The controller executes; the human accepts every delivery.
+- `autonomous` needs every supervised requirement plus `autonomous_enabled: true`, an approved and clean Verification Profile, an exact certified Qualification Key, and enough accepted verified supervised history. Only fully verified delivery can complete without final human acceptance.
+
+Configuration expresses permission but does not prove the installed environment is safe. Without a valid matching Capability Receipt, controller profiles stay in read-only Shadow Mode. See the [profile guide](profiles.md) for the complete comparison.
+
 ## Manual model ownership
 
 Controller Route Pools do not select or favor the model for `/plan-work`, **Implement Plan**, `/correct-work`, `/review-work`, or `/explain-work`. The human selects the primary model in Cursor. Workflow subagents are allowed only by inheritance: Task calls omit a model override, and declared plugin agents use `model: inherit`. The primary remains responsible for integration and closeout. Named post-implementation auditors and the explainer are additionally read-only.

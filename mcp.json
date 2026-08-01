@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "geldmacher-workflow": {
+    "workflow": {
       "command": "node",
       "args": [
         "${CURSOR_PLUGIN_ROOT}/dist/workflow-mcp.mjs"

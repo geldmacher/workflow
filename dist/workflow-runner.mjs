@@ -17601,7 +17601,7 @@ function checkpoint(worktreePath, label) {
   git(worktreePath, ["add", "-A"]);
   const staged = git(worktreePath, ["diff", "--cached", "--name-only"]);
   if (!staged) return { commit: git(worktreePath, ["rev-parse", "HEAD"]), empty: true };
-  git(worktreePath, ["-c", "user.name=Geldmacher Workflow", "-c", "user.email=workflow@local.invalid", "commit", "-m", `workflow checkpoint: ${label}`]);
+  git(worktreePath, ["-c", "user.name=Workflow", "-c", "user.email=workflow@local.invalid", "commit", "-m", `workflow checkpoint: ${label}`]);
   return { commit: git(worktreePath, ["rev-parse", "HEAD"]), empty: false };
 }
 function rollbackToCheckpoint(worktreePath, commit) {

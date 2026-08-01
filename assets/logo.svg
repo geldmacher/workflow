@@ -1,9 +1,40 @@
 <svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
-  <title id="title">Workflow outer-loop logo</title>
-  <desc id="desc">Three connected steps representing planning, review, and correction.</desc>
-  <rect width="128" height="128" rx="28" fill="#111827"/>
-  <path d="M35 43H70C82.1503 43 92 52.8497 92 65V65C92 77.1503 82.1503 87 70 87H39" stroke="#F9FAFB" stroke-width="10" stroke-linecap="round"/>
-  <circle cx="35" cy="43" r="13" fill="#60A5FA"/>
-  <circle cx="92" cy="65" r="13" fill="#34D399"/>
-  <circle cx="39" cy="87" r="13" fill="#FBBF24"/>
+  <title id="title">Workflow logo</title>
+  <desc id="desc">A continuous W-shaped workflow route with a returning review loop, representing controlled planning, delivery, evidence, and learning.</desc>
+  <defs>
+    <linearGradient id="background" x1="18" y1="12" x2="112" y2="120" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#18233D"/>
+      <stop offset="0.52" stop-color="#101827"/>
+      <stop offset="1" stop-color="#070B14"/>
+    </linearGradient>
+    <linearGradient id="route" x1="26" y1="44" x2="102" y2="83" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#60A5FA"/>
+      <stop offset="0.42" stop-color="#A78BFA"/>
+      <stop offset="0.69" stop-color="#FBBF24"/>
+      <stop offset="1" stop-color="#34D399"/>
+    </linearGradient>
+    <linearGradient id="loop" x1="38" y1="17" x2="100" y2="50" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#93C5FD"/>
+      <stop offset="0.52" stop-color="#C4B5FD"/>
+      <stop offset="1" stop-color="#6EE7B7"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="translate(64 58) rotate(90) scale(70)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#334A74" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#0B1020" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="128" height="128" rx="28" fill="url(#background)"/>
+  <rect x="1" y="1" width="126" height="126" rx="27" stroke="#FFFFFF" stroke-opacity="0.1" stroke-width="2"/>
+  <rect x="8" y="8" width="112" height="112" rx="22" fill="url(#glow)"/>
+
+  <path d="M101 45C96 28 82 20 65 20C47 20 33 30 27 47" stroke="url(#loop)" stroke-width="6" stroke-linecap="round"/>
+  <path d="M43 21L36 31L48 33" stroke="#93C5FD" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M27 47L44.5 87L64 57L82 87L101 45" stroke="#050810" stroke-opacity="0.72" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M27 47L44.5 87L64 57L82 87L101 45" stroke="url(#route)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <circle cx="27" cy="47" r="7" fill="#60A5FA" stroke="#E0F2FE" stroke-width="3"/>
+  <path d="M64 48L73 57L64 66L55 57L64 48Z" fill="#A78BFA" stroke="#F5F3FF" stroke-width="3" stroke-linejoin="round"/>
+  <circle cx="101" cy="45" r="7" fill="#34D399" stroke="#D1FAE5" stroke-width="3"/>
 </svg>

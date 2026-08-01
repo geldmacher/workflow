@@ -90,7 +90,7 @@ async function main() {
   const options = {
     apiKey,
     model: job.model,
-    name: `Geldmacher Workflow: ${job.role}`,
+    name: `Workflow: ${job.role}`,
     mode: job.mode,
     local: {
       cwd: job.cwd,
