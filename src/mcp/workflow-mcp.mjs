@@ -15,6 +15,9 @@ import { resolveCapabilities } from "../controller/capabilities.mjs";
 import { approveVerificationProfile, auditVerificationProfile, draftVerificationProfile, inspectVerificationProfile, recordVerificationProof } from "../controller/verification-profile.mjs";
 import { awaitCooperativeExit, clearWorkerControl, writeWorkerControl } from "../controller/control.mjs";
 import { deriveManualWorkflowSnapshot } from "../controller/manual-status.mjs";
+import { ArtifactHandoffStore } from "../controller/artifact-handoff.mjs";
+import { buildDeliveryEvidence, persistCloseout } from "../controller/delivery-closeout.mjs";
+import { inspectArtifactText } from "../../scripts/validate-artifact.source.mjs";
 import {
   PLUGIN_VERSION,
   assertCompatibleRun,
@@ -59,9 +62,16 @@ function context(workspaceRoot) {
   const stateRoot = defaultStateRoot(workspace);
   const store = new RunStore(stateRoot);
   const preparationStore = new PreparationStore(stateRoot);
+  const handoffStore = new ArtifactHandoffStore(stateRoot, pluginRoot);
   const engine = new WorkflowEngine({ workspaceRoot: workspace, store, preparationStore, pluginRoot, stateRoot });
   const planningEngine = new PlanningEngine({ workspaceRoot: workspace, store: preparationStore, pluginRoot, stateRoot });
-  return { workspace, stateRoot, store, preparationStore, engine, planningEngine };
+  return { workspace, stateRoot, store, preparationStore, handoffStore, engine, planningEngine };
+}
+
+function handoffContext(workspaceRoot) {
+  const workspace = realpathSync(resolve(workspaceRoot));
+  const stateRoot = defaultStateRoot(workspace);
+  return { workspace, stateRoot, handoffStore: new ArtifactHandoffStore(stateRoot, pluginRoot) };
 }
 
 function runnerPath() {
@@ -104,11 +114,15 @@ async function watchEvents(readEvents, afterEvent, timeoutMs) {
 }
 
 server.registerTool("workflow_prepare", {
-  description: "Run the configured planner pool in a read-only pre-run phase and produce either one approvable schema-4 intent root or manual intent questions.",
+  description: "Run the configured planner pool in a read-only pre-run phase and produce either one approvable schema-5 intent root or manual intent questions.",
   inputSchema: {
     workspace_root: z.string().min(1),
     goal: z.string().min(1).optional(),
     root_plan: z.string().min(1).optional(),
+    root_artifacts: z.array(z.object({
+      label: z.string().min(1).max(200),
+      text: z.string().min(1).max(250_000),
+    })).min(1).max(32).optional(),
     requested_profile: z.enum(["supervised", "autonomous"]),
     route_profile: z.string().min(1).default("default"),
     expected_revision: z.literal(0),
@@ -117,10 +131,13 @@ server.registerTool("workflow_prepare", {
 }, async (input) => {
   try {
     if (Boolean(input.goal) === Boolean(input.root_plan)) throw new Error("workflow_prepare requires exactly one of goal or root_plan");
+    if (input.root_artifacts && !input.root_plan) throw new Error("workflow_prepare root_artifacts require root_plan");
+    if ((input.root_artifacts ?? []).reduce((total, artifact) => total + artifact.text.length, 0) > 1_000_000) throw new Error("workflow_prepare root_artifacts exceed 1000000 characters");
     const { workspace, stateRoot, preparationStore, planningEngine } = context(input.workspace_root);
     const created = planningEngine.prepare({
       goal: input.goal,
       rootPlan: input.root_plan,
+      rootArtifacts: input.root_artifacts,
       requestedProfile: input.requested_profile,
       routeProfile: input.route_profile,
       idempotencyKey: input.idempotency_key,
@@ -161,13 +178,140 @@ server.registerTool("workflow_start", {
   } catch (error) { return result({ error: error.message }, true); }
 });
 
+const artifactInput = z.object({
+  label: z.string().min(1).max(200),
+  text: z.string().min(1).max(250_000),
+});
+
+const checkEvidenceInput = z.object({
+  check_id: z.string().regex(/^CHECK-[1-9][0-9]*$/),
+  feature_id: z.string().min(1).nullable().optional(),
+  grade: z.enum(["verified", "supported", "partial", "unavailable", "failed"]),
+  surface: z.string().min(1).optional(),
+  method: z.string().min(1).optional(),
+  expected: z.string().min(1).optional(),
+  observed: z.string().min(1),
+  repetitions: z.number().int().min(0).optional(),
+  artifact_hashes: z.array(z.string().regex(/^[a-f0-9]{64}$/)).max(64).optional(),
+  limitations: z.array(z.string().min(1)).max(64).optional(),
+});
+
+server.registerTool("workflow_artifact_record", {
+  description: "Validate and atomically cache exact Schema-5 work-plan or work-review artifacts as non-authoritative cross-context handoff data.",
+  inputSchema: {
+    workspace_root: z.string().min(1),
+    artifacts: z.array(artifactInput).min(1).max(32),
+  },
+}, async (input) => {
+  try {
+    if (input.artifacts.reduce((total, artifact) => total + artifact.text.length, 0) > 1_000_000) throw new Error("handoff artifact bundle exceeds 1000000 characters");
+    for (const entry of input.artifacts) {
+      const inspected = inspectArtifactText(entry.text, pluginRoot);
+      if (inspected.errors.length > 0 || inspected.artifact?.fields?.schema !== 5 || !["work-plan", "work-review"].includes(inspected.artifact?.fields?.artifact)) {
+        throw new Error("workflow_artifact_record accepts only valid Schema-5 work-plan and work-review artifacts");
+      }
+    }
+    const { workspace, handoffStore } = handoffContext(input.workspace_root);
+    return result({ workspace_root: workspace, ...handoffStore.record(input.artifacts), handoff_authoritative: false });
+  } catch (error) { return result({ error: error.message }, true); }
+});
+
+server.registerTool("workflow_artifact_context", {
+  description: "Return the exact revalidated non-authoritative Schema-5 artifact chain cached for one Root, optionally hash-bound to the supplied active native Plan.",
+  inputSchema: {
+    workspace_root: z.string().min(1),
+    root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
+    root_plan: z.string().min(1).max(250_000).optional(),
+  },
+}, async (input) => {
+  try {
+    const { workspace, handoffStore } = handoffContext(input.workspace_root);
+    return result({ workspace_root: workspace, handoff_authoritative: false, ...handoffStore.context(input.root_plan_id, input.root_plan ?? null) });
+  } catch (error) { return result({ error: error.message }, true); }
+});
+
+server.registerTool("workflow_closeout", {
+  description: "Deterministically build, validate, and cache one Schema-5 delivery-evidence artifact from observed Checks without accepting caller-supplied identity, hashes, grade, status, or topology.",
+  inputSchema: {
+    workspace_root: z.string().min(1),
+    root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
+    root_plan: z.string().min(1).max(250_000).optional(),
+    artifacts: z.array(artifactInput).min(1).max(32).optional(),
+    effective_profile: z.enum(["manual", "supervised", "autonomous"]).default("manual"),
+    strategy_revision: z.number().int().min(0).default(0),
+    changed_paths: z.array(z.string().min(1).max(1000)).max(1000).default([]),
+    check_evidence: z.array(checkEvidenceInput).max(128).default([]),
+    repository_snapshot: z.object({
+      head: z.string().min(1).optional(),
+      working_tree: z.string().min(1).optional(),
+      relevant_fingerprints: z.string().min(1).optional(),
+      known_failures: z.string().min(1).optional(),
+    }).optional(),
+  },
+}, async (input) => {
+  try {
+    if ((input.artifacts ?? []).reduce((total, artifact) => total + artifact.text.length, 0) > 1_000_000) throw new Error("closeout artifact bundle exceeds 1000000 characters");
+    const { workspace, handoffStore } = handoffContext(input.workspace_root);
+    let cached = [];
+    try { cached = handoffStore.context(input.root_plan_id, input.root_plan ?? null).artifacts.map(({ label, text }) => ({ label, text })); }
+    catch (error) {
+      if (!input.root_plan || !/no handoff Root/.test(error.message)) throw error;
+    }
+    const merged = new Map();
+    for (const entry of [...cached, ...(input.artifacts ?? [])]) {
+      const prior = merged.get(entry.label);
+      if (prior && prior !== entry.text) throw new Error(`closeout artifact label ${entry.label} has conflicting text`);
+      merged.set(entry.label, entry.text);
+    }
+    const rootPlan = input.root_plan ?? [...merged.values()].find((text) => {
+      const inspected = inspectArtifactText(text, pluginRoot);
+      return inspected.artifact?.fields?.artifact === "work-plan" && inspected.artifact.fields.id === input.root_plan_id;
+    });
+    if (!rootPlan) throw new Error("workflow_closeout requires the active Root text or a cached Root");
+    const closeout = buildDeliveryEvidence({
+      rootPlanText: rootPlan,
+      artifacts: [...merged].map(([label, text]) => ({ label, text })),
+      checkEvidence: input.check_evidence,
+      changedPaths: input.changed_paths,
+      strategyRevision: input.strategy_revision,
+      effectiveProfile: input.effective_profile,
+      repositorySnapshot: input.repository_snapshot ?? null,
+      pluginRoot,
+    });
+    if (!closeout.artifact) throw new Error("closeout resolved an evidence tip without its exact artifact text");
+    const artifactId = closeout.fields.id;
+    const persisted = persistCloseout({
+      handoffStore,
+      rootPlanText: rootPlan,
+      artifacts: [...merged].map(([label, text]) => ({ label, text })),
+      closeout,
+    });
+    return result({
+      workspace_root: workspace,
+      root_plan_id: input.root_plan_id,
+      delivery_evidence_id: artifactId,
+      artifact: persisted.artifact,
+      artifact_hash: persisted.artifact_hash ?? createHash("sha256").update(persisted.artifact).digest("hex"),
+      evidence_mode: persisted.fields.evidence_mode,
+      overall_grade: persisted.fields.overall_grade,
+      status: persisted.fields.status,
+      duplicate: persisted.duplicate,
+      handoff_persisted: persisted.handoff_persisted,
+      handoff_authoritative: false,
+      ...(persisted.artifact_set_hash ? { artifact_set_hash: persisted.artifact_set_hash } : {}),
+      ...(persisted.warning ? { warning: persisted.warning } : {}),
+    });
+  } catch (error) { return result({ error: error.message }, true); }
+});
+
 server.registerTool("workflow_status", {
-  description: "Return current status for one preparation, adaptive run, or stateless manual schema-4 artifact chain; Workflow-3 subjects remain read-only.",
+  description: "Return current status for one preparation, adaptive run, or explicit/uniquely active stateless manual schema-5 artifact chain; Workflow-3/4 subjects remain read-only.",
   inputSchema: {
     workspace_root: z.string().min(1),
     run_id: z.string().min(1).optional(),
     preparation_id: z.string().min(1).optional(),
     root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/).optional(),
+    manual_acceptance: z.enum(["provisional"]).optional(),
     artifacts: z.array(z.object({
       label: z.string().min(1).max(200),
       text: z.string().min(1).max(250_000),
@@ -177,14 +321,15 @@ server.registerTool("workflow_status", {
   try {
     const subjectCount = [input.run_id, input.preparation_id, input.root_plan_id].filter(Boolean).length;
     if (subjectCount > 1) throw new Error("workflow_status accepts only one of run_id, preparation_id, or root_plan_id");
-    if (input.root_plan_id) {
-      if (!input.artifacts) throw new Error("manual workflow_status requires artifacts with root_plan_id");
+    if (input.artifacts && (input.run_id || input.preparation_id)) throw new Error("workflow_status artifacts cannot be combined with a controller subject");
+    if (input.root_plan_id && !input.artifacts) throw new Error("manual workflow_status requires artifacts with root_plan_id");
+    if (input.artifacts) {
       if (input.artifacts.reduce((total, artifact) => total + artifact.text.length, 0) > 1_000_000) throw new Error("manual workflow_status artifact bundle exceeds 1000000 characters");
       const workspace = realpathSync(resolve(input.workspace_root));
-      const manual = deriveManualWorkflowSnapshot({ rootPlanId: input.root_plan_id, artifacts: input.artifacts, pluginRoot });
+      const manual = deriveManualWorkflowSnapshot({ rootPlanId: input.root_plan_id, artifacts: input.artifacts, pluginRoot, manualAcceptance: input.manual_acceptance ?? null });
       return result({ subject_kind: "artifact-chain", run: null, ...manual, workspace_root: workspace });
     }
-    if (input.artifacts) throw new Error("workflow_status artifacts require root_plan_id");
+    if (input.manual_acceptance) throw new Error("workflow_status manual_acceptance requires current-task artifacts");
     const { store, preparationStore, engine } = context(input.workspace_root);
     if (input.run_id) {
       const run = store.get(input.run_id);
@@ -267,7 +412,7 @@ server.registerTool("workflow_control", {
         engine.update(input.run_id, (draft) => ({ ...draft, lifecycle: "paused", next_action: "resume" }), "run-paused");
       } else if (input.action === "resume") {
         if (!["paused", "interrupted"].includes(before.lifecycle)) throw new Error(`cannot resume lifecycle ${before.lifecycle}`);
-        if (!before.plan) throw new Error("cannot resume without a complete schema-4 intent root");
+        if (!before.plan) throw new Error("cannot resume without a complete schema-5 intent root");
         clearWorkerControl(store.runDirectory(input.run_id));
         engine.update(input.run_id, (draft) => ({ ...draft, lifecycle: "queued", blockers: [], next_action: "execute-strategy" }), "run-resumed");
       } else if (input.action === "stop") {

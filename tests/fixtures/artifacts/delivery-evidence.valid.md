@@ -1,6 +1,6 @@
 ---
 artifact: delivery-evidence
-schema: 4
+schema: 5
 id: de-adaptive-retry
 status: complete
 root_plan_id: wp-adaptive-retry
@@ -8,9 +8,12 @@ subject_id: wp-adaptive-retry
 source_review_id: null
 predecessor_evidence_id: null
 representation: full
-intent_hash: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+intent_hash: 081a85f710d13d9b62bc78c9f3be25d39f29e7cba5b87ce052b0aeeccb94aa30
 strategy_revision: 1
+evidence_mode: full
 overall_grade: verified
+changed_paths:
+  - src/retry.mjs
 affected_objectives:
   - OBJ-1
 reused_objectives: []
@@ -41,6 +44,12 @@ The authorized repository change is complete and verified.
 | Objective ID | Status | Evidence |
 |---|---|---|
 | OBJ-1 | achieved | CHECK-1 passed twice |
+
+## Changes
+
+| Path or Symbol | Change | Objective Coverage |
+|---|---|---|
+| `src/retry.mjs` | Made retry handling deterministic. | OBJ-1 |
 
 ## Repository snapshot
 

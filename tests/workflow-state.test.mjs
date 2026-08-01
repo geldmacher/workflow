@@ -49,9 +49,9 @@ test("accepted-provisional and blocked are honest terminal states", () => {
 test("pause, interruption, and invalid root remain human controlled", () => {
   assert.deepEqual(deriveWorkflowState({ ...approved, lifecycle: "paused" }).allowed_actions, ["resume", "stop"]);
   assert.equal(deriveWorkflowState({ ...approved, lifecycle: "interrupted" }).next_action, "reconcile-and-resume");
-  assert.equal(deriveWorkflowState({ ...approved, artifact_chain_valid: false }).next_action, "create-schema-4-root");
+  assert.equal(deriveWorkflowState({ ...approved, artifact_chain_valid: false }).next_action, "create-schema-5-root");
 });
 
-test("state vocabulary exports Workflow 4 additions", () => {
+test("state vocabulary exports Workflow 5 delivery states", () => {
   for (const state of ["strategy-ready", "baseline-verification", "delivery-ready-verified", "delivery-ready-provisional", "accepted-provisional", "blocked"]) assert.ok(workflowStates.includes(state));
 });

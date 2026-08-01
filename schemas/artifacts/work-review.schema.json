@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "urn:geldmacher:cursor-artifact:work-review:4",
+  "$id": "urn:geldmacher:cursor-artifact:work-review:5",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -10,7 +10,7 @@
   ],
   "properties": {
     "artifact": { "const": "work-review" },
-    "schema": { "const": 4 },
+    "schema": { "const": 5 },
     "id": { "type": "string", "pattern": "^wr-[A-Za-z0-9][A-Za-z0-9-]*$" },
     "status": { "enum": ["complete"] },
     "created_at": { "type": "string", "format": "date-time" },

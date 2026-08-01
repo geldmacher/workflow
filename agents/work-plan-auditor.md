@@ -2,6 +2,7 @@
 name: work-plan-auditor
 description: Audit assurance and executable root controls.
 model: inherit
+readonly: true
 ---
 
 Audit the native plan available in the current context together with relevant repository evidence. Do not require a particular file path or serialization mechanism; request missing decision-relevant plan content only when it cannot be inspected through Cursor's available capabilities.

@@ -58,14 +58,14 @@ function invalid(rootPlanId, entries, observedAt, blockers, diagnostics = []) {
 }
 
 function referencedIds(fields) {
+  if (fields.artifact === "work-plan") return [fields.predecessor_plan_id, fields.replan_source_review_id];
   if (fields.artifact === "delivery-evidence") return [fields.predecessor_evidence_id, fields.source_review_id];
   if (fields.artifact === "work-review") return [fields.latest_evidence_id, fields.predecessor_review_id];
   return [];
 }
 
-export function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot, observedAt = new Date().toISOString() }) {
-  if (!/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(rootPlanId ?? ""))) throw new Error("manual status requires a valid wp-* root_plan_id");
-  if (!Array.isArray(artifacts) || artifacts.length === 0) return incomplete(rootPlanId, [], observedAt, ["manual-artifact-context-missing"]);
+function normalizeEntries(artifacts) {
+  if (!Array.isArray(artifacts) || artifacts.length === 0) return [];
   const entries = artifacts.map((entry, index) => {
     if (!entry || typeof entry.label !== "string" || entry.label.trim() === "" || typeof entry.text !== "string" || entry.text.trim() === "") {
       throw new Error(`manual status artifact ${index + 1} requires non-empty label and text`);
@@ -73,22 +73,72 @@ export function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot
     return { label: entry.label, text: entry.text };
   });
   if (new Set(entries.map((entry) => entry.label)).size !== entries.length) throw new Error("manual status artifact labels must be unique");
+  return entries;
+}
+
+function activeRootFromEntries(entries, pluginRoot) {
+  const roots = entries
+    .map((entry) => inspectArtifactText(entry.text, pluginRoot).artifact)
+    .filter((artifact) => artifact?.fields?.artifact === "work-plan");
+  if (roots.length === 0) throw new Error("manual active root resolution requires a current work-plan artifact");
+  const ids = new Set(roots.map((root) => root.fields.id));
+  if (ids.size !== roots.length) throw new Error("manual active root resolution found duplicate work-plan IDs");
+  const referenced = new Set(roots.map((root) => root.fields.predecessor_plan_id).filter((id) => ids.has(id)));
+  const tips = roots.filter((root) => !referenced.has(root.fields.id)).map((root) => root.fields.id).sort();
+  if (tips.length === 0) throw new Error("manual active root resolution found cyclic work-plan lineage");
+  if (tips.length > 1) throw new Error(`manual active root resolution is ambiguous: ${tips.join(", ")}`);
+  return tips[0];
+}
+
+export function resolveManualRootPlanId({ artifacts, pluginRoot }) {
+  return activeRootFromEntries(normalizeEntries(artifacts), pluginRoot);
+}
+
+export function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot, observedAt = new Date().toISOString(), manualAcceptance = null }) {
+  if (manualAcceptance !== null && manualAcceptance !== "provisional") throw new Error("manual acceptance must be provisional");
+  if (!Array.isArray(artifacts) || artifacts.length === 0) {
+    if (manualAcceptance) throw new Error("manual provisional acceptance requires a complete current Schema 5 artifact chain");
+    if (!rootPlanId) throw new Error("manual active root resolution requires current-task artifacts");
+    return incomplete(rootPlanId, [], observedAt, ["manual-artifact-context-missing"]);
+  }
+  const entries = normalizeEntries(artifacts);
+  rootPlanId ??= activeRootFromEntries(entries, pluginRoot);
+  if (!/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(rootPlanId))) throw new Error("manual status requires a valid wp-* root_plan_id");
 
   const inspected = entries.map((entry) => ({ entry, inspection: inspectArtifactText(entry.text, pluginRoot) }));
   const unparseable = inspected.filter(({ inspection }) => !inspection.artifact?.fields?.artifact);
-  if (unparseable.length > 0) return invalid(rootPlanId, entries, observedAt, unparseable.flatMap(({ entry, inspection }) => inspection.errors.map((error) => `${entry.label}: ${error}`)));
+  if (unparseable.length > 0) {
+    if (manualAcceptance) throw new Error("manual provisional acceptance requires a parseable current Schema 5 artifact chain");
+    return invalid(rootPlanId, entries, observedAt, unparseable.flatMap(({ entry, inspection }) => inspection.errors.map((error) => `${entry.label}: ${error}`)));
+  }
 
+  const rootById = new Map(inspected
+    .filter(({ inspection }) => inspection.artifact?.fields?.artifact === "work-plan")
+    .map(({ inspection }) => [inspection.artifact.fields.id, inspection.artifact]));
+  const lineageRootIds = new Set();
+  let lineageCursor = rootPlanId;
+  while (lineageCursor && !lineageRootIds.has(lineageCursor)) {
+    lineageRootIds.add(lineageCursor);
+    lineageCursor = rootById.get(lineageCursor)?.fields.predecessor_plan_id ?? null;
+  }
   const related = inspected.filter(({ inspection }) => {
     const fields = inspection.artifact.fields;
-    return fields.id === rootPlanId || fields.root_plan_id === rootPlanId;
+    return lineageRootIds.has(fields.id) || lineageRootIds.has(fields.root_plan_id);
   });
   const rootRecords = related.filter(({ inspection }) => inspection.artifact.fields.artifact === "work-plan" && inspection.artifact.fields.id === rootPlanId);
-  if (rootRecords.length === 0) return incomplete(rootPlanId, entries, observedAt, ["manual-root-artifact-missing"]);
-  if (rootRecords.length > 1) return invalid(rootPlanId, entries, observedAt, ["manual-root-artifact-ambiguous"]);
+  if (rootRecords.length === 0) {
+    if (manualAcceptance) throw new Error("manual provisional acceptance requires the current root artifact");
+    return incomplete(rootPlanId, entries, observedAt, ["manual-root-artifact-missing"]);
+  }
+  if (rootRecords.length > 1) {
+    if (manualAcceptance) throw new Error("manual provisional acceptance requires one unambiguous root artifact");
+    return invalid(rootPlanId, entries, observedAt, ["manual-root-artifact-ambiguous"]);
+  }
 
   const relatedEntries = related.map(({ entry }) => entry);
   const schemas = new Set(related.map(({ inspection }) => inspection.artifact.fields.schema));
   if (schemas.size === 1 && schemas.has(3)) {
+    if (manualAcceptance) throw new Error("Workflow 3 artifact chains are read-only and cannot be accepted");
     const input = baseInput(rootPlanId, relatedEntries, observedAt);
     return {
       snapshot: deriveWorkflowState({ ...input, lifecycle: "stopped", compatibility: "read-only-workflow-3", blockers: ["legacy-workflow-3-read-only"] }),
@@ -96,19 +146,40 @@ export function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot
       diagnostics: ["Workflow 3 artifacts are preserved as read-only history and are not converted"],
     };
   }
-  if (schemas.size > 1) return invalid(rootPlanId, relatedEntries, observedAt, ["mixed Workflow artifact schemas are not supported"]);
+  if (schemas.size === 1 && schemas.has(4)) {
+    if (manualAcceptance) throw new Error("Workflow 4 artifact chains are read-only and cannot be accepted");
+    const input = baseInput(rootPlanId, relatedEntries, observedAt);
+    return {
+      snapshot: deriveWorkflowState({ ...input, lifecycle: "stopped", compatibility: "read-only-workflow-4", blockers: ["legacy-workflow-4-read-only"] }),
+      artifact_summary: summary(rootPlanId, relatedEntries),
+      diagnostics: ["Workflow 4 artifacts are preserved as read-only history and are not converted"],
+    };
+  }
+  if (schemas.size > 1 || !schemas.has(5)) {
+    if (manualAcceptance) throw new Error("manual provisional acceptance rejects mixed or non-current Workflow schemas");
+    return invalid(rootPlanId, relatedEntries, observedAt, ["mixed or unsupported Workflow artifact schemas are not supported"]);
+  }
   const individualErrors = related.flatMap(({ entry, inspection }) => inspection.errors.map((error) => `${entry.label}: ${error}`));
-  if (individualErrors.length > 0) return invalid(rootPlanId, relatedEntries, observedAt, individualErrors, related.flatMap(({ inspection }) => inspection.diagnostics));
+  if (individualErrors.length > 0) {
+    if (manualAcceptance) throw new Error(`manual provisional acceptance rejects an invalid artifact chain: ${individualErrors.join("; ")}`);
+    return invalid(rootPlanId, relatedEntries, observedAt, individualErrors, related.flatMap(({ inspection }) => inspection.diagnostics));
+  }
 
   const ids = new Set(related.map(({ inspection }) => inspection.artifact.fields.id));
   const missingReferences = [];
   for (const { entry, inspection } of related) {
     for (const reference of referencedIds(inspection.artifact.fields)) if (reference && !ids.has(reference)) missingReferences.push(`${entry.label}: manual-artifact-context-missing:${reference}`);
   }
-  if (missingReferences.length > 0) return incomplete(rootPlanId, relatedEntries, observedAt, missingReferences);
+  if (missingReferences.length > 0) {
+    if (manualAcceptance) throw new Error("manual provisional acceptance requires every referenced artifact");
+    return incomplete(rootPlanId, relatedEntries, observedAt, missingReferences);
+  }
 
   const chain = inspectArtifactSet(relatedEntries.map(({ label, text }) => [label, text]), pluginRoot);
-  if (chain.errors.length > 0) return invalid(rootPlanId, relatedEntries, observedAt, chain.errors, chain.diagnostics);
+  if (chain.errors.length > 0) {
+    if (manualAcceptance) throw new Error(`manual provisional acceptance rejects an invalid artifact chain: ${chain.errors.join("; ")}`);
+    return invalid(rootPlanId, relatedEntries, observedAt, chain.errors, chain.diagnostics);
+  }
   const tips = effectiveCliSummary(chain);
   const evidenceTipId = tips.evidence_tips[rootPlanId] ?? null;
   const reviewTipId = tips.review_tips[rootPlanId] ?? null;
@@ -118,6 +189,18 @@ export function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot
   const correctionEvidencePendingReview = Boolean(review
     && evidence?.fields.source_review_id === review.fields.id
     && evidence?.fields.subject_id === review.fields.correction_id);
+  const acceptanceEligible = root?.fields.profile_max === "manual"
+    && evidence
+    && review
+    && evidence.fields.status !== "blocked"
+    && evidence.fields.overall_grade !== "failed"
+    && !(evidence.fields.check_evidence ?? []).some((check) => check.grade === "failed")
+    && review.fields.delivery_status === "provisional"
+    && review.fields.next_action === "accept-provisional"
+    && !correctionEvidencePendingReview;
+  if (manualAcceptance && !acceptanceEligible) {
+    throw new Error("manual provisional acceptance requires the unique current provisional review tip, no failed check, no blocked artifact, and no correction awaiting review");
+  }
   const input = {
     ...baseInput(rootPlanId, relatedEntries, observedAt),
     contract_level: root.fields.contract_level,
@@ -135,6 +218,12 @@ export function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot
     evidence_tip: evidenceTipId,
     review_tip: reviewTipId,
     review: review?.fields ?? null,
+    evidence_grade: evidence?.fields.overall_grade ?? null,
+    delivery_status: review?.fields.delivery_status ?? null,
+    intent_hash: evidence?.fields.intent_hash ?? null,
+    strategy_revision: evidence?.fields.strategy_revision ?? (evidence?.fields.evidence_mode === "lean" ? 0 : null),
+    manual_acceptance: manualAcceptance,
+    acceptance_basis_hash: manualAcceptance ? artifactSetHash(relatedEntries) : null,
     correction_evidence_pending_review: correctionEvidencePendingReview,
     root_review_complete: review?.fields.assessment === "achieved" && review?.fields.next_action === "none",
     more_slices: false,

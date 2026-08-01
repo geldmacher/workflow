@@ -1,6 +1,6 @@
 # Preparation and Intent approval
 
-`workflow_prepare` accepts exactly one goal or complete Schema-4 Intent Root, `supervised|autonomous`, a Route Profile, and an idempotency key. A supplied Root validates before duplicate resolution or model work. Preparation is read-only, budgeted, expiring, external state; material product questions stop without a Root. Technical validation repair resumes the same Planner context.
+`workflow_prepare` accepts exactly one goal or complete Schema-5 Intent Root, `supervised|autonomous`, a Route Profile, and an idempotency key. A supplied replan Root additionally sends its exact current lineage as `root_artifacts`; Preparation and Start both verify its unique tip and hash. A supplied Root validates before duplicate resolution or model work. Preparation is read-only, budgeted, expiring, external state; material product questions stop without a Root. Technical validation repair resumes the same Planner context.
 
 The resulting Root freezes the human Intent and `authority`. It uses `lean` for manual, `controlled` for supervised, and `certified` for autonomous. Certified Roots bind Verification Profile, task recipe, certified region, and Route Pool by hash. Human approval consumes exactly the displayed Root hash once and creates a Run; it does not accept delivery.
 

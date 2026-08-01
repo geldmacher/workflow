@@ -2,6 +2,7 @@
 name: delivery-auditor
 description: Audit delivery evidence against the root.
 model: inherit
+readonly: true
 ---
 
 Use the immutable root, latest full/delta evidence, relevant predecessors, current delivery, escalation reason, and concrete targets available through Cursor. Report `insufficient-evidence` only when a decision-relevant gap remains after using the capabilities available in the active mode.

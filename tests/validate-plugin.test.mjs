@@ -12,18 +12,23 @@ async function write(path, contents) {
 
 async function createFixture(explicitPaths) {
   const root = await mkdtemp(join(tmpdir(), "workflow-plugin-"));
-  const manifest = { name: "fixture-plugin", ...(explicitPaths ? { commands: "./commands/", agents: "./agents/", skills: "./skills/" } : {}) };
+  const manifest = { name: "fixture-plugin", hooks: "./hooks/hooks.json", ...(explicitPaths ? { commands: "./commands/", agents: "./agents/", skills: "./skills/" } : {}) };
   await write(join(root, ".cursor-plugin", "plugin.json"), JSON.stringify(manifest));
-  for (const name of ["auto-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-control", "work-models", "work-status", "work-verification", "work-watch"]) {
+  await write(join(root, "hooks", "hooks.json"), JSON.stringify({
+    version: 1,
+    hooks: { subagentStart: [{ type: "command", command: "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"", failClosed: true }] },
+  }));
+  await write(join(root, "hooks", "subagent-guard.mjs"), "process.stdout.write('{}');\n");
+  for (const name of ["accept-work", "auto-work", "close-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-control", "work-models", "work-status", "work-verification", "work-watch"]) {
     await write(join(root, "commands", `${name}.md`), `---\nname: ${name}\ndescription: Command.\n---\n`);
   }
   for (const name of ["delivery-auditor", "risk-auditor", "work-design-auditor", "work-explainer", "work-plan-auditor"]) {
-    await write(join(root, "agents", `${name}.md`), `---\nname: ${name}\ndescription: Audit.\nmodel: inherit\n---\n`);
+    await write(join(root, "agents", `${name}.md`), `---\nname: ${name}\ndescription: Audit.\nmodel: inherit\nreadonly: true\n---\n`);
   }
-  for (const name of ["work-automation", "work-execution", "work-explanation", "work-learning", "work-planning", "work-review"]) {
+  for (const name of ["work-automation", "work-closeout", "work-execution", "work-explanation", "work-learning", "work-planning", "work-review"]) {
     await write(join(root, "skills", name, "SKILL.md"), `---\nname: ${name}\ndescription: Skill.\n---\n`);
   }
-  for (const name of ["artifact-protocol", "automation-contract", "automation-preparation-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "learning-contract", "model-routing-contract", "plan-container-contract", "review-contract", "state-contract", "verification-profile-contract"]) {
+  for (const name of ["artifact-protocol", "automation-contract", "automation-preparation-contract", "closeout-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "learning-contract", "model-routing-contract", "plan-container-contract", "review-contract", "state-contract", "verification-profile-contract"]) {
     await write(join(root, "references", `${name}.md`), `# ${name}\n`);
   }
   await write(join(root, "schemas", "cursor-plan-wrapper.schema.json"), JSON.stringify({
@@ -35,9 +40,9 @@ async function createFixture(explicitPaths) {
   for (const name of ["delivery-evidence", "work-plan", "work-review"]) {
     await write(join(root, "schemas", "artifacts", `${name}.schema.json`), JSON.stringify({
       $schema: "http://json-schema.org/draft-07/schema#",
-      $id: `urn:geldmacher:cursor-artifact:${name}:4`,
+      $id: `urn:geldmacher:cursor-artifact:${name}:5`,
       additionalProperties: false,
-      properties: { schema: { const: 4 }, extensions: { type: "object", additionalProperties: true } },
+      properties: { schema: { const: 5 }, extensions: { type: "object", additionalProperties: true } },
       "x-markdown-sections": ["Section"],
     }));
   }
@@ -51,6 +56,20 @@ async function withFixture(explicit, run) {
 
 test("accepts default and explicit component discovery", async () => {
   for (const explicit of [false, true]) await withFixture(explicit, async (root) => assert.deepEqual(validatePlugin(root), []));
+});
+
+test("requires the exact bundled fail-closed subagent hook", async () => {
+  await withFixture(false, async (root) => {
+    const path = join(root, "hooks", "hooks.json");
+    const config = JSON.parse(await readFile(path, "utf8"));
+    config.hooks.subagentStart[0].command = "npx remote-hook@latest";
+    config.hooks.subagentStart[0].failClosed = false;
+    await writeFile(path, JSON.stringify(config));
+    const failures = validatePlugin(root).join("\n");
+    assert.match(failures, /bundled Node guard/);
+    assert.match(failures, /failClosed true/);
+    assert.match(failures, /must not install or resolve runtime dependencies/);
+  });
 });
 
 test("validates the private Marketplace entry and source binding when present", async () => {
@@ -84,11 +103,11 @@ test("artifact schema metadata is exact", async () => {
   await withFixture(false, async (root) => {
     const path = join(root, "schemas", "artifacts", "work-plan.schema.json");
     const schema = JSON.parse(await readFile(path, "utf8"));
-    schema.$id = "urn:geldmacher:cursor-artifact:wrong:4";
+    schema.$id = "urn:geldmacher:cursor-artifact:wrong:5";
     schema.$schema = "https://json-schema.org/draft/2020-12/schema";
     await writeFile(path, JSON.stringify(schema));
     const failures = validatePlugin(root).join("\n");
-    assert.match(failures, /schema id must equal urn:geldmacher:cursor-artifact:work-plan:4/);
+    assert.match(failures, /schema id must equal urn:geldmacher:cursor-artifact:work-plan:5/);
     assert.match(failures, /\$schema must be JSON Schema draft-07/);
   });
 });
@@ -129,13 +148,14 @@ test("rejects component path traversal", async () => {
   });
 });
 
-test("rejects malformed frontmatter and non-inherited agents", async () => {
+test("rejects malformed frontmatter and non-inherited or writable agents", async () => {
   await withFixture(false, async (root) => {
     await writeFile(join(root, "commands", "plan-work.md"), "---\nname: [\n---\n");
     await writeFile(join(root, "agents", "delivery-auditor.md"), "---\nname: delivery-auditor\ndescription: Audit.\n---\n");
     const failures = validatePlugin(root).join("\n");
     assert.match(failures, /invalid YAML/);
     assert.match(failures, /model must be inherit/);
+    assert.match(failures, /readonly must be true/);
   });
 });
 

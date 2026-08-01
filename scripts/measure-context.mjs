@@ -19,6 +19,7 @@ export const limits = Object.freeze({
     review_base: 2000,
     review_correction: 2500,
     correction: 2000,
+    closeout: 1800,
     learning: 2000,
     explanation: 1200,
   }),
@@ -29,19 +30,21 @@ export const limits = Object.freeze({
     control: 1500,
     models: 1500,
     verification: 1500,
+    acceptance: 1500,
   }),
   reviewerTokens: 650,
 });
-export const economicTargets = Object.freeze({ plan: 2000, correction: 2000, review: 2000, learning: 2000, explanation: 1200, automation: 1500 });
+export const economicTargets = Object.freeze({ plan: 2000, correction: 2000, closeout: 1800, review: 2000, learning: 2000, explanation: 1200, automation: 1500 });
 
 export const flowMatrix = Object.freeze({
   phase_flows: Object.freeze({
     plan_intake: Object.freeze(["commands/plan-work.md", "skills/work-planning/SKILL.md"]),
     plan_oneshot: Object.freeze(["commands/plan-work.md", "skills/work-planning/SKILL.md", "references/executable-contract.md", "references/plan-container-contract.md"]),
-    plan_compact_full: Object.freeze(["commands/plan-work.md", "skills/work-planning/SKILL.md", "references/executable-contract.md", "references/plan-container-contract.md", "references/design-contract.md"]),
+    plan_compact_full: Object.freeze(["commands/plan-work.md", "skills/work-planning/SKILL.md", "references/executable-contract.md", "references/plan-container-contract.md", "references/design-contract.md", "references/closeout-contract.md"]),
     review_base: Object.freeze(["commands/review-work.md", "skills/work-review/SKILL.md", "references/artifact-protocol.md", "references/delivery-evidence-contract.md", "references/review-contract.md"]),
     review_correction: Object.freeze(["commands/review-work.md", "skills/work-review/SKILL.md", "references/artifact-protocol.md", "references/delivery-evidence-contract.md", "references/review-contract.md", "references/correction-contract.md"]),
-    correction: Object.freeze(["commands/correct-work.md", "skills/work-execution/SKILL.md", "references/artifact-protocol.md", "references/correction-contract.md", "references/delivery-evidence-contract.md", "references/delivery-evidence-output-contract.md"]),
+    correction: Object.freeze(["commands/correct-work.md", "skills/work-execution/SKILL.md", "references/artifact-protocol.md", "references/correction-contract.md", "references/closeout-contract.md"]),
+    closeout: Object.freeze(["commands/close-work.md", "skills/work-closeout/SKILL.md", "references/artifact-protocol.md", "references/closeout-contract.md"]),
     learning: Object.freeze(["commands/learn-from-work.md", "skills/work-learning/SKILL.md", "references/artifact-protocol.md", "references/learning-contract.md"]),
     explanation: Object.freeze(["commands/explain-work.md", "skills/work-explanation/SKILL.md", "references/state-contract.md", "references/explanation-contract.md"]),
   }),
@@ -52,6 +55,7 @@ export const flowMatrix = Object.freeze({
     control: Object.freeze(["commands/work-control.md", "skills/work-automation/SKILL.md", "references/state-contract.md", "references/automation-contract.md"]),
     models: Object.freeze(["commands/work-models.md", "skills/work-automation/SKILL.md", "references/model-routing-contract.md"]),
     verification: Object.freeze(["commands/work-verification.md", "skills/work-automation/SKILL.md", "references/verification-profile-contract.md"]),
+    acceptance: Object.freeze(["commands/accept-work.md", "skills/work-automation/SKILL.md", "references/state-contract.md"]),
   }),
 });
 
@@ -227,6 +231,7 @@ export function measureContext(root = defaultRoot) {
     flows: {
       plan: phaseFlows.plan_oneshot,
       correction: phaseFlows.correction,
+      closeout: phaseFlows.closeout,
       review: phaseFlows.review_base,
       learning: phaseFlows.learning,
       explanation: phaseFlows.explanation,

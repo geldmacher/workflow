@@ -165,10 +165,10 @@ var require_code = __commonJS({
     function interpolate(x) {
       return typeof x == "number" || typeof x == "boolean" || x === null ? x : safeStringify(Array.isArray(x) ? x.join(",") : x);
     }
-    function stringify(x) {
+    function stringify2(x) {
       return new _Code(safeStringify(x));
     }
-    exports.stringify = stringify;
+    exports.stringify = stringify2;
     function safeStringify(x) {
       return JSON.stringify(x).replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
     }
@@ -2988,7 +2988,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve12.call(this, root, ref);
+      let _sch = resolve13.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a3 = root.localRefs) === null || _a3 === void 0 ? void 0 : _a3[ref];
         const { schemaId } = this.opts;
@@ -3015,7 +3015,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve12(root, ref) {
+    function resolve13(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3646,7 +3646,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve12(baseURI, relativeURI, options) {
+    function resolve13(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const resolved = resolveComponent(parse5(baseURI, schemelessOptions), parse5(relativeURI, schemelessOptions), schemelessOptions, true);
       schemelessOptions.skipEscape = true;
@@ -3910,7 +3910,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize: normalize3,
-      resolve: resolve12,
+      resolve: resolve13,
       resolveComponent,
       equal,
       serialize,
@@ -8367,7 +8367,7 @@ var require_stringify = __commonJS({
         props.push(doc.directives.tagString(tag));
       return props.join(" ");
     }
-    function stringify(item, ctx, onComment, onChompKeep) {
+    function stringify2(item, ctx, onComment, onChompKeep) {
       if (identity.isPair(item))
         return item.toString(ctx, onComment, onChompKeep);
       if (identity.isAlias(item)) {
@@ -8396,7 +8396,7 @@ var require_stringify = __commonJS({
 ${ctx.indent}${str}`;
     }
     exports.createStringifyContext = createStringifyContext;
-    exports.stringify = stringify;
+    exports.stringify = stringify2;
   }
 });
 
@@ -8406,7 +8406,7 @@ var require_stringifyPair = __commonJS({
     "use strict";
     var identity = require_identity();
     var Scalar = require_Scalar();
-    var stringify = require_stringify();
+    var stringify2 = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyPair({ key, value }, ctx, onComment, onChompKeep) {
       const { allNullValues, doc, indent, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx;
@@ -8428,7 +8428,7 @@ var require_stringifyPair = __commonJS({
       });
       let keyCommentDone = false;
       let chompKeep = false;
-      let str = stringify.stringify(key, ctx, () => keyCommentDone = true, () => chompKeep = true);
+      let str = stringify2.stringify(key, ctx, () => keyCommentDone = true, () => chompKeep = true);
       if (!explicitKey && !ctx.inFlow && str.length > 1024) {
         if (simpleKeys)
           throw new Error("With simple keys, single line scalar must not span more than 1024 characters");
@@ -8480,7 +8480,7 @@ ${indent}:`;
         ctx.indent = ctx.indent.substring(2);
       }
       let valueCommentDone = false;
-      const valueStr = stringify.stringify(value, ctx, () => valueCommentDone = true, () => chompKeep = true);
+      const valueStr = stringify2.stringify(value, ctx, () => valueCommentDone = true, () => chompKeep = true);
       let ws = " ";
       if (keyComment || vsb || vcb) {
         ws = vsb ? "\n" : "";
@@ -8621,7 +8621,7 @@ var require_addPairToJSMap = __commonJS({
     "use strict";
     var log = require_log();
     var merge2 = require_merge();
-    var stringify = require_stringify();
+    var stringify2 = require_stringify();
     var identity = require_identity();
     var toJS = require_toJS();
     function addPairToJSMap(ctx, map, { key, value }) {
@@ -8657,7 +8657,7 @@ var require_addPairToJSMap = __commonJS({
       if (typeof jsKey !== "object")
         return String(jsKey);
       if (identity.isNode(key) && ctx?.doc) {
-        const strCtx = stringify.createStringifyContext(ctx.doc, {});
+        const strCtx = stringify2.createStringifyContext(ctx.doc, {});
         strCtx.anchors = /* @__PURE__ */ new Set();
         for (const node of ctx.anchors.keys())
           strCtx.anchors.add(node.anchor);
@@ -8724,12 +8724,12 @@ var require_stringifyCollection = __commonJS({
   "node_modules/yaml/dist/stringify/stringifyCollection.js"(exports) {
     "use strict";
     var identity = require_identity();
-    var stringify = require_stringify();
+    var stringify2 = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyCollection(collection, ctx, options) {
       const flow = ctx.inFlow ?? collection.flow;
-      const stringify2 = flow ? stringifyFlowCollection : stringifyBlockCollection;
-      return stringify2(collection, ctx, options);
+      const stringify3 = flow ? stringifyFlowCollection : stringifyBlockCollection;
+      return stringify3(collection, ctx, options);
     }
     function stringifyBlockCollection({ comment, items }, ctx, { blockItemPrefix, flowChars, itemIndent, onChompKeep, onComment }) {
       const { indent, options: { commentString } } = ctx;
@@ -8754,7 +8754,7 @@ var require_stringifyCollection = __commonJS({
           }
         }
         chompKeep = false;
-        let str2 = stringify.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = true);
+        let str2 = stringify2.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = true);
         if (comment2)
           str2 += stringifyComment.lineComment(str2, itemIndent, commentString(comment2));
         if (chompKeep && comment2)
@@ -8821,7 +8821,7 @@ ${indent}${line}` : "\n";
         }
         if (comment)
           reqNewline = true;
-        let str = stringify.stringify(item, itemCtx, () => comment = null);
+        let str = stringify2.stringify(item, itemCtx, () => comment = null);
         reqNewline || (reqNewline = lines.length > linesAtValue || str.includes("\n"));
         if (i < items.length - 1) {
           str += ",";
@@ -10182,7 +10182,7 @@ var require_stringifyDocument = __commonJS({
   "node_modules/yaml/dist/stringify/stringifyDocument.js"(exports) {
     "use strict";
     var identity = require_identity();
-    var stringify = require_stringify();
+    var stringify2 = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyDocument(doc, options) {
       const lines = [];
@@ -10197,7 +10197,7 @@ var require_stringifyDocument = __commonJS({
       }
       if (hasDirectives)
         lines.push("---");
-      const ctx = stringify.createStringifyContext(doc, options);
+      const ctx = stringify2.createStringifyContext(doc, options);
       const { commentString } = ctx.options;
       if (doc.commentBefore) {
         if (lines.length !== 1)
@@ -10219,7 +10219,7 @@ var require_stringifyDocument = __commonJS({
           contentComment = doc.contents.comment;
         }
         const onChompKeep = contentComment ? void 0 : () => chompKeep = true;
-        let body = stringify.stringify(doc.contents, ctx, () => contentComment = null, onChompKeep);
+        let body = stringify2.stringify(doc.contents, ctx, () => contentComment = null, onChompKeep);
         if (contentComment)
           body += stringifyComment.lineComment(body, "", commentString(contentComment));
         if ((body[0] === "|" || body[0] === ">") && lines[lines.length - 1] === "---") {
@@ -10227,7 +10227,7 @@ var require_stringifyDocument = __commonJS({
         } else
           lines.push(body);
       } else {
-        lines.push(stringify.stringify(doc.contents, ctx));
+        lines.push(stringify2.stringify(doc.contents, ctx));
       }
       if (doc.directives?.docEnd) {
         if (doc.comment) {
@@ -12362,7 +12362,7 @@ var require_cst_scalar = __commonJS({
 var require_cst_stringify = __commonJS({
   "node_modules/yaml/dist/parse/cst-stringify.js"(exports) {
     "use strict";
-    var stringify = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
+    var stringify2 = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
     function stringifyToken(token) {
       switch (token.type) {
         case "block-scalar": {
@@ -12415,7 +12415,7 @@ var require_cst_stringify = __commonJS({
         res += stringifyToken(value);
       return res;
     }
-    exports.stringify = stringify;
+    exports.stringify = stringify2;
   }
 });
 
@@ -14145,7 +14145,7 @@ var require_public_api = __commonJS({
       }
       return doc.toJS(Object.assign({ reviver: _reviver }, options));
     }
-    function stringify(value, replacer, options) {
+    function stringify2(value, replacer, options) {
       let _replacer = null;
       if (typeof replacer === "function" || Array.isArray(replacer)) {
         _replacer = replacer;
@@ -14170,7 +14170,7 @@ var require_public_api = __commonJS({
     exports.parse = parse5;
     exports.parseAllDocuments = parseAllDocuments;
     exports.parseDocument = parseDocument2;
-    exports.stringify = stringify;
+    exports.stringify = stringify2;
   }
 });
 
@@ -14228,9 +14228,9 @@ var require_dist2 = __commonJS({
 
 // src/mcp/workflow-mcp.mjs
 import { spawn } from "node:child_process";
-import { createHash as createHash11, randomUUID as randomUUID5 } from "node:crypto";
-import { lstatSync as lstatSync2, mkdirSync as mkdirSync10, readFileSync as readFileSync10, realpathSync as realpathSync3, readdirSync as readdirSync3 } from "node:fs";
-import { dirname as dirname10, join as join13, resolve as resolve11 } from "node:path";
+import { createHash as createHash13, randomUUID as randomUUID6 } from "node:crypto";
+import { lstatSync as lstatSync2, mkdirSync as mkdirSync11, readFileSync as readFileSync11, realpathSync as realpathSync3, readdirSync as readdirSync4 } from "node:fs";
+import { dirname as dirname11, join as join14, resolve as resolve12 } from "node:path";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
 
 // node_modules/zod/v3/helpers/util.js
@@ -27101,7 +27101,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve12) => setTimeout(resolve12, pollInterval));
+        await new Promise((resolve13) => setTimeout(resolve13, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error2) {
@@ -27118,7 +27118,7 @@ var Protocol = class {
    */
   request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve12, reject) => {
+    return new Promise((resolve13, reject) => {
       const earlyReject = (error2) => {
         reject(error2);
       };
@@ -27196,7 +27196,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve12(parseResult.data);
+            resolve13(parseResult.data);
           }
         } catch (error2) {
           reject(error2);
@@ -27457,12 +27457,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve12, reject) => {
+    return new Promise((resolve13, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve12, interval);
+      const timeoutId = setTimeout(resolve13, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -28553,7 +28553,7 @@ var McpServer = class {
     let task = createTaskResult.task;
     const pollInterval = task.pollInterval ?? 5e3;
     while (task.status !== "completed" && task.status !== "failed" && task.status !== "cancelled") {
-      await new Promise((resolve12) => setTimeout(resolve12, pollInterval));
+      await new Promise((resolve13) => setTimeout(resolve13, pollInterval));
       const updatedTask = await extra.taskStore.getTask(taskId);
       if (!updatedTask) {
         throw new McpError(ErrorCode.InternalError, `Task ${taskId} not found during polling`);
@@ -29217,12 +29217,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve12) => {
+    return new Promise((resolve13) => {
       const json = serializeMessage(message);
       if (this._stdout.write(json)) {
-        resolve12();
+        resolve13();
       } else {
-        this._stdout.once("drain", resolve12);
+        this._stdout.once("drain", resolve13);
       }
     });
   }
@@ -29235,11 +29235,11 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
 // src/controller/protocol.mjs
-var PLUGIN_VERSION = "4.0.0";
-var ARTIFACT_SCHEMA = 4;
+var PLUGIN_VERSION = "5.0.0";
+var ARTIFACT_SCHEMA = 5;
 var RUN_RECORD_SCHEMA = 2;
 var PREPARATION_RECORD_SCHEMA = 2;
-var CONTROLLER_PROTOCOL = 4;
+var CONTROLLER_PROTOCOL = 5;
 var LEGACY_WORKFLOW_3 = Object.freeze({
   plugin_version: "3.0.0",
   artifact_schema: 3,
@@ -29247,6 +29247,29 @@ var LEGACY_WORKFLOW_3 = Object.freeze({
   preparation_record_schema: 1,
   controller_protocol: 3
 });
+var LEGACY_WORKFLOW_4 = Object.freeze({
+  plugin_version: "4.0.0",
+  artifact_schema: 4,
+  run_record_schema: 2,
+  preparation_record_schema: 2,
+  controller_protocol: 4
+});
+function matchesProtocol(record2, expected, recordSchemaField) {
+  return record2?.[recordSchemaField] === expected[recordSchemaField] && record2?.artifact_schema === expected.artifact_schema && record2?.controller_protocol === expected.controller_protocol && record2?.plugin_version === expected.plugin_version;
+}
+function legacyClassification(record2, recordSchemaField, subject) {
+  if (matchesProtocol(record2, LEGACY_WORKFLOW_4, recordSchemaField)) return {
+    legacy: true,
+    compatibility: "read-only-workflow-4",
+    blocker: "legacy-workflow-4-read-only"
+  };
+  if (matchesProtocol(record2, LEGACY_WORKFLOW_3, recordSchemaField)) return {
+    legacy: true,
+    compatibility: "read-only-workflow-3",
+    blocker: "legacy-workflow-3-read-only"
+  };
+  return { legacy: false, compatibility: "read-only-incompatible", blocker: `incompatible-${subject}-protocol` };
+}
 function protocolFields() {
   return {
     run_record_schema: RUN_RECORD_SCHEMA,
@@ -29265,12 +29288,12 @@ function preparationProtocolFields() {
 }
 function classifyRunCompatibility(run) {
   const compatible = run?.run_record_schema === RUN_RECORD_SCHEMA && run?.artifact_schema === ARTIFACT_SCHEMA && run?.controller_protocol === CONTROLLER_PROTOCOL && run?.plugin_version === PLUGIN_VERSION;
-  const legacy = run?.run_record_schema === LEGACY_WORKFLOW_3.run_record_schema && run?.artifact_schema === LEGACY_WORKFLOW_3.artifact_schema && run?.controller_protocol === LEGACY_WORKFLOW_3.controller_protocol && run?.plugin_version === LEGACY_WORKFLOW_3.plugin_version;
+  const classification = compatible ? null : legacyClassification(run, "run_record_schema", "run");
   return {
     compatible,
-    legacy,
-    compatibility: compatible ? "compatible" : legacy ? "read-only-workflow-3" : "read-only-incompatible",
-    blocker: compatible ? null : legacy ? "legacy-workflow-3-read-only" : "incompatible-run-protocol"
+    legacy: classification?.legacy ?? false,
+    compatibility: compatible ? "compatible" : classification.compatibility,
+    blocker: compatible ? null : classification.blocker
   };
 }
 function assertCompatibleRun(run) {
@@ -29280,12 +29303,12 @@ function assertCompatibleRun(run) {
 }
 function classifyPreparationCompatibility(preparation) {
   const compatible = preparation?.preparation_record_schema === PREPARATION_RECORD_SCHEMA && preparation?.artifact_schema === ARTIFACT_SCHEMA && preparation?.controller_protocol === CONTROLLER_PROTOCOL && preparation?.plugin_version === PLUGIN_VERSION;
-  const legacy = preparation?.preparation_record_schema === LEGACY_WORKFLOW_3.preparation_record_schema && preparation?.artifact_schema === LEGACY_WORKFLOW_3.artifact_schema && preparation?.controller_protocol === LEGACY_WORKFLOW_3.controller_protocol && preparation?.plugin_version === LEGACY_WORKFLOW_3.plugin_version;
+  const classification = compatible ? null : legacyClassification(preparation, "preparation_record_schema", "preparation");
   return {
     compatible,
-    legacy,
-    compatibility: compatible ? "compatible" : legacy ? "read-only-workflow-3" : "read-only-incompatible",
-    blocker: compatible ? null : legacy ? "legacy-workflow-3-read-only" : "incompatible-preparation-protocol"
+    legacy: classification?.legacy ?? false,
+    compatibility: compatible ? "compatible" : classification.compatibility,
+    blocker: compatible ? null : classification.blocker
   };
 }
 function assertCompatiblePreparation(preparation) {
@@ -29295,9 +29318,10 @@ function assertCompatiblePreparation(preparation) {
 }
 function runView(run) {
   const classification = classifyRunCompatibility(run);
-  if (classification.compatible) return { ...run, compatibility: classification.compatibility };
+  const { delivery_evidence_artifact: _deliveryEvidenceArtifact, ...visible } = run ?? {};
+  if (classification.compatible) return { ...visible, compatibility: classification.compatibility };
   return {
-    ...run,
+    ...visible,
     compatibility: classification.compatibility,
     lifecycle: "stopped",
     blockers: [.../* @__PURE__ */ new Set([...run?.blockers ?? [], classification.blocker])]
@@ -29305,12 +29329,17 @@ function runView(run) {
 }
 function preparationView(preparation) {
   const classification = classifyPreparationCompatibility(preparation);
-  if (classification.compatible) return { ...preparation, compatibility: classification.compatibility };
+  const { input_root_lineage_artifacts: lineageArtifacts, ...visible } = preparation ?? {};
+  const projected = {
+    ...visible,
+    input_root_lineage_artifact_count: Array.isArray(lineageArtifacts) ? lineageArtifacts.length : 0
+  };
+  if (classification.compatible) return { ...projected, compatibility: classification.compatibility };
   return {
-    ...preparation,
+    ...projected,
     compatibility: classification.compatibility,
     status: "stopped",
-    blockers: [.../* @__PURE__ */ new Set([...preparation?.blockers ?? [], classification.blocker])]
+    blockers: [.../* @__PURE__ */ new Set([...projected.blockers ?? [], classification.blocker])]
   };
 }
 
@@ -29617,9 +29646,9 @@ var PreparationStore = class {
 };
 
 // src/controller/engine.mjs
-import { createHash as createHash9 } from "node:crypto";
-import { existsSync as existsSync11, mkdirSync as mkdirSync8, readFileSync as readFileSync9, statSync as statSync2 } from "node:fs";
-import { join as join11, resolve as resolve10 } from "node:path";
+import { createHash as createHash11 } from "node:crypto";
+import { existsSync as existsSync12, mkdirSync as mkdirSync9, readFileSync as readFileSync10, statSync as statSync2 } from "node:fs";
+import { join as join12, resolve as resolve11 } from "node:path";
 import { spawnSync as spawnSync4 } from "node:child_process";
 
 // scripts/validate-artifact.source.mjs
@@ -29654,6 +29683,7 @@ var fixPattern = /\bFIX-[1-9][0-9]*\b/g;
 var checkPattern = /\bCHECK-[1-9][0-9]*\b/g;
 var slicePattern = /\bSLICE-[1-9][0-9]*\b/g;
 var learningPattern = /\bLRN-[A-Za-z0-9][A-Za-z0-9-]*\b/g;
+var modelInheritMarker = "[workflow-model-inherit-v1]";
 var requiredScopeCategories = ["required", "permitted", "prohibited"];
 var baselineKinds = ["repository", "head", "dirty-files", "known-failures", "targets-and-prerequisites"];
 var sectionAliases = Object.freeze({
@@ -29964,7 +29994,7 @@ function markdownTables(content) {
   for (let index = 0; index < lines.length - 1; index += 1) {
     const headers = cells(lines[index]);
     const separator = cells(lines[index + 1]);
-    if (headers.length < 2 || separator.length !== headers.length || !separator.every((cell) => /^:?-{3,}:?$/.test(cell))) continue;
+    if (headers.length < 2 || separator.length !== headers.length || !separator.every((cell2) => /^:?-{3,}:?$/.test(cell2))) continue;
     const rows = [];
     index += 2;
     while (index < lines.length && lines[index].includes("|")) {
@@ -30091,7 +30121,7 @@ function derivedAssurance(score, triggers) {
   return "deep";
 }
 function planData(artifact) {
-  if (artifact.fields.schema === 4) {
+  if (artifact.fields.schema >= 4) {
     const objectives2 = artifact.fields.acceptance.map((outcome, index) => ({
       "Objective ID": `OBJ-${index + 1}`,
       "Observable outcome": outcome,
@@ -30178,11 +30208,40 @@ function validatePlanV4(parsed, sections, failures) {
   if (verification.length === 0) parsed.normalizations.push("synthesized strategy checks from acceptance outcomes");
   if (data.objectives.size !== parsed.fields.acceptance.length) failures.push("acceptance outcomes must map one-to-one to objectives");
   if (parsed.wrapper) {
-    const final = String(parsed.wrapper.todos?.at(-1)?.content ?? "");
+    const todos = parsed.wrapper.todos ?? [];
+    for (const todo of todos) {
+      if (!String(todo.content ?? "").startsWith(modelInheritMarker)) failures.push(`native todo ${todo.id ?? "<unknown>"} must start with ${modelInheritMarker}`);
+    }
+    const final = String(todos.at(-1)?.content ?? "");
     if (!/verify|check|evidence|snapshot/i.test(final)) failures.push("final native todo must verify or evidence the implemented result");
+    if (parsed.fields.schema === 5 && !/workflow_closeout/.test(final)) failures.push("final native todo must call workflow_closeout");
   }
 }
 function evidenceData(artifact) {
+  if (artifact.fields.schema === 5 && artifact.fields.evidence_mode === "lean") {
+    const objectiveStatus = artifact.fields.status === "complete" ? "achieved" : artifact.fields.status === "blocked" ? "blocked" : "partially-achieved";
+    const outcomes2 = (artifact.fields.affected_objectives ?? []).map((id) => ({
+      "Objective ID": id,
+      Status: objectiveStatus,
+      Evidence: `lean evidence ${artifact.fields.id}`
+    }));
+    const checks2 = (artifact.fields.check_evidence ?? []).map((entry) => ({
+      "Check ID": entry.check_id,
+      "Observed Result": entry.observed,
+      Status: entry.grade === "verified" ? "passed" : entry.grade === "failed" ? "failed" : "skipped",
+      "Prerequisite fingerprints": ""
+    }));
+    return {
+      results: [],
+      outcomes: outcomes2,
+      outcomeRows: new Map(outcomes2.map((row) => [row["Objective ID"], row])),
+      changes: (artifact.fields.changed_paths ?? []).map((path) => ({ "Path or Symbol": path, Change: "declared in lean evidence", "Objective Coverage": (artifact.fields.affected_objectives ?? []).join(", ") })),
+      snapshot: null,
+      checks: checks2,
+      checkRows: new Map(checks2.map((row) => [row["Check ID"], row])),
+      steps: []
+    };
+  }
   const results = tableRows(artifact.sections.get("Subject results") ?? "", tables.results);
   const outcomes = tableRows(artifact.sections.get("Objective outcomes") ?? "", tables.objectiveOutcomes);
   const changes = tableRows(artifact.sections.get("Changes") ?? "", tables.changes);
@@ -30355,7 +30414,45 @@ function validatePlan(parsed, sections, failures) {
 function resultIdPattern(fields) {
   return String(fields.subject_id ?? "").startsWith("cp-") ? fixPattern : objectivePattern;
 }
+function validateEvidenceGrades(parsed, failures) {
+  const entries = parsed.fields.check_evidence ?? [];
+  const grades = entries.map((entry) => entry.grade);
+  const patched = entries.filter((entry) => (entry.baseline_or_patched ?? (parsed.fields.evidence_mode === "lean" ? "patched" : null)) === "patched");
+  if (grades.includes("failed") && parsed.fields.overall_grade !== "failed") failures.push("failed check evidence requires overall_grade failed");
+  if (parsed.fields.status === "complete" && parsed.fields.overall_grade !== "verified") failures.push("complete evidence requires overall_grade verified");
+  if (parsed.fields.status === "complete" && patched.some((entry) => entry.grade !== "verified")) failures.push("complete evidence requires every patched Check grade verified");
+  if (parsed.fields.status === "provisional" && !["supported", "partial", "unavailable"].includes(parsed.fields.overall_grade)) failures.push("provisional evidence requires supported, partial, or unavailable grade");
+  if (parsed.fields.status !== "blocked" && grades.includes("failed")) failures.push("failed check evidence must be blocked");
+}
+function validateLeanEvidence(parsed, sections, failures) {
+  if (!(sections.get("Summary") ?? "").trim()) failures.push("Summary: section must not be empty");
+  const affected = new Set(parsed.fields.affected_objectives ?? []);
+  const reusedObjectives = new Set(parsed.fields.reused_objectives ?? []);
+  for (const id of affected) if (reusedObjectives.has(id)) failures.push(`Objective ${id} cannot be both affected and reused`);
+  const executed = new Set(parsed.fields.executed_checks ?? []);
+  const reusedChecks = new Set(parsed.fields.reused_checks ?? []);
+  for (const id of executed) if (reusedChecks.has(id)) failures.push(`Check ${id} cannot be both executed and reused`);
+  const checkIds = (parsed.fields.check_evidence ?? []).map((entry) => entry.check_id);
+  if (new Set(checkIds).size !== checkIds.length) failures.push("check_evidence Check IDs must be unique");
+  if (!sameSet(new Set(checkIds), executed)) failures.push("check_evidence must exactly match executed_checks");
+  for (const path of parsed.fields.changed_paths ?? []) {
+    if (path.startsWith("/") || path === ".." || path.startsWith("../")) failures.push(`changed path must remain repository-relative: ${path}`);
+  }
+  validateEvidenceGrades(parsed, failures);
+  if (!Object.hasOwn(parsed.fields, "strategy_revision")) parsed.normalizations.push("lean evidence: interpreted missing strategy_revision as 0");
+  for (const entry of parsed.fields.check_evidence ?? []) {
+    if (!Object.hasOwn(entry, "baseline_or_patched")) parsed.normalizations.push(`lean evidence: interpreted ${entry.check_id} baseline_or_patched as patched`);
+  }
+  parsed.effective = {
+    strategyRevision: parsed.fields.strategy_revision ?? 0,
+    checkEvidence: (parsed.fields.check_evidence ?? []).map((entry) => ({ baseline_or_patched: "patched", ...entry }))
+  };
+}
 function validateEvidence(parsed, sections, failures) {
+  if (parsed.fields.schema === 5 && parsed.fields.evidence_mode === "lean") {
+    validateLeanEvidence(parsed, sections, failures);
+    return;
+  }
   const options = { normalizations: parsed.normalizations };
   const pattern = resultIdPattern(parsed.fields);
   const results = requireTable(sections, "Subject results", tables.results, failures, { optional: true, normalizations: parsed.normalizations });
@@ -30372,11 +30469,17 @@ function validateEvidence(parsed, sections, failures) {
   const reusedChecks = new Set(parsed.fields.reused_checks ?? []);
   for (const id of executed) if (reusedChecks.has(id)) failures.push(`Check ${id} cannot be both executed and reused`);
   const changes = requireTable(sections, "Changes", tables.changes, failures, { allowNone: true, optional: true, normalizations: parsed.normalizations });
+  const declaredChangedPaths = new Set(parsed.fields.changed_paths ?? []);
+  const visibleChangedPaths = new Set(changes.rows.flatMap((row) => targetTokens(row["Path or Symbol"])));
+  if (parsed.fields.schema === 5 && !sameSet(declaredChangedPaths, visibleChangedPaths)) failures.push("Changes table must exactly match changed_paths");
+  for (const path of declaredChangedPaths) {
+    if (path.startsWith("/") || path === ".." || path.startsWith("../")) failures.push(`changed path must remain repository-relative: ${path}`);
+  }
   for (const row of changes.rows) {
     const covered = ids(row["Objective Coverage"], pattern);
     if (covered.length === 0) failures.push("Changes: every row must name a subject objective");
     covered.forEach((id) => {
-      if (!resultIds.has(id)) failures.push(`Changes: unknown ${id}`);
+      if (!(resultIds.size > 0 ? resultIds : outcomeIds).has(id)) failures.push(`Changes: unknown ${id}`);
     });
   }
   const snapshot2 = requireTable(sections, "Repository snapshot", tables.snapshot, failures, options);
@@ -30395,15 +30498,11 @@ function validateEvidence(parsed, sections, failures) {
     for (const [path, hash5] of prerequisites) if (snapshotFingerprints.get(path) !== hash5) failures.push(`Checks: ${row["Check ID"]} prerequisite ${path} must match Repository snapshot`);
     if (row.Status === "blocked" && !/^blocked-by:CHECK-[1-9][0-9]*\b/.test(row["Observed Result"])) failures.push(`Checks: ${row["Check ID"]} blocked status needs blocked-by:CHECK-N evidence`);
   }
-  if (parsed.fields.schema === 4) {
+  if (parsed.fields.schema >= 4) {
     const entries = parsed.fields.check_evidence ?? [];
     const patched = new Map(entries.filter((entry) => entry.baseline_or_patched === "patched").map((entry) => [entry.check_id, entry]));
     for (const check of parsed.fields.executed_checks ?? []) if (!patched.has(check)) failures.push(`check_evidence requires patched evidence for ${check}`);
-    const grades = entries.map((entry) => entry.grade);
-    if (grades.includes("failed") && parsed.fields.overall_grade !== "failed") failures.push("failed check evidence requires overall_grade failed");
-    if (parsed.fields.status === "complete" && parsed.fields.overall_grade !== "verified") failures.push("complete evidence requires overall_grade verified");
-    if (parsed.fields.status === "provisional" && !["supported", "partial", "unavailable"].includes(parsed.fields.overall_grade)) failures.push("provisional evidence requires supported, partial, or unavailable grade");
-    if (parsed.fields.status !== "blocked" && grades.includes("failed")) failures.push("failed check evidence must be blocked");
+    validateEvidenceGrades(parsed, failures);
   }
   const resume = requireTable(sections, "Idempotency and resume", tables.resume, failures, { optional: true, normalizations: parsed.normalizations });
   exactIdSet(resume.rows, "Step ID", /STEP-[1-9][0-9]*/, "Idempotency and resume", failures);
@@ -30541,7 +30640,7 @@ function validateCompactReview(parsed, sections, failures) {
     if (coverage.rows.length > 0 && (normalizedHeader(snapshotRow?.Result) !== "consistent" || noneLike(snapshotRow?.Inspected))) failures.push("achieved review coverage contradicts current snapshot consistency");
   }
   if (parsed.fields.next_action === "none" && parsed.fields.assessment !== "achieved") failures.push("next_action none requires assessment achieved");
-  if (parsed.fields.schema === 4) {
+  if (parsed.fields.schema >= 4) {
     if (parsed.fields.delivery_status === "verified" && parsed.fields.assessment !== "achieved") failures.push("verified delivery requires achieved assessment");
     if (parsed.fields.delivery_status === "provisional" && parsed.fields.next_action !== "accept-provisional") failures.push("provisional delivery requires accept-provisional");
     if (parsed.fields.next_action === "accept-provisional" && parsed.fields.delivery_status !== "provisional") failures.push("accept-provisional requires provisional delivery");
@@ -30605,7 +30704,7 @@ function buildArtifact(text, root, options = {}) {
   if (sections.size > 0) {
     rejectPlaceholders(parsed, schema, sections, failures);
     if (parsed.fields.artifact === "work-plan") {
-      if (parsed.fields.schema === 4) validatePlanV4(parsed, sections, failures);
+      if (parsed.fields.schema >= 4) validatePlanV4(parsed, sections, failures);
       else validatePlan(parsed, sections, failures);
     }
     if (parsed.fields.artifact === "delivery-evidence") validateEvidence(parsed, sections, failures);
@@ -30623,12 +30722,7 @@ function inspectArtifactText(text, root = defaultRoot, options = {}) {
     artifact: built.parsed ?? null
   };
 }
-function authoritativeArtifactProjectionFromText(text, root = defaultRoot) {
-  const inspected = inspectArtifactText(text, root);
-  if (inspected.errors.length > 0 || !inspected.artifact?.fields?.artifact) {
-    return { errors: inspected.errors.length > 0 ? inspected.errors : ["input is not a Workflow artifact"] };
-  }
-  const artifact = inspected.artifact;
+function authoritativeArtifactProjection(artifact, root) {
   const schema = JSON.parse(readFileSync2(schemaFor(root, artifact.fields.artifact), "utf8"));
   const fields = Object.fromEntries(Object.keys(schema.properties ?? {}).filter((key) => key !== "extensions" && Object.hasOwn(artifact.fields, key)).map((key) => [key, structuredClone(artifact.fields[key])]));
   const sections = (schema["x-required-sections"] ?? schema["x-markdown-sections"] ?? []).map((name) => ({ name, content: artifact.sections.get(name) ?? "" }));
@@ -30640,6 +30734,13 @@ function authoritativeArtifactProjectionFromText(text, root = defaultRoot) {
     projection_text: projectionText,
     projection_hash: sha256(projectionText)
   };
+}
+function authoritativeArtifactProjectionFromText(text, root = defaultRoot) {
+  const inspected = inspectArtifactText(text, root);
+  if (inspected.errors.length > 0 || !inspected.artifact?.fields?.artifact) {
+    return { errors: inspected.errors.length > 0 ? inspected.errors : ["input is not a Workflow artifact"] };
+  }
+  return authoritativeArtifactProjection(inspected.artifact, root);
 }
 function executionContractFromArtifactText(text, root = defaultRoot) {
   const inspected = inspectArtifactText(text, root);
@@ -30657,7 +30758,7 @@ function executionContractFromArtifactText(text, root = defaultRoot) {
     slices: data.slices.map((row) => ({ ...row })),
     allowedTargets: [...data.allowedTargets],
     prohibitedTargets: [...data.prohibitedTargets],
-    strategy: artifact.fields.schema === 4 ? {
+    strategy: artifact.fields.schema >= 4 ? {
       strategy_id: `strategy-${artifact.fields.id.slice(3)}`,
       revision: 0,
       parent_hash: null,
@@ -30726,7 +30827,7 @@ function linearChain(items, predecessorField, label, failures) {
   if (cursor || ordered.length !== items.length) failures.push(`${label}: chain is cyclic or disconnected`);
   return ordered;
 }
-function materializeEvidence(artifact, artifacts, cache, failures, active = /* @__PURE__ */ new Set()) {
+function materializeEvidence(artifact, artifacts, cache, failures, rootDirectory, active = /* @__PURE__ */ new Set()) {
   if (cache.has(artifact.fields.id)) return cache.get(artifact.fields.id);
   if (active.has(artifact.fields.id)) {
     failures.push(`${artifact.label}: cyclic evidence chain`);
@@ -30738,13 +30839,22 @@ function materializeEvidence(artifact, artifacts, cache, failures, active = /* @
     failures.push(`${artifact.label}: missing root plan ${artifact.fields.root_plan_id}`);
     return null;
   }
+  if (root.fields.schema === 5) {
+    const authoritativeRoot = authoritativeArtifactProjection(root, rootDirectory);
+    if (artifact.fields.intent_hash !== authoritativeRoot.projection_hash) failures.push(`${artifact.label}: intent_hash does not match authoritative Root projection`);
+  }
   const plan = planData(root);
   const data = evidenceData(artifact);
+  const leanMode = artifact.fields.schema === 5 && artifact.fields.evidence_mode === "lean";
+  if (root.fields.schema === 5) {
+    const fullRequired = root.fields.profile_max !== "manual" || root.fields.risk === "high" || (root.fields.hard_triggers ?? []).length > 0;
+    if (fullRequired && leanMode) failures.push(`${artifact.label}: ${root.fields.profile_max} ${root.fields.risk}-risk root requires evidence_mode full`);
+  }
   const currentFingerprints = fingerprintMap(data.snapshot?.["Relevant fingerprints"]);
   const reuseBasis = data.snapshot?.["Relevant fingerprints"] ?? "";
-  const strongReuse = root.fields.schema === 4 ? root.fields.contract_level === "certified" || (root.fields.hard_triggers ?? []).length > 0 : root.fields.assurance_profile === "deep" || (root.fields.hard_triggers ?? []).length > 0;
+  const strongReuse = root.fields.schema >= 4 ? root.fields.contract_level === "certified" || (root.fields.hard_triggers ?? []).length > 0 : root.fields.assurance_profile === "deep" || (root.fields.hard_triggers ?? []).length > 0;
   const predecessor = artifact.fields.predecessor_evidence_id ? artifacts.get(artifact.fields.predecessor_evidence_id) : null;
-  const predecessorEffective = predecessor?.fields.artifact === "delivery-evidence" ? materializeEvidence(predecessor, artifacts, cache, failures, active) : null;
+  const predecessorEffective = predecessor?.fields.artifact === "delivery-evidence" ? materializeEvidence(predecessor, artifacts, cache, failures, rootDirectory, active) : null;
   if (artifact.fields.predecessor_evidence_id && !predecessorEffective) failures.push(`${artifact.label}: missing predecessor evidence ${artifact.fields.predecessor_evidence_id}`);
   if (predecessor && predecessor.fields.root_plan_id !== artifact.fields.root_plan_id) failures.push(`${artifact.label}: predecessor evidence must use the same root plan`);
   const affected = new Set(artifact.fields.affected_objectives ?? []);
@@ -30767,7 +30877,7 @@ function materializeEvidence(artifact, artifacts, cache, failures, active = /* @
     const previous = predecessorEffective?.objectives.get(objective);
     if (!previous) failures.push(`${artifact.label}: reused ${objective} is absent from direct predecessor evidence`);
     else {
-      compareReusePaths(plan.objectiveDependencies.get(objective) ?? [], currentFingerprints, predecessorEffective.snapshotFingerprints, reuseBasis, `${artifact.label}: reused ${objective}`, strongReuse, failures);
+      if (!leanMode) compareReusePaths(plan.objectiveDependencies.get(objective) ?? [], currentFingerprints, predecessorEffective.snapshotFingerprints, reuseBasis, `${artifact.label}: reused ${objective}`, strongReuse, failures);
       objectives.set(objective, { ...previous, reusedFrom: predecessor.fields.id });
     }
   }
@@ -30791,7 +30901,7 @@ function materializeEvidence(artifact, artifacts, cache, failures, active = /* @
     const planned = plan.checkRows.get(id);
     if (!previous || !planned) failures.push(`${artifact.label}: reused ${id} is absent from direct predecessor root evidence`);
     else {
-      compareReusePaths(targetTokens(planned.Prerequisites), currentFingerprints, predecessorEffective.snapshotFingerprints, reuseBasis, `${artifact.label}: reused ${id}`, strongReuse, failures);
+      if (!leanMode) compareReusePaths(targetTokens(planned.Prerequisites), currentFingerprints, predecessorEffective.snapshotFingerprints, reuseBasis, `${artifact.label}: reused ${id}`, strongReuse, failures);
       checks.set(id, { ...previous, reusedFrom: predecessor.fields.id });
     }
   }
@@ -30802,7 +30912,7 @@ function materializeEvidence(artifact, artifacts, cache, failures, active = /* @
   }
   const operationalContent = (artifact.sections.get("Operational evidence") ?? "").trim();
   let operationalReady = true;
-  if (root.fields.schema === 4) {
+  if (root.fields.schema >= 4) {
     if (operationalContent && !/^not applicable\.?$/i.test(operationalContent)) {
       const operationalRows = tableRows(operationalContent, tables.operationalEvidence);
       operationalReady = operationalRows.length > 0 && operationalRows.every((row) => row.Status === "satisfied");
@@ -30831,11 +30941,11 @@ function materializeEvidence(artifact, artifacts, cache, failures, active = /* @
     if (!sourceReview || sourceReview.fields.correction_id !== artifact.fields.subject_id || !correction) failures.push(`${artifact.label}: correction evidence does not resolve its source review and correction`);
     else {
       const expectedFixes = new Set(correction.fixes.map((row) => row["FIX ID"]));
-      if (!sameSet(new Set(data.results.map((row) => row["Objective ID"])), expectedFixes)) failures.push(`${artifact.label}: correction Subject results must cover every FIX`);
+      if (!leanMode && !sameSet(new Set(data.results.map((row) => row["Objective ID"])), expectedFixes)) failures.push(`${artifact.label}: correction Subject results must cover every FIX`);
       for (const check of correction.checks.filter((row) => row.Required === "yes")) if (!executed.has(check["Check ID"])) failures.push(`${artifact.label}: missing executed correction Check ${check["Check ID"]}`);
     }
   }
-  const reviewReady = artifact.fields.status === "complete" && (artifact.fields.schema !== 4 || artifact.fields.overall_grade === "verified") && operationalReady && [...plan.requiredChecks].every((id) => checks.get(id)?.status === "passed");
+  const reviewReady = artifact.fields.status === "complete" && (artifact.fields.schema < 4 || artifact.fields.overall_grade === "verified") && operationalReady && [...plan.requiredChecks].every((id) => checks.get(id)?.status === "passed");
   const effective = { root, plan, objectives, checks, snapshot: data.snapshot, snapshotFingerprints: currentFingerprints, operationalReady, reviewReady, predecessor: predecessorEffective };
   artifact.effective = effective;
   cache.set(artifact.fields.id, effective);
@@ -30881,6 +30991,53 @@ function measurableProgress(previous, current) {
   if (!previous || !current) return false;
   return current.severity < previous.severity || current.objectiveRank > previous.objectiveRank || current.passedChecks > previous.passedChecks || current.fingerprintSignature !== previous.fingerprintSignature;
 }
+function validatePlanLineage(artifacts, failures) {
+  const plans = [...artifacts.values()].filter((artifact) => artifact.fields.artifact === "work-plan");
+  const plansById = new Map(plans.map((plan) => [plan.fields.id, plan]));
+  const successors = /* @__PURE__ */ new Map();
+  for (const plan of plans) {
+    const predecessorId = plan.fields.predecessor_plan_id;
+    const sourceReviewId = plan.fields.replan_source_review_id;
+    if (!predecessorId && !sourceReviewId) continue;
+    if (!predecessorId || !sourceReviewId) continue;
+    if (predecessorId === plan.fields.id) failures.push(`${plan.label}: replan root cannot reference itself`);
+    const predecessor = plansById.get(predecessorId);
+    if (!predecessor) failures.push(`${plan.label}: missing predecessor plan ${predecessorId}`);
+    else if (predecessor.fields.schema !== 5) failures.push(`${plan.label}: predecessor plan must use Schema 5`);
+    const sourceReview = artifacts.get(sourceReviewId);
+    if (!sourceReview || sourceReview.fields.artifact !== "work-review") failures.push(`${plan.label}: missing replan source review ${sourceReviewId}`);
+    else {
+      if (sourceReview.fields.schema !== 5) failures.push(`${plan.label}: replan source review must use Schema 5`);
+      if (sourceReview.fields.root_plan_id !== predecessorId) failures.push(`${plan.label}: replan source review must belong to predecessor plan ${predecessorId}`);
+      if (sourceReview.fields.next_action !== "replan") failures.push(`${plan.label}: replan source review must require next_action replan`);
+      const predecessorReviews = [...artifacts.values()].filter((artifact) => artifact.fields.artifact === "work-review" && artifact.fields.root_plan_id === predecessorId);
+      const referencedReviews = new Set(predecessorReviews.map((review) => review.fields.predecessor_review_id).filter(Boolean));
+      const reviewTips = predecessorReviews.filter((review) => !referencedReviews.has(review.fields.id));
+      if (reviewTips.length !== 1 || reviewTips[0].fields.id !== sourceReviewId) failures.push(`${plan.label}: replan source review must be the unique current predecessor review tip`);
+    }
+    const list = successors.get(predecessorId) ?? [];
+    list.push(plan);
+    successors.set(predecessorId, list);
+  }
+  for (const [predecessorId, list] of successors) if (list.length > 1) failures.push(`work-plan lineage branches after ${predecessorId}`);
+  const visiting = /* @__PURE__ */ new Set();
+  const visited = /* @__PURE__ */ new Set();
+  const visit = (plan) => {
+    if (visited.has(plan.fields.id)) return;
+    if (visiting.has(plan.fields.id)) {
+      failures.push(`work-plan lineage is cyclic at ${plan.fields.id}`);
+      return;
+    }
+    visiting.add(plan.fields.id);
+    const predecessor = plansById.get(plan.fields.predecessor_plan_id);
+    if (predecessor) visit(predecessor);
+    visiting.delete(plan.fields.id);
+    visited.add(plan.fields.id);
+  };
+  plans.forEach(visit);
+  const referencedPlans = new Set(plans.map((plan) => plan.fields.predecessor_plan_id).filter(Boolean));
+  return plans.filter((plan) => !referencedPlans.has(plan.fields.id)).map((plan) => plan.fields.id).sort();
+}
 function inspectCompactArtifactSet(entries, root = defaultRoot) {
   const errors = [];
   const diagnostics = [];
@@ -30903,13 +31060,14 @@ function inspectCompactArtifactSet(entries, root = defaultRoot) {
     if (artifacts.has(built.parsed.fields.id)) errors.push(`${label}: duplicate artifact ID ${built.parsed.fields.id}`);
     artifacts.set(built.parsed.fields.id, { label, ...built.parsed });
   }
+  const rootTips = validatePlanLineage(artifacts, errors);
   const evidenceCache = /* @__PURE__ */ new Map();
   const evidenceByRoot = /* @__PURE__ */ new Map();
   const orderedEvidenceByRoot = /* @__PURE__ */ new Map();
   const reviewsByRoot = /* @__PURE__ */ new Map();
   for (const artifact of artifacts.values()) {
     if (artifact.fields.artifact === "delivery-evidence") {
-      materializeEvidence(artifact, artifacts, evidenceCache, errors);
+      materializeEvidence(artifact, artifacts, evidenceCache, errors, root);
       const list = evidenceByRoot.get(artifact.fields.root_plan_id) ?? [];
       list.push(artifact);
       evidenceByRoot.set(artifact.fields.root_plan_id, list);
@@ -30949,12 +31107,15 @@ function inspectCompactArtifactSet(entries, root = defaultRoot) {
       }
       const effective = evidence.effective;
       if (evidence.fields.root_plan_id !== rootId) errors.push(`${review.label}: latest evidence belongs to another root`);
+      const knownFailedEvidence = evidence.fields.status === "blocked" || evidence.fields.overall_grade === "failed" || (evidence.fields.check_evidence ?? []).some((entry) => entry.grade === "failed");
+      if (knownFailedEvidence && review.fields.delivery_status !== "blocked") errors.push(`${review.label}: known failed or blocked evidence requires blocked delivery_status`);
+      if (knownFailedEvidence && ["accept-provisional", "none"].includes(review.fields.next_action)) errors.push(`${review.label}: known failed or blocked evidence cannot be accepted or achieved`);
       const candidates = rootEvidence.filter((item) => item.fields.source_review_id === null || (reviewIndex.get(item.fields.source_review_id) ?? Number.POSITIVE_INFINITY) < index);
       if (candidates.at(-1)?.fields.id !== review.fields.latest_evidence_id) errors.push(`${review.label}: latest_evidence_id is not the evidence tip at review time`);
       disjointCoverage(review.fields.inspected_objectives, review.fields.reused_objectives, plan.objectives, `${review.label}: objective review`, errors);
       disjointCoverage(review.fields.inspected_checks, review.fields.reused_checks, plan.requiredChecks, `${review.label}: Check review`, errors);
       if (index === 0 && ((review.fields.reused_objectives ?? []).length > 0 || (review.fields.reused_checks ?? []).length > 0)) errors.push(`${review.label}: first review must inspect all root evidence`);
-      const fullReviewRequired = rootPlan.fields.schema === 4 ? rootPlan.fields.contract_level === "certified" || (rootPlan.fields.hard_triggers ?? []).length > 0 : rootPlan.fields.assurance_profile === "deep" || (rootPlan.fields.hard_triggers ?? []).length > 0;
+      const fullReviewRequired = rootPlan.fields.schema >= 4 ? rootPlan.fields.contract_level === "certified" || (rootPlan.fields.hard_triggers ?? []).length > 0 : rootPlan.fields.assurance_profile === "deep" || (rootPlan.fields.hard_triggers ?? []).length > 0;
       if (fullReviewRequired && review.fields.review_route !== "full") {
         errors.push(`${review.label}: certified or hard-trigger root requires review_route full`);
       }
@@ -30970,7 +31131,7 @@ function inspectCompactArtifactSet(entries, root = defaultRoot) {
         if ([...plan.objectives].some((id) => effective?.objectives.get(id)?.status !== "achieved")) errors.push(`${review.label}: achieved requires every effective root objective achieved`);
         if (reviewData(review).findings.length > 0) errors.push(`${review.label}: achieved cannot contain findings`);
       }
-      const plannedAssurance = rootPlan.fields.schema === 4 ? { lean: "lean", controlled: "standard", certified: "deep" }[rootPlan.fields.contract_level] ?? "standard" : rootPlan.fields.assurance_profile;
+      const plannedAssurance = rootPlan.fields.schema >= 4 ? { lean: "lean", controlled: "standard", certified: "deep" }[rootPlan.fields.contract_level] ?? "standard" : rootPlan.fields.assurance_profile;
       review.effective = {
         ...review.effective,
         plannedAssurance,
@@ -31006,24 +31167,31 @@ function inspectCompactArtifactSet(entries, root = defaultRoot) {
       if (!window[2].effective.loopState) window[2].effective.loopState = reviewData(window[2]).findings.length > 0 ? "degraded" : "healthy";
     }
   }
-  return { errors: unique(errors), diagnostics: unique(diagnostics), normalizations: unique(normalizations), effective: artifacts };
+  return { errors: unique(errors), diagnostics: unique(diagnostics), normalizations: unique(normalizations), effective: artifacts, root_tips: rootTips };
 }
 function inspectArtifactSet(entries, root = defaultRoot) {
   return inspectCompactArtifactSet(entries, root);
 }
 function effectiveCliSummary(inspection) {
-  if (!(inspection.effective instanceof Map)) return { evidence_tips: {}, review_tips: {}, actionable_reviews: [], learning_candidates: [] };
+  if (!(inspection.effective instanceof Map)) return { active_root_id: null, root_tips: [], evidence_tips: {}, review_tips: {}, actionable_reviews: [], learning_candidates: [] };
   const artifacts = [...inspection.effective.values()];
   const tips = (type, predecessorField) => {
     const items = artifacts.filter((artifact) => artifact.fields.artifact === type);
     const referenced = new Set(items.map((artifact) => artifact.fields[predecessorField]).filter(Boolean));
     return Object.fromEntries(items.filter((artifact) => !referenced.has(artifact.fields.id)).map((artifact) => [artifact.fields.root_plan_id, artifact.fields.id]));
   };
+  const rootTips = inspection.root_tips ?? validatePlanLineage(inspection.effective, []);
+  const activeRootId = rootTips.length === 1 ? rootTips[0] : null;
+  const evidenceTips = tips("delivery-evidence", "predecessor_evidence_id");
+  const reviewTips = tips("work-review", "predecessor_review_id");
+  const activeReview = activeRootId && reviewTips[activeRootId] ? inspection.effective.get(reviewTips[activeRootId]) : null;
   return {
-    evidence_tips: tips("delivery-evidence", "predecessor_evidence_id"),
-    review_tips: tips("work-review", "predecessor_review_id"),
-    actionable_reviews: artifacts.filter((artifact) => artifact.fields.artifact === "work-review" && artifact.fields.next_action === "correct").map((artifact) => ({ root_plan_id: artifact.fields.root_plan_id, review_id: artifact.fields.id, correction_id: artifact.fields.correction_id, base_evidence_id: artifact.fields.latest_evidence_id })),
-    learning_candidates: artifacts.filter((artifact) => artifact.fields.artifact === "work-review" && artifact.correction?.learnings?.length > 0).flatMap((artifact) => artifact.correction.learnings.map((learning) => {
+    active_root_id: activeRootId,
+    root_tips: rootTips,
+    evidence_tips: evidenceTips,
+    review_tips: reviewTips,
+    actionable_reviews: artifacts.filter((artifact) => artifact.fields.artifact === "work-review" && artifact.fields.root_plan_id === activeRootId && artifact.fields.id === reviewTips[activeRootId] && artifact.fields.next_action === "correct").map((artifact) => ({ root_plan_id: artifact.fields.root_plan_id, review_id: artifact.fields.id, correction_id: artifact.fields.correction_id, base_evidence_id: artifact.fields.latest_evidence_id })),
+    learning_candidates: artifacts.filter((artifact) => artifact.fields.artifact === "work-review" && artifact.fields.root_plan_id === activeRootId && activeReview?.fields.assessment === "achieved" && activeReview?.fields.delivery_status === "verified" && artifact.correction?.learnings?.length > 0).flatMap((artifact) => artifact.correction.learnings.map((learning) => {
       const evidence = artifacts.find((candidate) => candidate.fields.artifact === "delivery-evidence" && candidate.fields.subject_id === artifact.fields.correction_id && candidate.fields.status === "complete");
       return {
         root_plan_id: artifact.fields.root_plan_id,
@@ -31149,7 +31317,7 @@ function deriveWorkflowState(input = {}) {
   if (input.artifact_chain_valid === false) return snapshot(input, "replan", {
     allowed_actions: manualArtifacts ? ["replan"] : ["replan", "stop"],
     required_actor: "human",
-    next_action: manualArtifacts ? "replan" : "create-schema-4-root"
+    next_action: manualArtifacts ? "replan" : "create-schema-5-root"
   });
   if ((input.blockers ?? []).length > 0 || input.lifecycle === "waiting-human") return waiting(input, null, input.next_action ?? "answer");
   if (!input.goal && !input.root_plan_id) return snapshot(input, "intake", { allowed_actions: ["provide-goal", "provide-root-plan"], required_actor: "human", next_action: "provide-intent" });
@@ -31160,8 +31328,8 @@ function deriveWorkflowState(input = {}) {
   if (input.root_schema_valid === false) return snapshot(input, "replan", {
     allowed_actions: ["replan", "stop"],
     required_actor: "human",
-    next_action: "create-schema-4-root",
-    blockers: ["invalid-schema-4-root"]
+    next_action: "create-schema-5-root",
+    blockers: ["invalid-schema-5-root"]
   });
   if (!input.execution_started) return snapshot(input, manualArtifacts ? "root-plan-review" : "strategy-ready", manualArtifacts ? { allowed_actions: ["inspect", "implement", "replan"], required_actor: "human", next_action: "implement-plan" } : { allowed_actions: ["execute", "pause", "stop"], required_actor: "controller", next_action: "execute-strategy" });
   if (input.phase === "baseline-verification") return snapshot(input, "baseline-verification", { allowed_actions: ["pause", "stop"], required_actor: "verifier", next_action: "capture-baseline" });
@@ -31176,9 +31344,19 @@ function deriveWorkflowState(input = {}) {
   if (nextAction === "correct") return manualArtifacts ? snapshot(input, "waiting-human", { allowed_actions: ["inspect", "correct", "replan"], required_actor: "human", next_action: "approve-correction" }) : snapshot(input, "slice-review", { allowed_actions: ["correct", "pause", "stop"], required_actor: "writer", next_action: "correct" });
   if (nextAction === "retry-review") return manualArtifacts ? snapshot(input, "root-review", { allowed_actions: ["review"], required_actor: "reviewer", next_action: "retry-review" }) : snapshot(input, "slice-review", { allowed_actions: ["retry-review", "pause", "stop"], required_actor: "reviewer", next_action: "retry-review" });
   if (input.more_slices) return snapshot(input, "slice-ready", { allowed_actions: ["implement", "pause", "stop"], required_actor: "writer", next_action: "implement-next-slice" });
+  if (manualArtifacts && input.delivery_status === "provisional") {
+    if (input.manual_acceptance === "provisional") return snapshot(input, "accepted-provisional", {
+      allowed_actions: ["inspect"],
+      required_actor: "human",
+      next_action: "none",
+      acceptance_persisted: false,
+      acceptance_basis_hash: input.acceptance_basis_hash ?? input.artifact_set_hash ?? null
+    });
+    return snapshot(input, "delivery-ready-provisional", { allowed_actions: ["accept-provisional", "inspect"], required_actor: "human", next_action: "accept-provisional" });
+  }
   if (!input.root_review_complete) return snapshot(input, "root-review", { allowed_actions: manualArtifacts ? ["review"] : ["review", "pause", "stop"], required_actor: "reviewer", next_action: "review-root" });
   if (input.phase === "delivery-ready-provisional" || input.delivery_status === "provisional") return snapshot(input, "delivery-ready-provisional", { allowed_actions: ["accept-provisional", "inspect", "stop"], required_actor: "human", next_action: "accept-provisional" });
-  if (input.phase === "delivery-ready-verified" || input.delivery_status === "verified" && !input.delivery_accepted) return snapshot(input, "delivery-ready-verified", { allowed_actions: ["accept-verified", "inspect", "stop"], required_actor: "human", next_action: "accept-verified" });
+  if (!manualArtifacts && (input.phase === "delivery-ready-verified" || input.delivery_status === "verified" && !input.delivery_accepted)) return snapshot(input, "delivery-ready-verified", { allowed_actions: ["accept-verified", "inspect", "stop"], required_actor: "human", next_action: "accept-verified" });
   if (input.review?.assessment !== "achieved") return snapshot(input, "replan", { allowed_actions: ["replan", "stop"], required_actor: "human", next_action: "replan", blockers: ["root-review-not-achieved"] });
   return snapshot(input, "achieved", { allowed_actions: ["explain", "learn"], required_actor: "human", next_action: "none" });
 }
@@ -32279,7 +32457,7 @@ function validateProjectPolicy(policy) {
   }
   if (!["deny", "allow-listed"].includes(policy.dependencies)) errors.push("project policy dependencies must be deny or allow-listed");
   if (policy.dependencies === "allow-listed" && policy.allowed_dependencies.length === 0) errors.push("allow-listed project dependencies require allowed_dependencies");
-  if (policy.external_effects !== "none") errors.push("Workflow 4 project policy external_effects must be none");
+  if (policy.external_effects !== "none") errors.push("Workflow 5 project policy external_effects must be none");
   if (!Object.hasOwn({ low: true, medium: true, high: true }, policy.max_risk)) errors.push("project policy max_risk must be low, medium, or high");
   if (policy.maximum_budgets) {
     for (const key of ["max_active_minutes", "max_total_tokens", "max_correction_cycles"]) if (!Number.isInteger(policy.maximum_budgets[key]) || policy.maximum_budgets[key] < (key === "max_correction_cycles" ? 0 : 1)) errors.push(`project policy maximum_budgets.${key} is invalid`);
@@ -32589,6 +32767,7 @@ function rootProjection(rootPlanText, pluginRoot2) {
   const fields = artifact.fields;
   return {
     intent: stable({ id: fields.id, status: fields.status, intent_ready: fields.intent_ready, goal: fields.goal, acceptance: fields.acceptance, non_goals: fields.non_goals, constraints: fields.constraints, content: section(artifact, "Intent") }),
+    lineage: stable({ predecessor_plan_id: fields.predecessor_plan_id ?? null, replan_source_review_id: fields.replan_source_review_id ?? null }),
     authority: stable(fields.authority),
     profile: stable({ profile_max: fields.profile_max, contract_level: fields.contract_level }),
     risk: stable({ risk: fields.risk, hard_triggers: fields.hard_triggers, content: section(artifact, "Risks") }),
@@ -32606,6 +32785,42 @@ function semanticRootDiff(beforeText, afterText, pluginRoot2) {
     before_root_hash: hash2(beforeText),
     after_root_hash: hash2(afterText)
   };
+}
+function normalizeRootArtifacts(rootArtifacts) {
+  if (rootArtifacts === void 0 || rootArtifacts === null) return [];
+  if (!Array.isArray(rootArtifacts) || rootArtifacts.length > 32) throw new Error("workflow_prepare root_artifacts must contain at most 32 artifacts");
+  const normalized = rootArtifacts.map((entry, index) => {
+    if (!entry || typeof entry.label !== "string" || entry.label.trim() === "" || typeof entry.text !== "string" || entry.text.trim() === "") {
+      throw new Error(`workflow_prepare root_artifact ${index + 1} requires non-empty label and text`);
+    }
+    return { label: entry.label, text: entry.text };
+  });
+  if (new Set(normalized.map((entry) => entry.label)).size !== normalized.length) throw new Error("workflow_prepare root_artifact labels must be unique");
+  if (normalized.reduce((total, entry) => total + entry.text.length, 0) > 1e6) throw new Error("workflow_prepare root_artifacts exceed 1000000 characters");
+  return normalized.sort((left, right) => left.label.localeCompare(right.label) || hash2(left.text).localeCompare(hash2(right.text)));
+}
+function validateRootPlanLineage(rootPlanText, rootArtifacts, pluginRoot2) {
+  const contract = executionContractFromArtifactText(rootPlanText, pluginRoot2);
+  if (contract.errors.length > 0) return { errors: contract.errors, artifacts: [], artifact_set_hash: null };
+  let artifacts;
+  try {
+    artifacts = normalizeRootArtifacts(rootArtifacts);
+  } catch (error2) {
+    return { errors: [error2.message], artifacts: [], artifact_set_hash: null };
+  }
+  const hasLineage = Boolean(contract.fields.predecessor_plan_id || contract.fields.replan_source_review_id);
+  if (!hasLineage) {
+    return artifacts.length > 0 ? { errors: ["initial root_plan cannot include root_artifacts"], artifacts, artifact_set_hash: hash2(artifacts) } : { errors: [], artifacts, artifact_set_hash: hash2(artifacts) };
+  }
+  if (artifacts.length === 0) return { errors: ["replan root_plan requires its complete current lineage artifacts"], artifacts, artifact_set_hash: hash2(artifacts) };
+  const inspection = inspectArtifactSet([
+    ...artifacts.map((entry) => [entry.label, entry.text]),
+    ["workflow-prepare-root", rootPlanText]
+  ], pluginRoot2);
+  const summary2 = effectiveCliSummary(inspection);
+  const errors = [...inspection.errors];
+  if (summary2.root_tips.length !== 1 || summary2.root_tips[0] !== contract.fields.id) errors.push("replan root_plan must be the unique active lineage tip");
+  return { errors: [...new Set(errors)], artifacts, artifact_set_hash: hash2(artifacts) };
 }
 function plannerReceiptBlockers(receipt) {
   const blockers = [];
@@ -32660,13 +32875,13 @@ function loadPlanningHarness(pluginRoot2) {
 }
 function planningPrompt(preparation, harness) {
   const source = preparation.source_kind === "goal" ? `GOAL
-${preparation.goal}` : `EXISTING VALID SCHEMA-4 INTENT ROOT AUTHORITATIVE PROJECTION
+${preparation.goal}` : `EXISTING VALID SCHEMA-5 INTENT ROOT AUTHORITATIVE PROJECTION
 ${preparation.input_root_contract.authoritative_projection_text}`;
   return [
     "Act as the configured Workflow planner in read-only Cursor Plan mode.",
     "Inspect the repository, but do not modify it or cause any external effect.",
     "If one or more material product decisions remain open, call report_intent_blockers exactly once with at most three concrete questions, do not call CreatePlan, and stop.",
-    "Otherwise call Cursor CreatePlan exactly once. Its plan argument must be one complete, ready, native schema-4 Workflow intent root satisfying the harness below.",
+    "Otherwise call Cursor CreatePlan exactly once. Its plan argument must be one complete, ready, native schema-5 Workflow intent root satisfying the harness below.",
     "For an existing valid root, retain it unchanged when already adequate or propose a complete improved root. Never imply that an improvement is already approved.",
     `REQUESTED AUTO PROFILE
 ${preparation.requested_profile}`,
@@ -32690,7 +32905,7 @@ function normalizePlannerRootOutput(rootPlanText, preparation) {
 }
 function repairPrompt(errors, repairsRemaining) {
   return [
-    "The preceding CreatePlan output failed deterministic schema-4 validation.",
+    "The preceding CreatePlan output failed deterministic schema-5 validation.",
     "This is a technical contract repair only. Preserve the established product intent and use the same planner model and agent context.",
     `Call CreatePlan exactly once with a complete corrected root. Do not call report_intent_blockers unless a genuinely material product decision is now discovered. Repairs remaining after this turn: ${repairsRemaining}.`,
     `VALIDATOR ERRORS
@@ -32700,11 +32915,12 @@ ${errors.map((error2) => `- ${error2}`).join("\n")}`
 function maximumProfileAllows(requested, maximum) {
   return (profileRank[requested] ?? 99) <= (profileRank[maximum] ?? -1);
 }
-function preparationRequestHash({ goal, rootPlan, requestedProfile, routeProfile }) {
+function preparationRequestHash({ goal, rootPlan, rootArtifactsHash, requestedProfile, routeProfile }) {
   return hash2({
     source_kind: goal ? "goal" : "root-plan",
     goal: goal ?? null,
     input_root_hash: rootPlan ? hash2(rootPlan) : null,
+    input_root_lineage_hash: rootArtifactsHash ?? null,
     requested_profile: requestedProfile,
     route_profile: routeProfile
   });
@@ -32718,16 +32934,21 @@ var PlanningEngine = class {
     this.adapterFactory = adapterFactory ?? ((preparation) => new CursorWorkerAdapter({ runDirectory: this.store.preparationDirectory(preparation.preparation_id), pluginRoot: this.pluginRoot }));
     this.capabilitiesFactory = capabilitiesFactory ?? ((additions = {}) => resolveCapabilities(this.stateRoot, additions, { pluginRoot: this.pluginRoot }));
   }
-  prepare({ goal, rootPlan, requestedProfile, routeProfile = "default", idempotencyKey }) {
+  prepare({ goal, rootPlan, rootArtifacts, requestedProfile, routeProfile = "default", idempotencyKey }) {
     if (Boolean(goal) === Boolean(rootPlan)) throw new Error("workflow_prepare requires exactly one of goal or root_plan");
     if (!["supervised", "autonomous"].includes(requestedProfile)) throw new Error("workflow_prepare supports supervised or autonomous");
     if (typeof idempotencyKey !== "string" || idempotencyKey.length < 8) throw new Error("workflow_prepare requires an idempotency key");
     let inputContract = null;
+    let inputLineage = { errors: [], artifacts: [], artifact_set_hash: hash2([]) };
     if (rootPlan) {
       inputContract = executionContractFromArtifactText(rootPlan, this.pluginRoot);
       if (inputContract.errors.length > 0) throw new Error(`invalid input root plan: ${inputContract.errors.join("; ")}`);
+      inputLineage = validateRootPlanLineage(rootPlan, rootArtifacts, this.pluginRoot);
+      if (inputLineage.errors.length > 0) throw new Error(`invalid input root lineage: ${inputLineage.errors.join("; ")}`);
+    } else if (rootArtifacts !== void 0) {
+      throw new Error("workflow_prepare root_artifacts require root_plan");
     }
-    const requestHash = preparationRequestHash({ goal, rootPlan, requestedProfile, routeProfile });
+    const requestHash = preparationRequestHash({ goal, rootPlan, rootArtifactsHash: inputLineage.artifact_set_hash, requestedProfile, routeProfile });
     const duplicate = this.store.list().find((preparation2) => preparation2.preparation_idempotency_key === idempotencyKey);
     if (duplicate) {
       assertCompatiblePreparation(duplicate);
@@ -32769,6 +32990,8 @@ var PlanningEngine = class {
       input_root_hash: rootPlan ? hash2(rootPlan) : null,
       input_root_contract: inputContract,
       input_root_authoritative_projection_hash: inputContract?.authoritative_projection_hash ?? null,
+      input_root_lineage_artifacts: inputLineage.artifacts,
+      input_root_lineage_hash: inputLineage.artifact_set_hash,
       requested_profile: requestedProfile,
       route_profile: routeProfile,
       route_config: route,
@@ -32879,6 +33102,9 @@ var PlanningEngine = class {
       const rootPlanText = normalizePlannerRootOutput(phase.planningOutput.root_plan_text, preparation);
       const contract = executionContractFromArtifactText(rootPlanText, this.pluginRoot);
       const validationErrors = [...contract.errors];
+      if (validationErrors.length === 0) validationErrors.push(...validateRootPlanLineage(rootPlanText, preparation.input_root_lineage_artifacts, this.pluginRoot).errors);
+      if (validationErrors.length === 0 && preparation.input_root_contract && (contract.fields.predecessor_plan_id ?? null) !== (preparation.input_root_contract.fields.predecessor_plan_id ?? null)) validationErrors.push("root plan predecessor_plan_id must remain unchanged");
+      if (validationErrors.length === 0 && preparation.input_root_contract && (contract.fields.replan_source_review_id ?? null) !== (preparation.input_root_contract.fields.replan_source_review_id ?? null)) validationErrors.push("root plan replan_source_review_id must remain unchanged");
       if (validationErrors.length === 0 && (contract.fields.status !== "ready" || contract.fields.intent_ready !== true)) validationErrors.push("root plan must be ready with intent_ready true");
       if (validationErrors.length === 0 && !maximumProfileAllows(preparation.requested_profile, contract.fields.profile_max)) validationErrors.push(`root plan permits at most ${contract.fields.profile_max}`);
       if (validationErrors.length === 0) {
@@ -33212,11 +33438,570 @@ function auditVerificationProfile(workspaceRoot, manifestPath, pluginRoot2, stat
   return { status: "clean", ...inspection, approval };
 }
 
+// src/controller/artifact-handoff.mjs
+import {
+  closeSync as closeSync2,
+  existsSync as existsSync11,
+  mkdirSync as mkdirSync8,
+  openSync as openSync2,
+  readFileSync as readFileSync9,
+  readdirSync as readdirSync3,
+  renameSync as renameSync5,
+  unlinkSync as unlinkSync2,
+  writeFileSync as writeFileSync7
+} from "node:fs";
+import { createHash as createHash9, randomUUID as randomUUID4 } from "node:crypto";
+import { dirname as dirname9, join as join11, resolve as resolve10 } from "node:path";
+var HANDOFF_RECORD_SCHEMA = 1;
+function sha2563(value) {
+  return createHash9("sha256").update(String(value)).digest("hex");
+}
+function stableArtifactSetHash(records) {
+  const projection = records.map((record2) => ({ artifact_id: record2.artifact_id, text_hash: record2.text_hash })).sort((left, right) => left.artifact_id.localeCompare(right.artifact_id));
+  return sha2563(JSON.stringify(projection));
+}
+function atomicJson3(path, value) {
+  mkdirSync8(dirname9(path), { recursive: true, mode: 448 });
+  const temporary = `${path}.${process.pid}.${randomUUID4()}.tmp`;
+  writeFileSync7(temporary, `${JSON.stringify(value, null, 2)}
+`, { mode: 384 });
+  renameSync5(temporary, path);
+}
+function processAlive2(pid) {
+  if (!Number.isInteger(pid) || pid < 1) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error2) {
+    return error2.code === "EPERM";
+  }
+}
+function acquireLock2(path) {
+  mkdirSync8(dirname9(path), { recursive: true, mode: 448 });
+  try {
+    const descriptor = openSync2(path, "wx", 384);
+    writeFileSync7(descriptor, `${JSON.stringify({ pid: process.pid, at: (/* @__PURE__ */ new Date()).toISOString() })}
+`);
+    return descriptor;
+  } catch (error2) {
+    if (error2.code !== "EEXIST") throw error2;
+    let stale = false;
+    try {
+      stale = !processAlive2(JSON.parse(readFileSync9(path, "utf8")).pid);
+    } catch {
+      stale = true;
+    }
+    if (!stale) throw new Error("concurrent handoff closeout is already in progress");
+    unlinkSync2(path);
+    const descriptor = openSync2(path, "wx", 384);
+    writeFileSync7(descriptor, `${JSON.stringify({ pid: process.pid, at: (/* @__PURE__ */ new Date()).toISOString() })}
+`);
+    return descriptor;
+  }
+}
+function parsedArtifact(text, pluginRoot2) {
+  const inspected = inspectArtifactText(text, pluginRoot2);
+  if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) {
+    throw new Error(`handoff artifact is invalid: ${(inspected.errors.length > 0 ? inspected.errors : ["missing artifact identity"]).join("; ")}`);
+  }
+  if (inspected.artifact.fields.schema !== ARTIFACT_SCHEMA) {
+    throw new Error(`handoff accepts only Schema ${ARTIFACT_SCHEMA} artifacts`);
+  }
+  return inspected.artifact;
+}
+function recordFor(text, pluginRoot2) {
+  const artifact = parsedArtifact(text, pluginRoot2);
+  const fields = artifact.fields;
+  return {
+    handoff_record_schema: HANDOFF_RECORD_SCHEMA,
+    artifact_schema: ARTIFACT_SCHEMA,
+    controller_protocol: CONTROLLER_PROTOCOL,
+    plugin_version: PLUGIN_VERSION,
+    artifact_id: fields.id,
+    artifact_type: fields.artifact,
+    root_plan_id: fields.artifact === "work-plan" ? fields.id : fields.root_plan_id,
+    text_hash: sha2563(text),
+    recorded_at: (/* @__PURE__ */ new Date()).toISOString(),
+    text
+  };
+}
+function validateRecord(record2) {
+  if (record2?.handoff_record_schema !== HANDOFF_RECORD_SCHEMA || record2?.artifact_schema !== ARTIFACT_SCHEMA || record2?.controller_protocol !== CONTROLLER_PROTOCOL || record2?.plugin_version !== PLUGIN_VERSION || !/^(?:wp|de|wr)-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(record2?.artifact_id ?? "")) || record2?.text_hash !== sha2563(record2?.text ?? "")) {
+    throw new Error(`incompatible or corrupt handoff record ${record2?.artifact_id ?? "unknown"}`);
+  }
+  return record2;
+}
+function referencedIds(fields) {
+  if (fields.artifact === "work-plan") return [fields.predecessor_plan_id, fields.replan_source_review_id].filter(Boolean);
+  if (fields.artifact === "delivery-evidence") return [fields.predecessor_evidence_id, fields.source_review_id].filter(Boolean);
+  if (fields.artifact === "work-review") return [fields.latest_evidence_id, fields.predecessor_review_id].filter(Boolean);
+  return [];
+}
+var ArtifactHandoffStore = class {
+  constructor(root, pluginRoot2) {
+    this.root = resolve10(root);
+    this.pluginRoot = resolve10(pluginRoot2);
+    this.directory = join11(this.root, "handoff", "artifacts");
+  }
+  artifactPath(artifactId) {
+    if (!/^(?:wp|de|wr)-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(artifactId))) throw new Error(`invalid handoff artifact ID ${artifactId}`);
+    return join11(this.directory, `${artifactId}.json`);
+  }
+  records() {
+    if (!existsSync11(this.directory)) return [];
+    return readdirSync3(this.directory, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".json")).map((entry) => validateRecord(JSON.parse(readFileSync9(join11(this.directory, entry.name), "utf8")))).sort((left, right) => left.artifact_id.localeCompare(right.artifact_id));
+  }
+  record(artifacts) {
+    if (!Array.isArray(artifacts) || artifacts.length < 1 || artifacts.length > 32) throw new Error("handoff record requires 1..32 artifacts");
+    const candidates = artifacts.map((entry, index) => {
+      if (!entry || typeof entry.label !== "string" || !entry.label.trim() || typeof entry.text !== "string" || !entry.text.trim()) {
+        throw new Error(`handoff artifact ${index + 1} requires non-empty label and text`);
+      }
+      return { label: entry.label, record: recordFor(entry.text, this.pluginRoot) };
+    });
+    const candidateIds = new Set(candidates.map(({ record: record2 }) => record2.artifact_id));
+    if (candidateIds.size !== candidates.length) throw new Error("handoff record contains duplicate artifact IDs");
+    const lockPath = join11(this.root, "handoff", ".lock");
+    let descriptor;
+    try {
+      descriptor = acquireLock2(lockPath);
+      const existing = this.records();
+      const merged = new Map(existing.map((record2) => [record2.artifact_id, record2]));
+      const recorded = [];
+      const duplicates = [];
+      for (const { record: record2 } of candidates) {
+        const prior = merged.get(record2.artifact_id);
+        if (prior && prior.text_hash !== record2.text_hash) throw new Error(`handoff artifact ${record2.artifact_id} conflicts with the immutable cached text`);
+        if (prior) duplicates.push(record2.artifact_id);
+        else {
+          merged.set(record2.artifact_id, record2);
+          recorded.push(record2.artifact_id);
+        }
+      }
+      const inspection = inspectArtifactSet([...merged.values()].map((record2) => [record2.artifact_id, record2.text]), this.pluginRoot);
+      if (inspection.errors.length > 0) throw new Error(`handoff chain is invalid: ${inspection.errors.join("; ")}`);
+      for (const id of recorded) atomicJson3(this.artifactPath(id), merged.get(id));
+      return {
+        handoff_record_schema: HANDOFF_RECORD_SCHEMA,
+        recorded,
+        duplicates,
+        artifact_set_hash: stableArtifactSetHash([...merged.values()])
+      };
+    } finally {
+      if (descriptor !== void 0) {
+        closeSync2(descriptor);
+        try {
+          unlinkSync2(lockPath);
+        } catch (error2) {
+          if (error2.code !== "ENOENT") throw error2;
+        }
+      }
+    }
+  }
+  context(rootPlanId, rootPlanText = null) {
+    if (!/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(rootPlanId))) throw new Error("handoff context requires a valid wp-* root_plan_id");
+    const records = this.records();
+    const byId = new Map(records.map((record2) => [record2.artifact_id, record2]));
+    if (rootPlanText) {
+      const supplied = recordFor(rootPlanText, this.pluginRoot);
+      if (supplied.artifact_id !== rootPlanId || supplied.artifact_type !== "work-plan") throw new Error("supplied active Plan does not match root_plan_id");
+      const cached2 = byId.get(rootPlanId);
+      if (cached2 && cached2.text_hash !== supplied.text_hash) throw new Error("active Plan conflicts with the immutable handoff Root");
+      byId.set(rootPlanId, cached2 ?? supplied);
+    }
+    const root = byId.get(rootPlanId);
+    if (!root) throw new Error(`no handoff Root ${rootPlanId}`);
+    const parsed = new Map([...byId.values()].map((record2) => [record2.artifact_id, parsedArtifact(record2.text, this.pluginRoot)]));
+    const lineage = /* @__PURE__ */ new Set();
+    let cursor = rootPlanId;
+    while (cursor && !lineage.has(cursor)) {
+      lineage.add(cursor);
+      cursor = parsed.get(cursor)?.fields.predecessor_plan_id ?? null;
+    }
+    const selected = /* @__PURE__ */ new Map();
+    for (const [id, artifact] of parsed) {
+      const fields = artifact.fields;
+      const belongs = fields.artifact === "work-plan" ? lineage.has(fields.id) : lineage.has(fields.root_plan_id);
+      if (belongs) selected.set(id, byId.get(id));
+    }
+    const pending = [...selected.keys()];
+    while (pending.length > 0) {
+      const id = pending.pop();
+      for (const reference of referencedIds(parsed.get(id)?.fields ?? {})) {
+        if (selected.has(reference) || !byId.has(reference)) continue;
+        selected.set(reference, byId.get(reference));
+        pending.push(reference);
+      }
+    }
+    const ordered = [...selected.values()].sort((left, right) => {
+      const rank = { "work-plan": 0, "delivery-evidence": 1, "work-review": 2 };
+      return rank[left.artifact_type] - rank[right.artifact_type] || left.recorded_at.localeCompare(right.recorded_at) || left.artifact_id.localeCompare(right.artifact_id);
+    });
+    const inspection = inspectArtifactSet(ordered.map((record2) => [record2.artifact_id, record2.text]), this.pluginRoot);
+    if (inspection.errors.length > 0) throw new Error(`cached handoff chain is invalid: ${inspection.errors.join("; ")}`);
+    const tips = effectiveCliSummary(inspection);
+    return {
+      handoff_record_schema: HANDOFF_RECORD_SCHEMA,
+      root_plan_id: rootPlanId,
+      artifact_set_hash: stableArtifactSetHash(ordered),
+      evidence_tip: tips.evidence_tips[rootPlanId] ?? null,
+      review_tip: tips.review_tips[rootPlanId] ?? null,
+      artifacts: ordered.map((record2) => ({ label: record2.artifact_id, text: record2.text, text_hash: record2.text_hash }))
+    };
+  }
+};
+
+// src/controller/delivery-closeout.mjs
+var import_yaml4 = __toESM(require_dist2(), 1);
+import { createHash as createHash10 } from "node:crypto";
+function sha2564(value) {
+  return createHash10("sha256").update(String(value)).digest("hex");
+}
+function stable4(value) {
+  if (Array.isArray(value)) return value.map(stable4);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable4(value[key])]));
+}
+function unique2(values) {
+  return [...new Set(values)];
+}
+function cell(value) {
+  const text = String(value ?? "").replace(/\r?\n/g, "<br>").replace(/\|/g, "\\|").trim();
+  return text || "none";
+}
+function table(headers, rows) {
+  return [
+    `| ${headers.join(" | ")} |`,
+    `|${headers.map(() => "---").join("|")}|`,
+    ...rows.map((row) => `| ${headers.map((header) => cell(row[header])).join(" | ")} |`)
+  ].join("\n");
+}
+function normalizeArtifacts(rootPlanText, artifacts, pluginRoot2) {
+  const rootInspection = inspectArtifactText(rootPlanText, pluginRoot2);
+  if (rootInspection.errors.length > 0 || rootInspection.artifact?.fields?.artifact !== "work-plan") {
+    throw new Error(`closeout Root is invalid: ${(rootInspection.errors.length > 0 ? rootInspection.errors : ["input is not a work-plan"]).join("; ")}`);
+  }
+  const rootId = rootInspection.artifact.fields.id;
+  const byId = /* @__PURE__ */ new Map([[rootId, { label: rootId, text: rootPlanText }]]);
+  for (const [index, entry] of (artifacts ?? []).entries()) {
+    if (!entry || typeof entry.label !== "string" || !entry.label.trim() || typeof entry.text !== "string" || !entry.text.trim()) {
+      throw new Error(`closeout artifact ${index + 1} requires non-empty label and text`);
+    }
+    const inspected = inspectArtifactText(entry.text, pluginRoot2);
+    if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) throw new Error(`closeout artifact ${entry.label} is invalid: ${inspected.errors.join("; ")}`);
+    const id = inspected.artifact.fields.id;
+    const prior = byId.get(id);
+    if (prior && prior.text !== entry.text) throw new Error(`closeout artifact ${id} has conflicting text`);
+    byId.set(id, { label: id, text: entry.text });
+  }
+  return { rootId, entries: [...byId.values()] };
+}
+function expectedCheckMap(contract, correction) {
+  const checks = correction?.checks?.filter((check) => check.Required === "yes") ?? contract.checks.filter((check) => check.Required === "yes");
+  return new Map(checks.map((check) => [check["Check ID"], check]));
+}
+function rootCheckMap(contract) {
+  return new Map(contract.checks.filter((check) => check.Required === "yes").map((check) => [check["Check ID"], check]));
+}
+function normalizeCheckEvidence(input, plannedChecks, rootChecks, evidenceMode2) {
+  if (!Array.isArray(input) || input.length === 0) throw new Error("closeout requires structured Check evidence");
+  const ids2 = input.map((entry) => entry?.check_id);
+  if (new Set(ids2).size !== ids2.length) throw new Error("closeout Check evidence IDs must be unique");
+  for (const id of plannedChecks.keys()) if (!ids2.includes(id)) throw new Error(`closeout is missing required Check ${id}`);
+  const known = new Map([...rootChecks, ...plannedChecks]);
+  return input.map((entry) => {
+    const planned = known.get(entry?.check_id);
+    if (!planned) throw new Error(`closeout received unknown Check ${entry?.check_id}`);
+    if (!(/* @__PURE__ */ new Set(["verified", "supported", "partial", "unavailable", "failed"])).has(entry.grade)) throw new Error(`closeout Check ${entry.check_id} has invalid grade`);
+    const limitations = unique2(Array.isArray(entry.limitations) ? entry.limitations.map(String).filter(Boolean) : []);
+    const repetitions = Number.isInteger(entry.repetitions) && entry.repetitions >= 0 ? entry.repetitions : 0;
+    if (entry.grade === "verified" && repetitions < 1) throw new Error(`verified Check ${entry.check_id} requires at least one repetition`);
+    if (entry.grade === "unavailable" && limitations.length === 0) throw new Error(`unavailable Check ${entry.check_id} requires a concrete limitation`);
+    const normalized = {
+      check_id: entry.check_id,
+      feature_id: entry.feature_id ?? null,
+      grade: entry.grade,
+      surface: entry.surface ?? "repository",
+      method: entry.method ?? planned["Command or Inspection"] ?? "inspection",
+      baseline_or_patched: "patched",
+      expected: entry.expected ?? planned["Expected Result"] ?? "required Check succeeds",
+      observed: String(entry.observed ?? "not fully observed"),
+      repetitions,
+      artifact_hashes: unique2((entry.artifact_hashes ?? []).filter((value) => /^[a-f0-9]{64}$/.test(String(value)))),
+      limitations
+    };
+    if (evidenceMode2 === "lean") {
+      if (!normalized.surface && normalized.grade === "verified") throw new Error(`verified Check ${entry.check_id} requires a surface`);
+      delete normalized.baseline_or_patched;
+      if (normalized.artifact_hashes.length === 0) delete normalized.artifact_hashes;
+      if (!normalized.feature_id) delete normalized.feature_id;
+    }
+    return normalized;
+  });
+}
+function overallGrade(entries) {
+  return aggregateEvidence(entries).grade;
+}
+function artifactStatus(grade) {
+  if (grade === "failed") return "blocked";
+  return grade === "verified" ? "complete" : "provisional";
+}
+function correctionObjectives(correction) {
+  return unique2((correction?.fixes ?? []).flatMap((fix) => String(fix["Root Objectives"] ?? "").match(/OBJ-[1-9][0-9]*/g) ?? []));
+}
+function checkObjectives(check) {
+  return String(check?.Objectives ?? "").match(/OBJ-[1-9][0-9]*/g) ?? [];
+}
+function objectiveState(objective, entries, rootChecks, aggregate) {
+  const related = entries.filter((entry) => checkObjectives(rootChecks.get(entry.check_id)).includes(objective));
+  const grades = (related.length > 0 ? related : entries).map((entry) => entry.grade);
+  if (grades.includes("failed")) return "blocked";
+  if (grades.length > 0 && grades.every((grade) => grade === "verified")) return "achieved";
+  return aggregate === "failed" ? "blocked" : "partially-achieved";
+}
+function evidenceMode(fields, effectiveProfile) {
+  return effectiveProfile === "manual" && fields.profile_max === "manual" && fields.risk !== "high" && (fields.hard_triggers ?? []).length === 0 ? "lean" : "full";
+}
+function evidenceSeed({ contract, subjectId, sourceReviewId, predecessorEvidenceId, strategyRevision, mode, paths, entries, repositorySnapshot, summary: summary2 }) {
+  return sha2564(JSON.stringify(stable4({
+    root: contract.authoritative_projection_hash,
+    subjectId,
+    sourceReviewId,
+    predecessorEvidenceId,
+    strategyRevision,
+    mode,
+    paths,
+    entries,
+    repositorySnapshot: repositorySnapshot ?? null,
+    summary: summary2 ?? null
+  })));
+}
+function summaryText(summary2, status, grade) {
+  const supplied = String(summary2 ?? "").trim();
+  if (supplied) return supplied;
+  if (status === "blocked") return `BLOCKER: required delivery verification failed; aggregate evidence grade is ${grade}.`;
+  if (status === "provisional") return `Delivery is provisional with aggregate evidence grade ${grade}; limitations remain explicit.`;
+  return "The authorized repository delivery is complete and every required Check is verified.";
+}
+function fullBody({ fields, contract, entries, changedPaths: changedPaths2, correction, repositorySnapshot, summary: summary2 }) {
+  const aggregate = fields.overall_grade;
+  const outcomes = fields.affected_objectives.map((objective) => ({
+    "Objective ID": objective,
+    Status: objectiveState(objective, entries, rootCheckMap(contract), aggregate),
+    Evidence: entries.map((entry) => `${entry.check_id}:${entry.grade}`).join(", ")
+  }));
+  const sections = [`## Summary
+
+${summary2}`];
+  if (correction) {
+    const state = fields.status === "complete" ? "achieved" : fields.status === "blocked" ? "blocked" : "partially-achieved";
+    sections.push(`## Subject results
+
+${table(["Objective ID", "Result", "Evidence"], correction.fixes.map((fix) => ({
+      "Objective ID": fix["FIX ID"],
+      Result: state,
+      Evidence: entries.map((entry) => `${entry.check_id}:${entry.grade}`).join(", ")
+    })))}`);
+  }
+  sections.push(`## Objective outcomes
+
+${table(["Objective ID", "Status", "Evidence"], outcomes)}`);
+  sections.push(changedPaths2.length > 0 ? `## Changes
+
+${table(["Path or Symbol", "Change", "Objective Coverage"], changedPaths2.map((path) => ({
+    "Path or Symbol": path,
+    Change: "Declared by deterministic closeout",
+    "Objective Coverage": fields.affected_objectives.join(", ")
+  })))}` : "## Changes\n\nNone.");
+  const snapshot2 = repositorySnapshot ?? {};
+  sections.push(`## Repository snapshot
+
+${table(["Snapshot ID", "HEAD", "Working tree", "Changed paths", "Relevant fingerprints", "Known failures"], [{
+    "Snapshot ID": `SNAP-${fields.id.slice(3)}`,
+    HEAD: snapshot2.head ?? "unknown",
+    "Working tree": snapshot2.working_tree ?? (changedPaths2.length > 0 ? "modified" : "unchanged"),
+    "Changed paths": changedPaths2.join(", ") || "none",
+    "Relevant fingerprints": snapshot2.relevant_fingerprints ?? "none",
+    "Known failures": snapshot2.known_failures ?? (fields.status === "blocked" ? "required Check failed" : "none")
+  }])}`);
+  sections.push(`## Checks
+
+${table(["Check ID", "Observed Result", "Status", "Prerequisite fingerprints"], entries.map((entry) => ({
+    "Check ID": entry.check_id,
+    "Observed Result": entry.observed,
+    Status: entry.grade === "verified" ? "passed" : entry.grade === "failed" ? "failed" : "skipped",
+    "Prerequisite fingerprints": snapshot2.relevant_fingerprints ?? "none"
+  })))}`);
+  sections.push("## Deviations\n\nNone.");
+  sections.push("## Operational evidence\n\nNot applicable.");
+  const limitations = unique2(entries.flatMap((entry) => entry.limitations ?? []));
+  sections.push(`## Limitations
+
+${limitations.length > 0 ? limitations.map((item) => `- ${item}`).join("\n") : "None."}`);
+  return sections.join("\n\n");
+}
+function buildDeliveryEvidence({
+  rootPlanText,
+  artifacts = [],
+  checkEvidence: checkEvidence2,
+  changedPaths: changedPaths2 = [],
+  strategyRevision = 0,
+  effectiveProfile = null,
+  repositorySnapshot = null,
+  summary: summary2 = null,
+  pluginRoot: pluginRoot2
+}) {
+  const normalized = normalizeArtifacts(rootPlanText, artifacts, pluginRoot2);
+  const contract = executionContractFromArtifactText(rootPlanText, pluginRoot2);
+  if (contract.errors.length > 0 || contract.fields.schema !== 5) throw new Error(`closeout requires a valid Schema-5 Root: ${contract.errors.join("; ")}`);
+  const priorInspection = inspectArtifactSet(normalized.entries.map((entry) => [entry.label, entry.text]), pluginRoot2);
+  if (priorInspection.errors.length > 0) throw new Error(`closeout input chain is invalid: ${priorInspection.errors.join("; ")}`);
+  const tips = effectiveCliSummary(priorInspection);
+  const evidenceTipId = tips.evidence_tips[normalized.rootId] ?? null;
+  const reviewTipId = tips.review_tips[normalized.rootId] ?? null;
+  const review = reviewTipId ? priorInspection.effective.get(reviewTipId) : null;
+  let correction = null;
+  let subjectId = normalized.rootId;
+  let sourceReviewId = null;
+  let predecessorEvidenceId = null;
+  let representation = "full";
+  const mode = evidenceMode(contract.fields, effectiveProfile ?? contract.fields.profile_max);
+  const effectiveStrategyRevision = mode === "full" ? strategyRevision : 0;
+  const effectiveRepositorySnapshot = mode === "full" ? repositorySnapshot : null;
+  if (evidenceTipId) {
+    if (!review || review.fields.latest_evidence_id !== evidenceTipId || review.fields.next_action !== "correct" || !review.fields.correction_id || !review.correction) {
+      const existing = normalized.entries.find((entry) => inspectArtifactText(entry.text, pluginRoot2).artifact?.fields?.id === evidenceTipId);
+      const existingFields = priorInspection.effective.get(evidenceTipId)?.fields ?? null;
+      if ((checkEvidence2 ?? []).length > 0 || changedPaths2.length > 0) {
+        const entries2 = normalizeCheckEvidence(checkEvidence2, expectedCheckMap(contract, null), rootCheckMap(contract), mode);
+        const suppliedPaths = unique2(changedPaths2.map(String).map((path) => path.trim()).filter(Boolean)).sort();
+        const expectedSeed = evidenceSeed({
+          contract,
+          subjectId: normalized.rootId,
+          sourceReviewId: null,
+          predecessorEvidenceId: null,
+          strategyRevision: effectiveStrategyRevision,
+          mode,
+          paths: suppliedPaths,
+          entries: entries2,
+          repositorySnapshot: effectiveRepositorySnapshot,
+          summary: summary2
+        });
+        const expectedId = `de-${normalized.rootId.replace(/^wp-/, "")}-${expectedSeed.slice(0, 12)}`;
+        const sameInputs = JSON.stringify(stable4(entries2)) === JSON.stringify(stable4(existingFields?.check_evidence ?? [])) && JSON.stringify(suppliedPaths) === JSON.stringify(existingFields?.changed_paths ?? []) && (mode === "lean" || (existingFields?.strategy_revision ?? 0) === effectiveStrategyRevision) && expectedId === evidenceTipId;
+        if (!sameInputs) throw new Error(`stale or competing closeout conflicts with current Evidence tip ${evidenceTipId}`);
+      }
+      return { duplicate: true, artifact: existing?.text ?? null, artifact_hash: existing ? sha2564(existing.text) : null, fields: existingFields };
+    }
+    correction = review.correction;
+    subjectId = review.fields.correction_id;
+    sourceReviewId = review.fields.id;
+    predecessorEvidenceId = evidenceTipId;
+    representation = "delta";
+  }
+  if (mode === "full" && (!repositorySnapshot?.head || !repositorySnapshot?.relevant_fingerprints)) {
+    throw new Error("full closeout requires repository snapshot HEAD and relevant fingerprints");
+  }
+  const plannedChecks = expectedCheckMap(contract, correction);
+  const roots = rootCheckMap(contract);
+  const entries = normalizeCheckEvidence(checkEvidence2, plannedChecks, roots, mode);
+  const grade = overallGrade(entries);
+  const status = artifactStatus(grade);
+  const rootObjectives = contract.objectives;
+  const affectedObjectives = correction ? unique2([...correctionObjectives(correction), ...entries.flatMap((entry) => checkObjectives(roots.get(entry.check_id)))]) : [...rootObjectives];
+  const affected = affectedObjectives.length > 0 ? affectedObjectives : [...rootObjectives];
+  const reusedObjectives = representation === "delta" ? rootObjectives.filter((id2) => !affected.includes(id2)) : [];
+  const executedChecks = entries.map((entry) => entry.check_id);
+  const reusedChecks = representation === "delta" ? [...roots.keys()].filter((id2) => !executedChecks.includes(id2)) : [];
+  const paths = unique2(changedPaths2.map(String).map((path) => path.trim()).filter(Boolean)).sort();
+  const seed = evidenceSeed({
+    contract,
+    subjectId,
+    sourceReviewId,
+    predecessorEvidenceId,
+    strategyRevision: effectiveStrategyRevision,
+    mode,
+    paths,
+    entries,
+    repositorySnapshot: effectiveRepositorySnapshot,
+    summary: summary2
+  });
+  const id = `de-${subjectId.replace(/^(?:wp|cp)-/, "")}-${seed.slice(0, 12)}`;
+  const fields = {
+    artifact: "delivery-evidence",
+    schema: 5,
+    id,
+    status,
+    root_plan_id: normalized.rootId,
+    subject_id: subjectId,
+    source_review_id: sourceReviewId,
+    predecessor_evidence_id: predecessorEvidenceId,
+    representation,
+    intent_hash: contract.authoritative_projection_hash,
+    ...mode === "full" ? { strategy_revision: effectiveStrategyRevision } : {},
+    evidence_mode: mode,
+    overall_grade: grade,
+    changed_paths: paths,
+    affected_objectives: affected,
+    reused_objectives: reusedObjectives,
+    executed_checks: executedChecks,
+    reused_checks: reusedChecks,
+    check_evidence: entries
+  };
+  const renderedSummary = summaryText(summary2, status, grade);
+  const body = mode === "lean" ? `## Summary
+
+${renderedSummary}` : fullBody({ fields, contract, entries, changedPaths: paths, correction, repositorySnapshot, summary: renderedSummary });
+  const artifact = `---
+${(0, import_yaml4.stringify)(fields, { lineWidth: 0 }).trimEnd()}
+---
+
+${body}
+`;
+  const finalEntries = [...normalized.entries, { label: id, text: artifact }];
+  const inspection = inspectArtifactSet(finalEntries.map((entry) => [entry.label, entry.text]), pluginRoot2);
+  if (inspection.errors.length > 0) throw new Error(`generated delivery evidence is invalid: ${inspection.errors.join("; ")}`);
+  return {
+    duplicate: false,
+    artifact,
+    artifact_hash: sha2564(artifact),
+    fields,
+    evidence_mode: mode,
+    overall_grade: grade,
+    status
+  };
+}
+function persistCloseout({ handoffStore, rootPlanText, artifacts = [], closeout }) {
+  if (!closeout?.artifact || !closeout?.fields?.id) throw new Error("persistCloseout requires a generated delivery artifact");
+  const entries = [{ label: "root", text: rootPlanText }, ...artifacts, { label: closeout.fields.id, text: closeout.artifact }];
+  const byId = /* @__PURE__ */ new Map();
+  for (const entry of entries) {
+    const inspected = inspectArtifactText(entry.text, handoffStore.pluginRoot);
+    if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) throw new Error(`closeout persistence input is invalid: ${inspected.errors.join("; ")}`);
+    const id = inspected.artifact.fields.id;
+    const prior = byId.get(id);
+    if (prior && prior !== entry.text) throw new Error(`closeout persistence artifact ${id} has conflicting text`);
+    byId.set(id, entry.text);
+  }
+  try {
+    const persisted = handoffStore.record([...byId].map(([label, text]) => ({ label, text })));
+    return { ...closeout, handoff_persisted: true, handoff_authoritative: false, artifact_set_hash: persisted.artifact_set_hash };
+  } catch (error2) {
+    if (/concurrent|conflict|invalid|corrupt|incompatible|stale|ambiguous|multiple/i.test(error2.message)) throw error2;
+    return {
+      ...closeout,
+      handoff_persisted: false,
+      handoff_authoritative: false,
+      warning: `handoff cache unavailable: ${error2.message}; attach the returned artifact explicitly to the next Workflow command`
+    };
+  }
+}
+
 // src/controller/engine.mjs
 var profileRank2 = Object.freeze({ manual: 0, supervised: 1, autonomous: 2 });
 var secretPatterns = [/(?:^|\n)-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/, /\bAKIA[0-9A-Z]{16}\b/, /\bgh[opsu]_[A-Za-z0-9]{30,}\b/, /\bsk-[A-Za-z0-9_-]{32,}\b/];
 function hash4(value) {
-  return createHash9("sha256").update(typeof value === "string" ? value : JSON.stringify(value)).digest("hex");
+  return createHash11("sha256").update(typeof value === "string" ? value : JSON.stringify(value)).digest("hex");
 }
 function jsonObject(text) {
   const source = String(text ?? "");
@@ -33266,10 +34051,10 @@ function pathInside2(path, roots) {
 function containsSensitiveChange(worktree, paths) {
   for (const path of paths) {
     const candidate = assertContainedPath(worktree, path);
-    if (!existsSync11(candidate) || !statSync2(candidate).isFile() || statSync2(candidate).size > 2 * 1024 * 1024) continue;
+    if (!existsSync12(candidate) || !statSync2(candidate).isFile() || statSync2(candidate).size > 2 * 1024 * 1024) continue;
     let source;
     try {
-      source = readFileSync9(candidate, "utf8");
+      source = readFileSync10(candidate, "utf8");
     } catch {
       continue;
     }
@@ -33319,13 +34104,14 @@ function runIntegrityBlockers(run, pluginRoot2) {
   return [...new Set(blockers)];
 }
 var WorkflowEngine = class {
-  constructor({ workspaceRoot, store, preparationStore, pluginRoot: pluginRoot2, stateRoot, worktreeRoot, adapterFactory, capabilitiesFactory } = {}) {
-    this.workspaceRoot = resolve10(workspaceRoot);
+  constructor({ workspaceRoot, store, preparationStore, pluginRoot: pluginRoot2, stateRoot, worktreeRoot, adapterFactory, capabilitiesFactory, handoffStore } = {}) {
+    this.workspaceRoot = resolve11(workspaceRoot);
     this.store = store;
     this.preparationStore = preparationStore;
-    this.pluginRoot = resolve10(pluginRoot2);
-    this.stateRoot = resolve10(stateRoot);
-    this.worktreeRoot = worktreeRoot ? resolve10(worktreeRoot) : null;
+    this.pluginRoot = resolve11(pluginRoot2);
+    this.stateRoot = resolve11(stateRoot);
+    this.worktreeRoot = worktreeRoot ? resolve11(worktreeRoot) : null;
+    this.handoffStore = handoffStore ?? new ArtifactHandoffStore(this.stateRoot, this.pluginRoot);
     this.adapterFactory = adapterFactory ?? ((run) => new CursorWorkerAdapter({ runDirectory: this.store.runDirectory(run.run_id), pluginRoot: this.pluginRoot }));
     this.capabilitiesFactory = capabilitiesFactory ?? ((additions = {}) => resolveCapabilities(this.stateRoot, additions, { pluginRoot: this.pluginRoot }));
   }
@@ -33370,6 +34156,10 @@ var WorkflowEngine = class {
     if (planningHarnessHash(this.pluginRoot) !== preparation.harness_hash) throw new Error("planning-harness-drift");
     const contract = executionContractFromArtifactText(preparation.root_plan_text, this.pluginRoot);
     if (contract.errors.length > 0) throw new Error(`invalid prepared root plan: ${contract.errors.join("; ")}`);
+    const lineage = validateRootPlanLineage(preparation.root_plan_text, preparation.input_root_lineage_artifacts, this.pluginRoot);
+    if (lineage.errors.length > 0) throw new Error(`invalid prepared root lineage: ${lineage.errors.join("; ")}`);
+    const expectedLineageHash = preparation.input_root_lineage_hash ?? (lineage.artifacts.length === 0 ? lineage.artifact_set_hash : null);
+    if (lineage.artifact_set_hash !== expectedLineageHash) throw new Error("prepared-root-lineage-hash-mismatch");
     if (contract.authoritative_projection_hash !== preparation.root_authoritative_projection_hash) throw new Error("prepared-root-authoritative-projection-mismatch");
     if (contract.fields.status !== "ready" || contract.fields.intent_ready !== true) throw new Error("prepared root plan must be ready with intent_ready true");
     if (!withinProfile(preparation.requested_profile, contract.fields.profile_max)) throw new Error(`prepared root plan permits at most ${contract.fields.profile_max}`);
@@ -33488,7 +34278,7 @@ var WorkflowEngine = class {
       try {
         worktree = createRunWorktree(this.workspaceRoot, runId, {
           ...this.worktreeRoot ? { root: this.worktreeRoot } : {},
-          snapshotPath: join11(this.store.runDirectory(runId), "dirty-snapshot.json")
+          snapshotPath: join12(this.store.runDirectory(runId), "dirty-snapshot.json")
         });
       } catch (error2) {
         return this.block(run, [`dirty-snapshot-blocked:${error2.message}`]);
@@ -33648,12 +34438,20 @@ ${JSON.stringify(run.review, null, 2)}` : ""
       if (!review.decision) return { completed: false, run: this.wait(run, review.blockers) };
       const aggregate = aggregateEvidence(run.evidence_entries.filter((entry) => entry.baseline_or_patched === "patched"));
       if (aggregate.delivery === "blocked") {
+        const patchedEvidence = run.evidence_entries.filter((entry) => entry.baseline_or_patched === "patched");
+        let candidate;
+        try {
+          candidate = this.deliveryEvidenceCandidate(run, patchedEvidence);
+        } catch (error2) {
+          return { completed: false, run: this.block(run, [`delivery-closeout-invalid:${error2.message}`]) };
+        }
+        const materialized = this.materializeDeliveryEvidence(run, candidate);
         return { completed: false, run: this.update(run.run_id, (draft) => ({
           ...draft,
           lifecycle: "blocked",
           delivery_status: "blocked",
           evidence_grade: "failed",
-          blockers: ["known-check-failure"],
+          blockers: ["known-check-failure", ...materialized.blocker ? [materialized.blocker] : []],
           next_action: "correct-or-replan"
         }), "delivery-blocked") };
       }
@@ -33691,8 +34489,8 @@ ${JSON.stringify(run.review, null, 2)}` : ""
         receipt: null
       };
     }
-    const artifactDirectory = join11(this.store.runDirectory(run.run_id), "artifacts", `strategy-${run.strategy.revision}`, stage);
-    mkdirSync8(artifactDirectory, { recursive: true, mode: 448 });
+    const artifactDirectory = join12(this.store.runDirectory(run.run_id), "artifacts", `strategy-${run.strategy.revision}`, stage);
+    mkdirSync9(artifactDirectory, { recursive: true, mode: 448 });
     const recipe = TASK_RECIPES[run.strategy.task_class];
     const prompt = [
       `Act as a read-only verifier for the ${stage} state. Do not modify repository files.`,
@@ -33744,7 +34542,7 @@ ${artifactDirectory}`
       return { entries: [...hostEntries, ...unresolved.map((check) => checkEvidence(check, { unavailable: true, reason: `invalid verifier output: ${error2.message}` }, stage))], receipt: phase.receipt };
     }
   }
-  review(run, slice, evidenceEntries, adapter) {
+  review(run, slice, evidenceEntries, adapter, candidateEvidence = null) {
     const selected = routeSelection(run.route_validation, "reviewer");
     const diff = this.gitDiff(run.worktree.path, run.strategy.task_class === "verify-existing" ? run.worktree.baseline.head : run.worktree.human_baseline);
     const prompt = [
@@ -33759,8 +34557,8 @@ ${JSON.stringify(run.strategy, null, 2)}`,
 ${JSON.stringify(slice, null, 2)}`,
       `DIFF
 ${diff}`,
-      `EVIDENCE
-${JSON.stringify(evidenceEntries, null, 2)}`
+      `CANDIDATE DELIVERY EVIDENCE
+${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
     ].join("\n\n");
     const guarded = guardReadOnlyRepository(run.worktree.path, () => adapter.runPhase({ role: "reviewer", ...selected, prompt, cwd: run.worktree.path, configurationHash: run.route_hash, artifactProjectionHash: run.intent_hash }));
     const phase = guarded.value;
@@ -33774,8 +34572,8 @@ ${JSON.stringify(evidenceEntries, null, 2)}`
       return { decision: null, receipt: phase.receipt, blockers: [`reviewer-invalid-decision:${error2.message}`] };
     }
   }
-  reviewFanout(run, evidenceEntries, adapter) {
-    if (typeof adapter.runReadOnlyFanout !== "function") return this.review(run, { "Slice ID": "ROOT" }, evidenceEntries, adapter);
+  reviewFanout(run, evidenceEntries, adapter, candidateEvidence = null) {
+    if (typeof adapter.runReadOnlyFanout !== "function") return this.review(run, { "Slice ID": "ROOT" }, evidenceEntries, adapter, candidateEvidence);
     const diff = this.gitDiff(run.worktree.path, run.strategy.task_class === "verify-existing" ? run.worktree.baseline.head : run.worktree.human_baseline);
     const prompt = [
       "Independently judge the immutable intent, current strategy, diff and evidence. You are read-only.",
@@ -33786,8 +34584,8 @@ ${run.plan.authoritative_projection_text}`,
 ${JSON.stringify(run.strategy, null, 2)}`,
       `DIFF
 ${diff}`,
-      `EVIDENCE
-${JSON.stringify(evidenceEntries, null, 2)}`
+      `CANDIDATE DELIVERY EVIDENCE
+${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
     ].join("\n\n");
     const phases = ["reviewer", "investigator"].map((role) => ({
       role,
@@ -33847,7 +34645,13 @@ ${JSON.stringify(evidenceEntries, null, 2)}`
     const patched = (run.evidence_entries ?? []).filter((entry) => entry.baseline_or_patched === "patched");
     const evidence = patched.length > 0 ? patched : (run.evidence_entries ?? []).filter((entry) => entry.baseline_or_patched === "baseline");
     const aggregate = aggregateEvidence(evidence);
-    const review = this.reviewFanout(run, evidence, adapter);
+    let candidate;
+    try {
+      candidate = this.deliveryEvidenceCandidate(run, evidence);
+    } catch (error2) {
+      return this.block(run, [`delivery-closeout-invalid:${error2.message}`]);
+    }
+    const review = this.reviewFanout(run, evidence, adapter, candidate.artifact);
     const reviewReceipts = review.receipts ?? (review.receipt ? [review.receipt] : []);
     const sourceBaselineAtDelivery = repositoryBaseline(this.workspaceRoot);
     const sourceDriftAtDelivery = currentBaselineDiffers(run.source_baseline_at_start ?? run.baseline, sourceBaselineAtDelivery);
@@ -33862,17 +34666,29 @@ ${JSON.stringify(evidenceEntries, null, 2)}`
       source_drift_at_delivery: sourceDriftAtDelivery,
       integration_warnings: sourceDriftAtDelivery ? ["source-worktree-drift-may-conflict-with-human-integration"] : []
     }), "root-reviewed");
-    if (review.hard_error) return this.block(run, review.blockers);
+    if (review.hard_error) {
+      const materialized2 = this.materializeDeliveryEvidence(run, candidate);
+      return this.block(materialized2.run, [...review.blockers, ...materialized2.blocker ? [materialized2.blocker] : []]);
+    }
     const budgetBlockers = budgetBoundaryBlockers(run);
-    if (budgetBlockers.length > 0) return this.block(run, budgetBlockers);
+    if (budgetBlockers.length > 0) {
+      const materialized2 = this.materializeDeliveryEvidence(run, candidate);
+      return this.block(materialized2.run, [...budgetBlockers, ...materialized2.blocker ? [materialized2.blocker] : []]);
+    }
     if (!review.decision) return this.wait(run, review.blockers);
-    if (aggregate.delivery === "blocked") return this.update(runId, (draft) => ({ ...draft, lifecycle: "blocked", delivery_status: "blocked", blockers: ["known-check-failure"], next_action: "correct-or-replan" }), "delivery-blocked");
+    if (aggregate.delivery === "blocked") {
+      const materialized2 = this.materializeDeliveryEvidence(run, candidate);
+      return this.update(runId, (draft) => ({ ...draft, lifecycle: "blocked", delivery_status: "blocked", blockers: ["known-check-failure", ...materialized2.blocker ? [materialized2.blocker] : []], next_action: "correct-or-replan" }), "delivery-blocked");
+    }
     if (["correct", "clarify", "replan", "retry-review"].includes(review.decision.next_action)) return this.wait(run, [`root-review-${review.decision.next_action}`]);
     const verified = aggregate.delivery === "verified" && review.decision.assessment === "achieved" && review.decision.delivery_status === "verified";
     const deliveryStatus = verified ? "verified" : "provisional";
     if (deliveryStatus === "provisional" && run.effective_profile === "autonomous") {
       run = this.update(runId, (draft) => ({ ...draft, effective_profile: "supervised", downgraded: true, downgrade_reason: "evidence-shortfall" }), "profile-auto-downgraded");
     }
+    const materialized = this.materializeDeliveryEvidence(run, candidate);
+    run = materialized.run;
+    if (materialized.blocker) return this.block(run, [materialized.blocker]);
     if (deliveryStatus === "verified" && run.effective_profile === "autonomous") {
       const achieved = this.update(runId, (draft) => ({ ...draft, lifecycle: "achieved", delivery_status: "verified", delivery_accepted: false, phase: "achieved", next_action: "none", blockers: [] }), "run-achieved");
       this.store.appendDecision(runId, { phase: "delivery", decision: "achieved", reason: "certified evidence and independent review", input_hashes: [run.intent_hash, run.strategy.strategy_hash], strategy_revision: run.strategy.revision, evidence_refs: evidence.flatMap((entry) => entry.artifact_hashes), result: "achieved" });
@@ -33881,6 +34697,64 @@ ${JSON.stringify(evidenceEntries, null, 2)}`
     const delivery = this.update(runId, (draft) => ({ ...draft, lifecycle: "waiting-human", delivery_status: deliveryStatus, phase: deliveryStatus === "verified" ? "delivery-ready-verified" : "delivery-ready-provisional", next_action: deliveryStatus === "verified" ? "accept-verified" : "accept-provisional", blockers: [] }), "delivery-ready");
     this.store.appendDecision(runId, { phase: "delivery", decision: `deliver-${deliveryStatus}`, reason: verified ? "all evidence verified" : "no known failure but strongest evidence is incomplete", input_hashes: [run.intent_hash, run.strategy.strategy_hash], strategy_revision: run.strategy.revision, evidence_refs: evidence.flatMap((entry) => entry.artifact_hashes), result: delivery.lifecycle });
     return delivery;
+  }
+  deliveryEvidenceCandidate(run, evidence) {
+    const snapshot2 = repositoryBaseline(run.worktree?.path ?? this.workspaceRoot);
+    const paths = run.worktree?.path ? changedPaths(run.worktree.path) : [];
+    const supplied = new Map(evidence.map((entry) => [entry.check_id, entry]));
+    const completeEvidence = run.plan.checks.filter((check) => check.Required === "yes").map((check) => supplied.get(check["Check ID"]) ?? {
+      check_id: check["Check ID"],
+      grade: "unavailable",
+      surface: "controller",
+      method: check["Command or Inspection"],
+      expected: check["Expected Result"],
+      observed: "Check not reached before the current delivery boundary",
+      repetitions: 0,
+      artifact_hashes: [],
+      limitations: ["delivery stopped before this required Check could run"]
+    });
+    return buildDeliveryEvidence({
+      rootPlanText: run.root_plan_text,
+      checkEvidence: completeEvidence,
+      changedPaths: paths,
+      strategyRevision: run.strategy?.revision ?? 0,
+      effectiveProfile: run.effective_profile,
+      repositorySnapshot: {
+        head: snapshot2.head,
+        working_tree: snapshot2.status ? "modified" : "unchanged",
+        relevant_fingerprints: `intent:${run.intent_hash};strategy:${run.strategy?.strategy_hash ?? "none"}`,
+        known_failures: aggregateEvidence(completeEvidence).delivery === "blocked" ? "required Check failed" : "none"
+      },
+      pluginRoot: this.pluginRoot
+    });
+  }
+  materializeDeliveryEvidence(run, candidate) {
+    let handoffPersisted = true;
+    let handoffWarning = null;
+    let blocker = null;
+    try {
+      this.handoffStore.record([
+        { label: run.plan.fields.id, text: run.root_plan_text },
+        { label: candidate.fields.id, text: candidate.artifact }
+      ]);
+    } catch (error2) {
+      handoffPersisted = false;
+      const semanticConflict = /conflict|invalid|corrupt|incompatible|multiple|ambiguous|stale|tip/i.test(error2.message);
+      if (semanticConflict) blocker = `delivery-evidence-handoff-conflict:${error2.message}`;
+      else {
+        handoffPersisted = false;
+        handoffWarning = `delivery evidence handoff unavailable: ${error2.message}`;
+      }
+    }
+    const updated = this.update(run.run_id, (draft) => ({
+      ...draft,
+      delivery_evidence_id: candidate.fields.id,
+      delivery_evidence_hash: candidate.artifact_hash,
+      delivery_evidence_artifact: candidate.artifact,
+      handoff_persisted: handoffPersisted,
+      integration_warnings: [.../* @__PURE__ */ new Set([...draft.integration_warnings ?? [], ...handoffWarning ? [handoffWarning] : []])]
+    }), "delivery-evidence-materialized");
+    return { run: updated, blocker };
   }
   acceptDelivery(runId, acceptance) {
     const run = this.store.get(runId);
@@ -33919,32 +34793,32 @@ ${JSON.stringify(evidenceEntries, null, 2)}`
 };
 
 // src/controller/control.mjs
-import { randomUUID as randomUUID4 } from "node:crypto";
-import { existsSync as existsSync12, mkdirSync as mkdirSync9, renameSync as renameSync5, rmSync as rmSync4, writeFileSync as writeFileSync7 } from "node:fs";
-import { dirname as dirname9, join as join12 } from "node:path";
+import { randomUUID as randomUUID5 } from "node:crypto";
+import { existsSync as existsSync13, mkdirSync as mkdirSync10, renameSync as renameSync6, rmSync as rmSync4, writeFileSync as writeFileSync8 } from "node:fs";
+import { dirname as dirname10, join as join13 } from "node:path";
 var WORKER_CONTROL_FILE = "worker-control.json";
 var DEFAULT_CANCEL_GRACE_MS = 5e3;
 function workerControlPath(subjectDirectory) {
-  return join12(subjectDirectory, WORKER_CONTROL_FILE);
+  return join13(subjectDirectory, WORKER_CONTROL_FILE);
 }
 function writeWorkerControl(subjectDirectory, action, metadata = {}) {
   if (!["pause", "stop", "budget"].includes(action)) throw new Error(`unsupported worker control action: ${action}`);
   const path = workerControlPath(subjectDirectory);
-  mkdirSync9(dirname9(path), { recursive: true, mode: 448 });
-  const temporary = `${path}.${process.pid}.${randomUUID4()}.tmp`;
+  mkdirSync10(dirname10(path), { recursive: true, mode: 448 });
+  const temporary = `${path}.${process.pid}.${randomUUID5()}.tmp`;
   const value = { schema: 1, action, requested_at: (/* @__PURE__ */ new Date()).toISOString(), ...metadata };
-  writeFileSync7(temporary, `${JSON.stringify(value, null, 2)}
+  writeFileSync8(temporary, `${JSON.stringify(value, null, 2)}
 `, { mode: 384 });
-  renameSync5(temporary, path);
+  renameSync6(temporary, path);
   return value;
 }
 function clearWorkerControl(subjectDirectory) {
   const path = workerControlPath(subjectDirectory);
-  const existed = existsSync12(path);
+  const existed = existsSync13(path);
   rmSync4(path, { force: true });
   return existed;
 }
-function processAlive2(pid) {
+function processAlive3(pid) {
   if (!Number.isInteger(pid) || pid < 1) return false;
   try {
     process.kill(pid, 0);
@@ -33954,23 +34828,23 @@ function processAlive2(pid) {
   }
 }
 async function awaitCooperativeExit(pid, graceMs = DEFAULT_CANCEL_GRACE_MS) {
-  if (!processAlive2(pid)) return { exited: true, hard_kill_required: false, waited_ms: 0 };
+  if (!processAlive3(pid)) return { exited: true, hard_kill_required: false, waited_ms: 0 };
   const started = Date.now();
   while (Date.now() - started < graceMs) {
     await new Promise((resolveWait) => setTimeout(resolveWait, 100));
-    if (!processAlive2(pid)) return { exited: true, hard_kill_required: false, waited_ms: Date.now() - started };
+    if (!processAlive3(pid)) return { exited: true, hard_kill_required: false, waited_ms: Date.now() - started };
   }
   return { exited: false, hard_kill_required: true, waited_ms: Date.now() - started };
 }
 
 // src/controller/manual-status.mjs
-import { createHash as createHash10 } from "node:crypto";
-function unique2(values) {
+import { createHash as createHash12 } from "node:crypto";
+function unique3(values) {
   return [...new Set(values.filter(Boolean))];
 }
 function artifactSetHash(entries) {
-  const observations = entries.map(({ label, text }) => ({ label, text_hash: createHash10("sha256").update(String(text)).digest("hex") })).sort((left, right) => left.label.localeCompare(right.label) || left.text_hash.localeCompare(right.text_hash));
-  return createHash10("sha256").update(JSON.stringify(observations)).digest("hex");
+  const observations = entries.map(({ label, text }) => ({ label, text_hash: createHash12("sha256").update(String(text)).digest("hex") })).sort((left, right) => left.label.localeCompare(right.label) || left.text_hash.localeCompare(right.text_hash));
+  return createHash12("sha256").update(JSON.stringify(observations)).digest("hex");
 }
 function baseInput(rootPlanId, entries, observedAt) {
   return {
@@ -33995,7 +34869,7 @@ function summary(rootPlanId, entries, evidenceTip = null, reviewTip = null) {
 function incomplete(rootPlanId, entries, observedAt, blockers) {
   const input = baseInput(rootPlanId, entries, observedAt);
   return {
-    snapshot: deriveWorkflowState({ ...input, manual_context_incomplete: true, blockers: unique2(blockers) }),
+    snapshot: deriveWorkflowState({ ...input, manual_context_incomplete: true, blockers: unique3(blockers) }),
     artifact_summary: summary(rootPlanId, entries),
     diagnostics: []
   };
@@ -34003,19 +34877,19 @@ function incomplete(rootPlanId, entries, observedAt, blockers) {
 function invalid(rootPlanId, entries, observedAt, blockers, diagnostics = []) {
   const input = baseInput(rootPlanId, entries, observedAt);
   return {
-    snapshot: deriveWorkflowState({ ...input, artifact_chain_valid: false, root_schema_valid: false, blockers: unique2(blockers) }),
+    snapshot: deriveWorkflowState({ ...input, artifact_chain_valid: false, root_schema_valid: false, blockers: unique3(blockers) }),
     artifact_summary: summary(rootPlanId, entries),
-    diagnostics: unique2(diagnostics)
+    diagnostics: unique3(diagnostics)
   };
 }
-function referencedIds(fields) {
+function referencedIds2(fields) {
+  if (fields.artifact === "work-plan") return [fields.predecessor_plan_id, fields.replan_source_review_id];
   if (fields.artifact === "delivery-evidence") return [fields.predecessor_evidence_id, fields.source_review_id];
   if (fields.artifact === "work-review") return [fields.latest_evidence_id, fields.predecessor_review_id];
   return [];
 }
-function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot: pluginRoot2, observedAt = (/* @__PURE__ */ new Date()).toISOString() }) {
-  if (!/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(rootPlanId ?? ""))) throw new Error("manual status requires a valid wp-* root_plan_id");
-  if (!Array.isArray(artifacts) || artifacts.length === 0) return incomplete(rootPlanId, [], observedAt, ["manual-artifact-context-missing"]);
+function normalizeEntries(artifacts) {
+  if (!Array.isArray(artifacts) || artifacts.length === 0) return [];
   const entries = artifacts.map((entry, index) => {
     if (!entry || typeof entry.label !== "string" || entry.label.trim() === "" || typeof entry.text !== "string" || entry.text.trim() === "") {
       throw new Error(`manual status artifact ${index + 1} requires non-empty label and text`);
@@ -34023,19 +34897,59 @@ function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot: plugi
     return { label: entry.label, text: entry.text };
   });
   if (new Set(entries.map((entry) => entry.label)).size !== entries.length) throw new Error("manual status artifact labels must be unique");
+  return entries;
+}
+function activeRootFromEntries(entries, pluginRoot2) {
+  const roots = entries.map((entry) => inspectArtifactText(entry.text, pluginRoot2).artifact).filter((artifact) => artifact?.fields?.artifact === "work-plan");
+  if (roots.length === 0) throw new Error("manual active root resolution requires a current work-plan artifact");
+  const ids2 = new Set(roots.map((root) => root.fields.id));
+  if (ids2.size !== roots.length) throw new Error("manual active root resolution found duplicate work-plan IDs");
+  const referenced = new Set(roots.map((root) => root.fields.predecessor_plan_id).filter((id) => ids2.has(id)));
+  const tips = roots.filter((root) => !referenced.has(root.fields.id)).map((root) => root.fields.id).sort();
+  if (tips.length === 0) throw new Error("manual active root resolution found cyclic work-plan lineage");
+  if (tips.length > 1) throw new Error(`manual active root resolution is ambiguous: ${tips.join(", ")}`);
+  return tips[0];
+}
+function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot: pluginRoot2, observedAt = (/* @__PURE__ */ new Date()).toISOString(), manualAcceptance = null }) {
+  if (manualAcceptance !== null && manualAcceptance !== "provisional") throw new Error("manual acceptance must be provisional");
+  if (!Array.isArray(artifacts) || artifacts.length === 0) {
+    if (manualAcceptance) throw new Error("manual provisional acceptance requires a complete current Schema 5 artifact chain");
+    if (!rootPlanId) throw new Error("manual active root resolution requires current-task artifacts");
+    return incomplete(rootPlanId, [], observedAt, ["manual-artifact-context-missing"]);
+  }
+  const entries = normalizeEntries(artifacts);
+  rootPlanId ??= activeRootFromEntries(entries, pluginRoot2);
+  if (!/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(rootPlanId))) throw new Error("manual status requires a valid wp-* root_plan_id");
   const inspected = entries.map((entry) => ({ entry, inspection: inspectArtifactText(entry.text, pluginRoot2) }));
   const unparseable = inspected.filter(({ inspection }) => !inspection.artifact?.fields?.artifact);
-  if (unparseable.length > 0) return invalid(rootPlanId, entries, observedAt, unparseable.flatMap(({ entry, inspection }) => inspection.errors.map((error2) => `${entry.label}: ${error2}`)));
+  if (unparseable.length > 0) {
+    if (manualAcceptance) throw new Error("manual provisional acceptance requires a parseable current Schema 5 artifact chain");
+    return invalid(rootPlanId, entries, observedAt, unparseable.flatMap(({ entry, inspection }) => inspection.errors.map((error2) => `${entry.label}: ${error2}`)));
+  }
+  const rootById = new Map(inspected.filter(({ inspection }) => inspection.artifact?.fields?.artifact === "work-plan").map(({ inspection }) => [inspection.artifact.fields.id, inspection.artifact]));
+  const lineageRootIds = /* @__PURE__ */ new Set();
+  let lineageCursor = rootPlanId;
+  while (lineageCursor && !lineageRootIds.has(lineageCursor)) {
+    lineageRootIds.add(lineageCursor);
+    lineageCursor = rootById.get(lineageCursor)?.fields.predecessor_plan_id ?? null;
+  }
   const related = inspected.filter(({ inspection }) => {
     const fields = inspection.artifact.fields;
-    return fields.id === rootPlanId || fields.root_plan_id === rootPlanId;
+    return lineageRootIds.has(fields.id) || lineageRootIds.has(fields.root_plan_id);
   });
   const rootRecords = related.filter(({ inspection }) => inspection.artifact.fields.artifact === "work-plan" && inspection.artifact.fields.id === rootPlanId);
-  if (rootRecords.length === 0) return incomplete(rootPlanId, entries, observedAt, ["manual-root-artifact-missing"]);
-  if (rootRecords.length > 1) return invalid(rootPlanId, entries, observedAt, ["manual-root-artifact-ambiguous"]);
+  if (rootRecords.length === 0) {
+    if (manualAcceptance) throw new Error("manual provisional acceptance requires the current root artifact");
+    return incomplete(rootPlanId, entries, observedAt, ["manual-root-artifact-missing"]);
+  }
+  if (rootRecords.length > 1) {
+    if (manualAcceptance) throw new Error("manual provisional acceptance requires one unambiguous root artifact");
+    return invalid(rootPlanId, entries, observedAt, ["manual-root-artifact-ambiguous"]);
+  }
   const relatedEntries = related.map(({ entry }) => entry);
   const schemas = new Set(related.map(({ inspection }) => inspection.artifact.fields.schema));
   if (schemas.size === 1 && schemas.has(3)) {
+    if (manualAcceptance) throw new Error("Workflow 3 artifact chains are read-only and cannot be accepted");
     const input2 = baseInput(rootPlanId, relatedEntries, observedAt);
     return {
       snapshot: deriveWorkflowState({ ...input2, lifecycle: "stopped", compatibility: "read-only-workflow-3", blockers: ["legacy-workflow-3-read-only"] }),
@@ -34043,17 +34957,38 @@ function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot: plugi
       diagnostics: ["Workflow 3 artifacts are preserved as read-only history and are not converted"]
     };
   }
-  if (schemas.size > 1) return invalid(rootPlanId, relatedEntries, observedAt, ["mixed Workflow artifact schemas are not supported"]);
+  if (schemas.size === 1 && schemas.has(4)) {
+    if (manualAcceptance) throw new Error("Workflow 4 artifact chains are read-only and cannot be accepted");
+    const input2 = baseInput(rootPlanId, relatedEntries, observedAt);
+    return {
+      snapshot: deriveWorkflowState({ ...input2, lifecycle: "stopped", compatibility: "read-only-workflow-4", blockers: ["legacy-workflow-4-read-only"] }),
+      artifact_summary: summary(rootPlanId, relatedEntries),
+      diagnostics: ["Workflow 4 artifacts are preserved as read-only history and are not converted"]
+    };
+  }
+  if (schemas.size > 1 || !schemas.has(5)) {
+    if (manualAcceptance) throw new Error("manual provisional acceptance rejects mixed or non-current Workflow schemas");
+    return invalid(rootPlanId, relatedEntries, observedAt, ["mixed or unsupported Workflow artifact schemas are not supported"]);
+  }
   const individualErrors = related.flatMap(({ entry, inspection }) => inspection.errors.map((error2) => `${entry.label}: ${error2}`));
-  if (individualErrors.length > 0) return invalid(rootPlanId, relatedEntries, observedAt, individualErrors, related.flatMap(({ inspection }) => inspection.diagnostics));
+  if (individualErrors.length > 0) {
+    if (manualAcceptance) throw new Error(`manual provisional acceptance rejects an invalid artifact chain: ${individualErrors.join("; ")}`);
+    return invalid(rootPlanId, relatedEntries, observedAt, individualErrors, related.flatMap(({ inspection }) => inspection.diagnostics));
+  }
   const ids2 = new Set(related.map(({ inspection }) => inspection.artifact.fields.id));
   const missingReferences = [];
   for (const { entry, inspection } of related) {
-    for (const reference of referencedIds(inspection.artifact.fields)) if (reference && !ids2.has(reference)) missingReferences.push(`${entry.label}: manual-artifact-context-missing:${reference}`);
+    for (const reference of referencedIds2(inspection.artifact.fields)) if (reference && !ids2.has(reference)) missingReferences.push(`${entry.label}: manual-artifact-context-missing:${reference}`);
   }
-  if (missingReferences.length > 0) return incomplete(rootPlanId, relatedEntries, observedAt, missingReferences);
+  if (missingReferences.length > 0) {
+    if (manualAcceptance) throw new Error("manual provisional acceptance requires every referenced artifact");
+    return incomplete(rootPlanId, relatedEntries, observedAt, missingReferences);
+  }
   const chain = inspectArtifactSet(relatedEntries.map(({ label, text }) => [label, text]), pluginRoot2);
-  if (chain.errors.length > 0) return invalid(rootPlanId, relatedEntries, observedAt, chain.errors, chain.diagnostics);
+  if (chain.errors.length > 0) {
+    if (manualAcceptance) throw new Error(`manual provisional acceptance rejects an invalid artifact chain: ${chain.errors.join("; ")}`);
+    return invalid(rootPlanId, relatedEntries, observedAt, chain.errors, chain.diagnostics);
+  }
   const tips = effectiveCliSummary(chain);
   const evidenceTipId = tips.evidence_tips[rootPlanId] ?? null;
   const reviewTipId = tips.review_tips[rootPlanId] ?? null;
@@ -34061,6 +34996,10 @@ function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot: plugi
   const evidence = evidenceTipId ? chain.effective.get(evidenceTipId) : null;
   const review = reviewTipId ? chain.effective.get(reviewTipId) : null;
   const correctionEvidencePendingReview = Boolean(review && evidence?.fields.source_review_id === review.fields.id && evidence?.fields.subject_id === review.fields.correction_id);
+  const acceptanceEligible = root?.fields.profile_max === "manual" && evidence && review && evidence.fields.status !== "blocked" && evidence.fields.overall_grade !== "failed" && !(evidence.fields.check_evidence ?? []).some((check) => check.grade === "failed") && review.fields.delivery_status === "provisional" && review.fields.next_action === "accept-provisional" && !correctionEvidencePendingReview;
+  if (manualAcceptance && !acceptanceEligible) {
+    throw new Error("manual provisional acceptance requires the unique current provisional review tip, no failed check, no blocked artifact, and no correction awaiting review");
+  }
   const input = {
     ...baseInput(rootPlanId, relatedEntries, observedAt),
     contract_level: root.fields.contract_level,
@@ -34078,6 +35017,12 @@ function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot: plugi
     evidence_tip: evidenceTipId,
     review_tip: reviewTipId,
     review: review?.fields ?? null,
+    evidence_grade: evidence?.fields.overall_grade ?? null,
+    delivery_status: review?.fields.delivery_status ?? null,
+    intent_hash: evidence?.fields.intent_hash ?? null,
+    strategy_revision: evidence?.fields.strategy_revision ?? (evidence?.fields.evidence_mode === "lean" ? 0 : null),
+    manual_acceptance: manualAcceptance,
+    acceptance_basis_hash: manualAcceptance ? artifactSetHash(relatedEntries) : null,
     correction_evidence_pending_review: correctionEvidencePendingReview,
     root_review_complete: review?.fields.assessment === "achieved" && review?.fields.next_action === "none",
     more_slices: false
@@ -34085,12 +35030,12 @@ function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot: plugi
   return {
     snapshot: deriveWorkflowState(input),
     artifact_summary: summary(rootPlanId, relatedEntries, evidenceTipId, reviewTipId),
-    diagnostics: unique2([...chain.normalizations, ...chain.diagnostics])
+    diagnostics: unique3([...chain.normalizations, ...chain.diagnostics])
   };
 }
 
 // src/mcp/workflow-mcp.mjs
-var pluginRoot = resolve11(process.env.CURSOR_PLUGIN_ROOT ?? dirname10(dirname10(fileURLToPath3(import.meta.url))));
+var pluginRoot = resolve12(process.env.CURSOR_PLUGIN_ROOT ?? dirname11(dirname11(fileURLToPath3(import.meta.url))));
 var server = new McpServer({ name: "geldmacher-workflow", version: PLUGIN_VERSION });
 function result(value, isError = false) {
   return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }], structuredContent: value, isError };
@@ -34098,13 +35043,13 @@ function result(value, isError = false) {
 function proofArtifacts(root) {
   const files = [];
   const visit = (directory) => {
-    for (const entry of readdirSync3(directory, { withFileTypes: true })) {
-      const path = join13(directory, entry.name);
+    for (const entry of readdirSync4(directory, { withFileTypes: true })) {
+      const path = join14(directory, entry.name);
       if (entry.isSymbolicLink()) throw new Error(`verification proof artifact may not be a symlink: ${path}`);
       if (entry.isDirectory()) visit(path);
       else if (entry.isFile()) {
         if (lstatSync2(path).size > 10 * 1024 * 1024) throw new Error(`verification proof artifact exceeds 10 MiB: ${path}`);
-        files.push({ path, hash: createHash11("sha256").update(readFileSync10(path)).digest("hex") });
+        files.push({ path, hash: createHash13("sha256").update(readFileSync11(path)).digest("hex") });
       }
     }
   };
@@ -34119,16 +35064,22 @@ function proofResult(text) {
   return value;
 }
 function context(workspaceRoot) {
-  const workspace = realpathSync3(resolve11(workspaceRoot));
+  const workspace = realpathSync3(resolve12(workspaceRoot));
   const stateRoot = defaultStateRoot(workspace);
   const store = new RunStore(stateRoot);
   const preparationStore = new PreparationStore(stateRoot);
+  const handoffStore = new ArtifactHandoffStore(stateRoot, pluginRoot);
   const engine = new WorkflowEngine({ workspaceRoot: workspace, store, preparationStore, pluginRoot, stateRoot });
   const planningEngine = new PlanningEngine({ workspaceRoot: workspace, store: preparationStore, pluginRoot, stateRoot });
-  return { workspace, stateRoot, store, preparationStore, engine, planningEngine };
+  return { workspace, stateRoot, store, preparationStore, handoffStore, engine, planningEngine };
+}
+function handoffContext(workspaceRoot) {
+  const workspace = realpathSync3(resolve12(workspaceRoot));
+  const stateRoot = defaultStateRoot(workspace);
+  return { workspace, stateRoot, handoffStore: new ArtifactHandoffStore(stateRoot, pluginRoot) };
 }
 function runnerPath() {
-  return resolve11(process.env.GELDMACHER_WORKFLOW_RUNNER ?? fileURLToPath3(new URL("./workflow-runner.mjs", import.meta.url)));
+  return resolve12(process.env.GELDMACHER_WORKFLOW_RUNNER ?? fileURLToPath3(new URL("./workflow-runner.mjs", import.meta.url)));
 }
 function launchRunner({ action, workspace, stateRoot, runId = null, preparationId = null }) {
   const subjectArgs = runId ? ["--run-id", runId] : ["--preparation-id", preparationId];
@@ -34162,11 +35113,15 @@ async function watchEvents(readEvents, afterEvent, timeoutMs) {
   }
 }
 server.registerTool("workflow_prepare", {
-  description: "Run the configured planner pool in a read-only pre-run phase and produce either one approvable schema-4 intent root or manual intent questions.",
+  description: "Run the configured planner pool in a read-only pre-run phase and produce either one approvable schema-5 intent root or manual intent questions.",
   inputSchema: {
     workspace_root: string2().min(1),
     goal: string2().min(1).optional(),
     root_plan: string2().min(1).optional(),
+    root_artifacts: array(object2({
+      label: string2().min(1).max(200),
+      text: string2().min(1).max(25e4)
+    })).min(1).max(32).optional(),
     requested_profile: _enum(["supervised", "autonomous"]),
     route_profile: string2().min(1).default("default"),
     expected_revision: literal(0),
@@ -34175,10 +35130,13 @@ server.registerTool("workflow_prepare", {
 }, async (input) => {
   try {
     if (Boolean(input.goal) === Boolean(input.root_plan)) throw new Error("workflow_prepare requires exactly one of goal or root_plan");
+    if (input.root_artifacts && !input.root_plan) throw new Error("workflow_prepare root_artifacts require root_plan");
+    if ((input.root_artifacts ?? []).reduce((total, artifact) => total + artifact.text.length, 0) > 1e6) throw new Error("workflow_prepare root_artifacts exceed 1000000 characters");
     const { workspace, stateRoot, preparationStore, planningEngine } = context(input.workspace_root);
     const created = planningEngine.prepare({
       goal: input.goal,
       rootPlan: input.root_plan,
+      rootArtifacts: input.root_artifacts,
       requestedProfile: input.requested_profile,
       routeProfile: input.route_profile,
       idempotencyKey: input.idempotency_key
@@ -34221,13 +35179,142 @@ server.registerTool("workflow_start", {
     return result({ error: error2.message }, true);
   }
 });
+var artifactInput = object2({
+  label: string2().min(1).max(200),
+  text: string2().min(1).max(25e4)
+});
+var checkEvidenceInput = object2({
+  check_id: string2().regex(/^CHECK-[1-9][0-9]*$/),
+  feature_id: string2().min(1).nullable().optional(),
+  grade: _enum(["verified", "supported", "partial", "unavailable", "failed"]),
+  surface: string2().min(1).optional(),
+  method: string2().min(1).optional(),
+  expected: string2().min(1).optional(),
+  observed: string2().min(1),
+  repetitions: number2().int().min(0).optional(),
+  artifact_hashes: array(string2().regex(/^[a-f0-9]{64}$/)).max(64).optional(),
+  limitations: array(string2().min(1)).max(64).optional()
+});
+server.registerTool("workflow_artifact_record", {
+  description: "Validate and atomically cache exact Schema-5 work-plan or work-review artifacts as non-authoritative cross-context handoff data.",
+  inputSchema: {
+    workspace_root: string2().min(1),
+    artifacts: array(artifactInput).min(1).max(32)
+  }
+}, async (input) => {
+  try {
+    if (input.artifacts.reduce((total, artifact) => total + artifact.text.length, 0) > 1e6) throw new Error("handoff artifact bundle exceeds 1000000 characters");
+    for (const entry of input.artifacts) {
+      const inspected = inspectArtifactText(entry.text, pluginRoot);
+      if (inspected.errors.length > 0 || inspected.artifact?.fields?.schema !== 5 || !["work-plan", "work-review"].includes(inspected.artifact?.fields?.artifact)) {
+        throw new Error("workflow_artifact_record accepts only valid Schema-5 work-plan and work-review artifacts");
+      }
+    }
+    const { workspace, handoffStore } = handoffContext(input.workspace_root);
+    return result({ workspace_root: workspace, ...handoffStore.record(input.artifacts), handoff_authoritative: false });
+  } catch (error2) {
+    return result({ error: error2.message }, true);
+  }
+});
+server.registerTool("workflow_artifact_context", {
+  description: "Return the exact revalidated non-authoritative Schema-5 artifact chain cached for one Root, optionally hash-bound to the supplied active native Plan.",
+  inputSchema: {
+    workspace_root: string2().min(1),
+    root_plan_id: string2().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
+    root_plan: string2().min(1).max(25e4).optional()
+  }
+}, async (input) => {
+  try {
+    const { workspace, handoffStore } = handoffContext(input.workspace_root);
+    return result({ workspace_root: workspace, handoff_authoritative: false, ...handoffStore.context(input.root_plan_id, input.root_plan ?? null) });
+  } catch (error2) {
+    return result({ error: error2.message }, true);
+  }
+});
+server.registerTool("workflow_closeout", {
+  description: "Deterministically build, validate, and cache one Schema-5 delivery-evidence artifact from observed Checks without accepting caller-supplied identity, hashes, grade, status, or topology.",
+  inputSchema: {
+    workspace_root: string2().min(1),
+    root_plan_id: string2().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
+    root_plan: string2().min(1).max(25e4).optional(),
+    artifacts: array(artifactInput).min(1).max(32).optional(),
+    effective_profile: _enum(["manual", "supervised", "autonomous"]).default("manual"),
+    strategy_revision: number2().int().min(0).default(0),
+    changed_paths: array(string2().min(1).max(1e3)).max(1e3).default([]),
+    check_evidence: array(checkEvidenceInput).max(128).default([]),
+    repository_snapshot: object2({
+      head: string2().min(1).optional(),
+      working_tree: string2().min(1).optional(),
+      relevant_fingerprints: string2().min(1).optional(),
+      known_failures: string2().min(1).optional()
+    }).optional()
+  }
+}, async (input) => {
+  try {
+    if ((input.artifacts ?? []).reduce((total, artifact) => total + artifact.text.length, 0) > 1e6) throw new Error("closeout artifact bundle exceeds 1000000 characters");
+    const { workspace, handoffStore } = handoffContext(input.workspace_root);
+    let cached2 = [];
+    try {
+      cached2 = handoffStore.context(input.root_plan_id, input.root_plan ?? null).artifacts.map(({ label, text }) => ({ label, text }));
+    } catch (error2) {
+      if (!input.root_plan || !/no handoff Root/.test(error2.message)) throw error2;
+    }
+    const merged = /* @__PURE__ */ new Map();
+    for (const entry of [...cached2, ...input.artifacts ?? []]) {
+      const prior = merged.get(entry.label);
+      if (prior && prior !== entry.text) throw new Error(`closeout artifact label ${entry.label} has conflicting text`);
+      merged.set(entry.label, entry.text);
+    }
+    const rootPlan = input.root_plan ?? [...merged.values()].find((text) => {
+      const inspected = inspectArtifactText(text, pluginRoot);
+      return inspected.artifact?.fields?.artifact === "work-plan" && inspected.artifact.fields.id === input.root_plan_id;
+    });
+    if (!rootPlan) throw new Error("workflow_closeout requires the active Root text or a cached Root");
+    const closeout = buildDeliveryEvidence({
+      rootPlanText: rootPlan,
+      artifacts: [...merged].map(([label, text]) => ({ label, text })),
+      checkEvidence: input.check_evidence,
+      changedPaths: input.changed_paths,
+      strategyRevision: input.strategy_revision,
+      effectiveProfile: input.effective_profile,
+      repositorySnapshot: input.repository_snapshot ?? null,
+      pluginRoot
+    });
+    if (!closeout.artifact) throw new Error("closeout resolved an evidence tip without its exact artifact text");
+    const artifactId = closeout.fields.id;
+    const persisted = persistCloseout({
+      handoffStore,
+      rootPlanText: rootPlan,
+      artifacts: [...merged].map(([label, text]) => ({ label, text })),
+      closeout
+    });
+    return result({
+      workspace_root: workspace,
+      root_plan_id: input.root_plan_id,
+      delivery_evidence_id: artifactId,
+      artifact: persisted.artifact,
+      artifact_hash: persisted.artifact_hash ?? createHash13("sha256").update(persisted.artifact).digest("hex"),
+      evidence_mode: persisted.fields.evidence_mode,
+      overall_grade: persisted.fields.overall_grade,
+      status: persisted.fields.status,
+      duplicate: persisted.duplicate,
+      handoff_persisted: persisted.handoff_persisted,
+      handoff_authoritative: false,
+      ...persisted.artifact_set_hash ? { artifact_set_hash: persisted.artifact_set_hash } : {},
+      ...persisted.warning ? { warning: persisted.warning } : {}
+    });
+  } catch (error2) {
+    return result({ error: error2.message }, true);
+  }
+});
 server.registerTool("workflow_status", {
-  description: "Return current status for one preparation, adaptive run, or stateless manual schema-4 artifact chain; Workflow-3 subjects remain read-only.",
+  description: "Return current status for one preparation, adaptive run, or explicit/uniquely active stateless manual schema-5 artifact chain; Workflow-3/4 subjects remain read-only.",
   inputSchema: {
     workspace_root: string2().min(1),
     run_id: string2().min(1).optional(),
     preparation_id: string2().min(1).optional(),
     root_plan_id: string2().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/).optional(),
+    manual_acceptance: _enum(["provisional"]).optional(),
     artifacts: array(object2({
       label: string2().min(1).max(200),
       text: string2().min(1).max(25e4)
@@ -34237,14 +35324,15 @@ server.registerTool("workflow_status", {
   try {
     const subjectCount = [input.run_id, input.preparation_id, input.root_plan_id].filter(Boolean).length;
     if (subjectCount > 1) throw new Error("workflow_status accepts only one of run_id, preparation_id, or root_plan_id");
-    if (input.root_plan_id) {
-      if (!input.artifacts) throw new Error("manual workflow_status requires artifacts with root_plan_id");
+    if (input.artifacts && (input.run_id || input.preparation_id)) throw new Error("workflow_status artifacts cannot be combined with a controller subject");
+    if (input.root_plan_id && !input.artifacts) throw new Error("manual workflow_status requires artifacts with root_plan_id");
+    if (input.artifacts) {
       if (input.artifacts.reduce((total, artifact) => total + artifact.text.length, 0) > 1e6) throw new Error("manual workflow_status artifact bundle exceeds 1000000 characters");
-      const workspace = realpathSync3(resolve11(input.workspace_root));
-      const manual = deriveManualWorkflowSnapshot({ rootPlanId: input.root_plan_id, artifacts: input.artifacts, pluginRoot });
+      const workspace = realpathSync3(resolve12(input.workspace_root));
+      const manual = deriveManualWorkflowSnapshot({ rootPlanId: input.root_plan_id, artifacts: input.artifacts, pluginRoot, manualAcceptance: input.manual_acceptance ?? null });
       return result({ subject_kind: "artifact-chain", run: null, ...manual, workspace_root: workspace });
     }
-    if (input.artifacts) throw new Error("workflow_status artifacts require root_plan_id");
+    if (input.manual_acceptance) throw new Error("workflow_status manual_acceptance requires current-task artifacts");
     const { store, preparationStore, engine } = context(input.workspace_root);
     if (input.run_id) {
       const run = store.get(input.run_id);
@@ -34337,7 +35425,7 @@ server.registerTool("workflow_control", {
         engine.update(input.run_id, (draft) => ({ ...draft, lifecycle: "paused", next_action: "resume" }), "run-paused");
       } else if (input.action === "resume") {
         if (!["paused", "interrupted"].includes(before.lifecycle)) throw new Error(`cannot resume lifecycle ${before.lifecycle}`);
-        if (!before.plan) throw new Error("cannot resume without a complete schema-4 intent root");
+        if (!before.plan) throw new Error("cannot resume without a complete schema-5 intent root");
         clearWorkerControl(store.runDirectory(input.run_id));
         engine.update(input.run_id, (draft) => ({ ...draft, lifecycle: "queued", blockers: [], next_action: "execute-strategy" }), "run-resumed");
       } else if (input.action === "stop") {
@@ -34398,7 +35486,7 @@ server.registerTool("workflow_validate_models", {
     const config2 = loadWorkflowConfig(workspace);
     if (config2.errors.length > 0) return result({ verified: false, errors: config2.errors, capabilities: resolveCapabilities(stateRoot, {}, { pluginRoot }) });
     const profile = resolveRouteProfile(config2, route_profile);
-    const validation = new CursorWorkerAdapter({ runDirectory: resolve11(stateRoot, "model-validation"), pluginRoot }).validateProfile(profile);
+    const validation = new CursorWorkerAdapter({ runDirectory: resolve12(stateRoot, "model-validation"), pluginRoot }).validateProfile(profile);
     return result({ ...validation, capabilities: resolveCapabilities(stateRoot, { model_catalog_verified: validation.verified }, { pluginRoot }) });
   } catch (error2) {
     return result({ verified: false, errors: [error2.message] }, true);
@@ -34429,9 +35517,9 @@ server.registerTool("workflow_verification_profile", {
       const config2 = loadWorkflowConfig(workspace);
       if (config2.errors.length > 0) throw new Error(`workflow configuration invalid: ${config2.errors.join("; ")}`);
       const route = resolveRouteProfile(config2, input.route_profile);
-      const proofRoot = join13(stateRoot, "verification-proof-artifacts", inspection.profile_hash, randomUUID5());
-      mkdirSync10(proofRoot, { recursive: true, mode: 448 });
-      const adapter = new CursorWorkerAdapter({ runDirectory: join13(stateRoot, "verification-proof-runs", inspection.profile_hash), pluginRoot });
+      const proofRoot = join14(stateRoot, "verification-proof-artifacts", inspection.profile_hash, randomUUID6());
+      mkdirSync11(proofRoot, { recursive: true, mode: 448 });
+      const adapter = new CursorWorkerAdapter({ runDirectory: join14(stateRoot, "verification-proof-runs", inspection.profile_hash), pluginRoot });
       const validation = adapter.validateProfile(route);
       const verifier = validation.routes?.verifier;
       if (!validation.verified || !verifier?.selected_candidate || !verifier.model) throw new Error(`verifier route unavailable: ${(validation.errors ?? []).join("; ")}`);

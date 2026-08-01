@@ -1,8 +1,8 @@
-export const PLUGIN_VERSION = "4.0.0";
-export const ARTIFACT_SCHEMA = 4;
+export const PLUGIN_VERSION = "5.0.0";
+export const ARTIFACT_SCHEMA = 5;
 export const RUN_RECORD_SCHEMA = 2;
 export const PREPARATION_RECORD_SCHEMA = 2;
-export const CONTROLLER_PROTOCOL = 4;
+export const CONTROLLER_PROTOCOL = 5;
 
 export const LEGACY_WORKFLOW_3 = Object.freeze({
   plugin_version: "3.0.0",
@@ -11,6 +11,35 @@ export const LEGACY_WORKFLOW_3 = Object.freeze({
   preparation_record_schema: 1,
   controller_protocol: 3,
 });
+
+export const LEGACY_WORKFLOW_4 = Object.freeze({
+  plugin_version: "4.0.0",
+  artifact_schema: 4,
+  run_record_schema: 2,
+  preparation_record_schema: 2,
+  controller_protocol: 4,
+});
+
+function matchesProtocol(record, expected, recordSchemaField) {
+  return record?.[recordSchemaField] === expected[recordSchemaField]
+    && record?.artifact_schema === expected.artifact_schema
+    && record?.controller_protocol === expected.controller_protocol
+    && record?.plugin_version === expected.plugin_version;
+}
+
+function legacyClassification(record, recordSchemaField, subject) {
+  if (matchesProtocol(record, LEGACY_WORKFLOW_4, recordSchemaField)) return {
+    legacy: true,
+    compatibility: "read-only-workflow-4",
+    blocker: "legacy-workflow-4-read-only",
+  };
+  if (matchesProtocol(record, LEGACY_WORKFLOW_3, recordSchemaField)) return {
+    legacy: true,
+    compatibility: "read-only-workflow-3",
+    blocker: "legacy-workflow-3-read-only",
+  };
+  return { legacy: false, compatibility: "read-only-incompatible", blocker: `incompatible-${subject}-protocol` };
+}
 
 export function protocolFields() {
   return {
@@ -35,15 +64,12 @@ export function classifyRunCompatibility(run) {
     && run?.artifact_schema === ARTIFACT_SCHEMA
     && run?.controller_protocol === CONTROLLER_PROTOCOL
     && run?.plugin_version === PLUGIN_VERSION;
-  const legacy = run?.run_record_schema === LEGACY_WORKFLOW_3.run_record_schema
-    && run?.artifact_schema === LEGACY_WORKFLOW_3.artifact_schema
-    && run?.controller_protocol === LEGACY_WORKFLOW_3.controller_protocol
-    && run?.plugin_version === LEGACY_WORKFLOW_3.plugin_version;
+  const classification = compatible ? null : legacyClassification(run, "run_record_schema", "run");
   return {
     compatible,
-    legacy,
-    compatibility: compatible ? "compatible" : legacy ? "read-only-workflow-3" : "read-only-incompatible",
-    blocker: compatible ? null : legacy ? "legacy-workflow-3-read-only" : "incompatible-run-protocol",
+    legacy: classification?.legacy ?? false,
+    compatibility: compatible ? "compatible" : classification.compatibility,
+    blocker: compatible ? null : classification.blocker,
   };
 }
 
@@ -58,15 +84,12 @@ export function classifyPreparationCompatibility(preparation) {
     && preparation?.artifact_schema === ARTIFACT_SCHEMA
     && preparation?.controller_protocol === CONTROLLER_PROTOCOL
     && preparation?.plugin_version === PLUGIN_VERSION;
-  const legacy = preparation?.preparation_record_schema === LEGACY_WORKFLOW_3.preparation_record_schema
-    && preparation?.artifact_schema === LEGACY_WORKFLOW_3.artifact_schema
-    && preparation?.controller_protocol === LEGACY_WORKFLOW_3.controller_protocol
-    && preparation?.plugin_version === LEGACY_WORKFLOW_3.plugin_version;
+  const classification = compatible ? null : legacyClassification(preparation, "preparation_record_schema", "preparation");
   return {
     compatible,
-    legacy,
-    compatibility: compatible ? "compatible" : legacy ? "read-only-workflow-3" : "read-only-incompatible",
-    blocker: compatible ? null : legacy ? "legacy-workflow-3-read-only" : "incompatible-preparation-protocol",
+    legacy: classification?.legacy ?? false,
+    compatibility: compatible ? "compatible" : classification.compatibility,
+    blocker: compatible ? null : classification.blocker,
   };
 }
 
@@ -78,9 +101,10 @@ export function assertCompatiblePreparation(preparation) {
 
 export function runView(run) {
   const classification = classifyRunCompatibility(run);
-  if (classification.compatible) return { ...run, compatibility: classification.compatibility };
+  const { delivery_evidence_artifact: _deliveryEvidenceArtifact, ...visible } = run ?? {};
+  if (classification.compatible) return { ...visible, compatibility: classification.compatibility };
   return {
-    ...run,
+    ...visible,
     compatibility: classification.compatibility,
     lifecycle: "stopped",
     blockers: [...new Set([...(run?.blockers ?? []), classification.blocker])],
@@ -89,11 +113,16 @@ export function runView(run) {
 
 export function preparationView(preparation) {
   const classification = classifyPreparationCompatibility(preparation);
-  if (classification.compatible) return { ...preparation, compatibility: classification.compatibility };
+  const { input_root_lineage_artifacts: lineageArtifacts, ...visible } = preparation ?? {};
+  const projected = {
+    ...visible,
+    input_root_lineage_artifact_count: Array.isArray(lineageArtifacts) ? lineageArtifacts.length : 0,
+  };
+  if (classification.compatible) return { ...projected, compatibility: classification.compatibility };
   return {
-    ...preparation,
+    ...projected,
     compatibility: classification.compatibility,
     status: "stopped",
-    blockers: [...new Set([...(preparation?.blockers ?? []), classification.blocker])],
+    blockers: [...new Set([...(projected.blockers ?? []), classification.blocker])],
   };
 }

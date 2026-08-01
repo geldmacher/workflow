@@ -1,14 +1,14 @@
-# Geldmacher Workflow 4
+# Geldmacher Workflow 5
 
 Cursor-native, human-governed repository delivery with an immutable Intent Root and an adaptive, evidence-calibrated execution Strategy.
 
 ## Intent and expectations
 
-Workflow 4 keeps the human-approved delivery intent fixed while allowing the execution strategy to evolve inside an explicit authority envelope. It is designed for repository-local work where evidence quality, bounded effects, and honest terminal states matter more than rigid adherence to a precomputed sequence.
+Workflow 5 keeps the human-approved delivery intent fixed while allowing the execution strategy to evolve inside an explicit authority envelope. Manual delivery is additionally streamlined through risk-calibrated Lean Evidence and stateless provisional acceptance.
 
 | Profile | Human boundary | Controller behavior |
 |---|---|---|
-| `manual` | Human starts implementation and corrections | Lean Schema-4 Root; no controller or certification required |
+| `manual` | Human starts implementation and corrections | Lean Schema-5 Root and risk-calibrated Evidence; no controller or certification required |
 | `supervised` | Human approves Intent and accepts every delivery | One canonical Writer may adapt Strategy inside approved roots |
 | `autonomous` | Human approves Intent and exact certification hashes | Only an exact Qualification Key; incomplete evidence downgrades to supervised |
 
@@ -20,7 +20,9 @@ Install or link this directory as the `geldmacher-workflow` Cursor plugin. The p
 
 ## Usage
 
-Manual commands remain `/plan-work`, Cursor **Implement Plan**, `/review-work`, `/correct-work`, `/learn-from-work`, `/explain-work`, and `/work-status`.
+The normal Manual path remains `/plan-work`, Cursor **Implement Plan**, and `/review-work`, followed when needed by `/correct-work`, `/learn-from-work`, `/explain-work`, or `/work-status`. The human selects the primary model in Cursor. The primary agent may delegate bounded planning, implementation, correction, or verification work, but every Workflow subagent must inherit that model; explicit child-model overrides and unverified parent models fail closed. Implement Plan's final todo calls the deterministic closeout builder. `/close-work [wp-id]` is only the recovery path when that automatic closeout was missed; it may run safe local read-only Checks but cannot edit the repository. Context commands use an explicit selector when supplied; otherwise they resolve the unique active native Plan lineage in the current task. `/accept-work [wp-id] provisional` produces a one-time `accepted-provisional` view for the exact current chain without persisting acceptance. `/plan-work replan [wp-id]` creates a newly approval-bound Root only from a current review whose `next_action` is `replan`.
+
+Workflow does not choose, prefer, or remap the Manual model. Delegation must omit a Task model override; declared plugin agents use `model: inherit`. During `/review-work` and `/explain-work`, only marked, named plugin roles are allowed; those roles are `readonly: true`. The hook is plugin-local and does not alter user or project Cursor hook configuration.
 
 Controller operation:
 
@@ -31,31 +33,33 @@ Controller operation:
 5. `/work-status` and `/work-watch` show Strategy revision, effective Profile, evidence grade, deviations, Dirty Baseline hash, and Qualification Key.
 6. `/work-control <run-id> accept` requires `acceptance: verified|provisional` matching delivery.
 
-`achieved` requires complete verified evidence. `accepted-provisional` records a human acceptance with an evidence gap and never counts toward qualification. A known failed required Check is `blocked` and cannot be provisional.
+`achieved` requires complete verified evidence. `accepted-provisional` records a human acceptance with an evidence gap and never counts toward qualification. Manual acceptance is explicitly ephemeral: the next `/work-status` returns `delivery-ready-provisional` again. A known failed required Check is `blocked` and cannot be provisional.
 
 ## Artifact protocol
 
-New work uses Artifact Schema 4. The compact `work-plan` stores the immutable Intent Root and closed authority envelope; the external controller owns hash-linked `execution-strategy` revisions, graded evidence, and the Decision Ledger. Workflow-3 documents and Runs stay readable through status/watch but are not mutable or automatically converted. See [artifact protocol](references/artifact-protocol.md) and [Workflow-4 migration](docs/migration-workflow-4.md).
+New work uses Artifact Schema 5. The compact `work-plan` stores the immutable Intent Root and closed authority envelope. Replans form a linear lineage through paired `predecessor_plan_id` and `replan_source_review_id` fields; the lineage tip is the active Root. One deterministic builder derives Evidence identity, Intent hash, topology, mode, grade, and status from the validated chain and structured observations. Manual low/medium-risk work without Hard Triggers uses Lean Evidence; all higher-risk or controller work uses Full Evidence. An external repository-specific Schema-1 handoff cache transports exact Root, Evidence, and Review text between contexts but creates no authority, Run, approval, acceptance, qualification, or Learning. Workflow-3/4 documents and Runs stay readable through status/watch but are not mutable or automatically converted. See [artifact protocol](references/artifact-protocol.md) and [Workflow-5 migration](docs/migration-workflow-5.md).
 
 ## Components
 
 - Commands in `commands/` provide the manual and controller entry points.
 - Skills in `skills/` progressively load only the contracts needed by the active phase.
 - Agents in `agents/` provide fresh read-only auditing and explanation roles.
+- `hooks/` enforces marked Workflow parent-model inheritance without affecting unmarked Cursor tasks.
 - `src/controller/` and `src/mcp/` implement the adaptive engine and public MCP surface; generated standalone bundles live in `dist/`.
 - `schemas/` and `references/` define the closed machine and human-facing contracts.
 
 ## Versions
 
-- Plugin 4.0.0
-- Artifact Schema 4
-- Controller Protocol 4
+- Plugin 5.0.0
+- Artifact Schema 5
+- Controller Protocol 5
 - Run/Preparation Record Schema 2
+- Artifact Handoff Record Schema 1
 - Capability Receipt Schema 3
 - User Config Schema 2
 - Project Policy Schema 2
 
-See [configuration](docs/configuration.md), [Workflow-4 migration](docs/migration-workflow-4.md), and the [certification runbook](docs/certification-runbook.md).
+See [configuration](docs/configuration.md), [Workflow-5 migration](docs/migration-workflow-5.md), and the [certification runbook](docs/certification-runbook.md).
 
 Repository delivery is the maximum effect: no automatic push, PR, merge, deployment, production access, branch integration, or learning publication.
 

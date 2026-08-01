@@ -1,6 +1,10 @@
-# Workflow 4 configuration
+# Workflow 5 configuration
 
 The controller resolves immutable prohibitions, project ceilings, approved user Pools, then per-Run authority. Lower layers may tighten but never expand a higher boundary.
+
+## Manual model ownership
+
+Controller Route Pools do not select or favor the model for `/plan-work`, **Implement Plan**, `/correct-work`, `/review-work`, or `/explain-work`. The human selects the primary model in Cursor. Workflow subagents are allowed only by inheritance: Task calls omit a model override, and declared plugin agents use `model: inherit`. The primary remains responsible for integration and closeout. Named post-implementation auditors and the explainer are additionally read-only.
 
 ## User Config Schema 2
 
@@ -79,4 +83,4 @@ Enable `autonomous` only after the Verification Profile hash is proved and human
 
 Preparations, Runs, Strategy revisions, receipts, proof artifacts, approvals, ledgers, and worktrees live under `~/.cursor/geldmacher-workflow/`. Do not edit them manually. Run branches use `workflow/<run-id>` and are never integrated automatically.
 
-New records freeze Run/Preparation Schema 2, Artifact Schema 4, Controller Protocol 4, and Plugin 4.0.0. Capability Receipt Schema 3 binds plugin/runtime/lock hashes, exact certified models, Route Pool, Verification Profile, capability vector, and Qualification bindings. Workflow-3 records remain status/watch-only.
+New records freeze Run/Preparation Schema 2, Artifact Schema 5, Controller Protocol 5, and Plugin 5.0.0. Capability Receipt Schema 3 binds plugin/runtime/lock hashes, exact certified models, Route Pool, Verification Profile, capability vector, and Qualification bindings. The new Plugin, Artifact, Protocol, and bundle hashes require recertification. Workflow-3/4 records remain status/watch-only.

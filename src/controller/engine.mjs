@@ -8,10 +8,12 @@ import { evaluateAuthorization, evaluateEligibility, qualificationKey, selectWri
 import { resolveCapabilities } from "./capabilities.mjs";
 import { CursorWorkerAdapter } from "./worker-adapter.mjs";
 import { ARTIFACT_SCHEMA, assertCompatiblePreparation, classifyRunCompatibility } from "./protocol.mjs";
-import { configurationHashes, expectedPlannerReceiptBlockers, plannerReceiptBlockers, planningBudgetBlockers, planningHarnessHash, planningUsage } from "./planning.mjs";
+import { configurationHashes, expectedPlannerReceiptBlockers, plannerReceiptBlockers, planningBudgetBlockers, planningHarnessHash, planningUsage, validateRootPlanLineage } from "./planning.mjs";
 import { aggregateEvidence, calibrateRecipeEvidence, checkEvidence, createInitialStrategy, reviseStrategy, strategyHash, TASK_RECIPES } from "./strategy.mjs";
 import { auditVerificationProfile } from "./verification-profile.mjs";
 import { assertContainedPath, changedPaths, checkpoint, createComparisonBaselineWorktree, createRunWorktree, detectDependencyChanges, parseHostCommand, repositoryBaseline, rollbackToCheckpoint, runHostCheck } from "./worktree.mjs";
+import { ArtifactHandoffStore } from "./artifact-handoff.mjs";
+import { buildDeliveryEvidence } from "./delivery-closeout.mjs";
 
 const profileRank = Object.freeze({ manual: 0, supervised: 1, autonomous: 2 });
 const secretPatterns = [/(?:^|\n)-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/, /\bAKIA[0-9A-Z]{16}\b/, /\bgh[opsu]_[A-Za-z0-9]{30,}\b/, /\bsk-[A-Za-z0-9_-]{32,}\b/];
@@ -130,13 +132,14 @@ function runIntegrityBlockers(run, pluginRoot) {
 }
 
 export class WorkflowEngine {
-  constructor({ workspaceRoot, store, preparationStore, pluginRoot, stateRoot, worktreeRoot, adapterFactory, capabilitiesFactory } = {}) {
+  constructor({ workspaceRoot, store, preparationStore, pluginRoot, stateRoot, worktreeRoot, adapterFactory, capabilitiesFactory, handoffStore } = {}) {
     this.workspaceRoot = resolve(workspaceRoot);
     this.store = store;
     this.preparationStore = preparationStore;
     this.pluginRoot = resolve(pluginRoot);
     this.stateRoot = resolve(stateRoot);
     this.worktreeRoot = worktreeRoot ? resolve(worktreeRoot) : null;
+    this.handoffStore = handoffStore ?? new ArtifactHandoffStore(this.stateRoot, this.pluginRoot);
     this.adapterFactory = adapterFactory ?? ((run) => new CursorWorkerAdapter({ runDirectory: this.store.runDirectory(run.run_id), pluginRoot: this.pluginRoot }));
     this.capabilitiesFactory = capabilitiesFactory ?? ((additions = {}) => resolveCapabilities(this.stateRoot, additions, { pluginRoot: this.pluginRoot }));
   }
@@ -180,6 +183,10 @@ export class WorkflowEngine {
 
     const contract = executionContractFromArtifactText(preparation.root_plan_text, this.pluginRoot);
     if (contract.errors.length > 0) throw new Error(`invalid prepared root plan: ${contract.errors.join("; ")}`);
+    const lineage = validateRootPlanLineage(preparation.root_plan_text, preparation.input_root_lineage_artifacts, this.pluginRoot);
+    if (lineage.errors.length > 0) throw new Error(`invalid prepared root lineage: ${lineage.errors.join("; ")}`);
+    const expectedLineageHash = preparation.input_root_lineage_hash ?? (lineage.artifacts.length === 0 ? lineage.artifact_set_hash : null);
+    if (lineage.artifact_set_hash !== expectedLineageHash) throw new Error("prepared-root-lineage-hash-mismatch");
     if (contract.authoritative_projection_hash !== preparation.root_authoritative_projection_hash) throw new Error("prepared-root-authoritative-projection-mismatch");
     if (contract.fields.status !== "ready" || contract.fields.intent_ready !== true) throw new Error("prepared root plan must be ready with intent_ready true");
     if (!withinProfile(preparation.requested_profile, contract.fields.profile_max)) throw new Error(`prepared root plan permits at most ${contract.fields.profile_max}`);
@@ -432,12 +439,17 @@ export class WorkflowEngine {
       if (!review.decision) return { completed: false, run: this.wait(run, review.blockers) };
       const aggregate = aggregateEvidence(run.evidence_entries.filter((entry) => entry.baseline_or_patched === "patched"));
       if (aggregate.delivery === "blocked") {
+        const patchedEvidence = run.evidence_entries.filter((entry) => entry.baseline_or_patched === "patched");
+        let candidate;
+        try { candidate = this.deliveryEvidenceCandidate(run, patchedEvidence); }
+        catch (error) { return { completed: false, run: this.block(run, [`delivery-closeout-invalid:${error.message}`]) }; }
+        const materialized = this.materializeDeliveryEvidence(run, candidate);
         return { completed: false, run: this.update(run.run_id, (draft) => ({
           ...draft,
           lifecycle: "blocked",
           delivery_status: "blocked",
           evidence_grade: "failed",
-          blockers: ["known-check-failure"],
+          blockers: ["known-check-failure", ...(materialized.blocker ? [materialized.blocker] : [])],
           next_action: "correct-or-replan",
         }), "delivery-blocked") };
       }
@@ -522,7 +534,7 @@ export class WorkflowEngine {
     }
   }
 
-  review(run, slice, evidenceEntries, adapter) {
+  review(run, slice, evidenceEntries, adapter, candidateEvidence = null) {
     const selected = routeSelection(run.route_validation, "reviewer");
     const diff = this.gitDiff(run.worktree.path, run.strategy.task_class === "verify-existing" ? run.worktree.baseline.head : run.worktree.human_baseline);
     const prompt = [
@@ -533,7 +545,7 @@ export class WorkflowEngine {
       `STRATEGY\n${JSON.stringify(run.strategy, null, 2)}`,
       `SLICE\n${JSON.stringify(slice, null, 2)}`,
       `DIFF\n${diff}`,
-      `EVIDENCE\n${JSON.stringify(evidenceEntries, null, 2)}`,
+      `CANDIDATE DELIVERY EVIDENCE\n${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`,
     ].join("\n\n");
     const guarded = guardReadOnlyRepository(run.worktree.path, () => adapter.runPhase({ role: "reviewer", ...selected, prompt, cwd: run.worktree.path, configurationHash: run.route_hash, artifactProjectionHash: run.intent_hash }));
     const phase = guarded.value;
@@ -545,8 +557,8 @@ export class WorkflowEngine {
     catch (error) { return { decision: null, receipt: phase.receipt, blockers: [`reviewer-invalid-decision:${error.message}`] }; }
   }
 
-  reviewFanout(run, evidenceEntries, adapter) {
-    if (typeof adapter.runReadOnlyFanout !== "function") return this.review(run, { "Slice ID": "ROOT" }, evidenceEntries, adapter);
+  reviewFanout(run, evidenceEntries, adapter, candidateEvidence = null) {
+    if (typeof adapter.runReadOnlyFanout !== "function") return this.review(run, { "Slice ID": "ROOT" }, evidenceEntries, adapter, candidateEvidence);
     const diff = this.gitDiff(run.worktree.path, run.strategy.task_class === "verify-existing" ? run.worktree.baseline.head : run.worktree.human_baseline);
     const prompt = [
       "Independently judge the immutable intent, current strategy, diff and evidence. You are read-only.",
@@ -554,7 +566,7 @@ export class WorkflowEngine {
       `INTENT\n${run.plan.authoritative_projection_text}`,
       `STRATEGY\n${JSON.stringify(run.strategy, null, 2)}`,
       `DIFF\n${diff}`,
-      `EVIDENCE\n${JSON.stringify(evidenceEntries, null, 2)}`,
+      `CANDIDATE DELIVERY EVIDENCE\n${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`,
     ].join("\n\n");
     const phases = ["reviewer", "investigator"].map((role) => ({
       role, ...routeSelection(run.route_validation, role), prompt, cwd: run.worktree.path,
@@ -604,7 +616,10 @@ export class WorkflowEngine {
     const patched = (run.evidence_entries ?? []).filter((entry) => entry.baseline_or_patched === "patched");
     const evidence = patched.length > 0 ? patched : (run.evidence_entries ?? []).filter((entry) => entry.baseline_or_patched === "baseline");
     const aggregate = aggregateEvidence(evidence);
-    const review = this.reviewFanout(run, evidence, adapter);
+    let candidate;
+    try { candidate = this.deliveryEvidenceCandidate(run, evidence); }
+    catch (error) { return this.block(run, [`delivery-closeout-invalid:${error.message}`]); }
+    const review = this.reviewFanout(run, evidence, adapter, candidate.artifact);
     const reviewReceipts = review.receipts ?? (review.receipt ? [review.receipt] : []);
     const sourceBaselineAtDelivery = repositoryBaseline(this.workspaceRoot);
     const sourceDriftAtDelivery = currentBaselineDiffers(run.source_baseline_at_start ?? run.baseline, sourceBaselineAtDelivery);
@@ -619,17 +634,29 @@ export class WorkflowEngine {
       source_drift_at_delivery: sourceDriftAtDelivery,
       integration_warnings: sourceDriftAtDelivery ? ["source-worktree-drift-may-conflict-with-human-integration"] : [],
     }), "root-reviewed");
-    if (review.hard_error) return this.block(run, review.blockers);
+    if (review.hard_error) {
+      const materialized = this.materializeDeliveryEvidence(run, candidate);
+      return this.block(materialized.run, [...review.blockers, ...(materialized.blocker ? [materialized.blocker] : [])]);
+    }
     const budgetBlockers = budgetBoundaryBlockers(run);
-    if (budgetBlockers.length > 0) return this.block(run, budgetBlockers);
+    if (budgetBlockers.length > 0) {
+      const materialized = this.materializeDeliveryEvidence(run, candidate);
+      return this.block(materialized.run, [...budgetBlockers, ...(materialized.blocker ? [materialized.blocker] : [])]);
+    }
     if (!review.decision) return this.wait(run, review.blockers);
-    if (aggregate.delivery === "blocked") return this.update(runId, (draft) => ({ ...draft, lifecycle: "blocked", delivery_status: "blocked", blockers: ["known-check-failure"], next_action: "correct-or-replan" }), "delivery-blocked");
+    if (aggregate.delivery === "blocked") {
+      const materialized = this.materializeDeliveryEvidence(run, candidate);
+      return this.update(runId, (draft) => ({ ...draft, lifecycle: "blocked", delivery_status: "blocked", blockers: ["known-check-failure", ...(materialized.blocker ? [materialized.blocker] : [])], next_action: "correct-or-replan" }), "delivery-blocked");
+    }
     if (["correct", "clarify", "replan", "retry-review"].includes(review.decision.next_action)) return this.wait(run, [`root-review-${review.decision.next_action}`]);
     const verified = aggregate.delivery === "verified" && review.decision.assessment === "achieved" && review.decision.delivery_status === "verified";
     const deliveryStatus = verified ? "verified" : "provisional";
     if (deliveryStatus === "provisional" && run.effective_profile === "autonomous") {
       run = this.update(runId, (draft) => ({ ...draft, effective_profile: "supervised", downgraded: true, downgrade_reason: "evidence-shortfall" }), "profile-auto-downgraded");
     }
+    const materialized = this.materializeDeliveryEvidence(run, candidate);
+    run = materialized.run;
+    if (materialized.blocker) return this.block(run, [materialized.blocker]);
     if (deliveryStatus === "verified" && run.effective_profile === "autonomous") {
       const achieved = this.update(runId, (draft) => ({ ...draft, lifecycle: "achieved", delivery_status: "verified", delivery_accepted: false, phase: "achieved", next_action: "none", blockers: [] }), "run-achieved");
       this.store.appendDecision(runId, { phase: "delivery", decision: "achieved", reason: "certified evidence and independent review", input_hashes: [run.intent_hash, run.strategy.strategy_hash], strategy_revision: run.strategy.revision, evidence_refs: evidence.flatMap((entry) => entry.artifact_hashes), result: "achieved" });
@@ -638,6 +665,66 @@ export class WorkflowEngine {
     const delivery = this.update(runId, (draft) => ({ ...draft, lifecycle: "waiting-human", delivery_status: deliveryStatus, phase: deliveryStatus === "verified" ? "delivery-ready-verified" : "delivery-ready-provisional", next_action: deliveryStatus === "verified" ? "accept-verified" : "accept-provisional", blockers: [] }), "delivery-ready");
     this.store.appendDecision(runId, { phase: "delivery", decision: `deliver-${deliveryStatus}`, reason: verified ? "all evidence verified" : "no known failure but strongest evidence is incomplete", input_hashes: [run.intent_hash, run.strategy.strategy_hash], strategy_revision: run.strategy.revision, evidence_refs: evidence.flatMap((entry) => entry.artifact_hashes), result: delivery.lifecycle });
     return delivery;
+  }
+
+  deliveryEvidenceCandidate(run, evidence) {
+    const snapshot = repositoryBaseline(run.worktree?.path ?? this.workspaceRoot);
+    const paths = run.worktree?.path ? changedPaths(run.worktree.path) : [];
+    const supplied = new Map(evidence.map((entry) => [entry.check_id, entry]));
+    const completeEvidence = run.plan.checks.filter((check) => check.Required === "yes").map((check) => supplied.get(check["Check ID"]) ?? {
+      check_id: check["Check ID"],
+      grade: "unavailable",
+      surface: "controller",
+      method: check["Command or Inspection"],
+      expected: check["Expected Result"],
+      observed: "Check not reached before the current delivery boundary",
+      repetitions: 0,
+      artifact_hashes: [],
+      limitations: ["delivery stopped before this required Check could run"],
+    });
+    return buildDeliveryEvidence({
+      rootPlanText: run.root_plan_text,
+      checkEvidence: completeEvidence,
+      changedPaths: paths,
+      strategyRevision: run.strategy?.revision ?? 0,
+      effectiveProfile: run.effective_profile,
+      repositorySnapshot: {
+        head: snapshot.head,
+        working_tree: snapshot.status ? "modified" : "unchanged",
+        relevant_fingerprints: `intent:${run.intent_hash};strategy:${run.strategy?.strategy_hash ?? "none"}`,
+        known_failures: aggregateEvidence(completeEvidence).delivery === "blocked" ? "required Check failed" : "none",
+      },
+      pluginRoot: this.pluginRoot,
+    });
+  }
+
+  materializeDeliveryEvidence(run, candidate) {
+    let handoffPersisted = true;
+    let handoffWarning = null;
+    let blocker = null;
+    try {
+      this.handoffStore.record([
+        { label: run.plan.fields.id, text: run.root_plan_text },
+        { label: candidate.fields.id, text: candidate.artifact },
+      ]);
+    } catch (error) {
+      handoffPersisted = false;
+      const semanticConflict = /conflict|invalid|corrupt|incompatible|multiple|ambiguous|stale|tip/i.test(error.message);
+      if (semanticConflict) blocker = `delivery-evidence-handoff-conflict:${error.message}`;
+      else {
+        handoffPersisted = false;
+        handoffWarning = `delivery evidence handoff unavailable: ${error.message}`;
+      }
+    }
+    const updated = this.update(run.run_id, (draft) => ({
+      ...draft,
+      delivery_evidence_id: candidate.fields.id,
+      delivery_evidence_hash: candidate.artifact_hash,
+      delivery_evidence_artifact: candidate.artifact,
+      handoff_persisted: handoffPersisted,
+      integration_warnings: [...new Set([...(draft.integration_warnings ?? []), ...(handoffWarning ? [handoffWarning] : [])])],
+    }), "delivery-evidence-materialized");
+    return { run: updated, blocker };
   }
 
   acceptDelivery(runId, acceptance) {

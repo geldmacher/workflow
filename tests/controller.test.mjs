@@ -7,7 +7,7 @@ import test from "node:test";
 import { validateProjectPolicy, validateWorkflowConfig } from "../src/controller/config.mjs";
 import { evaluateAuthorization, evaluateEligibility, qualificationKey, selectWriterRoute } from "../src/controller/policy.mjs";
 import { RunStore } from "../src/controller/store.mjs";
-import { classifyRunCompatibility, protocolFields } from "../src/controller/protocol.mjs";
+import { classifyPreparationCompatibility, classifyRunCompatibility, preparationProtocolFields, preparationView, protocolFields } from "../src/controller/protocol.mjs";
 import { captureDirtySnapshot, createRunWorktree, repositoryBaseline } from "../src/controller/worktree.mjs";
 import { validatePoolAgainstCatalog } from "../src/controller/worker-adapter.mjs";
 
@@ -195,10 +195,22 @@ test("accepted-provisional never contributes to qualifying history", () => {
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test("Workflow 3 runs remain visible read-only and cannot block Workflow 4", () => {
+test("Workflow 3/4 runs remain visible read-only and cannot block Workflow 5", () => {
   const old = { run_record_schema: 1, artifact_schema: 3, controller_protocol: 3, plugin_version: "3.0.0" };
   assert.equal(classifyRunCompatibility(old).compatibility, "read-only-workflow-3");
+  const workflow4 = { run_record_schema: 2, artifact_schema: 4, controller_protocol: 4, plugin_version: "4.0.0" };
+  assert.equal(classifyRunCompatibility(workflow4).compatibility, "read-only-workflow-4");
   assert.equal(classifyRunCompatibility(protocolFields()).compatible, true);
+  assert.equal(classifyPreparationCompatibility({ ...workflow4, preparation_record_schema: 2 }).compatibility, "read-only-workflow-4");
+  assert.equal(classifyPreparationCompatibility({ preparation_record_schema: 1, artifact_schema: 3, controller_protocol: 3, plugin_version: "3.0.0" }).compatibility, "read-only-workflow-3");
+  assert.equal(classifyPreparationCompatibility(preparationProtocolFields()).compatible, true);
+});
+
+test("preparation views expose lineage binding without replaying raw artifacts", () => {
+  const view = preparationView({ ...preparationProtocolFields(), input_root_lineage_hash: "a".repeat(64), input_root_lineage_artifacts: [{ label: "plan", text: "secret-sized-chain" }] });
+  assert.equal(view.input_root_lineage_hash, "a".repeat(64));
+  assert.equal(view.input_root_lineage_artifact_count, 1);
+  assert.equal(Object.hasOwn(view, "input_root_lineage_artifacts"), false);
 });
 
 test("dirty snapshot reproduces tracked and untracked human state without changing the source worktree", () => {

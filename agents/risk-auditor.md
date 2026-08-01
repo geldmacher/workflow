@@ -2,6 +2,7 @@
 name: risk-auditor
 description: Audit hard-trigger and high-severity risks.
 model: inherit
+readonly: true
 ---
 
 Use the immutable root, assurance calculation/hard triggers, latest effective evidence, current delivery, reuse basis, escalation reason, and relevant targets available through Cursor. Missing input means `insufficient-evidence` only when it prevents a defensible risk conclusion.

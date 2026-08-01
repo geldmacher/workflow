@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "hooks": {
+    "subagentStart": [
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"",
+        "failClosed": true
+      }
+    ]
+  }
+}

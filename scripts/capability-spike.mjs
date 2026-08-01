@@ -98,7 +98,7 @@ async function mcpSmoke(pluginRoot) {
   try {
     await client.connect(transport);
     const tools = (await client.listTools()).tools.map((tool) => tool.name).sort();
-    const expected = ["workflow_answer", "workflow_control", "workflow_prepare", "workflow_start", "workflow_status", "workflow_validate_models", "workflow_verification_profile", "workflow_watch"];
+    const expected = ["workflow_answer", "workflow_artifact_context", "workflow_artifact_record", "workflow_closeout", "workflow_control", "workflow_prepare", "workflow_start", "workflow_status", "workflow_validate_models", "workflow_verification_profile", "workflow_watch"];
     return { verified: JSON.stringify(tools) === JSON.stringify(expected), tools };
   } catch (error) { return { verified: false, error: error.message }; }
   finally { await client.close().catch(() => {}); }

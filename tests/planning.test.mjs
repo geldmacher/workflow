@@ -9,6 +9,16 @@ import { PreparationStore } from "../src/controller/store.mjs";
 import { defaultRoot } from "../scripts/validate-artifact.source.mjs";
 
 const rootPlan = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
+const rootEvidence = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "delivery-evidence.valid.md"), "utf8");
+const rootReview = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-review.valid.md"), "utf8");
+const replanReview = rootReview
+  .replace("id: wr-adaptive-retry", "id: wr-adaptive-replan")
+  .replace("assessment: achieved", "assessment: not-achieved")
+  .replace("delivery_status: verified", "delivery_status: blocked")
+  .replace("next_action: none", "next_action: replan")
+  .replace("Achieved. The required evidence is verified and no finding remains.", "Not-achieved. Changed intent requires a replacement Root.")
+  .replace("## Next action\n\nNone.", "## Next action\n\nreplan: create a newly approved Root.");
+const rootArtifacts = [{ label: "plan", text: rootPlan }, { label: "evidence", text: rootEvidence }, { label: "review", text: replanReview }];
 const roles = ["planner", "investigator", "writer", "writer_escalated", "verifier", "reviewer", "explainer"];
 
 function git(cwd, args) {
@@ -90,18 +100,42 @@ test("semantic root diff separates intent, authority, profile, risk, and certifi
   const changed = rootPlan.replace("max_total_tokens: 50000", "max_total_tokens: 40000");
   assert.deepEqual(semanticRootDiff(rootPlan, changed, defaultRoot).categories, ["authority"]);
   assert.deepEqual(semanticRootDiff(rootPlan, rootPlan.replace("public contract.", "public interface."), defaultRoot).categories, ["intent"]);
+  const replanned = rootPlan.replace("id: wp-adaptive-retry", "id: wp-adaptive-retry-v2\npredecessor_plan_id: wp-adaptive-retry\nreplan_source_review_id: wr-adaptive-replan");
+  assert.deepEqual(semanticRootDiff(rootPlan, replanned, defaultRoot).categories, ["intent", "lineage"]);
 });
 
-test("existing Schema 4 root prepares and becomes hash-bound root-ready", () => {
+test("existing Schema 5 root prepares and becomes hash-bound root-ready", () => {
   const env = setup();
   try {
     const value = engine(env, [{ kind: "root", root_plan_text: rootPlan }]);
-    const prepared = withConfig(env.configPath, () => value.planning.prepare({ rootPlan, requestedProfile: "supervised", idempotencyKey: "prepare-root-v4" })).preparation;
+    const prepared = withConfig(env.configPath, () => value.planning.prepare({ rootPlan, requestedProfile: "supervised", idempotencyKey: "prepare-root-v5" })).preparation;
     assert.equal(prepared.status, "planning");
     const ready = value.planning.execute(prepared.preparation_id);
     assert.equal(ready.status, "root-ready");
     assert.match(ready.root_plan_hash, /^[a-f0-9]{64}$/);
     assert.equal(ready.root_plan_contract.fields.contract_level, "controlled");
+  } finally { rmSync(env.root, { recursive: true, force: true }); }
+});
+
+test("planning harness names the current schema and binds replan lineage in the authoritative projection", () => {
+  const source = readFileSync(join(defaultRoot, "src", "controller", "planning.mjs"), "utf8");
+  assert.match(source, /EXISTING VALID SCHEMA-5 INTENT ROOT AUTHORITATIVE PROJECTION/);
+  assert.doesNotMatch(source, /EXISTING VALID SCHEMA-4 INTENT ROOT AUTHORITATIVE PROJECTION/);
+  const replanned = rootPlan.replace("id: wp-adaptive-retry", "id: wp-adaptive-retry-v2\npredecessor_plan_id: wp-adaptive-retry\nreplan_source_review_id: wr-adaptive-replan");
+  const env = setup();
+  try {
+    const value = engine(env, [{ kind: "root", root_plan_text: replanned }]);
+    assert.throws(() => withConfig(env.configPath, () => value.planning.prepare({ rootPlan: replanned, requestedProfile: "supervised", idempotencyKey: "prepare-replan-missing" })), /complete current lineage artifacts/);
+    const prepared = withConfig(env.configPath, () => value.planning.prepare({ rootPlan: replanned, rootArtifacts, requestedProfile: "supervised", idempotencyKey: "prepare-replan-v5" })).preparation;
+    assert.equal(prepared.input_root_contract.fields.predecessor_plan_id, "wp-adaptive-retry");
+    assert.equal(prepared.input_root_contract.fields.replan_source_review_id, "wr-adaptive-replan");
+    assert.match(prepared.input_root_lineage_hash, /^[a-f0-9]{64}$/);
+    const duplicate = withConfig(env.configPath, () => value.planning.prepare({ rootPlan: replanned, rootArtifacts: [...rootArtifacts].reverse(), requestedProfile: "supervised", idempotencyKey: "prepare-replan-v5" }));
+    assert.equal(duplicate.duplicate, true);
+    const ready = value.planning.execute(prepared.preparation_id);
+    assert.equal(ready.status, "root-ready");
+    assert.equal(ready.root_plan_contract.fields.id, "wp-adaptive-retry-v2");
+    assert.match(readFileSync(join(defaultRoot, "src", "controller", "engine.mjs"), "utf8"), /validateRootPlanLineage\(preparation\.root_plan_text, preparation\.input_root_lineage_artifacts/);
   } finally { rmSync(env.root, { recursive: true, force: true }); }
 });
 
@@ -141,11 +175,12 @@ test("Preparation idempotency is bound to the exact request", () => {
   } finally { rmSync(env.root, { recursive: true, force: true }); }
 });
 
-test("Workflow 3 and incomplete roots fail before any planner invocation", () => {
+test("Workflow 3/4 and incomplete roots fail before any planner invocation", () => {
   const env = setup();
   try {
     const value = engine(env, [{ kind: "root", root_plan_text: rootPlan }]);
-    assert.throws(() => withConfig(env.configPath, () => value.planning.prepare({ rootPlan: rootPlan.replace("schema: 4", "schema: 3"), requestedProfile: "supervised", idempotencyKey: "old-root-123" })), /invalid input root plan/);
+    assert.throws(() => withConfig(env.configPath, () => value.planning.prepare({ rootPlan: rootPlan.replace("schema: 5", "schema: 3"), requestedProfile: "supervised", idempotencyKey: "old-root-123" })), /invalid input root plan/);
+    assert.throws(() => withConfig(env.configPath, () => value.planning.prepare({ rootPlan: rootPlan.replace("schema: 5", "schema: 4"), requestedProfile: "supervised", idempotencyKey: "old-root-456" })), /invalid input root plan/);
     assert.throws(() => withConfig(env.configPath, () => value.planning.prepare({ rootPlan: "# incomplete", requestedProfile: "supervised", idempotencyKey: "bad-root-123" })), /invalid input root plan/);
     assert.equal(value.calls(), 0);
   } finally { rmSync(env.root, { recursive: true, force: true }); }

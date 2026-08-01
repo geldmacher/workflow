@@ -1,6 +1,6 @@
 ---
 artifact: work-plan
-schema: 4
+schema: 5
 id: wp-adaptive-retry
 status: ready
 intent_ready: true

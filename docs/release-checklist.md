@@ -1,17 +1,25 @@
-# Workflow 4 release checklist
+# Workflow 5 release checklist
 
-- [ ] Lean, controlled, and certified Schema-4 Roots pass; missing semantic cores fail.
-- [ ] Workflow-3 status/watch is read-only and does not block or qualify.
+- [ ] Lean, controlled, and certified Schema-5 Roots pass; missing semantic cores fail.
+- [ ] Low/medium Manual without Hard Triggers uses Lean Evidence; high-risk, Hard-Trigger, supervised, and autonomous delivery uses Full Evidence.
+- [ ] Automatic Implement Plan closeout and `/close-work` recovery produce the same deterministic valid Evidence; fresh context resolves it from the non-authoritative handoff cache.
+- [ ] Handoff conflicts, stale tips, repository-mutating Checks, and invalid Evidence fail closed; cache-only failure returns the valid artifact with an attach instruction.
+- [ ] Lean Check grade requirements, implicit revision/baseline defaults, and `changed_paths` authority are enforced.
+- [ ] Stateless Manual provisional acceptance is artifact-set-hash-bound, non-persistent, non-qualifying, and rejects failed, blocked, stale, mixed, and legacy chains.
+- [ ] Workflow-3/4 status/watch is read-only and does not block or qualify.
 - [ ] Strategy revisions are hash chained and remain inside authority.
 - [ ] Goal, acceptance, risk, dependencies, effects, protected paths, secrets, and budgets stop on expansion.
 - [ ] Ordered approved model fallback and phase affinity are fully receipted.
 - [ ] Dirty Baseline reproduces tracked/untracked human state without changing the source worktree.
 - [ ] Bugfix, refactor, performance, feature, investigation, and verify-existing recipes enforce their invariants.
 - [ ] Verification Profile prove/approve/audit invalidates on any referenced drift.
-- [ ] Readers cannot write repository content; exactly one Writer owns the worktree.
+- [ ] Controller Readers cannot write repository content; exactly one canonical Controller Writer owns its worktree.
+- [ ] Every native Implement Plan todo is model-inheritance marked; Workflow subagents without an override are allowed, explicit child models and unknown parents fail closed, and unmarked tasks remain unaffected.
+- [ ] Named post-implementation agents declare `readonly: true`, use `model: inherit`, and built-in, general-purpose, unmarked, or writing agents remain blocked during Review and Explanation.
 - [ ] Failed evidence blocks; incomplete evidence may be provisional; accepted-provisional never qualifies.
 - [ ] Autonomous shortfall downgrades visibly to supervised; full verified evidence may achieve.
 - [ ] Pause, resume, cancellation, crash recovery, rollback, budgets, and idempotency survive Strategy revisions.
 - [ ] Repository tests, bundle parity, schema/plugin validation, context budgets, Markdown links, and package dry run pass.
 - [ ] Live Cursor and Marketplace certification is reported separately from repository-only evidence.
+- [ ] Live smokes with two different Cursor-selected parent models confirm that inherited children actually use the same model and that an explicit child-model override is stopped, not only shown as `Couldn't start`.
 - [ ] No push, PR, merge, deployment, production access, automatic integration, or automatic learning occurs.

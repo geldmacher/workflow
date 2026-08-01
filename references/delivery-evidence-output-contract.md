@@ -1,3 +1,3 @@
-Return a concise outcome and one Schema-4 `delivery-evidence` artifact. Bind the immutable Intent hash and current Strategy revision. Include objective outcomes, repository snapshot, executed Checks, granular evidence entries, deviations, and limitations.
+Do not author `delivery-evidence` directly. Supply exact Root/chain text, changed paths, repository snapshot, effective profile, Strategy revision, and structured Check observations to `workflow_closeout`; the deterministic builder owns identity, hashes, topology, representation, evidence mode, aggregate grade, status, and rendering.
 
-Use `complete` only when the aggregate grade is verified, `provisional` only for supported/partial/unavailable evidence with no known failure, and `blocked` for a known failed required Check or hard boundary. Never claim production success from repository evidence.
+Return the generated artifact byte-for-byte. A cache-only failure leaves the artifact valid and requires the returned attach instruction. A semantic conflict emits no artifact. Never claim production success from repository evidence.

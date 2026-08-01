@@ -20,7 +20,8 @@ test("explain-work is an anytime manual Ask command with a fresh inherited-model
 
 test("explanations handle missing, running, correctable, and achieved roots without becoming proof", () => {
   const runtime = [read("skills/work-explanation/SKILL.md"), read("references/explanation-contract.md"), read("agents/work-explainer.md")].join("\n");
-  assert.match(runtime, /no unique root.*root ID/i);
+  assert.match(runtime, /no unique root.*(?:its ID|root ID)/i);
+  assert.match(runtime, /active native Cursor Plan/i);
   assert.match(runtime, /not `achieved`.*preliminary/i);
   assert.match(runtime, /blockers|open/i);
   assert.match(runtime, /next safe action/i);

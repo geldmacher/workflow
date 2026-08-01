@@ -1,4 +1,4 @@
-# Workflow 4 certification runbook
+# Workflow 5 certification runbook
 
 Certification is granular. A positive result applies only to one Plugin/runtime/lock tuple plus Route Pool hash, Verification Profile hash, task class, and certified repository region.
 

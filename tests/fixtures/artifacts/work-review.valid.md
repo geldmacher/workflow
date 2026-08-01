@@ -1,6 +1,6 @@
 ---
 artifact: work-review
-schema: 4
+schema: 5
 id: wr-adaptive-retry
 status: complete
 root_plan_id: wp-adaptive-retry

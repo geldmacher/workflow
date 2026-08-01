@@ -1,6 +1,6 @@
 # Adaptive authorization contract
 
-The approved Schema-4 Intent Root is immutable. Goal, acceptance, non-goals, constraints, public contract, risk, dependency authority, external effects, delivery boundary, budgets, protected paths, and approval-required paths may change only through a new human boundary decision.
+The approved Schema-5 Intent Root is immutable. Goal, acceptance, non-goals, constraints, public contract, risk, dependency authority, external effects, delivery boundary, budgets, protected paths, and approval-required paths may change only through a new human boundary decision.
 
 The external `execution-strategy` is versioned and hash chained. The controller may revise targets, steps, equivalent checks, tools, and approved model candidates inside `authority.allowed_roots`; every deviation and reason enters the Decision Ledger. Exactly one canonical Writer owns the isolated worktree. Up to two investigators, Verifiers, or Reviewers may run concurrently read-only; their only writable location is an external proof directory.
 

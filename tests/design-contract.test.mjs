@@ -6,7 +6,7 @@ import { defaultRoot, inspectArtifactText } from "../scripts/validate-artifact.s
 
 const canonical = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
 
-test("Schema 4 validates semantics instead of eight mandatory tables", () => {
+test("Schema 5 validates semantics instead of eight mandatory Root tables", () => {
   const prose = canonical.replace(/### Verification[\s\S]*?(?=\n## Boundaries)/, "Acceptance may be verified by an equivalent repository-local check.\n");
   assert.deepEqual(inspectArtifactText(prose).errors, []);
 });

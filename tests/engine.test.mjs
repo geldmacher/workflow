@@ -6,9 +6,11 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { WorkflowEngine } from "../src/controller/engine.mjs";
 import { RunStore } from "../src/controller/store.mjs";
+import { ArtifactHandoffStore } from "../src/controller/artifact-handoff.mjs";
+import { runView } from "../src/controller/protocol.mjs";
 import { createInitialStrategy, calibrateRecipeEvidence, reviseStrategy, strategyHash } from "../src/controller/strategy.mjs";
 import { repositoryBaseline } from "../src/controller/worktree.mjs";
-import { defaultRoot, executionContractFromArtifactText } from "../scripts/validate-artifact.source.mjs";
+import { defaultRoot, executionContractFromArtifactText, inspectArtifactText } from "../scripts/validate-artifact.source.mjs";
 
 const rootPlan = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
 const roles = ["planner", "investigator", "writer", "writer_escalated", "verifier", "reviewer", "explainer"];
@@ -70,6 +72,7 @@ function setup({ patchedGrade = "verified", repetitions = 2, taskClass = "bugfix
     }])),
   };
   const calls = [];
+  const reviewPrompts = [];
   const verifierCwds = [];
   const writerAgentInputs = [];
   let writerAttempts = 0;
@@ -85,6 +88,7 @@ function setup({ patchedGrade = "verified", repetitions = 2, taskClass = "bugfix
     validateProfile: () => routeValidation,
     runPhase: (input) => {
       calls.push(input.role);
+      if (["reviewer", "investigator"].includes(input.role)) reviewPrompts.push(input.prompt);
       if (["writer", "writer_escalated"].includes(input.role)) {
         writerAgentInputs.push(input.agentId);
         writerAttempts += 1;
@@ -108,6 +112,7 @@ function setup({ patchedGrade = "verified", repetitions = 2, taskClass = "bugfix
     },
     runReadOnlyFanout: (phases) => phases.map((input) => {
       calls.push(input.role);
+      reviewPrompts.push(input.prompt);
       return { response: { ok: true, status: "finished", result: decision }, receipt: makeReceipt(input.role, input) };
     }),
   };
@@ -127,7 +132,7 @@ function setup({ patchedGrade = "verified", repetitions = 2, taskClass = "bugfix
     project_policy: projectPolicy, capabilities, baseline: repositoryBaseline(repo), receipts: [], check_receipts: [], evidence_entries: [], blockers: [],
   });
   const engine = new WorkflowEngine({ workspaceRoot: repo, store, pluginRoot: defaultRoot, stateRoot: state, worktreeRoot: worktrees, adapterFactory: () => adapter, capabilitiesFactory: () => capabilities });
-  return { root, repo, store, run, engine, calls, verifierCwds, writerAgentInputs };
+  return { root, repo, state, store, run, engine, calls, reviewPrompts, verifierCwds, writerAgentInputs };
 }
 
 function cleanup(env) {
@@ -146,6 +151,12 @@ test("supervised verified delivery waits for explicit human acceptance", () => {
     assert.equal(delivered.lifecycle, "waiting-human");
     assert.equal(delivered.delivery_status, "verified");
     assert.equal(delivered.phase, "delivery-ready-verified");
+    assert.match(delivered.delivery_evidence_id, /^de-/);
+    assert.match(delivered.delivery_evidence_hash, /^[a-f0-9]{64}$/);
+    assert.equal(inspectArtifactText(delivered.delivery_evidence_artifact, defaultRoot).artifact.fields.evidence_mode, "full");
+    assert.equal(new ArtifactHandoffStore(env.state, defaultRoot).context("wp-adaptive-retry").evidence_tip, delivered.delivery_evidence_id);
+    assert.ok(env.reviewPrompts.some((prompt) => prompt.includes("CANDIDATE DELIVERY EVIDENCE") && prompt.includes(delivered.delivery_evidence_id)));
+    assert.equal("delivery_evidence_artifact" in runView(delivered), false);
     const accepted = env.engine.acceptDelivery(env.run.run_id, "verified");
     assert.equal(accepted.lifecycle, "achieved");
   } finally { cleanup(env); }
@@ -157,6 +168,7 @@ test("evidence gap delivers provisional and acceptance remains non-qualifying", 
     const delivered = env.engine.execute(env.run.run_id);
     assert.equal(delivered.delivery_status, "provisional");
     assert.equal(delivered.next_action, "accept-provisional");
+    assert.equal(inspectArtifactText(delivered.delivery_evidence_artifact, defaultRoot).artifact.fields.status, "provisional");
     assert.throws(() => env.engine.acceptDelivery(env.run.run_id, "verified"), /not awaiting|acceptance mismatch/);
     const accepted = env.engine.acceptDelivery(env.run.run_id, "provisional");
     assert.equal(accepted.lifecycle, "accepted-provisional");
@@ -171,6 +183,10 @@ test("known failed patched evidence terminates blocked and cannot be accepted", 
     assert.equal(blocked.lifecycle, "blocked");
     assert.equal(blocked.delivery_status, "blocked");
     assert.match(blocked.blockers.join("\n"), /known-check-failure/);
+    assert.match(blocked.delivery_evidence_id, /^de-/);
+    const blockedEvidence = inspectArtifactText(blocked.delivery_evidence_artifact, defaultRoot);
+    assert.deepEqual(blockedEvidence.errors, []);
+    assert.equal(blockedEvidence.artifact.fields.status, "blocked");
     assert.throws(() => env.engine.acceptDelivery(env.run.run_id, "provisional"), /not awaiting|acceptance mismatch/);
   } finally { cleanup(env); }
 });

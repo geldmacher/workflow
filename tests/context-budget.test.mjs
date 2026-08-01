@@ -40,6 +40,8 @@ test("manual phase flows model progressive contract loading", () => {
   assert.ok(!Object.hasOwn(measurement.flow_breakdown.review_base, "references/learning-contract.md"));
   assert.ok(Object.hasOwn(measurement.flow_breakdown.review_correction, "references/correction-contract.md"));
   assert.ok(!Object.hasOwn(measurement.flow_breakdown.review_correction, "references/learning-contract.md"));
+  assert.ok(Object.hasOwn(measurement.flow_breakdown.correction, "references/closeout-contract.md"));
+  assert.ok(Object.hasOwn(measurement.flow_breakdown.closeout, "references/closeout-contract.md"));
   assert.ok(Object.hasOwn(measurement.flow_breakdown.learning, "references/learning-contract.md"));
 });
 
@@ -77,7 +79,7 @@ test("manual, expanded, automation, and auditor targets are explicit", () => {
   for (const [name, maximum] of Object.entries(limits.phaseFlows)) assert.ok(measurement.phase_flows[name] <= maximum, name);
   for (const [name, maximum] of Object.entries(limits.automationFlows)) assert.ok(measurement.automationFlows[name] <= maximum, name);
   for (const [name, tokens] of Object.entries(measurement.reviewerTokens)) assert.ok(tokens <= limits.reviewerTokens, name);
-  assert.deepEqual(economicTargets, { plan: 2000, correction: 2000, review: 2000, learning: 2000, explanation: 1200, automation: 1500 });
+  assert.deepEqual(economicTargets, { plan: 2000, correction: 2000, closeout: 1800, review: 2000, learning: 2000, explanation: 1200, automation: 1500 });
   assert.deepEqual(budgetDiagnostics(measurement), []);
 });
 

@@ -14255,6 +14255,7 @@ var fixPattern = /\bFIX-[1-9][0-9]*\b/g;
 var checkPattern = /\bCHECK-[1-9][0-9]*\b/g;
 var slicePattern = /\bSLICE-[1-9][0-9]*\b/g;
 var learningPattern = /\bLRN-[A-Za-z0-9][A-Za-z0-9-]*\b/g;
+var modelInheritMarker = "[workflow-model-inherit-v1]";
 var requiredScopeCategories = ["required", "permitted", "prohibited"];
 var baselineKinds = ["repository", "head", "dirty-files", "known-failures", "targets-and-prerequisites"];
 var sectionAliases = Object.freeze({
@@ -14692,7 +14693,7 @@ function derivedAssurance(score, triggers) {
   return "deep";
 }
 function planData(artifact) {
-  if (artifact.fields.schema === 4) {
+  if (artifact.fields.schema >= 4) {
     const objectives2 = artifact.fields.acceptance.map((outcome, index) => ({
       "Objective ID": `OBJ-${index + 1}`,
       "Observable outcome": outcome,
@@ -14779,11 +14780,40 @@ function validatePlanV4(parsed, sections, failures) {
   if (verification.length === 0) parsed.normalizations.push("synthesized strategy checks from acceptance outcomes");
   if (data.objectives.size !== parsed.fields.acceptance.length) failures.push("acceptance outcomes must map one-to-one to objectives");
   if (parsed.wrapper) {
-    const final = String(parsed.wrapper.todos?.at(-1)?.content ?? "");
+    const todos = parsed.wrapper.todos ?? [];
+    for (const todo of todos) {
+      if (!String(todo.content ?? "").startsWith(modelInheritMarker)) failures.push(`native todo ${todo.id ?? "<unknown>"} must start with ${modelInheritMarker}`);
+    }
+    const final = String(todos.at(-1)?.content ?? "");
     if (!/verify|check|evidence|snapshot/i.test(final)) failures.push("final native todo must verify or evidence the implemented result");
+    if (parsed.fields.schema === 5 && !/workflow_closeout/.test(final)) failures.push("final native todo must call workflow_closeout");
   }
 }
 function evidenceData(artifact) {
+  if (artifact.fields.schema === 5 && artifact.fields.evidence_mode === "lean") {
+    const objectiveStatus = artifact.fields.status === "complete" ? "achieved" : artifact.fields.status === "blocked" ? "blocked" : "partially-achieved";
+    const outcomes2 = (artifact.fields.affected_objectives ?? []).map((id) => ({
+      "Objective ID": id,
+      Status: objectiveStatus,
+      Evidence: `lean evidence ${artifact.fields.id}`
+    }));
+    const checks2 = (artifact.fields.check_evidence ?? []).map((entry) => ({
+      "Check ID": entry.check_id,
+      "Observed Result": entry.observed,
+      Status: entry.grade === "verified" ? "passed" : entry.grade === "failed" ? "failed" : "skipped",
+      "Prerequisite fingerprints": ""
+    }));
+    return {
+      results: [],
+      outcomes: outcomes2,
+      outcomeRows: new Map(outcomes2.map((row) => [row["Objective ID"], row])),
+      changes: (artifact.fields.changed_paths ?? []).map((path) => ({ "Path or Symbol": path, Change: "declared in lean evidence", "Objective Coverage": (artifact.fields.affected_objectives ?? []).join(", ") })),
+      snapshot: null,
+      checks: checks2,
+      checkRows: new Map(checks2.map((row) => [row["Check ID"], row])),
+      steps: []
+    };
+  }
   const results = tableRows(artifact.sections.get("Subject results") ?? "", tables.results);
   const outcomes = tableRows(artifact.sections.get("Objective outcomes") ?? "", tables.objectiveOutcomes);
   const changes = tableRows(artifact.sections.get("Changes") ?? "", tables.changes);
@@ -14956,7 +14986,45 @@ function validatePlan(parsed, sections, failures) {
 function resultIdPattern(fields) {
   return String(fields.subject_id ?? "").startsWith("cp-") ? fixPattern : objectivePattern;
 }
+function validateEvidenceGrades(parsed, failures) {
+  const entries = parsed.fields.check_evidence ?? [];
+  const grades = entries.map((entry) => entry.grade);
+  const patched = entries.filter((entry) => (entry.baseline_or_patched ?? (parsed.fields.evidence_mode === "lean" ? "patched" : null)) === "patched");
+  if (grades.includes("failed") && parsed.fields.overall_grade !== "failed") failures.push("failed check evidence requires overall_grade failed");
+  if (parsed.fields.status === "complete" && parsed.fields.overall_grade !== "verified") failures.push("complete evidence requires overall_grade verified");
+  if (parsed.fields.status === "complete" && patched.some((entry) => entry.grade !== "verified")) failures.push("complete evidence requires every patched Check grade verified");
+  if (parsed.fields.status === "provisional" && !["supported", "partial", "unavailable"].includes(parsed.fields.overall_grade)) failures.push("provisional evidence requires supported, partial, or unavailable grade");
+  if (parsed.fields.status !== "blocked" && grades.includes("failed")) failures.push("failed check evidence must be blocked");
+}
+function validateLeanEvidence(parsed, sections, failures) {
+  if (!(sections.get("Summary") ?? "").trim()) failures.push("Summary: section must not be empty");
+  const affected = new Set(parsed.fields.affected_objectives ?? []);
+  const reusedObjectives = new Set(parsed.fields.reused_objectives ?? []);
+  for (const id of affected) if (reusedObjectives.has(id)) failures.push(`Objective ${id} cannot be both affected and reused`);
+  const executed = new Set(parsed.fields.executed_checks ?? []);
+  const reusedChecks = new Set(parsed.fields.reused_checks ?? []);
+  for (const id of executed) if (reusedChecks.has(id)) failures.push(`Check ${id} cannot be both executed and reused`);
+  const checkIds = (parsed.fields.check_evidence ?? []).map((entry) => entry.check_id);
+  if (new Set(checkIds).size !== checkIds.length) failures.push("check_evidence Check IDs must be unique");
+  if (!sameSet(new Set(checkIds), executed)) failures.push("check_evidence must exactly match executed_checks");
+  for (const path of parsed.fields.changed_paths ?? []) {
+    if (path.startsWith("/") || path === ".." || path.startsWith("../")) failures.push(`changed path must remain repository-relative: ${path}`);
+  }
+  validateEvidenceGrades(parsed, failures);
+  if (!Object.hasOwn(parsed.fields, "strategy_revision")) parsed.normalizations.push("lean evidence: interpreted missing strategy_revision as 0");
+  for (const entry of parsed.fields.check_evidence ?? []) {
+    if (!Object.hasOwn(entry, "baseline_or_patched")) parsed.normalizations.push(`lean evidence: interpreted ${entry.check_id} baseline_or_patched as patched`);
+  }
+  parsed.effective = {
+    strategyRevision: parsed.fields.strategy_revision ?? 0,
+    checkEvidence: (parsed.fields.check_evidence ?? []).map((entry) => ({ baseline_or_patched: "patched", ...entry }))
+  };
+}
 function validateEvidence(parsed, sections, failures) {
+  if (parsed.fields.schema === 5 && parsed.fields.evidence_mode === "lean") {
+    validateLeanEvidence(parsed, sections, failures);
+    return;
+  }
   const options = { normalizations: parsed.normalizations };
   const pattern = resultIdPattern(parsed.fields);
   const results = requireTable(sections, "Subject results", tables.results, failures, { optional: true, normalizations: parsed.normalizations });
@@ -14973,11 +15041,17 @@ function validateEvidence(parsed, sections, failures) {
   const reusedChecks = new Set(parsed.fields.reused_checks ?? []);
   for (const id of executed) if (reusedChecks.has(id)) failures.push(`Check ${id} cannot be both executed and reused`);
   const changes = requireTable(sections, "Changes", tables.changes, failures, { allowNone: true, optional: true, normalizations: parsed.normalizations });
+  const declaredChangedPaths = new Set(parsed.fields.changed_paths ?? []);
+  const visibleChangedPaths = new Set(changes.rows.flatMap((row) => targetTokens(row["Path or Symbol"])));
+  if (parsed.fields.schema === 5 && !sameSet(declaredChangedPaths, visibleChangedPaths)) failures.push("Changes table must exactly match changed_paths");
+  for (const path of declaredChangedPaths) {
+    if (path.startsWith("/") || path === ".." || path.startsWith("../")) failures.push(`changed path must remain repository-relative: ${path}`);
+  }
   for (const row of changes.rows) {
     const covered = ids(row["Objective Coverage"], pattern);
     if (covered.length === 0) failures.push("Changes: every row must name a subject objective");
     covered.forEach((id) => {
-      if (!resultIds.has(id)) failures.push(`Changes: unknown ${id}`);
+      if (!(resultIds.size > 0 ? resultIds : outcomeIds).has(id)) failures.push(`Changes: unknown ${id}`);
     });
   }
   const snapshot = requireTable(sections, "Repository snapshot", tables.snapshot, failures, options);
@@ -14996,15 +15070,11 @@ function validateEvidence(parsed, sections, failures) {
     for (const [path, hash] of prerequisites) if (snapshotFingerprints.get(path) !== hash) failures.push(`Checks: ${row["Check ID"]} prerequisite ${path} must match Repository snapshot`);
     if (row.Status === "blocked" && !/^blocked-by:CHECK-[1-9][0-9]*\b/.test(row["Observed Result"])) failures.push(`Checks: ${row["Check ID"]} blocked status needs blocked-by:CHECK-N evidence`);
   }
-  if (parsed.fields.schema === 4) {
+  if (parsed.fields.schema >= 4) {
     const entries = parsed.fields.check_evidence ?? [];
     const patched = new Map(entries.filter((entry) => entry.baseline_or_patched === "patched").map((entry) => [entry.check_id, entry]));
     for (const check of parsed.fields.executed_checks ?? []) if (!patched.has(check)) failures.push(`check_evidence requires patched evidence for ${check}`);
-    const grades = entries.map((entry) => entry.grade);
-    if (grades.includes("failed") && parsed.fields.overall_grade !== "failed") failures.push("failed check evidence requires overall_grade failed");
-    if (parsed.fields.status === "complete" && parsed.fields.overall_grade !== "verified") failures.push("complete evidence requires overall_grade verified");
-    if (parsed.fields.status === "provisional" && !["supported", "partial", "unavailable"].includes(parsed.fields.overall_grade)) failures.push("provisional evidence requires supported, partial, or unavailable grade");
-    if (parsed.fields.status !== "blocked" && grades.includes("failed")) failures.push("failed check evidence must be blocked");
+    validateEvidenceGrades(parsed, failures);
   }
   const resume = requireTable(sections, "Idempotency and resume", tables.resume, failures, { optional: true, normalizations: parsed.normalizations });
   exactIdSet(resume.rows, "Step ID", /STEP-[1-9][0-9]*/, "Idempotency and resume", failures);
@@ -15142,7 +15212,7 @@ function validateCompactReview(parsed, sections, failures) {
     if (coverage.rows.length > 0 && (normalizedHeader(snapshotRow?.Result) !== "consistent" || noneLike(snapshotRow?.Inspected))) failures.push("achieved review coverage contradicts current snapshot consistency");
   }
   if (parsed.fields.next_action === "none" && parsed.fields.assessment !== "achieved") failures.push("next_action none requires assessment achieved");
-  if (parsed.fields.schema === 4) {
+  if (parsed.fields.schema >= 4) {
     if (parsed.fields.delivery_status === "verified" && parsed.fields.assessment !== "achieved") failures.push("verified delivery requires achieved assessment");
     if (parsed.fields.delivery_status === "provisional" && parsed.fields.next_action !== "accept-provisional") failures.push("provisional delivery requires accept-provisional");
     if (parsed.fields.next_action === "accept-provisional" && parsed.fields.delivery_status !== "provisional") failures.push("accept-provisional requires provisional delivery");
@@ -15206,7 +15276,7 @@ function buildArtifact(text, root, options = {}) {
   if (sections.size > 0) {
     rejectPlaceholders(parsed, schema, sections, failures);
     if (parsed.fields.artifact === "work-plan") {
-      if (parsed.fields.schema === 4) validatePlanV4(parsed, sections, failures);
+      if (parsed.fields.schema >= 4) validatePlanV4(parsed, sections, failures);
       else validatePlan(parsed, sections, failures);
     }
     if (parsed.fields.artifact === "delivery-evidence") validateEvidence(parsed, sections, failures);
@@ -15227,12 +15297,7 @@ function inspectArtifactText(text, root = defaultRoot, options = {}) {
     artifact: built.parsed ?? null
   };
 }
-function authoritativeArtifactProjectionFromText(text, root = defaultRoot) {
-  const inspected = inspectArtifactText(text, root);
-  if (inspected.errors.length > 0 || !inspected.artifact?.fields?.artifact) {
-    return { errors: inspected.errors.length > 0 ? inspected.errors : ["input is not a Workflow artifact"] };
-  }
-  const artifact = inspected.artifact;
+function authoritativeArtifactProjection(artifact, root) {
   const schema = JSON.parse(readFileSync(schemaFor(root, artifact.fields.artifact), "utf8"));
   const fields = Object.fromEntries(Object.keys(schema.properties ?? {}).filter((key) => key !== "extensions" && Object.hasOwn(artifact.fields, key)).map((key) => [key, structuredClone(artifact.fields[key])]));
   const sections = (schema["x-required-sections"] ?? schema["x-markdown-sections"] ?? []).map((name) => ({ name, content: artifact.sections.get(name) ?? "" }));
@@ -15244,6 +15309,13 @@ function authoritativeArtifactProjectionFromText(text, root = defaultRoot) {
     projection_text: projectionText,
     projection_hash: sha256(projectionText)
   };
+}
+function authoritativeArtifactProjectionFromText(text, root = defaultRoot) {
+  const inspected = inspectArtifactText(text, root);
+  if (inspected.errors.length > 0 || !inspected.artifact?.fields?.artifact) {
+    return { errors: inspected.errors.length > 0 ? inspected.errors : ["input is not a Workflow artifact"] };
+  }
+  return authoritativeArtifactProjection(inspected.artifact, root);
 }
 function executionContractFromArtifactText(text, root = defaultRoot) {
   const inspected = inspectArtifactText(text, root);
@@ -15261,7 +15333,7 @@ function executionContractFromArtifactText(text, root = defaultRoot) {
     slices: data.slices.map((row) => ({ ...row })),
     allowedTargets: [...data.allowedTargets],
     prohibitedTargets: [...data.prohibitedTargets],
-    strategy: artifact.fields.schema === 4 ? {
+    strategy: artifact.fields.schema >= 4 ? {
       strategy_id: `strategy-${artifact.fields.id.slice(3)}`,
       revision: 0,
       parent_hash: null,
@@ -15330,7 +15402,7 @@ function linearChain(items, predecessorField, label, failures) {
   if (cursor || ordered.length !== items.length) failures.push(`${label}: chain is cyclic or disconnected`);
   return ordered;
 }
-function materializeEvidence(artifact, artifacts, cache, failures, active = /* @__PURE__ */ new Set()) {
+function materializeEvidence(artifact, artifacts, cache, failures, rootDirectory, active = /* @__PURE__ */ new Set()) {
   if (cache.has(artifact.fields.id)) return cache.get(artifact.fields.id);
   if (active.has(artifact.fields.id)) {
     failures.push(`${artifact.label}: cyclic evidence chain`);
@@ -15342,13 +15414,22 @@ function materializeEvidence(artifact, artifacts, cache, failures, active = /* @
     failures.push(`${artifact.label}: missing root plan ${artifact.fields.root_plan_id}`);
     return null;
   }
+  if (root.fields.schema === 5) {
+    const authoritativeRoot = authoritativeArtifactProjection(root, rootDirectory);
+    if (artifact.fields.intent_hash !== authoritativeRoot.projection_hash) failures.push(`${artifact.label}: intent_hash does not match authoritative Root projection`);
+  }
   const plan = planData(root);
   const data = evidenceData(artifact);
+  const leanMode = artifact.fields.schema === 5 && artifact.fields.evidence_mode === "lean";
+  if (root.fields.schema === 5) {
+    const fullRequired = root.fields.profile_max !== "manual" || root.fields.risk === "high" || (root.fields.hard_triggers ?? []).length > 0;
+    if (fullRequired && leanMode) failures.push(`${artifact.label}: ${root.fields.profile_max} ${root.fields.risk}-risk root requires evidence_mode full`);
+  }
   const currentFingerprints = fingerprintMap(data.snapshot?.["Relevant fingerprints"]);
   const reuseBasis = data.snapshot?.["Relevant fingerprints"] ?? "";
-  const strongReuse = root.fields.schema === 4 ? root.fields.contract_level === "certified" || (root.fields.hard_triggers ?? []).length > 0 : root.fields.assurance_profile === "deep" || (root.fields.hard_triggers ?? []).length > 0;
+  const strongReuse = root.fields.schema >= 4 ? root.fields.contract_level === "certified" || (root.fields.hard_triggers ?? []).length > 0 : root.fields.assurance_profile === "deep" || (root.fields.hard_triggers ?? []).length > 0;
   const predecessor = artifact.fields.predecessor_evidence_id ? artifacts.get(artifact.fields.predecessor_evidence_id) : null;
-  const predecessorEffective = predecessor?.fields.artifact === "delivery-evidence" ? materializeEvidence(predecessor, artifacts, cache, failures, active) : null;
+  const predecessorEffective = predecessor?.fields.artifact === "delivery-evidence" ? materializeEvidence(predecessor, artifacts, cache, failures, rootDirectory, active) : null;
   if (artifact.fields.predecessor_evidence_id && !predecessorEffective) failures.push(`${artifact.label}: missing predecessor evidence ${artifact.fields.predecessor_evidence_id}`);
   if (predecessor && predecessor.fields.root_plan_id !== artifact.fields.root_plan_id) failures.push(`${artifact.label}: predecessor evidence must use the same root plan`);
   const affected = new Set(artifact.fields.affected_objectives ?? []);
@@ -15371,7 +15452,7 @@ function materializeEvidence(artifact, artifacts, cache, failures, active = /* @
     const previous = predecessorEffective?.objectives.get(objective);
     if (!previous) failures.push(`${artifact.label}: reused ${objective} is absent from direct predecessor evidence`);
     else {
-      compareReusePaths(plan.objectiveDependencies.get(objective) ?? [], currentFingerprints, predecessorEffective.snapshotFingerprints, reuseBasis, `${artifact.label}: reused ${objective}`, strongReuse, failures);
+      if (!leanMode) compareReusePaths(plan.objectiveDependencies.get(objective) ?? [], currentFingerprints, predecessorEffective.snapshotFingerprints, reuseBasis, `${artifact.label}: reused ${objective}`, strongReuse, failures);
       objectives.set(objective, { ...previous, reusedFrom: predecessor.fields.id });
     }
   }
@@ -15395,7 +15476,7 @@ function materializeEvidence(artifact, artifacts, cache, failures, active = /* @
     const planned = plan.checkRows.get(id);
     if (!previous || !planned) failures.push(`${artifact.label}: reused ${id} is absent from direct predecessor root evidence`);
     else {
-      compareReusePaths(targetTokens(planned.Prerequisites), currentFingerprints, predecessorEffective.snapshotFingerprints, reuseBasis, `${artifact.label}: reused ${id}`, strongReuse, failures);
+      if (!leanMode) compareReusePaths(targetTokens(planned.Prerequisites), currentFingerprints, predecessorEffective.snapshotFingerprints, reuseBasis, `${artifact.label}: reused ${id}`, strongReuse, failures);
       checks.set(id, { ...previous, reusedFrom: predecessor.fields.id });
     }
   }
@@ -15406,7 +15487,7 @@ function materializeEvidence(artifact, artifacts, cache, failures, active = /* @
   }
   const operationalContent = (artifact.sections.get("Operational evidence") ?? "").trim();
   let operationalReady = true;
-  if (root.fields.schema === 4) {
+  if (root.fields.schema >= 4) {
     if (operationalContent && !/^not applicable\.?$/i.test(operationalContent)) {
       const operationalRows = tableRows(operationalContent, tables.operationalEvidence);
       operationalReady = operationalRows.length > 0 && operationalRows.every((row) => row.Status === "satisfied");
@@ -15435,11 +15516,11 @@ function materializeEvidence(artifact, artifacts, cache, failures, active = /* @
     if (!sourceReview || sourceReview.fields.correction_id !== artifact.fields.subject_id || !correction) failures.push(`${artifact.label}: correction evidence does not resolve its source review and correction`);
     else {
       const expectedFixes = new Set(correction.fixes.map((row) => row["FIX ID"]));
-      if (!sameSet(new Set(data.results.map((row) => row["Objective ID"])), expectedFixes)) failures.push(`${artifact.label}: correction Subject results must cover every FIX`);
+      if (!leanMode && !sameSet(new Set(data.results.map((row) => row["Objective ID"])), expectedFixes)) failures.push(`${artifact.label}: correction Subject results must cover every FIX`);
       for (const check of correction.checks.filter((row) => row.Required === "yes")) if (!executed.has(check["Check ID"])) failures.push(`${artifact.label}: missing executed correction Check ${check["Check ID"]}`);
     }
   }
-  const reviewReady = artifact.fields.status === "complete" && (artifact.fields.schema !== 4 || artifact.fields.overall_grade === "verified") && operationalReady && [...plan.requiredChecks].every((id) => checks.get(id)?.status === "passed");
+  const reviewReady = artifact.fields.status === "complete" && (artifact.fields.schema < 4 || artifact.fields.overall_grade === "verified") && operationalReady && [...plan.requiredChecks].every((id) => checks.get(id)?.status === "passed");
   const effective = { root, plan, objectives, checks, snapshot: data.snapshot, snapshotFingerprints: currentFingerprints, operationalReady, reviewReady, predecessor: predecessorEffective };
   artifact.effective = effective;
   cache.set(artifact.fields.id, effective);
@@ -15485,6 +15566,53 @@ function measurableProgress(previous, current) {
   if (!previous || !current) return false;
   return current.severity < previous.severity || current.objectiveRank > previous.objectiveRank || current.passedChecks > previous.passedChecks || current.fingerprintSignature !== previous.fingerprintSignature;
 }
+function validatePlanLineage(artifacts, failures) {
+  const plans = [...artifacts.values()].filter((artifact) => artifact.fields.artifact === "work-plan");
+  const plansById = new Map(plans.map((plan) => [plan.fields.id, plan]));
+  const successors = /* @__PURE__ */ new Map();
+  for (const plan of plans) {
+    const predecessorId = plan.fields.predecessor_plan_id;
+    const sourceReviewId = plan.fields.replan_source_review_id;
+    if (!predecessorId && !sourceReviewId) continue;
+    if (!predecessorId || !sourceReviewId) continue;
+    if (predecessorId === plan.fields.id) failures.push(`${plan.label}: replan root cannot reference itself`);
+    const predecessor = plansById.get(predecessorId);
+    if (!predecessor) failures.push(`${plan.label}: missing predecessor plan ${predecessorId}`);
+    else if (predecessor.fields.schema !== 5) failures.push(`${plan.label}: predecessor plan must use Schema 5`);
+    const sourceReview = artifacts.get(sourceReviewId);
+    if (!sourceReview || sourceReview.fields.artifact !== "work-review") failures.push(`${plan.label}: missing replan source review ${sourceReviewId}`);
+    else {
+      if (sourceReview.fields.schema !== 5) failures.push(`${plan.label}: replan source review must use Schema 5`);
+      if (sourceReview.fields.root_plan_id !== predecessorId) failures.push(`${plan.label}: replan source review must belong to predecessor plan ${predecessorId}`);
+      if (sourceReview.fields.next_action !== "replan") failures.push(`${plan.label}: replan source review must require next_action replan`);
+      const predecessorReviews = [...artifacts.values()].filter((artifact) => artifact.fields.artifact === "work-review" && artifact.fields.root_plan_id === predecessorId);
+      const referencedReviews = new Set(predecessorReviews.map((review) => review.fields.predecessor_review_id).filter(Boolean));
+      const reviewTips = predecessorReviews.filter((review) => !referencedReviews.has(review.fields.id));
+      if (reviewTips.length !== 1 || reviewTips[0].fields.id !== sourceReviewId) failures.push(`${plan.label}: replan source review must be the unique current predecessor review tip`);
+    }
+    const list = successors.get(predecessorId) ?? [];
+    list.push(plan);
+    successors.set(predecessorId, list);
+  }
+  for (const [predecessorId, list] of successors) if (list.length > 1) failures.push(`work-plan lineage branches after ${predecessorId}`);
+  const visiting = /* @__PURE__ */ new Set();
+  const visited = /* @__PURE__ */ new Set();
+  const visit = (plan) => {
+    if (visited.has(plan.fields.id)) return;
+    if (visiting.has(plan.fields.id)) {
+      failures.push(`work-plan lineage is cyclic at ${plan.fields.id}`);
+      return;
+    }
+    visiting.add(plan.fields.id);
+    const predecessor = plansById.get(plan.fields.predecessor_plan_id);
+    if (predecessor) visit(predecessor);
+    visiting.delete(plan.fields.id);
+    visited.add(plan.fields.id);
+  };
+  plans.forEach(visit);
+  const referencedPlans = new Set(plans.map((plan) => plan.fields.predecessor_plan_id).filter(Boolean));
+  return plans.filter((plan) => !referencedPlans.has(plan.fields.id)).map((plan) => plan.fields.id).sort();
+}
 function inspectCompactArtifactSet(entries, root = defaultRoot) {
   const errors = [];
   const diagnostics = [];
@@ -15507,13 +15635,14 @@ function inspectCompactArtifactSet(entries, root = defaultRoot) {
     if (artifacts.has(built.parsed.fields.id)) errors.push(`${label}: duplicate artifact ID ${built.parsed.fields.id}`);
     artifacts.set(built.parsed.fields.id, { label, ...built.parsed });
   }
+  const rootTips = validatePlanLineage(artifacts, errors);
   const evidenceCache = /* @__PURE__ */ new Map();
   const evidenceByRoot = /* @__PURE__ */ new Map();
   const orderedEvidenceByRoot = /* @__PURE__ */ new Map();
   const reviewsByRoot = /* @__PURE__ */ new Map();
   for (const artifact of artifacts.values()) {
     if (artifact.fields.artifact === "delivery-evidence") {
-      materializeEvidence(artifact, artifacts, evidenceCache, errors);
+      materializeEvidence(artifact, artifacts, evidenceCache, errors, root);
       const list = evidenceByRoot.get(artifact.fields.root_plan_id) ?? [];
       list.push(artifact);
       evidenceByRoot.set(artifact.fields.root_plan_id, list);
@@ -15553,12 +15682,15 @@ function inspectCompactArtifactSet(entries, root = defaultRoot) {
       }
       const effective = evidence.effective;
       if (evidence.fields.root_plan_id !== rootId) errors.push(`${review.label}: latest evidence belongs to another root`);
+      const knownFailedEvidence = evidence.fields.status === "blocked" || evidence.fields.overall_grade === "failed" || (evidence.fields.check_evidence ?? []).some((entry) => entry.grade === "failed");
+      if (knownFailedEvidence && review.fields.delivery_status !== "blocked") errors.push(`${review.label}: known failed or blocked evidence requires blocked delivery_status`);
+      if (knownFailedEvidence && ["accept-provisional", "none"].includes(review.fields.next_action)) errors.push(`${review.label}: known failed or blocked evidence cannot be accepted or achieved`);
       const candidates = rootEvidence.filter((item) => item.fields.source_review_id === null || (reviewIndex.get(item.fields.source_review_id) ?? Number.POSITIVE_INFINITY) < index);
       if (candidates.at(-1)?.fields.id !== review.fields.latest_evidence_id) errors.push(`${review.label}: latest_evidence_id is not the evidence tip at review time`);
       disjointCoverage(review.fields.inspected_objectives, review.fields.reused_objectives, plan.objectives, `${review.label}: objective review`, errors);
       disjointCoverage(review.fields.inspected_checks, review.fields.reused_checks, plan.requiredChecks, `${review.label}: Check review`, errors);
       if (index === 0 && ((review.fields.reused_objectives ?? []).length > 0 || (review.fields.reused_checks ?? []).length > 0)) errors.push(`${review.label}: first review must inspect all root evidence`);
-      const fullReviewRequired = rootPlan.fields.schema === 4 ? rootPlan.fields.contract_level === "certified" || (rootPlan.fields.hard_triggers ?? []).length > 0 : rootPlan.fields.assurance_profile === "deep" || (rootPlan.fields.hard_triggers ?? []).length > 0;
+      const fullReviewRequired = rootPlan.fields.schema >= 4 ? rootPlan.fields.contract_level === "certified" || (rootPlan.fields.hard_triggers ?? []).length > 0 : rootPlan.fields.assurance_profile === "deep" || (rootPlan.fields.hard_triggers ?? []).length > 0;
       if (fullReviewRequired && review.fields.review_route !== "full") {
         errors.push(`${review.label}: certified or hard-trigger root requires review_route full`);
       }
@@ -15574,7 +15706,7 @@ function inspectCompactArtifactSet(entries, root = defaultRoot) {
         if ([...plan.objectives].some((id) => effective?.objectives.get(id)?.status !== "achieved")) errors.push(`${review.label}: achieved requires every effective root objective achieved`);
         if (reviewData(review).findings.length > 0) errors.push(`${review.label}: achieved cannot contain findings`);
       }
-      const plannedAssurance = rootPlan.fields.schema === 4 ? { lean: "lean", controlled: "standard", certified: "deep" }[rootPlan.fields.contract_level] ?? "standard" : rootPlan.fields.assurance_profile;
+      const plannedAssurance = rootPlan.fields.schema >= 4 ? { lean: "lean", controlled: "standard", certified: "deep" }[rootPlan.fields.contract_level] ?? "standard" : rootPlan.fields.assurance_profile;
       review.effective = {
         ...review.effective,
         plannedAssurance,
@@ -15610,7 +15742,7 @@ function inspectCompactArtifactSet(entries, root = defaultRoot) {
       if (!window[2].effective.loopState) window[2].effective.loopState = reviewData(window[2]).findings.length > 0 ? "degraded" : "healthy";
     }
   }
-  return { errors: unique(errors), diagnostics: unique(diagnostics), normalizations: unique(normalizations), effective: artifacts };
+  return { errors: unique(errors), diagnostics: unique(diagnostics), normalizations: unique(normalizations), effective: artifacts, root_tips: rootTips };
 }
 function inspectArtifactSet(entries, root = defaultRoot) {
   return inspectCompactArtifactSet(entries, root);
@@ -15619,18 +15751,25 @@ function validateArtifactSet(entries, root = defaultRoot) {
   return inspectCompactArtifactSet(entries, root).errors;
 }
 function effectiveCliSummary(inspection) {
-  if (!(inspection.effective instanceof Map)) return { evidence_tips: {}, review_tips: {}, actionable_reviews: [], learning_candidates: [] };
+  if (!(inspection.effective instanceof Map)) return { active_root_id: null, root_tips: [], evidence_tips: {}, review_tips: {}, actionable_reviews: [], learning_candidates: [] };
   const artifacts = [...inspection.effective.values()];
   const tips = (type, predecessorField) => {
     const items = artifacts.filter((artifact) => artifact.fields.artifact === type);
     const referenced = new Set(items.map((artifact) => artifact.fields[predecessorField]).filter(Boolean));
     return Object.fromEntries(items.filter((artifact) => !referenced.has(artifact.fields.id)).map((artifact) => [artifact.fields.root_plan_id, artifact.fields.id]));
   };
+  const rootTips = inspection.root_tips ?? validatePlanLineage(inspection.effective, []);
+  const activeRootId = rootTips.length === 1 ? rootTips[0] : null;
+  const evidenceTips = tips("delivery-evidence", "predecessor_evidence_id");
+  const reviewTips = tips("work-review", "predecessor_review_id");
+  const activeReview = activeRootId && reviewTips[activeRootId] ? inspection.effective.get(reviewTips[activeRootId]) : null;
   return {
-    evidence_tips: tips("delivery-evidence", "predecessor_evidence_id"),
-    review_tips: tips("work-review", "predecessor_review_id"),
-    actionable_reviews: artifacts.filter((artifact) => artifact.fields.artifact === "work-review" && artifact.fields.next_action === "correct").map((artifact) => ({ root_plan_id: artifact.fields.root_plan_id, review_id: artifact.fields.id, correction_id: artifact.fields.correction_id, base_evidence_id: artifact.fields.latest_evidence_id })),
-    learning_candidates: artifacts.filter((artifact) => artifact.fields.artifact === "work-review" && artifact.correction?.learnings?.length > 0).flatMap((artifact) => artifact.correction.learnings.map((learning) => {
+    active_root_id: activeRootId,
+    root_tips: rootTips,
+    evidence_tips: evidenceTips,
+    review_tips: reviewTips,
+    actionable_reviews: artifacts.filter((artifact) => artifact.fields.artifact === "work-review" && artifact.fields.root_plan_id === activeRootId && artifact.fields.id === reviewTips[activeRootId] && artifact.fields.next_action === "correct").map((artifact) => ({ root_plan_id: artifact.fields.root_plan_id, review_id: artifact.fields.id, correction_id: artifact.fields.correction_id, base_evidence_id: artifact.fields.latest_evidence_id })),
+    learning_candidates: artifacts.filter((artifact) => artifact.fields.artifact === "work-review" && artifact.fields.root_plan_id === activeRootId && activeReview?.fields.assessment === "achieved" && activeReview?.fields.delivery_status === "verified" && artifact.correction?.learnings?.length > 0).flatMap((artifact) => artifact.correction.learnings.map((learning) => {
       const evidence = artifacts.find((candidate) => candidate.fields.artifact === "delivery-evidence" && candidate.fields.subject_id === artifact.fields.correction_id && candidate.fields.status === "complete");
       return {
         root_plan_id: artifact.fields.root_plan_id,

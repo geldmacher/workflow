@@ -2,7 +2,9 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
+  effectiveCliSummary,
   executionContractFromArtifactText,
+  inspectArtifactSet,
   inspectArtifactText,
   opaqueExtensionsFromArtifactText,
   replaceOpaqueExtensions,
@@ -51,6 +53,7 @@ function rootProjection(rootPlanText, pluginRoot) {
   const fields = artifact.fields;
   return {
     intent: stable({ id: fields.id, status: fields.status, intent_ready: fields.intent_ready, goal: fields.goal, acceptance: fields.acceptance, non_goals: fields.non_goals, constraints: fields.constraints, content: section(artifact, "Intent") }),
+    lineage: stable({ predecessor_plan_id: fields.predecessor_plan_id ?? null, replan_source_review_id: fields.replan_source_review_id ?? null }),
     authority: stable(fields.authority),
     profile: stable({ profile_max: fields.profile_max, contract_level: fields.contract_level }),
     risk: stable({ risk: fields.risk, hard_triggers: fields.hard_triggers, content: section(artifact, "Risks") }),
@@ -69,6 +72,43 @@ export function semanticRootDiff(beforeText, afterText, pluginRoot) {
     before_root_hash: hash(beforeText),
     after_root_hash: hash(afterText),
   };
+}
+
+function normalizeRootArtifacts(rootArtifacts) {
+  if (rootArtifacts === undefined || rootArtifacts === null) return [];
+  if (!Array.isArray(rootArtifacts) || rootArtifacts.length > 32) throw new Error("workflow_prepare root_artifacts must contain at most 32 artifacts");
+  const normalized = rootArtifacts.map((entry, index) => {
+    if (!entry || typeof entry.label !== "string" || entry.label.trim() === "" || typeof entry.text !== "string" || entry.text.trim() === "") {
+      throw new Error(`workflow_prepare root_artifact ${index + 1} requires non-empty label and text`);
+    }
+    return { label: entry.label, text: entry.text };
+  });
+  if (new Set(normalized.map((entry) => entry.label)).size !== normalized.length) throw new Error("workflow_prepare root_artifact labels must be unique");
+  if (normalized.reduce((total, entry) => total + entry.text.length, 0) > 1_000_000) throw new Error("workflow_prepare root_artifacts exceed 1000000 characters");
+  return normalized.sort((left, right) => left.label.localeCompare(right.label) || hash(left.text).localeCompare(hash(right.text)));
+}
+
+export function validateRootPlanLineage(rootPlanText, rootArtifacts, pluginRoot) {
+  const contract = executionContractFromArtifactText(rootPlanText, pluginRoot);
+  if (contract.errors.length > 0) return { errors: contract.errors, artifacts: [], artifact_set_hash: null };
+  let artifacts;
+  try { artifacts = normalizeRootArtifacts(rootArtifacts); }
+  catch (error) { return { errors: [error.message], artifacts: [], artifact_set_hash: null }; }
+  const hasLineage = Boolean(contract.fields.predecessor_plan_id || contract.fields.replan_source_review_id);
+  if (!hasLineage) {
+    return artifacts.length > 0
+      ? { errors: ["initial root_plan cannot include root_artifacts"], artifacts, artifact_set_hash: hash(artifacts) }
+      : { errors: [], artifacts, artifact_set_hash: hash(artifacts) };
+  }
+  if (artifacts.length === 0) return { errors: ["replan root_plan requires its complete current lineage artifacts"], artifacts, artifact_set_hash: hash(artifacts) };
+  const inspection = inspectArtifactSet([
+    ...artifacts.map((entry) => [entry.label, entry.text]),
+    ["workflow-prepare-root", rootPlanText],
+  ], pluginRoot);
+  const summary = effectiveCliSummary(inspection);
+  const errors = [...inspection.errors];
+  if (summary.root_tips.length !== 1 || summary.root_tips[0] !== contract.fields.id) errors.push("replan root_plan must be the unique active lineage tip");
+  return { errors: [...new Set(errors)], artifacts, artifact_set_hash: hash(artifacts) };
 }
 
 export function plannerReceiptBlockers(receipt) {
@@ -130,12 +170,12 @@ export function loadPlanningHarness(pluginRoot) {
 function planningPrompt(preparation, harness) {
   const source = preparation.source_kind === "goal"
     ? `GOAL\n${preparation.goal}`
-    : `EXISTING VALID SCHEMA-4 INTENT ROOT AUTHORITATIVE PROJECTION\n${preparation.input_root_contract.authoritative_projection_text}`;
+    : `EXISTING VALID SCHEMA-5 INTENT ROOT AUTHORITATIVE PROJECTION\n${preparation.input_root_contract.authoritative_projection_text}`;
   return [
     "Act as the configured Workflow planner in read-only Cursor Plan mode.",
     "Inspect the repository, but do not modify it or cause any external effect.",
     "If one or more material product decisions remain open, call report_intent_blockers exactly once with at most three concrete questions, do not call CreatePlan, and stop.",
-    "Otherwise call Cursor CreatePlan exactly once. Its plan argument must be one complete, ready, native schema-4 Workflow intent root satisfying the harness below.",
+    "Otherwise call Cursor CreatePlan exactly once. Its plan argument must be one complete, ready, native schema-5 Workflow intent root satisfying the harness below.",
     "For an existing valid root, retain it unchanged when already adequate or propose a complete improved root. Never imply that an improvement is already approved.",
     `REQUESTED AUTO PROFILE\n${preparation.requested_profile}`,
     `REPOSITORY BASELINE\n${JSON.stringify(preparation.baseline, null, 2)}`,
@@ -158,7 +198,7 @@ function normalizePlannerRootOutput(rootPlanText, preparation) {
 
 function repairPrompt(errors, repairsRemaining) {
   return [
-    "The preceding CreatePlan output failed deterministic schema-4 validation.",
+    "The preceding CreatePlan output failed deterministic schema-5 validation.",
     "This is a technical contract repair only. Preserve the established product intent and use the same planner model and agent context.",
     `Call CreatePlan exactly once with a complete corrected root. Do not call report_intent_blockers unless a genuinely material product decision is now discovered. Repairs remaining after this turn: ${repairsRemaining}.`,
     `VALIDATOR ERRORS\n${errors.map((error) => `- ${error}`).join("\n")}`,
@@ -173,11 +213,12 @@ function maximumProfileAllows(requested, maximum) {
   return (profileRank[requested] ?? 99) <= (profileRank[maximum] ?? -1);
 }
 
-function preparationRequestHash({ goal, rootPlan, requestedProfile, routeProfile }) {
+function preparationRequestHash({ goal, rootPlan, rootArtifactsHash, requestedProfile, routeProfile }) {
   return hash({
     source_kind: goal ? "goal" : "root-plan",
     goal: goal ?? null,
     input_root_hash: rootPlan ? hash(rootPlan) : null,
+    input_root_lineage_hash: rootArtifactsHash ?? null,
     requested_profile: requestedProfile,
     route_profile: routeProfile,
   });
@@ -193,18 +234,23 @@ export class PlanningEngine {
     this.capabilitiesFactory = capabilitiesFactory ?? ((additions = {}) => resolveCapabilities(this.stateRoot, additions, { pluginRoot: this.pluginRoot }));
   }
 
-  prepare({ goal, rootPlan, requestedProfile, routeProfile = "default", idempotencyKey }) {
+  prepare({ goal, rootPlan, rootArtifacts, requestedProfile, routeProfile = "default", idempotencyKey }) {
     if (Boolean(goal) === Boolean(rootPlan)) throw new Error("workflow_prepare requires exactly one of goal or root_plan");
     if (!["supervised", "autonomous"].includes(requestedProfile)) throw new Error("workflow_prepare supports supervised or autonomous");
     if (typeof idempotencyKey !== "string" || idempotencyKey.length < 8) throw new Error("workflow_prepare requires an idempotency key");
 
     let inputContract = null;
+    let inputLineage = { errors: [], artifacts: [], artifact_set_hash: hash([]) };
     if (rootPlan) {
       inputContract = executionContractFromArtifactText(rootPlan, this.pluginRoot);
       if (inputContract.errors.length > 0) throw new Error(`invalid input root plan: ${inputContract.errors.join("; ")}`);
+      inputLineage = validateRootPlanLineage(rootPlan, rootArtifacts, this.pluginRoot);
+      if (inputLineage.errors.length > 0) throw new Error(`invalid input root lineage: ${inputLineage.errors.join("; ")}`);
+    } else if (rootArtifacts !== undefined) {
+      throw new Error("workflow_prepare root_artifacts require root_plan");
     }
 
-    const requestHash = preparationRequestHash({ goal, rootPlan, requestedProfile, routeProfile });
+    const requestHash = preparationRequestHash({ goal, rootPlan, rootArtifactsHash: inputLineage.artifact_set_hash, requestedProfile, routeProfile });
     const duplicate = this.store.list().find((preparation) => preparation.preparation_idempotency_key === idempotencyKey);
     if (duplicate) {
       assertCompatiblePreparation(duplicate);
@@ -244,6 +290,8 @@ export class PlanningEngine {
       input_root_hash: rootPlan ? hash(rootPlan) : null,
       input_root_contract: inputContract,
       input_root_authoritative_projection_hash: inputContract?.authoritative_projection_hash ?? null,
+      input_root_lineage_artifacts: inputLineage.artifacts,
+      input_root_lineage_hash: inputLineage.artifact_set_hash,
       requested_profile: requestedProfile,
       route_profile: routeProfile,
       route_config: route,
@@ -354,6 +402,11 @@ export class PlanningEngine {
       const rootPlanText = normalizePlannerRootOutput(phase.planningOutput.root_plan_text, preparation);
       const contract = executionContractFromArtifactText(rootPlanText, this.pluginRoot);
       const validationErrors = [...contract.errors];
+      if (validationErrors.length === 0) validationErrors.push(...validateRootPlanLineage(rootPlanText, preparation.input_root_lineage_artifacts, this.pluginRoot).errors);
+      if (validationErrors.length === 0 && preparation.input_root_contract
+        && (contract.fields.predecessor_plan_id ?? null) !== (preparation.input_root_contract.fields.predecessor_plan_id ?? null)) validationErrors.push("root plan predecessor_plan_id must remain unchanged");
+      if (validationErrors.length === 0 && preparation.input_root_contract
+        && (contract.fields.replan_source_review_id ?? null) !== (preparation.input_root_contract.fields.replan_source_review_id ?? null)) validationErrors.push("root plan replan_source_review_id must remain unchanged");
       if (validationErrors.length === 0 && (contract.fields.status !== "ready" || contract.fields.intent_ready !== true)) validationErrors.push("root plan must be ready with intent_ready true");
       if (validationErrors.length === 0 && !maximumProfileAllows(preparation.requested_profile, contract.fields.profile_max)) validationErrors.push(`root plan permits at most ${contract.fields.profile_max}`);
       if (validationErrors.length === 0) {

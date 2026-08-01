@@ -68,7 +68,7 @@ export function deriveWorkflowState(input = {}) {
   if (input.artifact_chain_valid === false) return snapshot(input, "replan", {
     allowed_actions: manualArtifacts ? ["replan"] : ["replan", "stop"],
     required_actor: "human",
-    next_action: manualArtifacts ? "replan" : "create-schema-4-root",
+    next_action: manualArtifacts ? "replan" : "create-schema-5-root",
   });
   if ((input.blockers ?? []).length > 0 || input.lifecycle === "waiting-human") return waiting(input, null, input.next_action ?? "answer");
   if (!input.goal && !input.root_plan_id) return snapshot(input, "intake", { allowed_actions: ["provide-goal", "provide-root-plan"], required_actor: "human", next_action: "provide-intent" });
@@ -82,8 +82,8 @@ export function deriveWorkflowState(input = {}) {
   if (input.root_schema_valid === false) return snapshot(input, "replan", {
     allowed_actions: ["replan", "stop"],
     required_actor: "human",
-    next_action: "create-schema-4-root",
-    blockers: ["invalid-schema-4-root"],
+    next_action: "create-schema-5-root",
+    blockers: ["invalid-schema-5-root"],
   });
 
   if (!input.execution_started) return snapshot(input, manualArtifacts ? "root-plan-review" : "strategy-ready", manualArtifacts
@@ -108,9 +108,19 @@ export function deriveWorkflowState(input = {}) {
     ? snapshot(input, "root-review", { allowed_actions: ["review"], required_actor: "reviewer", next_action: "retry-review" })
     : snapshot(input, "slice-review", { allowed_actions: ["retry-review", "pause", "stop"], required_actor: "reviewer", next_action: "retry-review" });
   if (input.more_slices) return snapshot(input, "slice-ready", { allowed_actions: ["implement", "pause", "stop"], required_actor: "writer", next_action: "implement-next-slice" });
+  if (manualArtifacts && input.delivery_status === "provisional") {
+    if (input.manual_acceptance === "provisional") return snapshot(input, "accepted-provisional", {
+      allowed_actions: ["inspect"],
+      required_actor: "human",
+      next_action: "none",
+      acceptance_persisted: false,
+      acceptance_basis_hash: input.acceptance_basis_hash ?? input.artifact_set_hash ?? null,
+    });
+    return snapshot(input, "delivery-ready-provisional", { allowed_actions: ["accept-provisional", "inspect"], required_actor: "human", next_action: "accept-provisional" });
+  }
   if (!input.root_review_complete) return snapshot(input, "root-review", { allowed_actions: manualArtifacts ? ["review"] : ["review", "pause", "stop"], required_actor: "reviewer", next_action: "review-root" });
   if (input.phase === "delivery-ready-provisional" || input.delivery_status === "provisional") return snapshot(input, "delivery-ready-provisional", { allowed_actions: ["accept-provisional", "inspect", "stop"], required_actor: "human", next_action: "accept-provisional" });
-  if (input.phase === "delivery-ready-verified" || (input.delivery_status === "verified" && !input.delivery_accepted)) return snapshot(input, "delivery-ready-verified", { allowed_actions: ["accept-verified", "inspect", "stop"], required_actor: "human", next_action: "accept-verified" });
+  if (!manualArtifacts && (input.phase === "delivery-ready-verified" || (input.delivery_status === "verified" && !input.delivery_accepted))) return snapshot(input, "delivery-ready-verified", { allowed_actions: ["accept-verified", "inspect", "stop"], required_actor: "human", next_action: "accept-verified" });
   if (input.review?.assessment !== "achieved") return snapshot(input, "replan", { allowed_actions: ["replan", "stop"], required_actor: "human", next_action: "replan", blockers: ["root-review-not-achieved"] });
   return snapshot(input, "achieved", { allowed_actions: ["explain", "learn"], required_actor: "human", next_action: "none" });
 }

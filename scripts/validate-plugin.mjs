@@ -14,12 +14,12 @@ const namePattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const semverPattern = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 const globPattern = /[*?[{]/;
 const expected = Object.freeze({
-  commands: ["auto-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-control", "work-models", "work-status", "work-verification", "work-watch"],
+  commands: ["accept-work", "auto-work", "close-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-control", "work-models", "work-status", "work-verification", "work-watch"],
   agents: ["delivery-auditor", "risk-auditor", "work-design-auditor", "work-explainer", "work-plan-auditor"],
-  skills: ["work-automation", "work-execution", "work-explanation", "work-learning", "work-planning", "work-review"],
+  skills: ["work-automation", "work-closeout", "work-execution", "work-explanation", "work-learning", "work-planning", "work-review"],
   rules: [],
   artifacts: ["delivery-evidence", "work-plan", "work-review"],
-  references: ["artifact-protocol", "automation-contract", "automation-preparation-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "learning-contract", "model-routing-contract", "plan-container-contract", "review-contract", "state-contract", "verification-profile-contract"],
+  references: ["artifact-protocol", "automation-contract", "automation-preparation-contract", "closeout-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "learning-contract", "model-routing-contract", "plan-container-contract", "review-contract", "state-contract", "verification-profile-contract"],
 });
 
 const readText = (path) => readFileSync(path, "utf8");
@@ -148,6 +148,41 @@ function validateRelease(root, manifest, failures) {
   if (!existsSync(join(root, "CONTROLLER_THIRD_PARTY_NOTICES.md"))) failures.push("CONTROLLER_THIRD_PARTY_NOTICES.md is missing");
 }
 
+function validateHookSurface(root, manifest, failures) {
+  const expectedPath = "./hooks/hooks.json";
+  const expectedCommand = "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"";
+  if (manifest.hooks !== expectedPath) failures.push(`plugin.json hooks must reference ${expectedPath}`);
+  const directory = join(root, "hooks");
+  const configPath = join(directory, "hooks.json");
+  const scriptPath = join(directory, "subagent-guard.mjs");
+  if (!existsSync(configPath)) failures.push("hooks/hooks.json is missing");
+  if (!existsSync(scriptPath)) failures.push("hooks/subagent-guard.mjs is missing");
+  const files = listFiles(directory, () => true).map((file) => relative(root, file));
+  const expectedFiles = ["hooks/hooks.json", "hooks/subagent-guard.mjs"];
+  if (files.join("\n") !== expectedFiles.join("\n")) failures.push(`hooks: expected [${expectedFiles.join(", ")}], received [${files.join(", ")}]`);
+  if (!existsSync(configPath)) return;
+  try {
+    const config = JSON.parse(readText(configPath));
+    const topLevelKeys = Object.keys(config).sort();
+    if (topLevelKeys.join("\n") !== ["hooks", "version"].join("\n")) failures.push("hooks/hooks.json must contain only version and hooks");
+    if (config.version !== 1) failures.push("hooks/hooks.json version must equal 1");
+    const eventNames = Object.keys(config.hooks ?? {});
+    if (eventNames.join("\n") !== "subagentStart") failures.push("hooks/hooks.json must declare only subagentStart");
+    const entries = config.hooks?.subagentStart;
+    if (!Array.isArray(entries) || entries.length !== 1) failures.push("hooks/hooks.json must declare exactly one subagentStart command");
+    else {
+      const [entry] = entries;
+      if (entry?.type !== "command") failures.push("subagentStart hook type must be command");
+      if (entry?.command !== expectedCommand) failures.push("subagentStart hook must use the bundled Node guard through CURSOR_PLUGIN_ROOT");
+      if (entry?.failClosed !== true) failures.push("subagentStart hook must set failClosed true");
+      if (Object.keys(entry ?? {}).sort().join("\n") !== ["command", "failClosed", "type"].join("\n")) failures.push("subagentStart hook contains unsupported fields");
+    }
+    if (/\bnpx\b|\blatest\b/i.test(JSON.stringify(config))) failures.push("hooks must not install or resolve runtime dependencies");
+  } catch (error) {
+    failures.push(`hooks/hooks.json is invalid JSON: ${error.message}`);
+  }
+}
+
 export function validatePlugin(root = defaultRoot, options = {}) {
   const failures = [];
   const rootPath = resolve(root);
@@ -210,6 +245,7 @@ export function validatePlugin(root = defaultRoot, options = {}) {
     requireString(record.fields, "description", record.label, failures);
     if (record.fields.name !== basename(record.file, ".md")) failures.push(`${record.label}: name must match filename`);
     if (record.fields.model !== "inherit") failures.push(`${record.label}: model must be inherit`);
+    if (record.fields.readonly !== true) failures.push(`${record.label}: readonly must be true`);
   }
   validateNames(commands, "commands", expected.commands, failures);
   validateNames(agents, "agents", expected.agents, failures);
@@ -222,9 +258,9 @@ export function validatePlugin(root = defaultRoot, options = {}) {
   for (const file of artifactFiles) {
     const schema = JSON.parse(readText(file));
     const artifactName = basename(file, ".schema.json");
-    const expectedId = `urn:geldmacher:cursor-artifact:${artifactName}:4`;
-    if (schema.additionalProperties !== false) failures.push(`${relative(rootPath, file)}: additionalProperties must be false for Schema-4 artifacts`);
-    if (schema.properties?.schema?.const !== 4) failures.push(`${relative(rootPath, file)}: artifact schema must require 4`);
+    const expectedId = `urn:geldmacher:cursor-artifact:${artifactName}:5`;
+    if (schema.additionalProperties !== false) failures.push(`${relative(rootPath, file)}: additionalProperties must be false for Schema-5 artifacts`);
+    if (schema.properties?.schema?.const !== 5) failures.push(`${relative(rootPath, file)}: artifact schema must require 5`);
     if (schema.properties?.extensions?.type !== "object" || schema.properties.extensions.additionalProperties !== true) failures.push(`${relative(rootPath, file)}: extensions must be the only open metadata object`);
     if (schema.$schema !== "http://json-schema.org/draft-07/schema#") failures.push(`${relative(rootPath, file)}: $schema must be JSON Schema draft-07`);
     if (schema.$id !== expectedId) failures.push(`${relative(rootPath, file)}: schema id must equal ${expectedId}`);
@@ -258,7 +294,7 @@ export function validatePlugin(root = defaultRoot, options = {}) {
   const foreignComponents = [...foreignCommands, "rtk-setup", "rtk-filter-design", "efficiency-budget", "context-compaction", "context-optimization", "efficiency-review", "efficiency-auditor", "rtk-filter-auditor", "context-change-auditor"];
   const foreignPathPattern = new RegExp(`(?:commands|skills|agents|rules)/(?:${foreignComponents.join("|")})(?:/|\\.md|\\.txt|\\.mdc|\\b)`, "i");
   if (foreignPathPattern.test(runtime)) failures.push("runtime guidance contains a foreign component path");
-  if (manifest.hooks || existsSync(join(rootPath, "hooks"))) failures.push("hooks are outside the component contract");
+  validateHookSurface(rootPath, manifest, failures);
   if (manifest.mcpServers !== undefined) {
     if (manifest.mcpServers !== "mcp.json") failures.push("plugin.json mcpServers must reference mcp.json");
     const mcpPath = join(rootPath, "mcp.json");

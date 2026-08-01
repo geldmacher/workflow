@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "urn:geldmacher:cursor-artifact:work-plan:4",
+  "$id": "urn:geldmacher:cursor-artifact:work-plan:5",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -10,11 +10,13 @@
   ],
   "properties": {
     "artifact": { "const": "work-plan" },
-    "schema": { "const": 4 },
+    "schema": { "const": 5 },
     "id": { "type": "string", "pattern": "^wp-[A-Za-z0-9][A-Za-z0-9-]*$" },
     "status": { "enum": ["ready", "blocked"] },
     "created_at": { "type": "string", "format": "date-time" },
     "source": { "type": "string", "minLength": 1 },
+    "predecessor_plan_id": { "type": "string", "pattern": "^wp-[A-Za-z0-9][A-Za-z0-9-]*$" },
+    "replan_source_review_id": { "type": "string", "pattern": "^wr-[A-Za-z0-9][A-Za-z0-9-]*$" },
     "intent_ready": { "type": "boolean" },
     "profile_max": { "enum": ["manual", "supervised", "autonomous"] },
     "contract_level": { "enum": ["lean", "controlled", "certified"] },
@@ -61,6 +63,10 @@
     "extensions": { "type": "object", "additionalProperties": true }
   },
   "allOf": [
+    {
+      "if": { "anyOf": [{ "required": ["predecessor_plan_id"] }, { "required": ["replan_source_review_id"] }] },
+      "then": { "required": ["predecessor_plan_id", "replan_source_review_id"] }
+    },
     { "if": { "properties": { "status": { "const": "ready" } } }, "then": { "properties": { "intent_ready": { "const": true } } } },
     { "if": { "properties": { "profile_max": { "const": "manual" } }, "required": ["profile_max"] }, "then": { "properties": { "contract_level": { "const": "lean" } } } },
     { "if": { "properties": { "profile_max": { "const": "supervised" } }, "required": ["profile_max"] }, "then": { "properties": { "contract_level": { "const": "controlled" }, "authority": { "required": ["max_active_minutes", "max_total_tokens", "max_cost_usd"] } } } },

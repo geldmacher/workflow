@@ -1,9 +1,13 @@
 # Derived Workflow state
 
-State is projected from the immutable Intent Root, current Strategy revision, evidence, Decision Ledger, approvals, and repository observations. It is never a repository artifact.
+State is derived from Intent Root, current Strategy, evidence, Decision Ledger, approvals, and repository observations; it is never an artifact.
 
-Snapshots expose Intent hash, Strategy revision/hash, requested/effective Profile, evidence grade, delivery status, deviations, Dirty Baseline hash, Qualification Key, blockers, actor, allowed actions, and revision. Manual snapshots use `artifact-chain` and no Run; controller snapshots use `controller-run`.
+Snapshots expose hashes, Strategy revision, Profiles, evidence/delivery, deviations, Dirty Baseline, Qualification Key, blockers, actor, actions, and revision. Manual uses `artifact-chain` without a Run; controller uses `controller-run`.
 
-Verified supervised delivery waits at `delivery-ready-verified`; provisional delivery waits at `delivery-ready-provisional`. Human acceptance produces `achieved` or `accepted-provisional`. A known failed acceptance check produces `blocked` and cannot be accepted provisional. Only fully verified, accepted supervised Runs qualify for history. Autonomous may reach `achieved` directly only when every required check is verified.
+An explicit selector wins. Otherwise resolve the unique active native Cursor Plan lineage tip from exact current-task artifacts; only without Manual context may status fall back to a unique active controller subject. Missing or multiple tips request context and authorize nothing.
 
-Pause, resume, interruption, budget cancellation, and crash recovery preserve Strategy revisions and the hash-chained ledger. Status/watch are read-only. Workflow-3 documents and Runs appear as `read-only-workflow-3`; they cannot mutate, block active Workflow-4 work, or qualify.
+Verified Manual delivery reaches `achieved` after successful review. A current provisional Manual review waits at `delivery-ready-provisional`; `/accept-work [wp-id] provisional` asks `workflow_status` for an ephemeral `accepted-provisional` snapshot with resolved `root_plan_id`, `acceptance_persisted: false`, and an `acceptance_basis_hash`. A later status call without that parameter returns `delivery-ready-provisional` again.
+
+Verified supervised delivery waits at `delivery-ready-verified`; controller provisional delivery waits at `delivery-ready-provisional`. A known failed acceptance check produces `blocked` and cannot be accepted provisional. Only fully verified, accepted supervised Runs qualify for history. Neither Manual provisional acceptance nor any `accepted-provisional` Run qualifies or publishes learning automatically. Autonomous may reach `achieved` directly only when every required check is verified.
+
+Pause, resume, interruption, budget cancellation, and crash recovery preserve Strategy revisions and the hash-chained ledger. Status/watch are read-only. Workflow-3 and Workflow-4 documents and Runs appear as `read-only-workflow-3` or `read-only-workflow-4`; they cannot mutate, block active Workflow-5 work, or qualify.

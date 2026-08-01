@@ -152,7 +152,7 @@ export function validateProjectPolicy(policy) {
   }
   if (!["deny", "allow-listed"].includes(policy.dependencies)) errors.push("project policy dependencies must be deny or allow-listed");
   if (policy.dependencies === "allow-listed" && policy.allowed_dependencies.length === 0) errors.push("allow-listed project dependencies require allowed_dependencies");
-  if (policy.external_effects !== "none") errors.push("Workflow 4 project policy external_effects must be none");
+  if (policy.external_effects !== "none") errors.push("Workflow 5 project policy external_effects must be none");
   if (!Object.hasOwn({ low: true, medium: true, high: true }, policy.max_risk)) errors.push("project policy max_risk must be low, medium, or high");
   if (policy.maximum_budgets) {
     for (const key of ["max_active_minutes", "max_total_tokens", "max_correction_cycles"]) if (!Number.isInteger(policy.maximum_budgets[key]) || policy.maximum_budgets[key] < (key === "max_correction_cycles" ? 0 : 1)) errors.push(`project policy maximum_budgets.${key} is invalid`);
