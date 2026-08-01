@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { platform as osPlatform, release as osRelease, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -7,6 +6,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { WORKFLOW_TOOL_NAMES } from "../src/mcp/tool-registry.mjs";
 import { probeSandboxBoundary } from "../src/controller/sandbox.mjs";
 import { PreparationStore, RunStore, defaultStateRoot } from "../src/controller/store.mjs";
 import { createRunWorktree, repositoryBaseline } from "../src/controller/worktree.mjs";
@@ -98,7 +98,7 @@ async function mcpSmoke(pluginRoot) {
   try {
     await client.connect(transport);
     const tools = (await client.listTools()).tools.map((tool) => tool.name).sort();
-    const expected = ["workflow_answer", "workflow_artifact_context", "workflow_artifact_record", "workflow_closeout", "workflow_control", "workflow_prepare", "workflow_start", "workflow_status", "workflow_validate_models", "workflow_verification_profile", "workflow_watch"];
+    const expected = [...WORKFLOW_TOOL_NAMES];
     return { verified: JSON.stringify(tools) === JSON.stringify(expected), tools };
   } catch (error) { return { verified: false, error: error.message }; }
   finally { await client.close().catch(() => {}); }
@@ -503,7 +503,7 @@ try {
   if (process.argv.includes("--approve-sdk-cost") && (!Number.isFinite(maxCost) || maxCost <= 0 || maxCost > 6)) throw new Error("--approve-sdk-cost requires --max-cost-usd greater than 0 and no more than 6 for the capability phase");
   const audit = dependencyAuditForReceipt();
   if (process.argv.includes("--issue-receipt") && audit.report) audit.archive_path = archiveExternalEvidence(defaultStateRoot(workspace), "npm-audit.json", {
-    lockfile_hash: sha256File(join(root, "package-lock.json")),
+    lockfile_hash: sha256File(join(root, "npm-shrinkwrap.json")),
     report: audit.report,
   });
   const paidRequested = process.argv.includes("--approve-sdk-cost");
@@ -672,7 +672,7 @@ try {
       plugin_hash: hashPluginTree(certifiedPluginRoot),
       worker_hash: runtime.manifest?.worker_hash ?? "",
       runtime_hash: runtime.manifest?.runtime_hash ?? "",
-      lockfile_hash: runtime.manifest?.lockfile_hash ?? sha256File(join(certifiedPluginRoot, "package-lock.json")),
+      lockfile_hash: runtime.manifest?.lockfile_hash ?? sha256File(join(certifiedPluginRoot, "npm-shrinkwrap.json")),
       attested_route_pool_hash: routeHash ?? hash("route-pool-unavailable"),
       model_catalog_hash: observations.model_catalog.catalog_hash ?? "",
       planning_harness_hash: planningHarness.hash,
@@ -686,7 +686,7 @@ try {
       },
       certified_models: certifiedModels,
       audit: {
-        lockfile_hash: runtime.manifest?.lockfile_hash ?? sha256File(join(certifiedPluginRoot, "package-lock.json")),
+        lockfile_hash: runtime.manifest?.lockfile_hash ?? sha256File(join(certifiedPluginRoot, "npm-shrinkwrap.json")),
         evidence_hash: audit.evidence_hash ?? "",
         production_packages: audit.production_packages ?? 0,
         high: audit.high ?? 1,

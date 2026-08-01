@@ -140,11 +140,12 @@ export function configurationsMatch(requested, observed) {
 }
 
 export class CursorWorkerAdapter {
-  constructor({ runDirectory, workerEntrypoint, runtimeRoot, pluginRoot, sandbox = runSandboxedProcess } = {}) {
+  constructor({ runDirectory, workerEntrypoint, runtimeRoot, pluginRoot, sandbox = runSandboxedProcess, fanout = spawnSync } = {}) {
     this.runDirectory = resolve(runDirectory);
     this.workerRuntime = resolveWorkerRuntime({ workerEntrypoint, runtimeRoot, pluginRoot });
     this.workerEntrypoint = this.workerRuntime.entrypoint;
     this.sandbox = sandbox;
+    this.fanout = fanout;
     mkdirSync(this.runDirectory, { recursive: true, mode: 0o700 });
   }
 
@@ -283,7 +284,7 @@ export class CursorWorkerAdapter {
         network: true, timeoutMs: phase.timeoutMs ?? 300_000, environment: workerEnvironment(home),
       };
     });
-    const child = spawnSync(process.execPath, [fanoutEntrypoint()], { input: `${JSON.stringify({ tasks })}\n`, encoding: "utf8", timeout: Math.max(...tasks.map((task) => task.timeoutMs)) + 10_000, maxBuffer: 32 * 1024 * 1024, env: process.env });
+    const child = this.fanout(process.execPath, [fanoutEntrypoint()], { input: `${JSON.stringify({ tasks })}\n`, encoding: "utf8", timeout: Math.max(...tasks.map((task) => task.timeoutMs)) + 10_000, maxBuffer: 32 * 1024 * 1024, env: process.env });
     if (child.error) throw child.error;
     const marker = child.stdout.split("\n").findLast((line) => line.startsWith("WORKFLOW_FANOUT="));
     if (!marker) throw new Error(`read-only fanout returned no result: ${child.stderr?.trim() || child.stdout?.trim()}`);

@@ -1,7 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
-import { cpSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, dirname, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
+import { hashReleaseSurface } from "./release-surface.mjs";
 
 export const WORKER_RUNTIME_SCHEMA = 1;
 
@@ -41,30 +42,8 @@ export function lockInventoryHash(lockPath) {
   return sha256(JSON.stringify(inventoryFromLock(lock)));
 }
 
-function ignoredPluginPath(path, pluginRoot) {
-  const item = relative(pluginRoot, path);
-  if (!item || item.startsWith(`.git${sep}`) || item === ".git" || item.startsWith(`node_modules${sep}`) || item === "node_modules") return true;
-  return item.split(sep).some((part) => part === ".DS_Store");
-}
-
 export function hashPluginTree(pluginRoot) {
-  const root = resolve(pluginRoot);
-  const entries = [];
-  function visit(path) {
-    if (ignoredPluginPath(path, root)) return;
-    const stat = lstatSync(path);
-    if (stat.isSymbolicLink()) {
-      entries.push(`${relative(root, path)}\0symlink\0${readFileSync(path, "utf8")}`);
-      return;
-    }
-    if (stat.isDirectory()) {
-      for (const child of readdirSync(path).sort()) visit(join(path, child));
-      return;
-    }
-    if (stat.isFile()) entries.push(`${relative(root, path)}\0${stat.mode & 0o777}\0${sha256File(path)}`);
-  }
-  for (const child of readdirSync(root).sort()) visit(join(root, child));
-  return sha256(entries.join("\n"));
+  return hashReleaseSurface(pluginRoot);
 }
 
 export function runtimeManifestPath(runtimeDirectory) {
@@ -78,7 +57,7 @@ export function loadWorkerRuntimeManifest(runtimeDirectory, expected = {}) {
   try {
     const manifest = JSON.parse(readFileSync(path, "utf8"));
     const workerPath = join(directory, "workflow-worker.mjs");
-    const lockPath = join(directory, "package-lock.json");
+    const lockPath = join(directory, "npm-shrinkwrap.json");
     const packagePath = join(directory, "package.json");
     const platformPackagePath = join(directory, "node_modules", ...String(manifest.platform_package ?? "").split("/"), "package.json");
     const sdkPackagePath = join(directory, "node_modules", "@cursor", "sdk", "package.json");
@@ -142,7 +121,7 @@ export function createRuntimeManifest({ pluginVersion, pluginHash, marketplaceGi
 export function installRuntimeFiles({ stagingDirectory, pluginRoot }) {
   mkdirSync(stagingDirectory, { recursive: true, mode: 0o700 });
   cpSync(join(pluginRoot, "package.json"), join(stagingDirectory, "package.json"));
-  cpSync(join(pluginRoot, "package-lock.json"), join(stagingDirectory, "package-lock.json"));
+  cpSync(join(pluginRoot, "npm-shrinkwrap.json"), join(stagingDirectory, "npm-shrinkwrap.json"));
   cpSync(join(pluginRoot, "dist", "workflow-worker.mjs"), join(stagingDirectory, "workflow-worker.mjs"));
 }
 

@@ -98,7 +98,6 @@ function validateRecord(record) {
   if (record?.handoff_record_schema !== HANDOFF_RECORD_SCHEMA
     || record?.artifact_schema !== ARTIFACT_SCHEMA
     || record?.controller_protocol !== CONTROLLER_PROTOCOL
-    || record?.plugin_version !== PLUGIN_VERSION
     || !/^(?:wp|de|wr)-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(record?.artifact_id ?? ""))
     || record?.text_hash !== sha256(record?.text ?? "")) {
     throw new Error(`incompatible or corrupt handoff record ${record?.artifact_id ?? "unknown"}`);
@@ -125,11 +124,54 @@ export class ArtifactHandoffStore {
     return join(this.directory, `${artifactId}.json`);
   }
 
-  records() {
+  indexPath() {
+    return join(this.root, "handoff", "index.json");
+  }
+
+  metadata(record) {
+    const fields = parsedArtifact(record.text, this.pluginRoot).fields;
+    return {
+      artifact_id: record.artifact_id,
+      artifact_type: record.artifact_type,
+      root_plan_id: record.root_plan_id,
+      predecessor_plan_id: fields.predecessor_plan_id ?? null,
+      references: referencedIds(fields),
+      text_hash: record.text_hash,
+    };
+  }
+
+  rebuildIndex() {
+    const entries = this.records().map((record) => this.metadata(record));
+    const index = { schema: 1, entries };
+    atomicJson(this.indexPath(), index);
+    return index;
+  }
+
+  index() {
+    try {
+      const index = JSON.parse(readFileSync(this.indexPath(), "utf8"));
+      const actual = existsSync(this.directory)
+        ? readdirSync(this.directory, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".json")).map((entry) => entry.name.slice(0, -5)).sort()
+        : [];
+      const recorded = (index.entries ?? []).map((entry) => entry.artifact_id).sort();
+      if (index.schema !== 1 || actual.join("\n") !== recorded.join("\n")) throw new Error("handoff index mismatch");
+      return index;
+    } catch { return this.rebuildIndex(); }
+  }
+
+  writeIndex(records, priorIndex = this.index()) {
+    const entries = new Map(priorIndex.entries.map((entry) => [entry.artifact_id, entry]));
+    for (const record of records) entries.set(record.artifact_id, this.metadata(record));
+    atomicJson(this.indexPath(), { schema: 1, entries: [...entries.values()].sort((left, right) => left.artifact_id.localeCompare(right.artifact_id)) });
+  }
+
+  records(ids = null) {
     if (!existsSync(this.directory)) return [];
-    return readdirSync(this.directory, { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
-      .map((entry) => validateRecord(JSON.parse(readFileSync(join(this.directory, entry.name), "utf8"))))
+    const files = ids
+      ? [...new Set(ids)].map((id) => this.artifactPath(id)).filter(existsSync)
+      : readdirSync(this.directory, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".json")).map((entry) => join(this.directory, entry.name));
+    return files
+      .map((path) => validateRecord(JSON.parse(readFileSync(path, "utf8"))))
       .sort((left, right) => left.artifact_id.localeCompare(right.artifact_id));
   }
 
@@ -148,7 +190,30 @@ export class ArtifactHandoffStore {
     let descriptor;
     try {
       descriptor = acquireLock(lockPath);
-      const existing = this.records();
+      const index = this.index();
+      const byMetadata = new Map(index.entries.map((entry) => [entry.artifact_id, entry]));
+      const candidateMetadata = candidates.map(({ record }) => this.metadata(record));
+      const selectedIds = new Set();
+      const pending = [];
+      for (const metadata of candidateMetadata) {
+        selectedIds.add(metadata.artifact_id);
+        pending.push(...metadata.references);
+        for (const entry of index.entries) if (entry.root_plan_id === metadata.root_plan_id || entry.artifact_id === metadata.root_plan_id) selectedIds.add(entry.artifact_id);
+      }
+      while (pending.length > 0) {
+        const id = pending.pop();
+        if (!id || selectedIds.has(id)) continue;
+        selectedIds.add(id);
+        pending.push(...(byMetadata.get(id)?.references ?? []));
+      }
+      for (const id of [...selectedIds]) pending.push(...(byMetadata.get(id)?.references ?? []));
+      while (pending.length > 0) {
+        const id = pending.pop();
+        if (!id || selectedIds.has(id)) continue;
+        selectedIds.add(id);
+        pending.push(...(byMetadata.get(id)?.references ?? []));
+      }
+      const existing = this.records([...selectedIds]);
       const merged = new Map(existing.map((record) => [record.artifact_id, record]));
       const recorded = [];
       const duplicates = [];
@@ -164,6 +229,7 @@ export class ArtifactHandoffStore {
       const inspection = inspectArtifactSet([...merged.values()].map((record) => [record.artifact_id, record.text]), this.pluginRoot);
       if (inspection.errors.length > 0) throw new Error(`handoff chain is invalid: ${inspection.errors.join("; ")}`);
       for (const id of recorded) atomicJson(this.artifactPath(id), merged.get(id));
+      if (recorded.length > 0) this.writeIndex(recorded.map((id) => merged.get(id)), index);
       return {
         handoff_record_schema: HANDOFF_RECORD_SCHEMA,
         recorded,
@@ -180,7 +246,23 @@ export class ArtifactHandoffStore {
 
   context(rootPlanId, rootPlanText = null) {
     if (!/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(rootPlanId))) throw new Error("handoff context requires a valid wp-* root_plan_id");
-    const records = this.records();
+    const index = this.index();
+    const metadata = new Map(index.entries.map((entry) => [entry.artifact_id, entry]));
+    const lineage = new Set();
+    let planCursor = rootPlanId;
+    while (planCursor && !lineage.has(planCursor)) {
+      lineage.add(planCursor);
+      planCursor = metadata.get(planCursor)?.predecessor_plan_id ?? null;
+    }
+    const selectedIds = new Set(index.entries.filter((entry) => lineage.has(entry.artifact_id) || lineage.has(entry.root_plan_id)).map((entry) => entry.artifact_id));
+    const pendingReferences = [...selectedIds].flatMap((id) => metadata.get(id)?.references ?? []);
+    while (pendingReferences.length > 0) {
+      const id = pendingReferences.pop();
+      if (!id || selectedIds.has(id) || !metadata.has(id)) continue;
+      selectedIds.add(id);
+      pendingReferences.push(...metadata.get(id).references);
+    }
+    const records = this.records([...selectedIds]);
     const byId = new Map(records.map((record) => [record.artifact_id, record]));
     if (rootPlanText) {
       const supplied = recordFor(rootPlanText, this.pluginRoot);
@@ -193,7 +275,7 @@ export class ArtifactHandoffStore {
     if (!root) throw new Error(`no handoff Root ${rootPlanId}`);
 
     const parsed = new Map([...byId.values()].map((record) => [record.artifact_id, parsedArtifact(record.text, this.pluginRoot)]));
-    const lineage = new Set();
+    lineage.clear();
     let cursor = rootPlanId;
     while (cursor && !lineage.has(cursor)) {
       lineage.add(cursor);

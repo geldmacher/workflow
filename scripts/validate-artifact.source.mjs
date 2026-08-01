@@ -3,9 +3,12 @@ import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import Ajv from "ajv";
-import addFormats from "ajv-formats";
-import { parseDocument } from "yaml";
+import { evidenceHasKnownFailure, leanEvidenceData } from "./artifact-validator/evidence.mjs";
+import { linearChain, lineageTips } from "./artifact-validator/lineage.mjs";
+import { opaqueExtensionsFromArtifactText, parseArtifact, replaceOpaqueExtensions } from "./artifact-validator/parser.mjs";
+import { schemaFor, validateArtifactSchema } from "./artifact-validator/schema.mjs";
+
+export { opaqueExtensionsFromArtifactText, parseArtifact, replaceOpaqueExtensions };
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 export const defaultRoot = dirname(scriptDirectory);
@@ -161,124 +164,6 @@ function stableValue(value) {
 
 function sha256(value) {
   return createHash("sha256").update(String(value)).digest("hex");
-}
-
-function yamlObject(source, label, failures) {
-  const document = parseDocument(source, { prettyErrors: false, uniqueKeys: true });
-  for (const error of document.errors) failures.push(`${label}: invalid YAML: ${error.message}`);
-  if (document.errors.length > 0) return null;
-  const value = document.toJS();
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    failures.push(`${label} must be a YAML object`);
-    return null;
-  }
-  return value;
-}
-
-function parsePlanContainer(text, wrapper, failures, normalizations = []) {
-  const match = String(text).match(/(?:^|\n)# ([^\r\n]+)\r?\n(?:[ \t]*\r?\n)*```yaml artifact-envelope\r?\n([\s\S]*?)\r?\n```(?:\r?\n|$)/);
-  if (!match) {
-    failures.push("native plan must contain one H1 followed by a yaml artifact-envelope");
-    return null;
-  }
-  const fields = yamlObject(match[2], "artifact envelope", failures);
-  if (!fields) return null;
-  if (fields.artifact !== "work-plan") failures.push("native plan containers may contain only work-plan");
-  const offset = match.index + (match[0].startsWith("\n") ? 1 : 0);
-  if (offset > 0) normalizations.push("ignored Cursor progress text before native plan");
-  return { fields, body: String(text).slice(match.index + match[0].length), wrapper, container: "cursor-plan", title: match[1], normalizations };
-}
-
-export function parseArtifact(text, failures = [], normalizations = []) {
-  const source = String(text);
-  const candidates = [];
-  const expression = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/gm;
-  for (const match of source.matchAll(expression)) {
-    const probeFailures = [];
-    const fields = yamlObject(match[1], "frontmatter", probeFailures);
-    if (!fields) continue;
-    const workflow = typeof fields.artifact === "string" || ["name", "overview", "todos", "isProject"].some((field) => field in fields);
-    if (workflow) candidates.push({ match, fields });
-  }
-  const envelopes = [];
-  const envelopeExpression = /```yaml(?: artifact-envelope)?\r?\n([\s\S]*?)\r?\n```(?:\r?\n|$)/g;
-  for (const match of source.matchAll(envelopeExpression)) {
-    const probeFailures = [];
-    const fields = yamlObject(match[1], "artifact envelope", probeFailures);
-    if (fields?.artifact) envelopes.push({ match, fields });
-  }
-  if (candidates.length === 0) {
-    if (envelopes.length > 1) {
-      failures.push("response contains multiple workflow artifact candidates");
-      return null;
-    }
-    if (envelopes.length === 1) {
-      const [{ match, fields }] = envelopes;
-      normalizations.push("normalized fenced Workflow artifact to chat artifact");
-      if (match.index > 0) normalizations.push("ignored Cursor progress preamble");
-      return { fields, body: source.slice(match.index + match[0].length), wrapper: null, container: "normalized-envelope", normalizations };
-    }
-    failures.push("response is missing workflow YAML frontmatter");
-    return null;
-  }
-  if (candidates.length > 1) {
-    failures.push("response contains multiple workflow artifact candidates");
-    return null;
-  }
-  const [{ match, fields }] = candidates;
-  if (typeof fields.artifact === "string" && envelopes.length > 0) {
-    failures.push("response contains multiple workflow artifact candidates");
-    return null;
-  }
-  if (match.index > 0) normalizations.push("ignored Cursor progress preamble");
-  if (typeof fields.artifact === "string") return { fields, body: source.slice(match.index + match[0].length), wrapper: null, container: "chat-artifact", normalizations };
-  if (["name", "overview", "todos", "isProject"].some((field) => field in fields)) return parsePlanContainer(source.slice(match.index + match[0].length), fields, failures, normalizations);
-  failures.push("artifact type is missing");
-  return null;
-}
-
-function artifactYamlCandidate(text) {
-  const source = String(text);
-  const candidates = [];
-  const frontmatterExpression = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/gm;
-  for (const match of source.matchAll(frontmatterExpression)) {
-    const failures = [];
-    const fields = yamlObject(match[1], "frontmatter", failures);
-    if (failures.length === 0 && typeof fields?.artifact === "string") candidates.push({ match, yaml: match[1] });
-  }
-  const envelopeExpression = /```yaml(?: artifact-envelope)?\r?\n([\s\S]*?)\r?\n```(?:\r?\n|$)/g;
-  for (const match of source.matchAll(envelopeExpression)) {
-    const failures = [];
-    const fields = yamlObject(match[1], "artifact envelope", failures);
-    if (failures.length === 0 && typeof fields?.artifact === "string") candidates.push({ match, yaml: match[1] });
-  }
-  if (candidates.length !== 1) throw new Error(`artifact text requires exactly one Workflow YAML candidate; observed ${candidates.length}`);
-  const candidate = candidates[0];
-  const start = candidate.match.index + candidate.match[0].indexOf(candidate.yaml);
-  return { source, yaml: candidate.yaml, start, end: start + candidate.yaml.length };
-}
-
-export function opaqueExtensionsFromArtifactText(text) {
-  const candidate = artifactYamlCandidate(text);
-  const document = parseDocument(candidate.yaml, { prettyErrors: false, uniqueKeys: true });
-  if (document.errors.length > 0) throw new Error(`invalid Workflow YAML: ${document.errors.map((error) => error.message).join("; ")}`);
-  const fields = document.toJS();
-  return Object.hasOwn(fields, "extensions")
-    ? { present: true, value: structuredClone(fields.extensions) }
-    : { present: false, value: null };
-}
-
-export function replaceOpaqueExtensions(text, opaque = { present: false, value: null }) {
-  const candidate = artifactYamlCandidate(text);
-  const document = parseDocument(candidate.yaml, { prettyErrors: false, uniqueKeys: true });
-  if (document.errors.length > 0) throw new Error(`invalid Workflow YAML: ${document.errors.map((error) => error.message).join("; ")}`);
-  document.delete("extensions");
-  if (opaque.present === true) {
-    if (!opaque.value || typeof opaque.value !== "object" || Array.isArray(opaque.value)) throw new Error("opaque extensions must be an object");
-    document.set("extensions", structuredClone(opaque.value));
-  }
-  const yaml = document.toString({ lineWidth: 0 }).trimEnd();
-  return `${candidate.source.slice(0, candidate.start)}${yaml}${candidate.source.slice(candidate.end)}`;
 }
 
 function maskFences(text) {
@@ -597,30 +482,7 @@ function validatePlanV4(parsed, sections, failures) {
 }
 
 function evidenceData(artifact) {
-  if (artifact.fields.schema === 5 && artifact.fields.evidence_mode === "lean") {
-    const objectiveStatus = artifact.fields.status === "complete" ? "achieved" : artifact.fields.status === "blocked" ? "blocked" : "partially-achieved";
-    const outcomes = (artifact.fields.affected_objectives ?? []).map((id) => ({
-      "Objective ID": id,
-      Status: objectiveStatus,
-      Evidence: `lean evidence ${artifact.fields.id}`,
-    }));
-    const checks = (artifact.fields.check_evidence ?? []).map((entry) => ({
-      "Check ID": entry.check_id,
-      "Observed Result": entry.observed,
-      Status: entry.grade === "verified" ? "passed" : entry.grade === "failed" ? "failed" : "skipped",
-      "Prerequisite fingerprints": "",
-    }));
-    return {
-      results: [],
-      outcomes,
-      outcomeRows: new Map(outcomes.map((row) => [row["Objective ID"], row])),
-      changes: (artifact.fields.changed_paths ?? []).map((path) => ({ "Path or Symbol": path, Change: "declared in lean evidence", "Objective Coverage": (artifact.fields.affected_objectives ?? []).join(", ") })),
-      snapshot: null,
-      checks,
-      checkRows: new Map(checks.map((row) => [row["Check ID"], row])),
-      steps: [],
-    };
-  }
+  if (artifact.fields.schema === 5 && artifact.fields.evidence_mode === "lean") return leanEvidenceData(artifact.fields);
   const results = tableRows(artifact.sections.get("Subject results") ?? "", tables.results);
   const outcomes = tableRows(artifact.sections.get("Objective outcomes") ?? "", tables.objectiveOutcomes);
   const changes = tableRows(artifact.sections.get("Changes") ?? "", tables.changes);
@@ -1078,15 +940,6 @@ function validateCompactReview(parsed, sections, failures) {
   return correction;
 }
 
-function formatAjv(error) {
-  const location = error.instancePath || "/";
-  return error.keyword === "additionalProperties" ? `${location}: additional property ${error.params.additionalProperty}` : `${location}: ${error.message}`;
-}
-
-function schemaFor(root, artifact) {
-  return join(resolve(root), "schemas", "artifacts", `${artifact}.schema.json`);
-}
-
 function buildArtifact(text, root, options = {}) {
   const failures = [];
   const diagnostics = [];
@@ -1094,19 +947,8 @@ function buildArtifact(text, root, options = {}) {
   const parsed = parseArtifact(text, failures, normalizations);
   if (!parsed) return { failures, diagnostics, normalizations, parsed: null };
   parsed.normalizations = normalizations;
-  const path = schemaFor(root, parsed.fields.artifact);
-  if (!existsSync(path)) return { failures: [`unsupported artifact type: ${parsed.fields.artifact}`], diagnostics, normalizations, parsed };
-
-  const ajv = new Ajv({ allErrors: true, strict: false });
-  addFormats(ajv);
-  if (parsed.wrapper) {
-    const wrapperSchema = JSON.parse(readFileSync(join(resolve(root), "schemas", "cursor-plan-wrapper.schema.json"), "utf8"));
-    const validateWrapper = ajv.compile(wrapperSchema);
-    if (!validateWrapper(parsed.wrapper)) failures.push(...validateWrapper.errors.map((error) => `Cursor wrapper ${formatAjv(error)}`));
-  }
-  const schema = JSON.parse(readFileSync(path, "utf8"));
-  const validate = ajv.compile(schema);
-  if (!validate(parsed.fields)) failures.push(...validate.errors.map(formatAjv));
+  const schema = validateArtifactSchema(root, parsed, failures);
+  if (!schema) return { failures, diagnostics, normalizations, parsed };
   const requiredSections = schema["x-required-sections"] ?? schema["x-markdown-sections"] ?? [];
   const sections = sectionMap(trimTrailingNotes(parsed.body, requiredSections, normalizations), requiredSections, failures, normalizations);
   parsed.sections = sections;
@@ -1224,33 +1066,6 @@ function compareReusePaths(paths, current, predecessor, basis, label, requiresSt
 
 function correctionForId(artifacts, id) {
   return [...artifacts.values()].find((artifact) => artifact.fields.artifact === "work-review" && artifact.fields.correction_id === id)?.correction ?? null;
-}
-
-function linearChain(items, predecessorField, label, failures) {
-  if (items.length === 0) return [];
-  const byId = new Map(items.map((item) => [item.fields.id, item]));
-  const starts = items.filter((item) => !item.fields[predecessorField]);
-  if (starts.length !== 1) failures.push(`${label}: chain requires exactly one initial artifact`);
-  const successors = new Map();
-  for (const item of items) {
-    const predecessor = item.fields[predecessorField];
-    if (!predecessor) continue;
-    if (!byId.has(predecessor)) failures.push(`${item.label}: missing predecessor ${predecessor}`);
-    const list = successors.get(predecessor) ?? [];
-    list.push(item);
-    successors.set(predecessor, list);
-  }
-  for (const [id, list] of successors) if (list.length > 1) failures.push(`${label}: chain branches after ${id}`);
-  const ordered = [];
-  const seen = new Set();
-  let cursor = starts[0];
-  while (cursor && !seen.has(cursor.fields.id)) {
-    seen.add(cursor.fields.id);
-    ordered.push(cursor);
-    cursor = successors.get(cursor.fields.id)?.[0];
-  }
-  if (cursor || ordered.length !== items.length) failures.push(`${label}: chain is cyclic or disconnected`);
-  return ordered;
 }
 
 function materializeEvidence(artifact, artifacts, cache, failures, rootDirectory, active = new Set()) {
@@ -1556,9 +1371,7 @@ function inspectCompactArtifactSet(entries, root = defaultRoot) {
       }
       const effective = evidence.effective;
       if (evidence.fields.root_plan_id !== rootId) errors.push(`${review.label}: latest evidence belongs to another root`);
-      const knownFailedEvidence = evidence.fields.status === "blocked"
-        || evidence.fields.overall_grade === "failed"
-        || (evidence.fields.check_evidence ?? []).some((entry) => entry.grade === "failed");
+      const knownFailedEvidence = evidenceHasKnownFailure(evidence.fields);
       if (knownFailedEvidence && review.fields.delivery_status !== "blocked") errors.push(`${review.label}: known failed or blocked evidence requires blocked delivery_status`);
       if (knownFailedEvidence && ["accept-provisional", "none"].includes(review.fields.next_action)) errors.push(`${review.label}: known failed or blocked evidence cannot be accepted or achieved`);
       const candidates = rootEvidence.filter((item) => item.fields.source_review_id === null || (reviewIndex.get(item.fields.source_review_id) ?? Number.POSITIVE_INFINITY) < index);
@@ -1642,8 +1455,7 @@ export function effectiveCliSummary(inspection) {
   const artifacts = [...inspection.effective.values()];
   const tips = (type, predecessorField) => {
     const items = artifacts.filter((artifact) => artifact.fields.artifact === type);
-    const referenced = new Set(items.map((artifact) => artifact.fields[predecessorField]).filter(Boolean));
-    return Object.fromEntries(items.filter((artifact) => !referenced.has(artifact.fields.id)).map((artifact) => [artifact.fields.root_plan_id, artifact.fields.id]));
+    return Object.fromEntries(lineageTips(items, predecessorField).map((artifact) => [artifact.fields.root_plan_id, artifact.fields.id]));
   };
   const rootTips = inspection.root_tips ?? validatePlanLineage(inspection.effective, []);
   const activeRootId = rootTips.length === 1 ? rootTips[0] : null;

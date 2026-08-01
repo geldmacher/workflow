@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
@@ -63,7 +62,7 @@ try {
     marketplaceGitCommit,
     sdkVersion,
     workerPath: join(staging, "workflow-worker.mjs"),
-    lockPath: join(staging, "package-lock.json"),
+    lockPath: join(staging, "npm-shrinkwrap.json"),
   });
   writeRuntimeManifest(staging, manifest);
   publishStagedRuntime(staging, target);

@@ -27,7 +27,7 @@ All three profiles use the same human-approved Intent Root, repository boundary,
 
 ## Installation
 
-Install or link this directory as the `workflow` Cursor plugin. The plugin manifest is `.cursor-plugin/plugin.json`; controller tools are exposed through `mcp.json`. Project-specific automation additionally needs User Config Schema 2 and Project Policy Schema 2 configuration described in [configuration](docs/configuration.md).
+Install or link this directory as the `geldmacher-workflow` Cursor plugin; Cursor displays it as **Workflow**. The plugin manifest is `.cursor-plugin/plugin.json`; controller tools are exposed through `mcp.json`. Project-specific automation additionally needs User Config Schema 2 and Project Policy Schema 2 configuration described in [configuration](docs/configuration.md).
 
 ## Usage
 
@@ -63,12 +63,12 @@ New work uses Artifact Schema 5. The compact `work-plan` stores the immutable In
 
 ## Versions
 
-- Plugin 5.0.0
+- Plugin 5.1.0
 - Artifact Schema 5
 - Controller Protocol 5
 - Run/Preparation Record Schema 2
 - Artifact Handoff Record Schema 1
-- Capability Receipt Schema 3
+- Capability Receipt Schema 4
 - User Config Schema 2
 - Project Policy Schema 2
 
@@ -78,4 +78,6 @@ Repository delivery is the maximum effect: no automatic push, PR, merge, deploym
 
 ## Development
 
-Run `npm test` for repository behavior, `npm run release-check` for generated-bundle parity, tests, context budgets, release validation, and Markdown links, and `npm pack --dry-run` to inspect the package surface. Live Cursor and Marketplace certification are separate environment-bound gates and must not be inferred from repository tests.
+Run `npm test` for repository behavior and `npm run release-check` for bundle parity, tests, critical-module coverage, schema/version contracts, context headroom, links, canonical surface, and the isolated package dry run. The normal gate is offline and uses no model inference.
+
+State maintenance stays local and explicit: `npm run state:maintenance -- inspect --workspace <root>` is read-only, `rebuild-index` reconstructs derived metadata from append-only records, and `archive --workspace <root> --subject <id>` is a dry run. Only a terminal Run or Preparation accepts `--apply`; the command moves it to a hashed recoverable archive and never deletes it automatically. Registry audit and live Cursor/Marketplace certification remain separately authorized environment-bound gates.

@@ -1,0 +1,59 @@
+import assert from "node:assert/strict";
+import { mkdtempSync, mkdirSync, realpathSync, rmSync, symlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import test from "node:test";
+import { pathToFileURL } from "node:url";
+import { WorkspaceRootAuthority } from "../src/mcp/workspace-roots.mjs";
+
+function roots(...paths) {
+  return { roots: paths.map((path) => ({ uri: pathToFileURL(path).href })) };
+}
+
+test("workspace authority resolves one implicit root and exact advertised selectors", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "workflow-roots-"));
+  const first = join(directory, "first");
+  const second = join(directory, "second");
+  mkdirSync(first);
+  mkdirSync(second);
+  try {
+    const single = new WorkspaceRootAuthority(async () => roots(first));
+    assert.equal(await single.resolve(), realpathSync(first));
+    assert.equal(await single.resolve(first), realpathSync(first));
+
+    const multiple = new WorkspaceRootAuthority(async () => roots(first, second));
+    await assert.rejects(() => multiple.resolve(), /multiple MCP workspace roots/);
+    assert.equal(await multiple.resolve(second), realpathSync(second));
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+test("workspace authority fails closed for missing, foreign, and symlink aliases", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "workflow-roots-negative-"));
+  const allowed = join(directory, "allowed");
+  const foreign = join(directory, "foreign");
+  const alias = join(directory, "alias");
+  mkdirSync(allowed);
+  mkdirSync(foreign);
+  symlinkSync(allowed, alias);
+  try {
+    await assert.rejects(() => new WorkspaceRootAuthority(async () => ({ roots: [] })).resolve(), /unavailable/);
+    await assert.rejects(() => new WorkspaceRootAuthority(async () => roots(alias)).resolve(), /symlink redirected/);
+    const authority = new WorkspaceRootAuthority(async () => roots(allowed));
+    await assert.rejects(() => authority.resolve(foreign), /not an advertised MCP root/);
+    await assert.rejects(() => authority.resolve(alias), /not an advertised MCP root/);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+test("workspace authority caches roots and refreshes only after invalidation", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "workflow-roots-cache-"));
+  let calls = 0;
+  try {
+    const authority = new WorkspaceRootAuthority(async () => { calls += 1; return roots(directory); });
+    await authority.resolve();
+    await authority.resolve();
+    assert.equal(calls, 1);
+    authority.invalidate();
+    await authority.resolve();
+    assert.equal(calls, 2);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});

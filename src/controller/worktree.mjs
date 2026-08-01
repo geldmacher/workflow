@@ -101,7 +101,7 @@ export function changedPaths(worktreePath) {
   return lines.split("\n").map((line) => line.slice(3).split(" -> ").at(-1)).filter(Boolean);
 }
 
-const dependencyManifestNames = new Set(["package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock", "bun.lock", "bun.lockb", "requirements.txt", "pyproject.toml", "poetry.lock", "Pipfile", "Pipfile.lock", "Gemfile", "Gemfile.lock", "Cargo.toml", "Cargo.lock", "go.mod", "go.sum"]);
+const dependencyManifestNames = new Set(["package.json", "package-lock.json", "npm-shrinkwrap.json", "pnpm-lock.yaml", "yarn.lock", "bun.lock", "bun.lockb", "requirements.txt", "pyproject.toml", "poetry.lock", "Pipfile", "Pipfile.lock", "Gemfile", "Gemfile.lock", "Cargo.toml", "Cargo.lock", "go.mod", "go.sum"]);
 
 function packageDependencies(value) {
   return Object.assign({}, value.dependencies, value.devDependencies, value.peerDependencies, value.optionalDependencies);
@@ -125,7 +125,7 @@ export function detectDependencyChanges(worktreePath, baseline, paths) {
   for (const path of manifests) {
     const name = path.split("/").at(-1);
     if (name === "package.json") continue;
-    if (name === "package-lock.json" && hasPackageChange) continue;
+    if (["package-lock.json", "npm-shrinkwrap.json"].includes(name) && hasPackageChange) continue;
     changed.add(`unknown:${path}`);
   }
   return [...changed].sort();

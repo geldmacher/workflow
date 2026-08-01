@@ -3,9 +3,9 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { defaultRoot, inspectArtifactText } from "../scripts/validate-artifact.source.mjs";
+import { workflowClient } from "./mcp-client.mjs";
 
 const rootPlan = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8")
   .replace("profile_max: supervised", "profile_max: manual")
@@ -20,7 +20,7 @@ test("MCP records a Root, closes it out, and resolves the exact Evidence in a fr
     env: { ...process.env, HOME: home, CURSOR_PLUGIN_ROOT: defaultRoot },
     stderr: "pipe",
   });
-  const client = new Client({ name: "workflow-closeout-test", version: "1.0.0" });
+  const client = workflowClient("workflow-closeout-test", [defaultRoot]);
   try {
     await client.connect(transport);
     const recorded = await client.callTool({
@@ -86,7 +86,7 @@ test("MCP returns valid Evidence with an attach instruction when only handoff pe
     env: { ...process.env, HOME: unusableHome, CURSOR_PLUGIN_ROOT: defaultRoot },
     stderr: "pipe",
   });
-  const client = new Client({ name: "workflow-closeout-failure-test", version: "1.0.0" });
+  const client = workflowClient("workflow-closeout-failure-test", [defaultRoot]);
   try {
     await client.connect(transport);
     const closed = await client.callTool({

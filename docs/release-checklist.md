@@ -19,7 +19,9 @@
 - [ ] Failed evidence blocks; incomplete evidence may be provisional; accepted-provisional never qualifies.
 - [ ] Autonomous shortfall downgrades visibly to supervised; full verified evidence may achieve.
 - [ ] Pause, resume, cancellation, crash recovery, rollback, budgets, and idempotency survive Strategy revisions.
-- [ ] Repository tests, bundle parity, schema/plugin validation, context budgets, Markdown links, and package dry run pass.
+- [ ] MCP Roots accept only an advertised exact workspace; missing, foreign, symlink-redirected, and ambiguous Roots fail closed.
+- [ ] State indexes recover from missing metadata, event tail reads use checkpoints, and terminal archive remains explicit and recoverable.
+- [ ] Repository tests, bundle parity, schema/version validation, focused 80% line/70% branch coverage, 10% context headroom, Markdown links, canonical surface, and isolated package dry run pass.
 - [ ] Live Cursor and Marketplace certification is reported separately from repository-only evidence.
 - [ ] Live smokes with two different Cursor-selected parent models confirm that inherited children actually use the same model and that an explicit child-model override is stopped, not only shown as `Couldn't start`.
 - [ ] No push, PR, merge, deployment, production access, automatic integration, or automatic learning occurs.

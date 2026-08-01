@@ -50,7 +50,7 @@ Autonomous needs every supervised prerequisite and all of the following:
 - Project Policy sets `autonomous_enabled: true`.
 - The Root uses the certified contract and binds the exact task recipe, Verification Profile, Route Pool, and repository region.
 - The Verification Profile is proved, human-approved, and still audits as clean.
-- The Capability Receipt positively certifies all required repeated live probes, the exact models, the dependency-audit result, and the Qualification binding. High or Critical dependency findings block activation; an allowed Moderate finding needs separate hash-bound human risk acceptance.
+- The Capability Receipt positively certifies all required repeated live probes, the exact models, the dependency-audit result, and the Qualification binding. Any fresh dependency finding blocks activation until the minimal fix or a separate hash-bound human risk acceptance; High/Critical findings never pass implicitly.
 - The exact Qualification Key has enough fully verified, human-accepted supervised Runs.
 - The work has no Hard Trigger or planned human review gate.
 

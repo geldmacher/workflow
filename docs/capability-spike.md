@@ -4,7 +4,7 @@ Supervised and autonomous are activation-gated, not merely feature-flagged. Manu
 
 | Capability | Required observation |
 |---|---|
-| Local MCP packaging | The built server starts through `${CURSOR_PLUGIN_ROOT}` and lists exactly seven tools. |
+| Local MCP packaging | The built server starts through `${CURSOR_PLUGIN_ROOT}` and lists exactly eleven tools. |
 | Marketplace packaging | The installed Marketplace copy starts the same pinned MCP bundle and resolves the exact SDK/platform runtime without installation-on-first-use. |
 | Model routing | Every role's exact ID, reasoning parameter and options exist in the live catalog. |
 | Model attestation | A paid read-only SDK smoke reports the same accepted and observed selection plus request/agent IDs and usage. |
@@ -17,13 +17,13 @@ Supervised and autonomous are activation-gated, not merely feature-flagged. Manu
 
 ## Current result for the pinned adapter
 
-The MCP/controller is bundled, while the worker deliberately keeps `@cursor/sdk` as an exact external runtime dependency. The build does not copy the SDK into `dist`. A development checkout or `GELDMACHER_WORKFLOW_WORKER` may resolve a Worker for tests, but its provenance is explicitly automation-ineligible. Only `npm run provision:worker-runtime -- --marketplace-git-commit <exact-sha>`, invoked manually in the actually installed Marketplace copy, may create the pinned runtime below `~/.cursor/geldmacher-workflow/runtime/5.0.0/1.0.24/<platform>/`. In a real Git checkout the exact `HEAD` may be detected instead. It stages `npm ci --omit=dev --ignore-scripts`, never uses `latest`, `npx`, overrides, or install-on-first-use, and atomically publishes a manifest binding the Marketplace commit, Plugin, Worker, lockfile inventory, SDK, platform package, Node, and runtime hashes.
+The MCP/controller is bundled, while the worker deliberately keeps `@cursor/sdk` as an exact external runtime dependency. The build does not copy the SDK into `dist`. A development checkout or `GELDMACHER_WORKFLOW_WORKER` may resolve a Worker for tests, but its provenance is explicitly automation-ineligible. Only `npm run provision:worker-runtime -- --marketplace-git-commit <exact-sha>`, invoked manually in the actually installed Marketplace copy, may create the pinned runtime below `~/.cursor/geldmacher-workflow/runtime/5.1.0/1.0.24/<platform>/`. In a real Git checkout the exact `HEAD` may be detected instead. It stages `npm ci --omit=dev --ignore-scripts`, never uses `latest`, `npx`, overrides, or install-on-first-use, and atomically publishes a manifest binding the Marketplace commit, Plugin, Worker, lockfile inventory, SDK, platform package, Node, and runtime hashes.
 
 At Controller runtime the exact Cursor host version must also be observable as `GELDMACHER_WORKFLOW_CURSOR_VERSION` or `CURSOR_VERSION`; otherwise the receipt is not accepted. The value must match the certified receipt exactly.
 
 The current worker needs network access for SDK model transport. The Adapter now supplies a minimal environment and removes `CURSOR_API_KEY` from the Worker process after SDK construction, but a real SDK smoke must still prove that model-invoked tools cannot recover Controller secrets or reach unapproved destinations. SDK `sandboxOptions.enabled` and classifier-based Auto-review are not proof.
 
-The authorized production audit on 2026-07-29 reports one High finding in `undici` and two Moderate affected packages (`@cursor/sdk` and `@connectrpc/connect-node`), with no available fix. High/Critical is an unconditional activation blocker. Moderate findings in SDK/transport paths additionally require a separate hashed human risk acceptance even after the High finding is gone. No override, `npm audit fix`, or `--force` is accepted.
+A production dependency audit is an external, time-bound certification input, not a repository-test claim. Run it only with explicit network authorization and record its lockfile/evidence hashes. Any fresh finding blocks activation until the minimal dependency fix or a separate hash-bound human risk acceptance; High/Critical findings must never pass implicitly. If no fresh audit exists, report it unavailable. Never use `npm audit fix` or `--force` automatically.
 
 Therefore a fresh installation has no valid `capability-receipt.json`; `planner_submission_verified`, `worker_network_isolated`, and `sdk_secret_isolated` resolve false, and both auto profiles remain in read-only Shadow Mode. This is an intentional negative capability result, not a silent partial activation. The manual workflow, `/explain-work`, model validation, status, and deterministic controller simulation remain usable.
 
@@ -49,6 +49,6 @@ Only a future adapter/spike that produces all positive machine observations for 
 ~/.cursor/geldmacher-workflow/state/<repo-hash>/capability-receipt.json
 ```
 
-Receipt schema 2 is closed and schema 1 is rejected without migration. It binds the exact Plugin, Controller, artifact schema, SDK, platform, Node, OS, Cursor version, Marketplace commit, Plugin/Worker/runtime/lock hashes, route, catalog, Planning and Cursor harnesses, requested/accepted/observed model configurations, request/Agent/Run IDs, audit evidence, and twelve individual observations. Security-critical observations require three independent repetitions. The expiry is at most 30 days. `automation_safe` is recomputed as the logical AND and cannot turn a failed observation into success. The Controller accepts the file only through atomic external-state replacement and only while all live hashes still match.
+Receipt Schema 4 is closed; older schemas are rejected without migration. It binds the exact Plugin, Controller, artifact schema, SDK, platform, host, Marketplace commit, canonical Plugin/Worker/runtime/lock hashes, route, catalog, harnesses, model configurations/IDs, audit evidence, and twelve observations. Security-critical observations require three repetitions. Expiry is at most 30 days. `automation_safe` is derived and accepted only while every live hash matches.
 
 The complete operational sequence, qualifying-history matrix, and Unattended pilots are in the [certification runbook](certification-runbook.md).

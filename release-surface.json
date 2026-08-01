@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "runtime_paths": [
+    ".cursor-plugin/marketplace.json",
+    ".cursor-plugin/plugin.json",
+    "agents",
+    "assets",
+    "commands",
+    "dist",
+    "hooks",
+    "mcp.json",
+    "npm-shrinkwrap.json",
+    "package.json",
+    "references",
+    "release-surface.json",
+    "schemas",
+    "scripts/validate-artifact.mjs",
+    "skills"
+  ],
+  "package_extras": [
+    "CHANGELOG.md",
+    "CONTROLLER_THIRD_PARTY_NOTICES.md",
+    "LICENSE",
+    "README.md",
+    "THIRD_PARTY_NOTICES.md",
+    "docs"
+  ]
+}

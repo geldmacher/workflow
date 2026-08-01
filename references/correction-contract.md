@@ -1,10 +1,10 @@
 # Embedded correction
 
-A correction exists only in a review with `next_action: correct`; `/correct-work` approves the unique current one in the active native Cursor Plan's Root chain. It never falls back to an older or unrelated Root. It contains one stable `cp-*`, root/source/base links, risk, Findings-backed FIXes, outcome-oriented steps, required verification, and output-only Learning candidates.
+A correction exists only in a review with `next_action: correct`; `/correct-work` approves the unique current correction in the active Plan chain, never an older Root. It contains stable identity/links, risk, Findings-backed FIXes, outcome steps, verification, and output-only Learning candidates.
 
 Every correction declares at least one root-unique `LRN-*` in `learning_candidates` and embeds `Learning ID | Finding keys | Reusable guidance | Candidate targets | Confirmation evidence`. Each row generalizes a cited Finding, suggests only project-local targets, and names later proof. Review authors candidates but never apply them; only explicit `/learn-from-work` may confirm and persist them.
 
-Each FIX references stable Finding keys plus affected root Objectives and Checks. Targets remain within root required/permitted scope and outside prohibited scope. Completion Probes make execution idempotent. A verification-only FIX collects genuinely missing repository evidence without unnecessary implementation changes.
+Each FIX references stable Findings plus affected Objectives/Checks, stays inside Root authority, and has an idempotent Completion Probe. Verification-only FIXes collect missing evidence without unnecessary edits.
 
 `/correct-work` resolves the current evidence tip, classifies work `satisfied|pending|partial|conflicted`, preserves partial progress, and executes only pending/partial FIXes. It reruns affected verification and inherits unchanged proof when fingerprints or current change-impact inspection justify reuse. Conflict, new intent, scope expansion, higher risk, or ambiguous approval blocks mutation.
 

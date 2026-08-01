@@ -9,7 +9,7 @@
   },
   "plugins": [
     {
-      "name": "workflow",
+      "name": "geldmacher-workflow",
       "source": ".",
       "description": "Adaptive, evidence-calibrated Cursor-native workflow with manual, supervised, and certified autonomous delivery."
     }

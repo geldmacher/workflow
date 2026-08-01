@@ -3,8 +3,15 @@ import { existsSync, globSync, readFileSync, readdirSync, realpathSync, statSync
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv from "ajv";
+import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import { parseDocument } from "yaml";
+import { CAPABILITY_RECEIPT_SCHEMA } from "../src/controller/capabilities.mjs";
+import { enumerateReleaseSurface, validateReleaseSurfaceClosure } from "../src/controller/release-surface.mjs";
+import { ARTIFACT_SCHEMA, CONTROLLER_PROTOCOL, PLUGIN_VERSION } from "../src/controller/protocol.mjs";
+import { sdkVersion } from "../src/controller/worker-adapter.mjs";
+import { WORKFLOW_TOOL_CONTRACTS } from "../src/mcp/tool-contracts.mjs";
+import { WORKFLOW_TOOL_NAMES } from "../src/mcp/tool-registry.mjs";
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 export const defaultRoot = dirname(scriptDirectory);
@@ -137,6 +144,33 @@ function validateRelease(root, manifest, failures) {
   }
   const packageJson = JSON.parse(readText(join(root, "package.json")));
   if (packageJson.version !== manifest.version) failures.push("package.json version differs from plugin.json");
+  if (manifest.name !== "geldmacher-workflow" || manifest.displayName !== "Workflow") failures.push("release identity must be geldmacher-workflow with display name Workflow");
+  if (manifest.version !== PLUGIN_VERSION) failures.push("plugin.json version differs from runtime protocol version");
+  if (packageJson.dependencies?.["@cursor/sdk"] !== sdkVersion) failures.push("package.json @cursor/sdk differs from worker adapter SDK version");
+  const receiptSchema = JSON.parse(readText(join(root, "schemas", "capability-receipt.schema.json")));
+  if (receiptSchema.properties?.schema?.const !== CAPABILITY_RECEIPT_SCHEMA) failures.push("capability receipt JSON schema differs from runtime receipt schema");
+  if (receiptSchema.properties?.artifact_schema?.const !== ARTIFACT_SCHEMA) failures.push("capability receipt JSON schema differs from runtime Artifact Schema");
+  if (receiptSchema.properties?.controller_protocol?.const !== CONTROLLER_PROTOCOL) failures.push("capability receipt JSON schema differs from runtime Controller Protocol");
+  try {
+    const schemaAjv = new Ajv2020({ allErrors: true, strict: false });
+    addFormats(schemaAjv);
+    schemaAjv.compile(receiptSchema);
+  } catch (error) { failures.push(`capability receipt JSON schema does not compile: ${error.message}`); }
+  const registeredTools = [...readText(join(root, "src", "mcp", "workflow-mcp.mjs")).matchAll(/server\.registerTool\("([^"]+)"/g)].map((match) => match[1]).sort();
+  if (registeredTools.join("\n") !== [...WORKFLOW_TOOL_NAMES].sort().join("\n")) failures.push("MCP tool registry differs from registered tools");
+  if (Object.keys(WORKFLOW_TOOL_CONTRACTS).sort().join("\n") !== [...WORKFLOW_TOOL_NAMES].sort().join("\n")) failures.push("MCP tool contracts differ from the tool registry");
+  if (!readText(join(root, "docs", "capability-spike.md")).includes("exactly eleven tools")) failures.push("capability-spike.md does not describe the eleven-tool surface");
+  const versionDocuments = {
+    "README.md": [`- Plugin ${PLUGIN_VERSION}`, `- Artifact Schema ${ARTIFACT_SCHEMA}`, `- Controller Protocol ${CONTROLLER_PROTOCOL}`, `- Capability Receipt Schema ${CAPABILITY_RECEIPT_SCHEMA}`],
+    "docs/configuration.md": [`Plugin ${PLUGIN_VERSION}`, `Artifact Schema ${ARTIFACT_SCHEMA}`, `Controller Protocol ${CONTROLLER_PROTOCOL}`, `Capability Receipt Schema ${CAPABILITY_RECEIPT_SCHEMA}`],
+    "docs/migration-workflow-5.md": [`Plugin \`${PLUGIN_VERSION}\``, `Artifact Schema \`${ARTIFACT_SCHEMA}\``, `Controller Protocol \`${CONTROLLER_PROTOCOL}\``, `Capability Receipt Schema \`${CAPABILITY_RECEIPT_SCHEMA}\``],
+  };
+  for (const [path, snippets] of Object.entries(versionDocuments)) {
+    const source = readText(join(root, path));
+    for (const snippet of snippets) if (!source.includes(snippet)) failures.push(`${path} version matrix is missing ${snippet}`);
+  }
+  try { validateReleaseSurfaceClosure(root, "runtime_paths"); validateReleaseSurfaceClosure(root, "package_paths"); }
+  catch (error) { failures.push(`release surface is invalid: ${error.message}`); }
   if (!readText(join(root, "CHANGELOG.md")).includes(`## ${manifest.version}`)) failures.push(`CHANGELOG.md has no ${manifest.version} heading`);
   const readme = readText(join(root, "README.md"));
   for (const heading of ["## Intent and expectations", "## Installation", "## Usage", "## Artifact protocol", "## Components", "## Development"]) {

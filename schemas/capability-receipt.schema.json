@@ -12,13 +12,13 @@
     "capability_vector", "qualification_bindings", "profile_eligibility", "evidence_hashes", "automation_safe"
   ],
   "properties": {
-    "schema": { "const": 3 },
+    "schema": { "const": 4 },
     "generated_by": { "const": "geldmacher-workflow-capability-spike" },
     "issued_at": { "type": "string", "format": "date-time" },
     "expires_at": { "type": "string", "format": "date-time" },
     "plugin_version": { "type": "string" },
-    "artifact_schema": { "const": 4 },
-    "controller_protocol": { "const": 4 },
+    "artifact_schema": { "const": 5 },
+    "controller_protocol": { "const": 5 },
     "sdk_version": { "type": "string" },
     "platform": { "type": "string" },
     "node_version": { "type": "string" },

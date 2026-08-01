@@ -11,7 +11,7 @@ export const measurementVersion = 2;
 export const baselinePath = "scripts/context-baseline.json";
 export const limits = Object.freeze({
   alwaysOnTokens: 0,
-  discoverabilityTokens: 500,
+  discoverabilityTokens: 428,
   phaseFlows: Object.freeze({
     plan_intake: 2000,
     plan_oneshot: 2000,
@@ -34,7 +34,11 @@ export const limits = Object.freeze({
   }),
   reviewerTokens: 650,
 });
-export const economicTargets = Object.freeze({ plan: 2000, correction: 2000, closeout: 1800, review: 2000, learning: 2000, explanation: 1200, automation: 1500 });
+export const headroomTargets = Object.freeze({
+  phaseFlows: Object.freeze(Object.fromEntries(Object.entries(limits.phaseFlows).map(([name, maximum]) => [name, Math.floor(maximum * 0.9)]))),
+  automationFlows: Object.freeze(Object.fromEntries(Object.entries(limits.automationFlows).map(([name, maximum]) => [name, Math.floor(maximum * 0.9)]))),
+});
+export const economicTargets = Object.freeze({ plan: 1800, correction: 1800, closeout: 1620, review: 1800, learning: 1800, explanation: 1080, automation: 1350 });
 
 export const flowMatrix = Object.freeze({
   phase_flows: Object.freeze({
@@ -254,6 +258,8 @@ export function targetFailures(measurement) {
   if (measurement.discoverabilityTokens > limits.discoverabilityTokens) failures.push(`discoverabilityTokens: ${measurement.discoverabilityTokens} > ${limits.discoverabilityTokens}`);
   for (const [name, maximum] of Object.entries(limits.phaseFlows)) if (measurement.phase_flows[name] > maximum) failures.push(`phase_flows.${name}: ${measurement.phase_flows[name]} > ${maximum}`);
   for (const [name, maximum] of Object.entries(limits.automationFlows)) if (measurement.automationFlows[name] > maximum) failures.push(`automation_flows.${name}: ${measurement.automationFlows[name]} > ${maximum}`);
+  for (const [name, maximum] of Object.entries(headroomTargets.phaseFlows)) if (measurement.phase_flows[name] > maximum) failures.push(`phase_flows.${name} headroom: ${measurement.phase_flows[name]} > ${maximum}`);
+  for (const [name, maximum] of Object.entries(headroomTargets.automationFlows)) if (measurement.automationFlows[name] > maximum) failures.push(`automation_flows.${name} headroom: ${measurement.automationFlows[name]} > ${maximum}`);
   for (const [name, value] of Object.entries(measurement.reviewerTokens)) if (value > limits.reviewerTokens) failures.push(`reviewer_tokens.${name}: ${value} > ${limits.reviewerTokens}`);
   return failures;
 }

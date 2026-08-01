@@ -3,10 +3,10 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { deriveManualWorkflowSnapshot, resolveManualRootPlanId } from "../src/controller/manual-status.mjs";
 import { authoritativeArtifactProjectionFromText } from "../scripts/validate-artifact.source.mjs";
+import { workflowClient } from "./mcp-client.mjs";
 
 const root = resolve(new URL("..", import.meta.url).pathname);
 const fixtureRoot = join(root, "tests", "fixtures", "artifacts");
@@ -142,7 +142,7 @@ test("manual workflow_status is read-only and creates no controller state", asyn
     env: { ...process.env, HOME: home, CURSOR_PLUGIN_ROOT: root },
     stderr: "pipe",
   });
-  const client = new Client({ name: "workflow-manual-status-test", version: "1.0.0" });
+  const client = workflowClient("workflow-manual-status-test", [root]);
   try {
     await client.connect(transport);
     const response = await client.callTool({ name: "workflow_status", arguments: { workspace_root: root, root_plan_id: rootPlanId, artifacts: [plan] } });

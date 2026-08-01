@@ -1,4 +1,4 @@
-export const PLUGIN_VERSION = "5.0.0";
+export const PLUGIN_VERSION = "5.1.0";
 export const ARTIFACT_SCHEMA = 5;
 export const RUN_RECORD_SCHEMA = 2;
 export const PREPARATION_RECORD_SCHEMA = 2;
@@ -23,8 +23,7 @@ export const LEGACY_WORKFLOW_4 = Object.freeze({
 function matchesProtocol(record, expected, recordSchemaField) {
   return record?.[recordSchemaField] === expected[recordSchemaField]
     && record?.artifact_schema === expected.artifact_schema
-    && record?.controller_protocol === expected.controller_protocol
-    && record?.plugin_version === expected.plugin_version;
+    && record?.controller_protocol === expected.controller_protocol;
 }
 
 function legacyClassification(record, recordSchemaField, subject) {
@@ -62,8 +61,7 @@ export function preparationProtocolFields() {
 export function classifyRunCompatibility(run) {
   const compatible = run?.run_record_schema === RUN_RECORD_SCHEMA
     && run?.artifact_schema === ARTIFACT_SCHEMA
-    && run?.controller_protocol === CONTROLLER_PROTOCOL
-    && run?.plugin_version === PLUGIN_VERSION;
+    && run?.controller_protocol === CONTROLLER_PROTOCOL;
   const classification = compatible ? null : legacyClassification(run, "run_record_schema", "run");
   return {
     compatible,
@@ -82,8 +80,7 @@ export function assertCompatibleRun(run) {
 export function classifyPreparationCompatibility(preparation) {
   const compatible = preparation?.preparation_record_schema === PREPARATION_RECORD_SCHEMA
     && preparation?.artifact_schema === ARTIFACT_SCHEMA
-    && preparation?.controller_protocol === CONTROLLER_PROTOCOL
-    && preparation?.plugin_version === PLUGIN_VERSION;
+    && preparation?.controller_protocol === CONTROLLER_PROTOCOL;
   const classification = compatible ? null : legacyClassification(preparation, "preparation_record_schema", "preparation");
   return {
     compatible,

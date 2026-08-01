@@ -1,5 +1,13 @@
 # Changelog
 
+## 5.1.0
+
+- Hardened Marketplace identity, Capability Receipt Schema 4, canonical release hashing, MCP workspace boundaries, proof limits, and state access.
+- Kept Artifact Schema 5 and Controller Protocol 5 compatible across Plugin 5 minor releases while preserving exact capability recertification.
+- Added atomic rebuildable state/handoff indexes, checkpointed event tails, dry-run terminal archives, and focused coverage gates.
+- Split Artifact validation and MCP contracts/handlers into maintainable modules, and shared controller build chunks where they materially reduce size.
+- Reduced release and context overhead without changing the human-approved Manual delivery path.
+
 ## 5.0.0
 
 - Added deterministic `workflow_closeout`, shared Manual/controller Evidence construction, and `/close-work [wp-id]` as a read-only recovery path.

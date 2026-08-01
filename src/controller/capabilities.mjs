@@ -7,7 +7,7 @@ import { sdkVersion } from "./worker-adapter.mjs";
 import { ARTIFACT_SCHEMA, CONTROLLER_PROTOCOL, PLUGIN_VERSION } from "./protocol.mjs";
 import { currentPlatform, hashPluginTree, loadWorkerRuntimeManifest, workerRuntimeDirectory } from "./runtime.mjs";
 
-export const CAPABILITY_RECEIPT_SCHEMA = 3;
+export const CAPABILITY_RECEIPT_SCHEMA = 4;
 export const CAPABILITY_RECEIPT_VALIDITY_DAYS = 30;
 
 export const REQUIRED_OBSERVATIONS = [
@@ -74,9 +74,8 @@ export function receiptProfileEligibility(receipt) {
     const minimum = THREE_RUN_OBSERVATIONS.has(key) ? 3 : 1;
     return observation?.verified === true && Number.isInteger(observation.repetitions) && observation.repetitions >= minimum && hashString(observation.evidence_hash);
   });
-  const auditSafe = receipt.audit?.high === 0
-    && receipt.audit?.critical === 0
-    && (receipt.audit?.moderate === 0 || hashString(receipt.audit?.risk_acceptance_hash));
+  const auditSafe = (receipt.audit?.high === 0 && receipt.audit?.critical === 0 && receipt.audit?.moderate === 0)
+    || hashString(receipt.audit?.risk_acceptance_hash);
   const modelsExact = JSON.stringify(receipt.model_attestation?.requested) === JSON.stringify(receipt.model_attestation?.accepted)
     && JSON.stringify(receipt.model_attestation?.accepted) === JSON.stringify(receipt.model_attestation?.observed);
   const vector = receipt.capability_vector ?? {};
