@@ -4,14 +4,14 @@ Workflow 5 is a clean protocol cut, not an in-place artifact migration. Finish a
 
 ## New version bindings
 
-- Plugin `5.1.0`
+- Plugin `5.2.0`
 - Artifact Schema `5`
 - Controller Protocol `5`
 - Run/Preparation Record Schema `2`
 - Capability Receipt Schema `4`
 - User Config and Project Policy Schema `2`
 
-Capability Receipts must be repeated because Plugin 5.1 and the canonical release hash changed. Workflow-5 Run, Preparation, and handoff records remain compatible across minor releases when their record, Artifact, and Controller schemas match.
+Capability Receipts must be repeated because Plugin 5.2 and the canonical release hash changed. Workflow-5 Run, Preparation, and handoff records remain compatible across minor releases when their record, Artifact, and Controller schemas match.
 
 The profile meaning is unchanged: Manual is human-driven, supervised delegates execution but not delivery acceptance, and autonomous may omit final acceptance only for an exact qualified Run with complete verified evidence. See the [profile guide](profiles.md) for the current requirements.
 

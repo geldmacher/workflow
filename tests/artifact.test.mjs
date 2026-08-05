@@ -132,11 +132,14 @@ test("lean, controlled, and certified roots accept their matching semantic contr
 test("native Schema-5 plans require the parent-model inheritance marker on every todo", () => {
   const valid = nativePlan([
     { id: "step-1", content: `${modelInheritMarker} STEP-1 implement deterministic retry handling` },
-    { id: "closeout", content: `${modelInheritMarker} Run CHECK-1, call workflow_closeout, and print the evidence` },
+    { id: "closeout", content: `${modelInheritMarker} Run CHECK-1, call workflow_closeout with the exact Root/chain, and print its returned artifact unchanged` },
   ]);
   assert.deepEqual(validateArtifactText(valid), []);
   assert.match(validateArtifactText(valid.replace(`${modelInheritMarker} STEP-1`, "STEP-1")).join("\n"), /native todo step-1 must start with \[workflow-model-inherit-v1\]/);
   assert.match(validateArtifactText(valid.replace(`${modelInheritMarker} Run CHECK-1`, "Run CHECK-1")).join("\n"), /native todo closeout must start with \[workflow-model-inherit-v1\]/);
+  assert.match(validateArtifactText(valid.replace("exact Root/chain", "cached context")).join("\n"), /exact Root\/chain/);
+  assert.match(validateArtifactText(valid.replace("print its returned artifact unchanged", "report completion")).join("\n"), /returned artifact unchanged/);
+  assert.match(validateArtifactText(valid.replace("returned artifact unchanged", "artifact unchanged")).join("\n"), /returned artifact unchanged/);
   assert.deepEqual(validateArtifactText(plan), []);
 });
 

@@ -5,7 +5,7 @@ import {
   loadWorkflowConfig,
   repositoryBaseline,
   resolveRouteProfile
-} from "./chunk-XAJC6UTH.mjs";
+} from "./chunk-FW33DUDL.mjs";
 import {
   CursorWorkerAdapter,
   currentPlatform,
@@ -13,7 +13,7 @@ import {
   loadWorkerRuntimeManifest,
   sdkVersion,
   workerRuntimeDirectory
-} from "./chunk-5IA5FVOS.mjs";
+} from "./chunk-MICWNJTT.mjs";
 import {
   probeSandboxBoundary
 } from "./chunk-PKEO6PA3.mjs";
@@ -23,18 +23,19 @@ import {
   inspectArtifactSet,
   inspectArtifactText,
   opaqueExtensionsFromArtifactText,
+  preflightRootPlan,
   replaceOpaqueExtensions,
   require_ajv
-} from "./chunk-J7XAELOI.mjs";
+} from "./chunk-POBM3TB5.mjs";
 import {
   require_dist
-} from "./chunk-MAHZMMXQ.mjs";
+} from "./chunk-TM6F22GE.mjs";
 import {
   ARTIFACT_SCHEMA,
   CONTROLLER_PROTOCOL,
   PLUGIN_VERSION,
   assertCompatiblePreparation
-} from "./chunk-YCJPA23W.mjs";
+} from "./chunk-VL4DQUSD.mjs";
 import {
   __toESM
 } from "./chunk-IQRLCJ3K.mjs";
@@ -656,6 +657,10 @@ var PlanningEngine = class {
       const rootPlanText = normalizePlannerRootOutput(phase.planningOutput.root_plan_text, preparation);
       const contract = executionContractFromArtifactText(rootPlanText, this.pluginRoot);
       const validationErrors = [...contract.errors];
+      if (validationErrors.length === 0) {
+        const preflight = preflightRootPlan(rootPlanText, this.pluginRoot);
+        validationErrors.push(...preflight.blocking_issues.map((entry) => `${entry.code}: ${entry.message}`));
+      }
       if (validationErrors.length === 0) validationErrors.push(...validateRootPlanLineage(rootPlanText, preparation.input_root_lineage_artifacts, this.pluginRoot).errors);
       if (validationErrors.length === 0 && preparation.input_root_contract && (contract.fields.predecessor_plan_id ?? null) !== (preparation.input_root_contract.fields.predecessor_plan_id ?? null)) validationErrors.push("root plan predecessor_plan_id must remain unchanged");
       if (validationErrors.length === 0 && preparation.input_root_contract && (contract.fields.replan_source_review_id ?? null) !== (preparation.input_root_contract.fields.replan_source_review_id ?? null)) validationErrors.push("root plan replan_source_review_id must remain unchanged");

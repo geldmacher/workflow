@@ -4,6 +4,7 @@ The controller resolves immutable prohibitions, project ceilings, approved user 
 
 ## Which profile needs configuration?
 
+- Codex currently exposes only `manual`; it uses the host sandbox, human approvals, inherited subagents, five Manual MCP tools, and no Controller configuration.
 - `manual` needs neither User Config nor Project Policy. The human chooses the Cursor model and drives the workflow.
 - `supervised` needs both files below, `supervised_enabled: true`, complete budgets, exact model Pools, and positive live capability proof. The controller executes; the human accepts every delivery.
 - `autonomous` needs every supervised requirement plus `autonomous_enabled: true`, an approved and clean Verification Profile, an exact certified Qualification Key, and enough accepted verified supervised history. Only fully verified delivery can complete without final human acceptance.
@@ -93,4 +94,6 @@ Enable `autonomous` only after the Verification Profile hash is proved and human
 
 Preparations, Runs, Strategy revisions, receipts, proof artifacts, approvals, ledgers, and worktrees live under `~/.cursor/geldmacher-workflow/`. Do not edit them manually. Run branches use `workflow/<run-id>` and are never integrated automatically.
 
-New records freeze Run/Preparation Schema 2, Artifact Schema 5, Controller Protocol 5, and Plugin 5.1.0. Capability Receipt Schema 4 binds plugin/runtime/lock hashes, exact certified models, Route Pool, Verification Profile, capability vector, and Qualification bindings. Workflow-5 records remain compatible across minor Plugin releases when their record, Artifact, and Controller schemas match; Capability Receipts still require the exact Plugin and runtime hashes. Workflow-3/4 records remain status/watch-only.
+Cross-host Schema-5 handoff records live separately under `~/.geldmacher/workflow/state/<repository-key>/handoff/`. Codex operational Hook/task state lives under `PLUGIN_DATA`; credentials, Runs, worktrees, approval state, and capability receipts never cross host boundaries. `GELDMACHER_WORKFLOW_SHARED_ROOT` may relocate only the shared Handoff base. The explicit idempotent importer is `npm run migrate:handoff -- --workspace <root>`; it verifies record schema, text hashes, and the complete chain, never deletes the Cursor source, and blocks immutable ID conflicts.
+
+New records freeze Run/Preparation Schema 2, Artifact Schema 5, Controller Protocol 5, and Plugin 5.2.0. Capability Receipt Schema 4 binds plugin/runtime/lock hashes, exact certified models, Route Pool, Verification Profile, capability vector, and Qualification bindings. Workflow-5 records remain compatible across minor Plugin releases when their record, Artifact, and Controller schemas match; Capability Receipts still require the exact Plugin and runtime hashes. Workflow-3/4 records remain status/watch-only.

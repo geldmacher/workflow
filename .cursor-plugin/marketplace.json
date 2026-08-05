@@ -1,11 +1,11 @@
 {
-  "name": "geldmacher-rc",
+  "name": "geldmacher",
   "owner": {
     "name": "Geldmacher",
     "email": "geldmacher.dennis@outlook.de"
   },
   "metadata": {
-    "description": "Private release-candidate marketplace for the Workflow Cursor plugin by Geldmacher."
+    "description": "Private marketplace for the Workflow Cursor plugin by Geldmacher."
   },
   "plugins": [
     {

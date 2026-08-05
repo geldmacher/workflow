@@ -450,6 +450,13 @@ test("handoff context retains replan lineage and its source review", () => {
     const replacement = leanRoot
       .replace("id: wp-adaptive-retry", "id: wp-adaptive-retry-replanned\npredecessor_plan_id: wp-adaptive-retry\nreplan_source_review_id: wr-closeout-replan")
       .replace("Make retry handling deterministic without changing the public contract.", "Make retry handling deterministic under the newly approved contract boundary.");
+    assert.throws(() => buildDeliveryEvidence({
+      rootPlanText: replacement,
+      checkEvidence: verified,
+      changedPaths: ["src/retry.mjs"],
+      effectiveProfile: "manual",
+      pluginRoot: defaultRoot,
+    }), /predecessor|source review|lineage/i);
     const chain = [["root", leanRoot], ["evidence", initial.artifact], ["review", review], ["replacement", replacement]];
     assert.deepEqual(inspectArtifactSet(chain, defaultRoot).errors, []);
     const store = new ArtifactHandoffStore(directory, defaultRoot);

@@ -11,6 +11,11 @@ const groups = [
     tests: ["tests/workspace-roots.test.mjs"],
   },
   {
+    name: "Schema-5 CreatePlan guard",
+    include: ["hooks/plan-integrity-guard.mjs"],
+    tests: ["tests/plan-integrity-guard.test.mjs"],
+  },
+  {
     name: "capability receipt",
     include: ["src/controller/capabilities.mjs"],
     tests: ["tests/capabilities.test.mjs"],

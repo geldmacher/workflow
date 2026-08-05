@@ -1,4 +1,4 @@
-export const PLUGIN_VERSION = "5.1.0";
+export const PLUGIN_VERSION = "5.2.0";
 export const ARTIFACT_SCHEMA = 5;
 export const RUN_RECORD_SCHEMA = 2;
 export const PREPARATION_RECORD_SCHEMA = 2;

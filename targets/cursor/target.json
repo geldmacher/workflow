@@ -1,0 +1,7 @@
+{
+  "target": "cursor",
+  "source": "repository-release-surface",
+  "product": "geldmacher-workflow",
+  "displayName": "Workflow",
+  "automation": true
+}

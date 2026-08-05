@@ -2,13 +2,16 @@ import { pathToFileURL } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { ListRootsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
-export function workflowClient(name, roots) {
+export function workflowClient(name, roots = [], { advertiseRoots = true, rootError = null } = {}) {
   const client = new Client(
     { name, version: "1.0.0" },
-    { capabilities: { roots: { listChanged: true } } },
+    { capabilities: advertiseRoots ? { roots: { listChanged: true } } : {} },
   );
-  client.setRequestHandler(ListRootsRequestSchema, async () => ({
-    roots: roots.map((path) => ({ uri: pathToFileURL(path).href })),
-  }));
+  if (advertiseRoots) {
+    client.setRequestHandler(ListRootsRequestSchema, async () => {
+      if (rootError) throw new Error(rootError);
+      return { roots: roots.map((path) => ({ uri: pathToFileURL(path).href })) };
+    });
+  }
   return client;
 }

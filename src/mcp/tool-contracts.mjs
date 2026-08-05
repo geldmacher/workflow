@@ -25,6 +25,10 @@ const checkEvidence = z.object({
 });
 
 export const WORKFLOW_TOOL_CONTRACTS = Object.freeze({
+  workflow_plan_preflight: {
+    description: "Validate one exact Schema-5 Root for authority feasibility and Pareto Check selection without workspace discovery, persistence, approval, or mutation.",
+    inputSchema: { root_plan: z.string().min(1).max(250_000) },
+  },
   workflow_prepare: {
     description: "Run the configured planner pool in a read-only pre-run phase and produce either one approvable schema-5 intent root or manual intent questions.",
     inputSchema: {
@@ -61,7 +65,7 @@ export const WORKFLOW_TOOL_CONTRACTS = Object.freeze({
     },
   },
   workflow_closeout: {
-    description: "Deterministically build, validate, and cache one Schema-5 delivery-evidence artifact from observed Checks without accepting caller-supplied identity, hashes, grade, status, or topology.",
+    description: "Deterministically build and validate one Schema-5 delivery-evidence artifact from observed Checks; cache it when Roots are trusted or return it workspace-unattested when only Roots discovery is unavailable.",
     inputSchema: {
       workspace_root: workspaceRoot,
       root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),

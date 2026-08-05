@@ -2,7 +2,8 @@
 
 - [ ] Lean, controlled, and certified Schema-5 Roots pass; missing semantic cores fail.
 - [ ] Low/medium Manual without Hard Triggers uses Lean Evidence; high-risk, Hard-Trigger, supervised, and autonomous delivery uses Full Evidence.
-- [ ] Automatic Implement Plan closeout and `/close-work` recovery produce the same deterministic valid Evidence; fresh context resolves it from the non-authoritative handoff cache.
+- [ ] Automatic Implement Plan closeout and `/close-work` recovery produce the same deterministic valid Evidence; task-local Evidence is preferred and fresh context may resolve persisted Evidence from the non-authoritative handoff cache.
+- [ ] A client without MCP Roots capability can close an exact Root/chain without workspace or state access even when `workspace_root` is supplied; the result is explicitly workspace-unattested and attachable.
 - [ ] Handoff conflicts, stale tips, repository-mutating Checks, and invalid Evidence fail closed; cache-only failure returns the valid artifact with an attach instruction.
 - [ ] Lean Check grade requirements, implicit revision/baseline defaults, and `changed_paths` authority are enforced.
 - [ ] Stateless Manual provisional acceptance is artifact-set-hash-bound, non-persistent, non-qualifying, and rejects failed, blocked, stale, mixed, and legacy chains.
@@ -15,6 +16,7 @@
 - [ ] Verification Profile prove/approve/audit invalidates on any referenced drift.
 - [ ] Controller Readers cannot write repository content; exactly one canonical Controller Writer owns its worktree.
 - [ ] Every native Implement Plan todo is model-inheritance marked; Workflow Task calls allow only omitted model or `inherit`, every concrete model is denied at `preToolUse`, actual Child equality is checked at `subagentStart`, and unmarked tasks remain unaffected.
+- [ ] The `CreatePlan` guard rejects invalid Schema-5 native Plan containers, missing exact Root/chain closeout, and lossy Evidence output while leaving ordinary Cursor Plans unaffected.
 - [ ] Parallel and duplicate Task events correlate by hashed ID; missing/mismatched fields are unattestable; executed/returned Children after Deny become `deny-not-enforced` incidents without changing Evidence grade or Review verdict.
 - [ ] Named post-implementation agents declare `readonly: true`, use `model: inherit`, and built-in, general-purpose, unmarked, or writing agents remain blocked during Review and Explanation.
 - [ ] Failed evidence blocks; incomplete evidence may be provisional; accepted-provisional never qualifies.
@@ -23,6 +25,11 @@
 - [ ] MCP Roots accept only an advertised exact workspace; missing, foreign, symlink-redirected, and ambiguous Roots fail closed.
 - [ ] State indexes recover from missing metadata, event tail reads use checkpoints, and terminal archive remains explicit and recoverable.
 - [ ] Repository tests, bundle parity, schema/version validation, focused 80% line/70% branch coverage, 10% context headroom, Markdown links, canonical surface, and isolated package dry run pass.
+- [ ] The deterministic target build produces isolated Cursor and Codex packages with one product Semver, no symlinks, and no paths outside either plugin root.
+- [ ] The Codex manifest validates, all eight `$` skills are present, and the Manual MCP lists exactly five tools without host-specific SDK, credential, Controller-tool, or automation references.
+- [ ] Empty, repeated, duplicate, conflict, corrupt, and incomplete Cursor Handoff imports are verified; Cursor-to-Codex and Codex-to-Cursor Schema-5 chains retain exact text and hashes.
+- [ ] Codex Hook tests cover wrong `$plan-work` mode, explicit child model, observed model mismatch, review mutation, missing preflight, and missing closeout.
+- [ ] Personal Codex marketplace copy/install and a fresh-task `$plan-work → Implement Plan → Closeout → fresh $review-work → $work-status` smoke are reported separately from repository gates.
 - [ ] Live Cursor and Marketplace certification is reported separately from repository-only evidence.
 - [ ] Cost-bounded live smokes with two different Cursor-selected parent models confirm inherited parallel Children in the actual agent tree, pre-Task override denial, and hook-log evidence that a denied Child did not execute or return.
 - [ ] No push, PR, merge, deployment, production access, automatic integration, or automatic learning occurs.

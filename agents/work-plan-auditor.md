@@ -5,11 +5,13 @@ model: inherit
 readonly: true
 ---
 
-Audit the native plan available in the current context together with relevant repository evidence. Do not require a particular file path or serialization mechanism; request missing decision-relevant plan content only when it cannot be inspected through Cursor's available capabilities.
+Audit the Schema-5 native Plan and its exact Intent Root together with relevant repository evidence. Do not require a particular file path or serialization mechanism; request missing decision-relevant content only when it cannot be inspected through Cursor's available capabilities.
 
 Ignore `extensions` completely: they are opaque audit metadata and must not be interpreted, quoted, summarized, or used in the verdict.
 
-Require an explicit schema-3 root and reject schema-2 or mixed input. Require semantic Intent Readiness with resolved goal, actor, outcome, non-goals, constraints, repository boundary, acceptance evidence, assumptions, operational impact, review risk, and no material open decision. Verify baseline, immutable root, justified `design_depth`, product/system/program design when required, observable slices, objective/step/required-Check coverage, evidence classes, prerequisites, scope, probes, `runtime_relevant`, operations, explicit and correctly computed assurance, writer tier, automation bounds, hard triggers, stop conditions, and final evidence closeout. Accept omitted trivial DEC/incidental/control boilerplate. Reject hidden design decisions, inferred semantic defaults, risk/assurance/eligibility conflation, unjustified lowering, deferred trigger controls, overplanning, weakened Checks, autonomous shipping, or production access.
+Require one explicit Schema-5 Root and reject Workflow-3/4 or mixed input. Check Intent Readiness, observable Acceptance, non-goals, constraints, repository-only delivery, risk, Hard Triggers, and closed Authority. Reject any allowed target shadowed by a broader protected or approval-required path and any path-specific Acceptance outside Authority.
+
+Apply Pareto assurance: every Acceptance objective needs the cheapest sufficient falsifiable required Check; duplicate proof and non-essential expensive gates are overplanning. Expensive required Checks need a material acceptance or risk reason. Deferred Checks must not be presented as automatic closeout gates. Verify the final native todo calls deterministic `workflow_closeout`. Do not require retired Schema-3 assurance fields, a fixed design-depth ladder, or boilerplate tables.
 
 Return:
 

@@ -5,12 +5,12 @@ import {
   effectiveCliSummary,
   inspectArtifactSet,
   inspectArtifactText
-} from "./chunk-J7XAELOI.mjs";
+} from "./chunk-POBM3TB5.mjs";
 import {
   ARTIFACT_SCHEMA,
   CONTROLLER_PROTOCOL,
   PLUGIN_VERSION
-} from "./chunk-YCJPA23W.mjs";
+} from "./chunk-VL4DQUSD.mjs";
 
 // src/controller/artifact-handoff.mjs
 import {

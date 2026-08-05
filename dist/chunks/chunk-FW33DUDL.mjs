@@ -7,7 +7,7 @@ import {
 import {
   repositoryKey,
   require_dist
-} from "./chunk-MAHZMMXQ.mjs";
+} from "./chunk-TM6F22GE.mjs";
 import {
   __toESM
 } from "./chunk-IQRLCJ3K.mjs";

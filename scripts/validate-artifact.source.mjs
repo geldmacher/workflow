@@ -359,6 +359,38 @@ function targetMatches(value, scope) {
   return new RegExp(`^${expression}$`).test(target);
 }
 
+function authorityTargetState(target, authority = {}) {
+  const allowed = (authority.allowed_roots ?? []).some((scope) => targetMatches(target, scope));
+  const protectedTarget = (authority.protected_paths ?? []).some((scope) => targetMatches(target, scope));
+  const approvalRequired = (authority.approval_required_paths ?? []).some((scope) => targetMatches(target, scope));
+  return { allowed, protected: protectedTarget, approval_required: approvalRequired };
+}
+
+function acceptanceChangeTargets(parsed) {
+  const sources = [
+    ...(parsed.fields.acceptance ?? []),
+    parsed.sections?.get("Acceptance") ?? "",
+  ];
+  const pathLike = (value) => !/^(?:https?:|[A-Za-z][A-Za-z0-9+.-]*:)/.test(value)
+    && !value.startsWith("/")
+    && value !== ".."
+    && !value.startsWith("../")
+    && !/\s/.test(value)
+    && (value.includes("/") || /^\.[A-Za-z0-9_-]/.test(value) || /^[A-Za-z0-9_-]+\.[A-Za-z0-9_.-]+$/.test(value));
+  const targets = [];
+  for (const source of sources) {
+    for (const match of String(source).matchAll(/`([^`]+)`/g)) {
+      const target = match[1].trim().replace(/^\.\//, "");
+      if (pathLike(target)) targets.push(target);
+    }
+  }
+  return unique(targets);
+}
+
+function issue(code, message, details = {}) {
+  return { code, message, ...details };
+}
+
 function fingerprintMap(value) {
   const entries = [...String(value ?? "").matchAll(/`([^`]+)`=([a-f0-9]{64})/g)];
   return new Map(entries.map((match) => [match[1].replace(/^\.\//, ""), match[2]]));
@@ -477,7 +509,11 @@ function validatePlanV4(parsed, sections, failures) {
     }
     const final = String(todos.at(-1)?.content ?? "");
     if (!/verify|check|evidence|snapshot/i.test(final)) failures.push("final native todo must verify or evidence the implemented result");
-    if (parsed.fields.schema === 5 && !/workflow_closeout/.test(final)) failures.push("final native todo must call workflow_closeout");
+    if (parsed.fields.schema === 5) {
+      if (!/workflow_closeout/.test(final)) failures.push("final native todo must call workflow_closeout");
+      if (!/exact Root\/chain/i.test(final)) failures.push("final native todo must supply the exact Root/chain to workflow_closeout");
+      if (!/(?:print|return|output)[\s\S]{0,100}(?:returned artifact|artifact returned by workflow_closeout)[\s\S]{0,100}(?:unchanged|byte-for-byte)/i.test(final)) failures.push("final native todo must print the returned artifact unchanged");
+    }
   }
 }
 
@@ -890,12 +926,24 @@ function validateCompactReview(parsed, sections, failures) {
   const visibleAuditors = new Set(String(auditorRow?.Inspected ?? "").split(",").map((value) => value.trim()).filter((value) => value && !noneLike(value)));
   if (coverage.rows.length > 0 && !sameSet(visibleAuditors, actualAuditors)) parsed.normalizations.push("Evidence coverage: auditor summary derived from frontmatter");
   const routeRank = { inline: 1, targeted: 2, full: 3 };
-  let minimumRoute = actualAuditors.has("risk-auditor") || findings.rows.some((row) => /^(?:high|critical)$/.test(row.Severity))
+  const decisiveBoundary = ["replan", "clarify"].includes(parsed.fields.next_action);
+  const unresolvedHighFinding = findings.rows.some((row) => /^(?:high|critical)$/.test(row.Severity)) && !decisiveBoundary;
+  let minimumRoute = actualAuditors.has("risk-auditor") || unresolvedHighFinding
     ? "full"
-    : actualAuditors.has("delivery-auditor") ? "targeted" : "inline";
+    : actualAuditors.has("delivery-auditor") || actualAuditors.has("work-design-auditor") ? "targeted" : "inline";
   if (routeRank[parsed.fields.review_route] < routeRank[minimumRoute]) failures.push(`review_route must be at least computed minimum ${minimumRoute}`);
-  const routeAuditors = parsed.fields.review_route === "inline" ? ["inline"] : parsed.fields.review_route === "targeted" ? ["inline", "delivery-auditor"] : ["inline", "delivery-auditor", "risk-auditor"];
-  const missingAuditors = routeAuditors.filter((auditor) => !actualAuditors.has(auditor));
+  const requiredAuditors = parsed.fields.review_route === "inline" ? ["inline"] : parsed.fields.review_route === "full" ? ["inline", "delivery-auditor", "risk-auditor"] : ["inline"];
+  const missingAuditors = requiredAuditors.filter((auditor) => !actualAuditors.has(auditor));
+  missingAuditors.forEach((auditor) => failures.push(`${parsed.fields.review_route} review requires auditor ${auditor}`));
+  const targetedSpecialists = ["delivery-auditor", "work-design-auditor"].filter((auditor) => actualAuditors.has(auditor));
+  if (parsed.fields.review_route === "inline" && actualAuditors.size !== 1) failures.push("inline review permits only the inline auditor");
+  if (parsed.fields.review_route === "targeted" && (targetedSpecialists.length !== 1 || actualAuditors.size !== 2 || actualAuditors.has("risk-auditor"))) {
+    failures.push("targeted review requires inline plus exactly one delivery or design auditor");
+  }
+  if (parsed.fields.review_route === "full") {
+    const permitted = new Set(["inline", "delivery-auditor", "risk-auditor", "work-design-auditor"]);
+    if ([...actualAuditors].some((auditor) => !permitted.has(auditor))) failures.push("full review contains an unsupported auditor");
+  }
 
   const next = sections.get("Next action") ?? "";
   if (!next.toLowerCase().includes(String(parsed.fields.next_action).toLowerCase())) failures.push("Next action section must state frontmatter next_action");
@@ -976,6 +1024,131 @@ export function inspectArtifactText(text, root = defaultRoot, options = {}) {
     normalizations: built.normalizations,
     effective: built.parsed?.effective ?? null,
     artifact: built.parsed ?? null,
+  };
+}
+
+export function preflightRootPlan(text, root = defaultRoot) {
+  const inspected = inspectArtifactText(text, root);
+  const parsed = inspected.artifact;
+  if (inspected.errors.length > 0 || parsed?.fields?.artifact !== "work-plan" || parsed.fields.schema !== 5) {
+    return {
+      feasible: false,
+      root_plan_id: parsed?.fields?.id ?? null,
+      root_projection_hash: null,
+      blocking_issues: (inspected.errors.length > 0 ? inspected.errors : ["input must be one Schema-5 work-plan"])
+        .map((message) => issue("invalid-root", message)),
+      advisories: [],
+      required_checks: [],
+      deferred_checks: [],
+      cost_classes: { cheap: 0, standard: 0, expensive: 0 },
+      approval_granted: false,
+      mutation_performed: false,
+    };
+  }
+
+  const blocking = [];
+  const advisories = [];
+  const authority = parsed.fields.authority ?? {};
+  const denied = [
+    ...(authority.protected_paths ?? []).map((path) => ({ kind: "protected", path })),
+    ...(authority.approval_required_paths ?? []).map((path) => ({ kind: "approval-required", path })),
+  ];
+  for (const allowed of authority.allowed_roots ?? []) {
+    const shadow = denied.find((entry) => targetMatches(allowed, entry.path));
+    if (shadow) blocking.push(issue(
+      "shadowed-allowed-root",
+      `allowed root ${allowed} is fully shadowed by ${shadow.kind} path ${shadow.path}`,
+      { target: allowed, boundary: shadow.path, boundary_kind: shadow.kind },
+    ));
+  }
+  for (const target of acceptanceChangeTargets(parsed)) {
+    const state = authorityTargetState(target, authority);
+    if (!state.allowed || state.protected || state.approval_required) blocking.push(issue(
+      "acceptance-path-outside-authority",
+      `Acceptance requires changing ${target}, but the current Root does not authorize that target`,
+      { target, ...state },
+    ));
+  }
+
+  const rows = tableRows(parsed.sections.get("Acceptance") ?? "", tables.verificationWithClass);
+  const objectiveIds = new Set((parsed.fields.acceptance ?? []).map((_, index) => `OBJ-${index + 1}`));
+  const requiredChecks = [];
+  const deferredChecks = [];
+  const costs = { cheap: 0, standard: 0, expensive: 0 };
+  if (rows.length === 0) {
+    blocking.push(issue("explicit-verification-required", "new Schema-5 roots require an explicit Verification table for Pareto check selection"));
+  } else {
+    const seenIds = new Set();
+    const signatures = new Map();
+    const requiredObjectives = new Set();
+    const classifiedChecks = [];
+    for (const row of rows) {
+      const checkId = row["Check ID"];
+      if (!/^CHECK-[1-9][0-9]*$/.test(checkId)) blocking.push(issue("invalid-check-id", `Verification has invalid Check ID ${checkId || "<missing>"}`));
+      else if (seenIds.has(checkId)) blocking.push(issue("duplicate-check-id", `Verification repeats ${checkId}`, { check_id: checkId }));
+      else seenIds.add(checkId);
+      const boundObjectives = ids(row.Objectives, objectivePattern);
+      if (boundObjectives.length === 0 || boundObjectives.some((id) => !objectiveIds.has(id))) blocking.push(issue(
+        "invalid-check-objectives",
+        `${checkId || "Verification Check"} must reference only current Acceptance objectives`,
+        { check_id: checkId || null, objectives: boundObjectives },
+      ));
+      if (!/^(?:yes|no)$/.test(row.Required)) blocking.push(issue("invalid-required-value", `${checkId || "Verification Check"} Required must be yes or no`, { check_id: checkId || null }));
+      if (!/^(?:machine-verifiable|human-review-required|human-approval-required)$/.test(row["Evidence Class"])) blocking.push(issue("invalid-evidence-class", `${checkId || "Verification Check"} has an invalid Evidence Class`, { check_id: checkId || null }));
+      if (!/^(?:cheap|standard|expensive)$/.test(row["Cost Class"])) blocking.push(issue("invalid-cost-class", `${checkId || "Verification Check"} has an invalid Cost Class`, { check_id: checkId || null }));
+      else costs[row["Cost Class"]] += 1;
+      if (row.Required === "yes") {
+        requiredChecks.push(checkId);
+        boundObjectives.forEach((id) => requiredObjectives.add(id));
+        const signature = [boundObjectives.sort().join(","), row["Command or Inspection"], row["Expected Result"], targetTokens(row.Prerequisites).sort().join(",")]
+          .map((value) => normalizedHeader(value)).join("|");
+        classifiedChecks.push({ check_id: checkId, required: true, cost: row["Cost Class"], signature });
+        const prior = signatures.get(signature);
+        if (prior) blocking.push(issue("duplicate-required-check", `${checkId} duplicates required Check ${prior}`, { check_id: checkId, duplicate_of: prior }));
+        else signatures.set(signature, checkId);
+        if (row["Cost Class"] === "expensive" && parsed.fields.risk !== "high" && (parsed.fields.hard_triggers ?? []).length === 0) advisories.push(issue(
+          "expensive-required-check",
+          `${checkId} is expensive and required; retain it only when no cheaper equivalent proves the same essential outcome`,
+          { check_id: checkId },
+        ));
+      } else if (row.Required === "no") {
+        deferredChecks.push(checkId);
+        classifiedChecks.push({
+          check_id: checkId,
+          required: false,
+          cost: row["Cost Class"],
+          signature: [boundObjectives.sort().join(","), row["Command or Inspection"], row["Expected Result"], targetTokens(row.Prerequisites).sort().join(",")]
+            .map((value) => normalizedHeader(value)).join("|"),
+        });
+      }
+    }
+    for (const check of classifiedChecks.filter((entry) => entry.required && entry.cost === "expensive")) {
+      const cheaper = classifiedChecks.find((entry) => entry.check_id !== check.check_id && entry.signature === check.signature && entry.cost !== "expensive");
+      if (cheaper) blocking.push(issue(
+        "expensive-required-equivalent",
+        `${check.check_id} is required despite cheaper equivalent ${cheaper.check_id}`,
+        { check_id: check.check_id, cheaper_check_id: cheaper.check_id },
+      ));
+    }
+    for (const objective of objectiveIds) if (!requiredObjectives.has(objective)) blocking.push(issue(
+      "missing-required-check",
+      `${objective} needs at least one required falsifiable Check`,
+      { objective_id: objective },
+    ));
+  }
+
+  const projection = authoritativeArtifactProjectionFromText(text, root);
+  return {
+    feasible: blocking.length === 0,
+    root_plan_id: parsed.fields.id,
+    root_projection_hash: projection.projection_hash ?? null,
+    blocking_issues: blocking,
+    advisories,
+    required_checks: requiredChecks.filter(Boolean),
+    deferred_checks: deferredChecks.filter(Boolean),
+    cost_classes: costs,
+    approval_granted: false,
+    mutation_performed: false,
   };
 }
 

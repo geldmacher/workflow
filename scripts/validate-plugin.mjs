@@ -156,10 +156,11 @@ function validateRelease(root, manifest, failures) {
     addFormats(schemaAjv);
     schemaAjv.compile(receiptSchema);
   } catch (error) { failures.push(`capability receipt JSON schema does not compile: ${error.message}`); }
-  const registeredTools = [...readText(join(root, "src", "mcp", "workflow-mcp.mjs")).matchAll(/server\.registerTool\("([^"]+)"/g)].map((match) => match[1]).sort();
+  const registrationSources = ["src/mcp/workflow-mcp.mjs", "src/mcp/manual-tools.mjs"].map((path) => readText(join(root, path))).join("\n");
+  const registeredTools = [...new Set([...registrationSources.matchAll(/server\.registerTool\("([^"]+)"/g)].map((match) => match[1]))].sort();
   if (registeredTools.join("\n") !== [...WORKFLOW_TOOL_NAMES].sort().join("\n")) failures.push("MCP tool registry differs from registered tools");
   if (Object.keys(WORKFLOW_TOOL_CONTRACTS).sort().join("\n") !== [...WORKFLOW_TOOL_NAMES].sort().join("\n")) failures.push("MCP tool contracts differ from the tool registry");
-  if (!readText(join(root, "docs", "capability-spike.md")).includes("exactly eleven tools")) failures.push("capability-spike.md does not describe the eleven-tool surface");
+  if (!readText(join(root, "docs", "capability-spike.md")).includes("exactly twelve tools")) failures.push("capability-spike.md does not describe the twelve-tool surface");
   const versionDocuments = {
     "README.md": [`- Plugin ${PLUGIN_VERSION}`, `- Artifact Schema ${ARTIFACT_SCHEMA}`, `- Controller Protocol ${CONTROLLER_PROTOCOL}`, `- Capability Receipt Schema ${CAPABILITY_RECEIPT_SCHEMA}`],
     "docs/configuration.md": [`Plugin ${PLUGIN_VERSION}`, `Artifact Schema ${ARTIFACT_SCHEMA}`, `Controller Protocol ${CONTROLLER_PROTOCOL}`, `Capability Receipt Schema ${CAPABILITY_RECEIPT_SCHEMA}`],
@@ -185,16 +186,19 @@ function validateRelease(root, manifest, failures) {
 function validateHookSurface(root, manifest, failures) {
   const expectedPath = "./hooks/hooks.json";
   const expectedCommand = "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"";
+  const expectedPlanCommand = "node \"${CURSOR_PLUGIN_ROOT}/hooks/plan-integrity-guard.mjs\"";
   if (manifest.hooks !== expectedPath) failures.push(`plugin.json hooks must reference ${expectedPath}`);
   const directory = join(root, "hooks");
   const configPath = join(directory, "hooks.json");
   const statePath = join(directory, "model-inheritance-state.mjs");
+  const planGuardPath = join(directory, "plan-integrity-guard.mjs");
   const scriptPath = join(directory, "subagent-guard.mjs");
   if (!existsSync(configPath)) failures.push("hooks/hooks.json is missing");
   if (!existsSync(statePath)) failures.push("hooks/model-inheritance-state.mjs is missing");
+  if (!existsSync(planGuardPath)) failures.push("hooks/plan-integrity-guard.mjs is missing");
   if (!existsSync(scriptPath)) failures.push("hooks/subagent-guard.mjs is missing");
   const files = listFiles(directory, () => true).map((file) => relative(root, file));
-  const expectedFiles = ["hooks/hooks.json", "hooks/model-inheritance-state.mjs", "hooks/subagent-guard.mjs"];
+  const expectedFiles = ["hooks/hooks.json", "hooks/model-inheritance-state.mjs", "hooks/plan-integrity-guard.mjs", "hooks/subagent-guard.mjs"];
   if (files.join("\n") !== expectedFiles.join("\n")) failures.push(`hooks: expected [${expectedFiles.join(", ")}], received [${files.join(", ")}]`);
   if (!existsSync(configPath)) return;
   try {
@@ -207,19 +211,29 @@ function validateHookSurface(root, manifest, failures) {
     if (eventNames.join("\n") !== expectedEvents.join("\n")) failures.push(`hooks/hooks.json must declare ${expectedEvents.join(", ")} in order`);
     for (const eventName of expectedEvents) {
       const entries = config.hooks?.[eventName];
-      if (!Array.isArray(entries) || entries.length !== 1) {
-        failures.push(`hooks/hooks.json must declare exactly one ${eventName} command`);
+      const expectedEntries = eventName === "preToolUse"
+        ? [
+            { command: expectedCommand, matcher: "Task", failClosed: true },
+            { command: expectedPlanCommand, matcher: "CreatePlan", failClosed: true },
+          ]
+        : [{
+            command: expectedCommand,
+            ...(eventName === "postToolUse" ? { matcher: "Task" } : {}),
+            failClosed: eventName === "subagentStart",
+          }];
+      if (!Array.isArray(entries) || entries.length !== expectedEntries.length) {
+        failures.push(`hooks/hooks.json must declare ${expectedEntries.length} ${eventName} command${expectedEntries.length === 1 ? "" : "s"}`);
         continue;
       }
-      const [entry] = entries;
-      const taskMatcher = ["preToolUse", "postToolUse"].includes(eventName);
-      const blockingEvent = ["preToolUse", "subagentStart"].includes(eventName);
-      if (entry?.type !== "command") failures.push(`${eventName} hook type must be command`);
-      if (entry?.command !== expectedCommand) failures.push(`${eventName} hook must use the bundled Node guard through CURSOR_PLUGIN_ROOT`);
-      if (entry?.failClosed !== blockingEvent) failures.push(`${eventName} hook must set failClosed ${blockingEvent}`);
-      if (taskMatcher && entry?.matcher !== "Task") failures.push(`${eventName} hook must match Task`);
-      const expectedKeys = taskMatcher ? ["command", "failClosed", "matcher", "type"] : ["command", "failClosed", "type"];
-      if (Object.keys(entry ?? {}).sort().join("\n") !== expectedKeys.join("\n")) failures.push(`${eventName} hook contains unsupported fields`);
+      entries.forEach((entry, index) => {
+        const expected = expectedEntries[index];
+        if (entry?.type !== "command") failures.push(`${eventName} hook ${index + 1} type must be command`);
+        if (entry?.command !== expected.command) failures.push(`${eventName} hook ${index + 1} must use its bundled Node guard through CURSOR_PLUGIN_ROOT`);
+        if (entry?.failClosed !== expected.failClosed) failures.push(`${eventName} hook ${index + 1} must set failClosed ${expected.failClosed}`);
+        if (expected.matcher && entry?.matcher !== expected.matcher) failures.push(`${eventName} hook ${index + 1} must match ${expected.matcher}`);
+        const expectedKeys = expected.matcher ? ["command", "failClosed", "matcher", "type"] : ["command", "failClosed", "type"];
+        if (Object.keys(entry ?? {}).sort().join("\n") !== expectedKeys.join("\n")) failures.push(`${eventName} hook ${index + 1} contains unsupported fields`);
+      });
     }
     if (/\bnpx\b|\blatest\b/i.test(JSON.stringify(config))) failures.push("hooks must not install or resolve runtime dependencies");
   } catch (error) {

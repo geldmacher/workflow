@@ -8,7 +8,7 @@ import {
   classifyRunCompatibility,
   preparationProtocolFields,
   protocolFields
-} from "./chunk-YCJPA23W.mjs";
+} from "./chunk-VL4DQUSD.mjs";
 import {
   __commonJS,
   __require
@@ -7341,16 +7341,25 @@ var require_dist = __commonJS({
   }
 });
 
-// src/controller/store.mjs
-import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
-import { createHash, randomUUID } from "node:crypto";
+// src/core/state-paths.mjs
+import { createHash } from "node:crypto";
 import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 function repositoryKey(workspaceRoot) {
   return createHash("sha256").update(resolve(workspaceRoot)).digest("hex").slice(0, 20);
 }
+function sharedArtifactStateRoot(workspaceRoot, options = {}) {
+  const base = options.baseRoot ?? process.env.GELDMACHER_WORKFLOW_SHARED_ROOT ?? join(homedir(), ".geldmacher", "workflow", "state");
+  return join(resolve(base), repositoryKey(workspaceRoot));
+}
+
+// src/controller/store.mjs
+import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { createHash as createHash2, randomUUID } from "node:crypto";
+import { homedir as homedir2 } from "node:os";
+import { dirname, join as join2, resolve as resolve2 } from "node:path";
 function defaultStateRoot(workspaceRoot) {
-  return join(homedir(), ".cursor", "geldmacher-workflow", "state", repositoryKey(workspaceRoot));
+  return join2(homedir2(), ".cursor", "geldmacher-workflow", "state", repositoryKey(workspaceRoot));
 }
 function atomicJson(path, value) {
   mkdirSync(dirname(path), { recursive: true });
@@ -7401,7 +7410,7 @@ function releaseLock(path, descriptor) {
 }
 var EVENT_CHECKPOINT_INTERVAL = 128;
 function eventDigest(event, source = null) {
-  return event?.event_hash ?? createHash("sha256").update(source ?? JSON.stringify(event)).digest("hex");
+  return event?.event_hash ?? createHash2("sha256").update(source ?? JSON.stringify(event)).digest("hex");
 }
 function rebuildEventHead(eventPath, headPath) {
   const head = { schema: 1, count: 0, bytes: 0, last_hash: null, checkpoints: [] };
@@ -7440,7 +7449,7 @@ function appendIndexedEvent(directory, eventPath, headPath, type, payload) {
   mkdirSync(directory, { recursive: true, mode: 448 });
   const head = loadEventHead(eventPath, headPath);
   const event = { id: randomUUID(), at: (/* @__PURE__ */ new Date()).toISOString(), type, payload, previous_hash: head.last_hash };
-  event.event_hash = createHash("sha256").update(JSON.stringify(event)).digest("hex");
+  event.event_hash = createHash2("sha256").update(JSON.stringify(event)).digest("hex");
   const line = `${JSON.stringify(event)}
 `;
   const checkpoints = [...head.checkpoints];
@@ -7481,23 +7490,23 @@ function subjectDirectories(root, subjectPath) {
 }
 var RunStore = class {
   constructor(root) {
-    this.root = resolve(root);
+    this.root = resolve2(root);
     mkdirSync(this.root, { recursive: true, mode: 448 });
   }
   runDirectory(runId) {
-    return join(this.root, "runs", runId);
+    return join2(this.root, "runs", runId);
   }
   runPath(runId) {
-    return join(this.runDirectory(runId), "run.json");
+    return join2(this.runDirectory(runId), "run.json");
   }
   eventPath(runId) {
-    return join(this.runDirectory(runId), "events.jsonl");
+    return join2(this.runDirectory(runId), "events.jsonl");
   }
   eventHeadPath(runId) {
-    return join(this.runDirectory(runId), "events-head.json");
+    return join2(this.runDirectory(runId), "events-head.json");
   }
   indexPath() {
-    return join(this.root, "runs", "index.json");
+    return join2(this.root, "runs", "index.json");
   }
   summary(run) {
     return {
@@ -7520,7 +7529,7 @@ var RunStore = class {
     };
   }
   rebuildIndex() {
-    const directory = join(this.root, "runs");
+    const directory = join2(this.root, "runs");
     const subjects = subjectDirectories(directory, (id) => this.runPath(id)).map((id) => this.summary(JSON.parse(readFileSync(this.runPath(id), "utf8"))));
     const index = { schema: 1, subjects };
     atomicJson(this.indexPath(), index);
@@ -7529,7 +7538,7 @@ var RunStore = class {
   index() {
     try {
       const index = JSON.parse(readFileSync(this.indexPath(), "utf8"));
-      const actual = subjectDirectories(join(this.root, "runs"), (id) => this.runPath(id));
+      const actual = subjectDirectories(join2(this.root, "runs"), (id) => this.runPath(id));
       const recorded = (index.subjects ?? []).map((subject) => subject.run_id).sort();
       if (index.schema !== 1 || actual.join("\n") !== recorded.join("\n")) throw new Error("run index mismatch");
       return index;
@@ -7543,7 +7552,7 @@ var RunStore = class {
     atomicJson(this.indexPath(), { schema: 1, subjects: [...subjects.values()].sort((left, right) => left.run_id.localeCompare(right.run_id)) });
   }
   create(input) {
-    const lockPath = join(this.root, ".create.lock");
+    const lockPath = join2(this.root, ".create.lock");
     const descriptor = acquireLock(lockPath);
     try {
       const active = this.active();
@@ -7570,7 +7579,7 @@ var RunStore = class {
     }
   }
   createFromPreparation(preparationStore, options, input) {
-    const lockPath = join(this.root, ".create.lock");
+    const lockPath = join2(this.root, ".create.lock");
     const descriptor = acquireLock(lockPath);
     try {
       const existing = this.list().find((run2) => classifyRunCompatibility(run2).compatible && (run2.preparation_id === options.preparationId || run2.start_idempotency_key === options.idempotencyKey));
@@ -7619,7 +7628,7 @@ var RunStore = class {
     return run;
   }
   update(runId, expectedRevision, idempotencyKey, mutator, eventType = "run-updated") {
-    const lockPath = join(this.runDirectory(runId), ".lock");
+    const lockPath = join2(this.runDirectory(runId), ".lock");
     const descriptor = acquireLock(lockPath);
     try {
       const run = this.get(runId);
@@ -7661,23 +7670,23 @@ var RunStore = class {
 };
 var PreparationStore = class {
   constructor(root) {
-    this.root = resolve(root);
+    this.root = resolve2(root);
     mkdirSync(this.root, { recursive: true, mode: 448 });
   }
   preparationDirectory(preparationId) {
-    return join(this.root, "preparations", preparationId);
+    return join2(this.root, "preparations", preparationId);
   }
   preparationPath(preparationId) {
-    return join(this.preparationDirectory(preparationId), "preparation.json");
+    return join2(this.preparationDirectory(preparationId), "preparation.json");
   }
   eventPath(preparationId) {
-    return join(this.preparationDirectory(preparationId), "events.jsonl");
+    return join2(this.preparationDirectory(preparationId), "events.jsonl");
   }
   eventHeadPath(preparationId) {
-    return join(this.preparationDirectory(preparationId), "events-head.json");
+    return join2(this.preparationDirectory(preparationId), "events-head.json");
   }
   indexPath() {
-    return join(this.root, "preparations", "index.json");
+    return join2(this.root, "preparations", "index.json");
   }
   summary(preparation) {
     return {
@@ -7692,7 +7701,7 @@ var PreparationStore = class {
     };
   }
   rebuildIndex() {
-    const directory = join(this.root, "preparations");
+    const directory = join2(this.root, "preparations");
     const subjects = subjectDirectories(directory, (id) => this.preparationPath(id)).map((id) => this.summary(JSON.parse(readFileSync(this.preparationPath(id), "utf8"))));
     const index = { schema: 1, subjects };
     atomicJson(this.indexPath(), index);
@@ -7701,7 +7710,7 @@ var PreparationStore = class {
   index() {
     try {
       const index = JSON.parse(readFileSync(this.indexPath(), "utf8"));
-      const actual = subjectDirectories(join(this.root, "preparations"), (id) => this.preparationPath(id));
+      const actual = subjectDirectories(join2(this.root, "preparations"), (id) => this.preparationPath(id));
       const recorded = (index.subjects ?? []).map((subject) => subject.preparation_id).sort();
       if (index.schema !== 1 || actual.join("\n") !== recorded.join("\n")) throw new Error("preparation index mismatch");
       return index;
@@ -7715,7 +7724,7 @@ var PreparationStore = class {
     atomicJson(this.indexPath(), { schema: 1, subjects: [...subjects.values()].sort((left, right) => left.preparation_id.localeCompare(right.preparation_id)) });
   }
   create(input) {
-    const lockPath = join(this.root, ".prepare.lock");
+    const lockPath = join2(this.root, ".prepare.lock");
     const descriptor = acquireLock(lockPath);
     try {
       const active = this.active();
@@ -7749,7 +7758,7 @@ var PreparationStore = class {
     return preparation;
   }
   update(preparationId, expectedRevision, idempotencyKey, mutator, eventType = "preparation-updated") {
-    const lockPath = join(this.preparationDirectory(preparationId), ".lock");
+    const lockPath = join2(this.preparationDirectory(preparationId), ".lock");
     const descriptor = acquireLock(lockPath);
     try {
       const preparation = this.get(preparationId);
@@ -7780,7 +7789,7 @@ var PreparationStore = class {
     }), "preparation-consumed");
   }
   controlUpdate(preparationId, expectedRevision, idempotencyKey, mutator, eventType = "preparation-controlled") {
-    const repositoryLockPath = join(this.root, ".create.lock");
+    const repositoryLockPath = join2(this.root, ".create.lock");
     const descriptor = acquireLock(repositoryLockPath);
     try {
       const before = this.get(preparationId);
@@ -7811,6 +7820,7 @@ var PreparationStore = class {
 
 export {
   repositoryKey,
+  sharedArtifactStateRoot,
   defaultStateRoot,
   RunStore,
   PreparationStore,

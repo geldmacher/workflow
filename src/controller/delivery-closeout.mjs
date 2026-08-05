@@ -349,6 +349,7 @@ export function persistCloseout({ handoffStore, rootPlanText, artifacts = [], cl
       ...closeout,
       handoff_persisted: false,
       handoff_authoritative: false,
+      handoff_error_code: "handoff-persist-failed",
       warning: `handoff cache unavailable: ${error.message}; attach the returned artifact explicitly to the next Workflow command`,
     };
   }

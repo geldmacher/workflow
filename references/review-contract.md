@@ -1,7 +1,9 @@
 # Review Schema 5
 
-A `work-review` binds the Root and latest evidence, declares assessment, delivery status, route, auditors, next action, and inspected/reused coverage. Reviewers are fresh and read-only. They judge Intent, Strategy, diff, and evidence; they cannot upgrade an evidence grade.
+A `work-review` binds Root/evidence, verdict, route, auditors, action, and coverage; it never upgrades evidence.
 
-An explicit `wp-*` selects its Root. Otherwise use the active native Cursor Plan and current-task chain, then a unique active controller Run; Manual needs no controller state. Missing or ambiguous Root/evidence identity produces a non-artifact request, never a partial `work-review`.
+Start inline on chain/tip, Authority, paths, failures, and required evidence. Proven `replan|clarify` stops before delegation/live Checks. Otherwise `inline` fits bounded low/medium Manual; `targeted` adds one delivery/design auditor; `full` requires inline/delivery/risk, plus design for material architecture/interfaces. Certified, Hard-Trigger, unresolved high/critical, or cross-cutting risk requires full.
 
-Verified delivery requires `assessment: achieved`, `delivery_status: verified`, and `next_action: none`. A Manual evidence gap may use `assessment: provisional`, `delivery_status: provisional`, and `next_action: accept-provisional`; `/accept-work` can acknowledge exactly that current tip without persistence. Known failure is blocked and must correct or replan. Corrections remain Findings-backed and inside Root authority.
+Resolve explicit `wp-*`, else active Plan chain, else unique Run. Task artifacts precede cache. Roots-request/empty retains an exact task Root/Evidence chain; other Root/semantic errors block. Manual needs no controller state; missing/ambiguous identity emits nothing.
+
+`achieved/verified/none` needs central acceptance and required Checks. Non-failed gaps may be provisional; failures block. `correct` stays Findings-backed/in-authority; changed boundaries require `replan`.

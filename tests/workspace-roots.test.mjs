@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, realpathSync, rmSync, symlinkSync } from "node:fs";
+import { mkdtempSync, mkdirSync, realpathSync, renameSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -36,11 +36,32 @@ test("workspace authority fails closed for missing, foreign, and symlink aliases
   mkdirSync(foreign);
   symlinkSync(allowed, alias);
   try {
-    await assert.rejects(() => new WorkspaceRootAuthority(async () => ({ roots: [] })).resolve(), /unavailable/);
-    await assert.rejects(() => new WorkspaceRootAuthority(async () => roots(alias)).resolve(), /symlink redirected/);
+    await assert.rejects(() => new WorkspaceRootAuthority(async () => ({ roots: [] })).resolve(), (error) => error.code === "roots-empty" && /empty/.test(error.message));
+    await assert.rejects(() => new WorkspaceRootAuthority(async () => roots(alias)).resolve(), (error) => error.code === "root-symlink" && /symlink redirected/.test(error.message));
     const authority = new WorkspaceRootAuthority(async () => roots(allowed));
-    await assert.rejects(() => authority.resolve(foreign), /not an advertised MCP root/);
-    await assert.rejects(() => authority.resolve(alias), /not an advertised MCP root/);
+    await assert.rejects(() => authority.resolve(foreign), (error) => error.code === "root-foreign" && /not an advertised MCP root/.test(error.message));
+    await assert.rejects(() => authority.resolve(alias), (error) => error.code === "root-foreign" && /not an advertised MCP root/.test(error.message));
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+test("workspace authority preserves roots request failure details without weakening the boundary", async () => {
+  const authority = new WorkspaceRootAuthority(async () => { throw new Error("client does not support roots/list"); });
+  await assert.rejects(() => authority.resolve(), (error) => error.code === "roots-request-failed" && /client does not support roots\/list/.test(error.message));
+});
+
+test("workspace authority distinguishes root drift after discovery", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "workflow-roots-drift-"));
+  const advertised = join(directory, "advertised");
+  const original = join(directory, "original");
+  const replacement = join(directory, "replacement");
+  mkdirSync(advertised);
+  mkdirSync(replacement);
+  try {
+    const authority = new WorkspaceRootAuthority(async () => roots(advertised));
+    await authority.roots();
+    renameSync(advertised, original);
+    symlinkSync(replacement, advertised);
+    await assert.rejects(() => authority.resolve(advertised), (error) => error.code === "root-drift" && /changed after MCP root discovery/.test(error.message));
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });
 

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "geldmacher-workflow": {
+      "command": "node",
+      "args": ["./dist/workflow-mcp.mjs"],
+      "cwd": ".",
+      "env_vars": ["GELDMACHER_WORKFLOW_SHARED_ROOT"],
+      "tool_timeout_sec": 120
+    }
+  }
+}

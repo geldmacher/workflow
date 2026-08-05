@@ -11,7 +11,7 @@ import {
   planningUsage,
   resolveCapabilities,
   validateRootPlanLineage
-} from "./chunk-GFL7YVNY.mjs";
+} from "./chunk-JFY57M5I.mjs";
 import {
   assertContainedPath,
   changedPaths,
@@ -23,31 +23,31 @@ import {
   repositoryBaseline,
   rollbackToCheckpoint,
   runHostCheck
-} from "./chunk-XAJC6UTH.mjs";
+} from "./chunk-FW33DUDL.mjs";
 import {
   CursorWorkerAdapter,
   evaluateAuthorization,
   evaluateEligibility,
   qualificationKey,
   selectWriterRoute
-} from "./chunk-5IA5FVOS.mjs";
+} from "./chunk-MICWNJTT.mjs";
 import {
   ArtifactHandoffStore
-} from "./chunk-ZS6XCYJ6.mjs";
+} from "./chunk-ZN7TDC62.mjs";
 import {
   effectiveCliSummary,
   executionContractFromArtifactText,
   inspectArtifactSet,
   inspectArtifactText
-} from "./chunk-J7XAELOI.mjs";
+} from "./chunk-POBM3TB5.mjs";
 import {
   require_dist
-} from "./chunk-MAHZMMXQ.mjs";
+} from "./chunk-TM6F22GE.mjs";
 import {
   ARTIFACT_SCHEMA,
   assertCompatiblePreparation,
   classifyRunCompatibility
-} from "./chunk-YCJPA23W.mjs";
+} from "./chunk-VL4DQUSD.mjs";
 import {
   __toESM
 } from "./chunk-IQRLCJ3K.mjs";
@@ -660,6 +660,7 @@ function persistCloseout({ handoffStore, rootPlanText, artifacts = [], closeout 
       ...closeout,
       handoff_persisted: false,
       handoff_authoritative: false,
+      handoff_error_code: "handoff-persist-failed",
       warning: `handoff cache unavailable: ${error.message}; attach the returned artifact explicitly to the next Workflow command`
     };
   }

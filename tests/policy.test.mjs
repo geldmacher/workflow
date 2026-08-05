@@ -18,21 +18,23 @@ test("manual commands preserve Cursor-native human gates", () => {
 test("review is fresh and read-only but may use Cursor inspection capabilities", () => {
   const runtime = [read("commands/review-work.md"), read("skills/work-review/SKILL.md"), read("references/review-contract.md")].join("\n");
   assert.match(runtime, /fresh Cursor Ask context/i);
-  assert.match(runtime, /do not inherit Writer assumptions/i);
+  assert.match(runtime, /(?:do not inherit|without) Writer assumptions/i);
   assert.match(runtime, /read-only/i);
   assert.match(runtime, /MCP/);
-  assert.match(runtime, /cannot (?:upgrade|raise)/i);
+  assert.match(runtime, /(?:cannot|never) (?:upgrade|raise)/i);
 });
 
 test("review without a selector uses the active native Plan before controller state", () => {
   const command = read("commands/review-work.md");
   const runtime = [command, read("skills/work-review/SKILL.md"), read("references/review-contract.md")].join("\n");
   assert.match(command, /optional `wp-\*`.*without it.*active native Cursor Plan/is);
-  assert.match(runtime, /Manual activity needs no Preparation\/Run/i);
-  assert.match(runtime, /Only if no Plan resolves.*active controller Run/is);
+  assert.match(runtime, /Manual(?: activity)? needs no Preparation\/Run/i);
+  assert.match(runtime, /active Plan's Schema-5 chain.*else the unique active Run/is);
   assert.match(runtime, /ignore unscoped `workflow_status` for Manual resolution/i);
-  assert.match(runtime, /If Root resolution succeeds but Evidence is still absent.*\/close-work.*emit no review/is);
-  assert.match(runtime, /schema-valid Schema-5 review.*validate when available/is);
+  assert.match(runtime, /Root (?:without Evidence|resolution succeeds but Evidence is still absent).*\/close-work/is);
+  assert.match(runtime, /task artifacts first.*workflow_artifact_context.*transport enrichment/is);
+  assert.match(runtime, /roots-request-failed\|roots-empty.*cannot discard.*task Root\/Evidence chain/is);
+  assert.match(runtime, /(?:emit and validate|schema-valid).*Schema-5 review/is);
 });
 
 test("artifact consumers resolve semantically and recognize Workflow 3/4 as history", () => {
@@ -84,6 +86,8 @@ test("manual closeout is deterministic recovery and cannot mutate the repository
   assert.match(runtime, /recompute the complete baseline.*compare content, paths, index state, and HEAD/is);
   assert.match(runtime, /network.*production.*external effect/is);
   assert.match(runtime, /handoff cache is transport only|cache is non-authoritative transport/i);
+  assert.match(runtime, /roots-request-failed\|roots-empty.*complete exact task Root\/chain/is);
+  assert.match(runtime, /(?:ignore|ignores).*workspace_root.*(?:no|claiming a) workspace binding/is);
   assert.match(runtime, /representation: full\|delta.*evidence_mode: lean\|full/is);
 });
 
@@ -160,6 +164,8 @@ test("runtime surface has one bundled controller and no automatic publication", 
   const hooks = read("hooks/hooks.json");
   for (const event of ["sessionStart", "beforeSubmitPrompt", "preToolUse", "subagentStart", "subagentStop", "postToolUse"]) assert.match(hooks, new RegExp(event));
   assert.match(hooks, /"matcher": "Task"/);
+  assert.match(hooks, /plan-integrity-guard\.mjs/);
+  assert.match(hooks, /"matcher": "CreatePlan"/);
   assert.match(hooks, /failClosed/);
   assert.equal(manifest.mcpServers, "mcp.json");
   assert.match(read("mcp.json"), /\$\{CURSOR_PLUGIN_ROOT\}\/dist\/workflow-mcp\.mjs/);

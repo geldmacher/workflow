@@ -14,10 +14,9 @@ import { CursorWorkerAdapter } from "../controller/worker-adapter.mjs";
 import { resolveCapabilities } from "../controller/capabilities.mjs";
 import { approveVerificationProfile, auditVerificationProfile, draftVerificationProfile, inspectVerificationProfile, recordVerificationProof } from "../controller/verification-profile.mjs";
 import { awaitCooperativeExit, clearWorkerControl, writeWorkerControl } from "../controller/control.mjs";
-import { deriveManualWorkflowSnapshot } from "../controller/manual-status.mjs";
-import { ArtifactHandoffStore } from "../controller/artifact-handoff.mjs";
-import { createArtifactHandlers } from "./artifact-handlers.mjs";
-import { WorkspaceRootAuthority } from "./workspace-roots.mjs";
+import { sharedArtifactStateRoot } from "../core/state-paths.mjs";
+import { registerManualWorkflowTools } from "./manual-tools.mjs";
+import { WorkspaceRootAuthority, WorkspaceRootError } from "./workspace-roots.mjs";
 import { proofArtifacts } from "./proof-artifacts.mjs";
 import { toolContract } from "./tool-contracts.mjs";
 import { modelInheritanceSummary } from "../../hooks/model-inheritance-state.mjs";
@@ -37,6 +36,13 @@ function result(value, isError = false) {
   return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }], structuredContent: value, isError };
 }
 
+function failure(error) {
+  return result({
+    error: error.message,
+    ...(error instanceof WorkspaceRootError ? { error_code: error.code } : {}),
+  }, true);
+}
+
 function proofResult(text) {
   const source = String(text ?? "");
   const fenced = source.match(/```json\s*([\s\S]*?)```/i)?.[1];
@@ -50,19 +56,22 @@ async function context(workspaceRoot) {
   const stateRoot = defaultStateRoot(workspace);
   const store = new RunStore(stateRoot);
   const preparationStore = new PreparationStore(stateRoot);
-  const handoffStore = new ArtifactHandoffStore(stateRoot, pluginRoot);
   const engine = new WorkflowEngine({ workspaceRoot: workspace, store, preparationStore, pluginRoot, stateRoot });
   const planningEngine = new PlanningEngine({ workspaceRoot: workspace, store: preparationStore, pluginRoot, stateRoot });
-  return { workspace, stateRoot, store, preparationStore, handoffStore, engine, planningEngine };
+  return { workspace, stateRoot, store, preparationStore, engine, planningEngine };
 }
 
-async function handoffContext(workspaceRoot) {
-  const workspace = await workspaceAuthority.resolve(workspaceRoot);
-  const stateRoot = defaultStateRoot(workspace);
-  return { workspace, stateRoot, handoffStore: new ArtifactHandoffStore(stateRoot, pluginRoot) };
-}
-
-const artifactHandlers = createArtifactHandlers({ pluginRoot, handoffContext, result });
+const manualTools = registerManualWorkflowTools({
+  server,
+  pluginRoot,
+  workspaceAuthority,
+  operationalStateRoot: defaultStateRoot,
+  handoffStateRoot: sharedArtifactStateRoot,
+  result,
+  failure,
+  includeStatus: false,
+  contract: toolContract,
+});
 
 function runnerPath() {
   return resolve(process.env.GELDMACHER_WORKFLOW_RUNNER ?? fileURLToPath(new URL("./workflow-runner.mjs", import.meta.url)));
@@ -123,7 +132,7 @@ server.registerTool("workflow_prepare", toolContract("workflow_prepare"), async 
       preparation = preparationStore.update(preparation.preparation_id, preparation.revision, null, (draft) => ({ ...draft, runner_pid: pid }), "planner-runner-launched");
     }
     return result({ preparation: preparationView(preparation), duplicate: created.duplicate });
-  } catch (error) { return result({ error: error.message }, true); }
+  } catch (error) { return failure(error); }
 });
 
 server.registerTool("workflow_start", toolContract("workflow_start"), async (input) => {
@@ -141,12 +150,8 @@ server.registerTool("workflow_start", toolContract("workflow_start"), async (inp
       run = store.update(run.run_id, run.revision, null, (draft) => ({ ...draft, runner_pid: pid }), "runner-launched");
     }
     return result({ run: runView(run), snapshot: engine.snapshot(run), preparation: preparationView(started.preparation), duplicate: started.duplicate });
-  } catch (error) { return result({ error: error.message }, true); }
+  } catch (error) { return failure(error); }
 });
-
-server.registerTool("workflow_artifact_record", toolContract("workflow_artifact_record"), artifactHandlers.record);
-server.registerTool("workflow_artifact_context", toolContract("workflow_artifact_context"), artifactHandlers.context);
-server.registerTool("workflow_closeout", toolContract("workflow_closeout"), artifactHandlers.closeout);
 
 server.registerTool("workflow_status", toolContract("workflow_status"), async (input) => {
   try {
@@ -154,13 +159,7 @@ server.registerTool("workflow_status", toolContract("workflow_status"), async (i
     if (subjectCount > 1) throw new Error("workflow_status accepts only one of run_id, preparation_id, or root_plan_id");
     if (input.artifacts && (input.run_id || input.preparation_id)) throw new Error("workflow_status artifacts cannot be combined with a controller subject");
     if (input.root_plan_id && !input.artifacts) throw new Error("manual workflow_status requires artifacts with root_plan_id");
-    if (input.artifacts) {
-      if (input.artifacts.reduce((total, artifact) => total + artifact.text.length, 0) > 1_000_000) throw new Error("manual workflow_status artifact bundle exceeds 1000000 characters");
-      const workspace = await workspaceAuthority.resolve(input.workspace_root);
-      const stateRoot = defaultStateRoot(workspace);
-      const manual = deriveManualWorkflowSnapshot({ rootPlanId: input.root_plan_id, artifacts: input.artifacts, pluginRoot, manualAcceptance: input.manual_acceptance ?? null });
-      return result({ subject_kind: "artifact-chain", run: null, ...manual, workspace_root: workspace, model_inheritance: modelInheritanceSummary(stateRoot) });
-    }
+    if (input.artifacts) return manualTools.status(input);
     if (input.manual_acceptance) throw new Error("workflow_status manual_acceptance requires current-task artifacts");
     const { stateRoot, store, preparationStore, engine } = await context(input.workspace_root);
     const model_inheritance = modelInheritanceSummary(stateRoot);
@@ -177,7 +176,7 @@ server.registerTool("workflow_status", toolContract("workflow_status"), async (i
     if (active.length > 1) throw new Error("multiple active Workflow subjects require an explicit ID");
     if (active[0].kind === "run") return result({ subject_kind: "run", run: runView(active[0].value), snapshot: engine.snapshot(active[0].value), model_inheritance });
     return result({ subject_kind: "preparation", preparation: preparationView(active[0].value), model_inheritance });
-  } catch (error) { return result({ error: error.message }, true); }
+  } catch (error) { return failure(error); }
 });
 
 server.registerTool("workflow_watch", toolContract("workflow_watch"), async (input) => {
@@ -192,7 +191,7 @@ server.registerTool("workflow_watch", toolContract("workflow_watch"), async (inp
     const events = await watchEvents((after) => preparationStore.events(input.preparation_id, after), input.after_event, input.timeout_ms);
     const preparation = preparationStore.get(input.preparation_id);
     return result({ subject_kind: "preparation", events, next_event: input.after_event + events.length, preparation: preparationView(preparation) });
-  } catch (error) { return result({ error: error.message }, true); }
+  } catch (error) { return failure(error); }
 });
 
 server.registerTool("workflow_control", toolContract("workflow_control"), async (input) => {
@@ -255,7 +254,7 @@ server.registerTool("workflow_control", toolContract("workflow_control"), async 
       run = store.update(run.run_id, run.revision, null, (draft) => ({ ...draft, runner_pid: pid }), "runner-launched");
     }
     return result({ subject_kind: "run", run: runView(run), snapshot: engine.snapshot(run), duplicate: mutation.duplicate });
-  } catch (error) { return result({ error: error.message }, true); }
+  } catch (error) { return failure(error); }
 });
 
 server.registerTool("workflow_answer", toolContract("workflow_answer"), async (input) => {
@@ -266,7 +265,7 @@ server.registerTool("workflow_answer", toolContract("workflow_answer"), async (i
       engine.update(input.run_id, (draft) => ({ ...draft, answers: [...(draft.answers ?? []), { at: new Date().toISOString(), answer: input.answer }], blockers: [], next_action: "replan" }), "answer-recorded");
     });
     return result({ run: runView(mutation.value), snapshot: engine.snapshot(mutation.value), duplicate: mutation.duplicate });
-  } catch (error) { return result({ error: error.message }, true); }
+  } catch (error) { return failure(error); }
 });
 
 server.registerTool("workflow_validate_models", toolContract("workflow_validate_models"), async ({ workspace_root, route_profile }) => {
@@ -277,7 +276,13 @@ server.registerTool("workflow_validate_models", toolContract("workflow_validate_
     const profile = resolveRouteProfile(config, route_profile);
     const validation = new CursorWorkerAdapter({ runDirectory: resolve(stateRoot, "model-validation"), pluginRoot }).validateProfile(profile);
     return result({ ...validation, capabilities: resolveCapabilities(stateRoot, { model_catalog_verified: validation.verified }, { pluginRoot }) });
-  } catch (error) { return result({ verified: false, errors: [error.message] }, true); }
+  } catch (error) {
+    return result({
+      verified: false,
+      errors: [error.message],
+      ...(error instanceof WorkspaceRootError ? { error_code: error.code } : {}),
+    }, true);
+  }
 });
 
 server.registerTool("workflow_verification_profile", toolContract("workflow_verification_profile"), async (input) => {
@@ -336,7 +341,7 @@ server.registerTool("workflow_verification_profile", toolContract("workflow_veri
     if (!input.approved_hash) throw new Error("approve requires approved_hash");
     if (!inspection.valid || inspection.profile_hash !== input.approved_hash) throw new Error("current verification profile does not match approved_hash");
     return result(approveVerificationProfile(stateRoot, inspection.manifest.profile_id, input.approved_hash));
-  } catch (error) { return result({ error: error.message }, true); }
+  } catch (error) { return failure(error); }
   finally { if (ownedProofRoot && !retainProof) rmSync(ownedProofRoot, { recursive: true, force: true }); }
 });
 

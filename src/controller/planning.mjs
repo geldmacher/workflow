@@ -7,6 +7,7 @@ import {
   inspectArtifactSet,
   inspectArtifactText,
   opaqueExtensionsFromArtifactText,
+  preflightRootPlan,
   replaceOpaqueExtensions,
 } from "../../scripts/validate-artifact.source.mjs";
 import { loadWorkflowConfig, resolveRouteProfile } from "./config.mjs";
@@ -402,6 +403,10 @@ export class PlanningEngine {
       const rootPlanText = normalizePlannerRootOutput(phase.planningOutput.root_plan_text, preparation);
       const contract = executionContractFromArtifactText(rootPlanText, this.pluginRoot);
       const validationErrors = [...contract.errors];
+      if (validationErrors.length === 0) {
+        const preflight = preflightRootPlan(rootPlanText, this.pluginRoot);
+        validationErrors.push(...preflight.blocking_issues.map((entry) => `${entry.code}: ${entry.message}`));
+      }
       if (validationErrors.length === 0) validationErrors.push(...validateRootPlanLineage(rootPlanText, preparation.input_root_lineage_artifacts, this.pluginRoot).errors);
       if (validationErrors.length === 0 && preparation.input_root_contract
         && (contract.fields.predecessor_plan_id ?? null) !== (preparation.input_root_contract.fields.predecessor_plan_id ?? null)) validationErrors.push("root plan predecessor_plan_id must remain unchanged");

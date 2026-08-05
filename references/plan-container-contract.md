@@ -15,8 +15,8 @@ Ready plans use these table columns:
 - Baseline: `Evidence ID | Kind | Observation | Source`, including `repository`.
 - Scope: `Category | Targets | Boundary`, with lower-case `required`, `permitted`, `prohibited`.
 - Steps: `Step ID | Objectives | Targets | Required outcome | Implementation latitude | Completion probe | Check IDs | Deviation action`.
-- Verification: `Check ID | Objectives | Working Directory | Command or Inspection | Expected Result | Required | Evidence Class | Cost Class | Prerequisites`; Checks only, with PROBEs in Steps. Every Check requires an Evidence Class.
+- Verification: `Check ID | Objectives | Working Directory | Command or Inspection | Expected Result | Required | Evidence Class | Cost Class | Prerequisites`; Checks only, PROBEs stay in Steps. Every objective has a cheapest sufficient falsifiable required Check; duplicate or non-essential expensive proof is deferred.
 - Operations: `Concern | Requirement | Repository proof`; non-runtime uses one `Not applicable` row.
 - Risk: `Factor | Score | Evidence`; controls may be `None.` when optional.
 
-Compact/full output adds [Design depth](design-contract.md) H3 tables inside the existing eight H2s. Numbered H2s, bullets, shortened tables, unmarked todos, or missing `STEP-*` todos fail the pre-`CreatePlan` check. Aliases are input tolerance only. Finish with one marked closeout todo that collects observations, calls `workflow_closeout`, and prints its artifact unchanged. Closeout belongs to **Implement Plan**, not another command or repository artifact.
+Compact/full nests [Design depth](design-contract.md) H3 tables in the eight H2s. Numbered H2s, shortened tables, unmarked or missing `STEP-*` todos fail; aliases are input tolerance only. Run read-only `workflow_plan_preflight` on the exact Root before `CreatePlan`; it grants no approval. End with one marked `workflow_closeout` todo supplying exact Root/chain and printing its valid artifact unchanged. The Schema-5-only guard enforces this before human **Implement Plan**.

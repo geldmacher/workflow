@@ -1,5 +1,13 @@
 # Changelog
 
+## 5.2.0
+
+- Added a read-only, workspace-independent `workflow_plan_preflight` for Schema-5 Authority feasibility and Pareto Check selection before implementation approval.
+- Added economic review routing with deterministic inline short-circuit, one-specialist targeted review, and exact full-review auditor coverage without weakening Hard-Trigger or certified assurance.
+- Preserved valid closeout Evidence when only MCP roots transport is unavailable and the exact Root is supplied; foreign, redirected, drifting, conflicting, or missing Roots still fail closed.
+- Added rootless Manual closeout metadata and a Schema-5-only `CreatePlan` guard so unavailable MCP Roots no longer force a redundant recovery closeout while incomplete native Plans fail before creation.
+- Kept Artifact Schema 5 and Controller Protocol 5 stable while aligning planning/design auditors and required-Check language with the compact Intent Root.
+
 ## 5.1.0
 
 - Hardened Marketplace identity, Capability Receipt Schema 4, canonical release hashing, MCP workspace boundaries, proof limits, and state access.

@@ -6,7 +6,7 @@ import {
   buildDeliveryEvidence,
   deriveWorkflowState,
   persistCloseout
-} from "./chunks/chunk-H6F3AQXB.mjs";
+} from "./chunks/chunk-46VQ65DC.mjs";
 import {
   AjvJsonSchemaValidator,
   CallToolRequestSchema,
@@ -62,7 +62,7 @@ import {
   string,
   toJsonSchemaCompat,
   writeWorkerControl
-} from "./chunks/chunk-URFRP5RQ.mjs";
+} from "./chunks/chunk-RQJMSEWR.mjs";
 import {
   PlanningEngine,
   approveVerificationProfile,
@@ -71,34 +71,36 @@ import {
   inspectVerificationProfile,
   recordVerificationProof,
   resolveCapabilities
-} from "./chunks/chunk-GFL7YVNY.mjs";
+} from "./chunks/chunk-JFY57M5I.mjs";
 import {
   loadWorkflowConfig,
   resolveRouteProfile
-} from "./chunks/chunk-XAJC6UTH.mjs";
+} from "./chunks/chunk-FW33DUDL.mjs";
 import {
   CursorWorkerAdapter
-} from "./chunks/chunk-5IA5FVOS.mjs";
+} from "./chunks/chunk-MICWNJTT.mjs";
 import "./chunks/chunk-PKEO6PA3.mjs";
 import {
   ArtifactHandoffStore
-} from "./chunks/chunk-ZS6XCYJ6.mjs";
+} from "./chunks/chunk-ZN7TDC62.mjs";
 import {
   effectiveCliSummary,
   inspectArtifactSet,
-  inspectArtifactText
-} from "./chunks/chunk-J7XAELOI.mjs";
+  inspectArtifactText,
+  preflightRootPlan
+} from "./chunks/chunk-POBM3TB5.mjs";
 import {
   PreparationStore,
   RunStore,
-  defaultStateRoot
-} from "./chunks/chunk-MAHZMMXQ.mjs";
+  defaultStateRoot,
+  sharedArtifactStateRoot
+} from "./chunks/chunk-TM6F22GE.mjs";
 import {
   PLUGIN_VERSION,
   assertCompatibleRun,
   preparationView,
   runView
-} from "./chunks/chunk-YCJPA23W.mjs";
+} from "./chunks/chunk-VL4DQUSD.mjs";
 import "./chunks/chunk-IQRLCJ3K.mjs";
 
 // src/mcp/workflow-mcp.mjs
@@ -1702,7 +1704,7 @@ function normalizeEntries(artifacts) {
   return entries;
 }
 function activeRootFromEntries(entries, pluginRoot2) {
-  const roots = entries.map((entry) => inspectArtifactText(entry.text, pluginRoot2).artifact).filter((artifact2) => artifact2?.fields?.artifact === "work-plan");
+  const roots = entries.map((entry) => inspectArtifactText(entry.text, pluginRoot2).artifact).filter((artifact3) => artifact3?.fields?.artifact === "work-plan");
   if (roots.length === 0) throw new Error("manual active root resolution requires a current work-plan artifact");
   const ids = new Set(roots.map((root) => root.fields.id));
   if (ids.size !== roots.length) throw new Error("manual active root resolution found duplicate work-plan IDs");
@@ -1836,9 +1838,6 @@ function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot: plugi
   };
 }
 
-// src/mcp/artifact-handlers.mjs
-import { createHash as createHash2 } from "node:crypto";
-
 // hooks/model-inheritance-state.mjs
 import {
   chmodSync,
@@ -1966,108 +1965,57 @@ function modelInheritanceSummary(stateRoot) {
 }
 
 // src/mcp/artifact-handlers.mjs
-var bundleSize = (artifacts = []) => artifacts.reduce((total, artifact2) => total + artifact2.text.length, 0);
-function createArtifactHandlers({ pluginRoot: pluginRoot2, handoffContext: handoffContext2, result: result2 }) {
-  const record = async (input) => {
-    try {
-      if (bundleSize(input.artifacts) > 1e6) throw new Error("handoff artifact bundle exceeds 1000000 characters");
-      for (const entry of input.artifacts) {
-        const inspected = inspectArtifactText(entry.text, pluginRoot2);
-        if (inspected.errors.length > 0 || inspected.artifact?.fields?.schema !== 5 || !["work-plan", "work-review"].includes(inspected.artifact?.fields?.artifact)) {
-          throw new Error("workflow_artifact_record accepts only valid Schema-5 work-plan and work-review artifacts");
-        }
-      }
-      const { workspace, handoffStore } = await handoffContext2(input.workspace_root);
-      return result2({ workspace_root: workspace, ...handoffStore.record(input.artifacts), handoff_authoritative: false });
-    } catch (error) {
-      return result2({ error: error.message }, true);
-    }
-  };
-  const context2 = async (input) => {
-    try {
-      const { workspace, stateRoot, handoffStore } = await handoffContext2(input.workspace_root);
-      return result2({
-        workspace_root: workspace,
-        handoff_authoritative: false,
-        ...handoffStore.context(input.root_plan_id, input.root_plan ?? null),
-        model_inheritance: modelInheritanceSummary(stateRoot)
-      });
-    } catch (error) {
-      return result2({ error: error.message }, true);
-    }
-  };
-  const closeout = async (input) => {
-    try {
-      if (bundleSize(input.artifacts) > 1e6) throw new Error("closeout artifact bundle exceeds 1000000 characters");
-      const { workspace, handoffStore } = await handoffContext2(input.workspace_root);
-      let cached = [];
-      try {
-        cached = handoffStore.context(input.root_plan_id, input.root_plan ?? null).artifacts.map(({ label, text }) => ({ label, text }));
-      } catch (error) {
-        if (!input.root_plan) throw error;
-      }
-      const merged = /* @__PURE__ */ new Map();
-      for (const entry of [...cached, ...input.artifacts ?? []]) {
-        const prior = merged.get(entry.label);
-        if (prior && prior !== entry.text) throw new Error(`closeout artifact label ${entry.label} has conflicting text`);
-        merged.set(entry.label, entry.text);
-      }
-      const rootPlan = input.root_plan ?? [...merged.values()].find((text) => {
-        const inspected = inspectArtifactText(text, pluginRoot2);
-        return inspected.artifact?.fields?.artifact === "work-plan" && inspected.artifact.fields.id === input.root_plan_id;
-      });
-      if (!rootPlan) throw new Error("workflow_closeout requires the active Root text or a cached Root");
-      const closeoutResult = buildDeliveryEvidence({
-        rootPlanText: rootPlan,
-        artifacts: [...merged].map(([label, text]) => ({ label, text })),
-        checkEvidence: input.check_evidence,
-        changedPaths: input.changed_paths,
-        strategyRevision: input.strategy_revision,
-        effectiveProfile: input.effective_profile,
-        repositorySnapshot: input.repository_snapshot ?? null,
-        pluginRoot: pluginRoot2
-      });
-      if (!closeoutResult.artifact) throw new Error("closeout resolved an evidence tip without its exact artifact text");
-      const persisted = persistCloseout({
-        handoffStore,
-        rootPlanText: rootPlan,
-        artifacts: [...merged].map(([label, text]) => ({ label, text })),
-        closeout: closeoutResult
-      });
-      return result2({
-        workspace_root: workspace,
-        root_plan_id: input.root_plan_id,
-        delivery_evidence_id: closeoutResult.fields.id,
-        artifact: persisted.artifact,
-        artifact_hash: persisted.artifact_hash ?? createHash2("sha256").update(persisted.artifact).digest("hex"),
-        evidence_mode: persisted.fields.evidence_mode,
-        overall_grade: persisted.fields.overall_grade,
-        status: persisted.fields.status,
-        duplicate: persisted.duplicate,
-        handoff_persisted: persisted.handoff_persisted,
-        handoff_authoritative: false,
-        ...persisted.artifact_set_hash ? { artifact_set_hash: persisted.artifact_set_hash } : {},
-        ...persisted.warning ? { warning: persisted.warning } : {}
-      });
-    } catch (error) {
-      return result2({ error: error.message }, true);
-    }
-  };
-  return Object.freeze({ record, context: context2, closeout });
-}
+import { createHash as createHash2 } from "node:crypto";
 
 // src/mcp/workspace-roots.mjs
 import { lstatSync, realpathSync, statSync as statSync2 } from "node:fs";
 import { resolve as resolve2 } from "node:path";
 import { fileURLToPath } from "node:url";
+var WorkspaceRootError = class extends Error {
+  constructor(code, message, options = {}) {
+    super(message, options);
+    this.name = "WorkspaceRootError";
+    this.code = code;
+  }
+};
+function isWorkspaceRootsUnavailable(error) {
+  return error instanceof WorkspaceRootError && ["roots-request-failed", "roots-empty"].includes(error.code);
+}
 function rootPath(root) {
-  if (!root || typeof root.uri !== "string") throw new Error("MCP client returned an invalid workspace root");
-  const url = new URL(root.uri);
-  if (url.protocol !== "file:") throw new Error(`Workflow supports only file workspace roots: ${root.uri}`);
-  const advertised = resolve2(fileURLToPath(url));
-  if (lstatSync(advertised).isSymbolicLink()) throw new Error(`MCP workspace root may not be symlink redirected: ${advertised}`);
-  const canonical = realpathSync(advertised);
-  if (!statSync2(canonical).isDirectory()) throw new Error(`MCP workspace root is not a directory: ${advertised}`);
+  if (!root || typeof root.uri !== "string") throw new WorkspaceRootError("root-invalid", "MCP client returned an invalid workspace root");
+  let url;
+  try {
+    url = new URL(root.uri);
+  } catch (error) {
+    throw new WorkspaceRootError("root-invalid", `MCP client returned an invalid workspace root URI: ${root.uri}`, { cause: error });
+  }
+  if (url.protocol !== "file:") throw new WorkspaceRootError("root-non-file", `Workflow supports only file workspace roots: ${root.uri}`);
+  let advertised;
+  try {
+    advertised = resolve2(fileURLToPath(url));
+  } catch (error) {
+    throw new WorkspaceRootError("root-invalid", `MCP client returned an invalid file workspace root: ${root.uri}`, { cause: error });
+  }
+  let stat;
+  try {
+    stat = lstatSync(advertised);
+  } catch (error) {
+    throw new WorkspaceRootError("root-unavailable", `MCP workspace root is unavailable: ${advertised}`, { cause: error });
+  }
+  if (stat.isSymbolicLink()) throw new WorkspaceRootError("root-symlink", `MCP workspace root may not be symlink redirected: ${advertised}`);
+  let canonical;
+  try {
+    canonical = realpathSync(advertised);
+  } catch (error) {
+    throw new WorkspaceRootError("root-unavailable", `MCP workspace root is unavailable: ${advertised}`, { cause: error });
+  }
+  let canonicalStat;
+  try {
+    canonicalStat = statSync2(canonical);
+  } catch (error) {
+    throw new WorkspaceRootError("root-unavailable", `MCP workspace root is unavailable: ${advertised}`, { cause: error });
+  }
+  if (!canonicalStat.isDirectory()) throw new WorkspaceRootError("root-not-directory", `MCP workspace root is not a directory: ${advertised}`);
   return { advertised, canonical };
 }
 var WorkspaceRootAuthority = class {
@@ -2085,12 +2033,13 @@ var WorkspaceRootAuthority = class {
         let response;
         try {
           response = await this.listRoots();
-        } catch {
-          throw new Error("trusted MCP workspace roots are unavailable");
+        } catch (error) {
+          const reason = String(error?.message ?? error ?? "unknown error").replace(/\s+/g, " ").slice(0, 300);
+          throw new WorkspaceRootError("roots-request-failed", `trusted MCP workspace roots request failed: ${reason}`, { cause: error });
         }
         const entries = (response?.roots ?? []).map(rootPath);
         const unique2 = new Map(entries.map((entry) => [entry.canonical, entry]));
-        if (unique2.size === 0) throw new Error("trusted MCP workspace roots are unavailable");
+        if (unique2.size === 0) throw new WorkspaceRootError("roots-empty", "trusted MCP workspace roots list is empty");
         return [...unique2.values()].sort((left, right) => left.canonical.localeCompare(right.canonical));
       });
     }
@@ -2104,22 +2053,274 @@ var WorkspaceRootAuthority = class {
   async resolve(selector = void 0) {
     const roots = await this.roots();
     if (selector === void 0 || selector === null || selector === "") {
-      if (roots.length !== 1) throw new Error("multiple MCP workspace roots require workspace_root");
+      if (roots.length !== 1) throw new WorkspaceRootError("roots-multiple", "multiple MCP workspace roots require workspace_root");
       return roots[0].canonical;
     }
     const advertised = resolve2(selector);
     const allowed = roots.find((entry) => entry.advertised === advertised);
-    if (!allowed) throw new Error(`workspace_root is not an advertised MCP root: ${advertised}`);
+    if (!allowed) throw new WorkspaceRootError("root-foreign", `workspace_root is not an advertised MCP root: ${advertised}`);
     let canonical;
     try {
       canonical = realpathSync(advertised);
-    } catch {
-      throw new Error(`workspace_root is unavailable: ${advertised}`);
+    } catch (error) {
+      throw new WorkspaceRootError("root-unavailable", `workspace_root is unavailable: ${advertised}`, { cause: error });
     }
-    if (canonical !== allowed.canonical) throw new Error(`workspace_root changed after MCP root discovery: ${advertised}`);
+    if (canonical !== allowed.canonical) throw new WorkspaceRootError("root-drift", `workspace_root changed after MCP root discovery: ${advertised}`);
     return canonical;
   }
 };
+
+// src/mcp/artifact-handlers.mjs
+var bundleSize = (artifacts = []) => artifacts.reduce((total, artifact3) => total + artifact3.text.length, 0);
+function createArtifactHandlers({ pluginRoot: pluginRoot2, handoffContext, result: result2 }) {
+  const failure2 = (error) => result2({
+    error: error.message,
+    ...error instanceof WorkspaceRootError ? { error_code: error.code } : {}
+  }, true);
+  const mergeArtifacts = (entries) => {
+    const merged = /* @__PURE__ */ new Map();
+    for (const entry of entries) {
+      const prior = merged.get(entry.label);
+      if (prior && prior !== entry.text) throw new Error(`closeout artifact label ${entry.label} has conflicting text`);
+      merged.set(entry.label, entry.text);
+    }
+    return merged;
+  };
+  const buildCloseout = (input, merged) => {
+    const rootPlan = input.root_plan ?? [...merged.values()].find((text) => {
+      const inspected = inspectArtifactText(text, pluginRoot2);
+      return inspected.artifact?.fields?.artifact === "work-plan" && inspected.artifact.fields.id === input.root_plan_id;
+    });
+    if (!rootPlan) throw new Error("workflow_closeout requires the active Root text or a cached Root");
+    const closeoutResult = buildDeliveryEvidence({
+      rootPlanText: rootPlan,
+      artifacts: [...merged].map(([label, text]) => ({ label, text })),
+      checkEvidence: input.check_evidence,
+      changedPaths: input.changed_paths,
+      strategyRevision: input.strategy_revision,
+      effectiveProfile: input.effective_profile,
+      repositorySnapshot: input.repository_snapshot ?? null,
+      pluginRoot: pluginRoot2
+    });
+    if (closeoutResult.fields.root_plan_id !== input.root_plan_id) throw new Error(`workflow_closeout Root ID mismatch: expected ${input.root_plan_id}, received ${closeoutResult.fields.root_plan_id}`);
+    if (!closeoutResult.artifact) throw new Error("closeout resolved an evidence tip without its exact artifact text");
+    return { rootPlan, closeoutResult };
+  };
+  const closeoutPayload = ({ input, workspace, closeoutResult, persisted, warning, handoffErrorCode }) => ({
+    ...workspace ? { workspace_root: workspace } : {},
+    workspace_binding: workspace ? "trusted-root" : "not-established",
+    workspace_root_used: Boolean(workspace),
+    root_plan_id: input.root_plan_id,
+    delivery_evidence_id: closeoutResult.fields.id,
+    artifact: persisted.artifact,
+    artifact_hash: persisted.artifact_hash ?? createHash2("sha256").update(persisted.artifact).digest("hex"),
+    evidence_mode: persisted.fields.evidence_mode,
+    overall_grade: persisted.fields.overall_grade,
+    status: persisted.fields.status,
+    duplicate: persisted.duplicate,
+    handoff_persisted: persisted.handoff_persisted,
+    handoff_authoritative: false,
+    ...persisted.artifact_set_hash ? { artifact_set_hash: persisted.artifact_set_hash } : {},
+    ...warning ? { warning } : {},
+    ...handoffErrorCode || persisted.handoff_error_code ? { handoff_error_code: handoffErrorCode ?? persisted.handoff_error_code } : {}
+  });
+  const record = async (input) => {
+    try {
+      if (bundleSize(input.artifacts) > 1e6) throw new Error("handoff artifact bundle exceeds 1000000 characters");
+      for (const entry of input.artifacts) {
+        const inspected = inspectArtifactText(entry.text, pluginRoot2);
+        if (inspected.errors.length > 0 || inspected.artifact?.fields?.schema !== 5 || !["work-plan", "work-review"].includes(inspected.artifact?.fields?.artifact)) {
+          throw new Error("workflow_artifact_record accepts only valid Schema-5 work-plan and work-review artifacts");
+        }
+      }
+      const { workspace, handoffStore } = await handoffContext(input.workspace_root);
+      return result2({ workspace_root: workspace, ...handoffStore.record(input.artifacts), handoff_authoritative: false });
+    } catch (error) {
+      return failure2(error);
+    }
+  };
+  const context2 = async (input) => {
+    try {
+      const { workspace, stateRoot, handoffStore } = await handoffContext(input.workspace_root);
+      return result2({
+        workspace_root: workspace,
+        handoff_authoritative: false,
+        ...handoffStore.context(input.root_plan_id, input.root_plan ?? null),
+        model_inheritance: modelInheritanceSummary(stateRoot)
+      });
+    } catch (error) {
+      return failure2(error);
+    }
+  };
+  const closeout = async (input) => {
+    try {
+      if (bundleSize(input.artifacts) > 1e6) throw new Error("closeout artifact bundle exceeds 1000000 characters");
+      let workspaceContext;
+      try {
+        workspaceContext = await handoffContext(input.workspace_root);
+      } catch (error) {
+        if (!input.root_plan || !isWorkspaceRootsUnavailable(error)) throw error;
+        const merged2 = mergeArtifacts(input.artifacts ?? []);
+        const { closeoutResult: closeoutResult2 } = buildCloseout(input, merged2);
+        const selectorNotice = input.workspace_root ? "; the supplied workspace_root was not used" : "";
+        const warning = `handoff cache unavailable (${error.code}): ${error.message}${selectorNotice}; attach the returned artifact explicitly to the next Workflow command`;
+        return result2(closeoutPayload({
+          input,
+          workspace: null,
+          closeoutResult: closeoutResult2,
+          persisted: { ...closeoutResult2, handoff_persisted: false },
+          warning,
+          handoffErrorCode: error.code
+        }));
+      }
+      const { workspace, handoffStore } = workspaceContext;
+      let cached = [];
+      try {
+        cached = handoffStore.context(input.root_plan_id, input.root_plan ?? null).artifacts.map(({ label, text }) => ({ label, text }));
+      } catch (error) {
+        if (!input.root_plan) throw error;
+      }
+      const merged = mergeArtifacts([...cached, ...input.artifacts ?? []]);
+      const { rootPlan, closeoutResult } = buildCloseout(input, merged);
+      const persisted = persistCloseout({
+        handoffStore,
+        rootPlanText: rootPlan,
+        artifacts: [...merged].map(([label, text]) => ({ label, text })),
+        closeout: closeoutResult
+      });
+      return result2(closeoutPayload({ input, workspace, closeoutResult, persisted, warning: persisted.warning }));
+    } catch (error) {
+      return failure2(error);
+    }
+  };
+  return Object.freeze({ record, context: context2, closeout });
+}
+
+// src/mcp/manual-tool-contracts.mjs
+var workspaceRoot = string().min(1).optional();
+var artifact = object({
+  label: string().min(1).max(200),
+  text: string().min(1).max(25e4)
+});
+var checkEvidence = object({
+  check_id: string().regex(/^CHECK-[1-9][0-9]*$/),
+  feature_id: string().min(1).nullable().optional(),
+  grade: _enum(["verified", "supported", "partial", "unavailable", "failed"]),
+  surface: string().min(1).optional(),
+  method: string().min(1).optional(),
+  expected: string().min(1).optional(),
+  observed: string().min(1),
+  repetitions: number().int().min(0).optional(),
+  artifact_hashes: array(string().regex(/^[a-f0-9]{64}$/)).max(64).optional(),
+  limitations: array(string().min(1)).max(64).optional()
+});
+var contracts = Object.freeze({
+  workflow_plan_preflight: {
+    description: "Validate one exact Schema-5 Root for authority feasibility and Pareto Check selection without workspace discovery, persistence, approval, or mutation.",
+    inputSchema: { root_plan: string().min(1).max(25e4) }
+  },
+  workflow_artifact_record: {
+    description: "Validate and atomically cache exact Schema-5 work-plan or work-review artifacts as non-authoritative cross-context handoff data.",
+    inputSchema: { workspace_root: workspaceRoot, artifacts: array(artifact).min(1).max(32) }
+  },
+  workflow_artifact_context: {
+    description: "Return the exact revalidated non-authoritative Schema-5 artifact chain cached for one Root, optionally hash-bound to the supplied active native Plan.",
+    inputSchema: {
+      workspace_root: workspaceRoot,
+      root_plan_id: string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
+      root_plan: string().min(1).max(25e4).optional()
+    }
+  },
+  workflow_closeout: {
+    description: "Deterministically build and validate one Schema-5 delivery-evidence artifact from observed Checks and cache it when workspace Roots are trusted.",
+    inputSchema: {
+      workspace_root: workspaceRoot,
+      root_plan_id: string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
+      root_plan: string().min(1).max(25e4).optional(),
+      artifacts: array(artifact).min(1).max(32).optional(),
+      effective_profile: literal("manual").default("manual"),
+      strategy_revision: number().int().min(0).default(0),
+      changed_paths: array(string().min(1).max(1e3)).max(1e3).default([]),
+      check_evidence: array(checkEvidence).max(128).default([]),
+      repository_snapshot: object({
+        head: string().min(1).optional(),
+        working_tree: string().min(1).optional(),
+        relevant_fingerprints: string().min(1).optional(),
+        known_failures: string().min(1).optional()
+      }).optional()
+    }
+  },
+  workflow_status: {
+    description: "Return current status for an explicit stateless Manual Schema-5 artifact chain.",
+    inputSchema: {
+      workspace_root: workspaceRoot,
+      root_plan_id: string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
+      manual_acceptance: _enum(["provisional"]).optional(),
+      artifacts: array(artifact).min(1).max(32)
+    }
+  }
+});
+function manualToolContract(name) {
+  const contract = contracts[name];
+  if (!contract) throw new Error(`unknown Manual Workflow MCP tool ${name}`);
+  return contract;
+}
+
+// src/mcp/manual-tools.mjs
+function registerManualWorkflowTools({
+  server: server2,
+  pluginRoot: pluginRoot2,
+  workspaceAuthority: workspaceAuthority2,
+  operationalStateRoot,
+  handoffStateRoot,
+  result: result2,
+  failure: failure2,
+  includeStatus = true,
+  contract = manualToolContract
+}) {
+  const handoffContext = async (workspaceRoot3) => {
+    const workspace = await workspaceAuthority2.resolve(workspaceRoot3);
+    return {
+      workspace,
+      stateRoot: operationalStateRoot(workspace),
+      handoffStore: new ArtifactHandoffStore(handoffStateRoot(workspace), pluginRoot2)
+    };
+  };
+  const artifactHandlers = createArtifactHandlers({ pluginRoot: pluginRoot2, handoffContext, result: result2 });
+  const status = async (input) => {
+    try {
+      if (input.run_id || input.preparation_id) throw new Error("manual workflow_status does not accept controller subjects");
+      if (input.root_plan_id && !input.artifacts) throw new Error("manual workflow_status requires artifacts with root_plan_id");
+      if (!input.artifacts) throw new Error("manual workflow_status requires current-task artifacts");
+      if (input.artifacts.reduce((total, artifact3) => total + artifact3.text.length, 0) > 1e6) {
+        throw new Error("manual workflow_status artifact bundle exceeds 1000000 characters");
+      }
+      const workspace = await workspaceAuthority2.resolve(input.workspace_root);
+      const stateRoot = operationalStateRoot(workspace);
+      const manual = deriveManualWorkflowSnapshot({
+        rootPlanId: input.root_plan_id,
+        artifacts: input.artifacts,
+        pluginRoot: pluginRoot2,
+        manualAcceptance: input.manual_acceptance ?? null
+      });
+      return result2({
+        subject_kind: "artifact-chain",
+        run: null,
+        ...manual,
+        workspace_root: workspace,
+        model_inheritance: modelInheritanceSummary(stateRoot)
+      });
+    } catch (error) {
+      return failure2(error);
+    }
+  };
+  server2.registerTool("workflow_plan_preflight", contract("workflow_plan_preflight"), async (input) => result2(preflightRootPlan(input.root_plan, pluginRoot2)));
+  server2.registerTool("workflow_artifact_record", contract("workflow_artifact_record"), artifactHandlers.record);
+  server2.registerTool("workflow_artifact_context", contract("workflow_artifact_context"), artifactHandlers.context);
+  server2.registerTool("workflow_closeout", contract("workflow_closeout"), artifactHandlers.closeout);
+  if (includeStatus) server2.registerTool("workflow_status", contract("workflow_status"), status);
+  return Object.freeze({ status });
+}
 
 // src/mcp/proof-artifacts.mjs
 import { createHash as createHash3 } from "node:crypto";
@@ -2158,17 +2359,17 @@ function proofArtifacts(root) {
 }
 
 // src/mcp/tool-contracts.mjs
-var workspaceRoot = string().min(1).optional();
-var artifact = object({
+var workspaceRoot2 = string().min(1).optional();
+var artifact2 = object({
   label: string().min(1).max(200),
   text: string().min(1).max(25e4)
 });
 var subject = {
-  workspace_root: workspaceRoot,
+  workspace_root: workspaceRoot2,
   run_id: string().min(1).optional(),
   preparation_id: string().min(1).optional()
 };
-var checkEvidence = object({
+var checkEvidence2 = object({
   check_id: string().regex(/^CHECK-[1-9][0-9]*$/),
   feature_id: string().min(1).nullable().optional(),
   grade: _enum(["verified", "supported", "partial", "unavailable", "failed"]),
@@ -2181,13 +2382,17 @@ var checkEvidence = object({
   limitations: array(string().min(1)).max(64).optional()
 });
 var WORKFLOW_TOOL_CONTRACTS = Object.freeze({
+  workflow_plan_preflight: {
+    description: "Validate one exact Schema-5 Root for authority feasibility and Pareto Check selection without workspace discovery, persistence, approval, or mutation.",
+    inputSchema: { root_plan: string().min(1).max(25e4) }
+  },
   workflow_prepare: {
     description: "Run the configured planner pool in a read-only pre-run phase and produce either one approvable schema-5 intent root or manual intent questions.",
     inputSchema: {
-      workspace_root: workspaceRoot,
+      workspace_root: workspaceRoot2,
       goal: string().min(1).optional(),
       root_plan: string().min(1).optional(),
-      root_artifacts: array(artifact).min(1).max(32).optional(),
+      root_artifacts: array(artifact2).min(1).max(32).optional(),
       requested_profile: _enum(["supervised", "autonomous"]),
       route_profile: string().min(1).default("default"),
       expected_revision: literal(0),
@@ -2197,7 +2402,7 @@ var WORKFLOW_TOOL_CONTRACTS = Object.freeze({
   workflow_start: {
     description: "Atomically consume one displayed root-ready preparation after explicit root-hash approval and create exactly one approved run.",
     inputSchema: {
-      workspace_root: workspaceRoot,
+      workspace_root: workspaceRoot2,
       preparation_id: string().min(1),
       approved_root_hash: string().length(64),
       expected_preparation_revision: number().int().min(0),
@@ -2206,27 +2411,27 @@ var WORKFLOW_TOOL_CONTRACTS = Object.freeze({
   },
   workflow_artifact_record: {
     description: "Validate and atomically cache exact Schema-5 work-plan or work-review artifacts as non-authoritative cross-context handoff data.",
-    inputSchema: { workspace_root: workspaceRoot, artifacts: array(artifact).min(1).max(32) }
+    inputSchema: { workspace_root: workspaceRoot2, artifacts: array(artifact2).min(1).max(32) }
   },
   workflow_artifact_context: {
     description: "Return the exact revalidated non-authoritative Schema-5 artifact chain cached for one Root, optionally hash-bound to the supplied active native Plan.",
     inputSchema: {
-      workspace_root: workspaceRoot,
+      workspace_root: workspaceRoot2,
       root_plan_id: string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
       root_plan: string().min(1).max(25e4).optional()
     }
   },
   workflow_closeout: {
-    description: "Deterministically build, validate, and cache one Schema-5 delivery-evidence artifact from observed Checks without accepting caller-supplied identity, hashes, grade, status, or topology.",
+    description: "Deterministically build and validate one Schema-5 delivery-evidence artifact from observed Checks; cache it when Roots are trusted or return it workspace-unattested when only Roots discovery is unavailable.",
     inputSchema: {
-      workspace_root: workspaceRoot,
+      workspace_root: workspaceRoot2,
       root_plan_id: string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
       root_plan: string().min(1).max(25e4).optional(),
-      artifacts: array(artifact).min(1).max(32).optional(),
+      artifacts: array(artifact2).min(1).max(32).optional(),
       effective_profile: _enum(["manual", "supervised", "autonomous"]).default("manual"),
       strategy_revision: number().int().min(0).default(0),
       changed_paths: array(string().min(1).max(1e3)).max(1e3).default([]),
-      check_evidence: array(checkEvidence).max(128).default([]),
+      check_evidence: array(checkEvidence2).max(128).default([]),
       repository_snapshot: object({
         head: string().min(1).optional(),
         working_tree: string().min(1).optional(),
@@ -2241,7 +2446,7 @@ var WORKFLOW_TOOL_CONTRACTS = Object.freeze({
       ...subject,
       root_plan_id: string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/).optional(),
       manual_acceptance: _enum(["provisional"]).optional(),
-      artifacts: array(artifact).min(1).max(32).optional()
+      artifacts: array(artifact2).min(1).max(32).optional()
     }
   },
   workflow_watch: {
@@ -2265,7 +2470,7 @@ var WORKFLOW_TOOL_CONTRACTS = Object.freeze({
   workflow_answer: {
     description: "Record a human answer for a waiting run; planning preparations intentionally have no answer loop.",
     inputSchema: {
-      workspace_root: workspaceRoot,
+      workspace_root: workspaceRoot2,
       run_id: string().min(1),
       answer: string().min(1),
       expected_revision: number().int().min(0),
@@ -2274,12 +2479,12 @@ var WORKFLOW_TOOL_CONTRACTS = Object.freeze({
   },
   workflow_validate_models: {
     description: "Validate ordered pools of concrete approved model candidates against the live Cursor catalog.",
-    inputSchema: { workspace_root: workspaceRoot, route_profile: string().min(1).default("default") }
+    inputSchema: { workspace_root: workspaceRoot2, route_profile: string().min(1).default("default") }
   },
   workflow_verification_profile: {
     description: "Draft, inspect, prove, approve, or audit one hash-bound project verification profile.",
     inputSchema: {
-      workspace_root: workspaceRoot,
+      workspace_root: workspaceRoot2,
       action: _enum(["draft", "inspect", "prove", "approve", "audit"]),
       manifest_path: string().min(1).default(".cursor/workflow-verification.yaml"),
       surface: string().min(1).optional(),
@@ -2305,6 +2510,12 @@ server.server.setNotificationHandler(RootsListChangedNotificationSchema, async (
 function result(value, isError = false) {
   return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }], structuredContent: value, isError };
 }
+function failure(error) {
+  return result({
+    error: error.message,
+    ...error instanceof WorkspaceRootError ? { error_code: error.code } : {}
+  }, true);
+}
 function proofResult(text) {
   const source = String(text ?? "");
   const fenced = source.match(/```json\s*([\s\S]*?)```/i)?.[1];
@@ -2312,22 +2523,26 @@ function proofResult(text) {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("verification proof returned no object");
   return value;
 }
-async function context(workspaceRoot2) {
-  const workspace = await workspaceAuthority.resolve(workspaceRoot2);
+async function context(workspaceRoot3) {
+  const workspace = await workspaceAuthority.resolve(workspaceRoot3);
   const stateRoot = defaultStateRoot(workspace);
   const store = new RunStore(stateRoot);
   const preparationStore = new PreparationStore(stateRoot);
-  const handoffStore = new ArtifactHandoffStore(stateRoot, pluginRoot);
   const engine = new WorkflowEngine({ workspaceRoot: workspace, store, preparationStore, pluginRoot, stateRoot });
   const planningEngine = new PlanningEngine({ workspaceRoot: workspace, store: preparationStore, pluginRoot, stateRoot });
-  return { workspace, stateRoot, store, preparationStore, handoffStore, engine, planningEngine };
+  return { workspace, stateRoot, store, preparationStore, engine, planningEngine };
 }
-async function handoffContext(workspaceRoot2) {
-  const workspace = await workspaceAuthority.resolve(workspaceRoot2);
-  const stateRoot = defaultStateRoot(workspace);
-  return { workspace, stateRoot, handoffStore: new ArtifactHandoffStore(stateRoot, pluginRoot) };
-}
-var artifactHandlers = createArtifactHandlers({ pluginRoot, handoffContext, result });
+var manualTools = registerManualWorkflowTools({
+  server,
+  pluginRoot,
+  workspaceAuthority,
+  operationalStateRoot: defaultStateRoot,
+  handoffStateRoot: sharedArtifactStateRoot,
+  result,
+  failure,
+  includeStatus: false,
+  contract: toolContract
+});
 function runnerPath() {
   return resolve3(process.env.GELDMACHER_WORKFLOW_RUNNER ?? fileURLToPath2(new URL("./workflow-runner.mjs", import.meta.url)));
 }
@@ -2366,7 +2581,7 @@ server.registerTool("workflow_prepare", toolContract("workflow_prepare"), async 
   try {
     if (Boolean(input.goal) === Boolean(input.root_plan)) throw new Error("workflow_prepare requires exactly one of goal or root_plan");
     if (input.root_artifacts && !input.root_plan) throw new Error("workflow_prepare root_artifacts require root_plan");
-    if ((input.root_artifacts ?? []).reduce((total, artifact2) => total + artifact2.text.length, 0) > 1e6) throw new Error("workflow_prepare root_artifacts exceed 1000000 characters");
+    if ((input.root_artifacts ?? []).reduce((total, artifact3) => total + artifact3.text.length, 0) > 1e6) throw new Error("workflow_prepare root_artifacts exceed 1000000 characters");
     const { workspace, stateRoot, preparationStore, planningEngine } = await context(input.workspace_root);
     const created = planningEngine.prepare({
       goal: input.goal,
@@ -2383,7 +2598,7 @@ server.registerTool("workflow_prepare", toolContract("workflow_prepare"), async 
     }
     return result({ preparation: preparationView(preparation), duplicate: created.duplicate });
   } catch (error) {
-    return result({ error: error.message }, true);
+    return failure(error);
   }
 });
 server.registerTool("workflow_start", toolContract("workflow_start"), async (input) => {
@@ -2402,25 +2617,16 @@ server.registerTool("workflow_start", toolContract("workflow_start"), async (inp
     }
     return result({ run: runView(run), snapshot: engine.snapshot(run), preparation: preparationView(started.preparation), duplicate: started.duplicate });
   } catch (error) {
-    return result({ error: error.message }, true);
+    return failure(error);
   }
 });
-server.registerTool("workflow_artifact_record", toolContract("workflow_artifact_record"), artifactHandlers.record);
-server.registerTool("workflow_artifact_context", toolContract("workflow_artifact_context"), artifactHandlers.context);
-server.registerTool("workflow_closeout", toolContract("workflow_closeout"), artifactHandlers.closeout);
 server.registerTool("workflow_status", toolContract("workflow_status"), async (input) => {
   try {
     const subjectCount = [input.run_id, input.preparation_id, input.root_plan_id].filter(Boolean).length;
     if (subjectCount > 1) throw new Error("workflow_status accepts only one of run_id, preparation_id, or root_plan_id");
     if (input.artifacts && (input.run_id || input.preparation_id)) throw new Error("workflow_status artifacts cannot be combined with a controller subject");
     if (input.root_plan_id && !input.artifacts) throw new Error("manual workflow_status requires artifacts with root_plan_id");
-    if (input.artifacts) {
-      if (input.artifacts.reduce((total, artifact2) => total + artifact2.text.length, 0) > 1e6) throw new Error("manual workflow_status artifact bundle exceeds 1000000 characters");
-      const workspace = await workspaceAuthority.resolve(input.workspace_root);
-      const stateRoot2 = defaultStateRoot(workspace);
-      const manual = deriveManualWorkflowSnapshot({ rootPlanId: input.root_plan_id, artifacts: input.artifacts, pluginRoot, manualAcceptance: input.manual_acceptance ?? null });
-      return result({ subject_kind: "artifact-chain", run: null, ...manual, workspace_root: workspace, model_inheritance: modelInheritanceSummary(stateRoot2) });
-    }
+    if (input.artifacts) return manualTools.status(input);
     if (input.manual_acceptance) throw new Error("workflow_status manual_acceptance requires current-task artifacts");
     const { stateRoot, store, preparationStore, engine } = await context(input.workspace_root);
     const model_inheritance = modelInheritanceSummary(stateRoot);
@@ -2438,7 +2644,7 @@ server.registerTool("workflow_status", toolContract("workflow_status"), async (i
     if (active[0].kind === "run") return result({ subject_kind: "run", run: runView(active[0].value), snapshot: engine.snapshot(active[0].value), model_inheritance });
     return result({ subject_kind: "preparation", preparation: preparationView(active[0].value), model_inheritance });
   } catch (error) {
-    return result({ error: error.message }, true);
+    return failure(error);
   }
 });
 server.registerTool("workflow_watch", toolContract("workflow_watch"), async (input) => {
@@ -2454,7 +2660,7 @@ server.registerTool("workflow_watch", toolContract("workflow_watch"), async (inp
     const preparation = preparationStore.get(input.preparation_id);
     return result({ subject_kind: "preparation", events, next_event: input.after_event + events.length, preparation: preparationView(preparation) });
   } catch (error) {
-    return result({ error: error.message }, true);
+    return failure(error);
   }
 });
 server.registerTool("workflow_control", toolContract("workflow_control"), async (input) => {
@@ -2523,7 +2729,7 @@ server.registerTool("workflow_control", toolContract("workflow_control"), async 
     }
     return result({ subject_kind: "run", run: runView(run), snapshot: engine.snapshot(run), duplicate: mutation.duplicate });
   } catch (error) {
-    return result({ error: error.message }, true);
+    return failure(error);
   }
 });
 server.registerTool("workflow_answer", toolContract("workflow_answer"), async (input) => {
@@ -2535,7 +2741,7 @@ server.registerTool("workflow_answer", toolContract("workflow_answer"), async (i
     });
     return result({ run: runView(mutation.value), snapshot: engine.snapshot(mutation.value), duplicate: mutation.duplicate });
   } catch (error) {
-    return result({ error: error.message }, true);
+    return failure(error);
   }
 });
 server.registerTool("workflow_validate_models", toolContract("workflow_validate_models"), async ({ workspace_root, route_profile }) => {
@@ -2547,7 +2753,11 @@ server.registerTool("workflow_validate_models", toolContract("workflow_validate_
     const validation = new CursorWorkerAdapter({ runDirectory: resolve3(stateRoot, "model-validation"), pluginRoot }).validateProfile(profile);
     return result({ ...validation, capabilities: resolveCapabilities(stateRoot, { model_catalog_verified: validation.verified }, { pluginRoot }) });
   } catch (error) {
-    return result({ verified: false, errors: [error.message] }, true);
+    return result({
+      verified: false,
+      errors: [error.message],
+      ...error instanceof WorkspaceRootError ? { error_code: error.code } : {}
+    }, true);
   }
 });
 server.registerTool("workflow_verification_profile", toolContract("workflow_verification_profile"), async (input) => {
@@ -2606,7 +2816,7 @@ ${content}`)
         capabilities: reported.capabilities,
         observations: reported.observations ?? null,
         limitations: reported.limitations ?? [],
-        evidence_hashes: artifacts.map((artifact2) => artifact2.hash),
+        evidence_hashes: artifacts.map((artifact3) => artifact3.hash),
         artifacts,
         actor_receipt: phase.receipt
       });
@@ -2617,7 +2827,7 @@ ${content}`)
     if (!inspection.valid || inspection.profile_hash !== input.approved_hash) throw new Error("current verification profile does not match approved_hash");
     return result(approveVerificationProfile(stateRoot, inspection.manifest.profile_id, input.approved_hash));
   } catch (error) {
-    return result({ error: error.message }, true);
+    return failure(error);
   } finally {
     if (ownedProofRoot && !retainProof) rmSync2(ownedProofRoot, { recursive: true, force: true });
   }

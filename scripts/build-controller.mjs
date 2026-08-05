@@ -12,6 +12,7 @@ if (packageJson.dependencies["@cursor/sdk"] !== sdkVersion) throw new Error("wor
 mkdirSync(dist, { recursive: true });
 const checkOnly = process.argv.includes("--check");
 const noticesPath = join(root, "CONTROLLER_THIRD_PARTY_NOTICES.md");
+const codexNoticesPath = join(root, "CODEX_THIRD_PARTY_NOTICES.md");
 const platformPackage = `sdk-${process.platform}-${process.arch}`;
 const externalWorkerPackages = ["@cursor/sdk", `@cursor/${platformPackage}`];
 for (const name of externalWorkerPackages) {
@@ -74,7 +75,20 @@ const workerResult = await build({
   outfile: join(dist, "workflow-worker.mjs"),
   banner: { js: nodeBanner },
 });
-const results = [sharedResult, workerResult];
+const codexResult = await build({
+  ...common,
+  external: [],
+  entryPoints: {
+    "workflow-mcp": join(root, "src", "mcp", "workflow-mcp-manual.mjs"),
+    "workflow-hook": join(root, "src", "hosts", "codex", "workflow-hook.mjs"),
+  },
+  outdir: join(dist, "codex"),
+  entryNames: "[name]",
+  outExtension: { ".js": ".mjs" },
+  splitting: false,
+  banner: { js: nodeBanner },
+});
+const results = [sharedResult, workerResult, codexResult];
 const generated = new Map(results.flatMap((result) => result.outputFiles.map((output) => [
   relative(dist, output.path),
   `${output.text.replace(/[ \t]+$/gm, "").trimEnd()}\n`,
@@ -97,7 +111,7 @@ function packageName(input) {
 }
 
 const controllerPackages = [...new Set([
-  ...results.flatMap((result) => Object.keys(result.metafile.inputs).map(packageName).filter(Boolean)),
+  ...[sharedResult, workerResult].flatMap((result) => Object.keys(result.metafile.inputs).map(packageName).filter(Boolean)),
   ...externalWorkerPackages,
 ])].sort();
 const noticeSections = controllerPackages.map((name) => {
@@ -110,13 +124,33 @@ const noticeSections = controllerPackages.map((name) => {
 });
 const generatedNotices = `# Controller third-party notices\n\nThe built MCP/controller bundles contain the packages selected by the build, and the worker declares the exact Cursor SDK and matching platform package below as external runtime dependencies. License texts are reproduced from their installed packages; the Cursor platform package uses the Cursor SDK license shipped with the matching version. The external SDK is not copied into dist and must be proven present in the actually installed plugin before automation activation.\n\n${noticeSections.join("\n\n")}\n`;
 
+const codexPackages = [...new Set(Object.keys(codexResult.metafile.inputs).map(packageName).filter(Boolean))].sort();
+if (codexPackages.some((name) => name.startsWith("@cursor/"))) throw new Error("Codex bundles must not include Cursor packages");
+const codexNoticeSections = codexPackages.map((name) => {
+  const directory = join(root, "node_modules", ...name.split("/"));
+  const metadata = JSON.parse(readFileSync(join(directory, "package.json"), "utf8"));
+  const licensePath = ["LICENSE", "LICENSE.md", "LICENSE.txt"].map((file) => join(directory, file)).find(existsSync);
+  if (!licensePath) throw new Error(`Codex package ${name} has no distributable license file`);
+  return `## ${name}@${metadata.version}\n\nDeclared license: ${metadata.license ?? "see text below"}\n\n\`\`\`text\n${readFileSync(licensePath, "utf8").trim()}\n\`\`\``;
+});
+const generatedCodexNotices = `# Codex third-party notices\n\nThe standalone Manual MCP and lifecycle-policy bundles contain only the packages selected by the Codex build. They do not include host-specific automation dependencies.\n\n${codexNoticeSections.join("\n\n")}\n`;
+
+const codexBundleText = [...generated]
+  .filter(([file]) => file.startsWith("codex/"))
+  .map(([, content]) => content)
+  .join("\n");
+for (const forbidden of ["@cursor/sdk", "CURSOR_API_KEY", "workflow_prepare", "workflow_start", "workflow_watch", "workflow_control", "workflow_answer", "workflow_validate_models", "workflow_verification_profile"]) {
+  if (codexBundleText.includes(forbidden)) throw new Error(`Codex bundle leaked forbidden Cursor surface: ${forbidden}`);
+}
+
 if (checkOnly) {
   const actual = outputFiles(dist);
   const expected = [...generated.keys()].sort();
   const mismatches = expected.filter((file) => !existsSync(join(dist, file)) || readFileSync(join(dist, file), "utf8") !== generated.get(file));
   const extras = actual.filter((file) => !generated.has(file));
   const noticesMismatch = !existsSync(noticesPath) || readFileSync(noticesPath, "utf8") !== generatedNotices;
-  if (mismatches.length > 0 || extras.length > 0 || noticesMismatch) {
+  const codexNoticesMismatch = !existsSync(codexNoticesPath) || readFileSync(codexNoticesPath, "utf8") !== generatedCodexNotices;
+  if (mismatches.length > 0 || extras.length > 0 || noticesMismatch || codexNoticesMismatch) {
     console.error(`Controller bundles are stale: ${[...mismatches, ...extras].join(", ")}`);
     process.exitCode = 1;
   } else console.log("Controller bundles match source.");
@@ -128,5 +162,6 @@ if (checkOnly) {
     writeFileSync(path, content);
   }
   writeFileSync(noticesPath, generatedNotices);
+  writeFileSync(codexNoticesPath, generatedCodexNotices);
   console.log(`Shared controller chunks save ${(sharedSavings * 100).toFixed(1)}% versus independent bundles.`);
 }

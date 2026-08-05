@@ -2,6 +2,7 @@ import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSyn
 import { createHash, randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { repositoryKey } from "../core/state-paths.mjs";
 import {
   assertCompatiblePreparation,
   assertCompatibleRun,
@@ -11,9 +12,7 @@ import {
   protocolFields,
 } from "./protocol.mjs";
 
-export function repositoryKey(workspaceRoot) {
-  return createHash("sha256").update(resolve(workspaceRoot)).digest("hex").slice(0, 20);
-}
+export { repositoryKey } from "../core/state-paths.mjs";
 
 export function defaultStateRoot(workspaceRoot) {
   return join(homedir(), ".cursor", "geldmacher-workflow", "state", repositoryKey(workspaceRoot));

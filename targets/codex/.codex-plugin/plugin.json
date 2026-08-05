@@ -1,0 +1,38 @@
+{
+  "name": "geldmacher-workflow",
+  "version": "5.2.0",
+  "description": "Human-authorized Manual Workflow planning, delivery evidence, review, status, and closeout for Codex.",
+  "author": {
+    "name": "Geldmacher"
+  },
+  "homepage": "https://github.com/geldmacher/workflow",
+  "repository": "https://github.com/geldmacher/workflow",
+  "license": "MIT",
+  "keywords": [
+    "workflow",
+    "planning",
+    "review",
+    "evidence",
+    "manual"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Workflow",
+    "shortDescription": "Human-authorized delivery workflow",
+    "longDescription": "Workflow brings Schema-5 planning, evidence-calibrated closeout, read-only review, acceptance, and status to Codex without controller automation or hidden model routing.",
+    "developerName": "Geldmacher",
+    "category": "Developer Tools",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "websiteURL": "https://github.com/geldmacher/workflow",
+    "defaultPrompt": [
+      "Use $plan-work to create a human-authorized implementation plan.",
+      "Use $review-work in a fresh task to review a Workflow delivery.",
+      "Use $work-status to derive status from the exact artifact chain."
+    ],
+    "brandColor": "#111827",
+    "composerIcon": "./assets/logo.svg",
+    "logo": "./assets/logo.svg",
+    "screenshots": []
+  }
+}

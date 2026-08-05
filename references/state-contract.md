@@ -8,6 +8,6 @@ An explicit selector wins. Otherwise resolve the unique active Plan lineage tip;
 
 Verified Manual delivery reaches `achieved` after review. A provisional review waits at `delivery-ready-provisional`; `/accept-work [wp-id] provisional` yields an ephemeral `accepted-provisional` snapshot with `root_plan_id`, `acceptance_persisted: false`, and `acceptance_basis_hash`. Later status returns provisional again.
 
-Supervised delivery waits at `delivery-ready-verified` or provisional. Failed acceptance is `blocked`. Only fully verified, accepted supervised Runs qualify; provisional acceptance never qualifies or publishes Learning. Autonomous reaches `achieved` only with every Check verified.
+Supervised delivery waits at `delivery-ready-verified` or provisional. Failed acceptance is `blocked`. Only verified, accepted Runs qualify; provisional acceptance never qualifies or publishes Learning. Autonomous `achieved` requires every required Check.
 
 Pause, resume, interruption, budget cancellation, and crash recovery preserve Strategy revisions and the hash-chained ledger. Status/watch are read-only. Workflow-3 and Workflow-4 documents and Runs appear as `read-only-workflow-3` or `read-only-workflow-4`; they cannot mutate, block active Workflow-5 work, or qualify.

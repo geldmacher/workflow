@@ -21,6 +21,12 @@
         "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"",
         "matcher": "Task",
         "failClosed": true
+      },
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/plan-integrity-guard.mjs\"",
+        "matcher": "CreatePlan",
+        "failClosed": true
       }
     ],
     "subagentStart": [

@@ -4,7 +4,7 @@ Supervised and autonomous are activation-gated, not merely feature-flagged. Manu
 
 | Capability | Required observation |
 |---|---|
-| Local MCP packaging | The built server starts through `${CURSOR_PLUGIN_ROOT}` and lists exactly eleven tools. |
+| Local MCP packaging | The built server starts through `${CURSOR_PLUGIN_ROOT}` and lists exactly twelve tools. |
 | Marketplace packaging | The installed Marketplace copy starts the same pinned MCP bundle and resolves the exact SDK/platform runtime without installation-on-first-use. |
 | Model routing | Every role's exact ID, reasoning parameter and options exist in the live catalog. |
 | Model attestation | A paid read-only SDK smoke reports the same accepted and observed selection plus request/agent IDs and usage. |
@@ -17,7 +17,7 @@ Supervised and autonomous are activation-gated, not merely feature-flagged. Manu
 
 ## Current result for the pinned adapter
 
-The MCP/controller is bundled, while the worker deliberately keeps `@cursor/sdk` as an exact external runtime dependency. The build does not copy the SDK into `dist`. A development checkout or `GELDMACHER_WORKFLOW_WORKER` may resolve a Worker for tests, but its provenance is explicitly automation-ineligible. Only `npm run provision:worker-runtime -- --marketplace-git-commit <exact-sha>`, invoked manually in the actually installed Marketplace copy, may create the pinned runtime below `~/.cursor/geldmacher-workflow/runtime/5.1.0/1.0.24/<platform>/`. In a real Git checkout the exact `HEAD` may be detected instead. It stages `npm ci --omit=dev --ignore-scripts`, never uses `latest`, `npx`, overrides, or install-on-first-use, and atomically publishes a manifest binding the Marketplace commit, Plugin, Worker, lockfile inventory, SDK, platform package, Node, and runtime hashes.
+The MCP/controller is bundled, while the worker deliberately keeps `@cursor/sdk` as an exact external runtime dependency. The build does not copy the SDK into `dist`. A development checkout or `GELDMACHER_WORKFLOW_WORKER` may resolve a Worker for tests, but its provenance is explicitly automation-ineligible. Only `npm run provision:worker-runtime -- --marketplace-git-commit <exact-sha>`, invoked manually in the actually installed Marketplace copy, may create the pinned runtime below `~/.cursor/geldmacher-workflow/runtime/5.2.0/1.0.24/<platform>/`. In a real Git checkout the exact `HEAD` may be detected instead. It stages `npm ci --omit=dev --ignore-scripts`, never uses `latest`, `npx`, overrides, or install-on-first-use, and atomically publishes a manifest binding the Marketplace commit, Plugin, Worker, lockfile inventory, SDK, platform package, Node, and runtime hashes.
 
 At Controller runtime the exact Cursor host version must also be observable as `GELDMACHER_WORKFLOW_CURSOR_VERSION` or `CURSOR_VERSION`; otherwise the receipt is not accepted. The value must match the certified receipt exactly.
 

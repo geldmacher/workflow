@@ -4,7 +4,7 @@ const require = __workflowCreateRequire(import.meta.url);
 import {
   require_ajv,
   require_dist
-} from "./chunk-J7XAELOI.mjs";
+} from "./chunk-POBM3TB5.mjs";
 import {
   __export,
   __toESM
@@ -7016,6 +7016,7 @@ var WORKFLOW_TOOL_NAMES = Object.freeze([
   "workflow_artifact_record",
   "workflow_closeout",
   "workflow_control",
+  "workflow_plan_preflight",
   "workflow_prepare",
   "workflow_start",
   "workflow_status",

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -11,6 +11,41 @@ import { recordModelIncident, workflowStateRoot } from "../hooks/model-inheritan
 const rootPlan = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8")
   .replace("profile_max: supervised", "profile_max: manual")
   .replace("contract_level: controlled", "contract_level: lean");
+
+const verifiedCheck = {
+  check_id: "CHECK-1",
+  grade: "verified",
+  surface: "repository-test",
+  method: "deterministic command",
+  expected: "Retry verification passes twice",
+  observed: "Passed twice",
+  repetitions: 2,
+  artifact_hashes: ["b".repeat(64)],
+  limitations: [],
+};
+
+test("MCP plan preflight is read-only and independent from workspace roots", async () => {
+  const home = mkdtempSync(join(tmpdir(), "workflow-preflight-home-"));
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [join(defaultRoot, "dist", "workflow-mcp.mjs")],
+    cwd: defaultRoot,
+    env: { ...process.env, HOME: home, CURSOR_PLUGIN_ROOT: defaultRoot },
+    stderr: "pipe",
+  });
+  const client = workflowClient("workflow-preflight-test", [], { advertiseRoots: false });
+  try {
+    await client.connect(transport);
+    const preflight = await client.callTool({ name: "workflow_plan_preflight", arguments: { root_plan: rootPlan } });
+    assert.equal(preflight.isError, false);
+    assert.equal(preflight.structuredContent.feasible, true);
+    assert.equal(preflight.structuredContent.approval_granted, false);
+    assert.equal(preflight.structuredContent.mutation_performed, false);
+  } finally {
+    await client.close().catch(() => {});
+    rmSync(home, { recursive: true, force: true });
+  }
+});
 
 test("MCP records a Root, closes it out, and resolves the exact Evidence in a fresh handoff context", async () => {
   const home = mkdtempSync(join(tmpdir(), "workflow-closeout-home-"));
@@ -38,21 +73,13 @@ test("MCP records a Root, closes it out, and resolves the exact Evidence in a fr
         root_plan_id: "wp-adaptive-retry",
         effective_profile: "manual",
         changed_paths: ["src/retry.mjs"],
-        check_evidence: [{
-          check_id: "CHECK-1",
-          grade: "verified",
-          surface: "repository-test",
-          method: "deterministic command",
-          expected: "Retry verification passes twice",
-          observed: "Passed twice",
-          repetitions: 2,
-          artifact_hashes: ["b".repeat(64)],
-          limitations: [],
-        }],
+        check_evidence: [verifiedCheck],
       },
     });
     assert.equal(closed.isError, false);
     assert.equal(closed.structuredContent.handoff_persisted, true);
+    assert.equal(closed.structuredContent.workspace_binding, "trusted-root");
+    assert.equal(closed.structuredContent.workspace_root_used, true);
     assert.deepEqual(inspectArtifactText(closed.structuredContent.artifact, defaultRoot).errors, []);
 
     recordModelIncident(workflowStateRoot(defaultRoot, { home }), {
@@ -114,25 +141,154 @@ test("MCP returns valid Evidence with an attach instruction when only handoff pe
         root_plan: rootPlan,
         effective_profile: "manual",
         changed_paths: ["src/retry.mjs"],
-        check_evidence: [{
-          check_id: "CHECK-1",
-          grade: "verified",
-          surface: "repository-test",
-          method: "deterministic command",
-          expected: "Retry verification passes twice",
-          observed: "Passed twice",
-          repetitions: 2,
-          artifact_hashes: ["b".repeat(64)],
-          limitations: [],
-        }],
+        check_evidence: [verifiedCheck],
       },
     });
     assert.equal(closed.isError, false);
     assert.equal(closed.structuredContent.handoff_persisted, false);
+    assert.equal(closed.structuredContent.handoff_error_code, "handoff-persist-failed");
     assert.deepEqual(inspectArtifactText(closed.structuredContent.artifact, defaultRoot).errors, []);
     assert.match(closed.structuredContent.warning, /attach the returned artifact explicitly/);
   } finally {
     await client.close().catch(() => {});
     rmSync(directory, { recursive: true, force: true });
   }
+});
+
+test("MCP closeout returns attachable Evidence when roots are unavailable and the exact Root is supplied", async () => {
+  for (const scenario of [
+    { name: "capability-absent", roots: [], options: { advertiseRoots: false }, code: "roots-request-failed" },
+    { name: "empty", roots: [], options: {}, code: "roots-empty" },
+    { name: "request-failed", roots: [], options: { rootError: "roots capability unavailable" }, code: "roots-request-failed" },
+  ]) {
+    const home = mkdtempSync(join(tmpdir(), `workflow-rootless-${scenario.name}-`));
+    const transport = new StdioClientTransport({
+      command: process.execPath,
+      args: [join(defaultRoot, "dist", "workflow-mcp.mjs")],
+      cwd: defaultRoot,
+      env: { ...process.env, HOME: home, CURSOR_PLUGIN_ROOT: defaultRoot },
+      stderr: "pipe",
+    });
+    const client = workflowClient(`workflow-rootless-${scenario.name}`, scenario.roots, scenario.options);
+    try {
+      await client.connect(transport);
+      const unavailableContext = await client.callTool({
+        name: "workflow_artifact_context",
+        arguments: { workspace_root: join(home, "unavailable-workspace"), root_plan_id: "wp-adaptive-retry", root_plan: rootPlan },
+      });
+      assert.equal(unavailableContext.isError, true);
+      assert.equal(unavailableContext.structuredContent.error_code, scenario.code);
+
+      const closed = await client.callTool({
+        name: "workflow_closeout",
+        arguments: {
+          workspace_root: join(home, "unavailable-workspace"),
+          root_plan_id: "wp-adaptive-retry",
+          root_plan: rootPlan,
+          effective_profile: "manual",
+          changed_paths: ["src/retry.mjs"],
+          check_evidence: [verifiedCheck],
+        },
+      });
+      assert.equal(closed.isError, false);
+      assert.equal(closed.structuredContent.handoff_persisted, false);
+      assert.equal(closed.structuredContent.handoff_error_code, scenario.code);
+      assert.equal(closed.structuredContent.workspace_binding, "not-established");
+      assert.equal(closed.structuredContent.workspace_root_used, false);
+      assert.equal(Object.hasOwn(closed.structuredContent, "workspace_root"), false);
+      assert.match(closed.structuredContent.warning, /supplied workspace_root was not used/);
+      assert.match(closed.structuredContent.warning, /attach the returned artifact explicitly/);
+      assert.deepEqual(inspectArtifactText(closed.structuredContent.artifact, defaultRoot).errors, []);
+      assert.equal(existsSync(join(home, ".cursor", "geldmacher-workflow")), false);
+
+      const missingRoot = await client.callTool({
+        name: "workflow_closeout",
+        arguments: { root_plan_id: "wp-adaptive-retry", effective_profile: "manual", check_evidence: [verifiedCheck] },
+      });
+      assert.equal(missingRoot.isError, true);
+      assert.match(missingRoot.structuredContent.error, /roots|workspace/i);
+      assert.equal(missingRoot.structuredContent.error_code, scenario.code);
+
+      const conflictingChain = await client.callTool({
+        name: "workflow_closeout",
+        arguments: {
+          root_plan_id: "wp-adaptive-retry",
+          root_plan: rootPlan,
+          artifacts: [
+            { label: "duplicate", text: rootPlan },
+            { label: "duplicate", text: rootPlan.replace("Make retry handling deterministic", "Make retry handling conflicting") },
+          ],
+          effective_profile: "manual",
+          changed_paths: ["src/retry.mjs"],
+          check_evidence: [verifiedCheck],
+        },
+      });
+      assert.equal(conflictingChain.isError, true);
+      assert.match(conflictingChain.structuredContent.error, /conflicting text/);
+      assert.equal(Object.hasOwn(conflictingChain.structuredContent, "artifact"), false);
+
+      const mismatchedRoot = await client.callTool({
+        name: "workflow_closeout",
+        arguments: {
+          root_plan_id: "wp-different-root",
+          root_plan: rootPlan,
+          effective_profile: "manual",
+          changed_paths: ["src/retry.mjs"],
+          check_evidence: [verifiedCheck],
+        },
+      });
+      assert.equal(mismatchedRoot.isError, true);
+      assert.match(mismatchedRoot.structuredContent.error, /Root ID mismatch/);
+      assert.equal(Object.hasOwn(mismatchedRoot.structuredContent, "artifact"), false);
+    } finally {
+      await client.close().catch(() => {});
+      rmSync(home, { recursive: true, force: true });
+    }
+  }
+});
+
+test("MCP closeout never falls back for foreign or symlink workspace roots", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "workflow-root-boundary-"));
+  const home = join(directory, "home");
+  const foreign = join(directory, "foreign");
+  const real = join(directory, "real");
+  const alias = join(directory, "alias");
+  mkdirSync(home);
+  mkdirSync(foreign);
+  mkdirSync(real);
+  symlinkSync(real, alias);
+  for (const scenario of [
+    { name: "foreign", roots: [defaultRoot], workspace: foreign, pattern: /not an advertised MCP root/ },
+    { name: "symlink", roots: [alias], workspace: alias, pattern: /symlink redirected/ },
+    { name: "multiple", roots: [defaultRoot, foreign], workspace: undefined, pattern: /multiple MCP workspace roots/ },
+  ]) {
+    const transport = new StdioClientTransport({
+      command: process.execPath,
+      args: [join(defaultRoot, "dist", "workflow-mcp.mjs")],
+      cwd: defaultRoot,
+      env: { ...process.env, HOME: home, CURSOR_PLUGIN_ROOT: defaultRoot },
+      stderr: "pipe",
+    });
+    const client = workflowClient(`workflow-boundary-${scenario.name}`, scenario.roots);
+    try {
+      await client.connect(transport);
+      const closed = await client.callTool({
+        name: "workflow_closeout",
+        arguments: {
+          workspace_root: scenario.workspace,
+          root_plan_id: "wp-adaptive-retry",
+          root_plan: rootPlan,
+          effective_profile: "manual",
+          changed_paths: ["src/retry.mjs"],
+          check_evidence: [verifiedCheck],
+        },
+      });
+      assert.equal(closed.isError, true);
+      assert.match(closed.structuredContent.error, scenario.pattern);
+      assert.match(closed.structuredContent.error_code, /^(?:root-(?:foreign|symlink)|roots-multiple)$/);
+    } finally {
+      await client.close().catch(() => {});
+    }
+  }
+  rmSync(directory, { recursive: true, force: true });
 });

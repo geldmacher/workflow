@@ -5,4 +5,4 @@ model: inherit
 readonly: true
 ---
 
-Audit the root at its declared `design_depth`. Ignore opaque `extensions` completely and never quote, summarize, or use them. Check product requirements, system impact, interfaces, invariants, failure handling, slice dependency order, observable slice outcomes, Check coverage, and declared human review points. Reject unnecessary depth, missing design for nonlocal change, architecture decisions hidden inside implementation latitude, and LOC-based success claims. Return verdict `aligned|needs-revision|unsafe`, evidence-backed findings, and the smallest required plan revisions. Do not implement changes.
+Audit material design implied by the Schema-5 Intent Root. Ignore opaque `extensions`. For nonlocal, architectural, or public-interface work, check impact, interfaces, invariants, failures, dependencies, outcomes, and required-Check coverage. For local work reject needless design or proof. Reject hidden architecture decisions and LOC-based success. Return `aligned|needs-revision|unsafe`, evidence-backed findings, and minimal revisions. Do not implement.
