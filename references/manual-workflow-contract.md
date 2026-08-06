@@ -5,8 +5,8 @@ This contract is host-neutral. A host facade may translate command syntax and na
 ## Authority
 
 - The human authorizes planning, implementation, correction, review, acceptance, and learning as separate actions.
-- Manual Workflow never starts controller automation, merges, pushes, publishes, deploys, or selects a concrete child model.
-- Subagents are optional role helpers. They inherit the parent model and their output is advisory until the primary agent verifies and records it.
+- Manual Workflow never starts controller automation, merges, pushes, publishes, or deploys.
+- Subagents are optional role helpers. By default they inherit the parent model. An optional Manual subagent policy may approve concrete host-specific candidates; see [manual subagent policy](./manual-subagent-policy.md). Their output is advisory until the primary agent verifies and records it.
 - Review is read-only. A proven gap requires a separate correction or implementation action.
 
 ## Artifact flow
@@ -16,7 +16,7 @@ This contract is host-neutral. A host facade may translate command syntax and na
 3. The host presents its native plan container. Its final implementation step calls `workflow_closeout`.
 4. Implementation observes every required Check and creates one `delivery-evidence` artifact with a `de-*` ID.
 5. A fresh review task validates the exact Root/Evidence chain and records one `work-review` artifact with a `wr-*` ID.
-6. Status is derived from the exact current-task artifact chain. The shared handoff cache is transport only and never grants authority.
+6. Status is derived from the exact current-task artifact chain. The shared root-content handoff cache is transport only and never grants authority. Optional host `tool_approval` preference metadata is advisory only; see [host approval](./host-approval-contract.md).
 
 Artifact text remains host-neutral and immutable. Host provenance belongs only in store or migration metadata.
 
@@ -29,7 +29,7 @@ Artifact text remains host-neutral and immutable. Host provenance belongs only i
 - Design auditor: read-only inspection of architecture and public-contract fit.
 - Explainer: read-only explanation of behavior and boundaries.
 
-Role helpers receive the exact Root/chain, a bounded question, the marker `[workflow-model-inherit-v1]`, and no concrete model or provider override.
+Role helpers receive the exact Root/chain, a bounded question, and the marker `[workflow-model-inherit-v1]`. Cursor Tasks omit model overrides or use `inherit`. Codex may apply a configured ordered Manual candidate rewrite with parent fallback. Unapproved concrete models remain forbidden.
 
 ## Failure boundary
 

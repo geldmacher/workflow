@@ -3,7 +3,7 @@ name: work-planning
 description: Create an intent-ready Workflow root.
 ---
 
-Plan in Cursor. Subagents inherit its model; omit Task overrides. Treat trailing text as a new goal. `replan [wp-*]` needs the explicit or active Schema-5 Root and unique review tip with `next_action: replan`; otherwise emit no Root and require `/plan-work <goal>`.
+Plan in Cursor. Omit Task model overrides or use `inherit`; observed Children must match the parent or a configured Manual approved candidate. Treat trailing text as a new goal. `replan [wp-*]` needs the explicit or active Schema-5 Root and unique review tip with `next_action: replan`; otherwise emit no Root and require `/plan-work <goal>`.
 
 ## Intent Interview
 
@@ -17,8 +17,8 @@ Once ready, read [root semantics](../../references/executable-contract.md), [nat
 
 Check goal, acceptance, non-goals, constraints, authority, risk, Hard Triggers, and profile. Give each objective its cheapest sufficient falsifiable required Check; merge duplicates and defer non-essential breadth. `expensive` is required only without a cheaper equivalent for essential acceptance or material risk. Put path-specific acceptance targets in backticks.
 
-Before `CreatePlan`, run `workflow_plan_preflight` on the exact Root, repair blockers, and expose advisories; it grants no approval. If unavailable, low/medium Manual may disclose the equivalent inline check. High-risk or Hard-Trigger Manual and every Controller preparation stop.
+Before `CreatePlan`, run `workflow_plan_preflight` on the exact Root, repair blockers, and expose advisories; it grants no approval. If unavailable, low/medium Manual may disclose the equivalent inline check. High-risk or Hard-Trigger Manual and every Controller preparation stop. Honor host tool-approval preference: `strict` expects MCP prompts; `allowlisted` expects a host allowlist and never claims approval.
 
 A replan creates a fresh `wp-*` with exact predecessor/review bindings and human **Implement Plan** approval. Do not invent `extensions`; they are opaque audit metadata, never model context or authority. Keep Strategy outcome-oriented, scope repository-only, and budgets proportional.
 
-Mark every todo `[workflow-model-inherit-v1]`. The final todo calls `workflow_closeout` with exact Root/chain and required-Check observations, then prints its valid artifact unchanged. The Schema-5-only CreatePlan guard enforces this. Record the Root through `workflow_artifact_record`; cache failure requires attachment but does not invalidate the Plan.
+Mark every todo `[workflow-model-inherit-v1]`. The final todo calls `workflow_closeout` with exact Root/chain and required-Check observations, then prints its valid artifact unchanged. The Schema-5-only CreatePlan guard enforces this. Record the Root through `workflow_artifact_record` into the root-content handoff cache; true cache-write failure requires attachment but does not invalidate the Plan.

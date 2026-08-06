@@ -4,30 +4,30 @@
   "always_on_tokens": 0,
   "discoverability_tokens": 416,
   "phase_flows": {
-    "plan_intake": 816,
-    "plan_oneshot": 1685,
-    "plan_compact_full": 2138,
-    "review_base": 1759,
-    "review_correction": 2202,
-    "correction": 1613,
-    "closeout": 1369,
-    "learning": 1668,
-    "explanation": 1054
+    "plan_intake": 842,
+    "plan_oneshot": 1760,
+    "plan_compact_full": 2147,
+    "review_base": 1779,
+    "review_correction": 2222,
+    "correction": 1612,
+    "closeout": 1393,
+    "learning": 1672,
+    "explanation": 1048
   },
   "automation_flows": {
     "prepare_or_approve": 884,
-    "status": 1014,
-    "watch": 857,
-    "control": 1294,
+    "status": 1035,
+    "watch": 851,
+    "control": 1288,
     "models": 847,
     "verification": 853,
-    "acceptance": 989
+    "acceptance": 983
   },
   "reviewer_tokens": {
     "delivery-auditor": 495,
     "risk-auditor": 388,
-    "work-design-auditor": 184,
+    "work-design-auditor": 147,
     "work-explainer": 204,
-    "work-plan-auditor": 473
+    "work-plan-auditor": 446
   }
 }

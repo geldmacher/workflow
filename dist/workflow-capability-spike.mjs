@@ -38,7 +38,7 @@ import {
   safeParse,
   serializeMessage,
   writeWorkerControl
-} from "./chunks/chunk-RQJMSEWR.mjs";
+} from "./chunks/chunk-64PXZIRA.mjs";
 import {
   CAPABILITY_RECEIPT_SCHEMA,
   REQUIRED_OBSERVATIONS,
@@ -47,13 +47,13 @@ import {
   receiptAutomationSafe,
   receiptProfileEligibility,
   writeCapabilityReceipt
-} from "./chunks/chunk-JFY57M5I.mjs";
+} from "./chunks/chunk-OM7QZLXO.mjs";
 import {
   createRunWorktree,
   loadWorkflowConfig,
   repositoryBaseline,
   resolveRouteProfile
-} from "./chunks/chunk-FW33DUDL.mjs";
+} from "./chunks/chunk-YAMXLYBL.mjs";
 import {
   CursorWorkerAdapter,
   currentPlatform,
@@ -67,12 +67,12 @@ import {
 import {
   probeSandboxBoundary
 } from "./chunks/chunk-PKEO6PA3.mjs";
-import "./chunks/chunk-POBM3TB5.mjs";
+import "./chunks/chunk-GYZMJGQG.mjs";
 import {
   PreparationStore,
   RunStore,
   defaultStateRoot
-} from "./chunks/chunk-TM6F22GE.mjs";
+} from "./chunks/chunk-MV4DSQKJ.mjs";
 import {
   ARTIFACT_SCHEMA,
   CONTROLLER_PROTOCOL,

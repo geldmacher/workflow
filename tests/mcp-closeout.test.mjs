@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -24,13 +24,23 @@ const verifiedCheck = {
   limitations: [],
 };
 
+function mcpEnv(home, extra = {}) {
+  return {
+    ...process.env,
+    HOME: home,
+    GELDMACHER_WORKFLOW_HOME: join(home, ".geldmacher", "workflow"),
+    CURSOR_PLUGIN_ROOT: defaultRoot,
+    ...extra,
+  };
+}
+
 test("MCP plan preflight is read-only and independent from workspace roots", async () => {
   const home = mkdtempSync(join(tmpdir(), "workflow-preflight-home-"));
   const transport = new StdioClientTransport({
     command: process.execPath,
     args: [join(defaultRoot, "dist", "workflow-mcp.mjs")],
     cwd: defaultRoot,
-    env: { ...process.env, HOME: home, CURSOR_PLUGIN_ROOT: defaultRoot },
+    env: mcpEnv(home),
     stderr: "pipe",
   });
   const client = workflowClient("workflow-preflight-test", [], { advertiseRoots: false });
@@ -53,7 +63,7 @@ test("MCP records a Root, closes it out, and resolves the exact Evidence in a fr
     command: process.execPath,
     args: [join(defaultRoot, "dist", "workflow-mcp.mjs")],
     cwd: defaultRoot,
-    env: { ...process.env, HOME: home, CURSOR_PLUGIN_ROOT: defaultRoot },
+    env: mcpEnv(home),
     stderr: "pipe",
   });
   const client = workflowClient("workflow-closeout-test", [defaultRoot]);
@@ -65,6 +75,8 @@ test("MCP records a Root, closes it out, and resolves the exact Evidence in a fr
     });
     assert.equal(recorded.isError, false);
     assert.equal(recorded.structuredContent.handoff_authoritative, false);
+    assert.equal(recorded.structuredContent.handoff_mode, "root-content-cache");
+    assert.equal(typeof recorded.structuredContent.root_content_hash, "string");
 
     const closed = await client.callTool({
       name: "workflow_closeout",
@@ -78,6 +90,7 @@ test("MCP records a Root, closes it out, and resolves the exact Evidence in a fr
     });
     assert.equal(closed.isError, false);
     assert.equal(closed.structuredContent.handoff_persisted, true);
+    assert.equal(closed.structuredContent.handoff_mode, "root-content-cache");
     assert.equal(closed.structuredContent.workspace_binding, "trusted-root");
     assert.equal(closed.structuredContent.workspace_root_used, true);
     assert.deepEqual(inspectArtifactText(closed.structuredContent.artifact, defaultRoot).errors, []);
@@ -127,7 +140,12 @@ test("MCP returns valid Evidence with an attach instruction when only handoff pe
     command: process.execPath,
     args: [join(defaultRoot, "dist", "workflow-mcp.mjs")],
     cwd: defaultRoot,
-    env: { ...process.env, HOME: unusableHome, CURSOR_PLUGIN_ROOT: defaultRoot },
+    env: {
+      ...process.env,
+      HOME: unusableHome,
+      GELDMACHER_WORKFLOW_HOME: join(unusableHome, ".geldmacher", "workflow"),
+      CURSOR_PLUGIN_ROOT: defaultRoot,
+    },
     stderr: "pipe",
   });
   const client = workflowClient("workflow-closeout-failure-test", [defaultRoot]);
@@ -155,7 +173,7 @@ test("MCP returns valid Evidence with an attach instruction when only handoff pe
   }
 });
 
-test("MCP closeout returns attachable Evidence when roots are unavailable and the exact Root is supplied", async () => {
+test("MCP closeout persists content-bound Evidence when roots are unavailable and the exact Root is supplied", async () => {
   for (const scenario of [
     { name: "capability-absent", roots: [], options: { advertiseRoots: false }, code: "roots-request-failed" },
     { name: "empty", roots: [], options: {}, code: "roots-empty" },
@@ -166,18 +184,20 @@ test("MCP closeout returns attachable Evidence when roots are unavailable and th
       command: process.execPath,
       args: [join(defaultRoot, "dist", "workflow-mcp.mjs")],
       cwd: defaultRoot,
-      env: { ...process.env, HOME: home, CURSOR_PLUGIN_ROOT: defaultRoot },
+      env: mcpEnv(home),
       stderr: "pipe",
     });
     const client = workflowClient(`workflow-rootless-${scenario.name}`, scenario.roots, scenario.options);
     try {
       await client.connect(transport);
-      const unavailableContext = await client.callTool({
+      const emptyContext = await client.callTool({
         name: "workflow_artifact_context",
         arguments: { workspace_root: join(home, "unavailable-workspace"), root_plan_id: "wp-adaptive-retry", root_plan: rootPlan },
       });
-      assert.equal(unavailableContext.isError, true);
-      assert.equal(unavailableContext.structuredContent.error_code, scenario.code);
+      assert.equal(emptyContext.isError, false);
+      assert.equal(emptyContext.structuredContent.workspace_binding, "not-established");
+      assert.equal(emptyContext.structuredContent.handoff_mode, "root-content-cache");
+      assert.equal(emptyContext.structuredContent.evidence_tip, null);
 
       const closed = await client.callTool({
         name: "workflow_closeout",
@@ -191,23 +211,30 @@ test("MCP closeout returns attachable Evidence when roots are unavailable and th
         },
       });
       assert.equal(closed.isError, false);
-      assert.equal(closed.structuredContent.handoff_persisted, false);
-      assert.equal(closed.structuredContent.handoff_error_code, scenario.code);
+      assert.equal(closed.structuredContent.handoff_persisted, true);
+      assert.equal(closed.structuredContent.handoff_mode, "root-content-cache");
       assert.equal(closed.structuredContent.workspace_binding, "not-established");
       assert.equal(closed.structuredContent.workspace_root_used, false);
       assert.equal(Object.hasOwn(closed.structuredContent, "workspace_root"), false);
-      assert.match(closed.structuredContent.warning, /supplied workspace_root was not used/);
-      assert.match(closed.structuredContent.warning, /attach the returned artifact explicitly/);
+      assert.match(closed.structuredContent.warning ?? "", /workspace binding unavailable|supplied workspace_root was not used/);
       assert.deepEqual(inspectArtifactText(closed.structuredContent.artifact, defaultRoot).errors, []);
       assert.equal(existsSync(join(home, ".cursor", "geldmacher-workflow")), false);
 
+      const context = await client.callTool({
+        name: "workflow_artifact_context",
+        arguments: { root_plan_id: "wp-adaptive-retry", root_plan: rootPlan },
+      });
+      assert.equal(context.isError, false);
+      assert.equal(context.structuredContent.handoff_mode, "root-content-cache");
+      assert.equal(context.structuredContent.workspace_binding, "not-established");
+      assert.equal(context.structuredContent.evidence_tip, closed.structuredContent.delivery_evidence_id);
+
       const missingRoot = await client.callTool({
         name: "workflow_closeout",
-        arguments: { root_plan_id: "wp-adaptive-retry", effective_profile: "manual", check_evidence: [verifiedCheck] },
+        arguments: { root_plan_id: "wp-missing-root", effective_profile: "manual", check_evidence: [verifiedCheck] },
       });
       assert.equal(missingRoot.isError, true);
-      assert.match(missingRoot.structuredContent.error, /roots|workspace/i);
-      assert.equal(missingRoot.structuredContent.error_code, scenario.code);
+      assert.match(missingRoot.structuredContent.error, /exact Root|handoff/i);
 
       const conflictingChain = await client.callTool({
         name: "workflow_closeout",
@@ -238,12 +265,45 @@ test("MCP closeout returns attachable Evidence when roots are unavailable and th
         },
       });
       assert.equal(mismatchedRoot.isError, true);
-      assert.match(mismatchedRoot.structuredContent.error, /Root ID mismatch/);
+      assert.match(mismatchedRoot.structuredContent.error, /Root ID mismatch|exact Root ID mismatch/);
       assert.equal(Object.hasOwn(mismatchedRoot.structuredContent, "artifact"), false);
     } finally {
       await client.close().catch(() => {});
       rmSync(home, { recursive: true, force: true });
     }
+  }
+});
+
+test("MCP closeout uses host-configured workspace when roots are unavailable", async () => {
+  const home = mkdtempSync(join(tmpdir(), "workflow-host-bound-"));
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [join(defaultRoot, "dist", "workflow-mcp.mjs")],
+    cwd: defaultRoot,
+    env: mcpEnv(home, { GELDMACHER_WORKFLOW_WORKSPACE_ROOT: defaultRoot }),
+    stderr: "pipe",
+  });
+  const client = workflowClient("workflow-host-bound", [], { advertiseRoots: false });
+  try {
+    await client.connect(transport);
+    const closed = await client.callTool({
+      name: "workflow_closeout",
+      arguments: {
+        root_plan_id: "wp-adaptive-retry",
+        root_plan: rootPlan,
+        effective_profile: "manual",
+        changed_paths: ["src/retry.mjs"],
+        check_evidence: [verifiedCheck],
+      },
+    });
+    assert.equal(closed.isError, false);
+    assert.equal(closed.structuredContent.handoff_persisted, true);
+    assert.equal(closed.structuredContent.workspace_binding, "trusted-root");
+    assert.equal(closed.structuredContent.workspace_root_used, true);
+    assert.equal(closed.structuredContent.workspace_root, realpathSync(defaultRoot));
+  } finally {
+    await client.close().catch(() => {});
+    rmSync(home, { recursive: true, force: true });
   }
 });
 
@@ -266,7 +326,7 @@ test("MCP closeout never falls back for foreign or symlink workspace roots", asy
       command: process.execPath,
       args: [join(defaultRoot, "dist", "workflow-mcp.mjs")],
       cwd: defaultRoot,
-      env: { ...process.env, HOME: home, CURSOR_PLUGIN_ROOT: defaultRoot },
+      env: mcpEnv(home),
       stderr: "pipe",
     });
     const client = workflowClient(`workflow-boundary-${scenario.name}`, scenario.roots);

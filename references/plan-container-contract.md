@@ -2,7 +2,7 @@ Cursor owns native Plan UI and capabilities. Emit one H1, then a fenced `yaml ar
 
 ## Parent-model affinity
 
-The Cursor-selected primary owns **Implement Plan**. Subagents inherit its model; omit Task overrides. Plugin agents use `model: inherit`. The primary integrates results and closeout. Workflow selects no model.
+The Cursor-selected primary owns **Implement Plan**. Subagents inherit its model by default; Cursor Tasks omit overrides or use `inherit`. Observed Children must match the parent or a configured Manual approved candidate. Plugin agents use `model: inherit`. The primary integrates results and closeout.
 
 Every native todo, including each `STEP-*` and closeout, starts with `[workflow-model-inherit-v1]`. This internal marker belongs only to the Plan wrapper, never the closed Root or `extensions`.
 

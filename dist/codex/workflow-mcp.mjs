@@ -2988,7 +2988,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve8.call(this, root, ref);
+      let _sch = resolve10.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a3 = root.localRefs) === null || _a3 === void 0 ? void 0 : _a3[ref];
         const { schemaId } = this.opts;
@@ -3015,7 +3015,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve8(root, ref) {
+    function resolve10(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3642,21 +3642,21 @@ var require_fast_uri = __commonJS({
         normalizeString(uri, options);
       } else if (typeof uri === "object") {
         uri = /** @type {T} */
-        parse3(serialize(uri, options), options);
+        parse4(serialize(uri, options), options);
       }
       return uri;
     }
-    function resolve8(baseURI, relativeURI, options) {
+    function resolve10(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
-      const resolved = resolveComponent(parse3(baseURI, schemelessOptions), parse3(relativeURI, schemelessOptions), schemelessOptions, true);
+      const resolved = resolveComponent(parse4(baseURI, schemelessOptions), parse4(relativeURI, schemelessOptions), schemelessOptions, true);
       schemelessOptions.skipEscape = true;
       return serialize(resolved, schemelessOptions);
     }
     function resolveComponent(base, relative, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
-        base = parse3(serialize(base, options), options);
-        relative = parse3(serialize(relative, options), options);
+        base = parse4(serialize(base, options), options);
+        relative = parse4(serialize(relative, options), options);
       }
       options = options || {};
       if (!options.tolerant && relative.scheme) {
@@ -3885,7 +3885,7 @@ var require_fast_uri = __commonJS({
       }
       return { parsed, malformedAuthorityOrPort };
     }
-    function parse3(uri, opts) {
+    function parse4(uri, opts) {
       return parseWithStatus(uri, opts).parsed;
     }
     function normalizeString(uri, opts) {
@@ -3910,11 +3910,11 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve8,
+      resolve: resolve10,
       resolveComponent,
       equal,
       serialize,
-      parse: parse3
+      parse: parse4
     };
     module.exports = fastUri;
     module.exports.default = fastUri;
@@ -11307,13 +11307,13 @@ var require_resolve_block_scalar = __commonJS({
   "node_modules/yaml/dist/compose/resolve-block-scalar.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
-    function resolveBlockScalar(ctx, scalar, onError) {
-      const start = scalar.offset;
-      const header = parseBlockScalarHeader(scalar, ctx.options.strict, onError);
+    function resolveBlockScalar(ctx, scalar2, onError) {
+      const start = scalar2.offset;
+      const header = parseBlockScalarHeader(scalar2, ctx.options.strict, onError);
       if (!header)
         return { value: "", type: null, comment: "", range: [start, start, start] };
       const type = header.mode === ">" ? Scalar.Scalar.BLOCK_FOLDED : Scalar.Scalar.BLOCK_LITERAL;
-      const lines = scalar.source ? splitLines(scalar.source) : [];
+      const lines = scalar2.source ? splitLines(scalar2.source) : [];
       let chompStart = lines.length;
       for (let i = lines.length - 1; i >= 0; --i) {
         const content = lines[i][1];
@@ -11325,12 +11325,12 @@ var require_resolve_block_scalar = __commonJS({
       if (chompStart === 0) {
         const value2 = header.chomp === "+" && lines.length > 0 ? "\n".repeat(Math.max(1, lines.length - 1)) : "";
         let end2 = start + header.length;
-        if (scalar.source)
-          end2 += scalar.source.length;
+        if (scalar2.source)
+          end2 += scalar2.source.length;
         return { value: value2, type, comment: header.comment, range: [start, end2, end2] };
       }
-      let trimIndent = scalar.indent + header.indent;
-      let offset = scalar.offset + header.length;
+      let trimIndent = scalar2.indent + header.indent;
+      let offset = scalar2.offset + header.length;
       let contentStart = 0;
       for (let i = 0; i < chompStart; ++i) {
         const [indent, content] = lines[i];
@@ -11408,7 +11408,7 @@ var require_resolve_block_scalar = __commonJS({
         default:
           value += "\n";
       }
-      const end = start + header.length + scalar.source.length;
+      const end = start + header.length + scalar2.source.length;
       return { value, type, comment: header.comment, range: [start, end, end] };
     }
     function parseBlockScalarHeader({ offset, props }, strict, onError) {
@@ -11491,8 +11491,8 @@ var require_resolve_flow_scalar = __commonJS({
     "use strict";
     var Scalar = require_Scalar();
     var resolveEnd = require_resolve_end();
-    function resolveFlowScalar(scalar, strict, onError) {
-      const { offset, type, source, end } = scalar;
+    function resolveFlowScalar(scalar2, strict, onError) {
+      const { offset, type, source, end } = scalar2;
       let _type;
       let value;
       const _onError = (rel, code, msg) => onError(offset + rel, code, msg);
@@ -11511,7 +11511,7 @@ var require_resolve_flow_scalar = __commonJS({
           break;
         /* istanbul ignore next should not happen */
         default:
-          onError(scalar, "UNEXPECTED_TOKEN", `Expected a flow scalar value, but found: ${type}`);
+          onError(scalar2, "UNEXPECTED_TOKEN", `Expected a flow scalar value, but found: ${type}`);
           return {
             value: "",
             type: null,
@@ -11725,26 +11725,26 @@ var require_compose_scalar = __commonJS({
         tag = findScalarTagByTest(ctx, value, token, onError);
       else
         tag = ctx.schema[identity.SCALAR];
-      let scalar;
+      let scalar2;
       try {
         const res = tag.resolve(value, (msg) => onError(tagToken ?? token, "TAG_RESOLVE_FAILED", msg), ctx.options);
-        scalar = identity.isScalar(res) ? res : new Scalar.Scalar(res);
+        scalar2 = identity.isScalar(res) ? res : new Scalar.Scalar(res);
       } catch (error2) {
         const msg = error2 instanceof Error ? error2.message : String(error2);
         onError(tagToken ?? token, "TAG_RESOLVE_FAILED", msg);
-        scalar = new Scalar.Scalar(value);
+        scalar2 = new Scalar.Scalar(value);
       }
-      scalar.range = range;
-      scalar.source = value;
+      scalar2.range = range;
+      scalar2.source = value;
       if (type)
-        scalar.type = type;
+        scalar2.type = type;
       if (tagName)
-        scalar.tag = tagName;
+        scalar2.tag = tagName;
       if (tag.format)
-        scalar.format = tag.format;
+        scalar2.format = tag.format;
       if (comment)
-        scalar.comment = comment;
-      return scalar;
+        scalar2.comment = comment;
+      return scalar2;
     }
     function findScalarTagByName(schema, value, tagName, tagToken, onError) {
       if (tagName === "!")
@@ -13572,37 +13572,37 @@ var require_parser = __commonJS({
           };
         }
       }
-      *scalar(scalar) {
+      *scalar(scalar2) {
         if (this.type === "map-value-ind") {
           const prev = getPrevProps(this.peek(2));
           const start = getFirstKeyStartProps(prev);
           let sep;
-          if (scalar.end) {
-            sep = scalar.end;
+          if (scalar2.end) {
+            sep = scalar2.end;
             sep.push(this.sourceToken);
-            delete scalar.end;
+            delete scalar2.end;
           } else
             sep = [this.sourceToken];
           const map = {
             type: "block-map",
-            offset: scalar.offset,
-            indent: scalar.indent,
-            items: [{ start, key: scalar, sep }]
+            offset: scalar2.offset,
+            indent: scalar2.indent,
+            items: [{ start, key: scalar2, sep }]
           };
           this.onKeyLine = true;
           this.stack[this.stack.length - 1] = map;
         } else
-          yield* this.lineEnd(scalar);
+          yield* this.lineEnd(scalar2);
       }
-      *blockScalar(scalar) {
+      *blockScalar(scalar2) {
         switch (this.type) {
           case "space":
           case "comment":
           case "newline":
-            scalar.props.push(this.sourceToken);
+            scalar2.props.push(this.sourceToken);
             return;
           case "scalar":
-            scalar.source = this.source;
+            scalar2.source = this.source;
             this.atNewLine = true;
             this.indent = 0;
             if (this.onNewLine) {
@@ -14126,7 +14126,7 @@ var require_public_api = __commonJS({
       }
       return doc;
     }
-    function parse3(src, reviver, options) {
+    function parse4(src, reviver, options) {
       let _reviver = void 0;
       if (typeof reviver === "function") {
         _reviver = reviver;
@@ -14167,7 +14167,7 @@ var require_public_api = __commonJS({
         return value.toString(options);
       return new Document.Document(value, _replacer, options).toString(options);
     }
-    exports.parse = parse3;
+    exports.parse = parse4;
     exports.parseAllDocuments = parseAllDocuments;
     exports.parseDocument = parseDocument2;
     exports.stringify = stringify2;
@@ -14227,7 +14227,7 @@ var require_dist2 = __commonJS({
 });
 
 // src/mcp/workflow-mcp-manual.mjs
-import { dirname as dirname4, resolve as resolve7 } from "node:path";
+import { dirname as dirname4, resolve as resolve9 } from "node:path";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
 
 // node_modules/zod/v3/helpers/util.js
@@ -27098,7 +27098,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve8) => setTimeout(resolve8, pollInterval));
+        await new Promise((resolve10) => setTimeout(resolve10, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error2) {
@@ -27115,7 +27115,7 @@ var Protocol = class {
    */
   request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve8, reject) => {
+    return new Promise((resolve10, reject) => {
       const earlyReject = (error2) => {
         reject(error2);
       };
@@ -27193,7 +27193,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve8(parseResult.data);
+            resolve10(parseResult.data);
           }
         } catch (error2) {
           reject(error2);
@@ -27454,12 +27454,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve8, reject) => {
+    return new Promise((resolve10, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve8, interval);
+      const timeoutId = setTimeout(resolve10, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -28550,7 +28550,7 @@ var McpServer = class {
     let task = createTaskResult.task;
     const pollInterval = task.pollInterval ?? 5e3;
     while (task.status !== "completed" && task.status !== "failed" && task.status !== "cancelled") {
-      await new Promise((resolve8) => setTimeout(resolve8, pollInterval));
+      await new Promise((resolve10) => setTimeout(resolve10, pollInterval));
       const updatedTask = await extra.taskStore.getTask(taskId);
       if (!updatedTask) {
         throw new McpError(ErrorCode.InternalError, `Task ${taskId} not found during polling`);
@@ -28880,14 +28880,14 @@ var McpServer = class {
     }
     return registeredPrompt;
   }
-  _createRegisteredTool(name, title, description, inputSchema, outputSchema, annotations, execution, _meta, handler) {
+  _createRegisteredTool(name, title, description, inputSchema, outputSchema, annotations2, execution, _meta, handler) {
     validateAndWarnToolName(name);
     const registeredTool = {
       title,
       description,
       inputSchema: getZodSchemaObject(inputSchema),
       outputSchema: getZodSchemaObject(outputSchema),
-      annotations,
+      annotations: annotations2,
       execution,
       _meta,
       handler,
@@ -28938,7 +28938,7 @@ var McpServer = class {
     let description;
     let inputSchema;
     let outputSchema;
-    let annotations;
+    let annotations2;
     if (typeof rest[0] === "string") {
       description = rest.shift();
     }
@@ -28947,17 +28947,17 @@ var McpServer = class {
       if (isZodRawShapeCompat(firstArg)) {
         inputSchema = rest.shift();
         if (rest.length > 1 && typeof rest[0] === "object" && rest[0] !== null && !isZodRawShapeCompat(rest[0])) {
-          annotations = rest.shift();
+          annotations2 = rest.shift();
         }
       } else if (typeof firstArg === "object" && firstArg !== null) {
         if (Object.values(firstArg).some((v) => typeof v === "object" && v !== null)) {
           throw new Error(`Tool ${name} expected a Zod schema or ToolAnnotations, but received an unrecognized object`);
         }
-        annotations = rest.shift();
+        annotations2 = rest.shift();
       }
     }
     const callback = rest[0];
-    return this._createRegisteredTool(name, void 0, description, inputSchema, outputSchema, annotations, { taskSupport: "forbidden" }, void 0, callback);
+    return this._createRegisteredTool(name, void 0, description, inputSchema, outputSchema, annotations2, { taskSupport: "forbidden" }, void 0, callback);
   }
   /**
    * Registers a tool with a config object and callback.
@@ -28966,8 +28966,8 @@ var McpServer = class {
     if (this._registeredTools[name]) {
       throw new Error(`Tool ${name} is already registered`);
     }
-    const { title, description, inputSchema, outputSchema, annotations, _meta } = config2;
-    return this._createRegisteredTool(name, title, description, inputSchema, outputSchema, annotations, { taskSupport: "forbidden" }, _meta, cb);
+    const { title, description, inputSchema, outputSchema, annotations: annotations2, _meta } = config2;
+    return this._createRegisteredTool(name, title, description, inputSchema, outputSchema, annotations2, { taskSupport: "forbidden" }, _meta, cb);
   }
   prompt(name, ...rest) {
     if (this._registeredPrompts[name]) {
@@ -29214,12 +29214,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve8) => {
+    return new Promise((resolve10) => {
       const json = serializeMessage(message);
       if (this._stdout.write(json)) {
-        resolve8();
+        resolve10();
       } else {
-        this._stdout.once("drain", resolve8);
+        this._stdout.once("drain", resolve10);
       }
     });
   }
@@ -29227,19 +29227,111 @@ var StdioServerTransport = class {
 
 // src/core/state-paths.mjs
 import { createHash } from "node:crypto";
+import { homedir as homedir2 } from "node:os";
+import { join as join2, resolve as resolve2 } from "node:path";
+
+// src/core/host-preferences.mjs
+var import_yaml = __toESM(require_dist2(), 1);
+import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
+var TOOL_APPROVAL_MODES = Object.freeze(["strict", "allowlisted"]);
+var preferenceKeys = Object.freeze(["schema", "tool_approval", "manual_subagent_policy", "extensions"]);
+function sharedWorkflowHome(options = {}) {
+  return resolve(options.homeRoot ?? process.env.GELDMACHER_WORKFLOW_HOME ?? join(homedir(), ".geldmacher", "workflow"));
+}
+function defaultHostPreferencesPath(options = {}) {
+  return options.preferencesPath ?? process.env.GELDMACHER_WORKFLOW_PREFERENCES ?? join(sharedWorkflowHome(options), "preferences.yaml");
+}
+function objectLike(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+function strictSummary(path, source, issues = []) {
+  return Object.freeze({
+    tool_approval: "strict",
+    source,
+    path,
+    authoritative: false,
+    grants_host_approval: false,
+    host_allowlist_required: false,
+    ...issues.length > 0 ? { issues: Object.freeze([...issues]) } : {}
+  });
+}
+function validateHostPreferences(value, label = "preferences") {
+  const errors = [];
+  if (!objectLike(value)) {
+    errors.push(`${label} must be an object`);
+    return errors;
+  }
+  for (const key of Object.keys(value)) {
+    if (!preferenceKeys.includes(key)) errors.push(`${label} has unknown field ${key}`);
+  }
+  if (value.schema !== 1) errors.push(`${label}.schema must be 1`);
+  if (!TOOL_APPROVAL_MODES.includes(value.tool_approval)) {
+    errors.push(`${label}.tool_approval must be strict or allowlisted`);
+  }
+  if (value.manual_subagent_policy !== void 0 && !objectLike(value.manual_subagent_policy)) {
+    errors.push(`${label}.manual_subagent_policy must be an object`);
+  }
+  if (value.extensions !== void 0 && !objectLike(value.extensions)) {
+    errors.push(`${label}.extensions must be an object`);
+  }
+  return errors;
+}
+function resolveHostToolApproval(options = {}) {
+  const path = defaultHostPreferencesPath(options);
+  if (!existsSync(path)) return strictSummary(path, "default");
+  let parsed;
+  try {
+    parsed = (0, import_yaml.parse)(readFileSync(path, "utf8"));
+  } catch (error2) {
+    return strictSummary(path, "invalid-fallback", [`preferences file is unreadable: ${error2.message}`]);
+  }
+  const errors = validateHostPreferences(parsed);
+  if (errors.length > 0) return strictSummary(path, "invalid-fallback", errors);
+  const allowlisted = parsed.tool_approval === "allowlisted";
+  return Object.freeze({
+    tool_approval: parsed.tool_approval,
+    source: "file",
+    path,
+    authoritative: false,
+    grants_host_approval: false,
+    host_allowlist_required: allowlisted
+  });
+}
+
+// src/core/state-paths.mjs
 function repositoryKey(workspaceRoot2) {
-  return createHash("sha256").update(resolve(workspaceRoot2)).digest("hex").slice(0, 20);
+  return createHash("sha256").update(resolve2(workspaceRoot2)).digest("hex").slice(0, 20);
+}
+function rootContentHash(rootPlanText) {
+  if (typeof rootPlanText !== "string" || !rootPlanText.trim()) {
+    throw new Error("root content hash requires exact non-empty Root text");
+  }
+  return createHash("sha256").update(rootPlanText).digest("hex");
+}
+function sharedHandoffBase(options = {}) {
+  return options.baseRoot ?? process.env.GELDMACHER_WORKFLOW_SHARED_ROOT ?? join2(sharedWorkflowHome(options), "handoff");
+}
+function contentAddressedHandoffRoot(rootPlanText, options = {}) {
+  return join2(resolve2(sharedHandoffBase(options)), "by-root", rootContentHash(rootPlanText));
+}
+function contentAddressedHandoffRootByHash(rootHash, options = {}) {
+  if (!/^[a-f0-9]{64}$/.test(String(rootHash ?? ""))) throw new Error("content-addressed handoff requires a full SHA-256 root content hash");
+  return join2(resolve2(sharedHandoffBase(options)), "by-root", rootHash);
+}
+function handoffTipPath(rootPlanId, options = {}) {
+  if (!/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(rootPlanId ?? ""))) throw new Error("handoff tip requires a valid wp-* root_plan_id");
+  return join2(resolve2(sharedHandoffBase(options)), "tips", `${rootPlanId}.json`);
 }
 function sharedArtifactStateRoot(workspaceRoot2, options = {}) {
-  const base = options.baseRoot ?? process.env.GELDMACHER_WORKFLOW_SHARED_ROOT ?? join(homedir(), ".geldmacher", "workflow", "state");
-  return join(resolve(base), repositoryKey(workspaceRoot2));
+  const base = options.baseRoot ?? process.env.GELDMACHER_WORKFLOW_SHARED_ROOT ?? join2(sharedWorkflowHome(options), "state");
+  return join2(resolve2(base), repositoryKey(workspaceRoot2));
 }
 function codexOperationalStateRoot(workspaceRoot2, options = {}) {
   const pluginData = options.pluginData ?? process.env.PLUGIN_DATA;
-  const base = options.baseRoot ?? (pluginData ? join(pluginData, "state") : join(homedir(), ".codex", "geldmacher-workflow", "state"));
-  return join(resolve(base), repositoryKey(workspaceRoot2));
+  const base = options.baseRoot ?? (pluginData ? join2(pluginData, "state") : join2(homedir2(), ".codex", "geldmacher-workflow", "state"));
+  return join2(resolve2(base), repositoryKey(workspaceRoot2));
 }
 
 // src/controller/protocol.mjs
@@ -29264,22 +29356,22 @@ var LEGACY_WORKFLOW_4 = Object.freeze({
 // src/controller/artifact-handoff.mjs
 import {
   closeSync,
-  existsSync as existsSync3,
+  existsSync as existsSync4,
   mkdirSync,
   openSync,
-  readFileSync as readFileSync3,
+  readFileSync as readFileSync4,
   readdirSync,
   renameSync,
   unlinkSync,
   writeFileSync
 } from "node:fs";
 import { createHash as createHash3, randomUUID } from "node:crypto";
-import { dirname as dirname2, join as join4, resolve as resolve4 } from "node:path";
+import { dirname as dirname2, join as join5, resolve as resolve5 } from "node:path";
 
 // scripts/validate-artifact.source.mjs
-import { existsSync as existsSync2, readFileSync as readFileSync2, realpathSync } from "node:fs";
+import { existsSync as existsSync3, readFileSync as readFileSync3, realpathSync } from "node:fs";
 import { createHash as createHash2 } from "node:crypto";
-import { basename, dirname, join as join3, resolve as resolve3 } from "node:path";
+import { basename, dirname, join as join4, resolve as resolve4 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // scripts/artifact-validator/evidence.mjs
@@ -29344,9 +29436,9 @@ function lineageTips(items, predecessorField) {
 }
 
 // scripts/artifact-validator/parser.mjs
-var import_yaml = __toESM(require_dist2(), 1);
+var import_yaml2 = __toESM(require_dist2(), 1);
 function yamlObject(source, label, failures) {
-  const document = (0, import_yaml.parseDocument)(source, { prettyErrors: false, uniqueKeys: true });
+  const document = (0, import_yaml2.parseDocument)(source, { prettyErrors: false, uniqueKeys: true });
   for (const error2 of document.errors) failures.push(`${label}: invalid YAML: ${error2.message}`);
   if (document.errors.length > 0) return null;
   const value = document.toJS();
@@ -29420,29 +29512,29 @@ function parseArtifact(text, failures = [], normalizations = []) {
 // scripts/artifact-validator/schema.mjs
 var import_ajv2 = __toESM(require_ajv(), 1);
 var import_ajv_formats2 = __toESM(require_dist(), 1);
-import { existsSync, readFileSync } from "node:fs";
-import { join as join2, resolve as resolve2 } from "node:path";
+import { existsSync as existsSync2, readFileSync as readFileSync2 } from "node:fs";
+import { join as join3, resolve as resolve3 } from "node:path";
 function formatAjv(error2) {
   const location = error2.instancePath || "/";
   return error2.keyword === "additionalProperties" ? `${location}: additional property ${error2.params.additionalProperty}` : `${location}: ${error2.message}`;
 }
 function schemaFor(root, artifact2) {
-  return join2(resolve2(root), "schemas", "artifacts", `${artifact2}.schema.json`);
+  return join3(resolve3(root), "schemas", "artifacts", `${artifact2}.schema.json`);
 }
 function validateArtifactSchema(root, parsed, failures) {
   const path = schemaFor(root, parsed.fields.artifact);
-  if (!existsSync(path)) {
+  if (!existsSync2(path)) {
     failures.push(`unsupported artifact type: ${parsed.fields.artifact}`);
     return null;
   }
   const ajv = new import_ajv2.default({ allErrors: true, strict: false });
   (0, import_ajv_formats2.default)(ajv);
   if (parsed.wrapper) {
-    const wrapperSchema = JSON.parse(readFileSync(join2(resolve2(root), "schemas", "cursor-plan-wrapper.schema.json"), "utf8"));
+    const wrapperSchema = JSON.parse(readFileSync2(join3(resolve3(root), "schemas", "cursor-plan-wrapper.schema.json"), "utf8"));
     const validateWrapper = ajv.compile(wrapperSchema);
     if (!validateWrapper(parsed.wrapper)) failures.push(...validateWrapper.errors.map((error2) => `Cursor wrapper ${formatAjv(error2)}`));
   }
-  const schema = JSON.parse(readFileSync(path, "utf8"));
+  const schema = JSON.parse(readFileSync2(path, "utf8"));
   const validate = ajv.compile(schema);
   if (!validate(parsed.fields)) failures.push(...validate.errors.map(formatAjv));
   return schema;
@@ -30521,7 +30613,7 @@ function preflightRootPlan(text, root = defaultRoot) {
   };
 }
 function authoritativeArtifactProjection(artifact2, root) {
-  const schema = JSON.parse(readFileSync2(schemaFor(root, artifact2.fields.artifact), "utf8"));
+  const schema = JSON.parse(readFileSync3(schemaFor(root, artifact2.fields.artifact), "utf8"));
   const fields = Object.fromEntries(Object.keys(schema.properties ?? {}).filter((key) => key !== "extensions" && Object.hasOwn(artifact2.fields, key)).map((key) => [key, structuredClone(artifact2.fields[key])]));
   const sections = (schema["x-required-sections"] ?? schema["x-markdown-sections"] ?? []).map((name) => ({ name, content: artifact2.sections.get(name) ?? "" }));
   const projection = stableValue({ fields, sections });
@@ -30819,7 +30911,7 @@ function inspectCompactArtifactSet(entries, root = defaultRoot) {
     const probeErrors = [];
     const probe = parseArtifact(text, probeErrors, []);
     const type = probe?.fields.artifact;
-    if (type && !knownArtifacts.has(type) && !existsSync2(schemaFor(root, type))) {
+    if (type && !knownArtifacts.has(type) && !existsSync3(schemaFor(root, type))) {
       const workflowShaped = /^(?:work|delivery)-/.test(type) || /^(?:wp|de|wr|cp|rs)-/.test(String(probe?.fields.id ?? ""));
       if (workflowShaped) errors.push(`${label}: unsupported workflow artifact type`);
       continue;
@@ -30984,7 +31076,7 @@ function runCli() {
     process.exitCode = 2;
     return;
   }
-  const entries = paths.map((path) => [path, readFileSync2(resolve3(path), "utf8")]);
+  const entries = paths.map((path) => [path, readFileSync3(resolve4(path), "utf8")]);
   const inspection = entries.length === 1 ? inspectArtifactText(entries[0][1]) : inspectArtifactSet(entries);
   if (inspection.errors.length > 0) {
     console.error("Artifact validation failed:");
@@ -31002,10 +31094,84 @@ function runCli() {
     inspection.diagnostics.forEach((item) => console.log(`DIAGNOSTIC: ${item}`));
   }
 }
-if (process.argv[1] && ["validate-artifact.source.mjs", "validate-artifact.mjs"].includes(basename(process.argv[1])) && realpathSync(resolve3(process.argv[1])) === realpathSync(fileURLToPath(import.meta.url))) runCli();
+if (process.argv[1] && ["validate-artifact.source.mjs", "validate-artifact.mjs"].includes(basename(process.argv[1])) && realpathSync(resolve4(process.argv[1])) === realpathSync(fileURLToPath(import.meta.url))) runCli();
 
 // src/controller/artifact-handoff.mjs
 var HANDOFF_RECORD_SCHEMA = 1;
+var HANDOFF_TIP_SCHEMA = 1;
+function createContentAddressedHandoffStore(rootPlanText, pluginRoot2, options = {}) {
+  return new ArtifactHandoffStore(contentAddressedHandoffRoot(rootPlanText, options), pluginRoot2);
+}
+function createContentAddressedHandoffStoreByHash(rootHash, pluginRoot2, options = {}) {
+  return new ArtifactHandoffStore(contentAddressedHandoffRootByHash(rootHash, options), pluginRoot2);
+}
+function writeHandoffTip(rootPlanText, options = {}) {
+  const inspected = inspectArtifactText(rootPlanText, options.pluginRoot);
+  if (inspected.errors.length > 0 || inspected.artifact?.fields?.artifact !== "work-plan") {
+    throw new Error(`handoff tip requires a valid work-plan Root: ${(inspected.errors.length > 0 ? inspected.errors : ["not a work-plan"]).join("; ")}`);
+  }
+  const tip = {
+    handoff_tip_schema: HANDOFF_TIP_SCHEMA,
+    root_plan_id: inspected.artifact.fields.id,
+    root_content_hash: rootContentHash(rootPlanText),
+    text_hash: sha2562(rootPlanText),
+    updated_at: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  const path = handoffTipPath(tip.root_plan_id, options);
+  if (existsSync4(path)) {
+    const prior = JSON.parse(readFileSync4(path, "utf8"));
+    if (prior?.handoff_tip_schema === HANDOFF_TIP_SCHEMA && prior.root_plan_id === tip.root_plan_id && prior.root_content_hash === tip.root_content_hash && prior.text_hash === tip.text_hash) {
+      return tip;
+    }
+    if (prior?.root_plan_id === tip.root_plan_id && prior?.text_hash && prior.text_hash !== tip.text_hash) {
+      throw new Error(`handoff tip for ${tip.root_plan_id} conflicts with a different Root text hash`);
+    }
+  }
+  atomicJson(path, tip);
+  return tip;
+}
+function readHandoffTip(rootPlanId, options = {}) {
+  const path = handoffTipPath(rootPlanId, options);
+  if (!existsSync4(path)) return null;
+  const tip = JSON.parse(readFileSync4(path, "utf8"));
+  if (tip?.handoff_tip_schema !== HANDOFF_TIP_SCHEMA || tip.root_plan_id !== rootPlanId || !/^[a-f0-9]{64}$/.test(String(tip.root_content_hash ?? "")) || !/^[a-f0-9]{64}$/.test(String(tip.text_hash ?? ""))) {
+    throw new Error(`incompatible or corrupt handoff tip ${rootPlanId}`);
+  }
+  return tip;
+}
+function resolveRootPlanText(pluginRoot2, { rootPlanId = null, rootPlan = null, artifacts = [] } = {}) {
+  if (typeof rootPlan === "string" && rootPlan.trim()) {
+    const inspected = inspectArtifactText(rootPlan, pluginRoot2);
+    if (inspected.errors.length > 0 || inspected.artifact?.fields?.artifact !== "work-plan") {
+      throw new Error(`exact Root text is invalid: ${(inspected.errors.length > 0 ? inspected.errors : ["not a work-plan"]).join("; ")}`);
+    }
+    if (rootPlanId && inspected.artifact.fields.id !== rootPlanId) {
+      throw new Error(`exact Root ID mismatch: expected ${rootPlanId}, received ${inspected.artifact.fields.id}`);
+    }
+    return rootPlan;
+  }
+  for (const entry of artifacts) {
+    if (!entry?.text) continue;
+    const inspected = inspectArtifactText(entry.text, pluginRoot2);
+    if (inspected.errors.length > 0 || inspected.artifact?.fields?.artifact !== "work-plan") continue;
+    if (rootPlanId && inspected.artifact.fields.id !== rootPlanId) continue;
+    return entry.text;
+  }
+  if (rootPlanId) {
+    const tip = readHandoffTip(rootPlanId);
+    if (tip) {
+      const store = createContentAddressedHandoffStoreByHash(tip.root_content_hash, pluginRoot2);
+      const cached2 = store.records([rootPlanId])[0];
+      if (cached2?.text && cached2.text_hash === tip.text_hash) return cached2.text;
+    }
+  }
+  throw new Error(rootPlanId ? `exact Root text for ${rootPlanId} is required for content-bound handoff transport` : "exact Root text is required for content-bound handoff transport");
+}
+function rememberContentAddressedRoot(rootPlanText, pluginRoot2, options = {}) {
+  const store = createContentAddressedHandoffStore(rootPlanText, pluginRoot2, options);
+  const tip = writeHandoffTip(rootPlanText, { ...options, pluginRoot: pluginRoot2 });
+  return { store, tip, root_content_hash: tip.root_content_hash };
+}
 function sha2562(value) {
   return createHash3("sha256").update(String(value)).digest("hex");
 }
@@ -31040,7 +31206,7 @@ function acquireLock(path) {
     if (error2.code !== "EEXIST") throw error2;
     let stale = false;
     try {
-      stale = !processAlive(JSON.parse(readFileSync3(path, "utf8")).pid);
+      stale = !processAlive(JSON.parse(readFileSync4(path, "utf8")).pid);
     } catch {
       stale = true;
     }
@@ -31092,16 +31258,16 @@ function referencedIds(fields) {
 }
 var ArtifactHandoffStore = class {
   constructor(root, pluginRoot2) {
-    this.root = resolve4(root);
-    this.pluginRoot = resolve4(pluginRoot2);
-    this.directory = join4(this.root, "handoff", "artifacts");
+    this.root = resolve5(root);
+    this.pluginRoot = resolve5(pluginRoot2);
+    this.directory = join5(this.root, "handoff", "artifacts");
   }
   artifactPath(artifactId) {
     if (!/^(?:wp|de|wr)-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(artifactId))) throw new Error(`invalid handoff artifact ID ${artifactId}`);
-    return join4(this.directory, `${artifactId}.json`);
+    return join5(this.directory, `${artifactId}.json`);
   }
   indexPath() {
-    return join4(this.root, "handoff", "index.json");
+    return join5(this.root, "handoff", "index.json");
   }
   metadata(record2) {
     const fields = parsedArtifact(record2.text, this.pluginRoot).fields;
@@ -31122,8 +31288,8 @@ var ArtifactHandoffStore = class {
   }
   index() {
     try {
-      const index = JSON.parse(readFileSync3(this.indexPath(), "utf8"));
-      const actual = existsSync3(this.directory) ? readdirSync(this.directory, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".json")).map((entry) => entry.name.slice(0, -5)).sort() : [];
+      const index = JSON.parse(readFileSync4(this.indexPath(), "utf8"));
+      const actual = existsSync4(this.directory) ? readdirSync(this.directory, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".json")).map((entry) => entry.name.slice(0, -5)).sort() : [];
       const recorded = (index.entries ?? []).map((entry) => entry.artifact_id).sort();
       if (index.schema !== 1 || actual.join("\n") !== recorded.join("\n")) throw new Error("handoff index mismatch");
       return index;
@@ -31137,9 +31303,9 @@ var ArtifactHandoffStore = class {
     atomicJson(this.indexPath(), { schema: 1, entries: [...entries.values()].sort((left, right) => left.artifact_id.localeCompare(right.artifact_id)) });
   }
   records(ids2 = null) {
-    if (!existsSync3(this.directory)) return [];
-    const files = ids2 ? [...new Set(ids2)].map((id) => this.artifactPath(id)).filter(existsSync3) : readdirSync(this.directory, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".json")).map((entry) => join4(this.directory, entry.name));
-    return files.map((path) => validateRecord(JSON.parse(readFileSync3(path, "utf8")))).sort((left, right) => left.artifact_id.localeCompare(right.artifact_id));
+    if (!existsSync4(this.directory)) return [];
+    const files = ids2 ? [...new Set(ids2)].map((id) => this.artifactPath(id)).filter(existsSync4) : readdirSync(this.directory, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".json")).map((entry) => join5(this.directory, entry.name));
+    return files.map((path) => validateRecord(JSON.parse(readFileSync4(path, "utf8")))).sort((left, right) => left.artifact_id.localeCompare(right.artifact_id));
   }
   record(artifacts) {
     if (!Array.isArray(artifacts) || artifacts.length < 1 || artifacts.length > 32) throw new Error("handoff record requires 1..32 artifacts");
@@ -31151,7 +31317,7 @@ var ArtifactHandoffStore = class {
     });
     const candidateIds = new Set(candidates.map(({ record: record2 }) => record2.artifact_id));
     if (candidateIds.size !== candidates.length) throw new Error("handoff record contains duplicate artifact IDs");
-    const lockPath = join4(this.root, "handoff", ".lock");
+    const lockPath = join5(this.root, "handoff", ".lock");
     let descriptor;
     try {
       descriptor = acquireLock(lockPath);
@@ -31609,19 +31775,257 @@ function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot: plugi
   };
 }
 
+// hooks/manual-subagent-policy.mjs
+import { existsSync as existsSync5, readFileSync as readFileSync5 } from "node:fs";
+import { homedir as homedir3 } from "node:os";
+import { join as join6, resolve as resolve6 } from "node:path";
+var MANUAL_SUBAGENT_POLICY_SCHEMA = 1;
+var MANUAL_SUBAGENT_MODES = Object.freeze(["parent-only", "parent-or-approved"]);
+var MANUAL_SUBAGENT_HOSTS = Object.freeze(["cursor", "codex"]);
+var MANUAL_SUBAGENT_PRESETS = Object.freeze({
+  "cursor-composer-grok-v1": Object.freeze({
+    host: "cursor",
+    version: 1,
+    parent_fallback: true,
+    candidates: Object.freeze([
+      Object.freeze({ model_id: "composer-2.5-fast" }),
+      Object.freeze({ model_id: "cursor-grok-4.5-high-fast" })
+    ])
+  }),
+  "codex-efficient-gpt-v1": Object.freeze({
+    host: "codex",
+    version: 1,
+    parent_fallback: true,
+    candidates: Object.freeze([
+      Object.freeze({ model_id: "gpt-5.6-luna-max", reasoning_effort: "low" }),
+      Object.freeze({ model_id: "gpt-5.6-terra-xhigh", reasoning_effort: "medium" })
+    ])
+  })
+});
+var objectLike2 = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
+var cleanId = (value) => typeof value === "string" && value.trim() !== "" ? value.trim().replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 256) : null;
+function sharedWorkflowHome2(options = {}) {
+  return resolve6(options.homeRoot ?? process.env.GELDMACHER_WORKFLOW_HOME ?? join6(homedir3(), ".geldmacher", "workflow"));
+}
+function defaultHostPreferencesPath2(options = {}) {
+  return options.preferencesPath ?? process.env.GELDMACHER_WORKFLOW_PREFERENCES ?? join6(sharedWorkflowHome2(options), "preferences.yaml");
+}
+function scalar(token) {
+  if (token === "true") return true;
+  if (token === "false") return false;
+  if (token === "null" || token === "~") return null;
+  if (/^-?\d+(?:\.\d+)?$/.test(token)) return Number(token);
+  if (token.startsWith('"') && token.endsWith('"') || token.startsWith("'") && token.endsWith("'")) {
+    return token.slice(1, -1);
+  }
+  return token;
+}
+function parsePreferenceYaml(source) {
+  const root = {};
+  const stack = [{ indent: -1, value: root }];
+  const lines = String(source).split(/\r?\n/);
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+    const raw = lines[lineIndex];
+    if (!raw.trim() || raw.trim().startsWith("#")) continue;
+    const indent = raw.match(/^ */)?.[0].length ?? 0;
+    const line = raw.trim();
+    while (stack.length > 1 && indent <= stack.at(-1).indent) stack.pop();
+    const parent = stack.at(-1).value;
+    if (line.startsWith("- ")) {
+      if (!Array.isArray(parent)) throw new Error("array item without array parent");
+      const item = line.slice(2).trim();
+      const colon2 = item.indexOf(":");
+      if (colon2 >= 0) {
+        const key2 = item.slice(0, colon2).trim();
+        const rest2 = item.slice(colon2 + 1).trim();
+        const object3 = {};
+        if (rest2) object3[key2] = scalar(rest2);
+        parent.push(object3);
+        stack.push({ indent, value: object3 });
+      } else {
+        parent.push(scalar(item));
+      }
+      continue;
+    }
+    if (!objectLike2(parent) || Array.isArray(parent)) throw new Error("mapping entry without object parent");
+    const colon = line.indexOf(":");
+    if (colon < 0) throw new Error(`invalid mapping line: ${line}`);
+    const key = line.slice(0, colon).trim();
+    const rest = line.slice(colon + 1).trim();
+    if (rest === "[]") {
+      parent[key] = [];
+      continue;
+    }
+    if (rest) {
+      parent[key] = scalar(rest);
+      continue;
+    }
+    let nextIndex = lineIndex + 1;
+    while (nextIndex < lines.length && (!lines[nextIndex].trim() || lines[nextIndex].trim().startsWith("#"))) nextIndex += 1;
+    const next = nextIndex < lines.length ? lines[nextIndex] : "";
+    const nextIndent = next.match(/^ */)?.[0].length ?? 0;
+    const nextTrimmed = next.trim();
+    if (next && nextIndent > indent && nextTrimmed.startsWith("- ")) {
+      const child = [];
+      parent[key] = child;
+      stack.push({ indent, value: child });
+    } else {
+      const child = {};
+      parent[key] = child;
+      stack.push({ indent, value: child });
+    }
+  }
+  return root;
+}
+function parentOnlyResolution(source, path, issues = []) {
+  return Object.freeze({
+    schema: MANUAL_SUBAGENT_POLICY_SCHEMA,
+    mode: "parent-only",
+    source,
+    path,
+    authoritative: false,
+    hosts: Object.freeze({
+      cursor: Object.freeze({ host: "cursor", parent_fallback: true, candidates: Object.freeze([]), preset: null }),
+      codex: Object.freeze({ host: "codex", parent_fallback: true, candidates: Object.freeze([]), preset: null })
+    }),
+    ...issues.length > 0 ? { issues: Object.freeze([...issues]) } : {}
+  });
+}
+function validateCandidate(candidate, label, errors) {
+  if (!objectLike2(candidate)) {
+    errors.push(`${label} must be an object`);
+    return null;
+  }
+  for (const key of Object.keys(candidate)) {
+    if (!["model_id", "reasoning_effort"].includes(key)) errors.push(`${label} has unknown field ${key}`);
+  }
+  const modelId = cleanId(candidate.model_id);
+  if (!modelId) errors.push(`${label}.model_id is required`);
+  let reasoning = null;
+  if (candidate.reasoning_effort !== void 0) {
+    reasoning = cleanId(candidate.reasoning_effort);
+    if (!reasoning) errors.push(`${label}.reasoning_effort must be a non-empty string when set`);
+  }
+  return modelId ? Object.freeze({ model_id: modelId, ...reasoning ? { reasoning_effort: reasoning } : {} }) : null;
+}
+function resolveHostPolicy(raw, host, label, errors) {
+  if (raw === void 0) {
+    return Object.freeze({ host, parent_fallback: true, candidates: Object.freeze([]), preset: null });
+  }
+  if (!objectLike2(raw)) {
+    errors.push(`${label} must be an object`);
+    return Object.freeze({ host, parent_fallback: true, candidates: Object.freeze([]), preset: null });
+  }
+  for (const key of Object.keys(raw)) {
+    if (!["preset", "candidates", "parent_fallback"].includes(key)) errors.push(`${label} has unknown field ${key}`);
+  }
+  if (raw.preset !== void 0 && raw.candidates !== void 0) {
+    errors.push(`${label} may set preset or candidates, not both`);
+  }
+  let preset = null;
+  let candidates = [];
+  if (raw.preset !== void 0) {
+    preset = cleanId(raw.preset);
+    if (!preset) errors.push(`${label}.preset must be a non-empty string`);
+    else {
+      const definition = MANUAL_SUBAGENT_PRESETS[preset];
+      if (!definition) errors.push(`${label}.preset is unknown: ${preset}`);
+      else if (definition.host !== host) errors.push(`${label}.preset ${preset} is not valid for ${host}`);
+      else candidates = definition.candidates.map((entry) => Object.freeze({ ...entry }));
+    }
+  }
+  if (Array.isArray(raw.candidates)) {
+    if (raw.candidates.length === 0) errors.push(`${label}.candidates must not be empty`);
+    candidates = raw.candidates.map((entry, index) => validateCandidate(entry, `${label}.candidates[${index}]`, errors)).filter(Boolean);
+  } else if (raw.candidates !== void 0) {
+    errors.push(`${label}.candidates must be an array`);
+  }
+  const parentFallback = raw.parent_fallback === void 0 ? true : raw.parent_fallback === true ? true : raw.parent_fallback === false ? false : (errors.push(`${label}.parent_fallback must be a boolean`), true);
+  if (host === "cursor") {
+    for (const [index, candidate] of candidates.entries()) {
+      if (candidate.reasoning_effort) errors.push(`${label}.candidates[${index}] must not set reasoning_effort on Cursor`);
+    }
+  }
+  return Object.freeze({
+    host,
+    parent_fallback: parentFallback,
+    candidates: Object.freeze(candidates),
+    preset
+  });
+}
+function validateManualSubagentPolicy(value, label = "manual_subagent_policy") {
+  const errors = [];
+  if (!objectLike2(value)) {
+    errors.push(`${label} must be an object`);
+    return errors;
+  }
+  for (const key of Object.keys(value)) {
+    if (!["schema", "mode", "hosts"].includes(key)) errors.push(`${label} has unknown field ${key}`);
+  }
+  if (value.schema !== MANUAL_SUBAGENT_POLICY_SCHEMA) errors.push(`${label}.schema must be ${MANUAL_SUBAGENT_POLICY_SCHEMA}`);
+  if (!MANUAL_SUBAGENT_MODES.includes(value.mode)) errors.push(`${label}.mode must be parent-only or parent-or-approved`);
+  if (value.hosts !== void 0) {
+    if (!objectLike2(value.hosts)) errors.push(`${label}.hosts must be an object`);
+    else {
+      for (const key of Object.keys(value.hosts)) {
+        if (!MANUAL_SUBAGENT_HOSTS.includes(key)) errors.push(`${label}.hosts has unknown host ${key}`);
+      }
+      for (const host of MANUAL_SUBAGENT_HOSTS) {
+        resolveHostPolicy(value.hosts[host], host, `${label}.hosts.${host}`, errors);
+      }
+    }
+  }
+  return errors;
+}
+function resolveManualSubagentPolicy(options = {}) {
+  const path = options.preferencesPath ?? defaultHostPreferencesPath2(options);
+  if (!existsSync5(path)) return parentOnlyResolution("default", path);
+  let parsed;
+  try {
+    parsed = parsePreferenceYaml(readFileSync5(path, "utf8"));
+  } catch (error2) {
+    return parentOnlyResolution("invalid-fallback", path, [`preferences file is unreadable: ${error2.message}`]);
+  }
+  if (!objectLike2(parsed)) return parentOnlyResolution("invalid-fallback", path, ["preferences must be an object"]);
+  if (parsed.manual_subagent_policy === void 0) return parentOnlyResolution("default", path);
+  const errors = validateManualSubagentPolicy(parsed.manual_subagent_policy);
+  if (errors.length > 0) return parentOnlyResolution("invalid-fallback", path, errors);
+  const policy = parsed.manual_subagent_policy;
+  if (policy.mode === "parent-only") {
+    return Object.freeze({
+      ...parentOnlyResolution("file", path),
+      mode: "parent-only"
+    });
+  }
+  const hostErrors = [];
+  const hosts = Object.freeze({
+    cursor: resolveHostPolicy(policy.hosts?.cursor, "cursor", "manual_subagent_policy.hosts.cursor", hostErrors),
+    codex: resolveHostPolicy(policy.hosts?.codex, "codex", "manual_subagent_policy.hosts.codex", hostErrors)
+  });
+  if (hostErrors.length > 0) return parentOnlyResolution("invalid-fallback", path, hostErrors);
+  return Object.freeze({
+    schema: MANUAL_SUBAGENT_POLICY_SCHEMA,
+    mode: "parent-or-approved",
+    source: "file",
+    path,
+    authoritative: false,
+    hosts
+  });
+}
+
 // hooks/model-inheritance-state.mjs
 import {
   chmodSync,
-  existsSync as existsSync4,
+  existsSync as existsSync6,
   mkdirSync as mkdirSync2,
-  readFileSync as readFileSync4,
+  readFileSync as readFileSync6,
   readdirSync as readdirSync2,
   renameSync as renameSync2,
   rmSync,
   statSync,
   writeFileSync as writeFileSync2
 } from "node:fs";
-import { dirname as dirname3, join as join5, resolve as resolve5 } from "node:path";
+import { dirname as dirname3, join as join7, resolve as resolve7 } from "node:path";
 var MODEL_INCIDENT_CAUSES = Object.freeze([
   "explicit-child-model",
   "actual-child-mismatch",
@@ -31632,12 +32036,12 @@ var MODEL_INCIDENT_CAUSES = Object.freeze([
 ]);
 var CAUSES = new Set(MODEL_INCIDENT_CAUSES);
 var TRANSIENT_TTL_MS = 24 * 60 * 60 * 1e3;
-var modelRoot = (stateRoot) => join5(stateRoot, "model-inheritance");
-var incidentDirectory = (stateRoot, incidentId) => join5(modelRoot(stateRoot), "incidents", incidentId);
-var incidentPath = (stateRoot, incidentId) => join5(incidentDirectory(stateRoot, incidentId), "incident.json");
+var modelRoot = (stateRoot) => join7(stateRoot, "model-inheritance");
+var incidentDirectory = (stateRoot, incidentId) => join7(modelRoot(stateRoot), "incidents", incidentId);
+var incidentPath = (stateRoot, incidentId) => join7(incidentDirectory(stateRoot, incidentId), "incident.json");
 function readJson(path) {
   try {
-    const value = JSON.parse(readFileSync4(path, "utf8"));
+    const value = JSON.parse(readFileSync6(path, "utf8"));
     return value && typeof value === "object" && !Array.isArray(value) ? value : null;
   } catch {
     return null;
@@ -31646,14 +32050,14 @@ function readJson(path) {
 function readIncident(stateRoot, incidentId) {
   const incident = readJson(incidentPath(stateRoot, incidentId));
   if (!incident) return null;
-  const observationsDirectory = join5(incidentDirectory(stateRoot, incidentId), "observations");
+  const observationsDirectory = join7(incidentDirectory(stateRoot, incidentId), "observations");
   let childExecuted = false;
   let resultReturned = false;
   let lastObservedAt = incident.recorded_at;
-  if (existsSync4(observationsDirectory)) {
+  if (existsSync6(observationsDirectory)) {
     for (const name of readdirSync2(observationsDirectory).sort()) {
       if (!name.endsWith(".json")) continue;
-      const observation = readJson(join5(observationsDirectory, name));
+      const observation = readJson(join7(observationsDirectory, name));
       if (!observation) continue;
       childExecuted ||= observation.child_executed === true;
       resultReturned ||= observation.result_returned === true;
@@ -31680,6 +32084,8 @@ function publicIncident(value) {
     parent_model_params: value.parent_model_params,
     requested_child_model: value.requested_child_model,
     observed_child_model: value.observed_child_model,
+    match_mode: value.match_mode ?? null,
+    policy_mode: value.policy_mode ?? null,
     cursor_version: value.cursor_version,
     enforcement: value.enforcement,
     child_executed: value.child_executed,
@@ -31688,9 +32094,8 @@ function publicIncident(value) {
     last_observed_at: value.last_observed_at
   };
 }
-function modelInheritanceSummary(stateRoot) {
-  const incidentsRoot = join5(modelRoot(stateRoot), "incidents");
-  if (!existsSync4(incidentsRoot)) return {
+function cleanSummary(overrides = {}) {
+  return {
     authoritative: false,
     status: "clean",
     incident_count: 0,
@@ -31698,22 +32103,22 @@ function modelInheritanceSummary(stateRoot) {
     enforcement: "no-incident",
     evidence_effect: "none",
     result_policy: "verified-results-remain-usable",
-    qualification_policy: "exact-model-attestation-still-required"
+    qualification_policy: "exact-model-attestation-still-required",
+    match_policy: "parent-or-configured-approved-candidates",
+    ...overrides
   };
+}
+function modelInheritanceSummary(stateRoot) {
+  const incidentsRoot = join7(modelRoot(stateRoot), "incidents");
+  if (!existsSync6(incidentsRoot)) return cleanSummary();
   let incidentEntries;
   try {
     incidentEntries = readdirSync2(incidentsRoot, { withFileTypes: true }).filter((entry) => entry.isDirectory());
   } catch {
-    return {
-      authoritative: false,
+    return cleanSummary({
       status: "unattestable",
-      incident_count: 0,
-      last_incident: null,
-      enforcement: "diagnostic-state-unavailable",
-      evidence_effect: "none",
-      result_policy: "verified-results-remain-usable",
-      qualification_policy: "exact-model-attestation-still-required"
-    };
+      enforcement: "diagnostic-state-unavailable"
+    });
   }
   let unreadable = false;
   const incidents = incidentEntries.map((entry) => {
@@ -31723,23 +32128,19 @@ function modelInheritanceSummary(stateRoot) {
   }).filter(Boolean).sort((left, right) => String(left.last_observed_at ?? "").localeCompare(String(right.last_observed_at ?? "")));
   const hasDeviation = incidents.some((entry) => entry.status === "deviated");
   const lastIncident = incidents.at(-1) ?? null;
-  return {
-    authoritative: false,
+  return cleanSummary({
     status: hasDeviation ? "deviated" : incidents.length > 0 || unreadable ? "unattestable" : "clean",
     incident_count: incidents.length,
     last_incident: publicIncident(lastIncident),
-    enforcement: lastIncident?.enforcement ?? (unreadable ? "diagnostic-state-unavailable" : "no-incident"),
-    evidence_effect: "none",
-    result_policy: "verified-results-remain-usable",
-    qualification_policy: "exact-model-attestation-still-required"
-  };
+    enforcement: lastIncident?.enforcement ?? (unreadable ? "diagnostic-state-unavailable" : "no-incident")
+  });
 }
 
 // src/mcp/artifact-handlers.mjs
 import { createHash as createHash6 } from "node:crypto";
 
 // src/controller/delivery-closeout.mjs
-var import_yaml2 = __toESM(require_dist2(), 1);
+var import_yaml3 = __toESM(require_dist2(), 1);
 import { createHash as createHash5 } from "node:crypto";
 
 // src/controller/strategy.mjs
@@ -32060,7 +32461,7 @@ function buildDeliveryEvidence({
 
 ${renderedSummary}` : fullBody({ fields, contract, entries, changedPaths: paths, correction, repositorySnapshot, summary: renderedSummary });
   const artifact2 = `---
-${(0, import_yaml2.stringify)(fields, { lineWidth: 0 }).trimEnd()}
+${(0, import_yaml3.stringify)(fields, { lineWidth: 0 }).trimEnd()}
 ---
 
 ${body}
@@ -32107,8 +32508,9 @@ function persistCloseout({ handoffStore, rootPlanText, artifacts = [], closeout 
 
 // src/mcp/workspace-roots.mjs
 import { lstatSync, realpathSync as realpathSync2, statSync as statSync2 } from "node:fs";
-import { resolve as resolve6 } from "node:path";
+import { resolve as resolve8 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
+var HOST_WORKSPACE_ENV = "GELDMACHER_WORKFLOW_WORKSPACE_ROOT";
 var WorkspaceRootError = class extends Error {
   constructor(code, message, options = {}) {
     super(message, options);
@@ -32118,6 +32520,34 @@ var WorkspaceRootError = class extends Error {
 };
 function isWorkspaceRootsUnavailable(error2) {
   return error2 instanceof WorkspaceRootError && ["roots-request-failed", "roots-empty"].includes(error2.code);
+}
+function validateDirectoryRoot(advertised, {
+  unavailableCode = "root-unavailable",
+  symlinkCode = "root-symlink",
+  notDirectoryCode = "root-not-directory",
+  label = "workspace root"
+} = {}) {
+  let stat;
+  try {
+    stat = lstatSync(advertised);
+  } catch (error2) {
+    throw new WorkspaceRootError(unavailableCode, `${label} is unavailable: ${advertised}`, { cause: error2 });
+  }
+  if (stat.isSymbolicLink()) throw new WorkspaceRootError(symlinkCode, `${label} may not be symlink redirected: ${advertised}`);
+  let canonical;
+  try {
+    canonical = realpathSync2(advertised);
+  } catch (error2) {
+    throw new WorkspaceRootError(unavailableCode, `${label} is unavailable: ${advertised}`, { cause: error2 });
+  }
+  let canonicalStat;
+  try {
+    canonicalStat = statSync2(canonical);
+  } catch (error2) {
+    throw new WorkspaceRootError(unavailableCode, `${label} is unavailable: ${advertised}`, { cause: error2 });
+  }
+  if (!canonicalStat.isDirectory()) throw new WorkspaceRootError(notDirectoryCode, `${label} is not a directory: ${advertised}`);
+  return { advertised, canonical };
 }
 function rootPath(root) {
   if (!root || typeof root.uri !== "string") throw new WorkspaceRootError("root-invalid", "MCP client returned an invalid workspace root");
@@ -32130,42 +32560,40 @@ function rootPath(root) {
   if (url.protocol !== "file:") throw new WorkspaceRootError("root-non-file", `Workflow supports only file workspace roots: ${root.uri}`);
   let advertised;
   try {
-    advertised = resolve6(fileURLToPath2(url));
+    advertised = resolve8(fileURLToPath2(url));
   } catch (error2) {
     throw new WorkspaceRootError("root-invalid", `MCP client returned an invalid file workspace root: ${root.uri}`, { cause: error2 });
   }
-  let stat;
-  try {
-    stat = lstatSync(advertised);
-  } catch (error2) {
-    throw new WorkspaceRootError("root-unavailable", `MCP workspace root is unavailable: ${advertised}`, { cause: error2 });
-  }
-  if (stat.isSymbolicLink()) throw new WorkspaceRootError("root-symlink", `MCP workspace root may not be symlink redirected: ${advertised}`);
-  let canonical;
-  try {
-    canonical = realpathSync2(advertised);
-  } catch (error2) {
-    throw new WorkspaceRootError("root-unavailable", `MCP workspace root is unavailable: ${advertised}`, { cause: error2 });
-  }
-  let canonicalStat;
-  try {
-    canonicalStat = statSync2(canonical);
-  } catch (error2) {
-    throw new WorkspaceRootError("root-unavailable", `MCP workspace root is unavailable: ${advertised}`, { cause: error2 });
-  }
-  if (!canonicalStat.isDirectory()) throw new WorkspaceRootError("root-not-directory", `MCP workspace root is not a directory: ${advertised}`);
-  return { advertised, canonical };
+  return validateDirectoryRoot(advertised, { label: "MCP workspace root" });
+}
+function hostConfiguredRoot(env = process.env) {
+  const raw = env?.[HOST_WORKSPACE_ENV];
+  if (raw === void 0 || raw === null || String(raw).trim() === "") return null;
+  const advertised = resolve8(String(raw));
+  return {
+    ...validateDirectoryRoot(advertised, {
+      unavailableCode: "host-workspace-unavailable",
+      symlinkCode: "host-workspace-symlink",
+      notDirectoryCode: "host-workspace-not-directory",
+      label: `host-configured ${HOST_WORKSPACE_ENV}`
+    }),
+    source: "host-configured"
+  };
 }
 var WorkspaceRootAuthority = class {
-  constructor(listRoots) {
+  constructor(listRoots, options = {}) {
     if (typeof listRoots !== "function") throw new TypeError("WorkspaceRootAuthority requires listRoots");
     this.listRoots = listRoots;
+    this.env = options.env ?? process.env;
     this.cached = null;
+    this.unavailable = null;
   }
   invalidate() {
     this.cached = null;
+    this.unavailable = null;
   }
   async roots() {
+    if (this.unavailable) throw this.unavailable;
     if (!this.cached) {
       this.cached = Promise.resolve().then(async () => {
         let response;
@@ -32184,17 +32612,43 @@ var WorkspaceRootAuthority = class {
     try {
       return await this.cached;
     } catch (error2) {
+      if (isWorkspaceRootsUnavailable(error2)) this.unavailable = error2;
       this.cached = null;
       throw error2;
     }
   }
   async resolve(selector = void 0) {
-    const roots = await this.roots();
+    const host = hostConfiguredRoot(this.env);
+    let roots = null;
+    let rootsError = null;
+    try {
+      roots = await this.roots();
+    } catch (error2) {
+      if (!isWorkspaceRootsUnavailable(error2)) throw error2;
+      rootsError = error2;
+    }
+    if (host) {
+      if (roots) {
+        const allowed2 = roots.find((entry) => entry.advertised === host.advertised || entry.canonical === host.canonical);
+        if (!allowed2) throw new WorkspaceRootError("root-foreign", `host-configured workspace_root is not an advertised MCP root: ${host.advertised}`);
+        if (host.canonical !== allowed2.canonical) {
+          throw new WorkspaceRootError("root-drift", `host-configured workspace_root changed after MCP root discovery: ${host.advertised}`);
+        }
+      }
+      if (selector !== void 0 && selector !== null && selector !== "") {
+        const requested = resolve8(selector);
+        if (requested !== host.advertised && requested !== host.canonical) {
+          throw new WorkspaceRootError("root-foreign", `workspace_root does not match host-configured workspace: ${requested}`);
+        }
+      }
+      return host.canonical;
+    }
+    if (rootsError) throw rootsError;
     if (selector === void 0 || selector === null || selector === "") {
       if (roots.length !== 1) throw new WorkspaceRootError("roots-multiple", "multiple MCP workspace roots require workspace_root");
       return roots[0].canonical;
     }
-    const advertised = resolve6(selector);
+    const advertised = resolve8(selector);
     const allowed = roots.find((entry) => entry.advertised === advertised);
     if (!allowed) throw new WorkspaceRootError("root-foreign", `workspace_root is not an advertised MCP root: ${advertised}`);
     let canonical;
@@ -32210,7 +32664,12 @@ var WorkspaceRootAuthority = class {
 
 // src/mcp/artifact-handlers.mjs
 var bundleSize = (artifacts = []) => artifacts.reduce((total, artifact2) => total + artifact2.text.length, 0);
-function createArtifactHandlers({ pluginRoot: pluginRoot2, handoffContext, result: result2 }) {
+function createArtifactHandlers({
+  pluginRoot: pluginRoot2,
+  resolveOperationalContext,
+  result: result2,
+  handoffStoreFactory = createContentAddressedHandoffStore
+}) {
   const failure2 = (error2) => result2({
     error: error2.message,
     ...error2 instanceof WorkspaceRootError ? { error_code: error2.code } : {}
@@ -32223,6 +32682,71 @@ function createArtifactHandlers({ pluginRoot: pluginRoot2, handoffContext, resul
       merged.set(entry.label, entry.text);
     }
     return merged;
+  };
+  const inferredRootPlanId = (rootPlanId, artifacts = []) => {
+    if (rootPlanId) return rootPlanId;
+    for (const entry of artifacts) {
+      if (!entry?.text) continue;
+      const inspected = inspectArtifactText(entry.text, pluginRoot2);
+      if (inspected.errors.length > 0) continue;
+      if (inspected.artifact?.fields?.artifact === "work-plan") return inspected.artifact.fields.id;
+      if (inspected.artifact?.fields?.artifact === "work-review") return inspected.artifact.fields.root_plan_id;
+      if (inspected.artifact?.fields?.artifact === "delivery-evidence") return inspected.artifact.fields.root_plan_id;
+    }
+    return null;
+  };
+  const contentHandoff = ({ rootPlanId = null, rootPlan = null, artifacts = [], remember = false } = {}) => {
+    const resolvedId = inferredRootPlanId(rootPlanId, artifacts);
+    const rootPlanText = resolveRootPlanText(pluginRoot2, { rootPlanId: resolvedId, rootPlan, artifacts });
+    const root_content_hash = rootContentHash(rootPlanText);
+    const handoffStore = handoffStoreFactory(rootPlanText, pluginRoot2);
+    if (remember) rememberContentAddressedRoot(rootPlanText, pluginRoot2);
+    return { rootPlanText, root_content_hash, handoffStore, rootPlanId: resolvedId };
+  };
+  const hydrateLineageArtifacts = (rootPlanText, handoffStore) => {
+    const seeded = [];
+    let current = rootPlanText;
+    const seen = /* @__PURE__ */ new Set();
+    while (current) {
+      const inspected = inspectArtifactText(current, pluginRoot2);
+      const id = inspected.artifact?.fields?.id;
+      if (!id || seen.has(id)) break;
+      seen.add(id);
+      seeded.push({ label: id, text: current });
+      try {
+        const chain = handoffStore.context(id, current);
+        for (const entry of chain.artifacts) seeded.push({ label: entry.label, text: entry.text });
+      } catch {
+      }
+      const predecessorId = inspected.artifact?.fields?.predecessor_plan_id;
+      if (!predecessorId) break;
+      try {
+        current = resolveRootPlanText(pluginRoot2, { rootPlanId: predecessorId });
+      } catch {
+        break;
+      }
+      const predecessorStore = handoffStoreFactory(current, pluginRoot2);
+      try {
+        const chain = predecessorStore.context(predecessorId, current);
+        for (const entry of chain.artifacts) seeded.push({ label: entry.label, text: entry.text });
+      } catch {
+        seeded.push({ label: predecessorId, text: current });
+      }
+    }
+    return seeded;
+  };
+  const optionalOperational = async (workspaceRoot2) => {
+    try {
+      return { ...await resolveOperationalContext(workspaceRoot2), workspace_binding: "trusted-root" };
+    } catch (error2) {
+      if (!isWorkspaceRootsUnavailable(error2)) throw error2;
+      return {
+        workspace: null,
+        stateRoot: null,
+        workspace_binding: "not-established",
+        workspace_error: error2
+      };
+    }
   };
   const buildCloseout = (input, merged) => {
     const rootPlan = input.root_plan ?? [...merged.values()].find((text) => {
@@ -32244,9 +32768,19 @@ function createArtifactHandlers({ pluginRoot: pluginRoot2, handoffContext, resul
     if (!closeoutResult.artifact) throw new Error("closeout resolved an evidence tip without its exact artifact text");
     return { rootPlan, closeoutResult };
   };
-  const closeoutPayload = ({ input, workspace, closeoutResult, persisted, warning, handoffErrorCode }) => ({
+  const closeoutPayload = ({
+    input,
+    workspace,
+    workspaceBinding,
+    closeoutResult,
+    persisted,
+    warning,
+    handoffErrorCode,
+    rootContentHashValue,
+    handoffMode
+  }) => ({
     ...workspace ? { workspace_root: workspace } : {},
-    workspace_binding: workspace ? "trusted-root" : "not-established",
+    workspace_binding: workspaceBinding ?? (workspace ? "trusted-root" : "not-established"),
     workspace_root_used: Boolean(workspace),
     root_plan_id: input.root_plan_id,
     delivery_evidence_id: closeoutResult.fields.id,
@@ -32258,6 +32792,8 @@ function createArtifactHandlers({ pluginRoot: pluginRoot2, handoffContext, resul
     duplicate: persisted.duplicate,
     handoff_persisted: persisted.handoff_persisted,
     handoff_authoritative: false,
+    handoff_mode: handoffMode ?? (persisted.handoff_persisted ? "root-content-cache" : "stateless"),
+    ...rootContentHashValue ? { root_content_hash: rootContentHashValue } : {},
     ...persisted.artifact_set_hash ? { artifact_set_hash: persisted.artifact_set_hash } : {},
     ...warning ? { warning } : {},
     ...handoffErrorCode || persisted.handoff_error_code ? { handoff_error_code: handoffErrorCode ?? persisted.handoff_error_code } : {}
@@ -32271,20 +32807,55 @@ function createArtifactHandlers({ pluginRoot: pluginRoot2, handoffContext, resul
           throw new Error("workflow_artifact_record accepts only valid Schema-5 work-plan and work-review artifacts");
         }
       }
-      const { workspace, handoffStore } = await handoffContext(input.workspace_root);
-      return result2({ workspace_root: workspace, ...handoffStore.record(input.artifacts), handoff_authoritative: false });
+      const { rootPlanText, root_content_hash, handoffStore } = contentHandoff({
+        rootPlan: input.root_plan,
+        artifacts: input.artifacts,
+        remember: true
+      });
+      const operational = await optionalOperational(input.workspace_root);
+      const lineage = hydrateLineageArtifacts(rootPlanText, handoffStore);
+      const byId = /* @__PURE__ */ new Map();
+      for (const entry of [...lineage, ...input.artifacts]) {
+        const inspected = inspectArtifactText(entry.text, pluginRoot2);
+        if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) {
+          byId.set(entry.label, entry);
+          continue;
+        }
+        byId.set(inspected.artifact.fields.id, { label: inspected.artifact.fields.id, text: entry.text });
+      }
+      const recorded = handoffStore.record([...byId.values()]);
+      return result2({
+        ...operational.workspace ? { workspace_root: operational.workspace } : {},
+        workspace_binding: operational.workspace_binding,
+        workspace_root_used: Boolean(operational.workspace),
+        handoff_authoritative: false,
+        handoff_mode: "root-content-cache",
+        root_content_hash,
+        ...recorded,
+        ...operational.workspace_error && input.workspace_root ? { warning: `workspace binding unavailable (${operational.workspace_error.code}); recorded under root-content handoff namespace` } : {}
+      });
     } catch (error2) {
       return failure2(error2);
     }
   };
   const context = async (input) => {
     try {
-      const { workspace, stateRoot, handoffStore } = await handoffContext(input.workspace_root);
+      const { root_content_hash, handoffStore } = contentHandoff({
+        rootPlanId: input.root_plan_id,
+        rootPlan: input.root_plan,
+        artifacts: input.artifacts
+      });
+      const operational = await optionalOperational(input.workspace_root);
+      const chain = handoffStore.context(input.root_plan_id, input.root_plan ?? null);
       return result2({
-        workspace_root: workspace,
+        ...operational.workspace ? { workspace_root: operational.workspace } : {},
+        workspace_binding: operational.workspace_binding,
+        workspace_root_used: Boolean(operational.workspace),
         handoff_authoritative: false,
-        ...handoffStore.context(input.root_plan_id, input.root_plan ?? null),
-        model_inheritance: modelInheritanceSummary(stateRoot)
+        handoff_mode: "root-content-cache",
+        root_content_hash,
+        ...chain,
+        model_inheritance: operational.stateRoot ? modelInheritanceSummary(operational.stateRoot) : { authoritative: false, status: "unavailable", evidence_effect: "none", reason: "workspace-binding-not-established" }
       });
     } catch (error2) {
       return failure2(error2);
@@ -32293,45 +32864,137 @@ function createArtifactHandlers({ pluginRoot: pluginRoot2, handoffContext, resul
   const closeout = async (input) => {
     try {
       if (bundleSize(input.artifacts) > 1e6) throw new Error("closeout artifact bundle exceeds 1000000 characters");
-      let workspaceContext;
+      const operational = await optionalOperational(input.workspace_root);
+      let handoff;
       try {
-        workspaceContext = await handoffContext(input.workspace_root);
+        handoff = contentHandoff({
+          rootPlanId: input.root_plan_id,
+          rootPlan: input.root_plan,
+          artifacts: input.artifacts,
+          remember: true
+        });
       } catch (error2) {
-        if (!input.root_plan || !isWorkspaceRootsUnavailable(error2)) throw error2;
-        const merged2 = mergeArtifacts(input.artifacts ?? []);
-        const { closeoutResult: closeoutResult2 } = buildCloseout(input, merged2);
-        const selectorNotice = input.workspace_root ? "; the supplied workspace_root was not used" : "";
-        const warning = `handoff cache unavailable (${error2.code}): ${error2.message}${selectorNotice}; attach the returned artifact explicitly to the next Workflow command`;
-        return result2(closeoutPayload({
-          input,
-          workspace: null,
-          closeoutResult: closeoutResult2,
-          persisted: { ...closeoutResult2, handoff_persisted: false },
-          warning,
-          handoffErrorCode: error2.code
-        }));
+        if (operational.legacyHandoffStore && !input.root_plan) {
+          try {
+            const legacy = operational.legacyHandoffStore.context(input.root_plan_id, null);
+            const rootPlan2 = legacy.artifacts.find((entry) => entry.label === input.root_plan_id)?.text;
+            if (rootPlan2) {
+              handoff = contentHandoff({
+                rootPlanId: input.root_plan_id,
+                rootPlan: rootPlan2,
+                artifacts: [...legacy.artifacts, ...input.artifacts ?? []],
+                remember: true
+              });
+            }
+          } catch {
+          }
+        }
+        if (!handoff) {
+          if (!input.root_plan) throw error2;
+          const merged2 = mergeArtifacts(input.artifacts ?? []);
+          const { closeoutResult: closeoutResult2 } = buildCloseout(input, merged2);
+          return result2(closeoutPayload({
+            input,
+            workspace: operational.workspace,
+            workspaceBinding: operational.workspace_binding,
+            closeoutResult: closeoutResult2,
+            persisted: { ...closeoutResult2, handoff_persisted: false },
+            warning: `handoff cache unavailable: ${error2.message}; attach the returned artifact explicitly to the next Workflow command`,
+            handoffErrorCode: "handoff-persist-failed",
+            handoffMode: "stateless"
+          }));
+        }
       }
-      const { workspace, handoffStore } = workspaceContext;
+      const { rootPlanText, root_content_hash, handoffStore } = handoff;
       let cached2 = [];
       try {
-        cached2 = handoffStore.context(input.root_plan_id, input.root_plan ?? null).artifacts.map(({ label, text }) => ({ label, text }));
-      } catch (error2) {
-        if (!input.root_plan) throw error2;
+        cached2 = handoffStore.context(input.root_plan_id, rootPlanText).artifacts.map(({ label, text }) => ({ label, text }));
+      } catch {
       }
-      const merged = mergeArtifacts([...cached2, ...input.artifacts ?? []]);
-      const { rootPlan, closeoutResult } = buildCloseout(input, merged);
+      const merged = mergeArtifacts([...cached2, ...input.artifacts ?? [], { label: "root", text: rootPlanText }]);
+      const { rootPlan, closeoutResult } = buildCloseout({ ...input, root_plan: rootPlanText }, merged);
       const persisted = persistCloseout({
         handoffStore,
         rootPlanText: rootPlan,
         artifacts: [...merged].map(([label, text]) => ({ label, text })),
         closeout: closeoutResult
       });
-      return result2(closeoutPayload({ input, workspace, closeoutResult, persisted, warning: persisted.warning }));
+      if (persisted.handoff_persisted) rememberContentAddressedRoot(rootPlan, pluginRoot2);
+      const selectorNotice = !operational.workspace && input.workspace_root ? `; the supplied workspace_root was not used (${operational.workspace_error?.code ?? "workspace-binding-not-established"})` : "";
+      const warning = persisted.warning ?? (selectorNotice ? `workspace binding unavailable${selectorNotice}` : void 0);
+      return result2(closeoutPayload({
+        input,
+        workspace: operational.workspace,
+        workspaceBinding: operational.workspace_binding,
+        closeoutResult,
+        persisted,
+        warning,
+        rootContentHashValue: root_content_hash ?? rootContentHash(rootPlan),
+        handoffMode: persisted.handoff_persisted ? "root-content-cache" : "stateless",
+        handoffErrorCode: persisted.handoff_error_code
+      }));
     } catch (error2) {
       return failure2(error2);
     }
   };
   return Object.freeze({ record: record2, context, closeout });
+}
+
+// src/mcp/manual-tool-annotations.mjs
+function annotations({ readOnlyHint, destructiveHint, idempotentHint, openWorldHint }) {
+  return Object.freeze({
+    readOnlyHint,
+    destructiveHint,
+    idempotentHint,
+    openWorldHint
+  });
+}
+var MANUAL_WORKFLOW_TOOL_NAMES = Object.freeze([
+  "workflow_artifact_context",
+  "workflow_artifact_record",
+  "workflow_closeout",
+  "workflow_plan_preflight",
+  "workflow_status"
+]);
+var MANUAL_WORKFLOW_TOOL_ANNOTATIONS = Object.freeze({
+  workflow_plan_preflight: annotations({
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false
+  }),
+  workflow_artifact_context: annotations({
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false
+  }),
+  workflow_status: annotations({
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false
+  }),
+  workflow_artifact_record: annotations({
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false
+  }),
+  workflow_closeout: annotations({
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false
+  })
+});
+if (Object.keys(MANUAL_WORKFLOW_TOOL_ANNOTATIONS).sort().join("\n") !== [...MANUAL_WORKFLOW_TOOL_NAMES].sort().join("\n")) {
+  throw new Error("Manual MCP tool annotations differ from the Manual tool set");
+}
+function manualToolAnnotations(name) {
+  const value = MANUAL_WORKFLOW_TOOL_ANNOTATIONS[name];
+  if (!value) throw new Error(`unknown Manual Workflow MCP tool annotations ${name}`);
+  return value;
 }
 
 // src/mcp/manual-tool-contracts.mjs
@@ -32358,11 +33021,11 @@ var contracts = Object.freeze({
     inputSchema: { root_plan: string2().min(1).max(25e4) }
   },
   workflow_artifact_record: {
-    description: "Validate and atomically cache exact Schema-5 work-plan or work-review artifacts as non-authoritative cross-context handoff data.",
+    description: "Validate and atomically cache exact Schema-5 work-plan or work-review artifacts in the non-authoritative root-content handoff store.",
     inputSchema: { workspace_root: workspaceRoot, artifacts: array(artifact).min(1).max(32) }
   },
   workflow_artifact_context: {
-    description: "Return the exact revalidated non-authoritative Schema-5 artifact chain cached for one Root, optionally hash-bound to the supplied active native Plan.",
+    description: "Return the exact revalidated non-authoritative Schema-5 artifact chain cached for one Root under its root-content namespace, optionally hash-bound to the supplied active native Plan.",
     inputSchema: {
       workspace_root: workspaceRoot,
       root_plan_id: string2().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
@@ -32370,7 +33033,7 @@ var contracts = Object.freeze({
     }
   },
   workflow_closeout: {
-    description: "Deterministically build and validate one Schema-5 delivery-evidence artifact from observed Checks and cache it when workspace Roots are trusted.",
+    description: "Deterministically build and validate one Schema-5 delivery-evidence artifact from observed Checks and cache it in the root-content handoff store.",
     inputSchema: {
       workspace_root: workspaceRoot,
       root_plan_id: string2().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
@@ -32401,30 +33064,60 @@ var contracts = Object.freeze({
 function manualToolContract(name) {
   const contract = contracts[name];
   if (!contract) throw new Error(`unknown Manual Workflow MCP tool ${name}`);
-  return contract;
+  return { ...contract, annotations: manualToolAnnotations(name) };
 }
 
 // src/mcp/manual-tools.mjs
+function publicManualSubagentPolicy(policy = resolveManualSubagentPolicy()) {
+  return Object.freeze({
+    authoritative: false,
+    schema: policy.schema,
+    mode: policy.mode,
+    source: policy.source,
+    path: policy.path,
+    hosts: Object.freeze({
+      cursor: Object.freeze({
+        preset: policy.hosts.cursor.preset,
+        parent_fallback: policy.hosts.cursor.parent_fallback,
+        candidates: policy.hosts.cursor.candidates.map((entry) => entry.model_id)
+      }),
+      codex: Object.freeze({
+        preset: policy.hosts.codex.preset,
+        parent_fallback: policy.hosts.codex.parent_fallback,
+        candidates: policy.hosts.codex.candidates.map((entry) => entry.model_id)
+      })
+    }),
+    ...policy.issues ? { issues: policy.issues } : {}
+  });
+}
 function registerManualWorkflowTools({
   server: server2,
   pluginRoot: pluginRoot2,
   workspaceAuthority: workspaceAuthority2,
   operationalStateRoot,
-  handoffStateRoot,
+  handoffStateRoot = sharedArtifactStateRoot,
   result: result2,
   failure: failure2,
   includeStatus = true,
-  contract = manualToolContract
+  contract = manualToolContract,
+  resolveHostToolApprovalPreference = resolveHostToolApproval,
+  resolveManualSubagentPolicyPreference = resolveManualSubagentPolicy
 }) {
-  const handoffContext = async (workspaceRoot2) => {
+  const resolveOperationalContext = async (workspaceRoot2) => {
     const workspace = await workspaceAuthority2.resolve(workspaceRoot2);
     return {
       workspace,
       stateRoot: operationalStateRoot(workspace),
-      handoffStore: new ArtifactHandoffStore(handoffStateRoot(workspace), pluginRoot2)
+      legacyHandoffStore: new ArtifactHandoffStore(handoffStateRoot(workspace), pluginRoot2)
     };
   };
-  const artifactHandlers = createArtifactHandlers({ pluginRoot: pluginRoot2, handoffContext, result: result2 });
+  const handoffStoreFactory = (rootPlanText, root) => createContentAddressedHandoffStore(rootPlanText, root);
+  const artifactHandlers = createArtifactHandlers({
+    pluginRoot: pluginRoot2,
+    resolveOperationalContext,
+    result: result2,
+    handoffStoreFactory
+  });
   const status = async (input) => {
     try {
       if (input.run_id || input.preparation_id) throw new Error("manual workflow_status does not accept controller subjects");
@@ -32433,8 +33126,17 @@ function registerManualWorkflowTools({
       if (input.artifacts.reduce((total, artifact2) => total + artifact2.text.length, 0) > 1e6) {
         throw new Error("manual workflow_status artifact bundle exceeds 1000000 characters");
       }
-      const workspace = await workspaceAuthority2.resolve(input.workspace_root);
-      const stateRoot = operationalStateRoot(workspace);
+      let workspace = null;
+      let stateRoot = null;
+      let workspaceBinding = "not-established";
+      try {
+        const operational = await resolveOperationalContext(input.workspace_root);
+        workspace = operational.workspace;
+        stateRoot = operational.stateRoot;
+        workspaceBinding = "trusted-root";
+      } catch (error2) {
+        if (!isWorkspaceRootsUnavailable(error2)) throw error2;
+      }
       const manual = deriveManualWorkflowSnapshot({
         rootPlanId: input.root_plan_id,
         artifacts: input.artifacts,
@@ -32445,8 +33147,12 @@ function registerManualWorkflowTools({
         subject_kind: "artifact-chain",
         run: null,
         ...manual,
-        workspace_root: workspace,
-        model_inheritance: modelInheritanceSummary(stateRoot)
+        ...workspace ? { workspace_root: workspace } : {},
+        workspace_binding: workspaceBinding,
+        workspace_root_used: Boolean(workspace),
+        model_inheritance: stateRoot ? modelInheritanceSummary(stateRoot) : { authoritative: false, status: "unavailable", evidence_effect: "none", reason: "workspace-binding-not-established" },
+        host_tool_approval: resolveHostToolApprovalPreference(),
+        manual_subagent_policy: publicManualSubagentPolicy(resolveManualSubagentPolicyPreference())
       });
     } catch (error2) {
       return failure2(error2);
@@ -32454,7 +33160,33 @@ function registerManualWorkflowTools({
   };
   server2.registerTool("workflow_plan_preflight", contract("workflow_plan_preflight"), async (input) => result2(preflightRootPlan(input.root_plan, pluginRoot2)));
   server2.registerTool("workflow_artifact_record", contract("workflow_artifact_record"), artifactHandlers.record);
-  server2.registerTool("workflow_artifact_context", contract("workflow_artifact_context"), artifactHandlers.context);
+  server2.registerTool("workflow_artifact_context", contract("workflow_artifact_context"), async (input) => {
+    try {
+      if (!input.root_plan) {
+        let legacy = null;
+        try {
+          const operational = await resolveOperationalContext(input.workspace_root);
+          legacy = operational.legacyHandoffStore.context(input.root_plan_id, null);
+          return result2({
+            workspace_root: operational.workspace,
+            workspace_binding: "trusted-root",
+            workspace_root_used: true,
+            handoff_authoritative: false,
+            handoff_mode: "legacy-repository-cache",
+            ...legacy,
+            model_inheritance: modelInheritanceSummary(operational.stateRoot)
+          });
+        } catch (error2) {
+          if (!isWorkspaceRootsUnavailable(error2) && !/no handoff Root/.test(error2.message)) throw error2;
+          throw new Error(`workflow_artifact_context requires exact root_plan text for content-bound handoff${error2?.message ? `; ${error2.message}` : ""}`);
+        }
+      }
+      resolveRootPlanText(pluginRoot2, { rootPlanId: input.root_plan_id, rootPlan: input.root_plan });
+      return artifactHandlers.context(input);
+    } catch (error2) {
+      return failure2(error2);
+    }
+  });
   server2.registerTool("workflow_closeout", contract("workflow_closeout"), artifactHandlers.closeout);
   if (includeStatus) server2.registerTool("workflow_status", contract("workflow_status"), status);
   return Object.freeze({ status });
@@ -32462,7 +33194,7 @@ function registerManualWorkflowTools({
 
 // src/mcp/workflow-mcp-manual.mjs
 var sourceDirectory = dirname4(fileURLToPath3(import.meta.url));
-var pluginRoot = resolve7(process.env.PLUGIN_ROOT ?? resolve7(sourceDirectory, "../.."));
+var pluginRoot = resolve9(process.env.PLUGIN_ROOT ?? resolve9(sourceDirectory, "../.."));
 var server = new McpServer({ name: "geldmacher-workflow-manual", version: PLUGIN_VERSION });
 var workspaceAuthority = new WorkspaceRootAuthority(() => server.server.listRoots());
 server.server.setNotificationHandler(RootsListChangedNotificationSchema, async () => workspaceAuthority.invalidate());

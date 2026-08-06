@@ -31,7 +31,7 @@ function writeState(path, value) {
 
 export function runCodexHook(input, options = {}) {
   const path = statePath(input, options.stateRoot);
-  const evaluated = evaluateCodexHook(input, readState(path));
+  const evaluated = evaluateCodexHook(input, readState(path), options);
   writeState(path, evaluated.state);
   return evaluated.output;
 }

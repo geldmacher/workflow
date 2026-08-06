@@ -129,6 +129,8 @@ export function recordModelIncident(stateRoot, value) {
     parent_model_params: normalizeModelParameters(value.parent_model_params),
     requested_child_model: safeText(value.requested_child_model),
     observed_child_model: safeText(value.observed_child_model),
+    match_mode: safeText(value.match_mode),
+    policy_mode: safeText(value.policy_mode),
     cursor_version: safeText(value.cursor_version),
     enforcement: safeText(value.enforcement) ?? "unknown",
     task_hash: safeText(value.task_hash),
@@ -185,6 +187,8 @@ function publicIncident(value) {
     parent_model_params: value.parent_model_params,
     requested_child_model: value.requested_child_model,
     observed_child_model: value.observed_child_model,
+    match_mode: value.match_mode ?? null,
+    policy_mode: value.policy_mode ?? null,
     cursor_version: value.cursor_version,
     enforcement: value.enforcement,
     child_executed: value.child_executed,
@@ -194,9 +198,8 @@ function publicIncident(value) {
   };
 }
 
-export function modelInheritanceSummary(stateRoot) {
-  const incidentsRoot = join(modelRoot(stateRoot), "incidents");
-  if (!existsSync(incidentsRoot)) return {
+function cleanSummary(overrides = {}) {
+  return {
     authoritative: false,
     status: "clean",
     incident_count: 0,
@@ -205,20 +208,21 @@ export function modelInheritanceSummary(stateRoot) {
     evidence_effect: "none",
     result_policy: "verified-results-remain-usable",
     qualification_policy: "exact-model-attestation-still-required",
+    match_policy: "parent-or-configured-approved-candidates",
+    ...overrides,
   };
+}
+
+export function modelInheritanceSummary(stateRoot) {
+  const incidentsRoot = join(modelRoot(stateRoot), "incidents");
+  if (!existsSync(incidentsRoot)) return cleanSummary();
   let incidentEntries;
   try { incidentEntries = readdirSync(incidentsRoot, { withFileTypes: true }).filter((entry) => entry.isDirectory()); }
   catch {
-    return {
-      authoritative: false,
+    return cleanSummary({
       status: "unattestable",
-      incident_count: 0,
-      last_incident: null,
       enforcement: "diagnostic-state-unavailable",
-      evidence_effect: "none",
-      result_policy: "verified-results-remain-usable",
-      qualification_policy: "exact-model-attestation-still-required",
-    };
+    });
   }
   let unreadable = false;
   const incidents = incidentEntries
@@ -231,16 +235,12 @@ export function modelInheritanceSummary(stateRoot) {
     .sort((left, right) => String(left.last_observed_at ?? "").localeCompare(String(right.last_observed_at ?? "")));
   const hasDeviation = incidents.some((entry) => entry.status === "deviated");
   const lastIncident = incidents.at(-1) ?? null;
-  return {
-    authoritative: false,
+  return cleanSummary({
     status: hasDeviation ? "deviated" : incidents.length > 0 || unreadable ? "unattestable" : "clean",
     incident_count: incidents.length,
     last_incident: publicIncident(lastIncident),
     enforcement: lastIncident?.enforcement ?? (unreadable ? "diagnostic-state-unavailable" : "no-incident"),
-    evidence_effect: "none",
-    result_policy: "verified-results-remain-usable",
-    qualification_policy: "exact-model-attestation-still-required",
-  };
+  });
 }
 
 export function cleanupTransientModelState(stateRoot, nowMs = Date.now()) {

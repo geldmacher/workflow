@@ -26,7 +26,7 @@ const expected = Object.freeze({
   skills: ["work-automation", "work-closeout", "work-execution", "work-explanation", "work-learning", "work-planning", "work-review"],
   rules: [],
   artifacts: ["delivery-evidence", "work-plan", "work-review"],
-  references: ["artifact-protocol", "automation-contract", "automation-preparation-contract", "closeout-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "learning-contract", "model-routing-contract", "plan-container-contract", "review-contract", "state-contract", "verification-profile-contract"],
+  references: ["artifact-protocol", "automation-contract", "automation-preparation-contract", "closeout-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "host-approval-contract", "learning-contract", "manual-subagent-policy", "manual-workflow-contract", "model-routing-contract", "plan-container-contract", "review-contract", "state-contract", "verification-profile-contract"],
 });
 
 const readText = (path) => readFileSync(path, "utf8");
@@ -198,7 +198,7 @@ function validateHookSurface(root, manifest, failures) {
   if (!existsSync(planGuardPath)) failures.push("hooks/plan-integrity-guard.mjs is missing");
   if (!existsSync(scriptPath)) failures.push("hooks/subagent-guard.mjs is missing");
   const files = listFiles(directory, () => true).map((file) => relative(root, file));
-  const expectedFiles = ["hooks/hooks.json", "hooks/model-inheritance-state.mjs", "hooks/plan-integrity-guard.mjs", "hooks/subagent-guard.mjs"];
+  const expectedFiles = ["hooks/hooks.json", "hooks/manual-subagent-policy.mjs", "hooks/model-inheritance-state.mjs", "hooks/plan-integrity-guard.mjs", "hooks/subagent-guard.mjs"];
   if (files.join("\n") !== expectedFiles.join("\n")) failures.push(`hooks: expected [${expectedFiles.join(", ")}], received [${files.join(", ")}]`);
   if (!existsSync(configPath)) return;
   try {
@@ -333,6 +333,28 @@ export function validatePlugin(root = defaultRoot, options = {}) {
     if (wrapperSchema.$id !== "urn:geldmacher:cursor-plan-wrapper:1") failures.push("schemas/cursor-plan-wrapper.schema.json: invalid schema id");
     for (const field of ["todos", "isProject"]) if (!wrapperSchema.required?.includes(field)) failures.push(`schemas/cursor-plan-wrapper.schema.json: missing required ${field}`);
   }
+  const hostPreferencesSchemaPath = join(rootPath, "schemas", "host-preferences.schema.json");
+  if (!existsSync(hostPreferencesSchemaPath)) failures.push("schemas/host-preferences.schema.json is missing");
+  else {
+    try {
+      const hostPreferencesSchema = JSON.parse(readText(hostPreferencesSchemaPath));
+      if (hostPreferencesSchema.$id !== "urn:geldmacher:workflow-host-preferences:1") {
+        failures.push("schemas/host-preferences.schema.json: invalid schema id");
+      }
+      if (hostPreferencesSchema.properties?.schema?.const !== 1) {
+        failures.push("schemas/host-preferences.schema.json: schema must require 1");
+      }
+      if (!hostPreferencesSchema.properties?.tool_approval?.enum?.includes("strict")
+        || !hostPreferencesSchema.properties?.tool_approval?.enum?.includes("allowlisted")) {
+        failures.push("schemas/host-preferences.schema.json: tool_approval must allow strict and allowlisted");
+      }
+      const hostAjv = new Ajv({ allErrors: true, strict: false });
+      addFormats(hostAjv);
+      hostAjv.compile(hostPreferencesSchema);
+    } catch (error) {
+      failures.push(`schemas/host-preferences.schema.json does not compile: ${error.message}`);
+    }
+  }
 
   const references = listFiles(join(rootPath, "references"), (file) => extname(file) === ".md")
     .map((file) => ({ file, label: relative(rootPath, file), fields: {} }));
@@ -368,6 +390,9 @@ export function validatePlugin(root = defaultRoot, options = {}) {
         const definition = servers[0]?.[1];
         if (definition?.command !== "node") failures.push("Workflow MCP must use the bundled Node entrypoint");
         if (JSON.stringify(definition?.args) !== JSON.stringify(["${CURSOR_PLUGIN_ROOT}/dist/workflow-mcp.mjs"])) failures.push("Workflow MCP must use the CURSOR_PLUGIN_ROOT bundle path");
+        if (definition?.env?.GELDMACHER_WORKFLOW_WORKSPACE_ROOT !== "${workspaceFolder}") {
+          failures.push("Workflow MCP must bind GELDMACHER_WORKFLOW_WORKSPACE_ROOT to ${workspaceFolder}");
+        }
         if (JSON.stringify(mcp).includes("npx") || JSON.stringify(mcp).includes("latest")) failures.push("mcp.json must not install or resolve latest packages at runtime");
       } catch (error) { failures.push(`mcp.json is invalid JSON: ${error.message}`); }
     }

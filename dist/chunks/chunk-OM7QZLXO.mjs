@@ -5,7 +5,7 @@ import {
   loadWorkflowConfig,
   repositoryBaseline,
   resolveRouteProfile
-} from "./chunk-FW33DUDL.mjs";
+} from "./chunk-YAMXLYBL.mjs";
 import {
   CursorWorkerAdapter,
   currentPlatform,
@@ -26,10 +26,10 @@ import {
   preflightRootPlan,
   replaceOpaqueExtensions,
   require_ajv
-} from "./chunk-POBM3TB5.mjs";
+} from "./chunk-GYZMJGQG.mjs";
 import {
   require_dist
-} from "./chunk-TM6F22GE.mjs";
+} from "./chunk-MV4DSQKJ.mjs";
 import {
   ARTIFACT_SCHEMA,
   CONTROLLER_PROTOCOL,

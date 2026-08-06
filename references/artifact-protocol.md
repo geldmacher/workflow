@@ -8,4 +8,4 @@ Validation is strict and presentation-tolerant. Lean Evidence needs `Summary`; F
 
 Resolve by semantic `artifact`, never filename. Repository delivery excludes push, PR, merge, deployment, production access, and success claims.
 
-Manual transport may use the append-only Schema-1 handoff cache. Reads revalidate exact text and active-Plan binding. The cache grants no authority, Run, approval, acceptance, qualification, or Learning.
+Manual transport may use the append-only Schema-1 root-content handoff cache, namespaced by the full SHA-256 of exact Root text. Reads revalidate exact text and active-Plan binding. The cache grants no authority, Run, approval, acceptance, qualification, or Learning.

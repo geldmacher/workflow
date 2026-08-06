@@ -6,7 +6,7 @@ import {
   buildDeliveryEvidence,
   deriveWorkflowState,
   persistCloseout
-} from "./chunks/chunk-46VQ65DC.mjs";
+} from "./chunks/chunk-ZSZRA4WQ.mjs";
 import {
   AjvJsonSchemaValidator,
   CallToolRequestSchema,
@@ -62,7 +62,7 @@ import {
   string,
   toJsonSchemaCompat,
   writeWorkerControl
-} from "./chunks/chunk-RQJMSEWR.mjs";
+} from "./chunks/chunk-64PXZIRA.mjs";
 import {
   PlanningEngine,
   approveVerificationProfile,
@@ -71,30 +71,35 @@ import {
   inspectVerificationProfile,
   recordVerificationProof,
   resolveCapabilities
-} from "./chunks/chunk-JFY57M5I.mjs";
+} from "./chunks/chunk-OM7QZLXO.mjs";
 import {
   loadWorkflowConfig,
   resolveRouteProfile
-} from "./chunks/chunk-FW33DUDL.mjs";
+} from "./chunks/chunk-YAMXLYBL.mjs";
 import {
   CursorWorkerAdapter
 } from "./chunks/chunk-MICWNJTT.mjs";
 import "./chunks/chunk-PKEO6PA3.mjs";
 import {
-  ArtifactHandoffStore
-} from "./chunks/chunk-ZN7TDC62.mjs";
+  ArtifactHandoffStore,
+  createContentAddressedHandoffStore,
+  rememberContentAddressedRoot,
+  resolveRootPlanText
+} from "./chunks/chunk-URWS3WPX.mjs";
 import {
   effectiveCliSummary,
   inspectArtifactSet,
   inspectArtifactText,
   preflightRootPlan
-} from "./chunks/chunk-POBM3TB5.mjs";
+} from "./chunks/chunk-GYZMJGQG.mjs";
 import {
   PreparationStore,
   RunStore,
   defaultStateRoot,
+  resolveHostToolApproval,
+  rootContentHash,
   sharedArtifactStateRoot
-} from "./chunks/chunk-TM6F22GE.mjs";
+} from "./chunks/chunk-MV4DSQKJ.mjs";
 import {
   PLUGIN_VERSION,
   assertCompatibleRun,
@@ -107,7 +112,7 @@ import "./chunks/chunk-IQRLCJ3K.mjs";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdirSync as mkdirSync2, rmSync as rmSync2 } from "node:fs";
-import { dirname as dirname2, join as join3, resolve as resolve3 } from "node:path";
+import { dirname as dirname2, join as join4, resolve as resolve4 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/server.js
@@ -1005,7 +1010,7 @@ var McpServer = class {
     let task = createTaskResult.task;
     const pollInterval = task.pollInterval ?? 5e3;
     while (task.status !== "completed" && task.status !== "failed" && task.status !== "cancelled") {
-      await new Promise((resolve4) => setTimeout(resolve4, pollInterval));
+      await new Promise((resolve5) => setTimeout(resolve5, pollInterval));
       const updatedTask = await extra.taskStore.getTask(taskId);
       if (!updatedTask) {
         throw new McpError(ErrorCode.InternalError, `Task ${taskId} not found during polling`);
@@ -1335,14 +1340,14 @@ var McpServer = class {
     }
     return registeredPrompt;
   }
-  _createRegisteredTool(name, title, description, inputSchema, outputSchema, annotations, execution, _meta, handler) {
+  _createRegisteredTool(name, title, description, inputSchema, outputSchema, annotations3, execution, _meta, handler) {
     validateAndWarnToolName(name);
     const registeredTool = {
       title,
       description,
       inputSchema: getZodSchemaObject(inputSchema),
       outputSchema: getZodSchemaObject(outputSchema),
-      annotations,
+      annotations: annotations3,
       execution,
       _meta,
       handler,
@@ -1393,7 +1398,7 @@ var McpServer = class {
     let description;
     let inputSchema;
     let outputSchema;
-    let annotations;
+    let annotations3;
     if (typeof rest[0] === "string") {
       description = rest.shift();
     }
@@ -1402,17 +1407,17 @@ var McpServer = class {
       if (isZodRawShapeCompat(firstArg)) {
         inputSchema = rest.shift();
         if (rest.length > 1 && typeof rest[0] === "object" && rest[0] !== null && !isZodRawShapeCompat(rest[0])) {
-          annotations = rest.shift();
+          annotations3 = rest.shift();
         }
       } else if (typeof firstArg === "object" && firstArg !== null) {
         if (Object.values(firstArg).some((v) => typeof v === "object" && v !== null)) {
           throw new Error(`Tool ${name} expected a Zod schema or ToolAnnotations, but received an unrecognized object`);
         }
-        annotations = rest.shift();
+        annotations3 = rest.shift();
       }
     }
     const callback = rest[0];
-    return this._createRegisteredTool(name, void 0, description, inputSchema, outputSchema, annotations, { taskSupport: "forbidden" }, void 0, callback);
+    return this._createRegisteredTool(name, void 0, description, inputSchema, outputSchema, annotations3, { taskSupport: "forbidden" }, void 0, callback);
   }
   /**
    * Registers a tool with a config object and callback.
@@ -1421,8 +1426,8 @@ var McpServer = class {
     if (this._registeredTools[name]) {
       throw new Error(`Tool ${name} is already registered`);
     }
-    const { title, description, inputSchema, outputSchema, annotations, _meta } = config;
-    return this._createRegisteredTool(name, title, description, inputSchema, outputSchema, annotations, { taskSupport: "forbidden" }, _meta, cb);
+    const { title, description, inputSchema, outputSchema, annotations: annotations3, _meta } = config;
+    return this._createRegisteredTool(name, title, description, inputSchema, outputSchema, annotations3, { taskSupport: "forbidden" }, _meta, cb);
   }
   prompt(name, ...rest) {
     if (this._registeredPrompts[name]) {
@@ -1630,12 +1635,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve4) => {
+    return new Promise((resolve5) => {
       const json = serializeMessage(message);
       if (this._stdout.write(json)) {
-        resolve4();
+        resolve5();
       } else {
-        this._stdout.once("drain", resolve4);
+        this._stdout.once("drain", resolve5);
       }
     });
   }
@@ -1838,19 +1843,257 @@ function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot: plugi
   };
 }
 
+// hooks/manual-subagent-policy.mjs
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
+var MANUAL_SUBAGENT_POLICY_SCHEMA = 1;
+var MANUAL_SUBAGENT_MODES = Object.freeze(["parent-only", "parent-or-approved"]);
+var MANUAL_SUBAGENT_HOSTS = Object.freeze(["cursor", "codex"]);
+var MANUAL_SUBAGENT_PRESETS = Object.freeze({
+  "cursor-composer-grok-v1": Object.freeze({
+    host: "cursor",
+    version: 1,
+    parent_fallback: true,
+    candidates: Object.freeze([
+      Object.freeze({ model_id: "composer-2.5-fast" }),
+      Object.freeze({ model_id: "cursor-grok-4.5-high-fast" })
+    ])
+  }),
+  "codex-efficient-gpt-v1": Object.freeze({
+    host: "codex",
+    version: 1,
+    parent_fallback: true,
+    candidates: Object.freeze([
+      Object.freeze({ model_id: "gpt-5.6-luna-max", reasoning_effort: "low" }),
+      Object.freeze({ model_id: "gpt-5.6-terra-xhigh", reasoning_effort: "medium" })
+    ])
+  })
+});
+var objectLike = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
+var cleanId = (value) => typeof value === "string" && value.trim() !== "" ? value.trim().replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 256) : null;
+function sharedWorkflowHome(options = {}) {
+  return resolve(options.homeRoot ?? process.env.GELDMACHER_WORKFLOW_HOME ?? join(homedir(), ".geldmacher", "workflow"));
+}
+function defaultHostPreferencesPath(options = {}) {
+  return options.preferencesPath ?? process.env.GELDMACHER_WORKFLOW_PREFERENCES ?? join(sharedWorkflowHome(options), "preferences.yaml");
+}
+function scalar(token) {
+  if (token === "true") return true;
+  if (token === "false") return false;
+  if (token === "null" || token === "~") return null;
+  if (/^-?\d+(?:\.\d+)?$/.test(token)) return Number(token);
+  if (token.startsWith('"') && token.endsWith('"') || token.startsWith("'") && token.endsWith("'")) {
+    return token.slice(1, -1);
+  }
+  return token;
+}
+function parsePreferenceYaml(source) {
+  const root = {};
+  const stack = [{ indent: -1, value: root }];
+  const lines = String(source).split(/\r?\n/);
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+    const raw = lines[lineIndex];
+    if (!raw.trim() || raw.trim().startsWith("#")) continue;
+    const indent = raw.match(/^ */)?.[0].length ?? 0;
+    const line = raw.trim();
+    while (stack.length > 1 && indent <= stack.at(-1).indent) stack.pop();
+    const parent = stack.at(-1).value;
+    if (line.startsWith("- ")) {
+      if (!Array.isArray(parent)) throw new Error("array item without array parent");
+      const item = line.slice(2).trim();
+      const colon2 = item.indexOf(":");
+      if (colon2 >= 0) {
+        const key2 = item.slice(0, colon2).trim();
+        const rest2 = item.slice(colon2 + 1).trim();
+        const object2 = {};
+        if (rest2) object2[key2] = scalar(rest2);
+        parent.push(object2);
+        stack.push({ indent, value: object2 });
+      } else {
+        parent.push(scalar(item));
+      }
+      continue;
+    }
+    if (!objectLike(parent) || Array.isArray(parent)) throw new Error("mapping entry without object parent");
+    const colon = line.indexOf(":");
+    if (colon < 0) throw new Error(`invalid mapping line: ${line}`);
+    const key = line.slice(0, colon).trim();
+    const rest = line.slice(colon + 1).trim();
+    if (rest === "[]") {
+      parent[key] = [];
+      continue;
+    }
+    if (rest) {
+      parent[key] = scalar(rest);
+      continue;
+    }
+    let nextIndex = lineIndex + 1;
+    while (nextIndex < lines.length && (!lines[nextIndex].trim() || lines[nextIndex].trim().startsWith("#"))) nextIndex += 1;
+    const next = nextIndex < lines.length ? lines[nextIndex] : "";
+    const nextIndent = next.match(/^ */)?.[0].length ?? 0;
+    const nextTrimmed = next.trim();
+    if (next && nextIndent > indent && nextTrimmed.startsWith("- ")) {
+      const child = [];
+      parent[key] = child;
+      stack.push({ indent, value: child });
+    } else {
+      const child = {};
+      parent[key] = child;
+      stack.push({ indent, value: child });
+    }
+  }
+  return root;
+}
+function parentOnlyResolution(source, path, issues = []) {
+  return Object.freeze({
+    schema: MANUAL_SUBAGENT_POLICY_SCHEMA,
+    mode: "parent-only",
+    source,
+    path,
+    authoritative: false,
+    hosts: Object.freeze({
+      cursor: Object.freeze({ host: "cursor", parent_fallback: true, candidates: Object.freeze([]), preset: null }),
+      codex: Object.freeze({ host: "codex", parent_fallback: true, candidates: Object.freeze([]), preset: null })
+    }),
+    ...issues.length > 0 ? { issues: Object.freeze([...issues]) } : {}
+  });
+}
+function validateCandidate(candidate, label, errors) {
+  if (!objectLike(candidate)) {
+    errors.push(`${label} must be an object`);
+    return null;
+  }
+  for (const key of Object.keys(candidate)) {
+    if (!["model_id", "reasoning_effort"].includes(key)) errors.push(`${label} has unknown field ${key}`);
+  }
+  const modelId = cleanId(candidate.model_id);
+  if (!modelId) errors.push(`${label}.model_id is required`);
+  let reasoning = null;
+  if (candidate.reasoning_effort !== void 0) {
+    reasoning = cleanId(candidate.reasoning_effort);
+    if (!reasoning) errors.push(`${label}.reasoning_effort must be a non-empty string when set`);
+  }
+  return modelId ? Object.freeze({ model_id: modelId, ...reasoning ? { reasoning_effort: reasoning } : {} }) : null;
+}
+function resolveHostPolicy(raw, host, label, errors) {
+  if (raw === void 0) {
+    return Object.freeze({ host, parent_fallback: true, candidates: Object.freeze([]), preset: null });
+  }
+  if (!objectLike(raw)) {
+    errors.push(`${label} must be an object`);
+    return Object.freeze({ host, parent_fallback: true, candidates: Object.freeze([]), preset: null });
+  }
+  for (const key of Object.keys(raw)) {
+    if (!["preset", "candidates", "parent_fallback"].includes(key)) errors.push(`${label} has unknown field ${key}`);
+  }
+  if (raw.preset !== void 0 && raw.candidates !== void 0) {
+    errors.push(`${label} may set preset or candidates, not both`);
+  }
+  let preset = null;
+  let candidates = [];
+  if (raw.preset !== void 0) {
+    preset = cleanId(raw.preset);
+    if (!preset) errors.push(`${label}.preset must be a non-empty string`);
+    else {
+      const definition = MANUAL_SUBAGENT_PRESETS[preset];
+      if (!definition) errors.push(`${label}.preset is unknown: ${preset}`);
+      else if (definition.host !== host) errors.push(`${label}.preset ${preset} is not valid for ${host}`);
+      else candidates = definition.candidates.map((entry) => Object.freeze({ ...entry }));
+    }
+  }
+  if (Array.isArray(raw.candidates)) {
+    if (raw.candidates.length === 0) errors.push(`${label}.candidates must not be empty`);
+    candidates = raw.candidates.map((entry, index) => validateCandidate(entry, `${label}.candidates[${index}]`, errors)).filter(Boolean);
+  } else if (raw.candidates !== void 0) {
+    errors.push(`${label}.candidates must be an array`);
+  }
+  const parentFallback = raw.parent_fallback === void 0 ? true : raw.parent_fallback === true ? true : raw.parent_fallback === false ? false : (errors.push(`${label}.parent_fallback must be a boolean`), true);
+  if (host === "cursor") {
+    for (const [index, candidate] of candidates.entries()) {
+      if (candidate.reasoning_effort) errors.push(`${label}.candidates[${index}] must not set reasoning_effort on Cursor`);
+    }
+  }
+  return Object.freeze({
+    host,
+    parent_fallback: parentFallback,
+    candidates: Object.freeze(candidates),
+    preset
+  });
+}
+function validateManualSubagentPolicy(value, label = "manual_subagent_policy") {
+  const errors = [];
+  if (!objectLike(value)) {
+    errors.push(`${label} must be an object`);
+    return errors;
+  }
+  for (const key of Object.keys(value)) {
+    if (!["schema", "mode", "hosts"].includes(key)) errors.push(`${label} has unknown field ${key}`);
+  }
+  if (value.schema !== MANUAL_SUBAGENT_POLICY_SCHEMA) errors.push(`${label}.schema must be ${MANUAL_SUBAGENT_POLICY_SCHEMA}`);
+  if (!MANUAL_SUBAGENT_MODES.includes(value.mode)) errors.push(`${label}.mode must be parent-only or parent-or-approved`);
+  if (value.hosts !== void 0) {
+    if (!objectLike(value.hosts)) errors.push(`${label}.hosts must be an object`);
+    else {
+      for (const key of Object.keys(value.hosts)) {
+        if (!MANUAL_SUBAGENT_HOSTS.includes(key)) errors.push(`${label}.hosts has unknown host ${key}`);
+      }
+      for (const host of MANUAL_SUBAGENT_HOSTS) {
+        resolveHostPolicy(value.hosts[host], host, `${label}.hosts.${host}`, errors);
+      }
+    }
+  }
+  return errors;
+}
+function resolveManualSubagentPolicy(options = {}) {
+  const path = options.preferencesPath ?? defaultHostPreferencesPath(options);
+  if (!existsSync(path)) return parentOnlyResolution("default", path);
+  let parsed;
+  try {
+    parsed = parsePreferenceYaml(readFileSync(path, "utf8"));
+  } catch (error) {
+    return parentOnlyResolution("invalid-fallback", path, [`preferences file is unreadable: ${error.message}`]);
+  }
+  if (!objectLike(parsed)) return parentOnlyResolution("invalid-fallback", path, ["preferences must be an object"]);
+  if (parsed.manual_subagent_policy === void 0) return parentOnlyResolution("default", path);
+  const errors = validateManualSubagentPolicy(parsed.manual_subagent_policy);
+  if (errors.length > 0) return parentOnlyResolution("invalid-fallback", path, errors);
+  const policy = parsed.manual_subagent_policy;
+  if (policy.mode === "parent-only") {
+    return Object.freeze({
+      ...parentOnlyResolution("file", path),
+      mode: "parent-only"
+    });
+  }
+  const hostErrors = [];
+  const hosts = Object.freeze({
+    cursor: resolveHostPolicy(policy.hosts?.cursor, "cursor", "manual_subagent_policy.hosts.cursor", hostErrors),
+    codex: resolveHostPolicy(policy.hosts?.codex, "codex", "manual_subagent_policy.hosts.codex", hostErrors)
+  });
+  if (hostErrors.length > 0) return parentOnlyResolution("invalid-fallback", path, hostErrors);
+  return Object.freeze({
+    schema: MANUAL_SUBAGENT_POLICY_SCHEMA,
+    mode: "parent-or-approved",
+    source: "file",
+    path,
+    authoritative: false,
+    hosts
+  });
+}
+
 // hooks/model-inheritance-state.mjs
 import {
   chmodSync,
-  existsSync,
+  existsSync as existsSync2,
   mkdirSync,
-  readFileSync,
+  readFileSync as readFileSync2,
   readdirSync,
   renameSync,
   rmSync,
   statSync,
   writeFileSync
 } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join as join2, resolve as resolve2 } from "node:path";
 var MODEL_INCIDENT_CAUSES = Object.freeze([
   "explicit-child-model",
   "actual-child-mismatch",
@@ -1861,12 +2104,12 @@ var MODEL_INCIDENT_CAUSES = Object.freeze([
 ]);
 var CAUSES = new Set(MODEL_INCIDENT_CAUSES);
 var TRANSIENT_TTL_MS = 24 * 60 * 60 * 1e3;
-var modelRoot = (stateRoot) => join(stateRoot, "model-inheritance");
-var incidentDirectory = (stateRoot, incidentId) => join(modelRoot(stateRoot), "incidents", incidentId);
-var incidentPath = (stateRoot, incidentId) => join(incidentDirectory(stateRoot, incidentId), "incident.json");
+var modelRoot = (stateRoot) => join2(stateRoot, "model-inheritance");
+var incidentDirectory = (stateRoot, incidentId) => join2(modelRoot(stateRoot), "incidents", incidentId);
+var incidentPath = (stateRoot, incidentId) => join2(incidentDirectory(stateRoot, incidentId), "incident.json");
 function readJson(path) {
   try {
-    const value = JSON.parse(readFileSync(path, "utf8"));
+    const value = JSON.parse(readFileSync2(path, "utf8"));
     return value && typeof value === "object" && !Array.isArray(value) ? value : null;
   } catch {
     return null;
@@ -1875,14 +2118,14 @@ function readJson(path) {
 function readIncident(stateRoot, incidentId) {
   const incident = readJson(incidentPath(stateRoot, incidentId));
   if (!incident) return null;
-  const observationsDirectory = join(incidentDirectory(stateRoot, incidentId), "observations");
+  const observationsDirectory = join2(incidentDirectory(stateRoot, incidentId), "observations");
   let childExecuted = false;
   let resultReturned = false;
   let lastObservedAt = incident.recorded_at;
-  if (existsSync(observationsDirectory)) {
+  if (existsSync2(observationsDirectory)) {
     for (const name of readdirSync(observationsDirectory).sort()) {
       if (!name.endsWith(".json")) continue;
-      const observation = readJson(join(observationsDirectory, name));
+      const observation = readJson(join2(observationsDirectory, name));
       if (!observation) continue;
       childExecuted ||= observation.child_executed === true;
       resultReturned ||= observation.result_returned === true;
@@ -1909,6 +2152,8 @@ function publicIncident(value) {
     parent_model_params: value.parent_model_params,
     requested_child_model: value.requested_child_model,
     observed_child_model: value.observed_child_model,
+    match_mode: value.match_mode ?? null,
+    policy_mode: value.policy_mode ?? null,
     cursor_version: value.cursor_version,
     enforcement: value.enforcement,
     child_executed: value.child_executed,
@@ -1917,9 +2162,8 @@ function publicIncident(value) {
     last_observed_at: value.last_observed_at
   };
 }
-function modelInheritanceSummary(stateRoot) {
-  const incidentsRoot = join(modelRoot(stateRoot), "incidents");
-  if (!existsSync(incidentsRoot)) return {
+function cleanSummary(overrides = {}) {
+  return {
     authoritative: false,
     status: "clean",
     incident_count: 0,
@@ -1927,22 +2171,22 @@ function modelInheritanceSummary(stateRoot) {
     enforcement: "no-incident",
     evidence_effect: "none",
     result_policy: "verified-results-remain-usable",
-    qualification_policy: "exact-model-attestation-still-required"
+    qualification_policy: "exact-model-attestation-still-required",
+    match_policy: "parent-or-configured-approved-candidates",
+    ...overrides
   };
+}
+function modelInheritanceSummary(stateRoot) {
+  const incidentsRoot = join2(modelRoot(stateRoot), "incidents");
+  if (!existsSync2(incidentsRoot)) return cleanSummary();
   let incidentEntries;
   try {
     incidentEntries = readdirSync(incidentsRoot, { withFileTypes: true }).filter((entry) => entry.isDirectory());
   } catch {
-    return {
-      authoritative: false,
+    return cleanSummary({
       status: "unattestable",
-      incident_count: 0,
-      last_incident: null,
-      enforcement: "diagnostic-state-unavailable",
-      evidence_effect: "none",
-      result_policy: "verified-results-remain-usable",
-      qualification_policy: "exact-model-attestation-still-required"
-    };
+      enforcement: "diagnostic-state-unavailable"
+    });
   }
   let unreadable = false;
   const incidents = incidentEntries.map((entry) => {
@@ -1952,16 +2196,12 @@ function modelInheritanceSummary(stateRoot) {
   }).filter(Boolean).sort((left, right) => String(left.last_observed_at ?? "").localeCompare(String(right.last_observed_at ?? "")));
   const hasDeviation = incidents.some((entry) => entry.status === "deviated");
   const lastIncident = incidents.at(-1) ?? null;
-  return {
-    authoritative: false,
+  return cleanSummary({
     status: hasDeviation ? "deviated" : incidents.length > 0 || unreadable ? "unattestable" : "clean",
     incident_count: incidents.length,
     last_incident: publicIncident(lastIncident),
-    enforcement: lastIncident?.enforcement ?? (unreadable ? "diagnostic-state-unavailable" : "no-incident"),
-    evidence_effect: "none",
-    result_policy: "verified-results-remain-usable",
-    qualification_policy: "exact-model-attestation-still-required"
-  };
+    enforcement: lastIncident?.enforcement ?? (unreadable ? "diagnostic-state-unavailable" : "no-incident")
+  });
 }
 
 // src/mcp/artifact-handlers.mjs
@@ -1969,8 +2209,9 @@ import { createHash as createHash2 } from "node:crypto";
 
 // src/mcp/workspace-roots.mjs
 import { lstatSync, realpathSync, statSync as statSync2 } from "node:fs";
-import { resolve as resolve2 } from "node:path";
+import { resolve as resolve3 } from "node:path";
 import { fileURLToPath } from "node:url";
+var HOST_WORKSPACE_ENV = "GELDMACHER_WORKFLOW_WORKSPACE_ROOT";
 var WorkspaceRootError = class extends Error {
   constructor(code, message, options = {}) {
     super(message, options);
@@ -1980,6 +2221,34 @@ var WorkspaceRootError = class extends Error {
 };
 function isWorkspaceRootsUnavailable(error) {
   return error instanceof WorkspaceRootError && ["roots-request-failed", "roots-empty"].includes(error.code);
+}
+function validateDirectoryRoot(advertised, {
+  unavailableCode = "root-unavailable",
+  symlinkCode = "root-symlink",
+  notDirectoryCode = "root-not-directory",
+  label = "workspace root"
+} = {}) {
+  let stat;
+  try {
+    stat = lstatSync(advertised);
+  } catch (error) {
+    throw new WorkspaceRootError(unavailableCode, `${label} is unavailable: ${advertised}`, { cause: error });
+  }
+  if (stat.isSymbolicLink()) throw new WorkspaceRootError(symlinkCode, `${label} may not be symlink redirected: ${advertised}`);
+  let canonical;
+  try {
+    canonical = realpathSync(advertised);
+  } catch (error) {
+    throw new WorkspaceRootError(unavailableCode, `${label} is unavailable: ${advertised}`, { cause: error });
+  }
+  let canonicalStat;
+  try {
+    canonicalStat = statSync2(canonical);
+  } catch (error) {
+    throw new WorkspaceRootError(unavailableCode, `${label} is unavailable: ${advertised}`, { cause: error });
+  }
+  if (!canonicalStat.isDirectory()) throw new WorkspaceRootError(notDirectoryCode, `${label} is not a directory: ${advertised}`);
+  return { advertised, canonical };
 }
 function rootPath(root) {
   if (!root || typeof root.uri !== "string") throw new WorkspaceRootError("root-invalid", "MCP client returned an invalid workspace root");
@@ -1992,42 +2261,40 @@ function rootPath(root) {
   if (url.protocol !== "file:") throw new WorkspaceRootError("root-non-file", `Workflow supports only file workspace roots: ${root.uri}`);
   let advertised;
   try {
-    advertised = resolve2(fileURLToPath(url));
+    advertised = resolve3(fileURLToPath(url));
   } catch (error) {
     throw new WorkspaceRootError("root-invalid", `MCP client returned an invalid file workspace root: ${root.uri}`, { cause: error });
   }
-  let stat;
-  try {
-    stat = lstatSync(advertised);
-  } catch (error) {
-    throw new WorkspaceRootError("root-unavailable", `MCP workspace root is unavailable: ${advertised}`, { cause: error });
-  }
-  if (stat.isSymbolicLink()) throw new WorkspaceRootError("root-symlink", `MCP workspace root may not be symlink redirected: ${advertised}`);
-  let canonical;
-  try {
-    canonical = realpathSync(advertised);
-  } catch (error) {
-    throw new WorkspaceRootError("root-unavailable", `MCP workspace root is unavailable: ${advertised}`, { cause: error });
-  }
-  let canonicalStat;
-  try {
-    canonicalStat = statSync2(canonical);
-  } catch (error) {
-    throw new WorkspaceRootError("root-unavailable", `MCP workspace root is unavailable: ${advertised}`, { cause: error });
-  }
-  if (!canonicalStat.isDirectory()) throw new WorkspaceRootError("root-not-directory", `MCP workspace root is not a directory: ${advertised}`);
-  return { advertised, canonical };
+  return validateDirectoryRoot(advertised, { label: "MCP workspace root" });
+}
+function hostConfiguredRoot(env = process.env) {
+  const raw = env?.[HOST_WORKSPACE_ENV];
+  if (raw === void 0 || raw === null || String(raw).trim() === "") return null;
+  const advertised = resolve3(String(raw));
+  return {
+    ...validateDirectoryRoot(advertised, {
+      unavailableCode: "host-workspace-unavailable",
+      symlinkCode: "host-workspace-symlink",
+      notDirectoryCode: "host-workspace-not-directory",
+      label: `host-configured ${HOST_WORKSPACE_ENV}`
+    }),
+    source: "host-configured"
+  };
 }
 var WorkspaceRootAuthority = class {
-  constructor(listRoots) {
+  constructor(listRoots, options = {}) {
     if (typeof listRoots !== "function") throw new TypeError("WorkspaceRootAuthority requires listRoots");
     this.listRoots = listRoots;
+    this.env = options.env ?? process.env;
     this.cached = null;
+    this.unavailable = null;
   }
   invalidate() {
     this.cached = null;
+    this.unavailable = null;
   }
   async roots() {
+    if (this.unavailable) throw this.unavailable;
     if (!this.cached) {
       this.cached = Promise.resolve().then(async () => {
         let response;
@@ -2046,17 +2313,43 @@ var WorkspaceRootAuthority = class {
     try {
       return await this.cached;
     } catch (error) {
+      if (isWorkspaceRootsUnavailable(error)) this.unavailable = error;
       this.cached = null;
       throw error;
     }
   }
   async resolve(selector = void 0) {
-    const roots = await this.roots();
+    const host = hostConfiguredRoot(this.env);
+    let roots = null;
+    let rootsError = null;
+    try {
+      roots = await this.roots();
+    } catch (error) {
+      if (!isWorkspaceRootsUnavailable(error)) throw error;
+      rootsError = error;
+    }
+    if (host) {
+      if (roots) {
+        const allowed2 = roots.find((entry) => entry.advertised === host.advertised || entry.canonical === host.canonical);
+        if (!allowed2) throw new WorkspaceRootError("root-foreign", `host-configured workspace_root is not an advertised MCP root: ${host.advertised}`);
+        if (host.canonical !== allowed2.canonical) {
+          throw new WorkspaceRootError("root-drift", `host-configured workspace_root changed after MCP root discovery: ${host.advertised}`);
+        }
+      }
+      if (selector !== void 0 && selector !== null && selector !== "") {
+        const requested = resolve3(selector);
+        if (requested !== host.advertised && requested !== host.canonical) {
+          throw new WorkspaceRootError("root-foreign", `workspace_root does not match host-configured workspace: ${requested}`);
+        }
+      }
+      return host.canonical;
+    }
+    if (rootsError) throw rootsError;
     if (selector === void 0 || selector === null || selector === "") {
       if (roots.length !== 1) throw new WorkspaceRootError("roots-multiple", "multiple MCP workspace roots require workspace_root");
       return roots[0].canonical;
     }
-    const advertised = resolve2(selector);
+    const advertised = resolve3(selector);
     const allowed = roots.find((entry) => entry.advertised === advertised);
     if (!allowed) throw new WorkspaceRootError("root-foreign", `workspace_root is not an advertised MCP root: ${advertised}`);
     let canonical;
@@ -2072,7 +2365,12 @@ var WorkspaceRootAuthority = class {
 
 // src/mcp/artifact-handlers.mjs
 var bundleSize = (artifacts = []) => artifacts.reduce((total, artifact3) => total + artifact3.text.length, 0);
-function createArtifactHandlers({ pluginRoot: pluginRoot2, handoffContext, result: result2 }) {
+function createArtifactHandlers({
+  pluginRoot: pluginRoot2,
+  resolveOperationalContext,
+  result: result2,
+  handoffStoreFactory = createContentAddressedHandoffStore
+}) {
   const failure2 = (error) => result2({
     error: error.message,
     ...error instanceof WorkspaceRootError ? { error_code: error.code } : {}
@@ -2085,6 +2383,71 @@ function createArtifactHandlers({ pluginRoot: pluginRoot2, handoffContext, resul
       merged.set(entry.label, entry.text);
     }
     return merged;
+  };
+  const inferredRootPlanId = (rootPlanId, artifacts = []) => {
+    if (rootPlanId) return rootPlanId;
+    for (const entry of artifacts) {
+      if (!entry?.text) continue;
+      const inspected = inspectArtifactText(entry.text, pluginRoot2);
+      if (inspected.errors.length > 0) continue;
+      if (inspected.artifact?.fields?.artifact === "work-plan") return inspected.artifact.fields.id;
+      if (inspected.artifact?.fields?.artifact === "work-review") return inspected.artifact.fields.root_plan_id;
+      if (inspected.artifact?.fields?.artifact === "delivery-evidence") return inspected.artifact.fields.root_plan_id;
+    }
+    return null;
+  };
+  const contentHandoff = ({ rootPlanId = null, rootPlan = null, artifacts = [], remember = false } = {}) => {
+    const resolvedId = inferredRootPlanId(rootPlanId, artifacts);
+    const rootPlanText = resolveRootPlanText(pluginRoot2, { rootPlanId: resolvedId, rootPlan, artifacts });
+    const root_content_hash = rootContentHash(rootPlanText);
+    const handoffStore = handoffStoreFactory(rootPlanText, pluginRoot2);
+    if (remember) rememberContentAddressedRoot(rootPlanText, pluginRoot2);
+    return { rootPlanText, root_content_hash, handoffStore, rootPlanId: resolvedId };
+  };
+  const hydrateLineageArtifacts = (rootPlanText, handoffStore) => {
+    const seeded = [];
+    let current = rootPlanText;
+    const seen = /* @__PURE__ */ new Set();
+    while (current) {
+      const inspected = inspectArtifactText(current, pluginRoot2);
+      const id = inspected.artifact?.fields?.id;
+      if (!id || seen.has(id)) break;
+      seen.add(id);
+      seeded.push({ label: id, text: current });
+      try {
+        const chain = handoffStore.context(id, current);
+        for (const entry of chain.artifacts) seeded.push({ label: entry.label, text: entry.text });
+      } catch {
+      }
+      const predecessorId = inspected.artifact?.fields?.predecessor_plan_id;
+      if (!predecessorId) break;
+      try {
+        current = resolveRootPlanText(pluginRoot2, { rootPlanId: predecessorId });
+      } catch {
+        break;
+      }
+      const predecessorStore = handoffStoreFactory(current, pluginRoot2);
+      try {
+        const chain = predecessorStore.context(predecessorId, current);
+        for (const entry of chain.artifacts) seeded.push({ label: entry.label, text: entry.text });
+      } catch {
+        seeded.push({ label: predecessorId, text: current });
+      }
+    }
+    return seeded;
+  };
+  const optionalOperational = async (workspaceRoot3) => {
+    try {
+      return { ...await resolveOperationalContext(workspaceRoot3), workspace_binding: "trusted-root" };
+    } catch (error) {
+      if (!isWorkspaceRootsUnavailable(error)) throw error;
+      return {
+        workspace: null,
+        stateRoot: null,
+        workspace_binding: "not-established",
+        workspace_error: error
+      };
+    }
   };
   const buildCloseout = (input, merged) => {
     const rootPlan = input.root_plan ?? [...merged.values()].find((text) => {
@@ -2106,9 +2469,19 @@ function createArtifactHandlers({ pluginRoot: pluginRoot2, handoffContext, resul
     if (!closeoutResult.artifact) throw new Error("closeout resolved an evidence tip without its exact artifact text");
     return { rootPlan, closeoutResult };
   };
-  const closeoutPayload = ({ input, workspace, closeoutResult, persisted, warning, handoffErrorCode }) => ({
+  const closeoutPayload = ({
+    input,
+    workspace,
+    workspaceBinding,
+    closeoutResult,
+    persisted,
+    warning,
+    handoffErrorCode,
+    rootContentHashValue,
+    handoffMode
+  }) => ({
     ...workspace ? { workspace_root: workspace } : {},
-    workspace_binding: workspace ? "trusted-root" : "not-established",
+    workspace_binding: workspaceBinding ?? (workspace ? "trusted-root" : "not-established"),
     workspace_root_used: Boolean(workspace),
     root_plan_id: input.root_plan_id,
     delivery_evidence_id: closeoutResult.fields.id,
@@ -2120,6 +2493,8 @@ function createArtifactHandlers({ pluginRoot: pluginRoot2, handoffContext, resul
     duplicate: persisted.duplicate,
     handoff_persisted: persisted.handoff_persisted,
     handoff_authoritative: false,
+    handoff_mode: handoffMode ?? (persisted.handoff_persisted ? "root-content-cache" : "stateless"),
+    ...rootContentHashValue ? { root_content_hash: rootContentHashValue } : {},
     ...persisted.artifact_set_hash ? { artifact_set_hash: persisted.artifact_set_hash } : {},
     ...warning ? { warning } : {},
     ...handoffErrorCode || persisted.handoff_error_code ? { handoff_error_code: handoffErrorCode ?? persisted.handoff_error_code } : {}
@@ -2133,20 +2508,55 @@ function createArtifactHandlers({ pluginRoot: pluginRoot2, handoffContext, resul
           throw new Error("workflow_artifact_record accepts only valid Schema-5 work-plan and work-review artifacts");
         }
       }
-      const { workspace, handoffStore } = await handoffContext(input.workspace_root);
-      return result2({ workspace_root: workspace, ...handoffStore.record(input.artifacts), handoff_authoritative: false });
+      const { rootPlanText, root_content_hash, handoffStore } = contentHandoff({
+        rootPlan: input.root_plan,
+        artifacts: input.artifacts,
+        remember: true
+      });
+      const operational = await optionalOperational(input.workspace_root);
+      const lineage = hydrateLineageArtifacts(rootPlanText, handoffStore);
+      const byId = /* @__PURE__ */ new Map();
+      for (const entry of [...lineage, ...input.artifacts]) {
+        const inspected = inspectArtifactText(entry.text, pluginRoot2);
+        if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) {
+          byId.set(entry.label, entry);
+          continue;
+        }
+        byId.set(inspected.artifact.fields.id, { label: inspected.artifact.fields.id, text: entry.text });
+      }
+      const recorded = handoffStore.record([...byId.values()]);
+      return result2({
+        ...operational.workspace ? { workspace_root: operational.workspace } : {},
+        workspace_binding: operational.workspace_binding,
+        workspace_root_used: Boolean(operational.workspace),
+        handoff_authoritative: false,
+        handoff_mode: "root-content-cache",
+        root_content_hash,
+        ...recorded,
+        ...operational.workspace_error && input.workspace_root ? { warning: `workspace binding unavailable (${operational.workspace_error.code}); recorded under root-content handoff namespace` } : {}
+      });
     } catch (error) {
       return failure2(error);
     }
   };
   const context2 = async (input) => {
     try {
-      const { workspace, stateRoot, handoffStore } = await handoffContext(input.workspace_root);
+      const { root_content_hash, handoffStore } = contentHandoff({
+        rootPlanId: input.root_plan_id,
+        rootPlan: input.root_plan,
+        artifacts: input.artifacts
+      });
+      const operational = await optionalOperational(input.workspace_root);
+      const chain = handoffStore.context(input.root_plan_id, input.root_plan ?? null);
       return result2({
-        workspace_root: workspace,
+        ...operational.workspace ? { workspace_root: operational.workspace } : {},
+        workspace_binding: operational.workspace_binding,
+        workspace_root_used: Boolean(operational.workspace),
         handoff_authoritative: false,
-        ...handoffStore.context(input.root_plan_id, input.root_plan ?? null),
-        model_inheritance: modelInheritanceSummary(stateRoot)
+        handoff_mode: "root-content-cache",
+        root_content_hash,
+        ...chain,
+        model_inheritance: operational.stateRoot ? modelInheritanceSummary(operational.stateRoot) : { authoritative: false, status: "unavailable", evidence_effect: "none", reason: "workspace-binding-not-established" }
       });
     } catch (error) {
       return failure2(error);
@@ -2155,45 +2565,137 @@ function createArtifactHandlers({ pluginRoot: pluginRoot2, handoffContext, resul
   const closeout = async (input) => {
     try {
       if (bundleSize(input.artifacts) > 1e6) throw new Error("closeout artifact bundle exceeds 1000000 characters");
-      let workspaceContext;
+      const operational = await optionalOperational(input.workspace_root);
+      let handoff;
       try {
-        workspaceContext = await handoffContext(input.workspace_root);
+        handoff = contentHandoff({
+          rootPlanId: input.root_plan_id,
+          rootPlan: input.root_plan,
+          artifacts: input.artifacts,
+          remember: true
+        });
       } catch (error) {
-        if (!input.root_plan || !isWorkspaceRootsUnavailable(error)) throw error;
-        const merged2 = mergeArtifacts(input.artifacts ?? []);
-        const { closeoutResult: closeoutResult2 } = buildCloseout(input, merged2);
-        const selectorNotice = input.workspace_root ? "; the supplied workspace_root was not used" : "";
-        const warning = `handoff cache unavailable (${error.code}): ${error.message}${selectorNotice}; attach the returned artifact explicitly to the next Workflow command`;
-        return result2(closeoutPayload({
-          input,
-          workspace: null,
-          closeoutResult: closeoutResult2,
-          persisted: { ...closeoutResult2, handoff_persisted: false },
-          warning,
-          handoffErrorCode: error.code
-        }));
+        if (operational.legacyHandoffStore && !input.root_plan) {
+          try {
+            const legacy = operational.legacyHandoffStore.context(input.root_plan_id, null);
+            const rootPlan2 = legacy.artifacts.find((entry) => entry.label === input.root_plan_id)?.text;
+            if (rootPlan2) {
+              handoff = contentHandoff({
+                rootPlanId: input.root_plan_id,
+                rootPlan: rootPlan2,
+                artifacts: [...legacy.artifacts, ...input.artifacts ?? []],
+                remember: true
+              });
+            }
+          } catch {
+          }
+        }
+        if (!handoff) {
+          if (!input.root_plan) throw error;
+          const merged2 = mergeArtifacts(input.artifacts ?? []);
+          const { closeoutResult: closeoutResult2 } = buildCloseout(input, merged2);
+          return result2(closeoutPayload({
+            input,
+            workspace: operational.workspace,
+            workspaceBinding: operational.workspace_binding,
+            closeoutResult: closeoutResult2,
+            persisted: { ...closeoutResult2, handoff_persisted: false },
+            warning: `handoff cache unavailable: ${error.message}; attach the returned artifact explicitly to the next Workflow command`,
+            handoffErrorCode: "handoff-persist-failed",
+            handoffMode: "stateless"
+          }));
+        }
       }
-      const { workspace, handoffStore } = workspaceContext;
+      const { rootPlanText, root_content_hash, handoffStore } = handoff;
       let cached = [];
       try {
-        cached = handoffStore.context(input.root_plan_id, input.root_plan ?? null).artifacts.map(({ label, text }) => ({ label, text }));
-      } catch (error) {
-        if (!input.root_plan) throw error;
+        cached = handoffStore.context(input.root_plan_id, rootPlanText).artifacts.map(({ label, text }) => ({ label, text }));
+      } catch {
       }
-      const merged = mergeArtifacts([...cached, ...input.artifacts ?? []]);
-      const { rootPlan, closeoutResult } = buildCloseout(input, merged);
+      const merged = mergeArtifacts([...cached, ...input.artifacts ?? [], { label: "root", text: rootPlanText }]);
+      const { rootPlan, closeoutResult } = buildCloseout({ ...input, root_plan: rootPlanText }, merged);
       const persisted = persistCloseout({
         handoffStore,
         rootPlanText: rootPlan,
         artifacts: [...merged].map(([label, text]) => ({ label, text })),
         closeout: closeoutResult
       });
-      return result2(closeoutPayload({ input, workspace, closeoutResult, persisted, warning: persisted.warning }));
+      if (persisted.handoff_persisted) rememberContentAddressedRoot(rootPlan, pluginRoot2);
+      const selectorNotice = !operational.workspace && input.workspace_root ? `; the supplied workspace_root was not used (${operational.workspace_error?.code ?? "workspace-binding-not-established"})` : "";
+      const warning = persisted.warning ?? (selectorNotice ? `workspace binding unavailable${selectorNotice}` : void 0);
+      return result2(closeoutPayload({
+        input,
+        workspace: operational.workspace,
+        workspaceBinding: operational.workspace_binding,
+        closeoutResult,
+        persisted,
+        warning,
+        rootContentHashValue: root_content_hash ?? rootContentHash(rootPlan),
+        handoffMode: persisted.handoff_persisted ? "root-content-cache" : "stateless",
+        handoffErrorCode: persisted.handoff_error_code
+      }));
     } catch (error) {
       return failure2(error);
     }
   };
   return Object.freeze({ record, context: context2, closeout });
+}
+
+// src/mcp/manual-tool-annotations.mjs
+function annotations({ readOnlyHint, destructiveHint, idempotentHint, openWorldHint }) {
+  return Object.freeze({
+    readOnlyHint,
+    destructiveHint,
+    idempotentHint,
+    openWorldHint
+  });
+}
+var MANUAL_WORKFLOW_TOOL_NAMES = Object.freeze([
+  "workflow_artifact_context",
+  "workflow_artifact_record",
+  "workflow_closeout",
+  "workflow_plan_preflight",
+  "workflow_status"
+]);
+var MANUAL_WORKFLOW_TOOL_ANNOTATIONS = Object.freeze({
+  workflow_plan_preflight: annotations({
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false
+  }),
+  workflow_artifact_context: annotations({
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false
+  }),
+  workflow_status: annotations({
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false
+  }),
+  workflow_artifact_record: annotations({
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false
+  }),
+  workflow_closeout: annotations({
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false
+  })
+});
+if (Object.keys(MANUAL_WORKFLOW_TOOL_ANNOTATIONS).sort().join("\n") !== [...MANUAL_WORKFLOW_TOOL_NAMES].sort().join("\n")) {
+  throw new Error("Manual MCP tool annotations differ from the Manual tool set");
+}
+function manualToolAnnotations(name) {
+  const value = MANUAL_WORKFLOW_TOOL_ANNOTATIONS[name];
+  if (!value) throw new Error(`unknown Manual Workflow MCP tool annotations ${name}`);
+  return value;
 }
 
 // src/mcp/manual-tool-contracts.mjs
@@ -2220,11 +2722,11 @@ var contracts = Object.freeze({
     inputSchema: { root_plan: string().min(1).max(25e4) }
   },
   workflow_artifact_record: {
-    description: "Validate and atomically cache exact Schema-5 work-plan or work-review artifacts as non-authoritative cross-context handoff data.",
+    description: "Validate and atomically cache exact Schema-5 work-plan or work-review artifacts in the non-authoritative root-content handoff store.",
     inputSchema: { workspace_root: workspaceRoot, artifacts: array(artifact).min(1).max(32) }
   },
   workflow_artifact_context: {
-    description: "Return the exact revalidated non-authoritative Schema-5 artifact chain cached for one Root, optionally hash-bound to the supplied active native Plan.",
+    description: "Return the exact revalidated non-authoritative Schema-5 artifact chain cached for one Root under its root-content namespace, optionally hash-bound to the supplied active native Plan.",
     inputSchema: {
       workspace_root: workspaceRoot,
       root_plan_id: string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
@@ -2232,7 +2734,7 @@ var contracts = Object.freeze({
     }
   },
   workflow_closeout: {
-    description: "Deterministically build and validate one Schema-5 delivery-evidence artifact from observed Checks and cache it when workspace Roots are trusted.",
+    description: "Deterministically build and validate one Schema-5 delivery-evidence artifact from observed Checks and cache it in the root-content handoff store.",
     inputSchema: {
       workspace_root: workspaceRoot,
       root_plan_id: string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
@@ -2263,30 +2765,60 @@ var contracts = Object.freeze({
 function manualToolContract(name) {
   const contract = contracts[name];
   if (!contract) throw new Error(`unknown Manual Workflow MCP tool ${name}`);
-  return contract;
+  return { ...contract, annotations: manualToolAnnotations(name) };
 }
 
 // src/mcp/manual-tools.mjs
+function publicManualSubagentPolicy(policy = resolveManualSubagentPolicy()) {
+  return Object.freeze({
+    authoritative: false,
+    schema: policy.schema,
+    mode: policy.mode,
+    source: policy.source,
+    path: policy.path,
+    hosts: Object.freeze({
+      cursor: Object.freeze({
+        preset: policy.hosts.cursor.preset,
+        parent_fallback: policy.hosts.cursor.parent_fallback,
+        candidates: policy.hosts.cursor.candidates.map((entry) => entry.model_id)
+      }),
+      codex: Object.freeze({
+        preset: policy.hosts.codex.preset,
+        parent_fallback: policy.hosts.codex.parent_fallback,
+        candidates: policy.hosts.codex.candidates.map((entry) => entry.model_id)
+      })
+    }),
+    ...policy.issues ? { issues: policy.issues } : {}
+  });
+}
 function registerManualWorkflowTools({
   server: server2,
   pluginRoot: pluginRoot2,
   workspaceAuthority: workspaceAuthority2,
   operationalStateRoot,
-  handoffStateRoot,
+  handoffStateRoot = sharedArtifactStateRoot,
   result: result2,
   failure: failure2,
   includeStatus = true,
-  contract = manualToolContract
+  contract = manualToolContract,
+  resolveHostToolApprovalPreference = resolveHostToolApproval,
+  resolveManualSubagentPolicyPreference = resolveManualSubagentPolicy
 }) {
-  const handoffContext = async (workspaceRoot3) => {
+  const resolveOperationalContext = async (workspaceRoot3) => {
     const workspace = await workspaceAuthority2.resolve(workspaceRoot3);
     return {
       workspace,
       stateRoot: operationalStateRoot(workspace),
-      handoffStore: new ArtifactHandoffStore(handoffStateRoot(workspace), pluginRoot2)
+      legacyHandoffStore: new ArtifactHandoffStore(handoffStateRoot(workspace), pluginRoot2)
     };
   };
-  const artifactHandlers = createArtifactHandlers({ pluginRoot: pluginRoot2, handoffContext, result: result2 });
+  const handoffStoreFactory = (rootPlanText, root) => createContentAddressedHandoffStore(rootPlanText, root);
+  const artifactHandlers = createArtifactHandlers({
+    pluginRoot: pluginRoot2,
+    resolveOperationalContext,
+    result: result2,
+    handoffStoreFactory
+  });
   const status = async (input) => {
     try {
       if (input.run_id || input.preparation_id) throw new Error("manual workflow_status does not accept controller subjects");
@@ -2295,8 +2827,17 @@ function registerManualWorkflowTools({
       if (input.artifacts.reduce((total, artifact3) => total + artifact3.text.length, 0) > 1e6) {
         throw new Error("manual workflow_status artifact bundle exceeds 1000000 characters");
       }
-      const workspace = await workspaceAuthority2.resolve(input.workspace_root);
-      const stateRoot = operationalStateRoot(workspace);
+      let workspace = null;
+      let stateRoot = null;
+      let workspaceBinding = "not-established";
+      try {
+        const operational = await resolveOperationalContext(input.workspace_root);
+        workspace = operational.workspace;
+        stateRoot = operational.stateRoot;
+        workspaceBinding = "trusted-root";
+      } catch (error) {
+        if (!isWorkspaceRootsUnavailable(error)) throw error;
+      }
       const manual = deriveManualWorkflowSnapshot({
         rootPlanId: input.root_plan_id,
         artifacts: input.artifacts,
@@ -2307,8 +2848,12 @@ function registerManualWorkflowTools({
         subject_kind: "artifact-chain",
         run: null,
         ...manual,
-        workspace_root: workspace,
-        model_inheritance: modelInheritanceSummary(stateRoot)
+        ...workspace ? { workspace_root: workspace } : {},
+        workspace_binding: workspaceBinding,
+        workspace_root_used: Boolean(workspace),
+        model_inheritance: stateRoot ? modelInheritanceSummary(stateRoot) : { authoritative: false, status: "unavailable", evidence_effect: "none", reason: "workspace-binding-not-established" },
+        host_tool_approval: resolveHostToolApprovalPreference(),
+        manual_subagent_policy: publicManualSubagentPolicy(resolveManualSubagentPolicyPreference())
       });
     } catch (error) {
       return failure2(error);
@@ -2316,7 +2861,33 @@ function registerManualWorkflowTools({
   };
   server2.registerTool("workflow_plan_preflight", contract("workflow_plan_preflight"), async (input) => result2(preflightRootPlan(input.root_plan, pluginRoot2)));
   server2.registerTool("workflow_artifact_record", contract("workflow_artifact_record"), artifactHandlers.record);
-  server2.registerTool("workflow_artifact_context", contract("workflow_artifact_context"), artifactHandlers.context);
+  server2.registerTool("workflow_artifact_context", contract("workflow_artifact_context"), async (input) => {
+    try {
+      if (!input.root_plan) {
+        let legacy = null;
+        try {
+          const operational = await resolveOperationalContext(input.workspace_root);
+          legacy = operational.legacyHandoffStore.context(input.root_plan_id, null);
+          return result2({
+            workspace_root: operational.workspace,
+            workspace_binding: "trusted-root",
+            workspace_root_used: true,
+            handoff_authoritative: false,
+            handoff_mode: "legacy-repository-cache",
+            ...legacy,
+            model_inheritance: modelInheritanceSummary(operational.stateRoot)
+          });
+        } catch (error) {
+          if (!isWorkspaceRootsUnavailable(error) && !/no handoff Root/.test(error.message)) throw error;
+          throw new Error(`workflow_artifact_context requires exact root_plan text for content-bound handoff${error?.message ? `; ${error.message}` : ""}`);
+        }
+      }
+      resolveRootPlanText(pluginRoot2, { rootPlanId: input.root_plan_id, rootPlan: input.root_plan });
+      return artifactHandlers.context(input);
+    } catch (error) {
+      return failure2(error);
+    }
+  });
   server2.registerTool("workflow_closeout", contract("workflow_closeout"), artifactHandlers.closeout);
   if (includeStatus) server2.registerTool("workflow_status", contract("workflow_status"), status);
   return Object.freeze({ status });
@@ -2324,10 +2895,10 @@ function registerManualWorkflowTools({
 
 // src/mcp/proof-artifacts.mjs
 import { createHash as createHash3 } from "node:crypto";
-import { lstatSync as lstatSync2, readFileSync as readFileSync2, readdirSync as readdirSync2 } from "node:fs";
-import { join as join2 } from "node:path";
+import { lstatSync as lstatSync2, readFileSync as readFileSync3, readdirSync as readdirSync2 } from "node:fs";
+import { join as join3 } from "node:path";
 var PROOF_LIMITS = Object.freeze({ files: 128, file_bytes: 10 * 1024 * 1024, total_bytes: 32 * 1024 * 1024, depth: 8 });
-function hashStableProofFile(path, stat = lstatSync2, read = readFileSync2, before = stat(path)) {
+function hashStableProofFile(path, stat = lstatSync2, read = readFileSync3, before = stat(path)) {
   if (before.size > PROOF_LIMITS.file_bytes) throw new Error(`verification proof artifact exceeds 10 MiB: ${path}`);
   const content = read(path);
   const after = stat(path);
@@ -2340,7 +2911,7 @@ function proofArtifacts(root) {
   const visit = (directory, depth = 0) => {
     if (depth > PROOF_LIMITS.depth) throw new Error(`verification proof artifact depth exceeds ${PROOF_LIMITS.depth}: ${directory}`);
     for (const entry of readdirSync2(directory, { withFileTypes: true })) {
-      const path = join2(directory, entry.name);
+      const path = join3(directory, entry.name);
       if (entry.isSymbolicLink()) throw new Error(`verification proof artifact may not be a symlink: ${path}`);
       if (entry.isDirectory()) visit(path, depth + 1);
       else if (entry.isFile()) {
@@ -2349,13 +2920,76 @@ function proofArtifacts(root) {
         if (before.size > PROOF_LIMITS.file_bytes) throw new Error(`verification proof artifact exceeds 10 MiB: ${path}`);
         totalBytes += before.size;
         if (totalBytes > PROOF_LIMITS.total_bytes) throw new Error("verification proof artifacts exceed 32 MiB total");
-        const stable = hashStableProofFile(path, lstatSync2, readFileSync2, before);
+        const stable = hashStableProofFile(path, lstatSync2, readFileSync3, before);
         files.push({ path, hash: stable.hash });
       } else throw new Error(`verification proof artifact must be a regular file or directory: ${path}`);
     }
   };
   visit(root);
   return files.sort((left, right) => left.path.localeCompare(right.path));
+}
+
+// src/mcp/tool-annotations.mjs
+function annotations2({ readOnlyHint, destructiveHint, idempotentHint, openWorldHint }) {
+  return Object.freeze({
+    readOnlyHint,
+    destructiveHint,
+    idempotentHint,
+    openWorldHint
+  });
+}
+var WORKFLOW_TOOL_ANNOTATIONS = Object.freeze({
+  ...MANUAL_WORKFLOW_TOOL_ANNOTATIONS,
+  workflow_watch: annotations2({
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false
+  }),
+  workflow_validate_models: annotations2({
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: true
+  }),
+  workflow_prepare: annotations2({
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: false
+  }),
+  workflow_start: annotations2({
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: false
+  }),
+  workflow_answer: annotations2({
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: false
+  }),
+  workflow_control: annotations2({
+    readOnlyHint: false,
+    destructiveHint: true,
+    idempotentHint: false,
+    openWorldHint: false
+  }),
+  workflow_verification_profile: annotations2({
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: false
+  })
+});
+if (Object.keys(WORKFLOW_TOOL_ANNOTATIONS).sort().join("\n") !== [...WORKFLOW_TOOL_NAMES].sort().join("\n")) {
+  throw new Error("MCP tool annotations differ from the canonical tool registry");
+}
+function toolAnnotations(name) {
+  const value = WORKFLOW_TOOL_ANNOTATIONS[name];
+  if (!value) throw new Error(`unknown Workflow MCP tool annotations ${name}`);
+  return value;
 }
 
 // src/mcp/tool-contracts.mjs
@@ -2410,7 +3044,7 @@ var WORKFLOW_TOOL_CONTRACTS = Object.freeze({
     }
   },
   workflow_artifact_record: {
-    description: "Validate and atomically cache exact Schema-5 work-plan or work-review artifacts as non-authoritative cross-context handoff data.",
+    description: "Validate and atomically cache exact Schema-5 work-plan or work-review artifacts in the non-authoritative root-content handoff store.",
     inputSchema: { workspace_root: workspaceRoot2, artifacts: array(artifact2).min(1).max(32) }
   },
   workflow_artifact_context: {
@@ -2422,7 +3056,7 @@ var WORKFLOW_TOOL_CONTRACTS = Object.freeze({
     }
   },
   workflow_closeout: {
-    description: "Deterministically build and validate one Schema-5 delivery-evidence artifact from observed Checks; cache it when Roots are trusted or return it workspace-unattested when only Roots discovery is unavailable.",
+    description: "Deterministically build and validate one Schema-5 delivery-evidence artifact from observed Checks and cache it in the root-content handoff store.",
     inputSchema: {
       workspace_root: workspaceRoot2,
       root_plan_id: string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
@@ -2499,11 +3133,11 @@ if (Object.keys(WORKFLOW_TOOL_CONTRACTS).sort().join("\n") !== [...WORKFLOW_TOOL
 function toolContract(name) {
   const contract = WORKFLOW_TOOL_CONTRACTS[name];
   if (!contract) throw new Error(`unknown Workflow MCP tool ${name}`);
-  return contract;
+  return { ...contract, annotations: toolAnnotations(name) };
 }
 
 // src/mcp/workflow-mcp.mjs
-var pluginRoot = resolve3(process.env.CURSOR_PLUGIN_ROOT ?? dirname2(dirname2(fileURLToPath2(import.meta.url))));
+var pluginRoot = resolve4(process.env.CURSOR_PLUGIN_ROOT ?? dirname2(dirname2(fileURLToPath2(import.meta.url))));
 var server = new McpServer({ name: "workflow", version: PLUGIN_VERSION });
 var workspaceAuthority = new WorkspaceRootAuthority(() => server.server.listRoots());
 server.server.setNotificationHandler(RootsListChangedNotificationSchema, async () => workspaceAuthority.invalidate());
@@ -2544,7 +3178,7 @@ var manualTools = registerManualWorkflowTools({
   contract: toolContract
 });
 function runnerPath() {
-  return resolve3(process.env.GELDMACHER_WORKFLOW_RUNNER ?? fileURLToPath2(new URL("./workflow-runner.mjs", import.meta.url)));
+  return resolve4(process.env.GELDMACHER_WORKFLOW_RUNNER ?? fileURLToPath2(new URL("./workflow-runner.mjs", import.meta.url)));
 }
 function launchRunner({ action, workspace, stateRoot, runId = null, preparationId = null }) {
   const subjectArgs = runId ? ["--run-id", runId] : ["--preparation-id", preparationId];
@@ -2750,7 +3384,7 @@ server.registerTool("workflow_validate_models", toolContract("workflow_validate_
     const config = loadWorkflowConfig(workspace);
     if (config.errors.length > 0) return result({ verified: false, errors: config.errors, capabilities: resolveCapabilities(stateRoot, {}, { pluginRoot }) });
     const profile = resolveRouteProfile(config, route_profile);
-    const validation = new CursorWorkerAdapter({ runDirectory: resolve3(stateRoot, "model-validation"), pluginRoot }).validateProfile(profile);
+    const validation = new CursorWorkerAdapter({ runDirectory: resolve4(stateRoot, "model-validation"), pluginRoot }).validateProfile(profile);
     return result({ ...validation, capabilities: resolveCapabilities(stateRoot, { model_catalog_verified: validation.verified }, { pluginRoot }) });
   } catch (error) {
     return result({
@@ -2777,10 +3411,10 @@ server.registerTool("workflow_verification_profile", toolContract("workflow_veri
       const config = loadWorkflowConfig(workspace);
       if (config.errors.length > 0) throw new Error(`workflow configuration invalid: ${config.errors.join("; ")}`);
       const route = resolveRouteProfile(config, input.route_profile);
-      const proofRoot = join3(stateRoot, "verification-proof-artifacts", inspection.profile_hash, randomUUID());
+      const proofRoot = join4(stateRoot, "verification-proof-artifacts", inspection.profile_hash, randomUUID());
       ownedProofRoot = proofRoot;
       mkdirSync2(proofRoot, { recursive: true, mode: 448 });
-      const adapter = new CursorWorkerAdapter({ runDirectory: join3(stateRoot, "verification-proof-runs", inspection.profile_hash), pluginRoot });
+      const adapter = new CursorWorkerAdapter({ runDirectory: join4(stateRoot, "verification-proof-runs", inspection.profile_hash), pluginRoot });
       const validation = adapter.validateProfile(route);
       const verifier = validation.routes?.verifier;
       if (!validation.verified || !verifier?.selected_candidate || !verifier.model) throw new Error(`verifier route unavailable: ${(validation.errors ?? []).join("; ")}`);

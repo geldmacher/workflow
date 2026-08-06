@@ -1,4 +1,5 @@
 import * as z from "zod/v4";
+import { toolAnnotations } from "./tool-annotations.mjs";
 import { WORKFLOW_TOOL_NAMES } from "./tool-registry.mjs";
 
 const workspaceRoot = z.string().min(1).optional();
@@ -53,7 +54,7 @@ export const WORKFLOW_TOOL_CONTRACTS = Object.freeze({
     },
   },
   workflow_artifact_record: {
-    description: "Validate and atomically cache exact Schema-5 work-plan or work-review artifacts as non-authoritative cross-context handoff data.",
+    description: "Validate and atomically cache exact Schema-5 work-plan or work-review artifacts in the non-authoritative root-content handoff store.",
     inputSchema: { workspace_root: workspaceRoot, artifacts: z.array(artifact).min(1).max(32) },
   },
   workflow_artifact_context: {
@@ -65,7 +66,7 @@ export const WORKFLOW_TOOL_CONTRACTS = Object.freeze({
     },
   },
   workflow_closeout: {
-    description: "Deterministically build and validate one Schema-5 delivery-evidence artifact from observed Checks; cache it when Roots are trusted or return it workspace-unattested when only Roots discovery is unavailable.",
+    description: "Deterministically build and validate one Schema-5 delivery-evidence artifact from observed Checks and cache it in the root-content handoff store.",
     inputSchema: {
       workspace_root: workspaceRoot,
       root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
@@ -144,5 +145,5 @@ if (Object.keys(WORKFLOW_TOOL_CONTRACTS).sort().join("\n") !== [...WORKFLOW_TOOL
 export function toolContract(name) {
   const contract = WORKFLOW_TOOL_CONTRACTS[name];
   if (!contract) throw new Error(`unknown Workflow MCP tool ${name}`);
-  return contract;
+  return { ...contract, annotations: toolAnnotations(name) };
 }

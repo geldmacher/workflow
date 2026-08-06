@@ -27,7 +27,7 @@ Lean Evidence carries its semantic proof in closed frontmatter and needs only a 
 
 Manual context commands now share one fail-closed selector contract: an explicit ID wins; otherwise the unique active native Plan lineage of the current task wins. Only when no Manual Plan is active may supported read-only commands use one unique active controller subject. Zero or multiple candidates request context before producing an artifact or mutation.
 
-Exact Schema-5 Roots, Evidences, and reviews can cross fresh Cursor contexts through the repository-specific external handoff cache. It is append-only Schema 1 transport, is revalidated on every read, and never creates authority or workflow state. Conflicting hashes and stale/competing tips remain blocked.
+Exact Schema-5 Roots, Evidences, and reviews can cross fresh Cursor contexts through the root-content external handoff cache, namespaced by the full SHA-256 of exact Root text. It is append-only Schema 1 transport, is revalidated on every read, and never creates authority or workflow state. Conflicting hashes and stale/competing tips remain blocked. Legacy repository-key stores remain readable and may be migrated with `npm run migrate:handoff`.
 
 `/accept-work provisional` accepts only the unique active Schema-5 Manual provisional review tip; `/accept-work <wp-id> provisional` remains compatible. Its `accepted-provisional` result reports the resolved Root and artifact-set hash, is ephemeral, and creates no controller state, repository artifact, Qualification History, or Learning publication. Verified Manual reviews remain directly `achieved`.
 

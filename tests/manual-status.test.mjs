@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
@@ -158,7 +158,17 @@ test("manual workflow_status is read-only and creates no controller state", asyn
       evidence_effect: "none",
       result_policy: "verified-results-remain-usable",
       qualification_policy: "exact-model-attestation-still-required",
+      match_policy: "parent-or-configured-approved-candidates",
     });
+    assert.equal(response.structuredContent.host_tool_approval.tool_approval, "strict");
+    assert.equal(response.structuredContent.host_tool_approval.authoritative, false);
+    assert.equal(response.structuredContent.host_tool_approval.grants_host_approval, false);
+    assert.equal(response.structuredContent.host_tool_approval.source, "default");
+    assert.equal(response.structuredContent.manual_subagent_policy.authoritative, false);
+    assert.equal(response.structuredContent.manual_subagent_policy.mode, "parent-only");
+    assert.equal(response.structuredContent.manual_subagent_policy.source, "default");
+    assert.deepEqual(response.structuredContent.manual_subagent_policy.hosts.cursor.candidates, []);
+    assert.deepEqual(response.structuredContent.manual_subagent_policy.hosts.codex.candidates, []);
     const active = await client.callTool({ name: "workflow_status", arguments: { workspace_root: root, artifacts: [plan] } });
     assert.equal(active.isError, false);
     assert.equal(active.structuredContent.snapshot.root_plan_id, rootPlanId);
@@ -186,6 +196,42 @@ test("manual workflow_status is read-only and creates no controller state", asyn
     });
     assert.equal(fresh.structuredContent.snapshot.state, "delivery-ready-provisional");
     assert.equal(existsSync(join(home, ".cursor", "geldmacher-workflow")), false);
+  } finally {
+    await client.close().catch(() => {});
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("manual workflow_status surfaces allowlisted host preference without granting approval", async () => {
+  const home = mkdtempSync(join(tmpdir(), "workflow-manual-status-allowlisted-"));
+  const workflowHome = join(home, ".geldmacher", "workflow");
+  mkdirSync(workflowHome, { recursive: true });
+  writeFileSync(join(workflowHome, "preferences.yaml"), "schema: 1\ntool_approval: allowlisted\n");
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [join(root, "dist", "workflow-mcp.mjs")],
+    cwd: root,
+    env: {
+      ...process.env,
+      HOME: home,
+      CURSOR_PLUGIN_ROOT: root,
+      GELDMACHER_WORKFLOW_HOME: workflowHome,
+    },
+    stderr: "pipe",
+  });
+  const client = workflowClient("workflow-manual-status-allowlisted", [root]);
+  try {
+    await client.connect(transport);
+    const response = await client.callTool({
+      name: "workflow_status",
+      arguments: { workspace_root: root, root_plan_id: rootPlanId, artifacts: [plan] },
+    });
+    assert.equal(response.isError, false);
+    assert.equal(response.structuredContent.host_tool_approval.tool_approval, "allowlisted");
+    assert.equal(response.structuredContent.host_tool_approval.source, "file");
+    assert.equal(response.structuredContent.host_tool_approval.authoritative, false);
+    assert.equal(response.structuredContent.host_tool_approval.grants_host_approval, false);
+    assert.equal(response.structuredContent.host_tool_approval.host_allowlist_required, true);
   } finally {
     await client.close().catch(() => {});
     rmSync(home, { recursive: true, force: true });

@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:geldmacher:workflow-host-preferences:1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "tool_approval"],
+  "properties": {
+    "schema": { "const": 1 },
+    "tool_approval": { "type": "string", "enum": ["strict", "allowlisted"] },
+    "manual_subagent_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "mode"],
+      "properties": {
+        "schema": { "const": 1 },
+        "mode": { "type": "string", "enum": ["parent-only", "parent-or-approved"] },
+        "hosts": { "type": "object" }
+      }
+    },
+    "extensions": { "type": "object" }
+  }
+}

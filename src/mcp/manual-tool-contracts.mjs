@@ -1,4 +1,5 @@
 import * as z from "zod/v4";
+import { manualToolAnnotations } from "./manual-tool-annotations.mjs";
 
 const workspaceRoot = z.string().min(1).optional();
 const artifact = z.object({
@@ -24,11 +25,11 @@ const contracts = Object.freeze({
     inputSchema: { root_plan: z.string().min(1).max(250_000) },
   },
   workflow_artifact_record: {
-    description: "Validate and atomically cache exact Schema-5 work-plan or work-review artifacts as non-authoritative cross-context handoff data.",
+    description: "Validate and atomically cache exact Schema-5 work-plan or work-review artifacts in the non-authoritative root-content handoff store.",
     inputSchema: { workspace_root: workspaceRoot, artifacts: z.array(artifact).min(1).max(32) },
   },
   workflow_artifact_context: {
-    description: "Return the exact revalidated non-authoritative Schema-5 artifact chain cached for one Root, optionally hash-bound to the supplied active native Plan.",
+    description: "Return the exact revalidated non-authoritative Schema-5 artifact chain cached for one Root under its root-content namespace, optionally hash-bound to the supplied active native Plan.",
     inputSchema: {
       workspace_root: workspaceRoot,
       root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
@@ -36,7 +37,7 @@ const contracts = Object.freeze({
     },
   },
   workflow_closeout: {
-    description: "Deterministically build and validate one Schema-5 delivery-evidence artifact from observed Checks and cache it when workspace Roots are trusted.",
+    description: "Deterministically build and validate one Schema-5 delivery-evidence artifact from observed Checks and cache it in the root-content handoff store.",
     inputSchema: {
       workspace_root: workspaceRoot,
       root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
@@ -68,5 +69,5 @@ const contracts = Object.freeze({
 export function manualToolContract(name) {
   const contract = contracts[name];
   if (!contract) throw new Error(`unknown Manual Workflow MCP tool ${name}`);
-  return contract;
+  return { ...contract, annotations: manualToolAnnotations(name) };
 }

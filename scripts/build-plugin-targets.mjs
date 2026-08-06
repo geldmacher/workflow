@@ -42,6 +42,8 @@ const sharedReferences = [
   "executable-contract.md",
   "explanation-contract.md",
   "learning-contract.md",
+  "host-approval-contract.md",
+  "manual-subagent-policy.md",
   "manual-workflow-contract.md",
   "plan-container-contract.md",
   "review-contract.md",

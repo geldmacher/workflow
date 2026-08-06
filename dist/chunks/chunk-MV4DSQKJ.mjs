@@ -11,7 +11,8 @@ import {
 } from "./chunk-VL4DQUSD.mjs";
 import {
   __commonJS,
-  __require
+  __require,
+  __toESM
 } from "./chunk-IQRLCJ3K.mjs";
 
 // node_modules/yaml/dist/nodes/identity.js
@@ -7241,7 +7242,7 @@ var require_public_api = __commonJS({
       }
       return doc;
     }
-    function parse(src, reviver, options) {
+    function parse2(src, reviver, options) {
       let _reviver = void 0;
       if (typeof reviver === "function") {
         _reviver = reviver;
@@ -7282,7 +7283,7 @@ var require_public_api = __commonJS({
         return value.toString(options);
       return new Document.Document(value, _replacer, options).toString(options);
     }
-    exports.parse = parse;
+    exports.parse = parse2;
     exports.parseAllDocuments = parseAllDocuments;
     exports.parseDocument = parseDocument;
     exports.stringify = stringify;
@@ -7343,23 +7344,114 @@ var require_dist = __commonJS({
 
 // src/core/state-paths.mjs
 import { createHash } from "node:crypto";
+import { join as join2, resolve as resolve2 } from "node:path";
+
+// src/core/host-preferences.mjs
+var import_yaml = __toESM(require_dist(), 1);
+import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
+var TOOL_APPROVAL_MODES = Object.freeze(["strict", "allowlisted"]);
+var preferenceKeys = Object.freeze(["schema", "tool_approval", "manual_subagent_policy", "extensions"]);
+function sharedWorkflowHome(options = {}) {
+  return resolve(options.homeRoot ?? process.env.GELDMACHER_WORKFLOW_HOME ?? join(homedir(), ".geldmacher", "workflow"));
+}
+function defaultHostPreferencesPath(options = {}) {
+  return options.preferencesPath ?? process.env.GELDMACHER_WORKFLOW_PREFERENCES ?? join(sharedWorkflowHome(options), "preferences.yaml");
+}
+function objectLike(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+function strictSummary(path, source, issues = []) {
+  return Object.freeze({
+    tool_approval: "strict",
+    source,
+    path,
+    authoritative: false,
+    grants_host_approval: false,
+    host_allowlist_required: false,
+    ...issues.length > 0 ? { issues: Object.freeze([...issues]) } : {}
+  });
+}
+function validateHostPreferences(value, label = "preferences") {
+  const errors = [];
+  if (!objectLike(value)) {
+    errors.push(`${label} must be an object`);
+    return errors;
+  }
+  for (const key of Object.keys(value)) {
+    if (!preferenceKeys.includes(key)) errors.push(`${label} has unknown field ${key}`);
+  }
+  if (value.schema !== 1) errors.push(`${label}.schema must be 1`);
+  if (!TOOL_APPROVAL_MODES.includes(value.tool_approval)) {
+    errors.push(`${label}.tool_approval must be strict or allowlisted`);
+  }
+  if (value.manual_subagent_policy !== void 0 && !objectLike(value.manual_subagent_policy)) {
+    errors.push(`${label}.manual_subagent_policy must be an object`);
+  }
+  if (value.extensions !== void 0 && !objectLike(value.extensions)) {
+    errors.push(`${label}.extensions must be an object`);
+  }
+  return errors;
+}
+function resolveHostToolApproval(options = {}) {
+  const path = defaultHostPreferencesPath(options);
+  if (!existsSync(path)) return strictSummary(path, "default");
+  let parsed;
+  try {
+    parsed = (0, import_yaml.parse)(readFileSync(path, "utf8"));
+  } catch (error) {
+    return strictSummary(path, "invalid-fallback", [`preferences file is unreadable: ${error.message}`]);
+  }
+  const errors = validateHostPreferences(parsed);
+  if (errors.length > 0) return strictSummary(path, "invalid-fallback", errors);
+  const allowlisted = parsed.tool_approval === "allowlisted";
+  return Object.freeze({
+    tool_approval: parsed.tool_approval,
+    source: "file",
+    path,
+    authoritative: false,
+    grants_host_approval: false,
+    host_allowlist_required: allowlisted
+  });
+}
+
+// src/core/state-paths.mjs
 function repositoryKey(workspaceRoot) {
-  return createHash("sha256").update(resolve(workspaceRoot)).digest("hex").slice(0, 20);
+  return createHash("sha256").update(resolve2(workspaceRoot)).digest("hex").slice(0, 20);
+}
+function rootContentHash(rootPlanText) {
+  if (typeof rootPlanText !== "string" || !rootPlanText.trim()) {
+    throw new Error("root content hash requires exact non-empty Root text");
+  }
+  return createHash("sha256").update(rootPlanText).digest("hex");
+}
+function sharedHandoffBase(options = {}) {
+  return options.baseRoot ?? process.env.GELDMACHER_WORKFLOW_SHARED_ROOT ?? join2(sharedWorkflowHome(options), "handoff");
+}
+function contentAddressedHandoffRoot(rootPlanText, options = {}) {
+  return join2(resolve2(sharedHandoffBase(options)), "by-root", rootContentHash(rootPlanText));
+}
+function contentAddressedHandoffRootByHash(rootHash, options = {}) {
+  if (!/^[a-f0-9]{64}$/.test(String(rootHash ?? ""))) throw new Error("content-addressed handoff requires a full SHA-256 root content hash");
+  return join2(resolve2(sharedHandoffBase(options)), "by-root", rootHash);
+}
+function handoffTipPath(rootPlanId, options = {}) {
+  if (!/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(rootPlanId ?? ""))) throw new Error("handoff tip requires a valid wp-* root_plan_id");
+  return join2(resolve2(sharedHandoffBase(options)), "tips", `${rootPlanId}.json`);
 }
 function sharedArtifactStateRoot(workspaceRoot, options = {}) {
-  const base = options.baseRoot ?? process.env.GELDMACHER_WORKFLOW_SHARED_ROOT ?? join(homedir(), ".geldmacher", "workflow", "state");
-  return join(resolve(base), repositoryKey(workspaceRoot));
+  const base = options.baseRoot ?? process.env.GELDMACHER_WORKFLOW_SHARED_ROOT ?? join2(sharedWorkflowHome(options), "state");
+  return join2(resolve2(base), repositoryKey(workspaceRoot));
 }
 
 // src/controller/store.mjs
-import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { appendFileSync, closeSync, existsSync as existsSync2, mkdirSync, openSync, readFileSync as readFileSync2, readSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { createHash as createHash2, randomUUID } from "node:crypto";
 import { homedir as homedir2 } from "node:os";
-import { dirname, join as join2, resolve as resolve2 } from "node:path";
+import { dirname, join as join3, resolve as resolve3 } from "node:path";
 function defaultStateRoot(workspaceRoot) {
-  return join2(homedir2(), ".cursor", "geldmacher-workflow", "state", repositoryKey(workspaceRoot));
+  return join3(homedir2(), ".cursor", "geldmacher-workflow", "state", repositoryKey(workspaceRoot));
 }
 function atomicJson(path, value) {
   mkdirSync(dirname(path), { recursive: true });
@@ -7388,7 +7480,7 @@ function acquireLock(path) {
     if (error.code !== "EEXIST") throw error;
     let stale = false;
     try {
-      stale = !processAlive(JSON.parse(readFileSync(path, "utf8")).pid);
+      stale = !processAlive(JSON.parse(readFileSync2(path, "utf8")).pid);
     } catch {
       stale = true;
     }
@@ -7414,8 +7506,8 @@ function eventDigest(event, source = null) {
 }
 function rebuildEventHead(eventPath, headPath) {
   const head = { schema: 1, count: 0, bytes: 0, last_hash: null, checkpoints: [] };
-  if (existsSync(eventPath)) {
-    const source = readFileSync(eventPath, "utf8");
+  if (existsSync2(eventPath)) {
+    const source = readFileSync2(eventPath, "utf8");
     let offset = 0;
     for (const line of source.split(/(?<=\n)/)) {
       if (!line.trim()) {
@@ -7435,10 +7527,10 @@ function rebuildEventHead(eventPath, headPath) {
   return head;
 }
 function loadEventHead(eventPath, headPath) {
-  if (!existsSync(headPath)) return rebuildEventHead(eventPath, headPath);
+  if (!existsSync2(headPath)) return rebuildEventHead(eventPath, headPath);
   try {
-    const head = JSON.parse(readFileSync(headPath, "utf8"));
-    const size = existsSync(eventPath) ? statSync(eventPath).size : 0;
+    const head = JSON.parse(readFileSync2(headPath, "utf8"));
+    const size = existsSync2(eventPath) ? statSync(eventPath).size : 0;
     if (head.schema !== 1 || !Number.isInteger(head.count) || head.count < 0 || head.bytes !== size || !Array.isArray(head.checkpoints)) throw new Error("invalid event head");
     return head;
   } catch {
@@ -7464,7 +7556,7 @@ function appendIndexedEvent(directory, eventPath, headPath, type, payload) {
   });
 }
 function readIndexedEvents(eventPath, headPath, after = 0) {
-  if (!existsSync(eventPath)) return [];
+  if (!existsSync2(eventPath)) return [];
   const head = loadEventHead(eventPath, headPath);
   const cursor = Math.min(Math.max(0, after), head.count);
   const checkpoint = [...head.checkpoints].reverse().find((entry) => entry.event <= cursor) ?? { event: 0, offset: 0 };
@@ -7485,28 +7577,28 @@ function readIndexedEvents(eventPath, headPath, after = 0) {
   }
 }
 function subjectDirectories(root, subjectPath) {
-  if (!existsSync(root)) return [];
-  return readdirSync(root, { withFileTypes: true }).filter((entry) => entry.isDirectory() && existsSync(subjectPath(entry.name))).map((entry) => entry.name).sort();
+  if (!existsSync2(root)) return [];
+  return readdirSync(root, { withFileTypes: true }).filter((entry) => entry.isDirectory() && existsSync2(subjectPath(entry.name))).map((entry) => entry.name).sort();
 }
 var RunStore = class {
   constructor(root) {
-    this.root = resolve2(root);
+    this.root = resolve3(root);
     mkdirSync(this.root, { recursive: true, mode: 448 });
   }
   runDirectory(runId) {
-    return join2(this.root, "runs", runId);
+    return join3(this.root, "runs", runId);
   }
   runPath(runId) {
-    return join2(this.runDirectory(runId), "run.json");
+    return join3(this.runDirectory(runId), "run.json");
   }
   eventPath(runId) {
-    return join2(this.runDirectory(runId), "events.jsonl");
+    return join3(this.runDirectory(runId), "events.jsonl");
   }
   eventHeadPath(runId) {
-    return join2(this.runDirectory(runId), "events-head.json");
+    return join3(this.runDirectory(runId), "events-head.json");
   }
   indexPath() {
-    return join2(this.root, "runs", "index.json");
+    return join3(this.root, "runs", "index.json");
   }
   summary(run) {
     return {
@@ -7529,16 +7621,16 @@ var RunStore = class {
     };
   }
   rebuildIndex() {
-    const directory = join2(this.root, "runs");
-    const subjects = subjectDirectories(directory, (id) => this.runPath(id)).map((id) => this.summary(JSON.parse(readFileSync(this.runPath(id), "utf8"))));
+    const directory = join3(this.root, "runs");
+    const subjects = subjectDirectories(directory, (id) => this.runPath(id)).map((id) => this.summary(JSON.parse(readFileSync2(this.runPath(id), "utf8"))));
     const index = { schema: 1, subjects };
     atomicJson(this.indexPath(), index);
     return index;
   }
   index() {
     try {
-      const index = JSON.parse(readFileSync(this.indexPath(), "utf8"));
-      const actual = subjectDirectories(join2(this.root, "runs"), (id) => this.runPath(id));
+      const index = JSON.parse(readFileSync2(this.indexPath(), "utf8"));
+      const actual = subjectDirectories(join3(this.root, "runs"), (id) => this.runPath(id));
       const recorded = (index.subjects ?? []).map((subject) => subject.run_id).sort();
       if (index.schema !== 1 || actual.join("\n") !== recorded.join("\n")) throw new Error("run index mismatch");
       return index;
@@ -7552,13 +7644,13 @@ var RunStore = class {
     atomicJson(this.indexPath(), { schema: 1, subjects: [...subjects.values()].sort((left, right) => left.run_id.localeCompare(right.run_id)) });
   }
   create(input) {
-    const lockPath = join2(this.root, ".create.lock");
+    const lockPath = join3(this.root, ".create.lock");
     const descriptor = acquireLock(lockPath);
     try {
       const active = this.active();
       if (active.length > 0) throw new Error(`repository already has active run ${active[0].run_id}`);
       const runId = input.run_id ?? `run-${(/* @__PURE__ */ new Date()).toISOString().replace(/[-:.TZ]/g, "")}-${randomUUID().slice(0, 8)}`;
-      if (existsSync(this.runPath(runId))) throw new Error(`run already exists: ${runId}`);
+      if (existsSync2(this.runPath(runId))) throw new Error(`run already exists: ${runId}`);
       const run = {
         ...structuredClone(input),
         ...protocolFields(),
@@ -7579,7 +7671,7 @@ var RunStore = class {
     }
   }
   createFromPreparation(preparationStore, options, input) {
-    const lockPath = join2(this.root, ".create.lock");
+    const lockPath = join3(this.root, ".create.lock");
     const descriptor = acquireLock(lockPath);
     try {
       const existing = this.list().find((run2) => classifyRunCompatibility(run2).compatible && (run2.preparation_id === options.preparationId || run2.start_idempotency_key === options.idempotencyKey));
@@ -7622,13 +7714,13 @@ var RunStore = class {
     }
   }
   get(runId) {
-    if (!existsSync(this.runPath(runId))) throw new Error(`unknown run ${runId}`);
-    const run = JSON.parse(readFileSync(this.runPath(runId), "utf8"));
+    if (!existsSync2(this.runPath(runId))) throw new Error(`unknown run ${runId}`);
+    const run = JSON.parse(readFileSync2(this.runPath(runId), "utf8"));
     if (run.lifecycle === "running" && !processAlive(run.runner_pid ?? run.controller_pid)) return { ...run, lifecycle: "interrupted", interrupted_from_pid: run.runner_pid ?? run.controller_pid };
     return run;
   }
   update(runId, expectedRevision, idempotencyKey, mutator, eventType = "run-updated") {
-    const lockPath = join2(this.runDirectory(runId), ".lock");
+    const lockPath = join3(this.runDirectory(runId), ".lock");
     const descriptor = acquireLock(lockPath);
     try {
       const run = this.get(runId);
@@ -7670,23 +7762,23 @@ var RunStore = class {
 };
 var PreparationStore = class {
   constructor(root) {
-    this.root = resolve2(root);
+    this.root = resolve3(root);
     mkdirSync(this.root, { recursive: true, mode: 448 });
   }
   preparationDirectory(preparationId) {
-    return join2(this.root, "preparations", preparationId);
+    return join3(this.root, "preparations", preparationId);
   }
   preparationPath(preparationId) {
-    return join2(this.preparationDirectory(preparationId), "preparation.json");
+    return join3(this.preparationDirectory(preparationId), "preparation.json");
   }
   eventPath(preparationId) {
-    return join2(this.preparationDirectory(preparationId), "events.jsonl");
+    return join3(this.preparationDirectory(preparationId), "events.jsonl");
   }
   eventHeadPath(preparationId) {
-    return join2(this.preparationDirectory(preparationId), "events-head.json");
+    return join3(this.preparationDirectory(preparationId), "events-head.json");
   }
   indexPath() {
-    return join2(this.root, "preparations", "index.json");
+    return join3(this.root, "preparations", "index.json");
   }
   summary(preparation) {
     return {
@@ -7701,16 +7793,16 @@ var PreparationStore = class {
     };
   }
   rebuildIndex() {
-    const directory = join2(this.root, "preparations");
-    const subjects = subjectDirectories(directory, (id) => this.preparationPath(id)).map((id) => this.summary(JSON.parse(readFileSync(this.preparationPath(id), "utf8"))));
+    const directory = join3(this.root, "preparations");
+    const subjects = subjectDirectories(directory, (id) => this.preparationPath(id)).map((id) => this.summary(JSON.parse(readFileSync2(this.preparationPath(id), "utf8"))));
     const index = { schema: 1, subjects };
     atomicJson(this.indexPath(), index);
     return index;
   }
   index() {
     try {
-      const index = JSON.parse(readFileSync(this.indexPath(), "utf8"));
-      const actual = subjectDirectories(join2(this.root, "preparations"), (id) => this.preparationPath(id));
+      const index = JSON.parse(readFileSync2(this.indexPath(), "utf8"));
+      const actual = subjectDirectories(join3(this.root, "preparations"), (id) => this.preparationPath(id));
       const recorded = (index.subjects ?? []).map((subject) => subject.preparation_id).sort();
       if (index.schema !== 1 || actual.join("\n") !== recorded.join("\n")) throw new Error("preparation index mismatch");
       return index;
@@ -7724,13 +7816,13 @@ var PreparationStore = class {
     atomicJson(this.indexPath(), { schema: 1, subjects: [...subjects.values()].sort((left, right) => left.preparation_id.localeCompare(right.preparation_id)) });
   }
   create(input) {
-    const lockPath = join2(this.root, ".prepare.lock");
+    const lockPath = join3(this.root, ".prepare.lock");
     const descriptor = acquireLock(lockPath);
     try {
       const active = this.active();
       if (active.length > 0) throw new Error(`repository already has active preparation ${active[0].preparation_id}`);
       const preparationId = input.preparation_id ?? `prep-${(/* @__PURE__ */ new Date()).toISOString().replace(/[-:.TZ]/g, "")}-${randomUUID().slice(0, 8)}`;
-      if (existsSync(this.preparationPath(preparationId))) throw new Error(`preparation already exists: ${preparationId}`);
+      if (existsSync2(this.preparationPath(preparationId))) throw new Error(`preparation already exists: ${preparationId}`);
       const preparation = {
         ...structuredClone(input),
         ...preparationProtocolFields(),
@@ -7751,14 +7843,14 @@ var PreparationStore = class {
     }
   }
   get(preparationId) {
-    if (!existsSync(this.preparationPath(preparationId))) throw new Error(`unknown preparation ${preparationId}`);
-    const preparation = JSON.parse(readFileSync(this.preparationPath(preparationId), "utf8"));
+    if (!existsSync2(this.preparationPath(preparationId))) throw new Error(`unknown preparation ${preparationId}`);
+    const preparation = JSON.parse(readFileSync2(this.preparationPath(preparationId), "utf8"));
     if (preparation.status === "planning" && preparation.runner_pid && !processAlive(preparation.runner_pid)) return { ...preparation, status: "interrupted", blockers: [.../* @__PURE__ */ new Set([...preparation.blockers ?? [], "planner-runner-interrupted"])] };
     if (preparation.status === "root-ready" && Date.parse(preparation.expires_at) <= Date.now()) return { ...preparation, status: "expired", blockers: [.../* @__PURE__ */ new Set([...preparation.blockers ?? [], "preparation-expired"])] };
     return preparation;
   }
   update(preparationId, expectedRevision, idempotencyKey, mutator, eventType = "preparation-updated") {
-    const lockPath = join2(this.preparationDirectory(preparationId), ".lock");
+    const lockPath = join3(this.preparationDirectory(preparationId), ".lock");
     const descriptor = acquireLock(lockPath);
     try {
       const preparation = this.get(preparationId);
@@ -7789,7 +7881,7 @@ var PreparationStore = class {
     }), "preparation-consumed");
   }
   controlUpdate(preparationId, expectedRevision, idempotencyKey, mutator, eventType = "preparation-controlled") {
-    const repositoryLockPath = join2(this.root, ".create.lock");
+    const repositoryLockPath = join3(this.root, ".create.lock");
     const descriptor = acquireLock(repositoryLockPath);
     try {
       const before = this.get(preparationId);
@@ -7819,10 +7911,15 @@ var PreparationStore = class {
 };
 
 export {
+  require_dist,
+  resolveHostToolApproval,
   repositoryKey,
+  rootContentHash,
+  contentAddressedHandoffRoot,
+  contentAddressedHandoffRootByHash,
+  handoffTipPath,
   sharedArtifactStateRoot,
   defaultStateRoot,
   RunStore,
-  PreparationStore,
-  require_dist
+  PreparationStore
 };

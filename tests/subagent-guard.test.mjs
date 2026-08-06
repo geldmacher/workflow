@@ -139,6 +139,35 @@ test("subagentStart accepts actual equality and denies actual mismatch", () => {
   } finally { run.close(); }
 });
 
+test("subagentStart accepts configured Cursor approved candidates and rejects GPT Sol", () => {
+  const run = harness();
+  try {
+    run.options.manualSubagentPolicy = {
+      mode: "parent-or-approved",
+      hosts: {
+        cursor: {
+          host: "cursor",
+          parent_fallback: true,
+          candidates: [
+            { model_id: "composer-2.5-fast" },
+            { model_id: "cursor-grok-4.5-high-fast" },
+          ],
+          preset: "cursor-composer-grok-v1",
+        },
+      },
+    };
+    captureParent(run.options, "cursor-grok-4.5-high-fast", "cursor-grok-4.5-high-fast");
+    assert.deepEqual(evaluateHookEvent(taskRequest("approved-child", "inherit", { model: "cursor-grok-4.5-high-fast" }), run.options), {});
+    assert.deepEqual(evaluateHookEvent(subagentStart("approved-child", "composer-2.5-fast"), run.options), {});
+
+    assert.deepEqual(evaluateHookEvent(taskRequest("sol-child", Symbol.for("omitted"), { model: "cursor-grok-4.5-high-fast" }), run.options), {});
+    const denied = evaluateSubagentStart(subagentStart("sol-child", "gpt-5.6-sol-xhigh"), run.options);
+    assert.equal(denied.permission, "deny");
+    assert.match(denied.user_message, /actual-child-mismatch/);
+    assert.match(denied.user_message, /gpt-5.6-sol-xhigh/);
+  } finally { run.close(); }
+});
+
 test("missing parent, missing child, and uncorrelated starts are unattestable", () => {
   for (const [name, setup, event, cause] of [
     ["parent", () => {}, () => taskRequest("missing-parent"), "parent-model-unavailable"],

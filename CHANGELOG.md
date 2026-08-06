@@ -2,6 +2,12 @@
 
 ## 5.2.0
 
+- Replaced repository-key Manual handoff transport with exact Root-content namespaces under `~/.geldmacher/workflow/handoff/by-root/<sha256>/`, so plan record/closeout/context persist without MCP `roots/list`.
+- Bound Cursor operational workspace identity through `GELDMACHER_WORKFLOW_WORKSPACE_ROOT=${workspaceFolder}` while retaining `roots/list` as a fail-closed compatibility fallback and never trusting a tool-supplied `workspace_root` alone.
+- Preserved source-preserving migration from legacy repository-key handoff stores into content-addressed namespaces and report `handoff_mode` / `workspace_binding` separately from true cache-write failures.
+- Added host-aware Manual subagent policy with versioned concrete-ID presets, parent-only fail-safe default, Cursor inherit-and-attest approved alternatives, and Codex ordered candidate injection with parent fallback.
+- Added shared Schema-1 host tool-approval preference (`strict`|`allowlisted`) with fail-safe default, Manual `workflow_status` advisory surfacing, and Cursor/Codex allowlist documentation that never grants host MCP approval.
+- Published complete conservative MCP tool safety annotations for all twelve Cursor tools and the five Codex Manual tools, plus least-privilege host allowlist presets that keep Cursor and Codex settings under host control.
 - Added a read-only, workspace-independent `workflow_plan_preflight` for Schema-5 Authority feasibility and Pareto Check selection before implementation approval.
 - Added economic review routing with deterministic inline short-circuit, one-specialist targeted review, and exact full-review auditor coverage without weakening Hard-Trigger or certified assurance.
 - Preserved valid closeout Evidence when only MCP roots transport is unavailable and the exact Root is supplied; foreign, redirected, drifting, conflicting, or missing Roots still fail closed.

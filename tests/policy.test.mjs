@@ -33,7 +33,7 @@ test("review without a selector uses the active native Plan before controller st
   assert.match(runtime, /ignore unscoped `workflow_status` for Manual resolution/i);
   assert.match(runtime, /Root (?:without Evidence|resolution succeeds but Evidence is still absent).*\/close-work/is);
   assert.match(runtime, /task artifacts first.*workflow_artifact_context.*transport enrichment/is);
-  assert.match(runtime, /roots-request-failed\|roots-empty.*cannot discard.*task Root\/Evidence chain/is);
+  assert.match(runtime, /(?:Missing workspace binding|roots-request-failed\|roots-empty).*cannot discard.*task Root\/Evidence chain/is);
   assert.match(runtime, /(?:emit and validate|schema-valid).*Schema-5 review/is);
 });
 
@@ -59,6 +59,7 @@ test("planning uses compact semantic Root with immutable intent and adaptive str
   assert.match(runtime, /source review.*next_action: replan/is);
   assert.match(runtime, /Cursor-selected primary owns \*\*Implement Plan\*\*/i);
   assert.match(runtime, /subagents.*inherit.*(?:main|its) model/is);
+  assert.match(runtime, /Manual approved candidate|parent-or-approved/i);
   assert.match(runtime, /\[workflow-model-inherit-v1\]/);
 });
 
@@ -85,9 +86,9 @@ test("manual closeout is deterministic recovery and cannot mutate the repository
   assert.match(runtime, /external byte-equivalent snapshot.*technically read-only.*non-bypassable full-tree write audit.*restored writes.*Write-deny the original repository.*await the full tree/is);
   assert.match(runtime, /recompute the complete baseline.*compare content, paths, index state, and HEAD/is);
   assert.match(runtime, /network.*production.*external effect/is);
-  assert.match(runtime, /handoff cache is transport only|cache is non-authoritative transport/i);
-  assert.match(runtime, /roots-request-failed\|roots-empty.*complete exact task Root\/chain/is);
-  assert.match(runtime, /(?:ignore|ignores).*workspace_root.*(?:no|claiming a) workspace binding/is);
+  assert.match(runtime, /root-content handoff cache is transport only|handoff cache is transport only|cache is non-authoritative transport/i);
+  assert.match(runtime, /Content-bound handoff|roots-request-failed\|roots-empty|exact Root hash/i);
+  assert.match(runtime, /missing workspace binding|workspace binding/i);
   assert.match(runtime, /representation: full\|delta.*evidence_mode: lean\|full/is);
 });
 
@@ -169,5 +170,7 @@ test("runtime surface has one bundled controller and no automatic publication", 
   assert.match(hooks, /failClosed/);
   assert.equal(manifest.mcpServers, "mcp.json");
   assert.match(read("mcp.json"), /\$\{CURSOR_PLUGIN_ROOT\}\/dist\/workflow-mcp\.mjs/);
+  assert.match(read("mcp.json"), /GELDMACHER_WORKFLOW_WORKSPACE_ROOT/);
+  assert.match(read("mcp.json"), /\$\{workspaceFolder\}/);
   assert.match(read("README.md"), /no automatic push, PR, merge, deployment/i);
 });

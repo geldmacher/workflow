@@ -1,30 +1,67 @@
-import { ArtifactHandoffStore } from "../controller/artifact-handoff.mjs";
+import { ArtifactHandoffStore, createContentAddressedHandoffStore, resolveRootPlanText } from "../controller/artifact-handoff.mjs";
 import { deriveManualWorkflowSnapshot } from "../controller/manual-status.mjs";
+import { resolveHostToolApproval } from "../core/host-preferences.mjs";
+import { resolveManualSubagentPolicy } from "../core/manual-subagent-policy.mjs";
+import { sharedArtifactStateRoot } from "../core/state-paths.mjs";
 import { modelInheritanceSummary } from "../../hooks/model-inheritance-state.mjs";
 import { preflightRootPlan } from "../../scripts/validate-artifact.source.mjs";
 import { createArtifactHandlers } from "./artifact-handlers.mjs";
 import { manualToolContract } from "./manual-tool-contracts.mjs";
+import { isWorkspaceRootsUnavailable } from "./workspace-roots.mjs";
+
+function publicManualSubagentPolicy(policy = resolveManualSubagentPolicy()) {
+  return Object.freeze({
+    authoritative: false,
+    schema: policy.schema,
+    mode: policy.mode,
+    source: policy.source,
+    path: policy.path,
+    hosts: Object.freeze({
+      cursor: Object.freeze({
+        preset: policy.hosts.cursor.preset,
+        parent_fallback: policy.hosts.cursor.parent_fallback,
+        candidates: policy.hosts.cursor.candidates.map((entry) => entry.model_id),
+      }),
+      codex: Object.freeze({
+        preset: policy.hosts.codex.preset,
+        parent_fallback: policy.hosts.codex.parent_fallback,
+        candidates: policy.hosts.codex.candidates.map((entry) => entry.model_id),
+      }),
+    }),
+    ...(policy.issues ? { issues: policy.issues } : {}),
+  });
+}
 
 export function registerManualWorkflowTools({
   server,
   pluginRoot,
   workspaceAuthority,
   operationalStateRoot,
-  handoffStateRoot,
+  handoffStateRoot = sharedArtifactStateRoot,
   result,
   failure,
   includeStatus = true,
   contract = manualToolContract,
+  resolveHostToolApprovalPreference = resolveHostToolApproval,
+  resolveManualSubagentPolicyPreference = resolveManualSubagentPolicy,
 }) {
-  const handoffContext = async (workspaceRoot) => {
+  const resolveOperationalContext = async (workspaceRoot) => {
     const workspace = await workspaceAuthority.resolve(workspaceRoot);
     return {
       workspace,
       stateRoot: operationalStateRoot(workspace),
-      handoffStore: new ArtifactHandoffStore(handoffStateRoot(workspace), pluginRoot),
+      legacyHandoffStore: new ArtifactHandoffStore(handoffStateRoot(workspace), pluginRoot),
     };
   };
-  const artifactHandlers = createArtifactHandlers({ pluginRoot, handoffContext, result });
+
+  const handoffStoreFactory = (rootPlanText, root) => createContentAddressedHandoffStore(rootPlanText, root);
+
+  const artifactHandlers = createArtifactHandlers({
+    pluginRoot,
+    resolveOperationalContext,
+    result,
+    handoffStoreFactory,
+  });
 
   const status = async (input) => {
     try {
@@ -34,8 +71,17 @@ export function registerManualWorkflowTools({
       if (input.artifacts.reduce((total, artifact) => total + artifact.text.length, 0) > 1_000_000) {
         throw new Error("manual workflow_status artifact bundle exceeds 1000000 characters");
       }
-      const workspace = await workspaceAuthority.resolve(input.workspace_root);
-      const stateRoot = operationalStateRoot(workspace);
+      let workspace = null;
+      let stateRoot = null;
+      let workspaceBinding = "not-established";
+      try {
+        const operational = await resolveOperationalContext(input.workspace_root);
+        workspace = operational.workspace;
+        stateRoot = operational.stateRoot;
+        workspaceBinding = "trusted-root";
+      } catch (error) {
+        if (!isWorkspaceRootsUnavailable(error)) throw error;
+      }
       const manual = deriveManualWorkflowSnapshot({
         rootPlanId: input.root_plan_id,
         artifacts: input.artifacts,
@@ -46,15 +92,45 @@ export function registerManualWorkflowTools({
         subject_kind: "artifact-chain",
         run: null,
         ...manual,
-        workspace_root: workspace,
-        model_inheritance: modelInheritanceSummary(stateRoot),
+        ...(workspace ? { workspace_root: workspace } : {}),
+        workspace_binding: workspaceBinding,
+        workspace_root_used: Boolean(workspace),
+        model_inheritance: stateRoot
+          ? modelInheritanceSummary(stateRoot)
+          : { authoritative: false, status: "unavailable", evidence_effect: "none", reason: "workspace-binding-not-established" },
+        host_tool_approval: resolveHostToolApprovalPreference(),
+        manual_subagent_policy: publicManualSubagentPolicy(resolveManualSubagentPolicyPreference()),
       });
     } catch (error) { return failure(error); }
   };
 
   server.registerTool("workflow_plan_preflight", contract("workflow_plan_preflight"), async (input) => result(preflightRootPlan(input.root_plan, pluginRoot)));
   server.registerTool("workflow_artifact_record", contract("workflow_artifact_record"), artifactHandlers.record);
-  server.registerTool("workflow_artifact_context", contract("workflow_artifact_context"), artifactHandlers.context);
+  server.registerTool("workflow_artifact_context", contract("workflow_artifact_context"), async (input) => {
+    try {
+      if (!input.root_plan) {
+        let legacy = null;
+        try {
+          const operational = await resolveOperationalContext(input.workspace_root);
+          legacy = operational.legacyHandoffStore.context(input.root_plan_id, null);
+          return result({
+            workspace_root: operational.workspace,
+            workspace_binding: "trusted-root",
+            workspace_root_used: true,
+            handoff_authoritative: false,
+            handoff_mode: "legacy-repository-cache",
+            ...legacy,
+            model_inheritance: modelInheritanceSummary(operational.stateRoot),
+          });
+        } catch (error) {
+          if (!isWorkspaceRootsUnavailable(error) && !/no handoff Root/.test(error.message)) throw error;
+          throw new Error(`workflow_artifact_context requires exact root_plan text for content-bound handoff${error?.message ? `; ${error.message}` : ""}`);
+        }
+      }
+      resolveRootPlanText(pluginRoot, { rootPlanId: input.root_plan_id, rootPlan: input.root_plan });
+      return artifactHandlers.context(input);
+    } catch (error) { return failure(error); }
+  });
   server.registerTool("workflow_closeout", contract("workflow_closeout"), artifactHandlers.closeout);
   if (includeStatus) server.registerTool("workflow_status", contract("workflow_status"), status);
 

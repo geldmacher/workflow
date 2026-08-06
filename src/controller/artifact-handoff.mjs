@@ -17,12 +17,107 @@ import {
   inspectArtifactText,
 } from "../../scripts/validate-artifact.source.mjs";
 import {
+  contentAddressedHandoffRoot,
+  contentAddressedHandoffRootByHash,
+  handoffTipPath,
+  rootContentHash,
+} from "../core/state-paths.mjs";
+import {
   ARTIFACT_SCHEMA,
   CONTROLLER_PROTOCOL,
   PLUGIN_VERSION,
 } from "./protocol.mjs";
 
 export const HANDOFF_RECORD_SCHEMA = 1;
+export const HANDOFF_TIP_SCHEMA = 1;
+export { rootContentHash };
+
+export function createContentAddressedHandoffStore(rootPlanText, pluginRoot, options = {}) {
+  return new ArtifactHandoffStore(contentAddressedHandoffRoot(rootPlanText, options), pluginRoot);
+}
+
+export function createContentAddressedHandoffStoreByHash(rootHash, pluginRoot, options = {}) {
+  return new ArtifactHandoffStore(contentAddressedHandoffRootByHash(rootHash, options), pluginRoot);
+}
+
+function writeHandoffTip(rootPlanText, options = {}) {
+  const inspected = inspectArtifactText(rootPlanText, options.pluginRoot);
+  if (inspected.errors.length > 0 || inspected.artifact?.fields?.artifact !== "work-plan") {
+    throw new Error(`handoff tip requires a valid work-plan Root: ${(inspected.errors.length > 0 ? inspected.errors : ["not a work-plan"]).join("; ")}`);
+  }
+  const tip = {
+    handoff_tip_schema: HANDOFF_TIP_SCHEMA,
+    root_plan_id: inspected.artifact.fields.id,
+    root_content_hash: rootContentHash(rootPlanText),
+    text_hash: sha256(rootPlanText),
+    updated_at: new Date().toISOString(),
+  };
+  const path = handoffTipPath(tip.root_plan_id, options);
+  if (existsSync(path)) {
+    const prior = JSON.parse(readFileSync(path, "utf8"));
+    if (prior?.handoff_tip_schema === HANDOFF_TIP_SCHEMA
+      && prior.root_plan_id === tip.root_plan_id
+      && prior.root_content_hash === tip.root_content_hash
+      && prior.text_hash === tip.text_hash) {
+      return tip;
+    }
+    if (prior?.root_plan_id === tip.root_plan_id && prior?.text_hash && prior.text_hash !== tip.text_hash) {
+      throw new Error(`handoff tip for ${tip.root_plan_id} conflicts with a different Root text hash`);
+    }
+  }
+  atomicJson(path, tip);
+  return tip;
+}
+
+export function readHandoffTip(rootPlanId, options = {}) {
+  const path = handoffTipPath(rootPlanId, options);
+  if (!existsSync(path)) return null;
+  const tip = JSON.parse(readFileSync(path, "utf8"));
+  if (tip?.handoff_tip_schema !== HANDOFF_TIP_SCHEMA
+    || tip.root_plan_id !== rootPlanId
+    || !/^[a-f0-9]{64}$/.test(String(tip.root_content_hash ?? ""))
+    || !/^[a-f0-9]{64}$/.test(String(tip.text_hash ?? ""))) {
+    throw new Error(`incompatible or corrupt handoff tip ${rootPlanId}`);
+  }
+  return tip;
+}
+
+export function resolveRootPlanText(pluginRoot, { rootPlanId = null, rootPlan = null, artifacts = [] } = {}) {
+  if (typeof rootPlan === "string" && rootPlan.trim()) {
+    const inspected = inspectArtifactText(rootPlan, pluginRoot);
+    if (inspected.errors.length > 0 || inspected.artifact?.fields?.artifact !== "work-plan") {
+      throw new Error(`exact Root text is invalid: ${(inspected.errors.length > 0 ? inspected.errors : ["not a work-plan"]).join("; ")}`);
+    }
+    if (rootPlanId && inspected.artifact.fields.id !== rootPlanId) {
+      throw new Error(`exact Root ID mismatch: expected ${rootPlanId}, received ${inspected.artifact.fields.id}`);
+    }
+    return rootPlan;
+  }
+  for (const entry of artifacts) {
+    if (!entry?.text) continue;
+    const inspected = inspectArtifactText(entry.text, pluginRoot);
+    if (inspected.errors.length > 0 || inspected.artifact?.fields?.artifact !== "work-plan") continue;
+    if (rootPlanId && inspected.artifact.fields.id !== rootPlanId) continue;
+    return entry.text;
+  }
+  if (rootPlanId) {
+    const tip = readHandoffTip(rootPlanId);
+    if (tip) {
+      const store = createContentAddressedHandoffStoreByHash(tip.root_content_hash, pluginRoot);
+      const cached = store.records([rootPlanId])[0];
+      if (cached?.text && cached.text_hash === tip.text_hash) return cached.text;
+    }
+  }
+  throw new Error(rootPlanId
+    ? `exact Root text for ${rootPlanId} is required for content-bound handoff transport`
+    : "exact Root text is required for content-bound handoff transport");
+}
+
+export function rememberContentAddressedRoot(rootPlanText, pluginRoot, options = {}) {
+  const store = createContentAddressedHandoffStore(rootPlanText, pluginRoot, options);
+  const tip = writeHandoffTip(rootPlanText, { ...options, pluginRoot });
+  return { store, tip, root_content_hash: tip.root_content_hash };
+}
 
 function sha256(value) {
   return createHash("sha256").update(String(value)).digest("hex");

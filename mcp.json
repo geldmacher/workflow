@@ -4,7 +4,10 @@
       "command": "node",
       "args": [
         "${CURSOR_PLUGIN_ROOT}/dist/workflow-mcp.mjs"
-      ]
+      ],
+      "env": {
+        "GELDMACHER_WORKFLOW_WORKSPACE_ROOT": "${workspaceFolder}"
+      }
     }
   }
 }

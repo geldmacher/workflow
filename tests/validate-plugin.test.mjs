@@ -30,6 +30,7 @@ async function createFixture(explicitPaths) {
       postToolUse: [{ type: "command", command, matcher: "Task", failClosed: false }],
     },
   }));
+  await write(join(root, "hooks", "manual-subagent-policy.mjs"), "export const placeholder = true;\n");
   await write(join(root, "hooks", "model-inheritance-state.mjs"), "export const placeholder = true;\n");
   await write(join(root, "hooks", "plan-integrity-guard.mjs"), "process.stdout.write('{}');\n");
   await write(join(root, "hooks", "subagent-guard.mjs"), "process.stdout.write('{}');\n");
@@ -42,7 +43,7 @@ async function createFixture(explicitPaths) {
   for (const name of ["work-automation", "work-closeout", "work-execution", "work-explanation", "work-learning", "work-planning", "work-review"]) {
     await write(join(root, "skills", name, "SKILL.md"), `---\nname: ${name}\ndescription: Skill.\n---\n`);
   }
-  for (const name of ["artifact-protocol", "automation-contract", "automation-preparation-contract", "closeout-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "learning-contract", "model-routing-contract", "plan-container-contract", "review-contract", "state-contract", "verification-profile-contract"]) {
+  for (const name of ["artifact-protocol", "automation-contract", "automation-preparation-contract", "closeout-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "host-approval-contract", "learning-contract", "manual-subagent-policy", "manual-workflow-contract", "model-routing-contract", "plan-container-contract", "review-contract", "state-contract", "verification-profile-contract"]) {
     await write(join(root, "references", `${name}.md`), `# ${name}\n`);
   }
   await write(join(root, "schemas", "cursor-plan-wrapper.schema.json"), JSON.stringify({
@@ -50,6 +51,18 @@ async function createFixture(explicitPaths) {
     type: "object",
     additionalProperties: true,
     required: ["todos", "isProject"],
+  }));
+  await write(join(root, "schemas", "host-preferences.schema.json"), JSON.stringify({
+    $schema: "http://json-schema.org/draft-07/schema#",
+    $id: "urn:geldmacher:workflow-host-preferences:1",
+    type: "object",
+    additionalProperties: false,
+    required: ["schema", "tool_approval"],
+    properties: {
+      schema: { const: 1 },
+      tool_approval: { type: "string", enum: ["strict", "allowlisted"] },
+      extensions: { type: "object" },
+    },
   }));
   for (const name of ["delivery-evidence", "work-plan", "work-review"]) {
     await write(join(root, "schemas", "artifacts", `${name}.schema.json`), JSON.stringify({

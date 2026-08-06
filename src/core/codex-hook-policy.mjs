@@ -1,3 +1,9 @@
+import {
+  childAllowedByPolicy,
+  resolveManualSubagentPolicy,
+  selectCodexCandidate,
+} from "./manual-subagent-policy.mjs";
+
 export const CODEX_PLAN_MARKER = "[workflow-codex-plan-v1]";
 export const CODEX_REVIEW_MARKER = "[workflow-codex-review-v1]";
 export const CODEX_IMPLEMENTATION_MARKER = "[workflow-codex-implementation-v1]";
@@ -6,6 +12,7 @@ export const MODEL_INHERIT_MARKER = "[workflow-model-inherit-v1]";
 const WORKFLOW_COMMAND = /(?:^|\s)\$(plan-work|correct-work|review-work|explain-work|close-work|learn-from-work|work-status|accept-work)(?=\s|$)/i;
 const ROOT_ID = /\bwp-[A-Za-z0-9][A-Za-z0-9-]*\b/;
 const EVIDENCE_ID = /\bde-[A-Za-z0-9][A-Za-z0-9-]*\b/;
+const UNAVAILABLE_MODEL = /(?:unknown|unavailable|not\s+found|unsupported).{0,80}model|model.{0,80}(?:unknown|unavailable|not\s+found|unsupported)/i;
 
 const denyTool = (reason) => ({
   hookSpecificOutput: {
@@ -22,14 +29,6 @@ function phaseForPrompt(prompt, state) {
   if (command === "review-work") return "review";
   if (command) return command.replace(/-work$/, "");
   if (state.active_root_plan_id && /\bimplement(?:iere|ation)?\s+(?:the\s+)?plan\b/i.test(String(prompt ?? ""))) return "implementation";
-  return null;
-}
-
-function explicitModelOverride(input) {
-  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
-  for (const key of ["model", "model_id", "reasoning_effort", "reasoningEffort", "provider"]) {
-    if (Object.prototype.hasOwnProperty.call(input, key) && input[key] !== undefined && input[key] !== null && input[key] !== "") return key;
-  }
   return null;
 }
 
@@ -70,12 +69,70 @@ function idsFrom(value, pattern) {
   return [...new Set(String(typeof value === "string" ? value : JSON.stringify(value ?? {})).match(new RegExp(pattern.source, "g")) ?? [])];
 }
 
-export function evaluateCodexHook(input, priorState = {}) {
+function agentToolName(name) {
+  return /^(?:Agent|spawn_agent)$/i.test(String(name ?? ""));
+}
+
+function requestedModel(toolInput) {
+  if (!toolInput || typeof toolInput !== "object" || Array.isArray(toolInput)) return null;
+  for (const key of ["model", "model_id"]) {
+    if (Object.prototype.hasOwnProperty.call(toolInput, key) && toolInput[key] !== undefined && toolInput[key] !== null && toolInput[key] !== "") {
+      return String(toolInput[key]).trim();
+    }
+  }
+  return null;
+}
+
+function modelUnavailable(response) {
+  return UNAVAILABLE_MODEL.test(JSON.stringify(response ?? {}));
+}
+
+function routingEnabled(policy) {
+  return policy?.mode === "parent-or-approved" && (policy.hosts?.codex?.candidates?.length ?? 0) > 0;
+}
+
+function ensureTurnRouting(turn, policy) {
+  if (!turn.routing) {
+    turn.routing = {
+      mode: policy.mode,
+      unavailable: [],
+      selected: null,
+      reasoning_effort_attested: false,
+    };
+  }
+  return turn.routing;
+}
+
+function buildAgentInput(toolInput, selected) {
+  const next = { ...(toolInput && typeof toolInput === "object" && !Array.isArray(toolInput) ? toolInput : {}) };
+  delete next.model_id;
+  delete next.provider;
+  delete next.reasoningEffort;
+  if (selected.kind === "parent") {
+    delete next.model;
+    delete next.reasoning_effort;
+    delete next.fork_turns;
+    return next;
+  }
+  next.model = selected.model_id;
+  if (selected.reasoning_effort) next.reasoning_effort = selected.reasoning_effort;
+  else delete next.reasoning_effort;
+  next.fork_turns = "none";
+  return next;
+}
+
+export function evaluateCodexHook(input, priorState = {}, options = {}) {
   const state = structuredClone(priorState ?? {});
   const event = input.hook_event_name;
+  const policy = options.manualSubagentPolicy ?? resolveManualSubagentPolicy(options);
 
   if (event === "SessionStart") {
     state.parent_model = input.model ?? null;
+    state.manual_subagent_policy = {
+      mode: policy.mode,
+      source: policy.source,
+      codex_candidates: (policy.hosts?.codex?.candidates ?? []).map((entry) => entry.model_id),
+    };
     return { output: {}, state };
   }
 
@@ -91,17 +148,26 @@ export function evaluateCodexHook(input, priorState = {}) {
       closeout_recorded: false,
       pending_agents: [],
       invalid_agents: {},
+      routing: {
+        mode: policy.mode,
+        unavailable: [],
+        selected: null,
+        reasoning_effort_attested: false,
+      },
     };
     state.turn = turn;
     if (phase === "planning" && input.permission_mode !== "plan") {
       return { output: { decision: "block", reason: "$plan-work requires Codex Plan mode." }, state };
     }
     const marker = phase === "planning" ? CODEX_PLAN_MARKER : phase === "review" ? CODEX_REVIEW_MARKER : ["implementation", "correction"].includes(phase) ? CODEX_IMPLEMENTATION_MARKER : "[workflow-codex-manual-v1]";
+    const routingNote = routingEnabled(policy)
+      ? "Codex may use the configured ordered Manual subagent candidates with parent fallback."
+      : "Preserve human authorization and do not request a concrete subagent model outside parent inheritance.";
     return {
       output: {
         hookSpecificOutput: {
           hookEventName: "UserPromptSubmit",
-          additionalContext: `${marker} ${MODEL_INHERIT_MARKER} Workflow is Manual on Codex. Preserve human authorization and do not request a concrete subagent model.`,
+          additionalContext: `${marker} ${MODEL_INHERIT_MARKER} Workflow is Manual on Codex. ${routingNote}`,
         },
       },
       state,
@@ -110,15 +176,53 @@ export function evaluateCodexHook(input, priorState = {}) {
 
   const turn = state.turn;
   if (!turn) return { output: {}, state };
+  const routing = ensureTurnRouting(turn, policy);
 
   if (event === "PreToolUse") {
     if (Object.keys(turn.invalid_agents ?? {}).length > 0) {
       return { output: denyTool("Workflow blocked this tool because a subagent model could not be attested. Its result is invalid evidence."), state };
     }
-    if (input.tool_name === "Agent") {
-      const override = explicitModelOverride(input.tool_input);
-      if (override) return { output: denyTool(`Workflow requires inherited subagent models; remove explicit ${override}.`), state };
-      turn.pending_agents.push({ tool_use_id: input.tool_use_id ?? null, agent_type: input.tool_input?.agent_type ?? input.tool_input?.subagent_type ?? null });
+    if (agentToolName(input.tool_name)) {
+      if (!routingEnabled(policy)) {
+        const requested = requestedModel(input.tool_input);
+        if (requested) return { output: denyTool("Workflow requires inherited subagent models; remove explicit model."), state };
+        turn.pending_agents.push({
+          tool_use_id: input.tool_use_id ?? null,
+          agent_type: input.tool_input?.agent_type ?? input.tool_input?.subagent_type ?? null,
+          selected_kind: "parent",
+          selected_model: turn.parent_model ?? state.parent_model ?? null,
+        });
+        return { output: {}, state };
+      }
+
+      const selected = selectCodexCandidate({
+        hostPolicy: policy.hosts.codex,
+        mode: policy.mode,
+        unavailable: routing.unavailable,
+        parentModel: turn.parent_model ?? state.parent_model,
+      });
+      if (!selected) {
+        return { output: denyTool("Workflow Manual subagent pool is exhausted and parent fallback is disabled."), state };
+      }
+      routing.selected = selected;
+      const updatedInput = buildAgentInput(input.tool_input, selected);
+      turn.pending_agents.push({
+        tool_use_id: input.tool_use_id ?? null,
+        agent_type: input.tool_input?.agent_type ?? input.tool_input?.subagent_type ?? null,
+        selected_kind: selected.kind,
+        selected_model: selected.model_id,
+        selected_reasoning_effort: selected.reasoning_effort,
+      });
+      return {
+        output: {
+          hookSpecificOutput: {
+            hookEventName: "PreToolUse",
+            permissionDecision: "allow",
+            updatedInput,
+          },
+        },
+        state,
+      };
     }
     if (turn.phase === "review" && mutatingReviewTool(input)) {
       return { output: denyTool("$review-work is read-only; mutating tools are blocked until a separate human-authorized correction or implementation task."), state };
@@ -126,47 +230,73 @@ export function evaluateCodexHook(input, priorState = {}) {
     return { output: {}, state };
   }
 
-  if (event === "PostToolUse" && toolSucceeded(input.tool_response)) {
-    if (isWorkflowTool(input.tool_name, "workflow_plan_preflight")) {
-      turn.preflight_passed = true;
-      turn.root_plan_id = idsFrom(input.tool_input?.root_plan, ROOT_ID)[0] ?? turn.root_plan_id ?? null;
+  if (event === "PostToolUse") {
+    if (agentToolName(input.tool_name) && !toolSucceeded(input.tool_response) && modelUnavailable(input.tool_response)) {
+      const failedModel = requestedModel(input.tool_input) ?? routing.selected?.model_id;
+      if (failedModel && !routing.unavailable.includes(failedModel)) routing.unavailable.push(failedModel);
     }
-    if (isWorkflowTool(input.tool_name, "workflow_artifact_record")) {
-      const rootIds = idsFrom(input.tool_input?.artifacts, ROOT_ID);
-      if (rootIds.length > 0) {
-        turn.root_recorded = true;
-        turn.root_plan_id = turn.root_plan_id ?? rootIds[0];
-        state.active_root_plan_id = turn.root_plan_id;
+    if (toolSucceeded(input.tool_response)) {
+      if (isWorkflowTool(input.tool_name, "workflow_plan_preflight")) {
+        turn.preflight_passed = true;
+        turn.root_plan_id = idsFrom(input.tool_input?.root_plan, ROOT_ID)[0] ?? turn.root_plan_id ?? null;
       }
-    }
-    if (isWorkflowTool(input.tool_name, "workflow_closeout")) {
-      const evidenceIds = idsFrom(input.tool_response, EVIDENCE_ID);
-      if (evidenceIds.length > 0) {
-        turn.closeout_recorded = true;
-        turn.delivery_evidence_id = evidenceIds[0];
+      if (isWorkflowTool(input.tool_name, "workflow_artifact_record")) {
+        const rootIds = idsFrom(input.tool_input?.artifacts, ROOT_ID);
+        if (rootIds.length > 0) {
+          turn.root_recorded = true;
+          turn.root_plan_id = turn.root_plan_id ?? rootIds[0];
+          state.active_root_plan_id = turn.root_plan_id;
+        }
+      }
+      if (isWorkflowTool(input.tool_name, "workflow_closeout")) {
+        const evidenceIds = idsFrom(input.tool_response, EVIDENCE_ID);
+        if (evidenceIds.length > 0) {
+          turn.closeout_recorded = true;
+          turn.delivery_evidence_id = evidenceIds[0];
+        }
       }
     }
     return { output: {}, state };
   }
 
   if (event === "SubagentStart") {
-    const expected = turn.parent_model ?? state.parent_model ?? null;
+    const pending = turn.pending_agents.shift() ?? null;
+    const expected = pending?.selected_model ?? turn.parent_model ?? state.parent_model ?? null;
     const observed = input.model ?? null;
-    turn.pending_agents.shift();
-    if (!expected || !observed || expected !== observed) {
+    const allowance = childAllowedByPolicy({
+      parentModel: turn.parent_model ?? state.parent_model,
+      observedChild: observed,
+      hostPolicy: policy.hosts?.codex,
+      mode: policy.mode,
+    });
+    const selectedMatch = expected && observed && expected === observed;
+    const allowed = selectedMatch || allowance.allowed;
+    if (!expected || !observed || !allowed) {
       const agentId = input.agent_id ?? `unattested-${Object.keys(turn.invalid_agents).length + 1}`;
-      turn.invalid_agents[agentId] = { expected, observed, agent_type: input.agent_type ?? null };
+      turn.invalid_agents[agentId] = {
+        expected,
+        observed,
+        agent_type: input.agent_type ?? pending?.agent_type ?? null,
+        match_mode: allowance.match_mode,
+        policy_mode: policy.mode,
+        reasoning_effort_attested: false,
+      };
       return {
         output: {
           systemMessage: `Workflow model attestation failed for ${agentId}: expected ${expected ?? "<unavailable>"}, observed ${observed ?? "<unavailable>"}. The result cannot be evidence.`,
           hookSpecificOutput: {
             hookEventName: "SubagentStart",
-            additionalContext: "Stop without using tools. Your model did not match the Workflow parent-model contract, so your result is invalid evidence.",
+            additionalContext: "Stop without using tools. Your model did not match the Workflow Manual subagent policy, so your result is invalid evidence.",
           },
         },
         state,
       };
     }
+    routing.last_attested = {
+      observed,
+      match_mode: selectedMatch ? (pending?.selected_kind === "parent" ? "exact-parent" : "selected-candidate") : allowance.match_mode,
+      reasoning_effort_attested: false,
+    };
     return { output: {}, state };
   }
 

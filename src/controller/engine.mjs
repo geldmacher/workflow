@@ -12,7 +12,7 @@ import { configurationHashes, expectedPlannerReceiptBlockers, plannerReceiptBloc
 import { aggregateEvidence, calibrateRecipeEvidence, checkEvidence, createInitialStrategy, reviseStrategy, strategyHash, TASK_RECIPES } from "./strategy.mjs";
 import { auditVerificationProfile } from "./verification-profile.mjs";
 import { assertContainedPath, changedPaths, checkpoint, createComparisonBaselineWorktree, createRunWorktree, detectDependencyChanges, parseHostCommand, repositoryBaseline, rollbackToCheckpoint, runHostCheck } from "./worktree.mjs";
-import { ArtifactHandoffStore } from "./artifact-handoff.mjs";
+import { ArtifactHandoffStore, createContentAddressedHandoffStore, rememberContentAddressedRoot } from "./artifact-handoff.mjs";
 import { buildDeliveryEvidence } from "./delivery-closeout.mjs";
 
 const profileRank = Object.freeze({ manual: 0, supervised: 1, autonomous: 2 });
@@ -702,18 +702,28 @@ export class WorkflowEngine {
     let handoffPersisted = true;
     let handoffWarning = null;
     let blocker = null;
+    const entries = [
+      { label: run.plan.fields.id, text: run.root_plan_text },
+      { label: candidate.fields.id, text: candidate.artifact },
+    ];
     try {
-      this.handoffStore.record([
-        { label: run.plan.fields.id, text: run.root_plan_text },
-        { label: candidate.fields.id, text: candidate.artifact },
-      ]);
+      this.handoffStore.record(entries);
     } catch (error) {
       handoffPersisted = false;
-      const semanticConflict = /conflict|invalid|corrupt|incompatible|multiple|ambiguous|stale|tip/i.test(error.message);
+      const semanticConflict = /conflict|invalid|corrupt|incompatible|multiple|ambiguous|stale/i.test(error.message);
       if (semanticConflict) blocker = `delivery-evidence-handoff-conflict:${error.message}`;
-      else {
-        handoffPersisted = false;
-        handoffWarning = `delivery evidence handoff unavailable: ${error.message}`;
+      else handoffWarning = `delivery evidence handoff unavailable: ${error.message}`;
+    }
+    if (run.root_plan_text) {
+      try {
+        createContentAddressedHandoffStore(run.root_plan_text, this.pluginRoot).record(entries);
+        rememberContentAddressedRoot(run.root_plan_text, this.pluginRoot);
+        if (!blocker) {
+          handoffPersisted = true;
+          handoffWarning = null;
+        }
+      } catch {
+        // Shared root-content transport is best-effort; controller state handoff remains authoritative for the Run.
       }
     }
     const updated = this.update(run.run_id, (draft) => ({

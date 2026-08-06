@@ -3,6 +3,10 @@ import { closeSync, fstatSync, openSync, readSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  childAllowedByPolicy,
+  resolveManualSubagentPolicy,
+} from "./manual-subagent-policy.mjs";
+import {
   cleanupTransientModelState,
   hashWorkflowIdentifier,
   incidentIdFor,
@@ -283,15 +287,29 @@ function evaluateSubagent(input, options) {
 
   const canonicalParent = parentModel(request);
   const observedChild = cleanModel(input.subagent_model);
+  const policy = options.manualSubagentPolicy ?? resolveManualSubagentPolicy(options);
+  const allowance = childAllowedByPolicy({
+    parentModel: canonicalParent,
+    observedChild,
+    hostPolicy: policy.hosts?.cursor,
+    mode: policy.mode,
+  });
   let cause = null;
   if (request.pretool_decision === "deny") {
     cause = request.incident_id ? null : "parent-model-unavailable";
   } else if (!canonicalParent) cause = "parent-model-unavailable";
   else if (!observedChild) cause = "child-model-unavailable";
-  else if (observedChild !== canonicalParent) cause = "actual-child-mismatch";
+  else if (!allowance.allowed) cause = "actual-child-mismatch";
 
   let incidentId = request.incident_id ?? null;
-  if (cause) incidentId = makeIncident(states, { ...request, observed_child_model: observedChild }, cause, { enforcement: "denied-at-start", recorded_at: recordedAt });
+  if (cause) {
+    incidentId = makeIncident(states, {
+      ...request,
+      observed_child_model: observedChild,
+      match_mode: allowance.match_mode,
+      policy_mode: policy.mode,
+    }, cause, { enforcement: "denied-at-start", recorded_at: recordedAt });
+  }
   if (request.pretool_decision === "deny" && incidentId) {
     for (const stateRoot of states) recordIncidentObservation(stateRoot, incidentId, "start", { observed_at: recordedAt });
   }
@@ -304,6 +322,8 @@ function evaluateSubagent(input, options) {
     decision,
     incident_id: incidentId,
     observed_child_model: observedChild,
+    match_mode: decision === "allow" ? allowance.match_mode : null,
+    policy_mode: policy.mode,
     observed_at: recordedAt,
   });
 

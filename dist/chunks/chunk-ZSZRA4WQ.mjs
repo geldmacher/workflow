@@ -11,7 +11,7 @@ import {
   planningUsage,
   resolveCapabilities,
   validateRootPlanLineage
-} from "./chunk-JFY57M5I.mjs";
+} from "./chunk-OM7QZLXO.mjs";
 import {
   assertContainedPath,
   changedPaths,
@@ -23,7 +23,7 @@ import {
   repositoryBaseline,
   rollbackToCheckpoint,
   runHostCheck
-} from "./chunk-FW33DUDL.mjs";
+} from "./chunk-YAMXLYBL.mjs";
 import {
   CursorWorkerAdapter,
   evaluateAuthorization,
@@ -32,17 +32,19 @@ import {
   selectWriterRoute
 } from "./chunk-MICWNJTT.mjs";
 import {
-  ArtifactHandoffStore
-} from "./chunk-ZN7TDC62.mjs";
+  ArtifactHandoffStore,
+  createContentAddressedHandoffStore,
+  rememberContentAddressedRoot
+} from "./chunk-URWS3WPX.mjs";
 import {
   effectiveCliSummary,
   executionContractFromArtifactText,
   inspectArtifactSet,
   inspectArtifactText
-} from "./chunk-POBM3TB5.mjs";
+} from "./chunk-GYZMJGQG.mjs";
 import {
   require_dist
-} from "./chunk-TM6F22GE.mjs";
+} from "./chunk-MV4DSQKJ.mjs";
 import {
   ARTIFACT_SCHEMA,
   assertCompatiblePreparation,
@@ -1401,18 +1403,27 @@ ${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
     let handoffPersisted = true;
     let handoffWarning = null;
     let blocker = null;
+    const entries = [
+      { label: run.plan.fields.id, text: run.root_plan_text },
+      { label: candidate.fields.id, text: candidate.artifact }
+    ];
     try {
-      this.handoffStore.record([
-        { label: run.plan.fields.id, text: run.root_plan_text },
-        { label: candidate.fields.id, text: candidate.artifact }
-      ]);
+      this.handoffStore.record(entries);
     } catch (error) {
       handoffPersisted = false;
-      const semanticConflict = /conflict|invalid|corrupt|incompatible|multiple|ambiguous|stale|tip/i.test(error.message);
+      const semanticConflict = /conflict|invalid|corrupt|incompatible|multiple|ambiguous|stale/i.test(error.message);
       if (semanticConflict) blocker = `delivery-evidence-handoff-conflict:${error.message}`;
-      else {
-        handoffPersisted = false;
-        handoffWarning = `delivery evidence handoff unavailable: ${error.message}`;
+      else handoffWarning = `delivery evidence handoff unavailable: ${error.message}`;
+    }
+    if (run.root_plan_text) {
+      try {
+        createContentAddressedHandoffStore(run.root_plan_text, this.pluginRoot).record(entries);
+        rememberContentAddressedRoot(run.root_plan_text, this.pluginRoot);
+        if (!blocker) {
+          handoffPersisted = true;
+          handoffWarning = null;
+        }
+      } catch {
       }
     }
     const updated = this.update(run.run_id, (draft) => ({

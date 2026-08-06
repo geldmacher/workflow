@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { buildPluginTargets } from "../scripts/build-plugin-targets.mjs";
+import { WORKFLOW_TOOL_ANNOTATIONS } from "../src/mcp/tool-annotations.mjs";
 import { workflowClient } from "./mcp-client.mjs";
 
 const expectedTools = ["workflow_artifact_context", "workflow_artifact_record", "workflow_closeout", "workflow_plan_preflight", "workflow_status"];
@@ -35,6 +36,11 @@ test("deterministic target build isolates Codex and exposes exactly five Manual 
     await client.connect(transport);
     const tools = await client.listTools();
     assert.deepEqual(tools.tools.map((tool) => tool.name).sort(), expectedTools);
+    for (const tool of tools.tools) {
+      assert.deepEqual(tool.annotations, WORKFLOW_TOOL_ANNOTATIONS[tool.name]);
+    }
+    const mcp = JSON.parse(readFileSync(join(codex, ".mcp.json"), "utf8"));
+    assert.deepEqual(Object.keys(mcp.mcpServers), ["geldmacher-workflow"]);
   } finally {
     await client?.close().catch(() => {});
     rmSync(output, { recursive: true, force: true });

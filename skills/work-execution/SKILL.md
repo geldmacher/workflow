@@ -5,7 +5,7 @@ description: Apply one approved correction and return evidence.
 
 Read [protocol](../../references/artifact-protocol.md), [correction](../../references/correction-contract.md), and [closeout](../../references/closeout-contract.md) completely.
 
-`[workflow-model-inherit-v1]` The primary owns execution, integration, and closeout. It may delegate bounded work only with the Cursor-selected model: omit Task model overrides; plugin agents use `model: inherit`.
+`[workflow-model-inherit-v1]` The primary owns execution, integration, and closeout. It may delegate bounded work when Task calls omit Task model overrides or use `inherit`; plugin agents use `model: inherit`. Observed Children may match the parent or an explicitly configured Manual approved candidate.
 
 Resolve the active native Cursor Plan's Root and hydrate its current chain through `workflow_artifact_context`, hash-bound to exact Plan text; cache absence alone does not discard exact task artifacts. Select only its latest actionable correction/evidence tip. Never select an older or unrelated Root. Reject conflicting hashes, missing, stale, ambiguous, Workflow-3/4-only, mixed, or invalid chains before mutation. Use the validator when available; otherwise check root, Strategy revision when required, chain, scope, reuse, risk, and approval.
 

@@ -2,9 +2,25 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { evaluateCodexHook, isReadOnlyShell } from "../src/core/codex-hook-policy.mjs";
 
-function step(state, input) {
-  return evaluateCodexHook({ session_id: "session", turn_id: "turn", model: "gpt-parent", ...input }, state);
+function step(state, input, options = {}) {
+  return evaluateCodexHook({ session_id: "session", turn_id: "turn", model: "gpt-parent", ...input }, state, options);
 }
+
+const efficientPolicy = {
+  mode: "parent-or-approved",
+  source: "test",
+  hosts: {
+    codex: {
+      host: "codex",
+      parent_fallback: true,
+      preset: "codex-efficient-gpt-v1",
+      candidates: [
+        { model_id: "gpt-5.6-luna-max", reasoning_effort: "low" },
+        { model_id: "gpt-5.6-terra-xhigh", reasoning_effort: "medium" },
+      ],
+    },
+  },
+};
 
 test("Codex plan-work requires Plan mode and complete preflight closeout", () => {
   let value = step({}, { hook_event_name: "UserPromptSubmit", permission_mode: "default", prompt: "$plan-work add retries" });
@@ -45,6 +61,73 @@ test("Codex Workflow blocks model overrides and invalidates observed mismatches"
   assert.equal(value.output.hookSpecificOutput.permissionDecision, "deny");
   value = evaluateCodexHook({ hook_event_name: "SubagentStop", session_id: "session", agent_id: "agent-1" }, value.state);
   assert.equal(value.output.continue, false);
+});
+
+test("Codex ordered Manual policy injects the first candidate and advances after unavailable failures", () => {
+  let value = step({}, { hook_event_name: "UserPromptSubmit", permission_mode: "plan", prompt: "$plan-work add retries" }, { manualSubagentPolicy: efficientPolicy });
+  value = step(value.state, {
+    hook_event_name: "PreToolUse",
+    tool_name: "Agent",
+    tool_input: { prompt: "research", agent_type: "explore" },
+  }, { manualSubagentPolicy: efficientPolicy });
+  assert.equal(value.output.hookSpecificOutput.permissionDecision, "allow");
+  assert.equal(value.output.hookSpecificOutput.updatedInput.model, "gpt-5.6-luna-max");
+  assert.equal(value.output.hookSpecificOutput.updatedInput.reasoning_effort, "low");
+  assert.equal(value.output.hookSpecificOutput.updatedInput.fork_turns, "none");
+  const lunaInput = value.output.hookSpecificOutput.updatedInput;
+
+  value = step(value.state, {
+    hook_event_name: "PostToolUse",
+    tool_name: "Agent",
+    tool_input: lunaInput,
+    tool_response: { error: "model unavailable: gpt-5.6-luna-max" },
+  }, { manualSubagentPolicy: efficientPolicy });
+  value = step(value.state, {
+    hook_event_name: "PreToolUse",
+    tool_name: "Agent",
+    tool_input: { prompt: "research retry", agent_type: "explore" },
+  }, { manualSubagentPolicy: efficientPolicy });
+  assert.equal(value.output.hookSpecificOutput.updatedInput.model, "gpt-5.6-terra-xhigh");
+  const terraInput = value.output.hookSpecificOutput.updatedInput;
+
+  value = step(value.state, {
+    hook_event_name: "PostToolUse",
+    tool_name: "Agent",
+    tool_input: terraInput,
+    tool_response: { error: "unsupported model gpt-5.6-terra-xhigh" },
+  }, { manualSubagentPolicy: efficientPolicy });
+  value = step(value.state, {
+    hook_event_name: "PreToolUse",
+    tool_name: "Agent",
+    tool_input: { prompt: "research parent", agent_type: "explore" },
+  }, { manualSubagentPolicy: efficientPolicy });
+  assert.equal(value.output.hookSpecificOutput.updatedInput.model, undefined);
+  value = evaluateCodexHook({
+    session_id: "session",
+    turn_id: "turn",
+    hook_event_name: "SubagentStart",
+    model: "gpt-parent",
+    agent_id: "agent-parent",
+  }, value.state, { manualSubagentPolicy: efficientPolicy });
+  assert.deepEqual(value.output, {});
+});
+
+test("Codex ordered Manual policy rejects Sol when it is outside the approved pool", () => {
+  let value = step({}, { hook_event_name: "UserPromptSubmit", permission_mode: "plan", prompt: "$plan-work add retries" }, { manualSubagentPolicy: efficientPolicy });
+  value = step(value.state, {
+    hook_event_name: "PreToolUse",
+    tool_name: "Agent",
+    tool_input: { prompt: "research", agent_type: "explore" },
+  }, { manualSubagentPolicy: efficientPolicy });
+  value = evaluateCodexHook({
+    session_id: "session",
+    turn_id: "turn",
+    hook_event_name: "SubagentStart",
+    model: "gpt-5.6-sol-xhigh",
+    agent_id: "agent-sol",
+  }, value.state, { manualSubagentPolicy: efficientPolicy });
+  assert.match(value.output.systemMessage, /attestation failed/);
+  assert.match(value.output.systemMessage, /gpt-5.6-sol-xhigh/);
 });
 
 test("Codex review allows inspections and artifact recording but blocks mutation", () => {
