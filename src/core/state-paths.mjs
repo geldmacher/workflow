@@ -29,9 +29,24 @@ export function contentAddressedHandoffRootByHash(rootHash, options = {}) {
   return join(resolve(sharedHandoffBase(options)), "by-root", rootHash);
 }
 
-export function handoffTipPath(rootPlanId, options = {}) {
+export function handoffTipDirectory(rootPlanId, options = {}) {
   if (!/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(rootPlanId ?? ""))) throw new Error("handoff tip requires a valid wp-* root_plan_id");
-  return join(resolve(sharedHandoffBase(options)), "tips", `${rootPlanId}.json`);
+  return join(resolve(sharedHandoffBase(options)), "tips", rootPlanId);
+}
+
+export function handoffTipPath(rootPlanId, rootContentHashValue = null, options = {}) {
+  if (!/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(rootPlanId ?? ""))) throw new Error("handoff tip requires a valid wp-* root_plan_id");
+  if (rootContentHashValue === null || rootContentHashValue === undefined || rootContentHashValue === "") {
+    return join(resolve(sharedHandoffBase(options)), "tips", `${rootPlanId}.json`);
+  }
+  if (!/^[a-f0-9]{64}$/.test(String(rootContentHashValue))) {
+    throw new Error("content-addressed handoff tip requires a full SHA-256 root content hash");
+  }
+  return join(handoffTipDirectory(rootPlanId, options), `${rootContentHashValue}.json`);
+}
+
+export function legacyHandoffTipPath(rootPlanId, options = {}) {
+  return handoffTipPath(rootPlanId, null, options);
 }
 
 export function sharedArtifactStateRoot(workspaceRoot, options = {}) {

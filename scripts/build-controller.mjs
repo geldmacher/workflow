@@ -88,6 +88,22 @@ const codexResult = await build({
   splitting: false,
   banner: { js: nodeBanner },
 });
+const hookHelperResult = await build({
+  bundle: true,
+  platform: "node",
+  format: "esm",
+  target: "node22",
+  sourcemap: false,
+  legalComments: "none",
+  logLevel: checkOnly ? "silent" : "info",
+  entryPoints: [join(root, "src", "core", "manual-subagent-policy.mjs")],
+  outfile: join(root, "hooks", "manual-subagent-policy.mjs"),
+  banner: { js: nodeBanner },
+  write: false,
+  metafile: true,
+});
+const generatedHookHelper = `${hookHelperResult.outputFiles[0].text.replace(/[ \t]+$/gm, "").trimEnd()}\n`;
+const hookHelperPath = join(root, "hooks", "manual-subagent-policy.mjs");
 const results = [sharedResult, workerResult, codexResult];
 const generated = new Map(results.flatMap((result) => result.outputFiles.map((output) => [
   relative(dist, output.path),
@@ -150,8 +166,15 @@ if (checkOnly) {
   const extras = actual.filter((file) => !generated.has(file));
   const noticesMismatch = !existsSync(noticesPath) || readFileSync(noticesPath, "utf8") !== generatedNotices;
   const codexNoticesMismatch = !existsSync(codexNoticesPath) || readFileSync(codexNoticesPath, "utf8") !== generatedCodexNotices;
-  if (mismatches.length > 0 || extras.length > 0 || noticesMismatch || codexNoticesMismatch) {
-    console.error(`Controller bundles are stale: ${[...mismatches, ...extras].join(", ")}`);
+  const hookHelperMismatch = !existsSync(hookHelperPath) || readFileSync(hookHelperPath, "utf8") !== generatedHookHelper;
+  if (mismatches.length > 0 || extras.length > 0 || noticesMismatch || codexNoticesMismatch || hookHelperMismatch) {
+    console.error(`Controller bundles are stale: ${[
+      ...mismatches,
+      ...extras,
+      ...(noticesMismatch ? ["CONTROLLER_THIRD_PARTY_NOTICES.md"] : []),
+      ...(codexNoticesMismatch ? ["CODEX_THIRD_PARTY_NOTICES.md"] : []),
+      ...(hookHelperMismatch ? ["hooks/manual-subagent-policy.mjs"] : []),
+    ].join(", ")}`);
     process.exitCode = 1;
   } else console.log("Controller bundles match source.");
 } else {
@@ -163,5 +186,6 @@ if (checkOnly) {
   }
   writeFileSync(noticesPath, generatedNotices);
   writeFileSync(codexNoticesPath, generatedCodexNotices);
+  writeFileSync(hookHelperPath, generatedHookHelper);
   console.log(`Shared controller chunks save ${(sharedSavings * 100).toFixed(1)}% versus independent bundles.`);
 }

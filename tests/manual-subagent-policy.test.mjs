@@ -171,3 +171,28 @@ test("preference YAML supports nested host candidates with reasoning effort", ()
     rmSync(home, { recursive: true, force: true });
   }
 });
+
+test("flow-style Manual subagent policy parses through the shared YAML reader", () => {
+  const home = mkdtempSync(join(tmpdir(), "workflow-subagent-policy-flow-"));
+  try {
+    writeFileSync(join(home, "preferences.yaml"), [
+      "schema: 1",
+      "tool_approval: strict",
+      "manual_subagent_policy:",
+      "  schema: 1",
+      "  mode: parent-or-approved",
+      "  hosts:",
+      "    cursor:",
+      "      candidates: [{ model_id: composer-2.5-fast }, { model_id: cursor-grok-4.5-high-fast }]",
+      "",
+    ].join("\n"));
+    const resolved = resolveManualSubagentPolicy({ homeRoot: home });
+    assert.equal(resolved.mode, "parent-or-approved");
+    assert.deepEqual(resolved.hosts.cursor.candidates.map((entry) => entry.model_id), [
+      "composer-2.5-fast",
+      "cursor-grok-4.5-high-fast",
+    ]);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});

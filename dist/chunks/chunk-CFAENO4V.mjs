@@ -5,7 +5,7 @@ import {
   loadWorkflowConfig,
   repositoryBaseline,
   resolveRouteProfile
-} from "./chunk-YAMXLYBL.mjs";
+} from "./chunk-BFZJ6DLB.mjs";
 import {
   CursorWorkerAdapter,
   currentPlatform,
@@ -13,7 +13,7 @@ import {
   loadWorkerRuntimeManifest,
   sdkVersion,
   workerRuntimeDirectory
-} from "./chunk-MICWNJTT.mjs";
+} from "./chunk-FBG57FMP.mjs";
 import {
   probeSandboxBoundary
 } from "./chunk-PKEO6PA3.mjs";
@@ -26,16 +26,16 @@ import {
   preflightRootPlan,
   replaceOpaqueExtensions,
   require_ajv
-} from "./chunk-GYZMJGQG.mjs";
+} from "./chunk-LLOAY7ER.mjs";
 import {
   require_dist
-} from "./chunk-MV4DSQKJ.mjs";
+} from "./chunk-TT447BBI.mjs";
 import {
   ARTIFACT_SCHEMA,
   CONTROLLER_PROTOCOL,
   PLUGIN_VERSION,
   assertCompatiblePreparation
-} from "./chunk-VL4DQUSD.mjs";
+} from "./chunk-XFYK5I23.mjs";
 import {
   __toESM
 } from "./chunk-IQRLCJ3K.mjs";

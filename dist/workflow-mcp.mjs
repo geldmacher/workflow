@@ -4,9 +4,14 @@ const require = __workflowCreateRequire(import.meta.url);
 import {
   WorkflowEngine,
   buildDeliveryEvidence,
+  deriveControllerLearningContext,
+  derivePreparationLearningContext,
   deriveWorkflowState,
+  invalidateManualCheckReceipts,
+  loadManualCheckReceipts,
+  manualConstraintProjection,
   persistCloseout
-} from "./chunks/chunk-ZSZRA4WQ.mjs";
+} from "./chunks/chunk-4IFEILAK.mjs";
 import {
   AjvJsonSchemaValidator,
   CallToolRequestSchema,
@@ -62,7 +67,7 @@ import {
   string,
   toJsonSchemaCompat,
   writeWorkerControl
-} from "./chunks/chunk-64PXZIRA.mjs";
+} from "./chunks/chunk-I3HUYU4T.mjs";
 import {
   PlanningEngine,
   approveVerificationProfile,
@@ -71,48 +76,51 @@ import {
   inspectVerificationProfile,
   recordVerificationProof,
   resolveCapabilities
-} from "./chunks/chunk-OM7QZLXO.mjs";
+} from "./chunks/chunk-CFAENO4V.mjs";
 import {
   loadWorkflowConfig,
   resolveRouteProfile
-} from "./chunks/chunk-YAMXLYBL.mjs";
+} from "./chunks/chunk-BFZJ6DLB.mjs";
 import {
   CursorWorkerAdapter
-} from "./chunks/chunk-MICWNJTT.mjs";
+} from "./chunks/chunk-FBG57FMP.mjs";
 import "./chunks/chunk-PKEO6PA3.mjs";
 import {
   ArtifactHandoffStore,
   createContentAddressedHandoffStore,
   rememberContentAddressedRoot,
   resolveRootPlanText
-} from "./chunks/chunk-URWS3WPX.mjs";
+} from "./chunks/chunk-ABS7MFJE.mjs";
 import {
   effectiveCliSummary,
+  executionContractFromArtifactText,
   inspectArtifactSet,
   inspectArtifactText,
   preflightRootPlan
-} from "./chunks/chunk-GYZMJGQG.mjs";
+} from "./chunks/chunk-LLOAY7ER.mjs";
 import {
   PreparationStore,
   RunStore,
+  defaultHostPreferencesPath,
   defaultStateRoot,
+  parsePreferenceYaml,
   resolveHostToolApproval,
   rootContentHash,
   sharedArtifactStateRoot
-} from "./chunks/chunk-MV4DSQKJ.mjs";
+} from "./chunks/chunk-TT447BBI.mjs";
 import {
   PLUGIN_VERSION,
   assertCompatibleRun,
   preparationView,
   runView
-} from "./chunks/chunk-VL4DQUSD.mjs";
+} from "./chunks/chunk-XFYK5I23.mjs";
 import "./chunks/chunk-IQRLCJ3K.mjs";
 
 // src/mcp/workflow-mcp.mjs
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdirSync as mkdirSync2, rmSync as rmSync2 } from "node:fs";
-import { dirname as dirname2, join as join4, resolve as resolve4 } from "node:path";
+import { dirname as dirname2, join as join3, resolve as resolve3 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/server.js
@@ -1010,7 +1018,7 @@ var McpServer = class {
     let task = createTaskResult.task;
     const pollInterval = task.pollInterval ?? 5e3;
     while (task.status !== "completed" && task.status !== "failed" && task.status !== "cancelled") {
-      await new Promise((resolve5) => setTimeout(resolve5, pollInterval));
+      await new Promise((resolve4) => setTimeout(resolve4, pollInterval));
       const updatedTask = await extra.taskStore.getTask(taskId);
       if (!updatedTask) {
         throw new McpError(ErrorCode.InternalError, `Task ${taskId} not found during polling`);
@@ -1635,16 +1643,76 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve5) => {
+    return new Promise((resolve4) => {
       const json = serializeMessage(message);
       if (this._stdout.write(json)) {
-        resolve5();
+        resolve4();
       } else {
-        this._stdout.once("drain", resolve5);
+        this._stdout.once("drain", resolve4);
       }
     });
   }
 };
+
+// src/controller/learning-source-receipt.mjs
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+var receiptSchema = 1;
+var defaultTtlMs = 6 * 60 * 60 * 1e3;
+function encode(value) {
+  return Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
+}
+function decode(value) {
+  return JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
+}
+function signature(secret, payload) {
+  return createHmac("sha256", secret).update(payload).digest("base64url");
+}
+function safeEqual(left, right) {
+  const leftBytes = Buffer.from(String(left));
+  const rightBytes = Buffer.from(String(right));
+  return leftBytes.length === rightBytes.length && timingSafeEqual(leftBytes, rightBytes);
+}
+function createLearningSourceReceiptAuthority({ secret = randomBytes(32), now = () => Date.now(), ttlMs = defaultTtlMs } = {}) {
+  if (!Buffer.isBuffer(secret) || secret.length < 32) throw new Error("learning source receipt secret must contain at least 32 bytes");
+  if (!Number.isFinite(ttlMs) || ttlMs <= 0) throw new Error("learning source receipt TTL must be positive");
+  return Object.freeze({
+    issue(run) {
+      if (typeof run?.run_id !== "string" || run.run_id === "") throw new Error("learning source receipt requires a Run ID");
+      const rootPlanId = run.plan?.fields?.id ?? run.root_plan_id;
+      if (!/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(rootPlanId))) throw new Error("learning source receipt requires a Root ID");
+      const issuedAt = now();
+      const payload = encode({
+        schema: receiptSchema,
+        source_kind: "controller-run",
+        run_id: run.run_id,
+        root_plan_id: rootPlanId,
+        issued_at: new Date(issuedAt).toISOString(),
+        expires_at: new Date(issuedAt + ttlMs).toISOString(),
+        nonce: randomBytes(16).toString("base64url")
+      });
+      return `${payload}.${signature(secret, payload)}`;
+    },
+    verify(receipt, run) {
+      if (typeof receipt !== "string" || receipt === "") return { confirmed: false, kind: null, blocker: "controller-learning-source-not-current-task-bound" };
+      const [payload, suppliedSignature, extra] = receipt.split(".");
+      if (!payload || !suppliedSignature || extra !== void 0 || !safeEqual(signature(secret, payload), suppliedSignature)) {
+        return { confirmed: false, kind: "ephemeral-receipt", blocker: "controller-learning-source-receipt-invalid" };
+      }
+      let value;
+      try {
+        value = decode(payload);
+      } catch {
+        return { confirmed: false, kind: "ephemeral-receipt", blocker: "controller-learning-source-receipt-invalid" };
+      }
+      const rootPlanId = run?.plan?.fields?.id ?? run?.root_plan_id;
+      if (value?.schema !== receiptSchema || value?.source_kind !== "controller-run" || value?.run_id !== run?.run_id || value?.root_plan_id !== rootPlanId || !Number.isFinite(Date.parse(value?.issued_at)) || !Number.isFinite(Date.parse(value?.expires_at))) {
+        return { confirmed: false, kind: "ephemeral-receipt", blocker: "controller-learning-source-receipt-invalid" };
+      }
+      if (Date.parse(value.expires_at) < now()) return { confirmed: false, kind: "ephemeral-receipt", blocker: "controller-learning-source-receipt-expired" };
+      return { confirmed: true, kind: "ephemeral-receipt", blocker: null };
+    }
+  });
+}
 
 // src/controller/manual-status.mjs
 import { createHash } from "node:crypto";
@@ -1667,12 +1735,34 @@ function baseInput(rootPlanId, entries, observedAt) {
     revision: null
   };
 }
-function summary(rootPlanId, entries, evidenceTip = null, reviewTip = null) {
+function summary(rootPlanId, entries, evidenceTip = null, reviewTip = null, learningCandidates = []) {
   return {
     root_plan_id: rootPlanId,
     artifact_count: entries.length,
     evidence_tip: evidenceTip,
-    review_tip: reviewTip
+    review_tip: reviewTip,
+    learning_candidates: learningCandidates
+  };
+}
+function deriveManualLearningProjection({ snapshot, artifact_summary: artifactSummary }) {
+  const blockers = [];
+  if (snapshot?.state !== "achieved") blockers.push("learning-source-not-achieved");
+  if (snapshot?.delivery_status !== "verified") blockers.push("learning-source-not-verified");
+  return {
+    schema: 1,
+    eligible: blockers.length === 0,
+    source_kind: "artifact-chain",
+    source_id: snapshot?.root_plan_id ?? artifactSummary?.root_plan_id ?? null,
+    root_plan_id: snapshot?.root_plan_id ?? artifactSummary?.root_plan_id ?? null,
+    effective_profile: "manual",
+    blockers,
+    workspace_match: { status: "not-required", matched: true, paths: [] },
+    delivery_commit: null,
+    delivered_paths: [],
+    event_chain_valid: null,
+    compatibility: snapshot?.compatibility ?? "compatible",
+    source_binding: { status: "confirmed", kind: "current-task-artifacts" },
+    candidates: (artifactSummary?.learning_candidates ?? []).map((candidate) => ({ ...candidate }))
   };
 }
 function incomplete(rootPlanId, entries, observedAt, blockers) {
@@ -1805,6 +1895,13 @@ function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot: plugi
   const evidence = evidenceTipId ? chain.effective.get(evidenceTipId) : null;
   const review = reviewTipId ? chain.effective.get(reviewTipId) : null;
   const correctionEvidencePendingReview = Boolean(review && evidence?.fields.source_review_id === review.fields.id && evidence?.fields.subject_id === review.fields.correction_id);
+  const contract = executionContractFromArtifactText(rootRecords[0].entry.text, pluginRoot2);
+  const constraintProjection = contract.errors.length === 0 ? manualConstraintProjection({
+    checks: contract.checks,
+    evidence: evidence?.fields.check_evidence ?? [],
+    pending: !evidence
+  }) : {};
+  const legacyReceiptGap = (constraintProjection.constraint_summary?.legacy_unattested_verified_checks?.length ?? 0) > 0;
   const acceptanceEligible = root?.fields.profile_max === "manual" && evidence && review && evidence.fields.status !== "blocked" && evidence.fields.overall_grade !== "failed" && !(evidence.fields.check_evidence ?? []).some((check) => check.grade === "failed") && review.fields.delivery_status === "provisional" && review.fields.next_action === "accept-provisional" && !correctionEvidencePendingReview;
   if (manualAcceptance && !acceptanceEligible) {
     throw new Error("manual provisional acceptance requires the unique current provisional review tip, no failed check, no blocked artifact, and no correction awaiting review");
@@ -1826,27 +1923,26 @@ function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot: plugi
     evidence_tip: evidenceTipId,
     review_tip: reviewTipId,
     review: review?.fields ?? null,
-    evidence_grade: evidence?.fields.overall_grade ?? null,
-    delivery_status: review?.fields.delivery_status ?? null,
+    evidence_grade: legacyReceiptGap ? "supported" : evidence?.fields.overall_grade ?? null,
+    delivery_status: legacyReceiptGap ? null : review?.fields.delivery_status ?? null,
     intent_hash: evidence?.fields.intent_hash ?? null,
     strategy_revision: evidence?.fields.strategy_revision ?? (evidence?.fields.evidence_mode === "lean" ? 0 : null),
     manual_acceptance: manualAcceptance,
     acceptance_basis_hash: manualAcceptance ? artifactSetHash(relatedEntries) : null,
     correction_evidence_pending_review: correctionEvidencePendingReview,
-    root_review_complete: review?.fields.assessment === "achieved" && review?.fields.next_action === "none",
+    root_review_complete: !legacyReceiptGap && review?.fields.assessment === "achieved" && review?.fields.next_action === "none",
     more_slices: false
   };
   return {
     snapshot: deriveWorkflowState(input),
-    artifact_summary: summary(rootPlanId, relatedEntries, evidenceTipId, reviewTipId),
-    diagnostics: unique([...chain.normalizations, ...chain.diagnostics])
+    artifact_summary: summary(rootPlanId, relatedEntries, evidenceTipId, reviewTipId, tips.learning_candidates),
+    diagnostics: unique([...chain.normalizations, ...chain.diagnostics]),
+    ...constraintProjection
   };
 }
 
-// hooks/manual-subagent-policy.mjs
+// src/core/manual-subagent-policy.mjs
 import { existsSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join, resolve } from "node:path";
 var MANUAL_SUBAGENT_POLICY_SCHEMA = 1;
 var MANUAL_SUBAGENT_MODES = Object.freeze(["parent-only", "parent-or-approved"]);
 var MANUAL_SUBAGENT_HOSTS = Object.freeze(["cursor", "codex"]);
@@ -1872,79 +1968,6 @@ var MANUAL_SUBAGENT_PRESETS = Object.freeze({
 });
 var objectLike = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
 var cleanId = (value) => typeof value === "string" && value.trim() !== "" ? value.trim().replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 256) : null;
-function sharedWorkflowHome(options = {}) {
-  return resolve(options.homeRoot ?? process.env.GELDMACHER_WORKFLOW_HOME ?? join(homedir(), ".geldmacher", "workflow"));
-}
-function defaultHostPreferencesPath(options = {}) {
-  return options.preferencesPath ?? process.env.GELDMACHER_WORKFLOW_PREFERENCES ?? join(sharedWorkflowHome(options), "preferences.yaml");
-}
-function scalar(token) {
-  if (token === "true") return true;
-  if (token === "false") return false;
-  if (token === "null" || token === "~") return null;
-  if (/^-?\d+(?:\.\d+)?$/.test(token)) return Number(token);
-  if (token.startsWith('"') && token.endsWith('"') || token.startsWith("'") && token.endsWith("'")) {
-    return token.slice(1, -1);
-  }
-  return token;
-}
-function parsePreferenceYaml(source) {
-  const root = {};
-  const stack = [{ indent: -1, value: root }];
-  const lines = String(source).split(/\r?\n/);
-  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
-    const raw = lines[lineIndex];
-    if (!raw.trim() || raw.trim().startsWith("#")) continue;
-    const indent = raw.match(/^ */)?.[0].length ?? 0;
-    const line = raw.trim();
-    while (stack.length > 1 && indent <= stack.at(-1).indent) stack.pop();
-    const parent = stack.at(-1).value;
-    if (line.startsWith("- ")) {
-      if (!Array.isArray(parent)) throw new Error("array item without array parent");
-      const item = line.slice(2).trim();
-      const colon2 = item.indexOf(":");
-      if (colon2 >= 0) {
-        const key2 = item.slice(0, colon2).trim();
-        const rest2 = item.slice(colon2 + 1).trim();
-        const object2 = {};
-        if (rest2) object2[key2] = scalar(rest2);
-        parent.push(object2);
-        stack.push({ indent, value: object2 });
-      } else {
-        parent.push(scalar(item));
-      }
-      continue;
-    }
-    if (!objectLike(parent) || Array.isArray(parent)) throw new Error("mapping entry without object parent");
-    const colon = line.indexOf(":");
-    if (colon < 0) throw new Error(`invalid mapping line: ${line}`);
-    const key = line.slice(0, colon).trim();
-    const rest = line.slice(colon + 1).trim();
-    if (rest === "[]") {
-      parent[key] = [];
-      continue;
-    }
-    if (rest) {
-      parent[key] = scalar(rest);
-      continue;
-    }
-    let nextIndex = lineIndex + 1;
-    while (nextIndex < lines.length && (!lines[nextIndex].trim() || lines[nextIndex].trim().startsWith("#"))) nextIndex += 1;
-    const next = nextIndex < lines.length ? lines[nextIndex] : "";
-    const nextIndent = next.match(/^ */)?.[0].length ?? 0;
-    const nextTrimmed = next.trim();
-    if (next && nextIndent > indent && nextTrimmed.startsWith("- ")) {
-      const child = [];
-      parent[key] = child;
-      stack.push({ indent, value: child });
-    } else {
-      const child = {};
-      parent[key] = child;
-      stack.push({ indent, value: child });
-    }
-  }
-  return root;
-}
 function parentOnlyResolution(source, path, issues = []) {
   return Object.freeze({
     schema: MANUAL_SUBAGENT_POLICY_SCHEMA,
@@ -2093,7 +2116,7 @@ import {
   statSync,
   writeFileSync
 } from "node:fs";
-import { dirname, join as join2, resolve as resolve2 } from "node:path";
+import { dirname, join, resolve } from "node:path";
 var MODEL_INCIDENT_CAUSES = Object.freeze([
   "explicit-child-model",
   "actual-child-mismatch",
@@ -2104,9 +2127,9 @@ var MODEL_INCIDENT_CAUSES = Object.freeze([
 ]);
 var CAUSES = new Set(MODEL_INCIDENT_CAUSES);
 var TRANSIENT_TTL_MS = 24 * 60 * 60 * 1e3;
-var modelRoot = (stateRoot) => join2(stateRoot, "model-inheritance");
-var incidentDirectory = (stateRoot, incidentId) => join2(modelRoot(stateRoot), "incidents", incidentId);
-var incidentPath = (stateRoot, incidentId) => join2(incidentDirectory(stateRoot, incidentId), "incident.json");
+var modelRoot = (stateRoot) => join(stateRoot, "model-inheritance");
+var incidentDirectory = (stateRoot, incidentId) => join(modelRoot(stateRoot), "incidents", incidentId);
+var incidentPath = (stateRoot, incidentId) => join(incidentDirectory(stateRoot, incidentId), "incident.json");
 function readJson(path) {
   try {
     const value = JSON.parse(readFileSync2(path, "utf8"));
@@ -2118,14 +2141,14 @@ function readJson(path) {
 function readIncident(stateRoot, incidentId) {
   const incident = readJson(incidentPath(stateRoot, incidentId));
   if (!incident) return null;
-  const observationsDirectory = join2(incidentDirectory(stateRoot, incidentId), "observations");
+  const observationsDirectory = join(incidentDirectory(stateRoot, incidentId), "observations");
   let childExecuted = false;
   let resultReturned = false;
   let lastObservedAt = incident.recorded_at;
   if (existsSync2(observationsDirectory)) {
     for (const name of readdirSync(observationsDirectory).sort()) {
       if (!name.endsWith(".json")) continue;
-      const observation = readJson(join2(observationsDirectory, name));
+      const observation = readJson(join(observationsDirectory, name));
       if (!observation) continue;
       childExecuted ||= observation.child_executed === true;
       resultReturned ||= observation.result_returned === true;
@@ -2177,7 +2200,7 @@ function cleanSummary(overrides = {}) {
   };
 }
 function modelInheritanceSummary(stateRoot) {
-  const incidentsRoot = join2(modelRoot(stateRoot), "incidents");
+  const incidentsRoot = join(modelRoot(stateRoot), "incidents");
   if (!existsSync2(incidentsRoot)) return cleanSummary();
   let incidentEntries;
   try {
@@ -2209,7 +2232,7 @@ import { createHash as createHash2 } from "node:crypto";
 
 // src/mcp/workspace-roots.mjs
 import { lstatSync, realpathSync, statSync as statSync2 } from "node:fs";
-import { resolve as resolve3 } from "node:path";
+import { resolve as resolve2 } from "node:path";
 import { fileURLToPath } from "node:url";
 var HOST_WORKSPACE_ENV = "GELDMACHER_WORKFLOW_WORKSPACE_ROOT";
 var WorkspaceRootError = class extends Error {
@@ -2220,7 +2243,11 @@ var WorkspaceRootError = class extends Error {
   }
 };
 function isWorkspaceRootsUnavailable(error) {
-  return error instanceof WorkspaceRootError && ["roots-request-failed", "roots-empty"].includes(error.code);
+  return error instanceof WorkspaceRootError && [
+    "roots-request-failed",
+    "roots-empty",
+    "host-workspace-unavailable"
+  ].includes(error.code);
 }
 function validateDirectoryRoot(advertised, {
   unavailableCode = "root-unavailable",
@@ -2261,7 +2288,7 @@ function rootPath(root) {
   if (url.protocol !== "file:") throw new WorkspaceRootError("root-non-file", `Workflow supports only file workspace roots: ${root.uri}`);
   let advertised;
   try {
-    advertised = resolve3(fileURLToPath(url));
+    advertised = resolve2(fileURLToPath(url));
   } catch (error) {
     throw new WorkspaceRootError("root-invalid", `MCP client returned an invalid file workspace root: ${root.uri}`, { cause: error });
   }
@@ -2270,7 +2297,9 @@ function rootPath(root) {
 function hostConfiguredRoot(env = process.env) {
   const raw = env?.[HOST_WORKSPACE_ENV];
   if (raw === void 0 || raw === null || String(raw).trim() === "") return null;
-  const advertised = resolve3(String(raw));
+  const value = String(raw).trim();
+  if (/\$\{[^}]+\}/.test(value)) return null;
+  const advertised = resolve2(value);
   return {
     ...validateDirectoryRoot(advertised, {
       unavailableCode: "host-workspace-unavailable",
@@ -2337,7 +2366,7 @@ var WorkspaceRootAuthority = class {
         }
       }
       if (selector !== void 0 && selector !== null && selector !== "") {
-        const requested = resolve3(selector);
+        const requested = resolve2(selector);
         if (requested !== host.advertised && requested !== host.canonical) {
           throw new WorkspaceRootError("root-foreign", `workspace_root does not match host-configured workspace: ${requested}`);
         }
@@ -2349,7 +2378,7 @@ var WorkspaceRootAuthority = class {
       if (roots.length !== 1) throw new WorkspaceRootError("roots-multiple", "multiple MCP workspace roots require workspace_root");
       return roots[0].canonical;
     }
-    const advertised = resolve3(selector);
+    const advertised = resolve2(selector);
     const allowed = roots.find((entry) => entry.advertised === advertised);
     if (!allowed) throw new WorkspaceRootError("root-foreign", `workspace_root is not an advertised MCP root: ${advertised}`);
     let canonical;
@@ -2369,9 +2398,14 @@ function createArtifactHandlers({
   pluginRoot: pluginRoot2,
   resolveOperationalContext,
   result: result2,
-  handoffStoreFactory = createContentAddressedHandoffStore
+  handoffStoreFactory = createContentAddressedHandoffStore,
+  receiptOptions = {}
 }) {
-  const failure2 = (error) => result2({
+  const toolResult = (toolName, value, isError = false) => {
+    if (typeof result2 === "function" && result2.toolAware === true) return result2(toolName, value, isError);
+    return result2(value, isError);
+  };
+  const failure2 = (toolName) => (error) => toolResult(toolName, {
     error: error.message,
     ...error instanceof WorkspaceRootError ? { error_code: error.code } : {}
   }, true);
@@ -2396,7 +2430,28 @@ function createArtifactHandlers({
     }
     return null;
   };
+  const assertConsistentArtifactTexts = (artifacts = [], { rootPlan = null } = {}) => {
+    const byId = /* @__PURE__ */ new Map();
+    const consider = (text, label = "artifact") => {
+      if (typeof text !== "string" || !text.trim()) return;
+      const inspected = inspectArtifactText(text, pluginRoot2);
+      if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) return;
+      const id = inspected.artifact.fields.id;
+      const prior = byId.get(id);
+      if (prior && prior !== text) {
+        throw new Error(`handoff artifact ${id} has conflicting text`);
+      }
+      byId.set(id, text);
+      return id;
+    };
+    if (rootPlan) consider(rootPlan, "root");
+    for (const entry of artifacts) {
+      consider(entry?.text, entry?.label ?? "artifact");
+    }
+    return byId;
+  };
   const contentHandoff = ({ rootPlanId = null, rootPlan = null, artifacts = [], remember = false } = {}) => {
+    assertConsistentArtifactTexts(artifacts, { rootPlan });
     const resolvedId = inferredRootPlanId(rootPlanId, artifacts);
     const rootPlanText = resolveRootPlanText(pluginRoot2, { rootPlanId: resolvedId, rootPlan, artifacts });
     const root_content_hash = rootContentHash(rootPlanText);
@@ -2449,12 +2504,13 @@ function createArtifactHandlers({
       };
     }
   };
-  const buildCloseout = (input, merged) => {
+  const buildCloseout = (input, merged, workspace = null) => {
     const rootPlan = input.root_plan ?? [...merged.values()].find((text) => {
       const inspected = inspectArtifactText(text, pluginRoot2);
       return inspected.artifact?.fields?.artifact === "work-plan" && inspected.artifact.fields.id === input.root_plan_id;
     });
     if (!rootPlan) throw new Error("workflow_closeout requires the active Root text or a cached Root");
+    const manualCheckReceipts = workspace ? loadManualCheckReceipts({ rootPlanText: rootPlan, pluginRoot: pluginRoot2, workspaceRoot: workspace, options: receiptOptions }) : [];
     const closeoutResult = buildDeliveryEvidence({
       rootPlanText: rootPlan,
       artifacts: [...merged].map(([label, text]) => ({ label, text })),
@@ -2463,6 +2519,9 @@ function createArtifactHandlers({
       strategyRevision: input.strategy_revision,
       effectiveProfile: input.effective_profile,
       repositorySnapshot: input.repository_snapshot ?? null,
+      summary: input.summary ?? null,
+      manualCheckReceipts,
+      enforceManualCheckReceipts: input.effective_profile === "manual",
       pluginRoot: pluginRoot2
     });
     if (closeoutResult.fields.root_plan_id !== input.root_plan_id) throw new Error(`workflow_closeout Root ID mismatch: expected ${input.root_plan_id}, received ${closeoutResult.fields.root_plan_id}`);
@@ -2490,11 +2549,18 @@ function createArtifactHandlers({
     evidence_mode: persisted.fields.evidence_mode,
     overall_grade: persisted.fields.overall_grade,
     status: persisted.fields.status,
+    subject_id: persisted.fields.subject_id ?? input.root_plan_id,
+    source_review_id: persisted.fields.source_review_id ?? null,
+    predecessor_evidence_id: persisted.fields.predecessor_evidence_id ?? null,
+    changed_paths: persisted.fields.changed_paths ?? input.changed_paths ?? [],
     duplicate: persisted.duplicate,
     handoff_persisted: persisted.handoff_persisted,
     handoff_authoritative: false,
     handoff_mode: handoffMode ?? (persisted.handoff_persisted ? "root-content-cache" : "stateless"),
     ...rootContentHashValue ? { root_content_hash: rootContentHashValue } : {},
+    ...closeoutResult.constraint_summary ? { constraint_summary: closeoutResult.constraint_summary } : {},
+    ...closeoutResult.human_attention ? { human_attention: closeoutResult.human_attention } : {},
+    ...closeoutResult.problem_details ? { problem_details: closeoutResult.problem_details } : {},
     ...persisted.artifact_set_hash ? { artifact_set_hash: persisted.artifact_set_hash } : {},
     ...warning ? { warning } : {},
     ...handoffErrorCode || persisted.handoff_error_code ? { handoff_error_code: handoffErrorCode ?? persisted.handoff_error_code } : {}
@@ -2508,35 +2574,80 @@ function createArtifactHandlers({
           throw new Error("workflow_artifact_record accepts only valid Schema-5 work-plan and work-review artifacts");
         }
       }
-      const { rootPlanText, root_content_hash, handoffStore } = contentHandoff({
-        rootPlan: input.root_plan,
-        artifacts: input.artifacts,
-        remember: true
-      });
+      let rootPlanText;
+      let root_content_hash;
+      let handoffStore;
+      try {
+        ({ rootPlanText, root_content_hash, handoffStore } = contentHandoff({
+          rootPlan: input.root_plan,
+          artifacts: input.artifacts,
+          remember: true
+        }));
+      } catch (error) {
+        if (/conflict|invalid|corrupt|incompatible|stale|ambiguous|multiple|exact Root/i.test(error.message)) throw error;
+        return toolResult("workflow_artifact_record", {
+          workspace_binding: "not-established",
+          workspace_root_used: false,
+          handoff_authoritative: false,
+          handoff_persisted: false,
+          handoff_mode: "stateless",
+          handoff_error_code: "handoff-persist-failed",
+          recorded: [],
+          duplicates: [],
+          warning: `handoff cache unavailable: ${error.message}; attach the exact artifact explicitly to the next Workflow command`
+        });
+      }
       const operational = await optionalOperational(input.workspace_root);
       const lineage = hydrateLineageArtifacts(rootPlanText, handoffStore);
       const byId = /* @__PURE__ */ new Map();
       for (const entry of [...lineage, ...input.artifacts]) {
         const inspected = inspectArtifactText(entry.text, pluginRoot2);
         if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) {
+          const priorLabel = byId.get(entry.label);
+          if (priorLabel && priorLabel.text !== entry.text) {
+            throw new Error(`handoff artifact label ${entry.label} has conflicting text`);
+          }
           byId.set(entry.label, entry);
           continue;
         }
-        byId.set(inspected.artifact.fields.id, { label: inspected.artifact.fields.id, text: entry.text });
+        const id = inspected.artifact.fields.id;
+        const prior = byId.get(id);
+        if (prior && prior.text !== entry.text) {
+          throw new Error(`handoff artifact ${id} has conflicting text`);
+        }
+        byId.set(id, { label: id, text: entry.text });
       }
-      const recorded = handoffStore.record([...byId.values()]);
-      return result2({
-        ...operational.workspace ? { workspace_root: operational.workspace } : {},
-        workspace_binding: operational.workspace_binding,
-        workspace_root_used: Boolean(operational.workspace),
-        handoff_authoritative: false,
-        handoff_mode: "root-content-cache",
-        root_content_hash,
-        ...recorded,
-        ...operational.workspace_error && input.workspace_root ? { warning: `workspace binding unavailable (${operational.workspace_error.code}); recorded under root-content handoff namespace` } : {}
-      });
+      try {
+        const recorded = handoffStore.record([...byId.values()]);
+        return toolResult("workflow_artifact_record", {
+          ...operational.workspace ? { workspace_root: operational.workspace } : {},
+          workspace_binding: operational.workspace_binding,
+          workspace_root_used: Boolean(operational.workspace),
+          handoff_authoritative: false,
+          handoff_persisted: true,
+          handoff_mode: "root-content-cache",
+          root_content_hash,
+          ...recorded,
+          ...operational.workspace_error && input.workspace_root ? { warning: `workspace binding unavailable (${operational.workspace_error.code}); recorded under root-content handoff namespace` } : {}
+        });
+      } catch (error) {
+        if (/concurrent|conflict|invalid|corrupt|incompatible|stale|ambiguous|multiple/i.test(error.message)) throw error;
+        return toolResult("workflow_artifact_record", {
+          ...operational.workspace ? { workspace_root: operational.workspace } : {},
+          workspace_binding: operational.workspace_binding,
+          workspace_root_used: Boolean(operational.workspace),
+          handoff_authoritative: false,
+          handoff_persisted: false,
+          handoff_mode: "stateless",
+          handoff_error_code: "handoff-persist-failed",
+          root_content_hash,
+          recorded: [],
+          duplicates: [],
+          warning: `handoff cache unavailable: ${error.message}; attach the exact artifact explicitly to the next Workflow command`
+        });
+      }
     } catch (error) {
-      return failure2(error);
+      return failure2("workflow_artifact_record")(error);
     }
   };
   const context2 = async (input) => {
@@ -2548,7 +2659,7 @@ function createArtifactHandlers({
       });
       const operational = await optionalOperational(input.workspace_root);
       const chain = handoffStore.context(input.root_plan_id, input.root_plan ?? null);
-      return result2({
+      return toolResult("workflow_artifact_context", {
         ...operational.workspace ? { workspace_root: operational.workspace } : {},
         workspace_binding: operational.workspace_binding,
         workspace_root_used: Boolean(operational.workspace),
@@ -2559,7 +2670,7 @@ function createArtifactHandlers({
         model_inheritance: operational.stateRoot ? modelInheritanceSummary(operational.stateRoot) : { authoritative: false, status: "unavailable", evidence_effect: "none", reason: "workspace-binding-not-established" }
       });
     } catch (error) {
-      return failure2(error);
+      return failure2("workflow_artifact_context")(error);
     }
   };
   const closeout = async (input) => {
@@ -2593,8 +2704,8 @@ function createArtifactHandlers({
         if (!handoff) {
           if (!input.root_plan) throw error;
           const merged2 = mergeArtifacts(input.artifacts ?? []);
-          const { closeoutResult: closeoutResult2 } = buildCloseout(input, merged2);
-          return result2(closeoutPayload({
+          const { closeoutResult: closeoutResult2 } = buildCloseout(input, merged2, operational.workspace);
+          return toolResult("workflow_closeout", closeoutPayload({
             input,
             workspace: operational.workspace,
             workspaceBinding: operational.workspace_binding,
@@ -2613,7 +2724,7 @@ function createArtifactHandlers({
       } catch {
       }
       const merged = mergeArtifacts([...cached, ...input.artifacts ?? [], { label: "root", text: rootPlanText }]);
-      const { rootPlan, closeoutResult } = buildCloseout({ ...input, root_plan: rootPlanText }, merged);
+      const { rootPlan, closeoutResult } = buildCloseout({ ...input, root_plan: rootPlanText }, merged, operational.workspace);
       const persisted = persistCloseout({
         handoffStore,
         rootPlanText: rootPlan,
@@ -2621,9 +2732,12 @@ function createArtifactHandlers({
         closeout: closeoutResult
       });
       if (persisted.handoff_persisted) rememberContentAddressedRoot(rootPlan, pluginRoot2);
+      if (persisted.handoff_persisted && operational.workspace) {
+        invalidateManualCheckReceipts({ rootPlanText: rootPlan, workspaceRoot: operational.workspace, options: receiptOptions });
+      }
       const selectorNotice = !operational.workspace && input.workspace_root ? `; the supplied workspace_root was not used (${operational.workspace_error?.code ?? "workspace-binding-not-established"})` : "";
       const warning = persisted.warning ?? (selectorNotice ? `workspace binding unavailable${selectorNotice}` : void 0);
-      return result2(closeoutPayload({
+      return toolResult("workflow_closeout", closeoutPayload({
         input,
         workspace: operational.workspace,
         workspaceBinding: operational.workspace_binding,
@@ -2635,10 +2749,678 @@ function createArtifactHandlers({
         handoffErrorCode: persisted.handoff_error_code
       }));
     } catch (error) {
-      return failure2(error);
+      return failure2("workflow_closeout")(error);
     }
   };
   return Object.freeze({ record, context: context2, closeout });
+}
+
+// src/mcp/manual-presentation.mjs
+var MANUAL_TOOLS = /* @__PURE__ */ new Set([
+  "workflow_plan_preflight",
+  "workflow_artifact_record",
+  "workflow_artifact_context",
+  "workflow_closeout",
+  "workflow_status"
+]);
+var MAX_DISPLAY_CHANGED_PATHS = 10;
+var TERMINAL_READY_STATES = /* @__PURE__ */ new Set(["achieved", "accepted-provisional"]);
+var TERMINAL_BLOCKED_STATES = /* @__PURE__ */ new Set(["blocked", "stopped", "failed"]);
+var MANUAL_GUIDE_URL = "https://github.com/geldmacher/workflow/blob/main/docs/manual-workflow.md";
+var MANUAL_GUIDE_LABEL = "Manual Workflow guide";
+function helpEntry(topic, anchor, meaning) {
+  return Object.freeze({
+    topic,
+    meaning,
+    label: MANUAL_GUIDE_LABEL,
+    url: `${MANUAL_GUIDE_URL}#${anchor}`
+  });
+}
+var MANUAL_HELP_TOPICS = Object.freeze({
+  "manual-states": helpEntry(
+    "manual-states",
+    "manual-states",
+    "Workflow derived this read-only Manual state from the current artifact chain; its blockers and next action remain authoritative."
+  ),
+  "intent-root-and-plan": helpEntry(
+    "intent-root-and-plan",
+    "intent-root-and-plan",
+    "The Intent Root must define a feasible goal, acceptance, authority, risk, and required Checks before implementation can be approved."
+  ),
+  "artifacts-tips-and-handoff": helpEntry(
+    "artifacts-tips-and-handoff",
+    "artifacts-tips-and-handoff",
+    "Handoff only transports exact artifact bytes; missing cache context requires explicit artifacts and grants no authority."
+  ),
+  "recovery-and-troubleshooting": helpEntry(
+    "recovery-and-troubleshooting",
+    "recovery-and-troubleshooting",
+    "The requested Workflow operation did not produce an actionable result; repair the reported input, chain, or environment issue before continuing."
+  )
+});
+var MANUAL_STATE_HELP = Object.freeze({
+  "intent-clarification": helpEntry(
+    "manual-state-intent-clarification",
+    "intent-clarification",
+    "The Root is not intent-ready because a material goal, acceptance, authority, or risk decision still needs a human answer."
+  ),
+  "root-plan-review": helpEntry(
+    "manual-state-root-plan-review",
+    "root-plan-review",
+    "A ready Intent Root exists and waits for human Implement Plan approval before Delivery Evidence can be created."
+  ),
+  "root-review": helpEntry(
+    "manual-state-root-review",
+    "root-review",
+    "Delivery Evidence exists and now needs a fresh read-only review against the approved Root."
+  ),
+  "waiting-human": helpEntry(
+    "manual-state-waiting-human",
+    "waiting-human",
+    "Workflow needs the human to resolve the listed clarification, correction approval, or missing exact context."
+  ),
+  replan: helpEntry(
+    "manual-state-replan",
+    "replan",
+    "The current Root or chain cannot safely authorize the required work and must be replaced through a newly approved plan."
+  ),
+  "delivery-ready-provisional": helpEntry(
+    "manual-state-delivery-ready-provisional",
+    "delivery-ready-provisional",
+    "No known failed required Check blocks delivery, but proof remains incomplete or unavailable and needs an explicit human decision."
+  ),
+  "accepted-provisional": helpEntry(
+    "manual-state-accepted-provisional",
+    "accepted-provisional",
+    "The human accepted this evidence gap once; the delivery is still not verified and the acceptance is not persisted."
+  ),
+  achieved: helpEntry(
+    "manual-state-achieved",
+    "achieved",
+    "A fresh review verified the required Checks for this repository-only Root, so no further Workflow action is required."
+  ),
+  blocked: helpEntry(
+    "manual-state-blocked",
+    "blocked",
+    "A known failure or safety boundary prevents delivery and cannot be overridden by provisional acceptance."
+  ),
+  failed: helpEntry(
+    "manual-state-failed",
+    "failed",
+    "Workflow could not produce a valid result; repair the reported failure before retrying."
+  ),
+  stopped: helpEntry(
+    "manual-state-stopped",
+    "stopped",
+    "This subject is intentionally non-actionable, commonly because it is read-only Workflow-3 or Workflow-4 history."
+  )
+});
+var MANUAL_EVIDENCE_HELP = Object.freeze({
+  verified: helpEntry(
+    "manual-evidence-verified",
+    "verified",
+    "The required Check was directly observed with the method and repetition needed for verified Evidence."
+  ),
+  supported: helpEntry(
+    "manual-evidence-supported",
+    "supported",
+    "Meaningful inspection supports the claim, but the proof is not strong enough for verified delivery."
+  ),
+  partial: helpEntry(
+    "manual-evidence-partial",
+    "partial",
+    "Some relevant proof exists, but it does not fully cover the required Check or expected result."
+  ),
+  unavailable: helpEntry(
+    "manual-evidence-unavailable",
+    "unavailable",
+    "The required proof surface could not be used; the named limitation is missing proof, not success or failure."
+  ),
+  failed: helpEntry(
+    "manual-evidence-failed",
+    "failed-evidence",
+    "The observed result contradicted a required Check, so delivery is blocked and cannot be accepted provisionally."
+  )
+});
+function manualStateHelp(state) {
+  return MANUAL_STATE_HELP[state] ?? MANUAL_HELP_TOPICS["manual-states"];
+}
+function manualEvidenceHelp(grade) {
+  return MANUAL_EVIDENCE_HELP[grade] ?? helpEntry(
+    "manual-evidence-grades",
+    "evidence-grades",
+    "Evidence grades describe how directly each required Check was observed and never become stronger through review wording alone."
+  );
+}
+function isManualStatusSnapshot(snapshot) {
+  if (snapshot.snapshot_source) return snapshot.snapshot_source === "artifact-chain";
+  if (snapshot.run_id) return false;
+  const requested = snapshot.requested_profile ?? "manual";
+  const effective = snapshot.effective_profile ?? requested;
+  return requested === "manual" && effective === "manual";
+}
+var NEXT_STEP_CATALOG = {
+  "repair-root": {
+    label: "Repair the Root",
+    invoke: "Plan: fix blockers, then /plan-work or $plan-work again",
+    benefit: "Makes the Root feasible before approval.",
+    blocked_when: "Root is infeasible or incomplete.",
+    recovery: "Resolve blocking issues, then re-validate the exact Root."
+  },
+  "implement-plan": {
+    label: "Implement the Plan",
+    invoke: "Human: native Implement Plan (approves the presented Root)",
+    benefit: "Delivers inside the approved Root and runs deterministic closeout.",
+    blocked_when: "No approved Root is ready for implementation.",
+    recovery: "Finish Plan presentation and human approval first."
+  },
+  "attach-artifact": {
+    label: "Attach the exact artifact",
+    invoke: "Agent: attach exact Root/Evidence text to the next Workflow command",
+    benefit: "Preserves the chain when handoff transport is unavailable.",
+    blocked_when: "Handoff cache did not persist the exact artifact.",
+    recovery: "Paste the exact artifact bytes, then continue review or status."
+  },
+  "review-root": {
+    label: "Fresh review",
+    invoke: "Ask: run a fresh /review-work or $review-work against the exact Root/Evidence chain",
+    benefit: "Produces a fresh verdict without Writer assumptions.",
+    blocked_when: "Evidence is missing or the chain is incomplete.",
+    recovery: "Run /close-work [wp-id] or $close-work first, then review."
+  },
+  "accept-provisional": {
+    label: "Accept provisional delivery",
+    invoke: "Ask/Agent: /accept-work provisional or $accept-work provisional only for an explicit provisional acceptance",
+    benefit: "Records a one-time human acceptance of an evidence gap.",
+    blocked_when: "Current review is not provisional.",
+    recovery: "Run a fresh review before accepting."
+  },
+  closeout: {
+    label: "Deterministic closeout",
+    invoke: "Agent: /close-work [wp-id] or $close-work, or finish Implement Plan closeout",
+    benefit: "Builds validated Evidence from observed Checks.",
+    blocked_when: "Exact Root/chain or Check observations are missing.",
+    recovery: "Supply exact artifacts and required Check observations, then retry."
+  },
+  correct: {
+    label: "Fix failing Checks",
+    invoke: "Agent: repair failing required Checks, then closeout again",
+    benefit: "Restores a deliverable Evidence grade.",
+    blocked_when: "Intent, scope, or risk must change.",
+    recovery: "Use /plan-work replan or $plan-work replan instead."
+  },
+  "approve-correction": {
+    label: "Apply bounded correction",
+    invoke: "Agent: /correct-work or $correct-work, then Ask: fresh /review-work",
+    benefit: "Applies only the review-approved in-scope FIX set.",
+    blocked_when: "No actionable correction tip is present.",
+    recovery: "Run /review-work or $review-work first."
+  },
+  "provide-artifacts": {
+    label: "Supply artifact chain",
+    invoke: "Ask/Agent: pass current Schema-5 Root/Evidence/Review to workflow_status",
+    benefit: "Derives status without inventing tips.",
+    blocked_when: "Tips are missing or ambiguous.",
+    recovery: "Pass an explicit wp-* plus exact artifacts."
+  },
+  replan: {
+    label: "Replan the Root",
+    invoke: "Plan: /plan-work replan or $plan-work replan, then approve the replacement",
+    benefit: "Creates a new approval boundary when Intent must change.",
+    blocked_when: "Current review does not require next_action replan.",
+    recovery: "Run a fresh review that requests replan first."
+  },
+  "retry-review": {
+    label: "Retry review",
+    invoke: "Ask: fresh /review-work or $review-work with complete evidence",
+    benefit: "Reassesses once Evidence or context is complete.",
+    blocked_when: "Evidence is still missing or incomplete.",
+    recovery: "Close out or attach Evidence, then retry review."
+  },
+  answer: {
+    label: "Answer clarification",
+    invoke: "Ask: answer the open review clarification",
+    benefit: "Unblocks a human decision without mutating delivery.",
+    blocked_when: "No open clarify decision is pending.",
+    recovery: "Run /work-status or $work-status to see the current tip."
+  },
+  "resolve-intent": {
+    label: "Resolve intent",
+    invoke: "Plan: answer open intent questions or replan",
+    benefit: "Restores Intent Readiness before a Root is presented.",
+    blocked_when: "Goal or acceptance decisions remain open.",
+    recovery: "Run /plan-work <goal> or $plan-work <goal> with decisive answers."
+  },
+  none: {
+    label: "Done",
+    invoke: "No further Workflow command required",
+    benefit: "Delivery is complete for this Root.",
+    blocked_when: null,
+    recovery: "Optional: /learn-from-work or /explain-work (Codex: $learn-from-work / $explain-work)."
+  },
+  learn: {
+    label: "Persist learnings",
+    invoke: "Agent: /learn-from-work or $learn-from-work",
+    benefit: "Captures confirmed reusable guidance after earned delivery.",
+    blocked_when: "Delivery is not verified and achieved.",
+    recovery: "Finish a verified achieved review; provisional acceptance never authorizes Learning."
+  },
+  explain: {
+    label: "Explain the chain",
+    invoke: "Ask: /explain-work or $explain-work",
+    benefit: "Translates the Root/Evidence/Review chain for humans.",
+    blocked_when: "No exact chain is available.",
+    recovery: "Run /work-status or supply exact artifacts first."
+  }
+};
+function asList(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((entry) => {
+    if (typeof entry === "string") return entry;
+    if (entry && typeof entry === "object") return String(entry.message ?? entry.code ?? JSON.stringify(entry));
+    return String(entry);
+  }).filter(Boolean);
+}
+function firstLine(text, fallback = "No summary.") {
+  const value = String(text ?? "").replace(/\s+/g, " ").trim();
+  return value || fallback;
+}
+function resolveNextStep(action, overrides = {}) {
+  const entry = NEXT_STEP_CATALOG[action];
+  if (!entry) {
+    return {
+      action,
+      label: action,
+      invoke: action,
+      benefit: "Continue with the stated Workflow action.",
+      blocked_reason: overrides.blocked_reason ?? null,
+      recovery: overrides.recovery ?? null,
+      label_line: action
+    };
+  }
+  const blockedReason = overrides.blocked_reason ?? null;
+  const recovery = overrides.recovery ?? (blockedReason ? entry.recovery : null);
+  return {
+    action,
+    label: entry.label,
+    invoke: overrides.invoke ?? entry.invoke,
+    benefit: overrides.benefit ?? entry.benefit,
+    blocked_reason: blockedReason,
+    recovery,
+    // Keep a short compatible summary that still embeds the exact invoke tokens.
+    label_line: entry.invoke.includes(":") ? `${entry.invoke}.` : entry.invoke
+  };
+}
+function withNextStepFields(presentation, action, overrides = {}) {
+  const step = resolveNextStep(action, overrides);
+  return {
+    ...presentation,
+    next_action: action,
+    next_action_label: step.label_line,
+    next_action_invoke: step.invoke,
+    next_action_benefit: step.benefit,
+    ...step.blocked_reason ? {
+      next_action_blocked_reason: step.blocked_reason,
+      next_action_recovery: step.recovery
+    } : {}
+  };
+}
+function withHelpFields(presentation, help) {
+  return help ? { ...presentation, help } : presentation;
+}
+function formatHostToolApproval(value) {
+  if (!value) return null;
+  if (typeof value === "string") return `host approvals: ${value}; Workflow grants none`;
+  if (typeof value !== "object" || Array.isArray(value)) return `host approvals: ${String(value)}; Workflow grants none`;
+  const mode = value.tool_approval ?? value.mode;
+  if (!mode) return null;
+  const source = value.source ? ` (source: ${value.source})` : "";
+  if (mode === "strict") return `host approvals: per-call prompts expected${source}; Workflow grants none`;
+  if (mode === "allowlisted") return `host approvals: host allowlist expected${source}; preference grants none`;
+  return `host approvals: ${mode}${source}; Workflow grants none`;
+}
+function formatChangedPaths(paths, { maxDisplay = MAX_DISPLAY_CHANGED_PATHS } = {}) {
+  if (!Array.isArray(paths) || paths.length === 0) return "changed paths: none";
+  if (paths.length <= maxDisplay) return `changed paths (${paths.length}): ${paths.join(", ")}`;
+  const shown = paths.slice(0, maxDisplay).join(", ");
+  return `changed paths (${paths.length}, showing ${maxDisplay}): ${shown}, \u2026 (+${paths.length - maxDisplay} more)`;
+}
+function receiptCoverageLine(summary2) {
+  const coverage = summary2?.receipt_coverage;
+  if (!coverage || !Number.isInteger(coverage.attested) || !Number.isInteger(coverage.eligible)) return null;
+  return `host-attested machine Checks: ${coverage.attested}/${coverage.eligible}`;
+}
+function humanAttentionLines(value) {
+  if (value?.required !== true || !Array.isArray(value.reasons)) return [];
+  return value.reasons.map((reason) => {
+    if (typeof reason === "string") return reason;
+    const check = reason?.check_id ? `${reason.check_id}: ` : "";
+    return `${check}${reason?.message ?? reason?.code ?? "Human attention required"}${reason?.recovery ? ` \u2192 ${reason.recovery}` : ""}`;
+  });
+}
+function problemLines(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((problem) => {
+    if (typeof problem === "string") return problem;
+    return `${problem?.problem ?? "Workflow problem"} Why: ${problem?.why ?? "The current delivery claim is incomplete."} Resolution: ${problem?.resolution ?? "Follow the stated Workflow recovery."}`;
+  });
+}
+function statusPresentationOutcome(snapshot) {
+  const blockers = asList(snapshot.blockers);
+  const state = snapshot.state ?? "unknown";
+  if (blockers.length > 0) return "blocked";
+  if (TERMINAL_READY_STATES.has(state)) return "ready";
+  if (TERMINAL_BLOCKED_STATES.has(state)) return "blocked";
+  return "partial";
+}
+function closeoutPresentation(value) {
+  const persisted = value.handoff_persisted !== false;
+  const status = value.status ?? "unknown";
+  const grade = value.overall_grade ?? "ungraded";
+  const warnings = asList(value.warning ? [value.warning] : []);
+  const evidenceGaps = value.constraint_summary?.evidence_gap_checks ?? [];
+  const legacyReceiptGaps = value.constraint_summary?.legacy_unattested_verified_checks ?? [];
+  const blocked = status === "blocked" || grade === "failed";
+  const provisionalEvidence = status === "provisional" || grade === "partial" || grade === "unavailable" || grade === "supported" || evidenceGaps.length > 0;
+  let outcome = "ready";
+  if (blocked) outcome = "blocked";
+  else if (provisionalEvidence) outcome = "partial";
+  const summary2 = blocked ? `Delivery evidence ${value.delivery_evidence_id ?? "unknown"} is blocked (${grade} / ${status}).` : outcome === "partial" ? `Delivery evidence ${value.delivery_evidence_id ?? "unknown"} is partial (${grade} / ${status}).` : persisted ? `Delivery evidence ${value.delivery_evidence_id ?? "unknown"} is ready (${grade} / ${status}).` : `Delivery evidence ${value.delivery_evidence_id ?? "unknown"} is ready (${grade} / ${status}); handoff cache unavailable \u2014 attach required.`;
+  let nextAction = "review-root";
+  let overrides = {};
+  if (blocked) {
+    nextAction = "review-root";
+    overrides = {
+      blocked_reason: `Evidence status ${status} with grade ${grade} blocks delivery acceptance.`,
+      recovery: "Ask: /review-work or $review-work; then /correct-work or replan as the review directs."
+    };
+  } else if (!persisted) {
+    nextAction = "attach-artifact";
+    overrides = {
+      blocked_reason: "Handoff cache unavailable; exact Evidence must travel with the next command.",
+      recovery: "Attach the returned Evidence artifact, then Ask: /review-work or $review-work."
+    };
+  } else if (legacyReceiptGaps.length > 0) {
+    overrides = {
+      blocked_reason: `Legacy verified claims lack current host receipts: ${legacyReceiptGaps.join(", ")}.`,
+      recovery: "Ask: run a fresh /review-work or $review-work and follow its bounded correction route."
+    };
+  } else if (outcome === "partial" && evidenceGaps.length > 0) {
+    nextAction = "closeout";
+    overrides = {
+      invoke: "Agent: follow each Evidence-gap problem's exact Check rerun, then retry closeout",
+      benefit: "Obtains the missing host receipts before the independent review.",
+      blocked_reason: `Evidence is ${grade} / ${status}; verified acceptance is not available yet.`,
+      recovery: "Run the exact Check reruns listed under Problems, then retry closeout."
+    };
+  } else if (outcome === "partial") {
+    overrides = {
+      blocked_reason: `Evidence is ${grade} / ${status}; verified acceptance is not available yet.`,
+      recovery: "Ask: /review-work or $review-work; accept provisional only if the review allows it."
+    };
+  }
+  const help = blocked ? manualEvidenceHelp("failed") : !persisted ? MANUAL_HELP_TOPICS["artifacts-tips-and-handoff"] : manualEvidenceHelp(grade);
+  return withHelpFields(withNextStepFields({
+    schema: 1,
+    tool: "workflow_closeout",
+    phase: "closeout",
+    outcome,
+    summary: summary2,
+    checks: [
+      `evidence mode: ${value.evidence_mode ?? "unknown"}`,
+      `handoff persisted: ${persisted ? "yes" : "no"}`,
+      formatChangedPaths(value.changed_paths),
+      receiptCoverageLine(value.constraint_summary)
+    ].filter(Boolean),
+    gaps: [
+      ...blocked ? [`Evidence status ${status} with grade ${grade} blocks delivery acceptance.`] : [],
+      ...persisted ? [] : ["Attach the returned Evidence artifact explicitly."],
+      ...(value.constraint_summary?.evidence_gap_checks ?? []).length > 0 ? [`Evidence gaps: ${value.constraint_summary.evidence_gap_checks.join(", ")}.`] : []
+    ],
+    human_attention: humanAttentionLines(value.human_attention),
+    problems: problemLines(value.problem_details),
+    advisories: persisted ? [] : ["Handoff is transport only and never grants authority."],
+    warnings,
+    errors: []
+  }, nextAction, overrides), help);
+}
+function errorPresentation(toolName, value) {
+  const summary2 = firstLine(value?.error, "Workflow tool failed.");
+  const closeoutFailed = toolName === "workflow_closeout";
+  const nextAction = toolName === "workflow_plan_preflight" ? "repair-root" : closeoutFailed ? "review-root" : "provide-artifacts";
+  const recovery = toolName === "workflow_plan_preflight" ? "Repair the Root blockers, then retry validation or /plan-work." : closeoutFailed ? "Repair the exact Root/chain and Check observations, then retry closeout or Ask: /review-work." : "Supply the exact current Schema-5 artifacts, then retry the failed Workflow command.";
+  return withHelpFields(withNextStepFields({
+    schema: 1,
+    tool: toolName,
+    phase: toolName.replace(/^workflow_/, "").replaceAll("_", "-"),
+    outcome: closeoutFailed ? "blocked" : "failed",
+    summary: summary2,
+    checks: [],
+    gaps: [summary2],
+    advisories: [],
+    warnings: [],
+    errors: [summary2]
+  }, nextAction, {
+    blocked_reason: summary2,
+    recovery
+  }), MANUAL_HELP_TOPICS["recovery-and-troubleshooting"]);
+}
+function buildPresentation(toolName, value, { isError = false } = {}) {
+  if (isError || value?.error) {
+    return errorPresentation(toolName, value);
+  }
+  if (toolName === "workflow_plan_preflight") {
+    const blockers = asList(value.blocking_issues);
+    const advisories = asList(value.advisories);
+    const feasible = value.feasible === true && blockers.length === 0;
+    const nextAction = feasible ? "implement-plan" : "repair-root";
+    const overrides = feasible ? {} : {
+      blocked_reason: blockers[0] ?? "Root cannot be presented yet.",
+      recovery: "Repair the Root blockers, then retry validation or /plan-work."
+    };
+    const presentation = withNextStepFields({
+      schema: 1,
+      tool: toolName,
+      phase: "plan-preflight",
+      outcome: feasible ? "ready" : "blocked",
+      summary: feasible ? `Root ${value.root_plan_id ?? "unknown"} is feasible for presentation.` : `Root ${value.root_plan_id ?? "unknown"} cannot be presented yet.`,
+      checks: [
+        `required: ${(value.required_checks ?? []).join(", ") || "none"}`,
+        `deferred: ${(value.deferred_checks ?? []).join(", ") || "none"}`
+      ],
+      gaps: blockers,
+      advisories,
+      warnings: [],
+      errors: []
+    }, nextAction, overrides);
+    return feasible ? presentation : withHelpFields(presentation, MANUAL_HELP_TOPICS["intent-root-and-plan"]);
+  }
+  if (toolName === "workflow_artifact_record") {
+    const persisted = value.handoff_persisted !== false && value.handoff_mode !== "stateless";
+    const warnings = asList(value.warning ? [value.warning] : []);
+    const recordedIds = [...asList(value.recorded), ...asList(value.duplicates)];
+    const containsReview = recordedIds.some((id) => /^wr-/.test(id));
+    const nextAction = persisted ? containsReview ? "provide-artifacts" : "implement-plan" : "attach-artifact";
+    const overrides = persisted ? {} : {
+      blocked_reason: "Artifact validated; handoff cache was unavailable.",
+      recovery: "Attach the exact artifact explicitly; handoff is transport only."
+    };
+    const presentation = withNextStepFields({
+      schema: 1,
+      tool: toolName,
+      phase: "artifact-record",
+      outcome: persisted ? "ready" : "partial",
+      summary: persisted ? `Cached ${(value.recorded ?? []).join(", ") || "artifacts"} in root-content handoff.` : "Artifact validated; handoff cache was unavailable.",
+      checks: [
+        `recorded: ${(value.recorded ?? []).join(", ") || "none"}`,
+        `duplicates: ${(value.duplicates ?? []).join(", ") || "none"}`
+      ],
+      gaps: persisted ? [] : ["Attach the exact artifact explicitly; handoff is transport only."],
+      advisories: ["Handoff is transport only and never grants authority."],
+      warnings,
+      errors: []
+    }, nextAction, overrides);
+    return persisted ? presentation : withHelpFields(presentation, MANUAL_HELP_TOPICS["artifacts-tips-and-handoff"]);
+  }
+  if (toolName === "workflow_artifact_context") {
+    const count = Array.isArray(value.artifacts) ? value.artifacts.length : 0;
+    const nextAction = value.evidence_tip ? "review-root" : "closeout";
+    const overrides = value.evidence_tip ? {} : {
+      blocked_reason: "No Evidence tip is loaded for this Root.",
+      recovery: "Run /close-work [wp-id] or finish Implement Plan closeout, then review."
+    };
+    const presentation = withNextStepFields({
+      schema: 1,
+      tool: toolName,
+      phase: "artifact-context",
+      outcome: value.evidence_tip ? "ready" : "partial",
+      summary: `Loaded ${count} artifact${count === 1 ? "" : "s"} for ${value.root_plan_id ?? "unknown"}.`,
+      checks: [
+        `evidence tip: ${value.evidence_tip ?? "none"}`,
+        `review tip: ${value.review_tip ?? "none"}`
+      ],
+      gaps: value.evidence_tip ? [] : ["Evidence tip missing; closeout before review."],
+      advisories: ["Task artifacts remain authoritative; context is enrichment only."],
+      warnings: asList(value.warning ? [value.warning] : []),
+      errors: []
+    }, nextAction, overrides);
+    return value.evidence_tip && !value.warning ? presentation : withHelpFields(presentation, MANUAL_HELP_TOPICS["artifacts-tips-and-handoff"]);
+  }
+  if (toolName === "workflow_closeout") {
+    return closeoutPresentation(value);
+  }
+  if (toolName === "workflow_status") {
+    const snapshot = value.snapshot ?? {};
+    const blockers = asList(snapshot.blockers);
+    const state = snapshot.state ?? "unknown";
+    const action = snapshot.next_action ?? "none";
+    const requestedProfile = snapshot.requested_profile ?? "manual";
+    const effectiveProfile = snapshot.effective_profile ?? requestedProfile;
+    const requiredActor = snapshot.required_actor ?? "unknown";
+    const downgradeReason = snapshot.downgrade_reason ?? null;
+    const outcome = statusPresentationOutcome(snapshot);
+    const overrides = (outcome === "blocked" || outcome === "partial") && action !== "none" ? {
+      blocked_reason: blockers[0] ?? `Manual state is ${state}.`,
+      recovery: resolveNextStep(action).invoke
+    } : outcome === "blocked" && blockers.length > 0 ? {
+      blocked_reason: blockers[0],
+      recovery: "Clear blockers with the listed Workflow command, then re-check /work-status."
+    } : {};
+    const presentation = withNextStepFields({
+      schema: 1,
+      tool: toolName,
+      phase: "status",
+      workflow_state: state,
+      outcome,
+      summary: requiredActor === "none" ? `Root ${snapshot.root_plan_id ?? value.root_plan_id ?? "unknown"} is ${state}; no further actor is required.` : `Root ${snapshot.root_plan_id ?? value.root_plan_id ?? "unknown"} is ${state}; ${requiredActor} acts next.`,
+      checks: [
+        requestedProfile === effectiveProfile ? `profile: ${effectiveProfile}` : `profile: ${requestedProfile} \u2192 ${effectiveProfile}`,
+        `required actor: ${requiredActor}`,
+        `evidence: ${snapshot.latest_evidence_id ?? snapshot.evidence_tip ?? "none"}`,
+        `review: ${snapshot.latest_review_id ?? snapshot.review_tip ?? "none"}`,
+        receiptCoverageLine(value.constraint_summary)
+      ].filter(Boolean),
+      gaps: blockers,
+      advisories: asList([
+        formatHostToolApproval(value.host_tool_approval),
+        value.model_inheritance?.status ? `model_inheritance: ${value.model_inheritance.status}` : null
+      ].filter(Boolean)),
+      warnings: asList([
+        ...value.warning ? [value.warning] : [],
+        ...downgradeReason ? [`profile downgrade: ${requestedProfile} \u2192 ${effectiveProfile} (${downgradeReason})`] : []
+      ]),
+      errors: [],
+      human_attention: humanAttentionLines(value.human_attention),
+      problems: problemLines(value.problem_details)
+    }, action, overrides);
+    return isManualStatusSnapshot(snapshot) ? withHelpFields(presentation, manualStateHelp(state)) : presentation;
+  }
+  return withNextStepFields({
+    schema: 1,
+    tool: toolName,
+    phase: "manual",
+    outcome: "ready",
+    summary: firstLine(JSON.stringify(value), "Workflow tool completed."),
+    checks: [],
+    gaps: [],
+    advisories: [],
+    warnings: [],
+    errors: []
+  }, "none");
+}
+function formatSection(title, items) {
+  if (!items || items.length === 0) return null;
+  return [`${title}:`, ...items.map((item) => `- ${item}`)].join("\n");
+}
+function formatHelp(help) {
+  if (!help?.meaning || !help?.label || !help?.url) return null;
+  return [
+    `Meaning: ${help.meaning}`,
+    `Learn more: [${help.label}](${help.url})`
+  ].join("\n");
+}
+function formatNextStepFooter(presentation) {
+  if (presentation.tool === "workflow_status" && presentation.workflow_state === "achieved" && presentation.next_action === "none") {
+    return [
+      "### Done",
+      "Repository delivery is complete for this Root. Optional: /learn-from-work or /explain-work (Codex: $learn-from-work or $explain-work)."
+    ].join("\n");
+  }
+  if (presentation.tool === "workflow_status" && presentation.workflow_state === "accepted-provisional" && presentation.next_action === "none") {
+    return [
+      "### Accepted provisionally",
+      "This one-time acceptance is not persisted; the next /work-status or $work-status returns delivery-ready-provisional."
+    ].join("\n");
+  }
+  const step = resolveNextStep(presentation.next_action ?? "none");
+  const now = NEXT_STEP_CATALOG[presentation.next_action] ? step.label : presentation.next_action ?? "unknown";
+  const lines = [
+    "### Next step",
+    `- Now: ${now}`,
+    `- How: ${presentation.next_action_invoke ?? step.invoke}`,
+    `- Why: ${presentation.next_action_benefit ?? step.benefit}`
+  ];
+  if (presentation.next_action_blocked_reason && presentation.next_action_recovery) {
+    lines.push(`- Off track: ${presentation.next_action_blocked_reason} \u2192 ${presentation.next_action_recovery}`);
+  }
+  return lines.join("\n");
+}
+function formatManualToolContent(presentation) {
+  const lines = [
+    `${presentation.tool} \u2014 ${presentation.outcome}`,
+    `What happened: ${presentation.summary}`,
+    "",
+    formatSection("Checks", presentation.checks),
+    formatSection("Gaps", presentation.gaps),
+    formatSection("Human attention", presentation.human_attention),
+    formatSection("Problems", presentation.problems),
+    formatSection("Advisories", presentation.advisories),
+    formatSection("Warnings", presentation.warnings),
+    formatSection("Errors", presentation.errors),
+    formatHelp(presentation.help),
+    formatNextStepFooter(presentation)
+  ].filter((line) => line !== null && line !== void 0);
+  return `${lines.join("\n").replace(/\n{3,}/g, "\n\n").trim()}
+`;
+}
+function isManualWorkflowTool(toolName) {
+  return MANUAL_TOOLS.has(toolName);
+}
+function manualMcpResult(toolName, value, isError = false) {
+  if (process.env.GELDMACHER_WORKFLOW_LEGACY_MCP_TEXT === "1" || !isManualWorkflowTool(toolName)) {
+    return {
+      content: [{ type: "text", text: JSON.stringify(value, null, 2) }],
+      structuredContent: value,
+      isError
+    };
+  }
+  const presentation = buildPresentation(toolName, value, { isError });
+  const structuredContent = { ...value, presentation };
+  return {
+    content: [{ type: "text", text: formatManualToolContent(presentation) }],
+    structuredContent,
+    isError
+  };
 }
 
 // src/mcp/manual-tool-annotations.mjs
@@ -2718,15 +3500,15 @@ var checkEvidence = object({
 });
 var contracts = Object.freeze({
   workflow_plan_preflight: {
-    description: "Validate one exact Schema-5 Root for authority feasibility and Pareto Check selection without workspace discovery, persistence, approval, or mutation.",
+    description: "Validate one exact Schema-5 Root for authority feasibility and Pareto Check selection without workspace discovery, persistence, approval, or mutation. Optional diagnostic for low/medium Manual; CreatePlan still validates Schema-5 Roots.",
     inputSchema: { root_plan: string().min(1).max(25e4) }
   },
   workflow_artifact_record: {
-    description: "Validate and atomically cache exact Schema-5 work-plan or work-review artifacts in the non-authoritative root-content handoff store.",
+    description: "Best-effort transport: validate and atomically cache exact Schema-5 work-plan or work-review artifacts in the non-authoritative root-content handoff store. Task artifacts remain authoritative; ordinary cache IO failure returns attach instructions without invalidating the artifact.",
     inputSchema: { workspace_root: workspaceRoot, artifacts: array(artifact).min(1).max(32) }
   },
   workflow_artifact_context: {
-    description: "Return the exact revalidated non-authoritative Schema-5 artifact chain cached for one Root under its root-content namespace, optionally hash-bound to the supplied active native Plan.",
+    description: "Best-effort transport enrichment: return the exact revalidated non-authoritative Schema-5 artifact chain cached for one Root under its root-content namespace, optionally hash-bound to the supplied active native Plan. Task artifacts remain authoritative.",
     inputSchema: {
       workspace_root: workspaceRoot,
       root_plan_id: string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
@@ -2734,7 +3516,7 @@ var contracts = Object.freeze({
     }
   },
   workflow_closeout: {
-    description: "Deterministically build and validate one Schema-5 delivery-evidence artifact from observed Checks and cache it in the root-content handoff store.",
+    description: "Deterministically build and validate one Schema-5 delivery-evidence artifact from observed Checks and best-effort cache it in the root-content handoff store.",
     inputSchema: {
       workspace_root: workspaceRoot,
       root_plan_id: string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
@@ -2744,6 +3526,7 @@ var contracts = Object.freeze({
       strategy_revision: number().int().min(0).default(0),
       changed_paths: array(string().min(1).max(1e3)).max(1e3).default([]),
       check_evidence: array(checkEvidence).max(128).default([]),
+      summary: string().min(1).max(2e3).optional(),
       repository_snapshot: object({
         head: string().min(1).optional(),
         working_tree: string().min(1).optional(),
@@ -2753,7 +3536,7 @@ var contracts = Object.freeze({
     }
   },
   workflow_status: {
-    description: "Return current status for an explicit stateless Manual Schema-5 artifact chain.",
+    description: "Return current status and a uniform read-only learning projection for an explicit stateless Manual Schema-5 artifact chain.",
     inputSchema: {
       workspace_root: workspaceRoot,
       root_plan_id: string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
@@ -2804,6 +3587,13 @@ function registerManualWorkflowTools({
   resolveHostToolApprovalPreference = resolveHostToolApproval,
   resolveManualSubagentPolicyPreference = resolveManualSubagentPolicy
 }) {
+  const namedResult = (toolName) => (value, isError = false) => manualMcpResult(toolName, value, isError);
+  const namedFailure = (toolName) => (error) => namedResult(toolName)({
+    error: error.message,
+    ...error?.code ? { error_code: error.code } : {}
+  }, true);
+  const toolAwareResult = (toolName, value, isError = false) => namedResult(toolName)(value, isError);
+  toolAwareResult.toolAware = true;
   const resolveOperationalContext = async (workspaceRoot3) => {
     const workspace = await workspaceAuthority2.resolve(workspaceRoot3);
     return {
@@ -2813,10 +3603,13 @@ function registerManualWorkflowTools({
     };
   };
   const handoffStoreFactory = (rootPlanText, root) => createContentAddressedHandoffStore(rootPlanText, root);
+  const contextResult = namedResult("workflow_artifact_context");
+  const statusResult = namedResult("workflow_status");
+  const preflightResult = namedResult("workflow_plan_preflight");
   const artifactHandlers = createArtifactHandlers({
     pluginRoot: pluginRoot2,
     resolveOperationalContext,
-    result: result2,
+    result: toolAwareResult,
     handoffStoreFactory
   });
   const status = async (input) => {
@@ -2844,10 +3637,11 @@ function registerManualWorkflowTools({
         pluginRoot: pluginRoot2,
         manualAcceptance: input.manual_acceptance ?? null
       });
-      return result2({
+      return statusResult({
         subject_kind: "artifact-chain",
         run: null,
         ...manual,
+        learning: deriveManualLearningProjection(manual),
         ...workspace ? { workspace_root: workspace } : {},
         workspace_binding: workspaceBinding,
         workspace_root_used: Boolean(workspace),
@@ -2856,19 +3650,18 @@ function registerManualWorkflowTools({
         manual_subagent_policy: publicManualSubagentPolicy(resolveManualSubagentPolicyPreference())
       });
     } catch (error) {
-      return failure2(error);
+      return namedFailure("workflow_status")(error);
     }
   };
-  server2.registerTool("workflow_plan_preflight", contract("workflow_plan_preflight"), async (input) => result2(preflightRootPlan(input.root_plan, pluginRoot2)));
+  server2.registerTool("workflow_plan_preflight", contract("workflow_plan_preflight"), async (input) => preflightResult(preflightRootPlan(input.root_plan, pluginRoot2)));
   server2.registerTool("workflow_artifact_record", contract("workflow_artifact_record"), artifactHandlers.record);
   server2.registerTool("workflow_artifact_context", contract("workflow_artifact_context"), async (input) => {
     try {
       if (!input.root_plan) {
-        let legacy = null;
         try {
           const operational = await resolveOperationalContext(input.workspace_root);
-          legacy = operational.legacyHandoffStore.context(input.root_plan_id, null);
-          return result2({
+          const legacy = operational.legacyHandoffStore.context(input.root_plan_id, null);
+          return contextResult({
             workspace_root: operational.workspace,
             workspace_binding: "trusted-root",
             workspace_root_used: true,
@@ -2885,7 +3678,7 @@ function registerManualWorkflowTools({
       resolveRootPlanText(pluginRoot2, { rootPlanId: input.root_plan_id, rootPlan: input.root_plan });
       return artifactHandlers.context(input);
     } catch (error) {
-      return failure2(error);
+      return namedFailure("workflow_artifact_context")(error);
     }
   });
   server2.registerTool("workflow_closeout", contract("workflow_closeout"), artifactHandlers.closeout);
@@ -2896,7 +3689,7 @@ function registerManualWorkflowTools({
 // src/mcp/proof-artifacts.mjs
 import { createHash as createHash3 } from "node:crypto";
 import { lstatSync as lstatSync2, readFileSync as readFileSync3, readdirSync as readdirSync2 } from "node:fs";
-import { join as join3 } from "node:path";
+import { join as join2 } from "node:path";
 var PROOF_LIMITS = Object.freeze({ files: 128, file_bytes: 10 * 1024 * 1024, total_bytes: 32 * 1024 * 1024, depth: 8 });
 function hashStableProofFile(path, stat = lstatSync2, read = readFileSync3, before = stat(path)) {
   if (before.size > PROOF_LIMITS.file_bytes) throw new Error(`verification proof artifact exceeds 10 MiB: ${path}`);
@@ -2911,7 +3704,7 @@ function proofArtifacts(root) {
   const visit = (directory, depth = 0) => {
     if (depth > PROOF_LIMITS.depth) throw new Error(`verification proof artifact depth exceeds ${PROOF_LIMITS.depth}: ${directory}`);
     for (const entry of readdirSync2(directory, { withFileTypes: true })) {
-      const path = join3(directory, entry.name);
+      const path = join2(directory, entry.name);
       if (entry.isSymbolicLink()) throw new Error(`verification proof artifact may not be a symlink: ${path}`);
       if (entry.isDirectory()) visit(path, depth + 1);
       else if (entry.isFile()) {
@@ -3066,6 +3859,7 @@ var WORKFLOW_TOOL_CONTRACTS = Object.freeze({
       strategy_revision: number().int().min(0).default(0),
       changed_paths: array(string().min(1).max(1e3)).max(1e3).default([]),
       check_evidence: array(checkEvidence2).max(128).default([]),
+      summary: string().min(1).max(2e3).optional(),
       repository_snapshot: object({
         head: string().min(1).optional(),
         working_tree: string().min(1).optional(),
@@ -3075,10 +3869,11 @@ var WORKFLOW_TOOL_CONTRACTS = Object.freeze({
     }
   },
   workflow_status: {
-    description: "Return current status for one preparation, adaptive run, or explicit/uniquely active stateless manual schema-5 artifact chain; Workflow-3/4 subjects remain read-only.",
+    description: "Return current status and a uniform read-only learning projection for one preparation, adaptive run, or explicit/uniquely active stateless manual schema-5 artifact chain; controller learning authority requires the ephemeral source receipt from an operational response, and Workflow-3/4 subjects remain read-only.",
     inputSchema: {
       ...subject,
       root_plan_id: string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/).optional(),
+      learning_source_receipt: string().min(1).max(2e3).optional(),
       manual_acceptance: _enum(["provisional"]).optional(),
       artifacts: array(artifact2).min(1).max(32).optional()
     }
@@ -3137,9 +3932,10 @@ function toolContract(name) {
 }
 
 // src/mcp/workflow-mcp.mjs
-var pluginRoot = resolve4(process.env.CURSOR_PLUGIN_ROOT ?? dirname2(dirname2(fileURLToPath2(import.meta.url))));
+var pluginRoot = resolve3(process.env.CURSOR_PLUGIN_ROOT ?? dirname2(dirname2(fileURLToPath2(import.meta.url))));
 var server = new McpServer({ name: "workflow", version: PLUGIN_VERSION });
 var workspaceAuthority = new WorkspaceRootAuthority(() => server.server.listRoots());
+var learningSourceReceipts = createLearningSourceReceiptAuthority();
 server.server.setNotificationHandler(RootsListChangedNotificationSchema, async () => workspaceAuthority.invalidate());
 function result(value, isError = false) {
   return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }], structuredContent: value, isError };
@@ -3178,7 +3974,7 @@ var manualTools = registerManualWorkflowTools({
   contract: toolContract
 });
 function runnerPath() {
-  return resolve4(process.env.GELDMACHER_WORKFLOW_RUNNER ?? fileURLToPath2(new URL("./workflow-runner.mjs", import.meta.url)));
+  return resolve3(process.env.GELDMACHER_WORKFLOW_RUNNER ?? fileURLToPath2(new URL("./workflow-runner.mjs", import.meta.url)));
 }
 function launchRunner({ action, workspace, stateRoot, runId = null, preparationId = null }) {
   const subjectArgs = runId ? ["--run-id", runId] : ["--preparation-id", preparationId];
@@ -3249,7 +4045,13 @@ server.registerTool("workflow_start", toolContract("workflow_start"), async (inp
       const pid = launchRunner({ action: "execute", workspace, stateRoot, runId: run.run_id });
       run = store.update(run.run_id, run.revision, null, (draft) => ({ ...draft, runner_pid: pid }), "runner-launched");
     }
-    return result({ run: runView(run), snapshot: engine.snapshot(run), preparation: preparationView(started.preparation), duplicate: started.duplicate });
+    return result({
+      run: runView(run),
+      snapshot: engine.snapshot(run),
+      preparation: preparationView(started.preparation),
+      learning_source_receipt: learningSourceReceipts.issue(run),
+      duplicate: started.duplicate
+    });
   } catch (error) {
     return failure(error);
   }
@@ -3259,24 +4061,44 @@ server.registerTool("workflow_status", toolContract("workflow_status"), async (i
     const subjectCount = [input.run_id, input.preparation_id, input.root_plan_id].filter(Boolean).length;
     if (subjectCount > 1) throw new Error("workflow_status accepts only one of run_id, preparation_id, or root_plan_id");
     if (input.artifacts && (input.run_id || input.preparation_id)) throw new Error("workflow_status artifacts cannot be combined with a controller subject");
+    if (input.artifacts && input.learning_source_receipt) throw new Error("manual workflow_status does not accept a controller learning source receipt");
     if (input.root_plan_id && !input.artifacts) throw new Error("manual workflow_status requires artifacts with root_plan_id");
     if (input.artifacts) return manualTools.status(input);
     if (input.manual_acceptance) throw new Error("workflow_status manual_acceptance requires current-task artifacts");
-    const { stateRoot, store, preparationStore, engine } = await context(input.workspace_root);
+    const { workspace, stateRoot, store, preparationStore, engine } = await context(input.workspace_root);
     const model_inheritance = modelInheritanceSummary(stateRoot);
     if (input.run_id) {
       const run = store.get(input.run_id);
-      return result({ subject_kind: "run", run: runView(run), snapshot: engine.snapshot(run), model_inheritance });
+      const sourceBinding = learningSourceReceipts.verify(input.learning_source_receipt, run);
+      return result({
+        subject_kind: "run",
+        run: runView(run),
+        snapshot: engine.snapshot(run),
+        learning: deriveControllerLearningContext({ run, events: store.events(run.run_id), workspaceRoot: workspace, pluginRoot, sourceBinding }),
+        model_inheritance
+      });
     }
-    if (input.preparation_id) return result({ subject_kind: "preparation", preparation: preparationView(preparationStore.get(input.preparation_id)), model_inheritance });
+    if (input.preparation_id) {
+      const preparation = preparationStore.get(input.preparation_id);
+      return result({ subject_kind: "preparation", preparation: preparationView(preparation), learning: derivePreparationLearningContext(preparation), model_inheritance });
+    }
     const active = [
       ...store.active().map((run) => ({ kind: "run", value: run })),
       ...preparationStore.active().map((preparation) => ({ kind: "preparation", value: preparation }))
     ];
     if (active.length === 0) throw new Error("no active Workflow Preparation or Run");
     if (active.length > 1) throw new Error("multiple active Workflow subjects require an explicit ID");
-    if (active[0].kind === "run") return result({ subject_kind: "run", run: runView(active[0].value), snapshot: engine.snapshot(active[0].value), model_inheritance });
-    return result({ subject_kind: "preparation", preparation: preparationView(active[0].value), model_inheritance });
+    if (active[0].kind === "run") {
+      const sourceBinding = learningSourceReceipts.verify(input.learning_source_receipt, active[0].value);
+      return result({
+        subject_kind: "run",
+        run: runView(active[0].value),
+        snapshot: engine.snapshot(active[0].value),
+        learning: deriveControllerLearningContext({ run: active[0].value, events: store.events(active[0].value.run_id), workspaceRoot: workspace, pluginRoot, sourceBinding }),
+        model_inheritance
+      });
+    }
+    return result({ subject_kind: "preparation", preparation: preparationView(active[0].value), learning: derivePreparationLearningContext(active[0].value), model_inheritance });
   } catch (error) {
     return failure(error);
   }
@@ -3361,7 +4183,7 @@ server.registerTool("workflow_control", toolContract("workflow_control"), async 
       const pid = launchRunner({ action: "execute", workspace, stateRoot, runId: run.run_id });
       run = store.update(run.run_id, run.revision, null, (draft) => ({ ...draft, runner_pid: pid }), "runner-launched");
     }
-    return result({ subject_kind: "run", run: runView(run), snapshot: engine.snapshot(run), duplicate: mutation.duplicate });
+    return result({ subject_kind: "run", run: runView(run), snapshot: engine.snapshot(run), learning_source_receipt: learningSourceReceipts.issue(run), duplicate: mutation.duplicate });
   } catch (error) {
     return failure(error);
   }
@@ -3373,7 +4195,7 @@ server.registerTool("workflow_answer", toolContract("workflow_answer"), async (i
       if (before.lifecycle !== "waiting-human") throw new Error("run is not waiting for a human answer");
       engine.update(input.run_id, (draft) => ({ ...draft, answers: [...draft.answers ?? [], { at: (/* @__PURE__ */ new Date()).toISOString(), answer: input.answer }], blockers: [], next_action: "replan" }), "answer-recorded");
     });
-    return result({ run: runView(mutation.value), snapshot: engine.snapshot(mutation.value), duplicate: mutation.duplicate });
+    return result({ run: runView(mutation.value), snapshot: engine.snapshot(mutation.value), learning_source_receipt: learningSourceReceipts.issue(mutation.value), duplicate: mutation.duplicate });
   } catch (error) {
     return failure(error);
   }
@@ -3384,7 +4206,7 @@ server.registerTool("workflow_validate_models", toolContract("workflow_validate_
     const config = loadWorkflowConfig(workspace);
     if (config.errors.length > 0) return result({ verified: false, errors: config.errors, capabilities: resolveCapabilities(stateRoot, {}, { pluginRoot }) });
     const profile = resolveRouteProfile(config, route_profile);
-    const validation = new CursorWorkerAdapter({ runDirectory: resolve4(stateRoot, "model-validation"), pluginRoot }).validateProfile(profile);
+    const validation = new CursorWorkerAdapter({ runDirectory: resolve3(stateRoot, "model-validation"), pluginRoot }).validateProfile(profile);
     return result({ ...validation, capabilities: resolveCapabilities(stateRoot, { model_catalog_verified: validation.verified }, { pluginRoot }) });
   } catch (error) {
     return result({
@@ -3411,10 +4233,10 @@ server.registerTool("workflow_verification_profile", toolContract("workflow_veri
       const config = loadWorkflowConfig(workspace);
       if (config.errors.length > 0) throw new Error(`workflow configuration invalid: ${config.errors.join("; ")}`);
       const route = resolveRouteProfile(config, input.route_profile);
-      const proofRoot = join4(stateRoot, "verification-proof-artifacts", inspection.profile_hash, randomUUID());
+      const proofRoot = join3(stateRoot, "verification-proof-artifacts", inspection.profile_hash, randomUUID());
       ownedProofRoot = proofRoot;
       mkdirSync2(proofRoot, { recursive: true, mode: 448 });
-      const adapter = new CursorWorkerAdapter({ runDirectory: join4(stateRoot, "verification-proof-runs", inspection.profile_hash), pluginRoot });
+      const adapter = new CursorWorkerAdapter({ runDirectory: join3(stateRoot, "verification-proof-runs", inspection.profile_hash), pluginRoot });
       const validation = adapter.validateProfile(route);
       const verifier = validation.routes?.verifier;
       if (!validation.verified || !verifier?.selected_candidate || !verifier.model) throw new Error(`verifier route unavailable: ${(validation.errors ?? []).join("; ")}`);

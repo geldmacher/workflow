@@ -33,3 +33,22 @@ test("explanations handle missing, running, correctable, and achieved roots with
   assert.match(runtime, /(?:never|do not) interpret, quote, summarize, explain, use, or pass/i);
   assert.match(runtime, /excluded from explanations and explainer handoffs/i);
 });
+
+test("review and controller handoffs explain in two layers without another model call", () => {
+  const cursorReview = [read("skills/work-review/SKILL.md"), read("references/review-contract.md")].join("\n");
+  const review = [cursorReview, read("targets/codex/skills/review-work/SKILL.md")].join("\n");
+  const automation = read("skills/work-automation/SKILL.md");
+  const explainer = read("agents/work-explainer.md");
+  for (const heading of ["What was achieved", "What this means", "Verification and limits", "Technical traceability"]) {
+    assert.match(`${review}\n${automation}`, new RegExp(heading, "i"));
+  }
+  assert.match(review, /reviewer.*not `?work-explainer`?|no `work-explainer` call/is);
+  assert.match(cursorReview, /first three.*stand alone.*without.*implementation history.*code knowledge/is);
+  assert.match(cursorReview, /separates executor claims from independently inspected evidence/is);
+  assert.match(automation, /outer agent.*(?:never|no).*extra.*(?:phase|model call)/is);
+  assert.match(automation, /Only `achieved`.*Final repository explanation/is);
+  assert.match(automation, /every other state.*Preliminary explanation/is);
+  assert.match(explainer, /Schema-5 Root\/Evidence\/Review chain/i);
+  assert.match(explainer, /Workflow-3\/4 is read-only history/i);
+  assert.doesNotMatch(explainer, /schema-3 root/i);
+});

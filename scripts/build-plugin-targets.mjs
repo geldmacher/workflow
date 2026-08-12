@@ -14,11 +14,18 @@ import {
 import { tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { enumerateReleaseSurface } from "../src/controller/release-surface.mjs";
+import { enumerateReleaseSurface, loadReleaseSurface } from "../src/controller/release-surface.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const targetRoot = join(root, "targets", "codex");
-const expectedSkills = ["accept-work", "close-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-status"];
+const codexTargetRoot = join(root, "targets", "codex");
+const agentPluginsTargetRoot = join(root, "targets", "agent-plugins");
+const cursorExcludedPaths = new Set([
+  ".cursor-plugin/marketplace.json",
+  "schemas/agent-plugins/1.0.0/mcp.schema.json",
+  "schemas/agent-plugins/1.0.0/plugin.schema.json",
+]);
+const expectedCodexSkills = ["accept-work", "close-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-status"];
+const expectedAgentPluginSkills = ["accept-work", "close-work", "correct-work", "explain-work", "implement-work", "learn-from-work", "plan-work", "review-work", "work-status"];
 const manualTools = ["workflow_artifact_context", "workflow_artifact_record", "workflow_closeout", "workflow_plan_preflight", "workflow_status"];
 const forbiddenCodexText = [
   "@cursor/sdk",
@@ -45,10 +52,23 @@ const sharedReferences = [
   "host-approval-contract.md",
   "manual-subagent-policy.md",
   "manual-workflow-contract.md",
+  "manual-attestation-contract.md",
+  "manual-mcp-output-contract.md",
   "plan-container-contract.md",
   "review-contract.md",
   "state-contract.md",
 ];
+const portableSkillReferences = Object.freeze({
+  "accept-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "state-contract.md"],
+  "close-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "delivery-evidence-contract.md", "closeout-contract.md"],
+  "correct-work": ["portable-manual.md", "manual-workflow-contract.md", "correction-contract.md", "artifact-protocol.md", "closeout-contract.md"],
+  "explain-work": ["portable-manual.md", "manual-workflow-contract.md", "state-contract.md", "explanation-contract.md"],
+  "implement-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "executable-contract.md", "delivery-evidence-contract.md", "closeout-contract.md"],
+  "learn-from-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "learning-contract.md"],
+  "plan-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "executable-contract.md", "design-contract.md", "closeout-contract.md"],
+  "review-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "delivery-evidence-contract.md", "review-contract.md", "explanation-contract.md"],
+  "work-status": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "state-contract.md"],
+});
 
 function inside(base, path) {
   const item = relative(base, path);
@@ -102,15 +122,23 @@ function writeJson(path, value) {
 }
 
 function buildCursor(destination) {
-  for (const entry of enumerateReleaseSurface(root, "package_paths")) copyRelative(root, destination, entry.relative_path);
+  for (const entry of enumerateReleaseSurface(root, "package_paths")) {
+    if (!cursorExcludedPaths.has(entry.relative_path)) copyRelative(root, destination, entry.relative_path);
+  }
+  const surface = loadReleaseSurface(root);
+  writeJson(join(destination, "release-surface.json"), releaseSurface(
+    surface.runtime_paths.filter((path) => !cursorExcludedPaths.has(path)),
+    surface.package_extras.filter((path) => !cursorExcludedPaths.has(path)),
+  ));
   assertNoSymlinks(destination);
 }
 
 function buildCodex(destination, version) {
-  for (const item of [".codex-plugin", ".mcp.json", "hooks", "skills", "README.md"]) copyRelative(targetRoot, destination, item);
+  for (const item of [".codex-plugin", ".mcp.json", "hooks", "skills", "README.md"]) copyRelative(codexTargetRoot, destination, item);
   copyRelative(root, destination, "assets");
+  copyRelative(root, destination, "docs/manual-workflow.md");
   for (const name of sharedReferences) copyRelative(join(root, "references"), join(destination, "references"), name);
-  copyRelative(targetRoot, destination, "references/codex-manual.md", "references/codex-manual.md");
+  copyRelative(codexTargetRoot, destination, "references/codex-manual.md", "references/codex-manual.md");
   copyRelative(root, destination, "schemas/artifacts");
   copyRelative(root, destination, "schemas/cursor-plan-wrapper.schema.json");
   copyRelative(root, destination, "scripts/validate-artifact.mjs");
@@ -130,6 +158,7 @@ function buildCodex(destination, version) {
     ".codex-plugin/plugin.json",
     ".mcp.json",
     "assets",
+    "docs",
     "dist",
     "hooks",
     "references",
@@ -143,7 +172,7 @@ function buildCodex(destination, version) {
     .filter((entry) => entry.isDirectory() && existsSync(join(destination, "skills", entry.name, "SKILL.md")))
     .map((entry) => entry.name)
     .sort();
-  if (skills.join("\n") !== expectedSkills.join("\n")) throw new Error(`Codex target skills differ: ${skills.join(", ")}`);
+  if (skills.join("\n") !== expectedCodexSkills.join("\n")) throw new Error(`Codex target skills differ: ${skills.join(", ")}`);
   const mcpBundle = readFileSync(join(destination, "dist", "workflow-mcp.mjs"), "utf8");
   for (const tool of manualTools) if (!mcpBundle.includes(tool)) throw new Error(`Codex MCP bundle is missing ${tool}`);
   const textFiles = files(destination).filter((path) => /\.(?:json|md|mjs|js)$/.test(path));
@@ -151,6 +180,49 @@ function buildCodex(destination, version) {
     const source = readFileSync(path, "utf8");
     for (const forbidden of forbiddenCodexText) if (source.includes(forbidden)) throw new Error(`Codex target leaked ${forbidden} in ${relative(destination, path)}`);
   }
+  assertNoSymlinks(destination);
+}
+
+function buildAgentPlugins(destination, version) {
+  for (const item of ["plugin.json", "mcp.json", "README.md", "skills"]) copyRelative(agentPluginsTargetRoot, destination, item);
+  for (const skill of expectedAgentPluginSkills) {
+    const references = portableSkillReferences[skill];
+    if (!references) throw new Error(`portable reference map is missing ${skill}`);
+    const skillPath = join(destination, "skills", skill, "SKILL.md");
+    const localized = readFileSync(skillPath, "utf8")
+      .replaceAll("../../references/portable-manual.md", "references/portable-manual.md")
+      .replaceAll("../../../../references/", "references/");
+    if (/\]\(\.\.\//.test(localized)) throw new Error(`portable skill ${skill} retains an escaping package reference`);
+    writeFileSync(skillPath, localized);
+    for (const name of references) {
+      const sourceBase = ["manual-workflow-contract.md", "portable-manual.md"].includes(name)
+        ? join(agentPluginsTargetRoot, "references")
+        : join(root, "references");
+      copyRelative(sourceBase, join(destination, "skills", skill, "references"), name);
+    }
+  }
+  copyRelative(root, destination, "schemas/artifacts");
+  copyRelative(root, destination, "scripts/validate-artifact.mjs");
+  copyRelative(root, destination, "dist/codex/workflow-mcp.mjs", "dist/workflow-mcp.mjs");
+  for (const item of ["LICENSE", "THIRD_PARTY_NOTICES.md"]) copyRelative(root, destination, item);
+
+  const manifestPath = join(destination, "plugin.json");
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  if (manifest.name !== "geldmacher-workflow" || manifest.author?.name !== "Geldmacher") {
+    throw new Error("Agent Plugins manifest product identity drifted");
+  }
+  manifest.version = version;
+  writeJson(manifestPath, manifest);
+
+  const skills = readdirSync(join(destination, "skills"), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && existsSync(join(destination, "skills", entry.name, "SKILL.md")))
+    .map((entry) => entry.name)
+    .sort();
+  if (skills.join("\n") !== expectedAgentPluginSkills.join("\n")) {
+    throw new Error(`Agent Plugins target skills differ: ${skills.join(", ")}`);
+  }
+  const mcpBundle = readFileSync(join(destination, "dist", "workflow-mcp.mjs"), "utf8");
+  for (const tool of manualTools) if (!mcpBundle.includes(tool)) throw new Error(`Agent Plugins MCP bundle is missing ${tool}`);
   assertNoSymlinks(destination);
 }
 
@@ -167,12 +239,15 @@ export function buildPluginTargets(outputRoot) {
   const packageJson = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
   const cursor = join(destination, "cursor", "geldmacher-workflow");
   const codex = join(destination, "codex", "geldmacher-workflow");
+  const agentPlugins = join(destination, "agent-plugins", "geldmacher-workflow");
   buildCursor(cursor);
   buildCodex(codex, packageJson.version);
+  buildAgentPlugins(agentPlugins, packageJson.version);
   return {
     version: packageJson.version,
     cursor: { path: cursor, hash: contentDigest(cursor), files: files(cursor).length },
     codex: { path: codex, hash: contentDigest(codex), files: files(codex).length },
+    agentPlugins: { path: agentPlugins, hash: contentDigest(agentPlugins), files: files(agentPlugins).length },
   };
 }
 

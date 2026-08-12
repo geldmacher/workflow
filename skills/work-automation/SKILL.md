@@ -3,17 +3,10 @@ name: work-automation
 description: Operate adaptive supervised and certified autonomous Workflow runs.
 ---
 
-Use bundled `workflow_*` MCP tools; do not hand-edit state, worktrees, receipts, ledgers, or locks. Load only the invoked Command's contract:
+Use bundled `workflow_*` tools; never hand-edit state. Load only: `/auto-work` [Preparation](../../references/automation-preparation-contract.md); `/work-status|work-watch|accept-work` [state](../../references/state-contract.md); `/work-control` plus [authorization](../../references/automation-contract.md); `/work-models` [pools](../../references/model-routing-contract.md); `/work-verification` [Profiles](../../references/verification-profile-contract.md).
 
-- `/auto-work`: [Preparation and Intent approval](../../references/automation-preparation-contract.md)
-- `/work-status` or `/work-watch`: [derived state](../../references/state-contract.md)
-- `/accept-work`: [derived state](../../references/state-contract.md)
-- `/work-control`: [derived state](../../references/state-contract.md) and [adaptive authorization](../../references/automation-contract.md)
-- `/work-models`: [model pools](../../references/model-routing-contract.md)
-- `/work-verification`: [Verification Profiles](../../references/verification-profile-contract.md)
+Before mutation read fresh status, revision, and unique idempotency key. No result grants unstated authority. Never push, PR, merge, deploy, integrate, or auto-learn. Replan passes exact predecessor/review `root_artifacts`; invalid lineage stops.
 
-Before mutation, read fresh status; use its revision and a unique idempotency key. Waiting, incompatibility, or rejection grants nothing. Adapt Strategy only inside approved authority. Keep delivery local; never push, PR, merge, deploy, integrate, or learn automatically.
+Manual status/acceptance sends exact task artifacts; omit `root_plan_id` only for their unique active lineage tip. Never infer authority/evidence. Missing/ambiguous waits; invalid replans. Send `manual_acceptance: provisional` only after explicit `/accept-work`; never persist it. Workflow-3/4 is status-only.
 
-For an `/auto-work` replan, pass its exact predecessor/review chain as `root_artifacts`; invalid lineage stops.
-
-For Manual status or provisional acceptance, send exact current-task artifacts; omit `root_plan_id` only to resolve their unique active lineage tip. Never infer approval, state, or evidence. Missing or ambiguous artifacts wait; invalid chains replan; corrections stay human-authorized. Pass `manual_acceptance: provisional` only for explicit `/accept-work`; never persist it. Workflow-3/4 is status-only history.
+A reviewed Run that is delivery-ready/terminal is explained by the outer agent from Root, Strategy, Evidence/reviewer receipts, paths and snapshot—never an extra phase, route, tool, or model call. Order `What was achieved`, `What this means`, `Verification and limits`, then `Technical traceability` with IDs/paths. Only `achieved` is **Final repository explanation**; every other state is **Preliminary explanation** with blockers and next safe action. Verified acceptance becomes final.

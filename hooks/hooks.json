@@ -13,6 +13,11 @@
         "type": "command",
         "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"",
         "failClosed": false
+      },
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/closeout-guard.mjs\"",
+        "failClosed": false
       }
     ],
     "preToolUse": [
@@ -26,6 +31,12 @@
         "type": "command",
         "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/plan-integrity-guard.mjs\"",
         "matcher": "CreatePlan",
+        "failClosed": true
+      },
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/closeout-guard.mjs\"",
+        "matcher": "TodoWrite|Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook",
         "failClosed": true
       }
     ],
@@ -49,6 +60,33 @@
         "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"",
         "matcher": "Task",
         "failClosed": false
+      },
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/closeout-guard.mjs\"",
+        "matcher": "MCP:workflow_closeout",
+        "failClosed": true
+      },
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/closeout-guard.mjs\"",
+        "matcher": "Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook",
+        "failClosed": false
+      }
+    ],
+    "afterAgentResponse": [
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/closeout-guard.mjs\"",
+        "failClosed": true
+      }
+    ],
+    "stop": [
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/closeout-guard.mjs\"",
+        "failClosed": true,
+        "loop_limit": 1
       }
     ]
   }

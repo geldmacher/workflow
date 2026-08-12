@@ -20,7 +20,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "workflow_plan_preflight|workflow_artifact_record|workflow_closeout",
+        "matcher": "*",
         "hooks": [{"type": "command", "command": "node \"${PLUGIN_ROOT}/dist/workflow-hook.mjs\"", "timeout": 10}]
       }
     ],

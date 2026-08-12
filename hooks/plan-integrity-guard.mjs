@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { inspectArtifactText, validateArtifactText } from "../scripts/validate-artifact.mjs";
+import { inspectArtifactText, preflightRootPlan, validateArtifactText } from "../scripts/validate-artifact.mjs";
+import { recordActiveRootPlan } from "./closeout-guard.mjs";
 
 const MAX_INPUT_BYTES = 1024 * 1024;
 const pluginRoot = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -12,6 +13,12 @@ function schema5Claim(plan, root) {
   const inspected = inspectArtifactText(plan, root);
   if (inspected.artifact?.fields?.artifact === "work-plan" && inspected.artifact.fields.schema === 5) return true;
   return /```yaml artifact-envelope[\s\S]*?\bartifact:\s*work-plan\b[\s\S]*?\bschema:\s*5\b[\s\S]*?```/i.test(plan);
+}
+
+function extractRootPlanText(plan) {
+  const fenced = plan.match(/```yaml artifact-envelope\s*([\s\S]*?)```([\s\S]*)$/i);
+  if (!fenced?.[1]) return null;
+  return `---\n${fenced[1].trim()}\n---\n${String(fenced[2] ?? "").trimStart()}`;
 }
 
 function nativePlanText(input) {
@@ -38,9 +45,26 @@ export function evaluateCreatePlanGuard(input, options = {}) {
     return deny("Workflow Schema-5 CreatePlan denied: native todos are required, and the last todo must perform deterministic closeout.");
   }
   const failures = validateArtifactText(nativePlanText(toolInput), root);
-  if (failures.length === 0) return {};
-  const details = failures.slice(0, 8).map((failure) => String(failure).replace(/\s+/g, " ").slice(0, 300)).join("; ");
-  return deny(`Workflow Schema-5 CreatePlan denied: ${details}. Repair the Root/todos and call CreatePlan again; no Plan was created.`);
+  if (failures.length > 0) {
+    const details = failures.slice(0, 8).map((failure) => String(failure).replace(/\s+/g, " ").slice(0, 300)).join("; ");
+    return deny(`Workflow Schema-5 CreatePlan denied: ${details}. Repair the Root/todos and call CreatePlan again; no Plan was created.`);
+  }
+  const rootText = extractRootPlanText(toolInput.plan);
+  if (rootText) {
+    const preflight = (options.preflightRootPlan ?? preflightRootPlan)(rootText, root);
+    if (!preflight.feasible) {
+      const details = (preflight.blocking_issues ?? []).slice(0, 8)
+        .map((issue) => String(issue.message ?? issue).replace(/\s+/g, " ").slice(0, 300))
+        .join("; ");
+      return deny(`Workflow Schema-5 CreatePlan denied: Root preflight failed${details ? `: ${details}` : ""}. Repair the Root and call CreatePlan again; no Plan was created.`);
+    }
+    const inspected = inspectArtifactText(rootText, root);
+    const rootPlanId = inspected.artifact?.fields?.id ?? null;
+    if (rootPlanId) {
+      recordActiveRootPlan(input, { rootPlanId, rootPlanText: rootText }, options);
+    }
+  }
+  return {};
 }
 
 async function readInput() {

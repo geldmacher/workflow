@@ -1,7 +1,6 @@
 {
   "schema": 1,
   "runtime_paths": [
-    ".cursor-plugin/marketplace.json",
     ".cursor-plugin/plugin.json",
     "agents",
     "assets",
@@ -26,6 +25,7 @@
     "skills"
   ],
   "package_extras": [
+    ".cursor-plugin/marketplace.json",
     "CHANGELOG.md",
     "CONTROLLER_THIRD_PARTY_NOTICES.md",
     "LICENSE",

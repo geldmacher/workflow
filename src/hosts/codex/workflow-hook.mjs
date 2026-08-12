@@ -1,12 +1,29 @@
-#!/usr/bin/env node
 import { createHash, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { evaluateCodexHook } from "../../core/codex-hook-policy.mjs";
 
 const MAX_INPUT_BYTES = 1024 * 1024;
 const digest = (value) => createHash("sha256").update(String(value)).digest("hex");
+
+export function resolveCodexPluginRoot(here = dirname(fileURLToPath(import.meta.url))) {
+  let current = resolve(here);
+  for (let i = 0; i < 8; i += 1) {
+    if (
+      existsSync(join(current, "references", "artifact-protocol.md"))
+      || existsSync(join(current, "scripts", "validate-artifact.mjs"))
+      || existsSync(join(current, "scripts", "validate-artifact.source.mjs"))
+    ) {
+      return current;
+    }
+    const parent = dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return resolve(here, "../..");
+}
 
 function statePath(input, root = null) {
   const base = resolve(root ?? process.env.PLUGIN_DATA ?? join(homedir(), ".codex", "geldmacher-workflow"));
@@ -31,7 +48,8 @@ function writeState(path, value) {
 
 export function runCodexHook(input, options = {}) {
   const path = statePath(input, options.stateRoot);
-  const evaluated = evaluateCodexHook(input, readState(path), options);
+  const pluginRoot = options.pluginRoot ?? resolveCodexPluginRoot();
+  const evaluated = evaluateCodexHook(input, readState(path), { ...options, pluginRoot });
   writeState(path, evaluated.state);
   return evaluated.output;
 }

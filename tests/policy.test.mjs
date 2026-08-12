@@ -17,8 +17,8 @@ test("manual commands preserve Cursor-native human gates", () => {
 
 test("review is fresh and read-only but may use Cursor inspection capabilities", () => {
   const runtime = [read("commands/review-work.md"), read("skills/work-review/SKILL.md"), read("references/review-contract.md")].join("\n");
-  assert.match(runtime, /fresh Cursor Ask context/i);
-  assert.match(runtime, /(?:do not inherit|without) Writer assumptions/i);
+  assert.match(runtime, /fresh Cursor Ask(?: context)?/i);
+  assert.match(runtime, /(?:do not inherit|without) Writer assumptions|not Writer/i);
   assert.match(runtime, /read-only/i);
   assert.match(runtime, /MCP/);
   assert.match(runtime, /(?:cannot|never) (?:upgrade|raise)/i);
@@ -29,8 +29,8 @@ test("review without a selector uses the active native Plan before controller st
   const runtime = [command, read("skills/work-review/SKILL.md"), read("references/review-contract.md")].join("\n");
   assert.match(command, /optional `wp-\*`.*without it.*active native Cursor Plan/is);
   assert.match(runtime, /Manual(?: activity)? needs no Preparation\/Run/i);
-  assert.match(runtime, /active Plan's Schema-5 chain.*else the unique active Run/is);
-  assert.match(runtime, /ignore unscoped `workflow_status` for Manual resolution/i);
+  assert.match(runtime, /active (?:Plan's Schema-5|Schema-5 Plan) chain.*else (?:the )?unique (?:active )?Run/is);
+  assert.match(runtime, /ignore unscoped `workflow_status`(?: for Manual resolution)?/i);
   assert.match(runtime, /Root (?:without Evidence|resolution succeeds but Evidence is still absent).*\/close-work/is);
   assert.match(runtime, /task artifacts first.*workflow_artifact_context.*transport enrichment/is);
   assert.match(runtime, /(?:Missing workspace binding|roots-request-failed\|roots-empty).*cannot discard.*task Root\/Evidence chain/is);
@@ -61,10 +61,37 @@ test("planning uses compact semantic Root with immutable intent and adaptive str
   assert.match(runtime, /subagents.*inherit.*(?:main|its) model/is);
   assert.match(runtime, /Manual approved candidate|parent-or-approved/i);
   assert.match(runtime, /\[workflow-model-inherit-v1\]/);
+  assert.match(runtime, /correctness.*security.*maintainability.*performance.*efficiency.*comprehensibility/is);
+  assert.match(runtime, /never a six-item checklist/i);
+  assert.match(runtime, /advanced tests(?: and |\/)scanners stay optional/i);
+});
+
+test("Codex and portable targets explain receipt boundaries without a new Manual step", () => {
+  const codex = [
+    "plan-work",
+    "close-work",
+    "correct-work",
+    "review-work",
+    "work-status",
+  ].map((name) => read(`targets/codex/skills/${name}/SKILL.md`)).join("\n");
+  assert.match(codex, /exact standalone planned command.*leading `rtk`/is);
+  assert.match(codex, /host records receipts automatically|Host receipts are automatic/is);
+  assert.match(codex, /constraint_summary.*human_attention.*problem_details/is);
+  assert.match(read("targets/codex/references/codex-manual.md"), /adds no human setup step|never adds a human setup step/i);
+
+  const portable = [
+    read("targets/agent-plugins/skills/implement-work/SKILL.md"),
+    read("targets/agent-plugins/skills/close-work/SKILL.md"),
+    read("targets/agent-plugins/references/portable-manual.md"),
+  ].join("\n");
+  assert.match(portable, /does not standardize native (?:lifecycle )?receipt hooks/i);
+  assert.match(portable, /downgrade.*fresh (?:human )?review/is);
+  assert.match(portable, /never fabricate|Do not loop or fabricate/is);
+  assert.match(portable, /current-delivery Problem|current-delivery limitation/is);
 });
 
 test("manual correction remains bounded and verification-only can avoid edits", () => {
-  const runtime = [read("commands/correct-work.md"), read("skills/work-execution/SKILL.md")].join("\n");
+  const runtime = [read("commands/correct-work.md"), read("skills/work-execution/SKILL.md"), read("references/correction-contract.md"), read("references/closeout-contract.md")].join("\n");
   assert.match(runtime, /accepts no arguments/);
   assert.match(runtime, /satisfied\|pending\|partial\|conflicted/);
   assert.match(runtime, /Verification-only avoids edits/i);
@@ -74,12 +101,19 @@ test("manual correction remains bounded and verification-only can avoid edits", 
   assert.match(runtime, /may delegate bounded/i);
   assert.match(runtime, /omit Task model overrides/i);
   assert.match(runtime, /primary owns execution, integration, and closeout/i);
+  assert.match(runtime, /every inherited required Root Check not effectively `?passed`?/i);
+  assert.match(runtime, /Equivalent Checks (?:run|may share).*once|Equivalent Root\/correction Checks may share one current closeout observation/is);
+  assert.match(runtime, /unavailable or failed.*explicit/i);
+  assert.match(runtime, /each machine Check.*exact standalone planned command.*leading `rtk`/is);
+  assert.match(runtime, /Receipts downgrade unattested\/stale\/rootless proof, preserve failure/is);
+  assert.match(runtime, /invalidate mutations/i);
 });
 
 test("manual closeout is deterministic recovery and cannot mutate the repository", () => {
   const runtime = [read("commands/close-work.md"), read("skills/work-closeout/SKILL.md"), read("references/closeout-contract.md")].join("\n");
   assert.match(runtime, /workflow_closeout/);
-  assert.match(runtime, /artifact byte-for-byte|artifact unchanged/i);
+  assert.match(runtime, /structuredContent\.artifact|artifact unchanged|byte-for-byte/i);
+  assert.match(runtime, /handoff_persisted|attach/i);
   assert.match(runtime, /does not authorize repository mutation/i);
   assert.match(runtime, /local, non-interactive/i);
   assert.match(runtime, /fingerprints for every tracked, visible untracked, and Check-prerequisite path/is);
@@ -107,8 +141,9 @@ test("manual status, acceptance, explanation, and learning share fail-closed act
 
   const learning = [read("skills/work-learning/SKILL.md"), read("references/learning-contract.md")].join("\n");
   assert.match(learning, /active native Cursor Plan/i);
-  assert.match(learning, /achieved Schema-5 Root/i);
-  assert.match(learning, /never (?:fall back to|use) older completed Roots/i);
+  assert.match(learning, /exact current.*Schema-5.*chain/is);
+  assert.match(learning, /one exact controller Run already returned in the task|otherwise one controller Run.*current task/is);
+  assert.match(learning, /latest\/history\/store lookup stops|never search storage/is);
 });
 
 test("automation documents ordered Pools, writer affinity, and automatic downgrade", () => {
@@ -130,8 +165,10 @@ test("verification profile is hash bound and drift invalidates activation", () =
 
 test("learning stays human invoked and does not publish transcript rules", () => {
   const runtime = [read("commands/learn-from-work.md"), read("skills/work-learning/SKILL.md"), read("references/learning-contract.md"), read("references/automation-contract.md")].join("\n");
-  assert.match(runtime, /human authorization for bounded project-guidance edits/i);
+  assert.match(runtime, /(?:separately|directly?) authoriz\w* bounded project-guidance edits/i);
   assert.match(runtime, /transcripts(?: and provisional acceptance)? never publish rules automatically/i);
+  assert.match(runtime, /workspace[-_]match|delivered paths matching/i);
+  assert.match(runtime, /separate human/i);
   assert.match(runtime, /applied\|already-covered\|skipped-unconfirmed\|needs-clarification/i);
 });
 

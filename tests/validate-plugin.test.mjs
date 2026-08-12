@@ -16,20 +16,32 @@ async function createFixture(explicitPaths) {
   await write(join(root, ".cursor-plugin", "plugin.json"), JSON.stringify(manifest));
   const command = "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"";
   const planCommand = "node \"${CURSOR_PLUGIN_ROOT}/hooks/plan-integrity-guard.mjs\"";
+  const closeoutCommand = "node \"${CURSOR_PLUGIN_ROOT}/hooks/closeout-guard.mjs\"";
   await write(join(root, "hooks", "hooks.json"), JSON.stringify({
     version: 1,
     hooks: {
       sessionStart: [{ type: "command", command, failClosed: false }],
-      beforeSubmitPrompt: [{ type: "command", command, failClosed: false }],
+      beforeSubmitPrompt: [
+        { type: "command", command, failClosed: false },
+        { type: "command", command: closeoutCommand, failClosed: false },
+      ],
       preToolUse: [
         { type: "command", command, matcher: "Task", failClosed: true },
         { type: "command", command: planCommand, matcher: "CreatePlan", failClosed: true },
+        { type: "command", command: closeoutCommand, matcher: "TodoWrite|Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook", failClosed: true },
       ],
       subagentStart: [{ type: "command", command, failClosed: true }],
       subagentStop: [{ type: "command", command, failClosed: false }],
-      postToolUse: [{ type: "command", command, matcher: "Task", failClosed: false }],
+      postToolUse: [
+        { type: "command", command, matcher: "Task", failClosed: false },
+        { type: "command", command: closeoutCommand, matcher: "MCP:workflow_closeout", failClosed: true },
+        { type: "command", command: closeoutCommand, matcher: "Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook", failClosed: false },
+      ],
+      afterAgentResponse: [{ type: "command", command: closeoutCommand, failClosed: true }],
+      stop: [{ type: "command", command: closeoutCommand, failClosed: true, loop_limit: 1 }],
     },
   }));
+  await write(join(root, "hooks", "closeout-guard.mjs"), "process.stdout.write('{}');\n");
   await write(join(root, "hooks", "manual-subagent-policy.mjs"), "export const placeholder = true;\n");
   await write(join(root, "hooks", "model-inheritance-state.mjs"), "export const placeholder = true;\n");
   await write(join(root, "hooks", "plan-integrity-guard.mjs"), "process.stdout.write('{}');\n");
@@ -43,7 +55,7 @@ async function createFixture(explicitPaths) {
   for (const name of ["work-automation", "work-closeout", "work-execution", "work-explanation", "work-learning", "work-planning", "work-review"]) {
     await write(join(root, "skills", name, "SKILL.md"), `---\nname: ${name}\ndescription: Skill.\n---\n`);
   }
-  for (const name of ["artifact-protocol", "automation-contract", "automation-preparation-contract", "closeout-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "host-approval-contract", "learning-contract", "manual-subagent-policy", "manual-workflow-contract", "model-routing-contract", "plan-container-contract", "review-contract", "state-contract", "verification-profile-contract"]) {
+  for (const name of ["artifact-protocol", "automation-contract", "automation-preparation-contract", "closeout-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "host-approval-contract", "learning-contract", "manual-attestation-contract", "manual-subagent-policy", "manual-workflow-contract", "model-routing-contract", "plan-container-contract", "review-contract", "state-contract", "verification-profile-contract"]) {
     await write(join(root, "references", `${name}.md`), `# ${name}\n`);
   }
   await write(join(root, "schemas", "cursor-plan-wrapper.schema.json"), JSON.stringify({

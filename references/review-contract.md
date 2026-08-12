@@ -1,9 +1,9 @@
 # Review Schema 5
 
-A `work-review` binds Root/evidence, verdict, route, auditors, action, and coverage; it never upgrades evidence.
+A `work-review` binds Root/Evidence to a verdict; never upgrades proof. Inline-inspect chain/tip, Authority, paths, failures and Checks. Fixed `replan|clarify` stops. Low/medium Manual is `inline`; `targeted` adds delivery/design; `full` adds delivery/risk and material design. Certified, Hard-Trigger, unresolved high/critical or cross-cutting requires `full`.
 
-Start inline on chain/tip, Authority, paths, failures, and required evidence. Proven `replan|clarify` stops before delegation/live Checks. Otherwise `inline` fits bounded low/medium Manual; `targeted` adds one delivery/design auditor; `full` requires inline/delivery/risk, plus design for material architecture/interfaces. Certified, Hard-Trigger, unresolved high/critical, or cross-cutting risk requires full.
+Resolve explicit `wp-*`, active Plan, unique Run. Task artifacts beat cache; roots-request/empty keeps exact task chain. Errors or ambiguous identity authorize nothing. Manual ignores controller state.
 
-Resolve explicit `wp-*`, else active Plan chain, else unique Run. Task artifacts precede cache. Roots-request/empty retains an exact task Root/Evidence chain; other Root/semantic errors block. Manual needs no controller state; missing/ambiguous identity emits nothing.
+Manual fresh `achieved/verified/none` completes; provisional and Supervised need acceptance; qualified Autonomous needs verified Evidence. Failure blocks; gaps may be provisional. `correct` is Findings-backed/in-authority; boundary change means `replan`.
 
-`achieved/verified/none` needs central acceptance and required Checks. Non-failed gaps may be provisional; failures block. `correct` stays Findings-backed/in-authority; changed boundaries require `replan`.
+Every review explains—no `work-explainer` call—using `What was achieved`, `What this means`, `Verification and limits`, then `Technical traceability`. The first three stand alone without implementation history or code knowledge. Traceability names exact Root/Evidence/Review, Check/Finding, path/symbol IDs; separates executor claims from independently inspected evidence; exposes unknowns. Only `achieved` gets **Final repository explanation**; otherwise use **Preliminary explanation** with blockers and next safe action. Use `### Next step` while actionable, `### Done` only for achieved. Non-achieved Manual adds `Meaning:` and the [guide](https://github.com/geldmacher/workflow/blob/main/docs/manual-workflow.md#review-results-and-next-actions).

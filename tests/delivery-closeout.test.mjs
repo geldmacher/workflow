@@ -1,11 +1,17 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { ArtifactHandoffStore } from "../src/controller/artifact-handoff.mjs";
 import { buildDeliveryEvidence, persistCloseout } from "../src/controller/delivery-closeout.mjs";
-import { defaultRoot, inspectArtifactSet, inspectArtifactText } from "../scripts/validate-artifact.source.mjs";
+import {
+  defaultRoot,
+  executionContractFromArtifactText,
+  inspectArtifactSet,
+  inspectArtifactText,
+} from "../scripts/validate-artifact.source.mjs";
 
 const controlledRoot = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
 const leanRoot = controlledRoot
@@ -23,6 +29,30 @@ const verified = [{
   artifact_hashes: ["b".repeat(64)],
   limitations: [],
 }];
+
+const supported = [{
+  ...verified[0],
+  grade: "supported",
+  repetitions: 0,
+  limitations: ["The initial observation does not reach verified confidence."],
+}];
+
+function manualReceipt(receiptHash) {
+  return {
+    schema: 1,
+    kind: "manual-check-receipt",
+    root_hash: "a".repeat(64),
+    check_id: "CHECK-1",
+    command_hash: createHash("sha256").update("npm test").digest("hex"),
+    working_directory: ".",
+    repository_key: "test-repository",
+    snapshot_fingerprint: "f".repeat(64),
+    result_status: "passed",
+    tool_response_hash: "e".repeat(64),
+    repetition_ordinal: 1,
+    receipt_hash: receiptHash,
+  };
+}
 
 function correctionReview(evidenceId) {
   return `---
@@ -184,6 +214,29 @@ Replan the changed intent in a fresh Root.
 `;
 }
 
+test("closeout inherits explicit nested Verification checks instead of synthesizing them", () => {
+  const contract = executionContractFromArtifactText(controlledRoot, defaultRoot);
+  assert.equal(contract.checks[0]["Command or Inspection"], "npm test");
+  assert.equal(contract.checks[0]["Expected Result"], "Retry verification passes twice");
+  assert.equal(contract.checks[0]["Evidence Class"], "machine-verifiable");
+  const result = buildDeliveryEvidence({
+    rootPlanText: controlledRoot,
+    checkEvidence: [{
+      ...verified[0],
+      method: "npm test",
+      expected: "Retry verification passes twice",
+    }],
+    changedPaths: ["src/retry.mjs"],
+    strategyRevision: 2,
+    effectiveProfile: "supervised",
+    repositorySnapshot: { head: "abc123", working_tree: "modified", relevant_fingerprints: "none", known_failures: "none" },
+    pluginRoot: defaultRoot,
+  });
+  assert.equal(result.fields.overall_grade, "verified");
+  assert.match(result.artifact, /method: npm test/);
+  assert.doesNotMatch(result.artifact, /verification-profile/);
+});
+
 test("closeout deterministically builds full controlled evidence", () => {
   const first = buildDeliveryEvidence({
     rootPlanText: controlledRoot,
@@ -335,6 +388,7 @@ test("separated contexts preserve Root, initial Evidence, review, correction Evi
       checkEvidence: verified,
       changedPaths: ["src/retry.mjs"],
       effectiveProfile: "manual",
+      manualCheckReceipts: [manualReceipt("d".repeat(64))],
       pluginRoot: defaultRoot,
     });
     firstContext.record([{ label: initial.fields.id, text: initial.artifact }]);
@@ -348,11 +402,14 @@ test("separated contexts preserve Root, initial Evidence, review, correction Evi
       checkEvidence: [{ ...verified[0], check_id: "CHECK-101", observed: "Focused assertion and suite passed" }],
       changedPaths: ["tests/retry.test.mjs"],
       effectiveProfile: "manual",
+      manualCheckReceipts: [manualReceipt("e".repeat(64))],
       pluginRoot: defaultRoot,
     });
     assert.equal(correction.fields.representation, "delta");
     assert.equal(correction.fields.source_review_id, "wr-closeout-correction");
     assert.equal(correction.fields.predecessor_evidence_id, initial.fields.id);
+    assert.deepEqual(correction.fields.executed_checks, ["CHECK-101"]);
+    assert.deepEqual(correction.fields.reused_checks, ["CHECK-1"]);
     new ArtifactHandoffStore(directory, defaultRoot).record([{ label: correction.fields.id, text: correction.artifact }]);
 
     const followup = followupReview(correction.fields.id);
@@ -371,6 +428,112 @@ test("separated contexts preserve Root, initial Evidence, review, correction Evi
     assert.equal(fresh.artifacts.length, 5);
   } finally {
     rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("correction closeout refreshes inherited non-passed Root Checks without duplicating equivalent probes", () => {
+  const initial = buildDeliveryEvidence({
+    rootPlanText: leanRoot,
+    checkEvidence: supported,
+    changedPaths: ["src/retry.mjs"],
+    effectiveProfile: "manual",
+    pluginRoot: defaultRoot,
+  });
+  const review = correctionReview(initial.fields.id);
+  const artifacts = [
+    { label: initial.fields.id, text: initial.artifact },
+    { label: "review", text: review },
+  ];
+  const sharedProbeHash = "c".repeat(64);
+  const correctionCheck = {
+    ...verified[0],
+    check_id: "CHECK-101",
+    method: "one current equivalent probe",
+    observed: "The shared correction and Root probe passed.",
+    repetitions: 1,
+    artifact_hashes: [sharedProbeHash],
+  };
+  const rootRefresh = {
+    ...correctionCheck,
+    check_id: "CHECK-1",
+  };
+
+  assert.throws(() => buildDeliveryEvidence({
+    rootPlanText: leanRoot,
+    artifacts,
+    checkEvidence: [correctionCheck],
+    changedPaths: ["tests/retry.test.mjs"],
+    effectiveProfile: "manual",
+    pluginRoot: defaultRoot,
+  }), /fresh evidence for inherited non-passed Root Checks: CHECK-1/);
+
+  const correction = buildDeliveryEvidence({
+    rootPlanText: leanRoot,
+    artifacts,
+    checkEvidence: [correctionCheck, rootRefresh],
+    changedPaths: ["tests/retry.test.mjs"],
+    effectiveProfile: "manual",
+    manualCheckReceipts: [manualReceipt(sharedProbeHash)],
+    pluginRoot: defaultRoot,
+  });
+  assert.equal(correction.fields.representation, "delta");
+  assert.equal(correction.fields.status, "complete");
+  assert.equal(correction.fields.overall_grade, "verified");
+  assert.deepEqual(correction.fields.executed_checks, ["CHECK-101", "CHECK-1"]);
+  assert.deepEqual(correction.fields.reused_checks, []);
+  assert.deepEqual(correction.fields.affected_objectives, ["OBJ-1"]);
+  assert.deepEqual(correction.fields.reused_objectives, []);
+  assert.deepEqual(correction.fields.check_evidence.map((entry) => entry.artifact_hashes), [[sharedProbeHash], [sharedProbeHash]]);
+
+  const chain = [
+    ["root", leanRoot],
+    ["initial", initial.artifact],
+    ["review", review],
+    ["correction", correction.artifact],
+    ["followup", followupReview(correction.fields.id)],
+  ];
+  assert.deepEqual(inspectArtifactSet(chain, defaultRoot).errors, []);
+});
+
+test("correction Root refresh preserves unavailable and failed proof instead of fabricating completion", () => {
+  const initial = buildDeliveryEvidence({
+    rootPlanText: leanRoot,
+    checkEvidence: supported,
+    changedPaths: ["src/retry.mjs"],
+    effectiveProfile: "manual",
+    pluginRoot: defaultRoot,
+  });
+  const review = correctionReview(initial.fields.id);
+  const artifacts = [
+    { label: initial.fields.id, text: initial.artifact },
+    { label: "review", text: review },
+  ];
+  const correctionCheck = { ...verified[0], check_id: "CHECK-101", observed: "The focused correction probe passed." };
+  for (const [grade, expectedStatus] of [["unavailable", "provisional"], ["failed", "blocked"]]) {
+    const rootRefresh = {
+      ...verified[0],
+      grade,
+      observed: grade === "failed" ? "The required Root probe failed." : "The required Root probe could not run.",
+      repetitions: grade === "unavailable" ? 0 : 1,
+      limitations: [grade === "failed" ? "Observed failure remains blocking." : "The required verification surface is unavailable."],
+    };
+    const correction = buildDeliveryEvidence({
+      rootPlanText: leanRoot,
+      artifacts,
+      checkEvidence: [correctionCheck, rootRefresh],
+      changedPaths: ["tests/retry.test.mjs"],
+      effectiveProfile: "manual",
+      pluginRoot: defaultRoot,
+    });
+    assert.equal(correction.fields.status, expectedStatus);
+    assert.notEqual(correction.fields.overall_grade, "verified");
+    assert.match(inspectArtifactSet([
+      ["root", leanRoot],
+      ["initial", initial.artifact],
+      ["review", review],
+      ["correction", correction.artifact],
+      ["followup", followupReview(correction.fields.id)],
+    ], defaultRoot).errors.join("\n"), /achieved requires complete effective root-check evidence|known failed or blocked evidence/);
   }
 });
 

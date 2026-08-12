@@ -19,7 +19,9 @@ import {
 import {
   contentAddressedHandoffRoot,
   contentAddressedHandoffRootByHash,
+  handoffTipDirectory,
   handoffTipPath,
+  legacyHandoffTipPath,
   rootContentHash,
 } from "../core/state-paths.mjs";
 import {
@@ -40,6 +42,55 @@ export function createContentAddressedHandoffStoreByHash(rootHash, pluginRoot, o
   return new ArtifactHandoffStore(contentAddressedHandoffRootByHash(rootHash, options), pluginRoot);
 }
 
+export function quarantineContentAddressedHandoffArtifact({
+  rootHash,
+  artifactId,
+  expectedTextHash,
+  pluginRoot,
+  apply = false,
+  now = () => new Date(),
+  options = {},
+}) {
+  if (!/^[a-f0-9]{64}$/.test(String(rootHash ?? ""))) throw new Error("handoff quarantine requires an exact Root-content SHA-256");
+  const store = createContentAddressedHandoffStoreByHash(rootHash, pluginRoot, options);
+  return store.quarantineArtifact(artifactId, { expectedTextHash, apply, now });
+}
+
+function validateTip(tip, rootPlanId) {
+  if (tip?.handoff_tip_schema !== HANDOFF_TIP_SCHEMA
+    || tip.root_plan_id !== rootPlanId
+    || !/^[a-f0-9]{64}$/.test(String(tip.root_content_hash ?? ""))
+    || !/^[a-f0-9]{64}$/.test(String(tip.text_hash ?? ""))) {
+    throw new Error(`incompatible or corrupt handoff tip ${rootPlanId}`);
+  }
+  return tip;
+}
+
+function readTipFile(path, rootPlanId) {
+  if (!existsSync(path)) return null;
+  return validateTip(JSON.parse(readFileSync(path, "utf8")), rootPlanId);
+}
+
+function listHandoffTips(rootPlanId, options = {}) {
+  const tips = new Map();
+  const directory = handoffTipDirectory(rootPlanId, options);
+  if (existsSync(directory)) {
+    for (const name of readdirSync(directory, { withFileTypes: true })) {
+      if (!name.isFile() || !name.name.endsWith(".json")) continue;
+      const tip = readTipFile(join(directory, name.name), rootPlanId);
+      if (!tip) continue;
+      const prior = tips.get(tip.root_content_hash);
+      if (prior && prior.text_hash !== tip.text_hash) {
+        throw new Error(`handoff tip for ${rootPlanId} has conflicting text for root content hash ${tip.root_content_hash}`);
+      }
+      tips.set(tip.root_content_hash, tip);
+    }
+  }
+  const legacy = readTipFile(legacyHandoffTipPath(rootPlanId, options), rootPlanId);
+  if (legacy && !tips.has(legacy.root_content_hash)) tips.set(legacy.root_content_hash, legacy);
+  return [...tips.values()].sort((left, right) => left.root_content_hash.localeCompare(right.root_content_hash));
+}
+
 function writeHandoffTip(rootPlanText, options = {}) {
   const inspected = inspectArtifactText(rootPlanText, options.pluginRoot);
   if (inspected.errors.length > 0 || inspected.artifact?.fields?.artifact !== "work-plan") {
@@ -52,34 +103,29 @@ function writeHandoffTip(rootPlanText, options = {}) {
     text_hash: sha256(rootPlanText),
     updated_at: new Date().toISOString(),
   };
-  const path = handoffTipPath(tip.root_plan_id, options);
+  const path = handoffTipPath(tip.root_plan_id, tip.root_content_hash, options);
   if (existsSync(path)) {
-    const prior = JSON.parse(readFileSync(path, "utf8"));
-    if (prior?.handoff_tip_schema === HANDOFF_TIP_SCHEMA
-      && prior.root_plan_id === tip.root_plan_id
-      && prior.root_content_hash === tip.root_content_hash
-      && prior.text_hash === tip.text_hash) {
-      return tip;
-    }
-    if (prior?.root_plan_id === tip.root_plan_id && prior?.text_hash && prior.text_hash !== tip.text_hash) {
-      throw new Error(`handoff tip for ${tip.root_plan_id} conflicts with a different Root text hash`);
-    }
+    const prior = readTipFile(path, tip.root_plan_id);
+    if (prior.root_content_hash === tip.root_content_hash && prior.text_hash === tip.text_hash) return tip;
+    throw new Error(`handoff tip for ${tip.root_plan_id} conflicts with a different Root text hash`);
   }
   atomicJson(path, tip);
   return tip;
 }
 
 export function readHandoffTip(rootPlanId, options = {}) {
-  const path = handoffTipPath(rootPlanId, options);
-  if (!existsSync(path)) return null;
-  const tip = JSON.parse(readFileSync(path, "utf8"));
-  if (tip?.handoff_tip_schema !== HANDOFF_TIP_SCHEMA
-    || tip.root_plan_id !== rootPlanId
-    || !/^[a-f0-9]{64}$/.test(String(tip.root_content_hash ?? ""))
-    || !/^[a-f0-9]{64}$/.test(String(tip.text_hash ?? ""))) {
-    throw new Error(`incompatible or corrupt handoff tip ${rootPlanId}`);
+  const { rootContentHash: exactHash = null } = options;
+  if (exactHash) {
+    const exact = readTipFile(handoffTipPath(rootPlanId, exactHash, options), rootPlanId);
+    if (exact) return exact;
+    const legacy = readTipFile(legacyHandoffTipPath(rootPlanId, options), rootPlanId);
+    if (legacy?.root_content_hash === exactHash) return legacy;
+    return null;
   }
-  return tip;
+  const tips = listHandoffTips(rootPlanId, options);
+  if (tips.length === 0) return null;
+  if (tips.length === 1) return tips[0];
+  throw new Error(`handoff tip for ${rootPlanId} is ambiguous across ${tips.length} distinct Root content hashes; supply exact Root text`);
 }
 
 export function resolveRootPlanText(pluginRoot, { rootPlanId = null, rootPlan = null, artifacts = [] } = {}) {
@@ -235,14 +281,18 @@ export class ArtifactHandoffStore {
     };
   }
 
-  rebuildIndex() {
+  buildIndexInMemory() {
     const entries = this.records().map((record) => this.metadata(record));
-    const index = { schema: 1, entries };
+    return { schema: 1, entries };
+  }
+
+  rebuildIndex() {
+    const index = this.buildIndexInMemory();
     atomicJson(this.indexPath(), index);
     return index;
   }
 
-  index() {
+  loadIndex({ repair = false } = {}) {
     try {
       const index = JSON.parse(readFileSync(this.indexPath(), "utf8"));
       const actual = existsSync(this.directory)
@@ -251,10 +301,16 @@ export class ArtifactHandoffStore {
       const recorded = (index.entries ?? []).map((entry) => entry.artifact_id).sort();
       if (index.schema !== 1 || actual.join("\n") !== recorded.join("\n")) throw new Error("handoff index mismatch");
       return index;
-    } catch { return this.rebuildIndex(); }
+    } catch {
+      return repair ? this.rebuildIndex() : this.buildIndexInMemory();
+    }
   }
 
-  writeIndex(records, priorIndex = this.index()) {
+  index() {
+    return this.loadIndex({ repair: true });
+  }
+
+  writeIndex(records, priorIndex = this.loadIndex({ repair: true })) {
     const entries = new Map(priorIndex.entries.map((entry) => [entry.artifact_id, entry]));
     for (const record of records) entries.set(record.artifact_id, this.metadata(record));
     atomicJson(this.indexPath(), { schema: 1, entries: [...entries.values()].sort((left, right) => left.artifact_id.localeCompare(right.artifact_id)) });
@@ -341,7 +397,7 @@ export class ArtifactHandoffStore {
 
   context(rootPlanId, rootPlanText = null) {
     if (!/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(rootPlanId))) throw new Error("handoff context requires a valid wp-* root_plan_id");
-    const index = this.index();
+    const index = this.loadIndex({ repair: false });
     const metadata = new Map(index.entries.map((entry) => [entry.artifact_id, entry]));
     const lineage = new Set();
     let planCursor = rootPlanId;
@@ -407,5 +463,88 @@ export class ArtifactHandoffStore {
       review_tip: tips.review_tips[rootPlanId] ?? null,
       artifacts: ordered.map((record) => ({ label: record.artifact_id, text: record.text, text_hash: record.text_hash })),
     };
+  }
+
+  quarantineArtifact(artifactId, { expectedTextHash, apply = false, now = () => new Date() } = {}) {
+    if (!/^wr-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(artifactId ?? ""))) {
+      throw new Error("handoff quarantine accepts only an exactly identified wr-* transport record");
+    }
+    if (!/^[a-f0-9]{64}$/.test(String(expectedTextHash ?? ""))) {
+      throw new Error("handoff quarantine requires --expected-text-hash with the exact cached review hash");
+    }
+    const record = this.records([artifactId])[0];
+    if (!record) throw new Error(`handoff quarantine cannot find ${artifactId}`);
+    if (record.artifact_type !== "work-review") throw new Error(`handoff quarantine refuses non-review artifact ${artifactId}`);
+    if (record.text_hash !== expectedTextHash) {
+      throw new Error(`handoff quarantine expected ${expectedTextHash} but ${artifactId} has ${record.text_hash}`);
+    }
+    const index = this.loadIndex({ repair: false });
+    const dependents = index.entries
+      .filter((entry) => (entry.references ?? []).includes(artifactId))
+      .map((entry) => entry.artifact_id)
+      .sort();
+    const timestamp = now().toISOString().replace(/[:.]/g, "-");
+    const quarantineDirectory = join(this.root, "handoff", "quarantine", `${timestamp}-${artifactId}-${expectedTextHash.slice(0, 12)}`);
+    const source = this.artifactPath(artifactId);
+    const target = join(quarantineDirectory, "artifact-record.json");
+    const report = {
+      command: "quarantine-handoff",
+      namespace_root: this.root,
+      artifact_id: artifactId,
+      artifact_type: record.artifact_type,
+      text_hash: record.text_hash,
+      record_hash: createHash("sha256").update(readFileSync(source)).digest("hex"),
+      source,
+      quarantine_directory: quarantineDirectory,
+      target,
+      dependents,
+      applicable: dependents.length === 0,
+      applied: false,
+    };
+    if (!apply) return report;
+    if (dependents.length > 0) {
+      throw new Error(`handoff quarantine refuses ${artifactId} because active artifacts depend on it: ${dependents.join(", ")}`);
+    }
+    if (existsSync(quarantineDirectory)) throw new Error(`handoff quarantine target already exists: ${quarantineDirectory}`);
+
+    const lockPath = join(this.root, "handoff", ".lock");
+    let descriptor;
+    try {
+      descriptor = acquireLock(lockPath);
+      const current = this.records([artifactId])[0];
+      if (!current || current.text_hash !== expectedTextHash) throw new Error(`handoff quarantine target ${artifactId} changed before apply`);
+      const currentIndex = this.loadIndex({ repair: false });
+      const currentDependents = currentIndex.entries
+        .filter((entry) => (entry.references ?? []).includes(artifactId))
+        .map((entry) => entry.artifact_id)
+        .sort();
+      if (currentDependents.length > 0) {
+        throw new Error(`handoff quarantine refuses ${artifactId} because active artifacts depend on it: ${currentDependents.join(", ")}`);
+      }
+      mkdirSync(quarantineDirectory, { recursive: true, mode: 0o700 });
+      const indexPath = this.indexPath();
+      if (existsSync(indexPath)) writeFileSync(join(quarantineDirectory, "index-before.json"), readFileSync(indexPath), { mode: 0o600, flag: "wx" });
+      renameSync(source, target);
+      try {
+        const rebuilt = this.rebuildIndex();
+        atomicJson(join(quarantineDirectory, "quarantine-manifest.json"), {
+          quarantine_manifest_schema: 1,
+          ...report,
+          applied: true,
+          quarantined_at: now().toISOString(),
+          rebuilt_index_entries: rebuilt.entries.length,
+        });
+      } catch (error) {
+        renameSync(target, source);
+        atomicJson(this.indexPath(), currentIndex);
+        throw error;
+      }
+      return { ...report, applied: true };
+    } finally {
+      if (descriptor !== undefined) {
+        closeSync(descriptor);
+        try { unlinkSync(lockPath); } catch (error) { if (error.code !== "ENOENT") throw error; }
+      }
+    }
   }
 }

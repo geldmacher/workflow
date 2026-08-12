@@ -13,6 +13,8 @@ Require one explicit Schema-5 Root and reject Workflow-3/4 or mixed input. Check
 
 Apply Pareto assurance: every Acceptance objective needs the cheapest sufficient falsifiable required Check; duplicate proof and non-essential expensive gates are overplanning. Expensive required Checks need a material acceptance or risk reason. Deferred Checks must not be presented as automatic closeout gates. Verify the final native todo calls deterministic `workflow_closeout`. Do not require retired Schema-3 assurance fields, a fixed design-depth ladder, or boilerplate tables.
 
+Audit only material quality dimensions; never require a blanket checklist or tool.
+
 Return:
 
 - **Verdict**: `ready` | `needs-revision` | `unsafe`

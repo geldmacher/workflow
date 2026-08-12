@@ -7,9 +7,9 @@ Plan in Cursor. Omit Task model overrides or use `inherit`; observed Children mu
 
 ## Intent Interview
 
-Optimize for Intent Readiness, not broad brainstorming. Ask at most three related questions only when the answer changes outcome, scope, public behavior, data/security, risk, or acceptance; show options, effects, and a recommendation. On replan preserve confirmed decisions and authority, reopening only matters raised by the review.
+Optimize for Intent Readiness, not broad brainstorming. Ask at most three related questions only for material outcome, scope, public behavior, security, risk, or acceptance decisions. Replan preserves confirmed decisions and reopens only review findings.
 
-Before the answer, do not load contracts or assurance boilerplate; continue only decision-independent research. If the question tool is unavailable, ask one compact blocking question. Emit no plan or draft before the answer; clear intent needs no interview.
+Before answers, load no contracts; continue only decision-independent research. Without the question tool ask one blocker. Emit no plan or draft before the answer; clear intent needs no interview.
 
 ## Root Planning
 
@@ -17,8 +17,10 @@ Once ready, read [root semantics](../../references/executable-contract.md), [nat
 
 Check goal, acceptance, non-goals, constraints, authority, risk, Hard Triggers, and profile. Give each objective its cheapest sufficient falsifiable required Check; merge duplicates and defer non-essential breadth. `expensive` is required only without a cheaper equivalent for essential acceptance or material risk. Put path-specific acceptance targets in backticks.
 
-Before `CreatePlan`, run `workflow_plan_preflight` on the exact Root, repair blockers, and expose advisories; it grants no approval. If unavailable, low/medium Manual may disclose the equivalent inline check. High-risk or Hard-Trigger Manual and every Controller preparation stop. Honor host tool-approval preference: `strict` expects MCP prompts; `allowlisted` expects a host allowlist and never claims approval.
+Consider material correctness, security, maintainability, performance, efficiency, and comprehensibility; advanced tests/scanners stay optional, never a six-item checklist.
+
+The host plan guard validates every exact Manual Root locally; it grants no approval. Standalone `workflow_plan_preflight` remains optional compatibility and controller-preparation transport. Honor host tool-approval preference: `strict` expects MCP prompts when an MCP tool is used; `allowlisted` expects a host allowlist and never claims approval.
 
 A replan creates a fresh `wp-*` with exact predecessor/review bindings and human **Implement Plan** approval. Do not invent `extensions`; they are opaque audit metadata, never model context or authority. Keep Strategy outcome-oriented, scope repository-only, and budgets proportional.
 
-Mark every todo `[workflow-model-inherit-v1]`. The final todo calls `workflow_closeout` with exact Root/chain and required-Check observations, then prints its valid artifact unchanged. The Schema-5-only CreatePlan guard enforces this. Record the Root through `workflow_artifact_record` into the root-content handoff cache; true cache-write failure requires attachment but does not invalidate the Plan.
+Mark the final closeout todo `[workflow-model-inherit-v1]` with a short verify/closeout sentence and metadata `workflow_attestation: { schema: 1, kind: plan-closeout, action: delivery-closeout }`. Legacy `action: workflow_closeout` remains accepted. Keep closeout ceremony out of visible todo text. See [plan container](../../references/plan-container-contract.md) and [closeout](../../references/closeout-contract.md). Skip normal-path `workflow_artifact_record`; cache-write failure requires attachment but does not invalidate the Plan. Unresolved Intent or infeasible Roots add `Meaning:` plus the [guide](https://github.com/geldmacher/workflow/blob/main/docs/manual-workflow.md#intent-root-and-plan) before `### Next step`.

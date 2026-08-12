@@ -11,15 +11,35 @@ import { ARTIFACT_SCHEMA, assertCompatiblePreparation, classifyRunCompatibility 
 import { configurationHashes, expectedPlannerReceiptBlockers, plannerReceiptBlockers, planningBudgetBlockers, planningHarnessHash, planningUsage, validateRootPlanLineage } from "./planning.mjs";
 import { aggregateEvidence, calibrateRecipeEvidence, checkEvidence, createInitialStrategy, reviseStrategy, strategyHash, TASK_RECIPES } from "./strategy.mjs";
 import { auditVerificationProfile } from "./verification-profile.mjs";
-import { assertContainedPath, changedPaths, checkpoint, createComparisonBaselineWorktree, createRunWorktree, detectDependencyChanges, parseHostCommand, repositoryBaseline, rollbackToCheckpoint, runHostCheck } from "./worktree.mjs";
+import { assertContainedPath, changedPaths, changedPathsBetween, checkpoint, createComparisonBaselineWorktree, createRunWorktree, detectDependencyChanges, parseHostCommand, repositoryBaseline, rollbackToCheckpoint, runHostCheck } from "./worktree.mjs";
 import { ArtifactHandoffStore, createContentAddressedHandoffStore, rememberContentAddressedRoot } from "./artifact-handoff.mjs";
 import { buildDeliveryEvidence } from "./delivery-closeout.mjs";
+import {
+  controllerLearningCandidateSemanticHash,
+  controllerLearningDecisionHash,
+  controllerLearningEventRefs,
+  deliveryPathsHash,
+  materializeControllerLearningCandidates,
+  mergeControllerLearningCandidates,
+  normalizeDecisionLearningCandidates,
+  runIntegrityBlockers,
+} from "./learning-context.mjs";
 
 const profileRank = Object.freeze({ manual: 0, supervised: 1, autonomous: 2 });
 const secretPatterns = [/(?:^|\n)-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/, /\bAKIA[0-9A-Z]{16}\b/, /\bgh[opsu]_[A-Za-z0-9]{30,}\b/, /\bsk-[A-Za-z0-9_-]{32,}\b/];
 
 function hash(value) {
   return createHash("sha256").update(typeof value === "string" ? value : JSON.stringify(value)).digest("hex");
+}
+
+function learningSourceHashes(candidates = []) {
+  return [...new Set(candidates.flatMap((candidate) => (candidate.lineage ?? [])
+    .flatMap((lineage) => (lineage.source_bindings ?? []).map((binding) => binding.source_decision_hash))))];
+}
+
+function learningSourceReceiptIds(candidates = []) {
+  return [...new Set(candidates.flatMap((candidate) => (candidate.lineage ?? [])
+    .flatMap((lineage) => (lineage.source_bindings ?? []).map((binding) => binding.source_receipt_id))))].sort();
 }
 
 function jsonObject(text) {
@@ -35,6 +55,14 @@ function jsonDecision(text) {
   if (!["none", "accept-provisional", "correct", "clarify", "replan", "retry-review"].includes(value.next_action)) throw new Error("review decision has invalid next_action");
   if (!Array.isArray(value.finding_keys)) throw new Error("review decision requires finding_keys");
   value.delivery_status ??= value.assessment === "achieved" ? "verified" : value.next_action === "accept-provisional" ? "provisional" : "blocked";
+  value.learning_candidates = normalizeDecisionLearningCandidates(value.learning_candidates, value.finding_keys, value.next_action);
+  if (value.learning_candidates.length > 0) {
+    if (!Array.isArray(value.findings)) throw new Error("learning candidates require review findings");
+    const describedFindings = new Set(value.findings.map((finding) => finding?.key ?? finding?.finding_key).filter(Boolean));
+    if (value.learning_candidates.some((candidate) => candidate.finding_keys.some((key) => !describedFindings.has(key)))) {
+      throw new Error("learning candidate references a finding without a valid review finding");
+    }
+  }
   return value;
 }
 
@@ -112,23 +140,6 @@ function usageForRun(run) {
 function budgetBoundaryBlockers(run) {
   return evaluateAuthorization({ plan: run.plan.fields, usage: usageForRun(run) }).blockers
     .filter((blocker) => ["token-budget-exhausted", "cost-budget-exhausted", "time-budget-exhausted", "correction-budget-exhausted"].includes(blocker));
-}
-
-function runIntegrityBlockers(run, pluginRoot) {
-  const blockers = [];
-  let root;
-  try { root = executionContractFromArtifactText(run.root_plan_text, pluginRoot); }
-  catch (error) { return [`intent-root-unreadable:${error.message}`]; }
-  if (root.errors.length > 0) blockers.push("intent-root-invalid");
-  if (root.raw_hash !== run.root_plan_hash) blockers.push("intent-root-content-hash-mismatch");
-  if (root.authoritative_projection_hash !== run.root_authoritative_projection_hash || root.authoritative_projection_hash !== run.intent_hash) blockers.push("intent-root-projection-hash-mismatch");
-  if (hash(root.fields) !== hash(run.plan?.fields)) blockers.push("intent-root-state-mismatch");
-  if (run.strategy?.root_projection_hash !== run.intent_hash) blockers.push("strategy-root-projection-mismatch");
-  if (run.strategy) {
-    const { strategy_hash: declaredHash, ...projection } = run.strategy;
-    if (strategyHash(projection) !== declaredHash) blockers.push("strategy-hash-mismatch");
-  } else blockers.push("strategy-missing");
-  return [...new Set(blockers)];
 }
 
 export class WorkflowEngine {
@@ -461,10 +472,49 @@ export class WorkflowEngine {
       previousFindingKeys = review.decision.finding_keys;
       const maximum = run.project_policy.maximum_budgets?.max_correction_cycles ?? 3;
       if (correctionCycle > maximum) return { completed: false, run: this.wait(run, ["correction-budget-exhausted"]) };
-      const deviation = { id: `DEV-${run.strategy.revision + 1}`, kind: "review-correction", finding_keys: review.decision.finding_keys, at: new Date().toISOString() };
+      const learning = materializeControllerLearningCandidates({
+        run,
+        decision: review.decision,
+        correctionCycle,
+        receiptIds: [review.receipt?.request_id].filter(Boolean),
+      });
+      const learningCandidateIds = learning.candidates.map((candidate) => candidate.learning_id);
+      const correctionDecision = {
+        ...review.decision,
+        correction_id: learning.correction_id,
+        learning_candidate_ids: learningCandidateIds,
+      };
+      const deviation = {
+        id: `DEV-${run.strategy.revision + 1}`,
+        kind: "review-correction",
+        correction_id: learning.correction_id,
+        finding_keys: correctionDecision.finding_keys,
+        learning_candidate_ids: learningCandidateIds,
+        at: new Date().toISOString(),
+      };
       const strategy = reviseStrategy(run.strategy, { deviations: [deviation] }, { reason: `review correction ${correctionCycle}`, createdBy: role, authority: run.plan.fields.authority });
-      run = this.update(run.run_id, (draft) => ({ ...draft, strategy, correction_cycles: correctionCycle, finding_repeated: findingRepeated, review: review.decision, phase: "implementing" }), "strategy-revised");
-      this.store.appendDecision(run.run_id, { phase: "adapt", actor_receipt: review.receipt.request_id, decision: "revise-strategy", reason: strategy.rationale, input_hashes: [run.intent_hash, strategy.parent_hash], strategy_revision: strategy.revision, result: strategy.strategy_hash });
+      run = this.update(run.run_id, (draft) => ({
+        ...draft,
+        strategy,
+        correction_cycles: correctionCycle,
+        finding_repeated: findingRepeated,
+        review: correctionDecision,
+        learning_candidates: mergeControllerLearningCandidates(draft.learning_candidates, learning.candidates),
+        phase: "implementing",
+      }), "strategy-revised");
+      this.store.appendDecision(run.run_id, {
+        phase: "adapt",
+        actor_receipt: review.receipt?.request_id ?? null,
+        actor_receipts: learningSourceReceiptIds(learning.candidates),
+        decision: "revise-strategy",
+        reason: strategy.rationale,
+        input_hashes: [run.intent_hash, strategy.parent_hash, ...learningSourceHashes(learning.candidates)],
+        strategy_revision: strategy.revision,
+        result: strategy.strategy_hash,
+        correction_id: learning.correction_id,
+        learning_candidate_ids: learningCandidateIds,
+        learning_candidate_refs: controllerLearningEventRefs(learning.candidates),
+      });
     }
   }
 
@@ -540,7 +590,7 @@ export class WorkflowEngine {
     const prompt = [
       "Independently review the current strategy state. You are read-only and have no writer conversation.",
       "Judge the immutable intent, current strategy, repository diff and evidence entries. Reviewer opinion must not upgrade evidence.",
-      "Return JSON with assessment, delivery_status, next_action, finding_keys, findings. Known failed evidence can never be provisional or verified.",
+      "Return JSON with assessment, delivery_status, next_action, finding_keys, findings, and learning_candidates. learning_candidates is optional and allowed only for next_action correct; each item contains finding_keys, reusable_guidance, candidate_targets, and confirmation_evidence. Do not assign Learning IDs. Known failed evidence can never be provisional or verified.",
       `INTENT\n${run.plan.authoritative_projection_text}`,
       `STRATEGY\n${JSON.stringify(run.strategy, null, 2)}`,
       `SLICE\n${JSON.stringify(slice, null, 2)}`,
@@ -562,7 +612,7 @@ export class WorkflowEngine {
     const diff = this.gitDiff(run.worktree.path, run.strategy.task_class === "verify-existing" ? run.worktree.baseline.head : run.worktree.human_baseline);
     const prompt = [
       "Independently judge the immutable intent, current strategy, diff and evidence. You are read-only.",
-      "Return JSON with assessment, delivery_status, next_action, finding_keys, findings. Do not upgrade evidence and never treat a known failure as provisional.",
+      "Return JSON with assessment, delivery_status, next_action, finding_keys, findings, and learning_candidates. learning_candidates is optional and allowed only for next_action correct; each item contains finding_keys, reusable_guidance, candidate_targets, and confirmation_evidence. Do not assign Learning IDs. Do not upgrade evidence and never treat a known failure as provisional.",
       `INTENT\n${run.plan.authoritative_projection_text}`,
       `STRATEGY\n${JSON.stringify(run.strategy, null, 2)}`,
       `DIFF\n${diff}`,
@@ -579,28 +629,49 @@ export class WorkflowEngine {
       if (!guarded.unchanged) return { decision: null, receipts: results.map((result) => ({ ...result.receipt, reader_repository_unchanged: false })), blockers: ["reader-repository-mutation:fanout"], hard_error: true };
     }
     catch (error) { return { decision: null, receipt: null, receipts: [], blockers: [`read-fanout-failed:${error.message}`] }; }
-    const decisions = [];
+    const decisionRecords = [];
     const blockers = [];
     for (const [index, result] of results.entries()) {
       const role = phases[index].role;
       const receiptErrors = phaseReceiptBlockers(result.receipt, role, run.intent_hash);
       if (!result.response.ok) receiptErrors.push(result.response.error?.message ?? `${role}-failed`);
       if (receiptErrors.length > 0) { blockers.push(...receiptErrors); continue; }
-      try { decisions.push(jsonDecision(result.response.result)); }
+      try { decisionRecords.push({ decision: jsonDecision(result.response.result), receipt: result.receipt }); }
       catch (error) { blockers.push(`${role}-invalid-decision:${error.message}`); }
     }
-    if (decisions.length === 0) return { decision: null, receipts: results.map((result) => result.receipt), blockers: [...new Set(blockers)] };
+    if (decisionRecords.length === 0) return { decision: null, receipts: results.map((result) => result.receipt), blockers: [...new Set(blockers)] };
     const actionRank = { replan: 6, clarify: 5, correct: 4, "retry-review": 3, "accept-provisional": 2, none: 1 };
-    const selected = decisions.toSorted((left, right) => actionRank[right.next_action] - actionRank[left.next_action])[0];
-    const bothAchieved = decisions.length === 2 && decisions.every((decision) => decision.assessment === "achieved" && decision.next_action === "none");
+    const selected = decisionRecords.toSorted((left, right) => actionRank[right.decision.next_action] - actionRank[left.decision.next_action])[0].decision;
+    const bothAchieved = decisionRecords.length === 2 && decisionRecords.every(({ decision }) => decision.assessment === "achieved" && decision.next_action === "none");
+    const learningBySemanticIdentity = new Map();
+    if (selected.next_action === "correct") {
+      for (const { decision: sourceDecision, receipt } of decisionRecords.filter(({ decision }) => decision.next_action === "correct")) {
+        for (const candidate of sourceDecision.learning_candidates ?? []) {
+          const key = controllerLearningCandidateSemanticHash(candidate);
+          const sourceBinding = {
+            source_receipt_id: receipt.request_id,
+            source_decision_hash: controllerLearningDecisionHash(sourceDecision, candidate),
+          };
+          const prior = learningBySemanticIdentity.get(key);
+          if (!prior) {
+            learningBySemanticIdentity.set(key, { ...candidate, source_bindings: [sourceBinding] });
+            continue;
+          }
+          prior.source_bindings = [...new Map([...prior.source_bindings, sourceBinding].map((binding) => [`${binding.source_receipt_id}:${binding.source_decision_hash}`, binding])).values()]
+            .toSorted((left, right) => left.source_receipt_id.localeCompare(right.source_receipt_id));
+        }
+      }
+    }
+    const learningCandidates = [...learningBySemanticIdentity.values()];
     const decision = {
       ...selected,
       assessment: bothAchieved ? "achieved" : selected.assessment === "achieved" ? "provisional" : selected.assessment,
       delivery_status: bothAchieved ? "verified" : selected.delivery_status === "blocked" ? "blocked" : "provisional",
       next_action: bothAchieved ? "none" : selected.next_action === "none" ? "accept-provisional" : selected.next_action,
-      finding_keys: [...new Set(decisions.flatMap((item) => item.finding_keys ?? []))],
-      findings: decisions.flatMap((item) => item.findings ?? []),
-      agreement: bothAchieved ? "consensus" : decisions.length === 2 ? "contested" : "single-valid-review",
+      finding_keys: [...new Set(decisionRecords.flatMap(({ decision: item }) => item.finding_keys ?? []))].toSorted(),
+      findings: decisionRecords.flatMap(({ decision: item }) => item.findings ?? []),
+      learning_candidates: learningCandidates,
+      agreement: bothAchieved ? "consensus" : decisionRecords.length === 2 ? "contested" : "single-valid-review",
     };
     return { decision, receipts: results.map((result) => result.receipt), blockers };
   }
@@ -621,12 +692,26 @@ export class WorkflowEngine {
     catch (error) { return this.block(run, [`delivery-closeout-invalid:${error.message}`]); }
     const review = this.reviewFanout(run, evidence, adapter, candidate.artifact);
     const reviewReceipts = review.receipts ?? (review.receipt ? [review.receipt] : []);
+    const rootLearning = materializeControllerLearningCandidates({
+      run,
+      decision: review.decision,
+      correctionCycle: (run.correction_cycles ?? 0) + 1,
+      receiptIds: reviewReceipts.map((receipt) => receipt?.request_id).filter(Boolean),
+    });
+    const rootDecision = review.decision ? {
+      ...review.decision,
+      ...(review.decision.next_action === "correct" ? {
+        correction_id: rootLearning.correction_id,
+        learning_candidate_ids: rootLearning.candidates.map((item) => item.learning_id),
+      } : {}),
+    } : null;
     const sourceBaselineAtDelivery = repositoryBaseline(this.workspaceRoot);
     const sourceDriftAtDelivery = currentBaselineDiffers(run.source_baseline_at_start ?? run.baseline, sourceBaselineAtDelivery);
     run = this.update(runId, (draft) => ({
       ...draft,
       root_review_complete: Boolean(review.decision),
-      review: review.decision,
+      review: rootDecision,
+      learning_candidates: mergeControllerLearningCandidates(draft.learning_candidates, rootLearning.candidates),
       receipts: [...draft.receipts, ...reviewReceipts],
       phase: "root-review",
       evidence_grade: aggregate.grade,
@@ -634,6 +719,22 @@ export class WorkflowEngine {
       source_drift_at_delivery: sourceDriftAtDelivery,
       integration_warnings: sourceDriftAtDelivery ? ["source-worktree-drift-may-conflict-with-human-integration"] : [],
     }), "root-reviewed");
+    if (rootDecision?.next_action === "correct") {
+      const actorReceipts = learningSourceReceiptIds(rootLearning.candidates);
+      this.store.appendDecision(runId, {
+        phase: "review",
+        actor_receipt: reviewReceipts[0]?.request_id ?? null,
+        actor_receipts: actorReceipts,
+        decision: "request-correction",
+        reason: "root review requires a bounded correction",
+        input_hashes: [run.intent_hash, run.strategy.strategy_hash, ...learningSourceHashes(rootLearning.candidates)],
+        strategy_revision: run.strategy.revision,
+        result: "waiting-human",
+        correction_id: rootLearning.correction_id,
+        learning_candidate_ids: rootLearning.candidates.map((item) => item.learning_id),
+        learning_candidate_refs: controllerLearningEventRefs(rootLearning.candidates),
+      });
+    }
     if (review.hard_error) {
       const materialized = this.materializeDeliveryEvidence(run, candidate);
       return this.block(materialized.run, [...review.blockers, ...(materialized.blocker ? [materialized.blocker] : [])]);
@@ -648,8 +749,8 @@ export class WorkflowEngine {
       const materialized = this.materializeDeliveryEvidence(run, candidate);
       return this.update(runId, (draft) => ({ ...draft, lifecycle: "blocked", delivery_status: "blocked", blockers: ["known-check-failure", ...(materialized.blocker ? [materialized.blocker] : [])], next_action: "correct-or-replan" }), "delivery-blocked");
     }
-    if (["correct", "clarify", "replan", "retry-review"].includes(review.decision.next_action)) return this.wait(run, [`root-review-${review.decision.next_action}`]);
-    const verified = aggregate.delivery === "verified" && review.decision.assessment === "achieved" && review.decision.delivery_status === "verified";
+    if (["correct", "clarify", "replan", "retry-review"].includes(rootDecision.next_action)) return this.wait(run, [`root-review-${rootDecision.next_action}`]);
+    const verified = aggregate.delivery === "verified" && rootDecision.assessment === "achieved" && rootDecision.delivery_status === "verified";
     const deliveryStatus = verified ? "verified" : "provisional";
     if (deliveryStatus === "provisional" && run.effective_profile === "autonomous") {
       run = this.update(runId, (draft) => ({ ...draft, effective_profile: "supervised", downgraded: true, downgrade_reason: "evidence-shortfall" }), "profile-auto-downgraded");
@@ -659,17 +760,41 @@ export class WorkflowEngine {
     if (materialized.blocker) return this.block(run, [materialized.blocker]);
     if (deliveryStatus === "verified" && run.effective_profile === "autonomous") {
       const achieved = this.update(runId, (draft) => ({ ...draft, lifecycle: "achieved", delivery_status: "verified", delivery_accepted: false, phase: "achieved", next_action: "none", blockers: [] }), "run-achieved");
-      this.store.appendDecision(runId, { phase: "delivery", decision: "achieved", reason: "certified evidence and independent review", input_hashes: [run.intent_hash, run.strategy.strategy_hash], strategy_revision: run.strategy.revision, evidence_refs: evidence.flatMap((entry) => entry.artifact_hashes), result: "achieved" });
+      this.store.appendDecision(runId, {
+        phase: "delivery",
+        decision: "achieved",
+        reason: "certified evidence and independent review",
+        input_hashes: [run.intent_hash, run.strategy.strategy_hash],
+        strategy_revision: run.strategy.revision,
+        evidence_refs: [...new Set([...evidence.flatMap((entry) => entry.artifact_hashes), run.delivery_evidence_hash])].filter(Boolean),
+        result: "achieved",
+        delivery_evidence_hash: run.delivery_evidence_hash,
+        delivery_commit: run.delivery_commit,
+        delivered_paths_hash: deliveryPathsHash(run.delivery_commit, run.delivered_paths),
+      });
       return achieved;
     }
     const delivery = this.update(runId, (draft) => ({ ...draft, lifecycle: "waiting-human", delivery_status: deliveryStatus, phase: deliveryStatus === "verified" ? "delivery-ready-verified" : "delivery-ready-provisional", next_action: deliveryStatus === "verified" ? "accept-verified" : "accept-provisional", blockers: [] }), "delivery-ready");
-    this.store.appendDecision(runId, { phase: "delivery", decision: `deliver-${deliveryStatus}`, reason: verified ? "all evidence verified" : "no known failure but strongest evidence is incomplete", input_hashes: [run.intent_hash, run.strategy.strategy_hash], strategy_revision: run.strategy.revision, evidence_refs: evidence.flatMap((entry) => entry.artifact_hashes), result: delivery.lifecycle });
+    this.store.appendDecision(runId, {
+      phase: "delivery",
+      decision: `deliver-${deliveryStatus}`,
+      reason: verified ? "all evidence verified" : "no known failure but strongest evidence is incomplete",
+      input_hashes: [run.intent_hash, run.strategy.strategy_hash],
+      strategy_revision: run.strategy.revision,
+      evidence_refs: [...new Set([...evidence.flatMap((entry) => entry.artifact_hashes), run.delivery_evidence_hash])].filter(Boolean),
+      result: delivery.lifecycle,
+      delivery_evidence_hash: run.delivery_evidence_hash,
+      delivery_commit: run.delivery_commit,
+      delivered_paths_hash: deliveryPathsHash(run.delivery_commit, run.delivered_paths),
+    });
     return delivery;
   }
 
   deliveryEvidenceCandidate(run, evidence) {
     const snapshot = repositoryBaseline(run.worktree?.path ?? this.workspaceRoot);
-    const paths = run.worktree?.path ? changedPaths(run.worktree.path) : [];
+    const paths = run.worktree?.path
+      ? changedPathsBetween(run.worktree.path, run.worktree.human_baseline, snapshot.head)
+      : changedPaths(this.workspaceRoot);
     const supplied = new Map(evidence.map((entry) => [entry.check_id, entry]));
     const completeEvidence = run.plan.checks.filter((check) => check.Required === "yes").map((check) => supplied.get(check["Check ID"]) ?? {
       check_id: check["Check ID"],
@@ -682,7 +807,7 @@ export class WorkflowEngine {
       artifact_hashes: [],
       limitations: ["delivery stopped before this required Check could run"],
     });
-    return buildDeliveryEvidence({
+    const candidate = buildDeliveryEvidence({
       rootPlanText: run.root_plan_text,
       checkEvidence: completeEvidence,
       changedPaths: paths,
@@ -696,6 +821,7 @@ export class WorkflowEngine {
       },
       pluginRoot: this.pluginRoot,
     });
+    return { ...candidate, delivery_commit: snapshot.head, delivered_paths: paths };
   }
 
   materializeDeliveryEvidence(run, candidate) {
@@ -731,6 +857,8 @@ export class WorkflowEngine {
       delivery_evidence_id: candidate.fields.id,
       delivery_evidence_hash: candidate.artifact_hash,
       delivery_evidence_artifact: candidate.artifact,
+      delivery_commit: candidate.delivery_commit,
+      delivered_paths: candidate.delivered_paths,
       handoff_persisted: handoffPersisted,
       integration_warnings: [...new Set([...(draft.integration_warnings ?? []), ...(handoffWarning ? [handoffWarning] : [])])],
     }), "delivery-evidence-materialized");
@@ -739,11 +867,24 @@ export class WorkflowEngine {
 
   acceptDelivery(runId, acceptance) {
     const run = this.store.get(runId);
-    if (!['verified', 'provisional'].includes(acceptance)) throw new Error("acceptance must be verified or provisional");
+    if (!["verified", "provisional"].includes(acceptance)) throw new Error("acceptance must be verified or provisional");
     if (run.lifecycle !== "waiting-human" || run.next_action !== (acceptance === "verified" ? "accept-verified" : "accept-provisional")) throw new Error("delivery is not awaiting this acceptance");
     if (run.delivery_status !== acceptance) throw new Error(`delivery acceptance mismatch: expected ${run.delivery_status}`);
     const lifecycle = acceptance === "verified" ? "achieved" : "accepted-provisional";
-    return this.update(runId, (draft) => ({ ...draft, lifecycle, delivery_accepted: true, accepted_as: acceptance, phase: lifecycle, next_action: "none", blockers: [] }), acceptance === "verified" ? "delivery-accepted" : "provisional-delivery-accepted");
+    const accepted = this.update(runId, (draft) => ({ ...draft, lifecycle, delivery_accepted: true, accepted_as: acceptance, phase: lifecycle, next_action: "none", blockers: [] }), acceptance === "verified" ? "delivery-accepted" : "provisional-delivery-accepted");
+    this.store.appendDecision(runId, {
+      phase: "delivery",
+      decision: `accept-${acceptance}`,
+      reason: `human accepted the ${acceptance} delivery`,
+      input_hashes: [run.intent_hash, run.strategy?.strategy_hash].filter(Boolean),
+      strategy_revision: run.strategy?.revision ?? null,
+      evidence_refs: [run.delivery_evidence_hash].filter(Boolean),
+      result: acceptance === "verified" ? "accepted-verified" : "accepted-provisional",
+      delivery_evidence_hash: run.delivery_evidence_hash,
+      delivery_commit: run.delivery_commit,
+      delivered_paths_hash: deliveryPathsHash(run.delivery_commit, run.delivered_paths),
+    });
+    return accepted;
   }
 
   wait(run, blockers) {

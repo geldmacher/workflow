@@ -76,6 +76,7 @@ export const WORKFLOW_TOOL_CONTRACTS = Object.freeze({
       strategy_revision: z.number().int().min(0).default(0),
       changed_paths: z.array(z.string().min(1).max(1000)).max(1000).default([]),
       check_evidence: z.array(checkEvidence).max(128).default([]),
+      summary: z.string().min(1).max(2_000).optional(),
       repository_snapshot: z.object({
         head: z.string().min(1).optional(),
         working_tree: z.string().min(1).optional(),
@@ -85,10 +86,11 @@ export const WORKFLOW_TOOL_CONTRACTS = Object.freeze({
     },
   },
   workflow_status: {
-    description: "Return current status for one preparation, adaptive run, or explicit/uniquely active stateless manual schema-5 artifact chain; Workflow-3/4 subjects remain read-only.",
+    description: "Return current status and a uniform read-only learning projection for one preparation, adaptive run, or explicit/uniquely active stateless manual schema-5 artifact chain; controller learning authority requires the ephemeral source receipt from an operational response, and Workflow-3/4 subjects remain read-only.",
     inputSchema: {
       ...subject,
       root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/).optional(),
+      learning_source_receipt: z.string().min(1).max(2_000).optional(),
       manual_acceptance: z.enum(["provisional"]).optional(),
       artifacts: z.array(artifact).min(1).max(32).optional(),
     },

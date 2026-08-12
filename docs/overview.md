@@ -2,9 +2,9 @@
 
 **AI can generate code in seconds. Workflow turns that code into a delivery you can understand, verify, and confidently accept.**
 
-Workflow is a Cursor-native delivery system for teams and developers who want the speed of AI-assisted engineering without surrendering control over intent, scope, quality, or repository boundaries. It connects planning, implementation, evidence, review, correction, and learning into one governed path. The human remains the authority; automation earns more freedom only through exact, inspectable proof.
+Workflow is a controlled delivery system with a full Cursor-native package plus Manual packages for Codex and Agent Plugins v1. It is for teams and developers who want the speed of AI-assisted engineering without surrendering control over intent, scope, quality, or repository boundaries. It connects planning, implementation, evidence, review, correction, and learning into one governed path. The human remains the authority; automation earns more freedom only through exact, inspectable proof.
 
-The plugin works with the way Cursor already feels. For normal Manual work, you approve a plan, use **Implement Plan**, and request a fresh review. Around that familiar interaction, Workflow adds the structure that agentic delivery usually lacks: an immutable Intent Root, adaptive execution inside a closed authority envelope, risk-calibrated evidence, deterministic closeout, explicit acceptance, and an auditable lineage when a plan must change.
+The plugin works with the way Cursor already feels. For normal Manual work, you approve a plan, use **Implement Plan**, and request a fresh review. Around that familiar interaction, Workflow adds the structure that agentic delivery usually lacks: an immutable Intent Root, adaptive execution inside a closed authority envelope, risk-calibrated evidence, deterministic closeout, explicit provisional acceptance, and an auditable lineage when a plan must change. The [Manual Workflow guide](manual-workflow.md) explains every user-visible state, evidence grade, verdict, and recovery path.
 
 ## AI coding is easy; trustworthy delivery is the hard part
 
@@ -17,7 +17,7 @@ Workflow closes that gap. It treats delivery as a sequence of accountable transi
 | Plan | The observable goal, acceptance criteria, constraints, non-goals, risk, and authority boundaries |
 | Implement | Freedom to adapt the Strategy without silently changing the approved Intent |
 | Close out | Repository-grounded evidence tied to the exact Root and changed paths |
-| Review | A fresh verdict that distinguishes verified, provisional, unavailable, and failed evidence |
+| Review | A fresh verdict plus a plain-language result explanation and technical traceability |
 | Correct or replan | A bounded correction path or a new approval-required Root with explicit lineage |
 | Learn | Reusable guidance only after successful delivery, without automatic publication |
 
@@ -31,7 +31,7 @@ These profiles describe the capability model, not a blanket certification claim 
 
 | Profile | What changes for you? | Minimum requirement |
 |---|---|---|
-| `manual` | You drive implementation and corrections. | Install the plugin, select a Cursor model, and approve the Plan. |
+| `manual` | You drive implementation and corrections. | Load a supported native or portable package, keep model choice human-owned, and approve the Plan. |
 | `supervised` | The controller drives execution, but you accept every delivery. | Opt in with closed configuration and prove the installed controller environment live. |
 | `autonomous` | A fully verified run may finish without final acceptance. | Qualify the exact task, verification, model Pool, and repository-region combination through certified proof and supervised history. |
 
@@ -39,7 +39,7 @@ What unites them is more important than the label: every profile preserves the s
 
 ### Manual: the familiar path, made dependable
 
-Manual is the default and requires no controller certification. The human selects the primary model in Cursor, approves the plan, starts implementation, and decides what happens after review. Low- and medium-risk work without Hard Triggers can use Lean Evidence, keeping routine changes efficient while preserving the essential proof chain.
+Manual is the default and requires no controller certification. The human selects the primary model in Cursor, approves the plan, starts implementation, and starts the fresh review that performs final verification. An `achieved/verified/none` verdict completes the Root; only provisional delivery needs a separate, one-time acceptance. Low- and medium-risk work without Hard Triggers can use Lean Evidence, keeping routine changes efficient while preserving the essential proof chain.
 
 To start, you need only the installed plugin and Cursor's normal Plan, Agent, and Ask interaction. No User Config, Project Policy, Worker runtime, Capability Receipt, Verification Profile, or qualifying history is required.
 
@@ -51,7 +51,11 @@ Cursor: Implement Plan
 /review-work
 ```
 
-Implementation closes out automatically. `/close-work [wp-id]` exists as a read-only recovery path when that closeout was missed, not as recurring ceremony. If review finds a bounded defect, `/correct-work` keeps the correction attached to the approved Root. If the intent itself must change, `/plan-work replan` creates a new approval boundary instead of quietly rewriting history.
+Implementation closes out automatically through the host lifecycle hook. The implementer returns one typed observation report; Workflow independently binds the exact Root and lineage, derives the complete repository snapshot and authoritative changed paths, and persists builder-owned Evidence without requiring an MCP call. Codex captures the exact emitted Review task-locally, so correction delta closeout receives its Source Review and predecessor Evidence without MCP reconstruction. Local plan validation runs for every Manual Root; standalone MCP preflight and handoff calls remain optional compatibility transport. `/close-work [wp-id]` exists as a read-only recovery path when Evidence was missed, not as recurring ceremony. A fresh review may perform one bounded native recovery before continuing with the exact chain. If review finds a bounded defect, `/correct-work` keeps the correction attached to the approved Root. If the intent itself must change, `/plan-work replan` creates a new approval boundary instead of quietly rewriting history.
+
+For required machine-verifiable Checks, the host also captures a fresh content-addressed receipt for the exact Root, planned command, working directory, and current repository snapshot. This happens behind the existing tool call and adds no Manual step. Missing or stale proof is shown as a concrete evidence gap with the exact rerun path instead of being presented as verified. Status and review summarize receipt coverage and human attention for the current delivery only.
+
+The Agent Plugins v1 target preserves the same Manual authority with a different host boundary. Because the standard defines skills and MCP but no lifecycle hooks, portable `plan-work` and `implement-work` require exact MCP preflight, implementation requires a separate human invocation, and delivery requires explicit MCP closeout. Unsupported native safeguards fail closed instead of being simulated. Supervised and autonomous remain Cursor-native. See [Portable Agent Plugins artifact](../README.md#portable-agent-plugins-artifact).
 
 ### Supervised: adaptive execution, human acceptance
 
@@ -88,6 +92,8 @@ Manual low- or medium-risk work without Hard Triggers can use Lean Evidence: com
 - **Unavailable** means evidence could not be obtained; it is not disguised as a failed or successful Check.
 - **Failed** means a required Check is known to have failed and the work remains blocked.
 
+Workflow considers correctness, security, maintainability, performance, efficiency, and comprehensibility, but selects only the dimensions material to the Root. Mutation tests, complexity gates, property checks, performance probes, and scanners are risk-driven options rather than mandatory ceremony.
+
 Provisional acceptance does not rewrite a failed Check, qualify automation history, or persist as if verification happened. This distinction keeps the evidence chain useful instead of turning it into documentation theater.
 
 ## Model choice stays under explicit control
@@ -118,9 +124,9 @@ That boundary keeps the system useful in real repositories without coupling impl
 
 ## What using Workflow feels like
 
-You begin with an outcome, not a pile of workflow paperwork. `/plan-work` turns the request into a compact Intent Root that is strict about meaning and tolerant about presentation. You approve it through Cursor's normal plan interaction. Implementation can adapt inside the agreed boundary, then deterministic closeout binds evidence to the exact plan and repository state. A fresh `/review-work` evaluates the delivery rather than asking the implementing context to grade itself.
+You begin with an outcome, not a pile of workflow paperwork. `/plan-work` turns the request into a compact Intent Root that is strict about meaning and tolerant about presentation—prose, lists, or tables are fine when Verification stays explicit. You approve it through Cursor's normal plan interaction. Implementation can adapt inside the agreed boundary, then deterministic closeout binds evidence to the exact plan and repository state without dumping retained artifacts into chat. A fresh `/review-work` evaluates the delivery rather than asking the implementing context to grade itself.
 
-From there, the next action is explicit: accept a verified delivery, consciously accept a provisional gap, correct a bounded issue, replan a material change, or stop on a failed Check. `/work-status` explains the current state without mutating it. `/explain-work` translates the chain into human terms. `/learn-from-work` can extract reusable guidance only after the work has earned that outcome.
+From there, the result is explicit: every reviewed delivery first explains what was achieved, what it means, and the verification limits, then gives exact technical traceability. A verified Manual review completes the Root; a provisional gap needs conscious one-time acceptance, a bounded issue leads to correction, a material change to replan, and a failed Check to a stop. `/work-status` shows state, effective Profile, actor, downgrade, and Learning eligibility. `/explain-work` refreshes the explanation later. `/learn-from-work` remains separately human-invoked and requires its exact eligible current-task source.
 
 The experience stays lightweight for routine Manual work and becomes progressively stricter as risk and autonomy increase.
 
@@ -139,6 +145,6 @@ It is intentionally not a one-click deployment service, an automatic merge bot, 
 
 ## Start with the smallest useful loop
 
-Most users should begin in Manual mode with `/plan-work`, **Implement Plan**, and `/review-work`. Add `/correct-work`, `/explain-work`, or `/learn-from-work` when the verdict calls for them. Use [the usage example](usage-example.md) for concrete command flows.
+Most users should begin with `/plan-work`, **Implement Plan**, and `/review-work`; the review already explains the result. Add `/correct-work`, an `/explain-work` refresh, or `/learn-from-work` when needed. Use [the usage example](usage-example.md) for concrete flows.
 
 Introduce the controller only when you need orchestration beyond that loop. [Configuration](configuration.md) defines explicit model Pools and project ceilings. Before enabling writable supervised or autonomous behavior, follow the [certification runbook](certification-runbook.md) and treat unavailable live evidence as unavailable—not as an implied pass.

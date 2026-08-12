@@ -7,8 +7,9 @@ import {
   classifyPreparationCompatibility,
   classifyRunCompatibility,
   preparationProtocolFields,
-  protocolFields
-} from "./chunk-VL4DQUSD.mjs";
+  protocolFields,
+  runEventSubject
+} from "./chunk-XFYK5I23.mjs";
 import {
   __commonJS,
   __require,
@@ -7347,10 +7348,17 @@ import { createHash } from "node:crypto";
 import { join as join2, resolve as resolve2 } from "node:path";
 
 // src/core/host-preferences.mjs
-var import_yaml = __toESM(require_dist(), 1);
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
+
+// src/core/preference-yaml.mjs
+var import_yaml = __toESM(require_dist(), 1);
+function parsePreferenceYaml(source) {
+  return (0, import_yaml.parse)(String(source));
+}
+
+// src/core/host-preferences.mjs
 var TOOL_APPROVAL_MODES = Object.freeze(["strict", "allowlisted"]);
 var preferenceKeys = Object.freeze(["schema", "tool_approval", "manual_subagent_policy", "extensions"]);
 function sharedWorkflowHome(options = {}) {
@@ -7399,7 +7407,7 @@ function resolveHostToolApproval(options = {}) {
   if (!existsSync(path)) return strictSummary(path, "default");
   let parsed;
   try {
-    parsed = (0, import_yaml.parse)(readFileSync(path, "utf8"));
+    parsed = parsePreferenceYaml(readFileSync(path, "utf8"));
   } catch (error) {
     return strictSummary(path, "invalid-fallback", [`preferences file is unreadable: ${error.message}`]);
   }
@@ -7436,9 +7444,22 @@ function contentAddressedHandoffRootByHash(rootHash, options = {}) {
   if (!/^[a-f0-9]{64}$/.test(String(rootHash ?? ""))) throw new Error("content-addressed handoff requires a full SHA-256 root content hash");
   return join2(resolve2(sharedHandoffBase(options)), "by-root", rootHash);
 }
-function handoffTipPath(rootPlanId, options = {}) {
+function handoffTipDirectory(rootPlanId, options = {}) {
   if (!/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(rootPlanId ?? ""))) throw new Error("handoff tip requires a valid wp-* root_plan_id");
-  return join2(resolve2(sharedHandoffBase(options)), "tips", `${rootPlanId}.json`);
+  return join2(resolve2(sharedHandoffBase(options)), "tips", rootPlanId);
+}
+function handoffTipPath(rootPlanId, rootContentHashValue = null, options = {}) {
+  if (!/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(rootPlanId ?? ""))) throw new Error("handoff tip requires a valid wp-* root_plan_id");
+  if (rootContentHashValue === null || rootContentHashValue === void 0 || rootContentHashValue === "") {
+    return join2(resolve2(sharedHandoffBase(options)), "tips", `${rootPlanId}.json`);
+  }
+  if (!/^[a-f0-9]{64}$/.test(String(rootContentHashValue))) {
+    throw new Error("content-addressed handoff tip requires a full SHA-256 root content hash");
+  }
+  return join2(handoffTipDirectory(rootPlanId, options), `${rootContentHashValue}.json`);
+}
+function legacyHandoffTipPath(rootPlanId, options = {}) {
+  return handoffTipPath(rootPlanId, null, options);
 }
 function sharedArtifactStateRoot(workspaceRoot, options = {}) {
   const base = options.baseRoot ?? process.env.GELDMACHER_WORKFLOW_SHARED_ROOT ?? join2(sharedWorkflowHome(options), "state");
@@ -7537,10 +7558,17 @@ function loadEventHead(eventPath, headPath) {
     return rebuildEventHead(eventPath, headPath);
   }
 }
-function appendIndexedEvent(directory, eventPath, headPath, type, payload) {
+function appendIndexedEvent(directory, eventPath, headPath, type, payload, subject = null) {
   mkdirSync(directory, { recursive: true, mode: 448 });
   const head = loadEventHead(eventPath, headPath);
-  const event = { id: randomUUID(), at: (/* @__PURE__ */ new Date()).toISOString(), type, payload, previous_hash: head.last_hash };
+  const event = {
+    id: randomUUID(),
+    at: (/* @__PURE__ */ new Date()).toISOString(),
+    type,
+    payload,
+    ...subject ? { subject } : {},
+    previous_hash: head.last_hash
+  };
   event.event_hash = createHash2("sha256").update(JSON.stringify(event)).digest("hex");
   const line = `${JSON.stringify(event)}
 `;
@@ -7742,10 +7770,45 @@ var RunStore = class {
     }
   }
   appendEvent(runId, type, payload = {}) {
-    appendIndexedEvent(this.runDirectory(runId), this.eventPath(runId), this.eventHeadPath(runId), type, payload);
+    const run = this.get(runId);
+    appendIndexedEvent(this.runDirectory(runId), this.eventPath(runId), this.eventHeadPath(runId), type, payload, runEventSubject(run));
   }
-  appendDecision(runId, { phase, actor_receipt = null, decision, reason, input_hashes = [], strategy_revision = null, evidence_refs = [], result = null, supersedes = null }) {
-    this.appendEvent(runId, "decision", { phase, actor_receipt, decision, reason, input_hashes, strategy_revision, evidence_refs, result, supersedes });
+  appendDecision(runId, {
+    phase,
+    actor_receipt = null,
+    actor_receipts = [],
+    decision,
+    reason,
+    input_hashes = [],
+    strategy_revision = null,
+    evidence_refs = [],
+    result = null,
+    supersedes = null,
+    correction_id = null,
+    learning_candidate_ids = [],
+    learning_candidate_refs = [],
+    delivery_evidence_hash = null,
+    delivery_commit = null,
+    delivered_paths_hash = null
+  }) {
+    this.appendEvent(runId, "decision", {
+      phase,
+      actor_receipt,
+      actor_receipts,
+      decision,
+      reason,
+      input_hashes,
+      strategy_revision,
+      evidence_refs,
+      result,
+      supersedes,
+      correction_id,
+      learning_candidate_ids,
+      learning_candidate_refs,
+      delivery_evidence_hash,
+      delivery_commit,
+      delivered_paths_hash
+    });
   }
   events(runId, after = 0) {
     return readIndexedEvents(this.eventPath(runId), this.eventHeadPath(runId), after);
@@ -7912,12 +7975,16 @@ var PreparationStore = class {
 
 export {
   require_dist,
+  parsePreferenceYaml,
+  defaultHostPreferencesPath,
   resolveHostToolApproval,
   repositoryKey,
   rootContentHash,
   contentAddressedHandoffRoot,
   contentAddressedHandoffRootByHash,
+  handoffTipDirectory,
   handoffTipPath,
+  legacyHandoffTipPath,
   sharedArtifactStateRoot,
   defaultStateRoot,
   RunStore,

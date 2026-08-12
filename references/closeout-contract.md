@@ -1,9 +1,11 @@
 # Deterministic Closeout
 
-`workflow_closeout` alone produces Schema-5 Evidence from an exact chain, profile, Strategy revision, changed paths, snapshot, and required-Check observations. Callers never choose identity, hashes, topology, mode, grade, or status.
+Hooks build Schema-5 Evidence; MCP closeout is optional.
 
-The builder validates authority and the chain. Same inputs are idempotent; changed inputs, stale or competing topology, conflicts, missing Checks, or authority violations block.
+Fail closed on invalid authority/chain, drift, conflict, or missing Checks. `representation: full|delta` is topology; `evidence_mode: lean|full` is risk-calibrated. Correction binds the exact review tip, refreshes non-passed inherited Root Checks, and reuses passed proof; equivalent Checks share an observation, not IDs.
 
-`representation: full|delta` is topology; Correction is a delta bound to review and tip. `evidence_mode: lean|full` is detail: low/medium Manual without Hard Triggers is lean; otherwise full.
+Host derives full snapshot/paths and alone enforces Root Authority; caller paths are non-authoritative.
 
-Artifact record/context is append-only root-content transport, not authority. Persistence uses the exact Root text hash namespace and does not require MCP Roots. Persistence failure returns valid unpersisted Evidence plus attach instructions. Missing Root/chain, redirect, drift, conflict, or a foreign selector with resolved workspace authority never falls back.
+Codex binds exact task-local Root/Evidence/Review by Root hash without MCP record/context; Stop exposes missing Review and byte, Root, lineage, repository, or Authority conflicts.
+
+Root-hash handoff is transport only; native failure blocks. New plans use `action: delivery-closeout`; legacy closeout/report works. Manual `verified` needs a fresh host receipt; never upgrade caller proof, preserve failures, invalidate mutations, or retain unattested/rootless Checks.

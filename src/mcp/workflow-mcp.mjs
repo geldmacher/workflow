@@ -8,6 +8,8 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { RootsListChangedNotificationSchema } from "@modelcontextprotocol/sdk/types.js";
 import { PreparationStore, RunStore, defaultStateRoot } from "../controller/store.mjs";
 import { WorkflowEngine } from "../controller/engine.mjs";
+import { deriveControllerLearningContext, derivePreparationLearningContext } from "../controller/learning-context.mjs";
+import { createLearningSourceReceiptAuthority } from "../controller/learning-source-receipt.mjs";
 import { PlanningEngine } from "../controller/planning.mjs";
 import { loadWorkflowConfig, resolveRouteProfile } from "../controller/config.mjs";
 import { CursorWorkerAdapter } from "../controller/worker-adapter.mjs";
@@ -30,6 +32,7 @@ import {
 const pluginRoot = resolve(process.env.CURSOR_PLUGIN_ROOT ?? dirname(dirname(fileURLToPath(import.meta.url))));
 const server = new McpServer({ name: "workflow", version: PLUGIN_VERSION });
 const workspaceAuthority = new WorkspaceRootAuthority(() => server.server.listRoots());
+const learningSourceReceipts = createLearningSourceReceiptAuthority();
 server.server.setNotificationHandler(RootsListChangedNotificationSchema, async () => workspaceAuthority.invalidate());
 
 function result(value, isError = false) {
@@ -149,7 +152,13 @@ server.registerTool("workflow_start", toolContract("workflow_start"), async (inp
       const pid = launchRunner({ action: "execute", workspace, stateRoot, runId: run.run_id });
       run = store.update(run.run_id, run.revision, null, (draft) => ({ ...draft, runner_pid: pid }), "runner-launched");
     }
-    return result({ run: runView(run), snapshot: engine.snapshot(run), preparation: preparationView(started.preparation), duplicate: started.duplicate });
+    return result({
+      run: runView(run),
+      snapshot: engine.snapshot(run),
+      preparation: preparationView(started.preparation),
+      learning_source_receipt: learningSourceReceipts.issue(run),
+      duplicate: started.duplicate,
+    });
   } catch (error) { return failure(error); }
 });
 
@@ -158,24 +167,44 @@ server.registerTool("workflow_status", toolContract("workflow_status"), async (i
     const subjectCount = [input.run_id, input.preparation_id, input.root_plan_id].filter(Boolean).length;
     if (subjectCount > 1) throw new Error("workflow_status accepts only one of run_id, preparation_id, or root_plan_id");
     if (input.artifacts && (input.run_id || input.preparation_id)) throw new Error("workflow_status artifacts cannot be combined with a controller subject");
+    if (input.artifacts && input.learning_source_receipt) throw new Error("manual workflow_status does not accept a controller learning source receipt");
     if (input.root_plan_id && !input.artifacts) throw new Error("manual workflow_status requires artifacts with root_plan_id");
     if (input.artifacts) return manualTools.status(input);
     if (input.manual_acceptance) throw new Error("workflow_status manual_acceptance requires current-task artifacts");
-    const { stateRoot, store, preparationStore, engine } = await context(input.workspace_root);
+    const { workspace, stateRoot, store, preparationStore, engine } = await context(input.workspace_root);
     const model_inheritance = modelInheritanceSummary(stateRoot);
     if (input.run_id) {
       const run = store.get(input.run_id);
-      return result({ subject_kind: "run", run: runView(run), snapshot: engine.snapshot(run), model_inheritance });
+      const sourceBinding = learningSourceReceipts.verify(input.learning_source_receipt, run);
+      return result({
+        subject_kind: "run",
+        run: runView(run),
+        snapshot: engine.snapshot(run),
+        learning: deriveControllerLearningContext({ run, events: store.events(run.run_id), workspaceRoot: workspace, pluginRoot, sourceBinding }),
+        model_inheritance,
+      });
     }
-    if (input.preparation_id) return result({ subject_kind: "preparation", preparation: preparationView(preparationStore.get(input.preparation_id)), model_inheritance });
+    if (input.preparation_id) {
+      const preparation = preparationStore.get(input.preparation_id);
+      return result({ subject_kind: "preparation", preparation: preparationView(preparation), learning: derivePreparationLearningContext(preparation), model_inheritance });
+    }
     const active = [
       ...store.active().map((run) => ({ kind: "run", value: run })),
       ...preparationStore.active().map((preparation) => ({ kind: "preparation", value: preparation })),
     ];
     if (active.length === 0) throw new Error("no active Workflow Preparation or Run");
     if (active.length > 1) throw new Error("multiple active Workflow subjects require an explicit ID");
-    if (active[0].kind === "run") return result({ subject_kind: "run", run: runView(active[0].value), snapshot: engine.snapshot(active[0].value), model_inheritance });
-    return result({ subject_kind: "preparation", preparation: preparationView(active[0].value), model_inheritance });
+    if (active[0].kind === "run") {
+      const sourceBinding = learningSourceReceipts.verify(input.learning_source_receipt, active[0].value);
+      return result({
+        subject_kind: "run",
+        run: runView(active[0].value),
+        snapshot: engine.snapshot(active[0].value),
+        learning: deriveControllerLearningContext({ run: active[0].value, events: store.events(active[0].value.run_id), workspaceRoot: workspace, pluginRoot, sourceBinding }),
+        model_inheritance,
+      });
+    }
+    return result({ subject_kind: "preparation", preparation: preparationView(active[0].value), learning: derivePreparationLearningContext(active[0].value), model_inheritance });
   } catch (error) { return failure(error); }
 });
 
@@ -253,7 +282,7 @@ server.registerTool("workflow_control", toolContract("workflow_control"), async 
       const pid = launchRunner({ action: "execute", workspace, stateRoot, runId: run.run_id });
       run = store.update(run.run_id, run.revision, null, (draft) => ({ ...draft, runner_pid: pid }), "runner-launched");
     }
-    return result({ subject_kind: "run", run: runView(run), snapshot: engine.snapshot(run), duplicate: mutation.duplicate });
+    return result({ subject_kind: "run", run: runView(run), snapshot: engine.snapshot(run), learning_source_receipt: learningSourceReceipts.issue(run), duplicate: mutation.duplicate });
   } catch (error) { return failure(error); }
 });
 
@@ -264,7 +293,7 @@ server.registerTool("workflow_answer", toolContract("workflow_answer"), async (i
       if (before.lifecycle !== "waiting-human") throw new Error("run is not waiting for a human answer");
       engine.update(input.run_id, (draft) => ({ ...draft, answers: [...(draft.answers ?? []), { at: new Date().toISOString(), answer: input.answer }], blockers: [], next_action: "replan" }), "answer-recorded");
     });
-    return result({ run: runView(mutation.value), snapshot: engine.snapshot(mutation.value), duplicate: mutation.duplicate });
+    return result({ run: runView(mutation.value), snapshot: engine.snapshot(mutation.value), learning_source_receipt: learningSourceReceipts.issue(mutation.value), duplicate: mutation.duplicate });
   } catch (error) { return failure(error); }
 });
 

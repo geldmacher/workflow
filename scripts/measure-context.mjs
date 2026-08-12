@@ -15,9 +15,9 @@ export const limits = Object.freeze({
   phaseFlows: Object.freeze({
     plan_intake: 2000,
     plan_oneshot: 2000,
-    plan_compact_full: 2400,
-    review_base: 2000,
-    review_correction: 2500,
+    plan_compact_full: 2450,
+    review_base: 2150,
+    review_correction: 2650,
     correction: 2000,
     closeout: 1800,
     learning: 2000,
@@ -38,7 +38,7 @@ export const headroomTargets = Object.freeze({
   phaseFlows: Object.freeze(Object.fromEntries(Object.entries(limits.phaseFlows).map(([name, maximum]) => [name, Math.floor(maximum * 0.9)]))),
   automationFlows: Object.freeze(Object.fromEntries(Object.entries(limits.automationFlows).map(([name, maximum]) => [name, Math.floor(maximum * 0.9)]))),
 });
-export const economicTargets = Object.freeze({ plan: 1800, correction: 1800, closeout: 1620, review: 1800, learning: 1800, explanation: 1080, automation: 1350 });
+export const economicTargets = Object.freeze({ plan: 1800, correction: 1800, closeout: 1620, review: 1950, learning: 1800, explanation: 1080, automation: 1350 });
 
 export const flowMatrix = Object.freeze({
   phase_flows: Object.freeze({

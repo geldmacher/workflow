@@ -2,6 +2,17 @@
 
 The self-contained runtime validator bundles the following packages. Their notices are reproduced verbatim.
 
+## Agent Plugins Specification 1.0.0 schemas
+
+The canonical `plugin.schema.json` and `mcp.schema.json` files under
+`schemas/agent-plugins/1.0.0` are copied from the
+[Agent Plugins Specification schemas](https://github.com/agentplugins/agent-plugins-spec/tree/main/schemas/1.0.0)
+for network-free build validation.
+
+The Agent Plugins project licenses schemas and other software material under
+the [Apache License 2.0](https://github.com/agentplugins/agent-plugins-spec/blob/main/LICENSE.md).
+No schema is fetched from the network while building, validating, or loading a Workflow package.
+
 ## ajv@8.20.0
 
 Declared license: MIT

@@ -80,7 +80,7 @@ test("manual, expanded, automation, and auditor targets are explicit", () => {
   for (const [name, maximum] of Object.entries(limits.phaseFlows)) assert.ok(measurement.phase_flows[name] <= maximum, name);
   for (const [name, maximum] of Object.entries(limits.automationFlows)) assert.ok(measurement.automationFlows[name] <= maximum, name);
   for (const [name, tokens] of Object.entries(measurement.reviewerTokens)) assert.ok(tokens <= limits.reviewerTokens, name);
-  assert.deepEqual(economicTargets, { plan: 1800, correction: 1800, closeout: 1620, review: 1800, learning: 1800, explanation: 1080, automation: 1350 });
+  assert.deepEqual(economicTargets, { plan: 1800, correction: 1800, closeout: 1620, review: 1950, learning: 1800, explanation: 1080, automation: 1350 });
   for (const [name, maximum] of Object.entries(headroomTargets.phaseFlows)) assert.ok(measurement.phase_flows[name] <= maximum, `${name} headroom`);
   for (const [name, maximum] of Object.entries(headroomTargets.automationFlows)) assert.ok(measurement.automationFlows[name] <= maximum, `${name} headroom`);
   assert.deepEqual(budgetDiagnostics(measurement), []);

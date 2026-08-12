@@ -1,10 +1,14 @@
 ---
 name: work-learning
-description: Persist confirmed Workflow learnings.
+description: Persist confirmed learnings.
 ---
 
-Use Cursor Agent Mode. Read [protocol](../../references/artifact-protocol.md) and [learning closeout](../../references/learning-contract.md) completely; Cursor determines capabilities.
+Use Agent Mode. Read [protocol](../../references/artifact-protocol.md) and [learning closeout](../../references/learning-contract.md) completely.
 
-Treat invocation as human authorization for bounded project-guidance edits. Interpret all trailing text as one supplemental Learning, never an artifact ID. Use only the active native Cursor Plan's valid, achieved Schema-5 Root and linear review/evidence chain; never fall back to older completed Roots. Stop before mutation on missing, non-achieved, ambiguous, Workflow-3/4-only, mixed, or invalid input. An ephemeral `accepted-provisional` snapshot never authorizes automatic or qualifying Learning publication.
+Invocation directly authorizes bounded project-guidance edits only. Trailing text is one supplemental Learning, never a selector; do not accept, integrate, publish, or mutate Runs.
 
-Confirm correction candidates only from complete evidence naming their correction plus current repository inspection. Apply the contract's chronological deduplication and fixed routing order. Preserve unrelated work, validate affected guidance, and keep repeated closeout diff-free. Return every candidate's result, source, destination, changed paths, and verification.
+Resolve exactly one current-task source: the active native Cursor Plan with its achieved Schema-5 chain, else a controller Run returned with its ephemeral `learning_source_receipt` by state-establishing `workflow_start`, `workflow_control`, or `workflow_answer`. Missing/expired, ambiguity, absence, mixed Workflow-3/4, or history/store lookup stops; status/watch never issue receipts.
+
+Refresh `workflow_status`, passing the receipt, and require `learning.eligible: true` plus confirmed source binding. Apply mode, acceptance, integration, legacy, and fail-closed gates; never synthesize history.
+
+Trust candidates only after `evidence_confirmed: true` and repository proof. Add trailing text once. Deduplicate/route, preserve unrelated work, prove idempotence, and report result, destination, paths, and proof. Apply its help rule.

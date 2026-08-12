@@ -3,11 +3,12 @@ import { createRequire as __workflowCreateRequire } from 'node:module';
 const require = __workflowCreateRequire(import.meta.url);
 
 // src/controller/protocol.mjs
-var PLUGIN_VERSION = "5.2.0";
+var PLUGIN_VERSION = "5.3.0";
 var ARTIFACT_SCHEMA = 5;
 var RUN_RECORD_SCHEMA = 2;
 var PREPARATION_RECORD_SCHEMA = 2;
 var CONTROLLER_PROTOCOL = 5;
+var RUN_EVENT_SUBJECT_SCHEMA = 1;
 var LEGACY_WORKFLOW_3 = Object.freeze({
   plugin_version: "3.0.0",
   artifact_schema: 3,
@@ -43,7 +44,18 @@ function protocolFields() {
     run_record_schema: RUN_RECORD_SCHEMA,
     artifact_schema: ARTIFACT_SCHEMA,
     controller_protocol: CONTROLLER_PROTOCOL,
-    plugin_version: PLUGIN_VERSION
+    plugin_version: PLUGIN_VERSION,
+    event_subject_schema: RUN_EVENT_SUBJECT_SCHEMA
+  };
+}
+function runEventSubject(run) {
+  return {
+    schema: RUN_EVENT_SUBJECT_SCHEMA,
+    kind: "controller-run",
+    run_id: run?.run_id ?? null,
+    root_plan_id: run?.plan?.fields?.id ?? run?.root_plan_id ?? null,
+    intent_hash: run?.intent_hash ?? null,
+    effective_profile: run?.effective_profile ?? null
   };
 }
 function preparationProtocolFields() {
@@ -55,7 +67,15 @@ function preparationProtocolFields() {
   };
 }
 function classifyRunCompatibility(run) {
-  const compatible = run?.run_record_schema === RUN_RECORD_SCHEMA && run?.artifact_schema === ARTIFACT_SCHEMA && run?.controller_protocol === CONTROLLER_PROTOCOL;
+  const baseCompatible = run?.run_record_schema === RUN_RECORD_SCHEMA && run?.artifact_schema === ARTIFACT_SCHEMA && run?.controller_protocol === CONTROLLER_PROTOCOL;
+  const eventSubjectCompatible = !Object.hasOwn(run ?? {}, "event_subject_schema") || run?.event_subject_schema === RUN_EVENT_SUBJECT_SCHEMA;
+  const compatible = baseCompatible && eventSubjectCompatible;
+  if (baseCompatible && !eventSubjectCompatible) return {
+    compatible: false,
+    legacy: false,
+    compatibility: "read-only-incompatible",
+    blocker: "incompatible-run-event-subject-schema"
+  };
   const classification = compatible ? null : legacyClassification(run, "run_record_schema", "run");
   return {
     compatible,
@@ -86,7 +106,11 @@ function assertCompatiblePreparation(preparation) {
 }
 function runView(run) {
   const classification = classifyRunCompatibility(run);
-  const { delivery_evidence_artifact: _deliveryEvidenceArtifact, ...visible } = run ?? {};
+  const {
+    delivery_evidence_artifact: _deliveryEvidenceArtifact,
+    learning_candidates: _learningCandidates,
+    ...visible
+  } = run ?? {};
   if (classification.compatible) return { ...visible, compatibility: classification.compatibility };
   return {
     ...visible,
@@ -115,7 +139,9 @@ export {
   PLUGIN_VERSION,
   ARTIFACT_SCHEMA,
   CONTROLLER_PROTOCOL,
+  RUN_EVENT_SUBJECT_SCHEMA,
   protocolFields,
+  runEventSubject,
   preparationProtocolFields,
   classifyRunCompatibility,
   assertCompatibleRun,

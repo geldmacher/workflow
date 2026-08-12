@@ -6,4 +6,4 @@ The external `execution-strategy` is versioned and hash chained. The controller 
 
 `supervised` allows Dirty Baseline capture and strategy adaptation, but every delivery needs human acceptance. `autonomous` additionally requires an exact Qualification Key: task class, Verification Profile hash, Route Pool hash, and certified repository region. A non-safety deficit downgrades visibly to `supervised` and continues. Intent, risk, scope, dependency, external-effect, secret, protected-path, or budget violations stop.
 
-Repository delivery is the outer effect. Push, PR, merge, deployment, production access, automatic integration, and automatic learning are forbidden.
+Repository delivery is outer effect. Reviewers may propose correction Learning; controller records only. Applying needs human `/learn-from-work` after integration. Push, PR, merge, deploy, production access, automatic integration, and automatic learning are forbidden.

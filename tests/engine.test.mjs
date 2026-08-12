@@ -7,6 +7,7 @@ import test from "node:test";
 import { WorkflowEngine } from "../src/controller/engine.mjs";
 import { RunStore } from "../src/controller/store.mjs";
 import { ArtifactHandoffStore } from "../src/controller/artifact-handoff.mjs";
+import { deriveControllerLearningContext } from "../src/controller/learning-context.mjs";
 import { runView } from "../src/controller/protocol.mjs";
 import { createInitialStrategy, calibrateRecipeEvidence, reviseStrategy, strategyHash } from "../src/controller/strategy.mjs";
 import { repositoryBaseline } from "../src/controller/worktree.mjs";
@@ -21,7 +22,7 @@ function git(cwd, args) {
   return result.stdout.trim();
 }
 
-function setup({ patchedGrade = "verified", repetitions = 2, taskClass = "bugfix", effectiveProfile = "supervised", readerMutates = false, writerPath = "src/result.mjs", maxTotalTokens = 50000, certification = null, interruptWriterOnce = false } = {}) {
+function setup({ patchedGrade = "verified", repetitions = 2, taskClass = "bugfix", effectiveProfile = "supervised", readerMutates = false, writerPath = "src/result.mjs", maxTotalTokens = 50000, certification = null, interruptWriterOnce = false, reviewDecisions = [] } = {}) {
   const root = mkdtempSync(join(tmpdir(), "workflow-engine-"));
   const repo = join(root, "repo");
   const state = join(root, "state");
@@ -34,7 +35,10 @@ function setup({ patchedGrade = "verified", repetitions = 2, taskClass = "bugfix
   git(repo, ["add", "."]);
   git(repo, ["-c", "user.name=Test", "-c", "user.email=test@invalid", "commit", "-m", "base"]);
   const store = new RunStore(state);
-  let planText = rootPlan.replace("max_total_tokens: 50000", `max_total_tokens: ${maxTotalTokens}`);
+  let planText = rootPlan
+    .replace("max_total_tokens: 50000", `max_total_tokens: ${maxTotalTokens}`)
+    // Engine harness grades come from the verifier mock; keep host checks on the verification-profile path.
+    .replace("| npm test |", "| verification-profile |");
   if (effectiveProfile === "autonomous") {
     const bound = {
       task_recipe: taskClass,
@@ -84,6 +88,8 @@ function setup({ patchedGrade = "verified", repetitions = 2, taskClass = "bugfix
     artifact_projection_hash: input.artifactProjectionHash, status: "finished",
   });
   const decision = JSON.stringify({ assessment: "achieved", delivery_status: "verified", next_action: "none", finding_keys: [], findings: [] });
+  const queuedReviewDecisions = [...reviewDecisions];
+  const nextReviewDecision = () => JSON.stringify(queuedReviewDecisions.shift() ?? JSON.parse(decision));
   const adapter = {
     validateProfile: () => routeValidation,
     runPhase: (input) => {
@@ -108,12 +114,12 @@ function setup({ patchedGrade = "verified", repetitions = 2, taskClass = "bugfix
         }] });
         return { response: { ok: true, status: "finished", result }, receipt: makeReceipt(input.role, input) };
       }
-      return { response: { ok: true, status: "finished", result: decision }, receipt: makeReceipt(input.role, input) };
+      return { response: { ok: true, status: "finished", result: input.role === "reviewer" ? nextReviewDecision() : decision }, receipt: makeReceipt(input.role, input) };
     },
     runReadOnlyFanout: (phases) => phases.map((input) => {
       calls.push(input.role);
       reviewPrompts.push(input.prompt);
-      return { response: { ok: true, status: "finished", result: decision }, receipt: makeReceipt(input.role, input) };
+      return { response: { ok: true, status: "finished", result: nextReviewDecision() }, receipt: makeReceipt(input.role, input) };
     }),
   };
   const capabilities = { worker_network_isolated: true, sandbox_boundary_verified: true, sdk_secret_isolated: true, sdk_budget_cancel_verified: true };
@@ -159,6 +165,113 @@ test("supervised verified delivery waits for explicit human acceptance", () => {
     assert.equal("delivery_evidence_artifact" in runView(delivered), false);
     const accepted = env.engine.acceptDelivery(env.run.run_id, "verified");
     assert.equal(accepted.lifecycle, "achieved");
+  } finally { cleanup(env); }
+});
+
+test("controller corrections retain bounded learning lineage until verified acceptance and integration", () => {
+  const env = setup({ reviewDecisions: [{
+    assessment: "mostly-achieved",
+    delivery_status: "blocked",
+    next_action: "correct",
+    finding_keys: ["retry-boundary"],
+    findings: [{ key: "retry-boundary", summary: "Retry result needs a stable boundary." }],
+    learning_candidates: [{
+      finding_keys: ["retry-boundary"],
+      reusable_guidance: "Keep retry results behind the repository retry boundary.",
+      candidate_targets: ["AGENTS.md"],
+      confirmation_evidence: "The corrected delivery passes CHECK-1 without the finding.",
+    }],
+  }] });
+  try {
+    const delivered = env.engine.execute(env.run.run_id);
+    assert.equal(delivered.delivery_status, "verified");
+    assert.deepEqual(delivered.delivered_paths, ["src/result.mjs"]);
+    assert.match(delivered.delivery_commit, /^[a-f0-9]{40}$/);
+    assert.equal(delivered.learning_candidates.length, 1);
+    assert.match(delivered.learning_candidates[0].learning_id, /^LRN-adaptive-retry-/);
+    assert.match(delivered.learning_candidates[0].correction_id, /^cp-adaptive-retry-controller-1$/);
+    const correctionEvent = env.store.events(delivered.run_id).find((event) => event.payload?.learning_candidate_ids?.length > 0);
+    assert.equal(correctionEvent.payload.correction_id, delivered.learning_candidates[0].correction_id);
+    assert.equal(correctionEvent.payload.actor_receipt, delivered.learning_candidates[0].source_receipt_ids[0]);
+    assert.deepEqual(correctionEvent.payload.actor_receipts, delivered.learning_candidates[0].source_receipt_ids);
+
+    const accepted = env.engine.acceptDelivery(delivered.run_id, "verified");
+    const beforeIntegration = deriveControllerLearningContext({ run: accepted, events: env.store.events(accepted.run_id), workspaceRoot: env.repo, pluginRoot: defaultRoot, sourceBinding: { confirmed: true, kind: "test-receipt" } });
+    assert.equal(beforeIntegration.eligible, false);
+    assert.ok(beforeIntegration.blockers.includes("controller-delivery-not-integrated"));
+
+    git(env.repo, ["checkout", delivered.delivery_commit, "--", "src/result.mjs"]);
+    const integrated = deriveControllerLearningContext({ run: accepted, events: env.store.events(accepted.run_id), workspaceRoot: env.repo, pluginRoot: defaultRoot, sourceBinding: { confirmed: true, kind: "test-receipt" } });
+    assert.equal(integrated.eligible, true);
+    assert.equal(integrated.workspace_match.status, "matched");
+    assert.equal(integrated.candidates[0].evidence_confirmed, true);
+  } finally { cleanup(env); }
+});
+
+test("review fanout semantically deduplicates candidates and preserves exact proposing receipts", () => {
+  const achieved = { assessment: "achieved", delivery_status: "verified", next_action: "none", finding_keys: [], findings: [] };
+  const firstCorrect = {
+    assessment: "mostly-achieved",
+    delivery_status: "blocked",
+    next_action: "correct",
+    finding_keys: ["target-order", "retry-boundary"],
+    findings: [
+      { key: "target-order", summary: "Target order must not change identity." },
+      { key: "retry-boundary", summary: "Retry boundary needs guidance." },
+    ],
+    learning_candidates: [{
+      finding_keys: ["target-order", "retry-boundary"],
+      reusable_guidance: "Canonicalize set-like reviewer fields before deduplication.",
+      candidate_targets: ["docs/profiles.md", "AGENTS.md"],
+      confirmation_evidence: "The corrected fanout test retains one candidate.",
+    }],
+  };
+  const secondCorrect = {
+    ...firstCorrect,
+    finding_keys: ["retry-boundary", "target-order"],
+    findings: [...firstCorrect.findings].reverse(),
+    learning_candidates: [{
+      ...firstCorrect.learning_candidates[0],
+      finding_keys: ["retry-boundary", "target-order"],
+      candidate_targets: ["AGENTS.md", "docs/profiles.md"],
+    }],
+  };
+  const env = setup({ reviewDecisions: [achieved, firstCorrect, secondCorrect] });
+  try {
+    const waiting = env.engine.execute(env.run.run_id);
+    assert.equal(waiting.lifecycle, "waiting-human");
+    assert.equal(waiting.learning_candidates.length, 1);
+    assert.equal(waiting.learning_candidates[0].lineage.length, 1);
+    const bindings = waiting.learning_candidates[0].lineage[0].source_bindings;
+    assert.equal(bindings.length, 2);
+    assert.ok(bindings.some((binding) => binding.source_receipt_id.startsWith("reviewer-")));
+    assert.ok(bindings.some((binding) => binding.source_receipt_id.startsWith("investigator-")));
+    const correctionEvent = env.store.events(waiting.run_id).find((item) => item.payload?.learning_candidate_refs?.length > 0);
+    assert.equal(correctionEvent.payload.learning_candidate_refs.length, 1);
+    assert.deepEqual(correctionEvent.payload.learning_candidate_refs[0].source_bindings, bindings);
+    assert.deepEqual(correctionEvent.payload.actor_receipts, bindings.map((binding) => binding.source_receipt_id).sort());
+  } finally { cleanup(env); }
+});
+
+test("controller rejects a candidate whose cited finding has no valid review record", () => {
+  const env = setup({ reviewDecisions: [{
+    assessment: "mostly-achieved",
+    delivery_status: "blocked",
+    next_action: "correct",
+    finding_keys: ["retry-boundary"],
+    findings: [],
+    learning_candidates: [{
+      finding_keys: ["retry-boundary"],
+      reusable_guidance: "Keep the retry boundary explicit.",
+      candidate_targets: ["AGENTS.md"],
+      confirmation_evidence: "CHECK-1 passes after correction.",
+    }],
+  }] });
+  try {
+    const waiting = env.engine.execute(env.run.run_id);
+    assert.equal(waiting.lifecycle, "waiting-human");
+    assert.match(waiting.blockers.join("\n"), /finding without a valid review finding/);
+    assert.deepEqual(waiting.learning_candidates ?? [], []);
   } finally { cleanup(env); }
 });
 

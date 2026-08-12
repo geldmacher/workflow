@@ -9,6 +9,7 @@ import {
   sharedWorkflowHome,
   validateHostPreferences,
 } from "../src/core/host-preferences.mjs";
+import { resolveManualSubagentPolicy } from "../src/core/manual-subagent-policy.mjs";
 import { sharedArtifactStateRoot } from "../src/core/state-paths.mjs";
 
 test("missing preferences resolve to fail-safe strict", () => {
@@ -35,6 +36,26 @@ test("allowlisted preferences parse without granting host approval", () => {
     assert.equal(resolved.source, "file");
     assert.equal(resolved.grants_host_approval, false);
     assert.equal(resolved.host_allowlist_required, true);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("host approval and Manual subagent policy share standards-compliant YAML parsing", () => {
+  const home = mkdtempSync(join(tmpdir(), "workflow-prefs-flow-yaml-"));
+  try {
+    writeFileSync(join(home, "preferences.yaml"), [
+      "schema: 1",
+      "tool_approval: allowlisted",
+      "manual_subagent_policy: { schema: 1, mode: parent-only }",
+      "",
+    ].join("\n"));
+    const approval = resolveHostToolApproval({ homeRoot: home });
+    assert.equal(approval.tool_approval, "allowlisted");
+    assert.equal(approval.source, "file");
+    const policy = resolveManualSubagentPolicy({ homeRoot: home });
+    assert.equal(policy.mode, "parent-only");
+    assert.equal(policy.source, "file");
   } finally {
     rmSync(home, { recursive: true, force: true });
   }

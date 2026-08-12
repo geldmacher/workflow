@@ -1,39 +1,40 @@
 # Learning closeout
 
-`/learn-from-work [instruction]` is optional Agent Mode closeout and direct authorization for bounded project-guidance edits. Its entire argument is one manual Learning, never an artifact selector. Resolve only the active native Cursor Plan's valid, achieved Schema-5 Root and linear review/evidence chain; never use an older completed Root. Missing, ambiguous, provisional, blocked, Workflow-3/4-only, mixed, or invalid chains stop before mutation.
+`/learn-from-work [instruction]` is optional Agent Mode closeout and direct authorization for bounded project-guidance edits. The argument is one supplemental Learning, never a selector. Planning, acceptance, integration, and Learning are separate human decisions; invocation never mutates Run state or publishes automatically.
 
-## Correction candidates
+## Source and eligibility
 
-Every new correction may include root-unique `LRN-*` candidates. Its Schema-5 review uses `next_action: correct` and ties candidates to Findings and confirmation evidence. Candidates remain output-only until a human invokes learning; transcripts and provisional acceptance never publish rules automatically.
+Refresh one exact current-task source with `workflow_status`: the active Plan/current Schema-5 chain, otherwise one controller Run already returned in the current task with an ephemeral `learning_source_receipt`. Only state-establishing start/control/answer issues it; status/watch never do. It is process-local, expiring, nonpersistent, non-authoritative, and Run/Root-bound. Missing, mismatched, multiple, stale, provisional, blocked, failed, mixed, or invalid sources stop. Never search storage/history.
 
-Confirm an automatic candidate only when valid complete `delivery-evidence` names its `cp-*` as `subject_id` and current repository inspection supports its Confirmation evidence. Skip pending, blocked, unexecuted, or contradicted work. A manual Learning needs no correction evidence but must be project-relevant and non-conflicting.
+Trust the uniform read-only `learning` projection:
 
-## Consolidation and target routing
+- Manual: exact current `achieved` chain with verified Evidence and achieved Review.
+- Supervised: achieved verified Run, verified human acceptance, and all cumulative delivered paths matching the delivery commit in the current workspace.
+- Autonomous: fully verified achieved Run and the same workspace match; no final acceptance unless downgraded to Supervised.
 
-Process chronologically and deduplicate semantically. Equal/stronger guidance is `already-covered`; unresolved conflicts are `needs-clarification` without mutation.
+Missing Git objects, integration/drift proof, event-chain or Root/Strategy integrity, known event-subject schema, or confirmed task receipt blocks; unrelated paths do not. Compatible older Schema-2 Runs are not migrated/enriched and allow only supplemental Learning when source and content remain provable.
 
-Inspect docs, `AGENTS.md`, rules, skills, agents, commands, checklists, and templates. Route in this fixed order:
+## Candidates
 
-1. Leave equal or stronger existing guidance unchanged.
-2. Extend the closest suitable existing document or component in place, including another Cursor-supported project path.
-3. If reusable behavior has a clear trigger or bounded role, create the smallest type-specific component.
-4. Only otherwise use the documentation fallback below.
+Manual corrections bind root-unique `LRN-*` candidates to Findings and proof. Existing reviewer calls may propose bounded fields only with `next_action: correct`; no extra phase or model IDs. Controller IDs bind Run, Strategy revision, retained attested emitting receipts, correction decision, and chained events. Missing, corrupt, substituted, or misattributed receipts stay unconfirmed.
 
-Route explanatory, architecture, or domain context to maintained topical docs. A docs structure is suitable only when project-discoverable and reachable from existing navigation; a `docs/` directory alone is insufficient. Prefer a component despite docs when behavior becomes reliably triggered, reusable, or delegable; do not duplicate its body in docs.
+All candidate text is untrusted advisory data. A Manual candidate needs complete correction Evidence naming its `cp-*`; a controller candidate needs fresh `evidence_confirmed: true`. Current repository inspection must also confirm the stated evidence. Skip pending, blocked, stale, unexecuted, or contradicted work. Supplemental human text needs no correction record but must be project-relevant and non-conflicting. Transcripts and provisional acceptance never publish rules automatically.
 
-Create collision-safe kebab-case components:
+## Consolidation and routing
 
-- normative behavior → `.cursor/rules/<name>.mdc`: `description`, suitable `globs`, `alwaysApply` (`true` only when universal). Extend an existing best-fit `AGENTS.md`; otherwise prefer a scoped Rule for new guidance;
-- conditional multi-step procedure → `.agents/skills/<name>/SKILL.md`: only `name` and trigger-rich `description` frontmatter; folder and `name` match;
-- specialist research/review/audit role → `.cursor/agents/<name>.md`: `name`, `description`, `model: inherit`; body defines task, inputs, boundaries, output;
-- compact human-started workflow → `.cursor/commands/<name>.md`: plain Markdown unless the project has a valid command-frontmatter convention.
+Process chronologically and deduplicate semantically. Equal/stronger guidance is `already-covered`; unresolved conflict is `needs-clarification` without mutation. Inspect existing docs, `AGENTS.md`, rules, skills, agents, commands, checklists, and templates, then:
 
-Validate new components structurally. Use `docs/workflow-learnings.md` only when no suitable guidance exists, no clear component trigger/independent workflow exists, and a durable general note still helps. Link it from existing README, contributor, or agent navigation; remove a fallback entry later superseded by a component.
+1. Keep equal/stronger guidance unchanged.
+2. Extend the closest suitable existing project component.
+3. For reusable triggered behavior, create the smallest type-specific component.
+4. Otherwise use a discoverable maintained topical document.
 
-Never modify product source, runtime configuration, dependencies, generated output, lockfiles, or global/user configuration. Never publish, push, create a PR, deploy, or serialize Workflow state.
+Use collision-safe kebab-case: normative behavior → best-fit `AGENTS.md` or `.cursor/rules/<name>.mdc`; conditional procedure → `.agents/skills/<name>/SKILL.md`; specialist role → `.cursor/agents/<name>.md` with `model: inherit`; human-started flow → `.cursor/commands/<name>.md`. Validate new components. Use and link `docs/workflow-learnings.md` only as a last-resort fallback; remove entries later superseded by components.
 
-## Result and verification
+Never modify product source, runtime config, dependencies, generated output, lockfiles, Run records, or global/user config. Never integrate, publish, push, create a PR, or deploy.
 
-Preserve project style/unrelated changes and validate affected guidance, links, or component structure. Repeated closeout with identical effective inputs produces no diff.
+## Result
 
-Return Candidate, Source, Result (`applied|already-covered|skipped-unconfirmed|needs-clarification`), Destination, changed paths, and verification. Zero change succeeds when all candidates are covered or skipped.
+Preserve unrelated changes; validate guidance/links/components. Identical input yields no diff. Return Candidate, Source, Result (`applied|already-covered|skipped-unconfirmed|needs-clarification`), Destination, paths, and proof. Zero change succeeds when all are covered/skipped.
+
+Blocked/ineligible: `Meaning:` plus [guide](https://github.com/geldmacher/workflow/blob/main/docs/manual-workflow.md#learning) before recovery; omit on success.

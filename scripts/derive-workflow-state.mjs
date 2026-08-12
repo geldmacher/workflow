@@ -111,7 +111,7 @@ export function deriveWorkflowState(input = {}) {
   if (manualArtifacts && input.delivery_status === "provisional") {
     if (input.manual_acceptance === "provisional") return snapshot(input, "accepted-provisional", {
       allowed_actions: ["inspect"],
-      required_actor: "human",
+      required_actor: "none",
       next_action: "none",
       acceptance_persisted: false,
       acceptance_basis_hash: input.acceptance_basis_hash ?? input.artifact_set_hash ?? null,
@@ -122,7 +122,7 @@ export function deriveWorkflowState(input = {}) {
   if (input.phase === "delivery-ready-provisional" || input.delivery_status === "provisional") return snapshot(input, "delivery-ready-provisional", { allowed_actions: ["accept-provisional", "inspect", "stop"], required_actor: "human", next_action: "accept-provisional" });
   if (!manualArtifacts && (input.phase === "delivery-ready-verified" || (input.delivery_status === "verified" && !input.delivery_accepted))) return snapshot(input, "delivery-ready-verified", { allowed_actions: ["accept-verified", "inspect", "stop"], required_actor: "human", next_action: "accept-verified" });
   if (input.review?.assessment !== "achieved") return snapshot(input, "replan", { allowed_actions: ["replan", "stop"], required_actor: "human", next_action: "replan", blockers: ["root-review-not-achieved"] });
-  return snapshot(input, "achieved", { allowed_actions: ["explain", "learn"], required_actor: "human", next_action: "none" });
+  return snapshot(input, "achieved", { allowed_actions: ["explain", "learn"], required_actor: "none", next_action: "none" });
 }
 
 export const workflowStates = Object.freeze([...states]);

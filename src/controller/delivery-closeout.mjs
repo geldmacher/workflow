@@ -6,6 +6,10 @@ import {
   inspectArtifactSet,
   inspectArtifactText,
 } from "../../scripts/validate-artifact.source.mjs";
+import {
+  calibrateManualCheckEvidence,
+  manualConstraintProjection,
+} from "../core/manual-check-receipts.mjs";
 import { aggregateEvidence } from "./strategy.mjs";
 
 function sha256(value) {
@@ -56,22 +60,34 @@ function normalizeArtifacts(rootPlanText, artifacts, pluginRoot) {
   return { rootId, entries: [...byId.values()] };
 }
 
-function expectedCheckMap(contract, correction) {
+function expectedCheckMap(contract, correction, unresolvedRootChecks = new Map()) {
   const checks = correction?.checks?.filter((check) => check.Required === "yes") ?? contract.checks.filter((check) => check.Required === "yes");
-  return new Map(checks.map((check) => [check["Check ID"], check]));
+  return new Map([
+    ...checks.map((check) => [check["Check ID"], check]),
+    ...unresolvedRootChecks,
+  ]);
 }
 
 function rootCheckMap(contract) {
   return new Map(contract.checks.filter((check) => check.Required === "yes").map((check) => [check["Check ID"], check]));
 }
 
-function normalizeCheckEvidence(input, plannedChecks, rootChecks, evidenceMode) {
+function unresolvedRootCheckMap(contract, predecessorEvidence) {
+  const effectiveChecks = predecessorEvidence?.effective?.checks;
+  return new Map([...rootCheckMap(contract)].filter(([checkId]) => effectiveChecks?.get(checkId)?.status !== "passed"));
+}
+
+function normalizeCheckEvidence(input, plannedChecks, rootChecks, evidenceMode, {
+  enforceManualCheckReceipts = false,
+  manualCheckReceipts = [],
+  existingCheckEvidence = [],
+} = {}) {
   if (!Array.isArray(input) || input.length === 0) throw new Error("closeout requires structured Check evidence");
   const ids = input.map((entry) => entry?.check_id);
   if (new Set(ids).size !== ids.length) throw new Error("closeout Check evidence IDs must be unique");
   for (const id of plannedChecks.keys()) if (!ids.includes(id)) throw new Error(`closeout is missing required Check ${id}`);
   const known = new Map([...rootChecks, ...plannedChecks]);
-  return input.map((entry) => {
+  const normalized = input.map((entry) => {
     const planned = known.get(entry?.check_id);
     if (!planned) throw new Error(`closeout received unknown Check ${entry?.check_id}`);
     if (!new Set(["verified", "supported", "partial", "unavailable", "failed"]).has(entry.grade)) throw new Error(`closeout Check ${entry.check_id} has invalid grade`);
@@ -92,13 +108,25 @@ function normalizeCheckEvidence(input, plannedChecks, rootChecks, evidenceMode) 
       artifact_hashes: unique((entry.artifact_hashes ?? []).filter((value) => /^[a-f0-9]{64}$/.test(String(value)))),
       limitations,
     };
-    if (evidenceMode === "lean") {
-      if (!normalized.surface && normalized.grade === "verified") throw new Error(`verified Check ${entry.check_id} requires a surface`);
-      delete normalized.baseline_or_patched;
-      if (normalized.artifact_hashes.length === 0) delete normalized.artifact_hashes;
-      if (!normalized.feature_id) delete normalized.feature_id;
-    }
     return normalized;
+  });
+  const calibrated = enforceManualCheckReceipts
+    ? calibrateManualCheckEvidence({
+      entries: normalized,
+      plannedChecks: known,
+      receipts: manualCheckReceipts,
+      existingCheckEvidence,
+    })
+    : normalized;
+  return calibrated.map((entry) => {
+    const value = { ...entry };
+    if (evidenceMode === "lean") {
+      if (!value.surface && value.grade === "verified") throw new Error(`verified Check ${entry.check_id} requires a surface`);
+      delete value.baseline_or_patched;
+      if ((value.artifact_hashes ?? []).length === 0) delete value.artifact_hashes;
+      if (!value.feature_id) delete value.feature_id;
+    }
+    return value;
   });
 }
 
@@ -169,9 +197,12 @@ function fullBody({ fields, contract, entries, changedPaths, correction, reposit
     })))}`);
   }
   sections.push(`## Objective outcomes\n\n${table(["Objective ID", "Status", "Evidence"], outcomes)}`);
+  const coverageIds = correction
+    ? unique((correction.fixes ?? []).map((fix) => fix["FIX ID"]).filter(Boolean))
+    : fields.affected_objectives;
   sections.push(changedPaths.length > 0
     ? `## Changes\n\n${table(["Path or Symbol", "Change", "Objective Coverage"], changedPaths.map((path) => ({
-      "Path or Symbol": path, Change: "Declared by deterministic closeout", "Objective Coverage": fields.affected_objectives.join(", "),
+      "Path or Symbol": path, Change: "Declared by deterministic closeout", "Objective Coverage": coverageIds.join(", "),
     })))}`
     : "## Changes\n\nNone.");
   const snapshot = repositorySnapshot ?? {};
@@ -205,6 +236,8 @@ export function buildDeliveryEvidence({
   effectiveProfile = null,
   repositorySnapshot = null,
   summary = null,
+  manualCheckReceipts = [],
+  enforceManualCheckReceipts = null,
   pluginRoot,
 }) {
   const normalized = normalizeArtifacts(rootPlanText, artifacts, pluginRoot);
@@ -222,6 +255,7 @@ export function buildDeliveryEvidence({
   let predecessorEvidenceId = null;
   let representation = "full";
   const mode = evidenceMode(contract.fields, effectiveProfile ?? contract.fields.profile_max);
+  const requireManualReceipts = enforceManualCheckReceipts ?? (effectiveProfile ?? contract.fields.profile_max) === "manual";
   const effectiveStrategyRevision = mode === "full" ? strategyRevision : 0;
   const effectiveRepositorySnapshot = mode === "full" ? repositorySnapshot : null;
   if (evidenceTipId) {
@@ -229,7 +263,11 @@ export function buildDeliveryEvidence({
       const existing = normalized.entries.find((entry) => inspectArtifactText(entry.text, pluginRoot).artifact?.fields?.id === evidenceTipId);
       const existingFields = priorInspection.effective.get(evidenceTipId)?.fields ?? null;
       if ((checkEvidence ?? []).length > 0 || changedPaths.length > 0) {
-        const entries = normalizeCheckEvidence(checkEvidence, expectedCheckMap(contract, null), rootCheckMap(contract), mode);
+        const entries = normalizeCheckEvidence(checkEvidence, expectedCheckMap(contract, null), rootCheckMap(contract), mode, {
+          enforceManualCheckReceipts: requireManualReceipts,
+          manualCheckReceipts,
+          existingCheckEvidence: existingFields?.check_evidence ?? [],
+        });
         const suppliedPaths = unique(changedPaths.map(String).map((path) => path.trim()).filter(Boolean)).sort();
         const expectedSeed = evidenceSeed({
           contract,
@@ -250,7 +288,18 @@ export function buildDeliveryEvidence({
           && expectedId === evidenceTipId;
         if (!sameInputs) throw new Error(`stale or competing closeout conflicts with current Evidence tip ${evidenceTipId}`);
       }
-      return { duplicate: true, artifact: existing?.text ?? null, artifact_hash: existing ? sha256(existing.text) : null, fields: existingFields };
+      const projection = manualConstraintProjection({ checks: contract.checks, evidence: existingFields?.check_evidence ?? [] });
+      const unattested = projection.constraint_summary.legacy_unattested_verified_checks ?? [];
+      if (unattested.length > 0) {
+        throw new Error(`existing Evidence tip ${evidenceTipId} has receiptless verified machine Checks (${unattested.join(", ")}); run a fresh review and refresh them through its bounded correction route`);
+      }
+      return {
+        duplicate: true,
+        artifact: existing?.text ?? null,
+        artifact_hash: existing ? sha256(existing.text) : null,
+        fields: existingFields,
+        ...projection,
+      };
     }
     correction = review.correction;
     subjectId = review.fields.correction_id;
@@ -261,9 +310,20 @@ export function buildDeliveryEvidence({
   if (mode === "full" && (!repositorySnapshot?.head || !repositorySnapshot?.relevant_fingerprints)) {
     throw new Error("full closeout requires repository snapshot HEAD and relevant fingerprints");
   }
-  const plannedChecks = expectedCheckMap(contract, correction);
   const roots = rootCheckMap(contract);
-  const entries = normalizeCheckEvidence(checkEvidence, plannedChecks, roots, mode);
+  const unresolvedRootChecks = correction
+    ? unresolvedRootCheckMap(contract, priorInspection.effective.get(evidenceTipId))
+    : new Map();
+  const suppliedCheckIds = new Set((checkEvidence ?? []).map((entry) => entry?.check_id));
+  const missingRootRefresh = [...unresolvedRootChecks.keys()].filter((checkId) => !suppliedCheckIds.has(checkId));
+  if (missingRootRefresh.length > 0) {
+    throw new Error(`correction closeout requires fresh evidence for inherited non-passed Root Checks: ${missingRootRefresh.join(", ")}`);
+  }
+  const plannedChecks = expectedCheckMap(contract, correction, unresolvedRootChecks);
+  const entries = normalizeCheckEvidence(checkEvidence, plannedChecks, roots, mode, {
+    enforceManualCheckReceipts: requireManualReceipts,
+    manualCheckReceipts,
+  });
   const grade = overallGrade(entries);
   const status = artifactStatus(grade);
   const rootObjectives = contract.objectives;
@@ -317,6 +377,7 @@ export function buildDeliveryEvidence({
   const finalEntries = [...normalized.entries, { label: id, text: artifact }];
   const inspection = inspectArtifactSet(finalEntries.map((entry) => [entry.label, entry.text]), pluginRoot);
   if (inspection.errors.length > 0) throw new Error(`generated delivery evidence is invalid: ${inspection.errors.join("; ")}`);
+  const projection = manualConstraintProjection({ checks: contract.checks, evidence: entries });
   return {
     duplicate: false,
     artifact,
@@ -325,6 +386,7 @@ export function buildDeliveryEvidence({
     evidence_mode: mode,
     overall_grade: grade,
     status,
+    ...projection,
   };
 }
 

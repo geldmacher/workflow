@@ -2988,7 +2988,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve10.call(this, root, ref);
+      let _sch = resolve11.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a3 = root.localRefs) === null || _a3 === void 0 ? void 0 : _a3[ref];
         const { schemaId } = this.opts;
@@ -3015,7 +3015,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve10(root, ref) {
+    function resolve11(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3646,55 +3646,55 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve10(baseURI, relativeURI, options) {
+    function resolve11(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const resolved = resolveComponent(parse4(baseURI, schemelessOptions), parse4(relativeURI, schemelessOptions), schemelessOptions, true);
       schemelessOptions.skipEscape = true;
       return serialize(resolved, schemelessOptions);
     }
-    function resolveComponent(base, relative, options, skipNormalization) {
+    function resolveComponent(base, relative2, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
         base = parse4(serialize(base, options), options);
-        relative = parse4(serialize(relative, options), options);
+        relative2 = parse4(serialize(relative2, options), options);
       }
       options = options || {};
-      if (!options.tolerant && relative.scheme) {
-        target.scheme = relative.scheme;
-        target.userinfo = relative.userinfo;
-        target.host = relative.host;
-        target.port = relative.port;
-        target.path = removeDotSegments(relative.path || "");
-        target.query = relative.query;
+      if (!options.tolerant && relative2.scheme) {
+        target.scheme = relative2.scheme;
+        target.userinfo = relative2.userinfo;
+        target.host = relative2.host;
+        target.port = relative2.port;
+        target.path = removeDotSegments(relative2.path || "");
+        target.query = relative2.query;
       } else {
-        if (relative.userinfo !== void 0 || relative.host !== void 0 || relative.port !== void 0) {
-          target.userinfo = relative.userinfo;
-          target.host = relative.host;
-          target.port = relative.port;
-          target.path = removeDotSegments(relative.path || "");
-          target.query = relative.query;
+        if (relative2.userinfo !== void 0 || relative2.host !== void 0 || relative2.port !== void 0) {
+          target.userinfo = relative2.userinfo;
+          target.host = relative2.host;
+          target.port = relative2.port;
+          target.path = removeDotSegments(relative2.path || "");
+          target.query = relative2.query;
         } else {
-          if (!relative.path) {
+          if (!relative2.path) {
             target.path = base.path;
-            if (relative.query !== void 0) {
-              target.query = relative.query;
+            if (relative2.query !== void 0) {
+              target.query = relative2.query;
             } else {
               target.query = base.query;
             }
           } else {
-            if (relative.path[0] === "/") {
-              target.path = removeDotSegments(relative.path);
+            if (relative2.path[0] === "/") {
+              target.path = removeDotSegments(relative2.path);
             } else {
               if ((base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0) && !base.path) {
-                target.path = "/" + relative.path;
+                target.path = "/" + relative2.path;
               } else if (!base.path) {
-                target.path = relative.path;
+                target.path = relative2.path;
               } else {
-                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative.path;
+                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative2.path;
               }
               target.path = removeDotSegments(target.path);
             }
-            target.query = relative.query;
+            target.query = relative2.query;
           }
           target.userinfo = base.userinfo;
           target.host = base.host;
@@ -3702,7 +3702,7 @@ var require_fast_uri = __commonJS({
         }
         target.scheme = base.scheme;
       }
-      target.fragment = relative.fragment;
+      target.fragment = relative2.fragment;
       return target;
     }
     function equal(uriA, uriB, options) {
@@ -3910,7 +3910,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve10,
+      resolve: resolve11,
       resolveComponent,
       equal,
       serialize,
@@ -10860,10 +10860,10 @@ var require_resolve_block_map = __commonJS({
       let offset = bm.offset;
       let commentEnd = null;
       for (const collItem of bm.items) {
-        const { start, key, sep, value } = collItem;
+        const { start, key, sep: sep2, value } = collItem;
         const keyProps = resolveProps.resolveProps(start, {
           indicator: "explicit-key-ind",
-          next: key ?? sep?.[0],
+          next: key ?? sep2?.[0],
           offset,
           onError,
           parentIndent: bm.indent,
@@ -10877,7 +10877,7 @@ var require_resolve_block_map = __commonJS({
             else if ("indent" in key && key.indent !== bm.indent)
               onError(offset, "BAD_INDENT", startColMsg);
           }
-          if (!keyProps.anchor && !keyProps.tag && !sep) {
+          if (!keyProps.anchor && !keyProps.tag && !sep2) {
             commentEnd = keyProps.end;
             if (keyProps.comment) {
               if (map.comment)
@@ -10901,7 +10901,7 @@ var require_resolve_block_map = __commonJS({
         ctx.atKey = false;
         if (utilMapIncludes.mapIncludes(ctx, map.items, keyNode))
           onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
-        const valueProps = resolveProps.resolveProps(sep ?? [], {
+        const valueProps = resolveProps.resolveProps(sep2 ?? [], {
           indicator: "map-value-ind",
           next: value,
           offset: keyNode.range[2],
@@ -10917,7 +10917,7 @@ var require_resolve_block_map = __commonJS({
             if (ctx.options.strict && keyProps.start < valueProps.found.offset - 1024)
               onError(keyNode.range, "KEY_OVER_1024_CHARS", "The : indicator must be at most 1024 chars after the start of an implicit block mapping key");
           }
-          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep, null, valueProps, onError);
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep2, null, valueProps, onError);
           if (ctx.schema.compat)
             utilFlowIndentCheck.flowIndentCheck(bm.indent, value, onError);
           offset = valueNode.range[2];
@@ -11008,7 +11008,7 @@ var require_resolve_end = __commonJS({
       let comment = "";
       if (end) {
         let hasSpace = false;
-        let sep = "";
+        let sep2 = "";
         for (const token of end) {
           const { source, type } = token;
           switch (type) {
@@ -11022,13 +11022,13 @@ var require_resolve_end = __commonJS({
               if (!comment)
                 comment = cb;
               else
-                comment += sep + cb;
-              sep = "";
+                comment += sep2 + cb;
+              sep2 = "";
               break;
             }
             case "newline":
               if (comment)
-                sep += source;
+                sep2 += source;
               hasSpace = true;
               break;
             default:
@@ -11071,18 +11071,18 @@ var require_resolve_flow_collection = __commonJS({
       let offset = fc.offset + fc.start.source.length;
       for (let i = 0; i < fc.items.length; ++i) {
         const collItem = fc.items[i];
-        const { start, key, sep, value } = collItem;
+        const { start, key, sep: sep2, value } = collItem;
         const props = resolveProps.resolveProps(start, {
           flow: fcName,
           indicator: "explicit-key-ind",
-          next: key ?? sep?.[0],
+          next: key ?? sep2?.[0],
           offset,
           onError,
           parentIndent: fc.indent,
           startOnNewline: false
         });
         if (!props.found) {
-          if (!props.anchor && !props.tag && !sep && !value) {
+          if (!props.anchor && !props.tag && !sep2 && !value) {
             if (i === 0 && props.comma)
               onError(props.comma, "UNEXPECTED_TOKEN", `Unexpected , in ${fcName}`);
             else if (i < fc.items.length - 1)
@@ -11136,8 +11136,8 @@ var require_resolve_flow_collection = __commonJS({
             }
           }
         }
-        if (!isMap && !sep && !props.found) {
-          const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep, null, props, onError);
+        if (!isMap && !sep2 && !props.found) {
+          const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep2, null, props, onError);
           coll.items.push(valueNode);
           offset = valueNode.range[2];
           if (isBlock(value))
@@ -11149,7 +11149,7 @@ var require_resolve_flow_collection = __commonJS({
           if (isBlock(key))
             onError(keyNode.range, "BLOCK_IN_FLOW", blockMsg);
           ctx.atKey = false;
-          const valueProps = resolveProps.resolveProps(sep ?? [], {
+          const valueProps = resolveProps.resolveProps(sep2 ?? [], {
             flow: fcName,
             indicator: "map-value-ind",
             next: value,
@@ -11160,8 +11160,8 @@ var require_resolve_flow_collection = __commonJS({
           });
           if (valueProps.found) {
             if (!isMap && !props.found && ctx.options.strict) {
-              if (sep)
-                for (const st of sep) {
+              if (sep2)
+                for (const st of sep2) {
                   if (st === valueProps.found)
                     break;
                   if (st.type === "newline") {
@@ -11178,7 +11178,7 @@ var require_resolve_flow_collection = __commonJS({
             else
               onError(valueProps.start, "MISSING_CHAR", `Missing , or : between ${fcName} items`);
           }
-          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep, null, valueProps, onError) : null;
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep2, null, valueProps, onError) : null;
           if (valueNode) {
             if (isBlock(value))
               onError(valueNode.range, "BLOCK_IN_FLOW", blockMsg);
@@ -11307,13 +11307,13 @@ var require_resolve_block_scalar = __commonJS({
   "node_modules/yaml/dist/compose/resolve-block-scalar.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
-    function resolveBlockScalar(ctx, scalar2, onError) {
-      const start = scalar2.offset;
-      const header = parseBlockScalarHeader(scalar2, ctx.options.strict, onError);
+    function resolveBlockScalar(ctx, scalar, onError) {
+      const start = scalar.offset;
+      const header = parseBlockScalarHeader(scalar, ctx.options.strict, onError);
       if (!header)
         return { value: "", type: null, comment: "", range: [start, start, start] };
       const type = header.mode === ">" ? Scalar.Scalar.BLOCK_FOLDED : Scalar.Scalar.BLOCK_LITERAL;
-      const lines = scalar2.source ? splitLines(scalar2.source) : [];
+      const lines = scalar.source ? splitLines(scalar.source) : [];
       let chompStart = lines.length;
       for (let i = lines.length - 1; i >= 0; --i) {
         const content = lines[i][1];
@@ -11325,12 +11325,12 @@ var require_resolve_block_scalar = __commonJS({
       if (chompStart === 0) {
         const value2 = header.chomp === "+" && lines.length > 0 ? "\n".repeat(Math.max(1, lines.length - 1)) : "";
         let end2 = start + header.length;
-        if (scalar2.source)
-          end2 += scalar2.source.length;
+        if (scalar.source)
+          end2 += scalar.source.length;
         return { value: value2, type, comment: header.comment, range: [start, end2, end2] };
       }
-      let trimIndent = scalar2.indent + header.indent;
-      let offset = scalar2.offset + header.length;
+      let trimIndent = scalar.indent + header.indent;
+      let offset = scalar.offset + header.length;
       let contentStart = 0;
       for (let i = 0; i < chompStart; ++i) {
         const [indent, content] = lines[i];
@@ -11358,7 +11358,7 @@ var require_resolve_block_scalar = __commonJS({
           chompStart = i + 1;
       }
       let value = "";
-      let sep = "";
+      let sep2 = "";
       let prevMoreIndented = false;
       for (let i = 0; i < contentStart; ++i)
         value += lines[i][0].slice(trimIndent) + "\n";
@@ -11375,24 +11375,24 @@ var require_resolve_block_scalar = __commonJS({
           indent = "";
         }
         if (type === Scalar.Scalar.BLOCK_LITERAL) {
-          value += sep + indent.slice(trimIndent) + content;
-          sep = "\n";
+          value += sep2 + indent.slice(trimIndent) + content;
+          sep2 = "\n";
         } else if (indent.length > trimIndent || content[0] === "	") {
-          if (sep === " ")
-            sep = "\n";
-          else if (!prevMoreIndented && sep === "\n")
-            sep = "\n\n";
-          value += sep + indent.slice(trimIndent) + content;
-          sep = "\n";
+          if (sep2 === " ")
+            sep2 = "\n";
+          else if (!prevMoreIndented && sep2 === "\n")
+            sep2 = "\n\n";
+          value += sep2 + indent.slice(trimIndent) + content;
+          sep2 = "\n";
           prevMoreIndented = true;
         } else if (content === "") {
-          if (sep === "\n")
+          if (sep2 === "\n")
             value += "\n";
           else
-            sep = "\n";
+            sep2 = "\n";
         } else {
-          value += sep + content;
-          sep = " ";
+          value += sep2 + content;
+          sep2 = " ";
           prevMoreIndented = false;
         }
       }
@@ -11408,7 +11408,7 @@ var require_resolve_block_scalar = __commonJS({
         default:
           value += "\n";
       }
-      const end = start + header.length + scalar2.source.length;
+      const end = start + header.length + scalar.source.length;
       return { value, type, comment: header.comment, range: [start, end, end] };
     }
     function parseBlockScalarHeader({ offset, props }, strict, onError) {
@@ -11491,8 +11491,8 @@ var require_resolve_flow_scalar = __commonJS({
     "use strict";
     var Scalar = require_Scalar();
     var resolveEnd = require_resolve_end();
-    function resolveFlowScalar(scalar2, strict, onError) {
-      const { offset, type, source, end } = scalar2;
+    function resolveFlowScalar(scalar, strict, onError) {
+      const { offset, type, source, end } = scalar;
       let _type;
       let value;
       const _onError = (rel, code, msg) => onError(offset + rel, code, msg);
@@ -11511,7 +11511,7 @@ var require_resolve_flow_scalar = __commonJS({
           break;
         /* istanbul ignore next should not happen */
         default:
-          onError(scalar2, "UNEXPECTED_TOKEN", `Expected a flow scalar value, but found: ${type}`);
+          onError(scalar, "UNEXPECTED_TOKEN", `Expected a flow scalar value, but found: ${type}`);
           return {
             value: "",
             type: null,
@@ -11574,25 +11574,25 @@ var require_resolve_flow_scalar = __commonJS({
       if (!match)
         return source;
       let res = match[1];
-      let sep = " ";
+      let sep2 = " ";
       let pos = first.lastIndex;
       line.lastIndex = pos;
       while (match = line.exec(source)) {
         if (match[1] === "") {
-          if (sep === "\n")
-            res += sep;
+          if (sep2 === "\n")
+            res += sep2;
           else
-            sep = "\n";
+            sep2 = "\n";
         } else {
-          res += sep + match[1];
-          sep = " ";
+          res += sep2 + match[1];
+          sep2 = " ";
         }
         pos = line.lastIndex;
       }
       const last = /[ \t]*(.*)/sy;
       last.lastIndex = pos;
       match = last.exec(source);
-      return res + sep + (match?.[1] ?? "");
+      return res + sep2 + (match?.[1] ?? "");
     }
     function doubleQuotedValue(source, onError) {
       let res = "";
@@ -11725,26 +11725,26 @@ var require_compose_scalar = __commonJS({
         tag = findScalarTagByTest(ctx, value, token, onError);
       else
         tag = ctx.schema[identity.SCALAR];
-      let scalar2;
+      let scalar;
       try {
         const res = tag.resolve(value, (msg) => onError(tagToken ?? token, "TAG_RESOLVE_FAILED", msg), ctx.options);
-        scalar2 = identity.isScalar(res) ? res : new Scalar.Scalar(res);
+        scalar = identity.isScalar(res) ? res : new Scalar.Scalar(res);
       } catch (error2) {
         const msg = error2 instanceof Error ? error2.message : String(error2);
         onError(tagToken ?? token, "TAG_RESOLVE_FAILED", msg);
-        scalar2 = new Scalar.Scalar(value);
+        scalar = new Scalar.Scalar(value);
       }
-      scalar2.range = range;
-      scalar2.source = value;
+      scalar.range = range;
+      scalar.source = value;
       if (type)
-        scalar2.type = type;
+        scalar.type = type;
       if (tagName)
-        scalar2.tag = tagName;
+        scalar.tag = tagName;
       if (tag.format)
-        scalar2.format = tag.format;
+        scalar.format = tag.format;
       if (comment)
-        scalar2.comment = comment;
-      return scalar2;
+        scalar.comment = comment;
+      return scalar;
     }
     function findScalarTagByName(schema, value, tagName, tagToken, onError) {
       if (tagName === "!")
@@ -12402,14 +12402,14 @@ var require_cst_stringify = __commonJS({
         }
       }
     }
-    function stringifyItem({ start, key, sep, value }) {
+    function stringifyItem({ start, key, sep: sep2, value }) {
       let res = "";
       for (const st of start)
         res += st.source;
       if (key)
         res += stringifyToken(key);
-      if (sep)
-        for (const st of sep)
+      if (sep2)
+        for (const st of sep2)
           res += st.source;
       if (value)
         res += stringifyToken(value);
@@ -13572,37 +13572,37 @@ var require_parser = __commonJS({
           };
         }
       }
-      *scalar(scalar2) {
+      *scalar(scalar) {
         if (this.type === "map-value-ind") {
           const prev = getPrevProps(this.peek(2));
           const start = getFirstKeyStartProps(prev);
-          let sep;
-          if (scalar2.end) {
-            sep = scalar2.end;
-            sep.push(this.sourceToken);
-            delete scalar2.end;
+          let sep2;
+          if (scalar.end) {
+            sep2 = scalar.end;
+            sep2.push(this.sourceToken);
+            delete scalar.end;
           } else
-            sep = [this.sourceToken];
+            sep2 = [this.sourceToken];
           const map = {
             type: "block-map",
-            offset: scalar2.offset,
-            indent: scalar2.indent,
-            items: [{ start, key: scalar2, sep }]
+            offset: scalar.offset,
+            indent: scalar.indent,
+            items: [{ start, key: scalar, sep: sep2 }]
           };
           this.onKeyLine = true;
           this.stack[this.stack.length - 1] = map;
         } else
-          yield* this.lineEnd(scalar2);
+          yield* this.lineEnd(scalar);
       }
-      *blockScalar(scalar2) {
+      *blockScalar(scalar) {
         switch (this.type) {
           case "space":
           case "comment":
           case "newline":
-            scalar2.props.push(this.sourceToken);
+            scalar.props.push(this.sourceToken);
             return;
           case "scalar":
-            scalar2.source = this.source;
+            scalar.source = this.source;
             this.atNewLine = true;
             this.indent = 0;
             if (this.onNewLine) {
@@ -13740,15 +13740,15 @@ var require_parser = __commonJS({
                 } else if (isFlowToken(it.key) && !includesToken(it.sep, "newline")) {
                   const start2 = getFirstKeyStartProps(it.start);
                   const key = it.key;
-                  const sep = it.sep;
-                  sep.push(this.sourceToken);
+                  const sep2 = it.sep;
+                  sep2.push(this.sourceToken);
                   delete it.key;
                   delete it.sep;
                   this.stack.push({
                     type: "block-map",
                     offset: this.offset,
                     indent: this.indent,
-                    items: [{ start: start2, key, sep }]
+                    items: [{ start: start2, key, sep: sep2 }]
                   });
                 } else if (start.length > 0) {
                   it.sep = it.sep.concat(start, this.sourceToken);
@@ -13942,13 +13942,13 @@ var require_parser = __commonJS({
             const prev = getPrevProps(parent);
             const start = getFirstKeyStartProps(prev);
             fixFlowSeqItems(fc);
-            const sep = fc.end.splice(1, fc.end.length);
-            sep.push(this.sourceToken);
+            const sep2 = fc.end.splice(1, fc.end.length);
+            sep2.push(this.sourceToken);
             const map = {
               type: "block-map",
               offset: fc.offset,
               indent: fc.indent,
-              items: [{ start, key: fc, sep }]
+              items: [{ start, key: fc, sep: sep2 }]
             };
             this.onKeyLine = true;
             this.stack[this.stack.length - 1] = map;
@@ -14227,7 +14227,8 @@ var require_dist2 = __commonJS({
 });
 
 // src/mcp/workflow-mcp-manual.mjs
-import { dirname as dirname4, resolve as resolve9 } from "node:path";
+import { existsSync as existsSync8 } from "node:fs";
+import { dirname as dirname5, join as join8, resolve as resolve10 } from "node:path";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
 
 // node_modules/zod/v3/helpers/util.js
@@ -27098,7 +27099,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve10) => setTimeout(resolve10, pollInterval));
+        await new Promise((resolve11) => setTimeout(resolve11, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error2) {
@@ -27115,7 +27116,7 @@ var Protocol = class {
    */
   request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve10, reject) => {
+    return new Promise((resolve11, reject) => {
       const earlyReject = (error2) => {
         reject(error2);
       };
@@ -27193,7 +27194,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve10(parseResult.data);
+            resolve11(parseResult.data);
           }
         } catch (error2) {
           reject(error2);
@@ -27454,12 +27455,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve10, reject) => {
+    return new Promise((resolve11, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve10, interval);
+      const timeoutId = setTimeout(resolve11, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -28550,7 +28551,7 @@ var McpServer = class {
     let task = createTaskResult.task;
     const pollInterval = task.pollInterval ?? 5e3;
     while (task.status !== "completed" && task.status !== "failed" && task.status !== "cancelled") {
-      await new Promise((resolve10) => setTimeout(resolve10, pollInterval));
+      await new Promise((resolve11) => setTimeout(resolve11, pollInterval));
       const updatedTask = await extra.taskStore.getTask(taskId);
       if (!updatedTask) {
         throw new McpError(ErrorCode.InternalError, `Task ${taskId} not found during polling`);
@@ -29214,12 +29215,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve10) => {
+    return new Promise((resolve11) => {
       const json = serializeMessage(message);
       if (this._stdout.write(json)) {
-        resolve10();
+        resolve11();
       } else {
-        this._stdout.once("drain", resolve10);
+        this._stdout.once("drain", resolve11);
       }
     });
   }
@@ -29231,10 +29232,17 @@ import { homedir as homedir2 } from "node:os";
 import { join as join2, resolve as resolve2 } from "node:path";
 
 // src/core/host-preferences.mjs
-var import_yaml = __toESM(require_dist2(), 1);
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
+
+// src/core/preference-yaml.mjs
+var import_yaml = __toESM(require_dist2(), 1);
+function parsePreferenceYaml(source) {
+  return (0, import_yaml.parse)(String(source));
+}
+
+// src/core/host-preferences.mjs
 var TOOL_APPROVAL_MODES = Object.freeze(["strict", "allowlisted"]);
 var preferenceKeys = Object.freeze(["schema", "tool_approval", "manual_subagent_policy", "extensions"]);
 function sharedWorkflowHome(options = {}) {
@@ -29283,7 +29291,7 @@ function resolveHostToolApproval(options = {}) {
   if (!existsSync(path)) return strictSummary(path, "default");
   let parsed;
   try {
-    parsed = (0, import_yaml.parse)(readFileSync(path, "utf8"));
+    parsed = parsePreferenceYaml(readFileSync(path, "utf8"));
   } catch (error2) {
     return strictSummary(path, "invalid-fallback", [`preferences file is unreadable: ${error2.message}`]);
   }
@@ -29320,9 +29328,22 @@ function contentAddressedHandoffRootByHash(rootHash, options = {}) {
   if (!/^[a-f0-9]{64}$/.test(String(rootHash ?? ""))) throw new Error("content-addressed handoff requires a full SHA-256 root content hash");
   return join2(resolve2(sharedHandoffBase(options)), "by-root", rootHash);
 }
-function handoffTipPath(rootPlanId, options = {}) {
+function handoffTipDirectory(rootPlanId, options = {}) {
   if (!/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(rootPlanId ?? ""))) throw new Error("handoff tip requires a valid wp-* root_plan_id");
-  return join2(resolve2(sharedHandoffBase(options)), "tips", `${rootPlanId}.json`);
+  return join2(resolve2(sharedHandoffBase(options)), "tips", rootPlanId);
+}
+function handoffTipPath(rootPlanId, rootContentHashValue = null, options = {}) {
+  if (!/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(rootPlanId ?? ""))) throw new Error("handoff tip requires a valid wp-* root_plan_id");
+  if (rootContentHashValue === null || rootContentHashValue === void 0 || rootContentHashValue === "") {
+    return join2(resolve2(sharedHandoffBase(options)), "tips", `${rootPlanId}.json`);
+  }
+  if (!/^[a-f0-9]{64}$/.test(String(rootContentHashValue))) {
+    throw new Error("content-addressed handoff tip requires a full SHA-256 root content hash");
+  }
+  return join2(handoffTipDirectory(rootPlanId, options), `${rootContentHashValue}.json`);
+}
+function legacyHandoffTipPath(rootPlanId, options = {}) {
+  return handoffTipPath(rootPlanId, null, options);
 }
 function sharedArtifactStateRoot(workspaceRoot2, options = {}) {
   const base = options.baseRoot ?? process.env.GELDMACHER_WORKFLOW_SHARED_ROOT ?? join2(sharedWorkflowHome(options), "state");
@@ -29335,7 +29356,7 @@ function codexOperationalStateRoot(workspaceRoot2, options = {}) {
 }
 
 // src/controller/protocol.mjs
-var PLUGIN_VERSION = "5.2.0";
+var PLUGIN_VERSION = "5.3.0";
 var ARTIFACT_SCHEMA = 5;
 var CONTROLLER_PROTOCOL = 5;
 var LEGACY_WORKFLOW_3 = Object.freeze({
@@ -29538,6 +29559,177 @@ function validateArtifactSchema(root, parsed, failures) {
   const validate = ajv.compile(schema);
   if (!validate(parsed.fields)) failures.push(...validate.errors.map(formatAjv));
   return schema;
+}
+
+// src/core/manual-attestation.mjs
+var import_yaml3 = __toESM(require_dist2(), 1);
+var PLAN_CLOSEOUT_ATTESTATION = Object.freeze({
+  schema: 1,
+  kind: "plan-closeout",
+  action: "delivery-closeout"
+});
+var LEGACY_PLAN_CLOSEOUT_ATTESTATION = Object.freeze({
+  schema: 1,
+  kind: "plan-closeout",
+  action: "workflow_closeout"
+});
+var CLOSEOUT_INPUT_PHASES = Object.freeze([
+  "implementation",
+  "correction",
+  "review-recovery"
+]);
+var FINAL_STEP_HEADING = /^##\s+Final implementation step\s*$/im;
+var ATTESTATION_FENCE_OPEN = /^```yaml workflow-attestation\s*$/;
+var ATTESTATION_FENCE_CLOSE = /^```\s*$/;
+function asObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+function normalizeNewlines(text) {
+  return String(text ?? "").replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+}
+function isPlanCloseoutAttestation(value) {
+  const object3 = asObject(value);
+  if (!object3) return false;
+  return object3.schema === PLAN_CLOSEOUT_ATTESTATION.schema && object3.kind === PLAN_CLOSEOUT_ATTESTATION.kind && [PLAN_CLOSEOUT_ATTESTATION.action, LEGACY_PLAN_CLOSEOUT_ATTESTATION.action].includes(object3.action) && Object.keys(object3).length === 3;
+}
+var CLOSEOUT_INPUT_FIELDS = Object.freeze([
+  "schema",
+  "kind",
+  "phase",
+  "root_plan_id",
+  "strategy_revision",
+  "changed_paths",
+  "check_evidence",
+  "summary"
+]);
+var CHECK_EVIDENCE_FIELDS = Object.freeze([
+  "check_id",
+  "feature_id",
+  "grade",
+  "surface",
+  "method",
+  "expected",
+  "observed",
+  "repetitions",
+  "limitations"
+]);
+function extractFinalImplementationStep(text) {
+  const value = normalizeNewlines(text);
+  const match = value.match(FINAL_STEP_HEADING);
+  if (!match || match.index == null) return null;
+  const start = match.index + match[0].length;
+  const rest = value.slice(start);
+  const nextHeading = rest.search(/^##\s+/m);
+  return (nextHeading >= 0 ? rest.slice(0, nextHeading) : rest).replace(/^\n+/, "").replace(/\n+$/, "");
+}
+function countFinalImplementationSections(text) {
+  return [...normalizeNewlines(text).matchAll(/^##\s+Final implementation step\s*$/gim)].length;
+}
+function extractWorkflowAttestations(text) {
+  const lines = normalizeNewlines(text).split("\n");
+  const attestations = [];
+  let inForeignFence = false;
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (inForeignFence) {
+      if (ATTESTATION_FENCE_CLOSE.test(line)) inForeignFence = false;
+      continue;
+    }
+    if (/^```(?!yaml workflow-attestation\s*$)/.test(line)) {
+      inForeignFence = true;
+      continue;
+    }
+    if (!ATTESTATION_FENCE_OPEN.test(line)) continue;
+    const body = [];
+    let cursor = index + 1;
+    let closed = false;
+    while (cursor < lines.length) {
+      if (ATTESTATION_FENCE_CLOSE.test(lines[cursor])) {
+        closed = true;
+        break;
+      }
+      body.push(lines[cursor]);
+      cursor += 1;
+    }
+    if (!closed) continue;
+    try {
+      const parsed = (0, import_yaml3.parse)(body.join("\n"));
+      if (asObject(parsed)) {
+        attestations.push({
+          value: parsed,
+          startLine: index,
+          endLine: cursor,
+          raw: `${lines[index]}
+${body.join("\n")}
+${lines[cursor]}`
+        });
+      }
+    } catch {
+    }
+    index = cursor;
+  }
+  return attestations;
+}
+function parsePlanCloseoutAttestationFromText(text, { requireFinalStepSection = false, role = "instruction" } = {}) {
+  let value = normalizeNewlines(text);
+  if (requireFinalStepSection) {
+    const sectionCount = countFinalImplementationSections(value);
+    if (sectionCount === 0) {
+      return { ok: false, issues: [`${role} must appear as an explicit ## Final implementation step section`] };
+    }
+    if (sectionCount > 1) {
+      return { ok: false, issues: [`${role} must include exactly one ## Final implementation step section`] };
+    }
+    value = extractFinalImplementationStep(value) ?? "";
+  }
+  const attestations = extractWorkflowAttestations(value);
+  const planCloseouts = attestations.filter((entry) => isPlanCloseoutAttestation(entry.value));
+  const issues = [];
+  if (planCloseouts.length === 0) {
+    issues.push(`${role} must include exactly one unindented \`\`\`yaml workflow-attestation plan-closeout block`);
+  } else if (planCloseouts.length > 1) {
+    issues.push(`${role} must include exactly one plan-closeout attestation`);
+  }
+  let remainder = value;
+  for (const entry of [...attestations].reverse()) {
+    const lines = remainder.split("\n");
+    remainder = [...lines.slice(0, entry.startLine), ...lines.slice(entry.endLine + 1)].join("\n");
+  }
+  if (/\[workflow-closeout-v\d+\]/i.test(remainder) || /\bworkflow_closeout\b/.test(remainder) || /\bexact Root\/chain\b/i.test(remainder)) {
+    issues.push(`${role} must not include free-form closeout marker or workflow_closeout prose outside typed attestation`);
+  }
+  if (/\b(?:do\s+not|don't|does\s+not|shouldn'?t|ignore)\b[\s\S]{0,120}\b(?:attestation|closeout|workflow_closeout)\b/i.test(remainder) || /\b(?:attestation|closeout|workflow_closeout)\b[\s\S]{0,120}\b(?:do\s+not|don't|ignore)\b/i.test(remainder) || /<!--[\s\S]*workflow-attestation[\s\S]*-->/i.test(value) || /~~[\s\S]*workflow-attestation[\s\S]*~~/i.test(value)) {
+    issues.push(`${role} must not negate or comment out the typed plan-closeout attestation`);
+  }
+  if (issues.length > 0) return { ok: false, issues };
+  return { ok: true, issues: [], attestation: planCloseouts[0]?.value ?? null };
+}
+function todoPlanCloseoutIssues(todo, { role = "final native todo" } = {}) {
+  const issues = [];
+  if (!todo || typeof todo !== "object" || Array.isArray(todo)) {
+    return [`${role} must be a structured native todo with typed workflow_attestation`];
+  }
+  const content = String(todo.content ?? "");
+  if (!content.startsWith("[workflow-model-inherit-v1]")) {
+    issues.push(`${role} must start with [workflow-model-inherit-v1]`);
+  }
+  if (!/verify|check|evidence|snapshot|close\s*out/i.test(content)) {
+    issues.push(`${role} must verify or evidence the implemented result`);
+  }
+  if (/\[workflow-closeout-v\d+\]/i.test(content) || /\bworkflow_closeout\b/.test(content)) {
+    issues.push(`${role} must keep closeout ceremony in workflow_attestation metadata, not todo prose`);
+  }
+  if (!isPlanCloseoutAttestation(todo.workflow_attestation)) {
+    issues.push(`${role} requires workflow_attestation: { schema: 1, kind: plan-closeout, action: delivery-closeout }; legacy workflow_closeout remains accepted`);
+  }
+  return issues;
+}
+function planCloseoutAttestationIssues(source, options = {}) {
+  const { role = "instruction", requireFinalStepSection = false } = options;
+  if (asObject(source) && Object.prototype.hasOwnProperty.call(source, "workflow_attestation")) {
+    return todoPlanCloseoutIssues(source, { role });
+  }
+  return parsePlanCloseoutAttestationFromText(String(source ?? ""), { role, requireFinalStepSection }).issues;
 }
 
 // scripts/validate-artifact.source.mjs
@@ -29815,6 +30007,18 @@ function subsection(content, name) {
   const end = matches[index + 1]?.index ?? content.length;
   return content.slice(start, end).trim();
 }
+function verificationSectionContent(artifact2) {
+  const sections = artifact2?.sections instanceof Map ? artifact2.sections : /* @__PURE__ */ new Map();
+  const topLevel = sections.get("Verification") ?? "";
+  if (tableRows(topLevel, tables.verification).length > 0 || tableRows(topLevel, tables.verificationWithClass).length > 0) {
+    return topLevel;
+  }
+  if ((artifact2?.fields?.schema ?? 0) >= 5) {
+    const nested = subsection(sections.get("Acceptance") ?? "", "Verification");
+    if (nested.trim()) return nested;
+  }
+  return "";
+}
 function noneLike(value) {
   return /^(?:none\.?|no (?:findings|changes|deviations|candidates|correction|open decisions)\.?)$/i.test(String(value).trim());
 }
@@ -29845,7 +30049,7 @@ function requireTable(sections, sectionName, headers, failures, { allowNone = fa
   return matches[0];
 }
 function placeholder(value) {
-  return /<(?:placeholder|replace[-_ ]?me|insert[-_ ][^>\r\n]+|[^>\r\n]*\.{3}[^>\r\n]*)>|\b(?:TBD|TODO|UNKNOWN)\b/i.test(String(value));
+  return /<(?:placeholder|replace[-_ ]?me|insert[-_ ][^>\r\n]+|[^>\r\n]*\.{3}[^>\r\n]*)>/i.test(String(value)) || /\b(?:TBD|TODO|UNKNOWN)\b/.test(String(value));
 }
 function rejectPlaceholders(parsed, schema, sections, failures) {
   if (!["ready", "complete", "current", "active"].includes(parsed.fields.status)) return;
@@ -29923,8 +30127,9 @@ function planData(artifact2) {
       "Observable outcome": outcome,
       "Acceptance evidence": outcome
     }));
-    const declaredChecks = tableRows(artifact2.sections.get("Verification") ?? "", tables.verification);
-    const declaredWithClass = tableRows(artifact2.sections.get("Verification") ?? "", tables.verificationWithClass);
+    const verificationContent2 = verificationSectionContent(artifact2);
+    const declaredChecks = tableRows(verificationContent2, tables.verification);
+    const declaredWithClass = tableRows(verificationContent2, tables.verificationWithClass);
     const checks2 = declaredChecks.length > 0 ? declaredChecks : objectives2.map((objective, index) => ({
       "Check ID": `CHECK-${index + 1}`,
       Objectives: objective["Objective ID"],
@@ -29959,10 +30164,11 @@ function planData(artifact2) {
     };
   }
   const objectives = tableRows(artifact2.sections.get("Objectives") ?? "", tables.objectives);
-  const checks = tableRows(artifact2.sections.get("Verification") ?? "", tables.verification);
+  const verificationContent = verificationSectionContent(artifact2);
+  const checks = tableRows(verificationContent, tables.verification);
   const steps = tableRows(artifact2.sections.get("Execution steps") ?? "", tables.steps);
   const scope = tableRows(artifact2.sections.get("Scope and targets") ?? "", tables.scope);
-  const verificationWithClass = tableRows(artifact2.sections.get("Verification") ?? "", tables.verificationWithClass);
+  const verificationWithClass = tableRows(verificationContent, tables.verificationWithClass);
   const slices = tableRows(subsection(artifact2.sections.get("Execution steps") ?? "", "Vertical slices"), tables.slices);
   const objectiveDependencies = new Map(objectives.map((row) => [row["Objective ID"], /* @__PURE__ */ new Set()]));
   for (const check of checks) for (const objective of ids(check.Objectives, objectivePattern)) for (const target of targetTokens(check.Prerequisites)) objectiveDependencies.get(objective)?.add(target);
@@ -29995,7 +30201,7 @@ function validatePlanV4(parsed, sections, failures) {
     for (const field of ["max_active_minutes", "max_total_tokens", "max_cost_usd"]) if (!Number.isFinite(authority[field]) || authority[field] <= 0) failures.push(`controlled authority requires ${field}`);
   }
   const data = planData(parsed);
-  const verification = tableRows(sections.get("Verification") ?? "", tables.verificationWithClass);
+  const verification = tableRows(verificationSectionContent(parsed), tables.verificationWithClass);
   for (const row of verification) {
     if (!/^CHECK-[1-9][0-9]*$/.test(row["Check ID"])) failures.push(`Verification: invalid Check ID ${row["Check ID"]}`);
     if (!/^(?:yes|no)$/.test(row.Required)) failures.push(`Verification: ${row["Check ID"]} Required must be yes|no`);
@@ -30005,15 +30211,23 @@ function validatePlanV4(parsed, sections, failures) {
   if (data.objectives.size !== parsed.fields.acceptance.length) failures.push("acceptance outcomes must map one-to-one to objectives");
   if (parsed.wrapper) {
     const todos = parsed.wrapper.todos ?? [];
-    for (const todo of todos) {
-      if (!String(todo.content ?? "").startsWith(modelInheritMarker)) failures.push(`native todo ${todo.id ?? "<unknown>"} must start with ${modelInheritMarker}`);
+    const finalTodo = todos.at(-1) ?? null;
+    const final = String(finalTodo?.content ?? "");
+    const marked = todos.some((todo) => String(todo.content ?? "").includes(modelInheritMarker)) || String(parsed.wrapper.overview ?? "").includes(modelInheritMarker) || String(parsed.wrapper.name ?? "").includes(modelInheritMarker);
+    if (!marked && !final.startsWith(modelInheritMarker)) {
+      failures.push(`native Plan must include ${modelInheritMarker} on the final closeout todo or plan overview`);
     }
-    const final = String(todos.at(-1)?.content ?? "");
-    if (!/verify|check|evidence|snapshot/i.test(final)) failures.push("final native todo must verify or evidence the implemented result");
+    if (todos.length > 0 && !final.startsWith(modelInheritMarker) && !todos.some((todo) => String(todo.content ?? "").startsWith(modelInheritMarker))) {
+      failures.push(`final native todo must start with ${modelInheritMarker} when no other todo carries it`);
+    }
+    if (!/verify|check|evidence|snapshot|close\s*out/i.test(final)) {
+      failures.push("final native todo must verify or evidence the implemented result");
+    }
     if (parsed.fields.schema === 5) {
-      if (!/workflow_closeout/.test(final)) failures.push("final native todo must call workflow_closeout");
-      if (!/exact Root\/chain/i.test(final)) failures.push("final native todo must supply the exact Root/chain to workflow_closeout");
-      if (!/(?:print|return|output)[\s\S]{0,100}(?:returned artifact|artifact returned by workflow_closeout)[\s\S]{0,100}(?:unchanged|byte-for-byte)/i.test(final)) failures.push("final native todo must print the returned artifact unchanged");
+      if (!final.startsWith(modelInheritMarker)) failures.push(`final native todo must start with ${modelInheritMarker}`);
+      for (const issue3 of planCloseoutAttestationIssues(finalTodo ?? final, { role: "final native todo" })) {
+        failures.push(issue3);
+      }
     }
   }
 }
@@ -30534,7 +30748,7 @@ function preflightRootPlan(text, root = defaultRoot) {
       { target, ...state }
     ));
   }
-  const rows = tableRows(parsed.sections.get("Acceptance") ?? "", tables.verificationWithClass);
+  const rows = tableRows(verificationSectionContent(parsed), tables.verificationWithClass);
   const objectiveIds = new Set((parsed.fields.acceptance ?? []).map((_, index) => `OBJ-${index + 1}`));
   const requiredChecks = [];
   const deferredChecks = [];
@@ -31048,23 +31262,29 @@ function effectiveCliSummary(inspection) {
   const evidenceTips = tips("delivery-evidence", "predecessor_evidence_id");
   const reviewTips = tips("work-review", "predecessor_review_id");
   const activeReview = activeRootId && reviewTips[activeRootId] ? inspection.effective.get(reviewTips[activeRootId]) : null;
+  const learningCandidates = artifacts.filter((artifact2) => artifact2.fields.artifact === "work-review" && artifact2.fields.root_plan_id === activeRootId && activeReview?.fields.assessment === "achieved" && activeReview?.fields.delivery_status === "verified" && artifact2.correction?.learnings?.length > 0).flatMap((artifact2) => artifact2.correction.learnings.map((learning) => {
+    const evidence = artifacts.find((candidate) => candidate.fields.artifact === "delivery-evidence" && candidate.fields.subject_id === artifact2.fields.correction_id && candidate.fields.status === "complete");
+    return {
+      source_kind: "manual-correction",
+      root_plan_id: artifact2.fields.root_plan_id,
+      review_id: artifact2.fields.id,
+      correction_id: artifact2.fields.correction_id,
+      learning_id: learning["Learning ID"],
+      finding_keys: String(learning["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean),
+      reusable_guidance: learning["Reusable guidance"],
+      candidate_targets: targetTokens(learning["Candidate targets"]),
+      confirmation_evidence: learning["Confirmation evidence"],
+      correction_evidence_id: evidence?.fields.id ?? null,
+      evidence_confirmed: Boolean(evidence)
+    };
+  })).toSorted((left, right) => left.review_id.localeCompare(right.review_id) || left.learning_id.localeCompare(right.learning_id));
   return {
     active_root_id: activeRootId,
     root_tips: rootTips,
     evidence_tips: evidenceTips,
     review_tips: reviewTips,
     actionable_reviews: artifacts.filter((artifact2) => artifact2.fields.artifact === "work-review" && artifact2.fields.root_plan_id === activeRootId && artifact2.fields.id === reviewTips[activeRootId] && artifact2.fields.next_action === "correct").map((artifact2) => ({ root_plan_id: artifact2.fields.root_plan_id, review_id: artifact2.fields.id, correction_id: artifact2.fields.correction_id, base_evidence_id: artifact2.fields.latest_evidence_id })),
-    learning_candidates: artifacts.filter((artifact2) => artifact2.fields.artifact === "work-review" && artifact2.fields.root_plan_id === activeRootId && activeReview?.fields.assessment === "achieved" && activeReview?.fields.delivery_status === "verified" && artifact2.correction?.learnings?.length > 0).flatMap((artifact2) => artifact2.correction.learnings.map((learning) => {
-      const evidence = artifacts.find((candidate) => candidate.fields.artifact === "delivery-evidence" && candidate.fields.subject_id === artifact2.fields.correction_id && candidate.fields.status === "complete");
-      return {
-        root_plan_id: artifact2.fields.root_plan_id,
-        review_id: artifact2.fields.id,
-        correction_id: artifact2.fields.correction_id,
-        learning_id: learning["Learning ID"],
-        correction_evidence_id: evidence?.fields.id ?? null,
-        evidence_confirmed: Boolean(evidence)
-      };
-    }))
+    learning_candidates: learningCandidates
   };
 }
 function runCli() {
@@ -31105,6 +31325,35 @@ function createContentAddressedHandoffStore(rootPlanText, pluginRoot2, options =
 function createContentAddressedHandoffStoreByHash(rootHash, pluginRoot2, options = {}) {
   return new ArtifactHandoffStore(contentAddressedHandoffRootByHash(rootHash, options), pluginRoot2);
 }
+function validateTip(tip, rootPlanId) {
+  if (tip?.handoff_tip_schema !== HANDOFF_TIP_SCHEMA || tip.root_plan_id !== rootPlanId || !/^[a-f0-9]{64}$/.test(String(tip.root_content_hash ?? "")) || !/^[a-f0-9]{64}$/.test(String(tip.text_hash ?? ""))) {
+    throw new Error(`incompatible or corrupt handoff tip ${rootPlanId}`);
+  }
+  return tip;
+}
+function readTipFile(path, rootPlanId) {
+  if (!existsSync4(path)) return null;
+  return validateTip(JSON.parse(readFileSync4(path, "utf8")), rootPlanId);
+}
+function listHandoffTips(rootPlanId, options = {}) {
+  const tips = /* @__PURE__ */ new Map();
+  const directory = handoffTipDirectory(rootPlanId, options);
+  if (existsSync4(directory)) {
+    for (const name of readdirSync(directory, { withFileTypes: true })) {
+      if (!name.isFile() || !name.name.endsWith(".json")) continue;
+      const tip = readTipFile(join5(directory, name.name), rootPlanId);
+      if (!tip) continue;
+      const prior = tips.get(tip.root_content_hash);
+      if (prior && prior.text_hash !== tip.text_hash) {
+        throw new Error(`handoff tip for ${rootPlanId} has conflicting text for root content hash ${tip.root_content_hash}`);
+      }
+      tips.set(tip.root_content_hash, tip);
+    }
+  }
+  const legacy = readTipFile(legacyHandoffTipPath(rootPlanId, options), rootPlanId);
+  if (legacy && !tips.has(legacy.root_content_hash)) tips.set(legacy.root_content_hash, legacy);
+  return [...tips.values()].sort((left, right) => left.root_content_hash.localeCompare(right.root_content_hash));
+}
 function writeHandoffTip(rootPlanText, options = {}) {
   const inspected = inspectArtifactText(rootPlanText, options.pluginRoot);
   if (inspected.errors.length > 0 || inspected.artifact?.fields?.artifact !== "work-plan") {
@@ -31117,27 +31366,28 @@ function writeHandoffTip(rootPlanText, options = {}) {
     text_hash: sha2562(rootPlanText),
     updated_at: (/* @__PURE__ */ new Date()).toISOString()
   };
-  const path = handoffTipPath(tip.root_plan_id, options);
+  const path = handoffTipPath(tip.root_plan_id, tip.root_content_hash, options);
   if (existsSync4(path)) {
-    const prior = JSON.parse(readFileSync4(path, "utf8"));
-    if (prior?.handoff_tip_schema === HANDOFF_TIP_SCHEMA && prior.root_plan_id === tip.root_plan_id && prior.root_content_hash === tip.root_content_hash && prior.text_hash === tip.text_hash) {
-      return tip;
-    }
-    if (prior?.root_plan_id === tip.root_plan_id && prior?.text_hash && prior.text_hash !== tip.text_hash) {
-      throw new Error(`handoff tip for ${tip.root_plan_id} conflicts with a different Root text hash`);
-    }
+    const prior = readTipFile(path, tip.root_plan_id);
+    if (prior.root_content_hash === tip.root_content_hash && prior.text_hash === tip.text_hash) return tip;
+    throw new Error(`handoff tip for ${tip.root_plan_id} conflicts with a different Root text hash`);
   }
   atomicJson(path, tip);
   return tip;
 }
 function readHandoffTip(rootPlanId, options = {}) {
-  const path = handoffTipPath(rootPlanId, options);
-  if (!existsSync4(path)) return null;
-  const tip = JSON.parse(readFileSync4(path, "utf8"));
-  if (tip?.handoff_tip_schema !== HANDOFF_TIP_SCHEMA || tip.root_plan_id !== rootPlanId || !/^[a-f0-9]{64}$/.test(String(tip.root_content_hash ?? "")) || !/^[a-f0-9]{64}$/.test(String(tip.text_hash ?? ""))) {
-    throw new Error(`incompatible or corrupt handoff tip ${rootPlanId}`);
+  const { rootContentHash: exactHash = null } = options;
+  if (exactHash) {
+    const exact = readTipFile(handoffTipPath(rootPlanId, exactHash, options), rootPlanId);
+    if (exact) return exact;
+    const legacy = readTipFile(legacyHandoffTipPath(rootPlanId, options), rootPlanId);
+    if (legacy?.root_content_hash === exactHash) return legacy;
+    return null;
   }
-  return tip;
+  const tips = listHandoffTips(rootPlanId, options);
+  if (tips.length === 0) return null;
+  if (tips.length === 1) return tips[0];
+  throw new Error(`handoff tip for ${rootPlanId} is ambiguous across ${tips.length} distinct Root content hashes; supply exact Root text`);
 }
 function resolveRootPlanText(pluginRoot2, { rootPlanId = null, rootPlan = null, artifacts = [] } = {}) {
   if (typeof rootPlan === "string" && rootPlan.trim()) {
@@ -31280,13 +31530,16 @@ var ArtifactHandoffStore = class {
       text_hash: record2.text_hash
     };
   }
-  rebuildIndex() {
+  buildIndexInMemory() {
     const entries = this.records().map((record2) => this.metadata(record2));
-    const index = { schema: 1, entries };
+    return { schema: 1, entries };
+  }
+  rebuildIndex() {
+    const index = this.buildIndexInMemory();
     atomicJson(this.indexPath(), index);
     return index;
   }
-  index() {
+  loadIndex({ repair = false } = {}) {
     try {
       const index = JSON.parse(readFileSync4(this.indexPath(), "utf8"));
       const actual = existsSync4(this.directory) ? readdirSync(this.directory, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".json")).map((entry) => entry.name.slice(0, -5)).sort() : [];
@@ -31294,10 +31547,13 @@ var ArtifactHandoffStore = class {
       if (index.schema !== 1 || actual.join("\n") !== recorded.join("\n")) throw new Error("handoff index mismatch");
       return index;
     } catch {
-      return this.rebuildIndex();
+      return repair ? this.rebuildIndex() : this.buildIndexInMemory();
     }
   }
-  writeIndex(records, priorIndex = this.index()) {
+  index() {
+    return this.loadIndex({ repair: true });
+  }
+  writeIndex(records, priorIndex = this.loadIndex({ repair: true })) {
     const entries = new Map(priorIndex.entries.map((entry) => [entry.artifact_id, entry]));
     for (const record2 of records) entries.set(record2.artifact_id, this.metadata(record2));
     atomicJson(this.indexPath(), { schema: 1, entries: [...entries.values()].sort((left, right) => left.artifact_id.localeCompare(right.artifact_id)) });
@@ -31380,7 +31636,7 @@ var ArtifactHandoffStore = class {
   }
   context(rootPlanId, rootPlanText = null) {
     if (!/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(rootPlanId))) throw new Error("handoff context requires a valid wp-* root_plan_id");
-    const index = this.index();
+    const index = this.loadIndex({ repair: false });
     const metadata = new Map(index.entries.map((entry) => [entry.artifact_id, entry]));
     const lineage = /* @__PURE__ */ new Set();
     let planCursor = rootPlanId;
@@ -31445,10 +31701,439 @@ var ArtifactHandoffStore = class {
       artifacts: ordered.map((record2) => ({ label: record2.artifact_id, text: record2.text, text_hash: record2.text_hash }))
     };
   }
+  quarantineArtifact(artifactId, { expectedTextHash, apply = false, now = () => /* @__PURE__ */ new Date() } = {}) {
+    if (!/^wr-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(artifactId ?? ""))) {
+      throw new Error("handoff quarantine accepts only an exactly identified wr-* transport record");
+    }
+    if (!/^[a-f0-9]{64}$/.test(String(expectedTextHash ?? ""))) {
+      throw new Error("handoff quarantine requires --expected-text-hash with the exact cached review hash");
+    }
+    const record2 = this.records([artifactId])[0];
+    if (!record2) throw new Error(`handoff quarantine cannot find ${artifactId}`);
+    if (record2.artifact_type !== "work-review") throw new Error(`handoff quarantine refuses non-review artifact ${artifactId}`);
+    if (record2.text_hash !== expectedTextHash) {
+      throw new Error(`handoff quarantine expected ${expectedTextHash} but ${artifactId} has ${record2.text_hash}`);
+    }
+    const index = this.loadIndex({ repair: false });
+    const dependents = index.entries.filter((entry) => (entry.references ?? []).includes(artifactId)).map((entry) => entry.artifact_id).sort();
+    const timestamp = now().toISOString().replace(/[:.]/g, "-");
+    const quarantineDirectory = join5(this.root, "handoff", "quarantine", `${timestamp}-${artifactId}-${expectedTextHash.slice(0, 12)}`);
+    const source = this.artifactPath(artifactId);
+    const target = join5(quarantineDirectory, "artifact-record.json");
+    const report = {
+      command: "quarantine-handoff",
+      namespace_root: this.root,
+      artifact_id: artifactId,
+      artifact_type: record2.artifact_type,
+      text_hash: record2.text_hash,
+      record_hash: createHash3("sha256").update(readFileSync4(source)).digest("hex"),
+      source,
+      quarantine_directory: quarantineDirectory,
+      target,
+      dependents,
+      applicable: dependents.length === 0,
+      applied: false
+    };
+    if (!apply) return report;
+    if (dependents.length > 0) {
+      throw new Error(`handoff quarantine refuses ${artifactId} because active artifacts depend on it: ${dependents.join(", ")}`);
+    }
+    if (existsSync4(quarantineDirectory)) throw new Error(`handoff quarantine target already exists: ${quarantineDirectory}`);
+    const lockPath = join5(this.root, "handoff", ".lock");
+    let descriptor;
+    try {
+      descriptor = acquireLock(lockPath);
+      const current = this.records([artifactId])[0];
+      if (!current || current.text_hash !== expectedTextHash) throw new Error(`handoff quarantine target ${artifactId} changed before apply`);
+      const currentIndex = this.loadIndex({ repair: false });
+      const currentDependents = currentIndex.entries.filter((entry) => (entry.references ?? []).includes(artifactId)).map((entry) => entry.artifact_id).sort();
+      if (currentDependents.length > 0) {
+        throw new Error(`handoff quarantine refuses ${artifactId} because active artifacts depend on it: ${currentDependents.join(", ")}`);
+      }
+      mkdirSync(quarantineDirectory, { recursive: true, mode: 448 });
+      const indexPath = this.indexPath();
+      if (existsSync4(indexPath)) writeFileSync(join5(quarantineDirectory, "index-before.json"), readFileSync4(indexPath), { mode: 384, flag: "wx" });
+      renameSync(source, target);
+      try {
+        const rebuilt = this.rebuildIndex();
+        atomicJson(join5(quarantineDirectory, "quarantine-manifest.json"), {
+          quarantine_manifest_schema: 1,
+          ...report,
+          applied: true,
+          quarantined_at: now().toISOString(),
+          rebuilt_index_entries: rebuilt.entries.length
+        });
+      } catch (error2) {
+        renameSync(target, source);
+        atomicJson(this.indexPath(), currentIndex);
+        throw error2;
+      }
+      return { ...report, applied: true };
+    } finally {
+      if (descriptor !== void 0) {
+        closeSync(descriptor);
+        try {
+          unlinkSync(lockPath);
+        } catch (error2) {
+          if (error2.code !== "ENOENT") throw error2;
+        }
+      }
+    }
+  }
 };
 
 // src/controller/manual-status.mjs
+import { createHash as createHash6 } from "node:crypto";
+
+// src/core/manual-check-receipts.mjs
+import { createHash as createHash5, randomUUID as randomUUID2 } from "node:crypto";
+import {
+  chmodSync,
+  existsSync as existsSync5,
+  lstatSync as lstatSync2,
+  mkdirSync as mkdirSync2,
+  readdirSync as readdirSync2,
+  readFileSync as readFileSync6,
+  realpathSync as realpathSync2,
+  renameSync as renameSync2,
+  rmSync,
+  writeFileSync as writeFileSync2
+} from "node:fs";
+import { dirname as dirname3, join as join6, relative, resolve as resolve7, sep } from "node:path";
+
+// src/core/manual-repository-snapshot.mjs
 import { createHash as createHash4 } from "node:crypto";
+import { spawnSync } from "node:child_process";
+import {
+  lstatSync,
+  readFileSync as readFileSync5,
+  readlinkSync
+} from "node:fs";
+import { resolve as resolve6 } from "node:path";
+function git(workspaceRoot2, args, options = {}) {
+  const runner = options.spawnSync ?? spawnSync;
+  const result2 = runner("git", ["-C", workspaceRoot2, ...args], {
+    encoding: args.includes("-z") ? "buffer" : "utf8",
+    maxBuffer: 16 * 1024 * 1024,
+    windowsHide: true
+  });
+  if (result2.error) throw result2.error;
+  if (result2.status !== 0) {
+    const stderr = Buffer.isBuffer(result2.stderr) ? result2.stderr.toString("utf8") : String(result2.stderr ?? "");
+    throw new Error(`repository snapshot failed: git ${args.join(" ")} (${stderr.trim() || `exit ${result2.status}`})`);
+  }
+  return result2.stdout;
+}
+function nulPaths(value) {
+  const buffer = Buffer.isBuffer(value) ? value : Buffer.from(String(value ?? ""));
+  return buffer.toString("utf8").split("\0").filter(Boolean);
+}
+function sha2563(value) {
+  return createHash4("sha256").update(value).digest("hex");
+}
+function repositoryPathFingerprint(workspaceRoot2, repositoryPath) {
+  const absolute = resolve6(workspaceRoot2, repositoryPath);
+  try {
+    const stat = lstatSync(absolute);
+    if (stat.isSymbolicLink()) return `symlink:${sha2563(Buffer.from(readlinkSync(absolute), "utf8"))}`;
+    if (stat.isFile()) return `file:${stat.mode.toString(8)}:${sha2563(readFileSync5(absolute))}`;
+    if (stat.isDirectory()) return `directory:${stat.mode.toString(8)}`;
+    return `other:${stat.mode.toString(8)}:${stat.size}`;
+  } catch (error2) {
+    if (error2?.code === "ENOENT") return "missing";
+    throw error2;
+  }
+}
+function captureRepositorySnapshot(workspaceRoot2, options = {}) {
+  const root = String(git(workspaceRoot2, ["rev-parse", "--show-toplevel"], options)).trim();
+  const head = String(git(root, ["rev-parse", "HEAD"], options)).trim();
+  const index = git(root, ["ls-files", "--stage", "-z", "--"], options);
+  const status = git(root, ["status", "--porcelain=v2", "--untracked-files=all", "-z", "--"], options);
+  const tracked = nulPaths(git(root, ["diff", "--name-only", "-z", "HEAD", "--"], options));
+  const untracked = nulPaths(git(root, ["ls-files", "--others", "--exclude-standard", "-z", "--"], options));
+  const dirtyPaths = [.../* @__PURE__ */ new Set([...tracked, ...untracked])].sort();
+  const fingerprints = Object.fromEntries(dirtyPaths.map((path) => [path, repositoryPathFingerprint(root, path)]));
+  return {
+    schema: 1,
+    repository_root: root,
+    head,
+    dirty_paths: dirtyPaths,
+    fingerprints,
+    index_fingerprint: sha2563(Buffer.isBuffer(index) ? index : Buffer.from(String(index))),
+    status_fingerprint: sha2563(Buffer.isBuffer(status) ? status : Buffer.from(String(status))),
+    working_tree: dirtyPaths.length > 0 ? "modified" : "unchanged",
+    captured_at: (/* @__PURE__ */ new Date()).toISOString()
+  };
+}
+
+// src/core/manual-check-receipts.mjs
+var MANUAL_CHECK_RECEIPT_TTL_MS = 24 * 60 * 60 * 1e3;
+var MANUAL_CHECK_RECEIPT_SURFACE = "host-tool-receipt";
+function sha2564(value) {
+  return createHash5("sha256").update(String(value)).digest("hex");
+}
+function stable(value) {
+  if (Array.isArray(value)) return value.map(stable);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])]));
+}
+function stableJson(value) {
+  return JSON.stringify(stable(value));
+}
+function unique2(values) {
+  return [...new Set((values ?? []).filter(Boolean).map(String))];
+}
+function normalizeManualCheckCommand(value) {
+  const trimmed = String(value ?? "").trim();
+  return trimmed.startsWith("rtk ") ? trimmed.slice(4) : trimmed;
+}
+function plannedWorkingDirectory(value) {
+  const source = String(value ?? "").trim();
+  if (!source || /^repository root$/i.test(source) || source === ".") return ".";
+  const normalized = source.replaceAll("\\", "/").replace(/^\.\//, "").replace(/\/$/, "");
+  if (!normalized || normalized === ".." || normalized.startsWith("../") || normalized.startsWith("/")) return null;
+  return normalized;
+}
+function manualMachineChecks(rootPlanText, pluginRoot2) {
+  const contract = executionContractFromArtifactText(rootPlanText, pluginRoot2);
+  if (contract.errors.length > 0 || contract.fields?.schema !== 5) {
+    throw new Error(`manual Check receipts require a valid Schema-5 Root: ${contract.errors.join("; ")}`);
+  }
+  return {
+    root_plan_id: contract.fields.id,
+    root_hash: rootContentHash(rootPlanText),
+    checks: contract.checks.filter((check) => check.Required === "yes" && check["Evidence Class"] === "machine-verifiable").map((check) => ({
+      check_id: check["Check ID"],
+      command: normalizeManualCheckCommand(check["Command or Inspection"]),
+      command_hash: sha2564(normalizeManualCheckCommand(check["Command or Inspection"])),
+      working_directory: plannedWorkingDirectory(check["Working Directory"]),
+      expected: check["Expected Result"],
+      required_repetitions: 1
+    })),
+    all_checks: contract.checks.filter((check) => check.Required === "yes")
+  };
+}
+function repositorySnapshotFingerprint(snapshot2) {
+  if (!snapshot2 || typeof snapshot2 !== "object") throw new Error("manual Check receipt requires a repository snapshot");
+  return sha2564(stableJson({
+    repository_root: resolve7(snapshot2.repository_root),
+    head: snapshot2.head,
+    dirty_paths: snapshot2.dirty_paths,
+    fingerprints: snapshot2.fingerprints,
+    index_fingerprint: snapshot2.index_fingerprint ?? null,
+    status_fingerprint: snapshot2.status_fingerprint ?? null
+  }));
+}
+function proofBase(workspaceRoot2, rootHash, options = {}) {
+  return join6(sharedArtifactStateRoot(canonicalWorkspaceRoot(workspaceRoot2), options), "manual-check-receipts", rootHash);
+}
+function canonicalWorkspaceRoot(workspaceRoot2) {
+  try {
+    return realpathSync2(workspaceRoot2);
+  } catch {
+    return resolve7(workspaceRoot2);
+  }
+}
+function assertSafeDirectory(path, base) {
+  const resolvedBase = resolve7(base);
+  const resolvedPath = resolve7(path);
+  if (resolvedPath !== resolvedBase && !resolvedPath.startsWith(`${resolvedBase}${sep}`)) {
+    throw new Error("manual Check receipt path escapes its protected state root");
+  }
+  let current = resolvedPath;
+  while (current !== resolvedBase && !existsSync5(current)) current = dirname3(current);
+  if (existsSync5(current) && lstatSync2(current).isSymbolicLink()) {
+    throw new Error("manual Check receipt state may not be symlink redirected");
+  }
+}
+function readReceiptRecord(path, base) {
+  assertSafeDirectory(path, base);
+  const stat = lstatSync2(path);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 64 * 1024) return null;
+  const value = JSON.parse(readFileSync6(path, "utf8"));
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+function existingRecords(directory, base) {
+  if (!existsSync5(directory)) return [];
+  assertSafeDirectory(directory, base);
+  if (lstatSync2(directory).isSymbolicLink()) return [];
+  return readdirSync2(directory).filter((name) => /^[a-f0-9]{64}\.json$/.test(name)).flatMap((name) => {
+    try {
+      const record2 = readReceiptRecord(join6(directory, name), base);
+      return record2 ? [record2] : [];
+    } catch {
+      return [];
+    }
+  });
+}
+function invalidateManualCheckReceipts({ rootPlanText, workspaceRoot: workspaceRoot2, options = {} }) {
+  if (typeof rootPlanText !== "string" || !rootPlanText.trim()) return false;
+  const rootHash = rootContentHash(rootPlanText);
+  const canonicalRoot = canonicalWorkspaceRoot(workspaceRoot2);
+  const base = proofBase(canonicalRoot, rootHash, options);
+  if (!existsSync5(base)) return false;
+  const stateRoot = sharedArtifactStateRoot(canonicalRoot, options);
+  assertSafeDirectory(base, stateRoot);
+  if (lstatSync2(base).isSymbolicLink()) throw new Error("manual Check receipt state may not be symlink redirected");
+  rmSync(base, { recursive: true, force: true });
+  return true;
+}
+function validStoredReceipt(record2, { plan, repositoryRoot, currentFingerprint, now }) {
+  if (!record2 || record2.schema !== 1 || record2.kind !== "manual-check-receipt-record") return false;
+  const receipt = record2.receipt;
+  if (!receipt || receipt.schema !== 1 || receipt.kind !== "manual-check-receipt") return false;
+  if (!/^[a-f0-9]{64}$/.test(String(record2.receipt_hash ?? ""))) return false;
+  if (sha2564(stableJson(receipt)) !== record2.receipt_hash) return false;
+  if (receipt.root_hash !== plan.root_hash || receipt.repository_key !== repositoryKey(repositoryRoot)) return false;
+  if (receipt.snapshot_fingerprint !== currentFingerprint) return false;
+  const expires = Date.parse(record2.expires_at);
+  if (!Number.isFinite(expires) || expires <= now.getTime()) return false;
+  const check = plan.checks.find((entry) => entry.check_id === receipt.check_id);
+  if (!check || check.command_hash !== receipt.command_hash || check.working_directory !== receipt.working_directory) return false;
+  return ["passed", "failed"].includes(receipt.result_status) && Number.isInteger(receipt.repetition_ordinal) && receipt.repetition_ordinal >= 1;
+}
+function loadManualCheckReceipts({
+  rootPlanText,
+  pluginRoot: pluginRoot2,
+  workspaceRoot: workspaceRoot2,
+  captureSnapshot = captureRepositorySnapshot,
+  now = () => /* @__PURE__ */ new Date(),
+  options = {}
+}) {
+  if (typeof rootPlanText !== "string" || !rootPlanText.trim() || !workspaceRoot2) return [];
+  const plan = manualMachineChecks(rootPlanText, pluginRoot2);
+  const current = captureSnapshot(workspaceRoot2);
+  const currentFingerprint = repositorySnapshotFingerprint(current);
+  const canonicalRoot = current.repository_root;
+  const base = proofBase(canonicalRoot, plan.root_hash, options);
+  const stateRoot = sharedArtifactStateRoot(canonicalRoot, options);
+  if (!existsSync5(base)) return [];
+  try {
+    assertSafeDirectory(base, stateRoot);
+    if (lstatSync2(base).isSymbolicLink()) return [];
+    return readdirSync2(base, { withFileTypes: true }).filter((entry) => entry.isDirectory() && /^CHECK-[1-9][0-9]*$/.test(entry.name)).flatMap((entry) => existingRecords(join6(base, entry.name), stateRoot)).filter((record2) => validStoredReceipt(record2, {
+      plan,
+      repositoryRoot: current.repository_root,
+      currentFingerprint,
+      now: now()
+    })).map((record2) => ({ ...record2.receipt, receipt_hash: record2.receipt_hash })).sort((left, right) => left.check_id.localeCompare(right.check_id) || left.repetition_ordinal - right.repetition_ordinal);
+  } catch {
+    return [];
+  }
+}
+function limitationFor(check) {
+  const command = normalizeManualCheckCommand(check["Command or Inspection"]);
+  const workingDirectory = String(check["Working Directory"] ?? "repository root");
+  return `HOST-RECEIPT-MISSING: ${check["Check ID"]} was not host-attested for the current repository snapshot. Re-run exactly \`${command}\` from ${workingDirectory}, then retry closeout.`;
+}
+function sameCallerObservation(entry, existing) {
+  return Boolean(existing && entry?.grade === existing.grade && String(entry?.observed ?? "not fully observed") === String(existing.observed ?? "not fully observed") && String(entry?.expected ?? existing.expected ?? "") === String(existing.expected ?? ""));
+}
+function calibrateManualCheckEvidence({ entries, plannedChecks, receipts = [], existingCheckEvidence = [] }) {
+  const existingByCheck = new Map((existingCheckEvidence ?? []).map((entry) => [entry.check_id, entry]));
+  return entries.map((entry) => {
+    const check = plannedChecks.get(entry.check_id);
+    if (!check || check["Evidence Class"] !== "machine-verifiable") return entry;
+    const commandHash = sha2564(normalizeManualCheckCommand(check["Command or Inspection"]));
+    const workingDirectory = plannedWorkingDirectory(check["Working Directory"]);
+    const checkReceipts = receipts.filter((receipt) => receipt.command_hash === commandHash && receipt.working_directory === workingDirectory);
+    const failures = checkReceipts.filter((receipt) => receipt.result_status === "failed");
+    const successes = checkReceipts.filter((receipt) => receipt.result_status === "passed");
+    if (failures.length > 0) {
+      return {
+        ...entry,
+        grade: "failed",
+        surface: MANUAL_CHECK_RECEIPT_SURFACE,
+        method: normalizeManualCheckCommand(check["Command or Inspection"]),
+        repetitions: failures.length + successes.length,
+        artifact_hashes: unique2([...failures, ...successes].map((receipt) => receipt.receipt_hash)),
+        limitations: unique2([...entry.limitations ?? [], `HOST-RECEIPT-FAILED: ${entry.check_id} returned a host-observed failure for the current repository snapshot.`])
+      };
+    }
+    if (entry.grade !== "verified") return entry;
+    if (successes.length >= 1) {
+      return {
+        ...entry,
+        grade: "verified",
+        surface: MANUAL_CHECK_RECEIPT_SURFACE,
+        method: normalizeManualCheckCommand(check["Command or Inspection"]),
+        repetitions: successes.length,
+        artifact_hashes: unique2(successes.map((receipt) => receipt.receipt_hash))
+      };
+    }
+    const existing = existingByCheck.get(entry.check_id);
+    if (existing?.grade === "verified" && existing.surface === MANUAL_CHECK_RECEIPT_SURFACE && Array.isArray(existing.artifact_hashes) && existing.artifact_hashes.length > 0 && sameCallerObservation(entry, existing)) {
+      return { ...existing };
+    }
+    const meaningful = String(entry.observed ?? "").trim() && !/^not (?:fully )?observed$/i.test(String(entry.observed).trim());
+    return {
+      ...entry,
+      grade: meaningful ? "supported" : "unavailable",
+      surface: "repository",
+      method: normalizeManualCheckCommand(check["Command or Inspection"]),
+      repetitions: 0,
+      artifact_hashes: [],
+      limitations: unique2([...entry.limitations ?? [], limitationFor(check)])
+    };
+  });
+}
+function manualConstraintProjection({ checks = [], evidence = [], pending = false }) {
+  const required2 = checks.filter((check) => check.Required === "yes");
+  const byId = new Map((evidence ?? []).map((entry) => [entry.check_id, entry]));
+  const ids2 = (predicate) => required2.filter(predicate).map((check) => check["Check ID"]);
+  const hostAttested = ids2((check) => {
+    const entry = byId.get(check["Check ID"]);
+    return entry?.grade === "verified" && entry.surface === MANUAL_CHECK_RECEIPT_SURFACE && (entry.artifact_hashes?.length ?? 0) > 0;
+  });
+  const machine = ids2((check) => check["Evidence Class"] === "machine-verifiable");
+  const failed = ids2((check) => byId.get(check["Check ID"])?.grade === "failed");
+  const unattestedVerified = pending ? [] : ids2((check) => {
+    const entry = byId.get(check["Check ID"]);
+    return check["Evidence Class"] === "machine-verifiable" && entry?.grade === "verified" && !(entry.surface === MANUAL_CHECK_RECEIPT_SURFACE && (entry.artifact_hashes?.length ?? 0) > 0);
+  });
+  const ordinaryGaps = pending ? [] : ids2((check) => {
+    const entry = byId.get(check["Check ID"]);
+    return !entry || ["supported", "partial", "unavailable"].includes(entry.grade);
+  });
+  const gaps = unique2([...unattestedVerified, ...ordinaryGaps]);
+  const humanReview = ids2((check) => check["Evidence Class"] === "human-review-required");
+  const humanApproval = ids2((check) => check["Evidence Class"] === "human-approval-required");
+  const reasons = pending ? [] : [
+    ...failed.map((checkId) => ({ code: "check-failed", check_id: checkId, message: `${checkId} failed and blocks delivery.`, recovery: `Repair the cause, rerun ${checkId}, then retry closeout.` })),
+    ...unattestedVerified.map((checkId) => ({ code: "legacy-receipt-gap", check_id: checkId, message: `${checkId} is marked verified without a valid host receipt.`, recovery: `Run a fresh review for ${checkId}; use its bounded correction route to refresh Evidence with current host receipts.` })),
+    ...ordinaryGaps.map((checkId) => ({ code: "evidence-gap", check_id: checkId, message: `${checkId} is not fully verified.`, recovery: `Follow the Check limitation, rerun ${checkId}, then retry closeout.` })),
+    ...humanReview.map((checkId) => ({ code: "human-review-required", check_id: checkId, message: `${checkId} requires human review.`, recovery: `Complete the stated review for ${checkId} and record the bounded observation.` })),
+    ...humanApproval.map((checkId) => ({ code: "human-approval-required", check_id: checkId, message: `${checkId} requires explicit human approval.`, recovery: `Request the named approval before continuing.` }))
+  ];
+  return {
+    constraint_summary: {
+      schema: 1,
+      scope: "current-delivery",
+      required_checks: required2.map((check) => check["Check ID"]),
+      host_attested_checks: hostAttested,
+      human_review_checks: humanReview,
+      human_approval_checks: humanApproval,
+      failed_checks: failed,
+      evidence_gap_checks: gaps,
+      legacy_unattested_verified_checks: unattestedVerified,
+      receipt_coverage: {
+        attested: hostAttested.length,
+        eligible: machine.length
+      }
+    },
+    human_attention: {
+      required: reasons.length > 0,
+      reasons
+    },
+    problem_details: reasons.map((reason) => ({
+      problem: reason.message,
+      why: reason.code === "check-failed" ? "A required failed Check blocks delivery acceptance." : ["evidence-gap", "legacy-receipt-gap"].includes(reason.code) ? "The current evidence cannot support a verified delivery claim." : "This Check is intentionally reserved for human judgment or authority.",
+      resolution: reason.recovery,
+      blocking: ["check-failed", "human-approval-required"].includes(reason.code),
+      check_id: reason.check_id
+    }))
+  };
+}
 
 // scripts/derive-workflow-state.mjs
 var states = /* @__PURE__ */ new Set([
@@ -31564,7 +32249,7 @@ function deriveWorkflowState(input = {}) {
   if (manualArtifacts && input.delivery_status === "provisional") {
     if (input.manual_acceptance === "provisional") return snapshot(input, "accepted-provisional", {
       allowed_actions: ["inspect"],
-      required_actor: "human",
+      required_actor: "none",
       next_action: "none",
       acceptance_persisted: false,
       acceptance_basis_hash: input.acceptance_basis_hash ?? input.artifact_set_hash ?? null
@@ -31575,17 +32260,17 @@ function deriveWorkflowState(input = {}) {
   if (input.phase === "delivery-ready-provisional" || input.delivery_status === "provisional") return snapshot(input, "delivery-ready-provisional", { allowed_actions: ["accept-provisional", "inspect", "stop"], required_actor: "human", next_action: "accept-provisional" });
   if (!manualArtifacts && (input.phase === "delivery-ready-verified" || input.delivery_status === "verified" && !input.delivery_accepted)) return snapshot(input, "delivery-ready-verified", { allowed_actions: ["accept-verified", "inspect", "stop"], required_actor: "human", next_action: "accept-verified" });
   if (input.review?.assessment !== "achieved") return snapshot(input, "replan", { allowed_actions: ["replan", "stop"], required_actor: "human", next_action: "replan", blockers: ["root-review-not-achieved"] });
-  return snapshot(input, "achieved", { allowed_actions: ["explain", "learn"], required_actor: "human", next_action: "none" });
+  return snapshot(input, "achieved", { allowed_actions: ["explain", "learn"], required_actor: "none", next_action: "none" });
 }
 var workflowStates = Object.freeze([...states]);
 
 // src/controller/manual-status.mjs
-function unique2(values) {
+function unique3(values) {
   return [...new Set(values.filter(Boolean))];
 }
 function artifactSetHash(entries) {
-  const observations = entries.map(({ label, text }) => ({ label, text_hash: createHash4("sha256").update(String(text)).digest("hex") })).sort((left, right) => left.label.localeCompare(right.label) || left.text_hash.localeCompare(right.text_hash));
-  return createHash4("sha256").update(JSON.stringify(observations)).digest("hex");
+  const observations = entries.map(({ label, text }) => ({ label, text_hash: createHash6("sha256").update(String(text)).digest("hex") })).sort((left, right) => left.label.localeCompare(right.label) || left.text_hash.localeCompare(right.text_hash));
+  return createHash6("sha256").update(JSON.stringify(observations)).digest("hex");
 }
 function baseInput(rootPlanId, entries, observedAt) {
   return {
@@ -31599,18 +32284,40 @@ function baseInput(rootPlanId, entries, observedAt) {
     revision: null
   };
 }
-function summary(rootPlanId, entries, evidenceTip = null, reviewTip = null) {
+function summary(rootPlanId, entries, evidenceTip = null, reviewTip = null, learningCandidates = []) {
   return {
     root_plan_id: rootPlanId,
     artifact_count: entries.length,
     evidence_tip: evidenceTip,
-    review_tip: reviewTip
+    review_tip: reviewTip,
+    learning_candidates: learningCandidates
+  };
+}
+function deriveManualLearningProjection({ snapshot: snapshot2, artifact_summary: artifactSummary }) {
+  const blockers = [];
+  if (snapshot2?.state !== "achieved") blockers.push("learning-source-not-achieved");
+  if (snapshot2?.delivery_status !== "verified") blockers.push("learning-source-not-verified");
+  return {
+    schema: 1,
+    eligible: blockers.length === 0,
+    source_kind: "artifact-chain",
+    source_id: snapshot2?.root_plan_id ?? artifactSummary?.root_plan_id ?? null,
+    root_plan_id: snapshot2?.root_plan_id ?? artifactSummary?.root_plan_id ?? null,
+    effective_profile: "manual",
+    blockers,
+    workspace_match: { status: "not-required", matched: true, paths: [] },
+    delivery_commit: null,
+    delivered_paths: [],
+    event_chain_valid: null,
+    compatibility: snapshot2?.compatibility ?? "compatible",
+    source_binding: { status: "confirmed", kind: "current-task-artifacts" },
+    candidates: (artifactSummary?.learning_candidates ?? []).map((candidate) => ({ ...candidate }))
   };
 }
 function incomplete(rootPlanId, entries, observedAt, blockers) {
   const input = baseInput(rootPlanId, entries, observedAt);
   return {
-    snapshot: deriveWorkflowState({ ...input, manual_context_incomplete: true, blockers: unique2(blockers) }),
+    snapshot: deriveWorkflowState({ ...input, manual_context_incomplete: true, blockers: unique3(blockers) }),
     artifact_summary: summary(rootPlanId, entries),
     diagnostics: []
   };
@@ -31618,9 +32325,9 @@ function incomplete(rootPlanId, entries, observedAt, blockers) {
 function invalid(rootPlanId, entries, observedAt, blockers, diagnostics = []) {
   const input = baseInput(rootPlanId, entries, observedAt);
   return {
-    snapshot: deriveWorkflowState({ ...input, artifact_chain_valid: false, root_schema_valid: false, blockers: unique2(blockers) }),
+    snapshot: deriveWorkflowState({ ...input, artifact_chain_valid: false, root_schema_valid: false, blockers: unique3(blockers) }),
     artifact_summary: summary(rootPlanId, entries),
-    diagnostics: unique2(diagnostics)
+    diagnostics: unique3(diagnostics)
   };
 }
 function referencedIds2(fields) {
@@ -31737,6 +32444,13 @@ function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot: plugi
   const evidence = evidenceTipId ? chain.effective.get(evidenceTipId) : null;
   const review = reviewTipId ? chain.effective.get(reviewTipId) : null;
   const correctionEvidencePendingReview = Boolean(review && evidence?.fields.source_review_id === review.fields.id && evidence?.fields.subject_id === review.fields.correction_id);
+  const contract = executionContractFromArtifactText(rootRecords[0].entry.text, pluginRoot2);
+  const constraintProjection = contract.errors.length === 0 ? manualConstraintProjection({
+    checks: contract.checks,
+    evidence: evidence?.fields.check_evidence ?? [],
+    pending: !evidence
+  }) : {};
+  const legacyReceiptGap = (constraintProjection.constraint_summary?.legacy_unattested_verified_checks?.length ?? 0) > 0;
   const acceptanceEligible = root?.fields.profile_max === "manual" && evidence && review && evidence.fields.status !== "blocked" && evidence.fields.overall_grade !== "failed" && !(evidence.fields.check_evidence ?? []).some((check) => check.grade === "failed") && review.fields.delivery_status === "provisional" && review.fields.next_action === "accept-provisional" && !correctionEvidencePendingReview;
   if (manualAcceptance && !acceptanceEligible) {
     throw new Error("manual provisional acceptance requires the unique current provisional review tip, no failed check, no blocked artifact, and no correction awaiting review");
@@ -31758,27 +32472,26 @@ function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot: plugi
     evidence_tip: evidenceTipId,
     review_tip: reviewTipId,
     review: review?.fields ?? null,
-    evidence_grade: evidence?.fields.overall_grade ?? null,
-    delivery_status: review?.fields.delivery_status ?? null,
+    evidence_grade: legacyReceiptGap ? "supported" : evidence?.fields.overall_grade ?? null,
+    delivery_status: legacyReceiptGap ? null : review?.fields.delivery_status ?? null,
     intent_hash: evidence?.fields.intent_hash ?? null,
     strategy_revision: evidence?.fields.strategy_revision ?? (evidence?.fields.evidence_mode === "lean" ? 0 : null),
     manual_acceptance: manualAcceptance,
     acceptance_basis_hash: manualAcceptance ? artifactSetHash(relatedEntries) : null,
     correction_evidence_pending_review: correctionEvidencePendingReview,
-    root_review_complete: review?.fields.assessment === "achieved" && review?.fields.next_action === "none",
+    root_review_complete: !legacyReceiptGap && review?.fields.assessment === "achieved" && review?.fields.next_action === "none",
     more_slices: false
   };
   return {
     snapshot: deriveWorkflowState(input),
-    artifact_summary: summary(rootPlanId, relatedEntries, evidenceTipId, reviewTipId),
-    diagnostics: unique2([...chain.normalizations, ...chain.diagnostics])
+    artifact_summary: summary(rootPlanId, relatedEntries, evidenceTipId, reviewTipId, tips.learning_candidates),
+    diagnostics: unique3([...chain.normalizations, ...chain.diagnostics]),
+    ...constraintProjection
   };
 }
 
-// hooks/manual-subagent-policy.mjs
-import { existsSync as existsSync5, readFileSync as readFileSync5 } from "node:fs";
-import { homedir as homedir3 } from "node:os";
-import { join as join6, resolve as resolve6 } from "node:path";
+// src/core/manual-subagent-policy.mjs
+import { existsSync as existsSync6, readFileSync as readFileSync7 } from "node:fs";
 var MANUAL_SUBAGENT_POLICY_SCHEMA = 1;
 var MANUAL_SUBAGENT_MODES = Object.freeze(["parent-only", "parent-or-approved"]);
 var MANUAL_SUBAGENT_HOSTS = Object.freeze(["cursor", "codex"]);
@@ -31804,79 +32517,6 @@ var MANUAL_SUBAGENT_PRESETS = Object.freeze({
 });
 var objectLike2 = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
 var cleanId = (value) => typeof value === "string" && value.trim() !== "" ? value.trim().replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 256) : null;
-function sharedWorkflowHome2(options = {}) {
-  return resolve6(options.homeRoot ?? process.env.GELDMACHER_WORKFLOW_HOME ?? join6(homedir3(), ".geldmacher", "workflow"));
-}
-function defaultHostPreferencesPath2(options = {}) {
-  return options.preferencesPath ?? process.env.GELDMACHER_WORKFLOW_PREFERENCES ?? join6(sharedWorkflowHome2(options), "preferences.yaml");
-}
-function scalar(token) {
-  if (token === "true") return true;
-  if (token === "false") return false;
-  if (token === "null" || token === "~") return null;
-  if (/^-?\d+(?:\.\d+)?$/.test(token)) return Number(token);
-  if (token.startsWith('"') && token.endsWith('"') || token.startsWith("'") && token.endsWith("'")) {
-    return token.slice(1, -1);
-  }
-  return token;
-}
-function parsePreferenceYaml(source) {
-  const root = {};
-  const stack = [{ indent: -1, value: root }];
-  const lines = String(source).split(/\r?\n/);
-  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
-    const raw = lines[lineIndex];
-    if (!raw.trim() || raw.trim().startsWith("#")) continue;
-    const indent = raw.match(/^ */)?.[0].length ?? 0;
-    const line = raw.trim();
-    while (stack.length > 1 && indent <= stack.at(-1).indent) stack.pop();
-    const parent = stack.at(-1).value;
-    if (line.startsWith("- ")) {
-      if (!Array.isArray(parent)) throw new Error("array item without array parent");
-      const item = line.slice(2).trim();
-      const colon2 = item.indexOf(":");
-      if (colon2 >= 0) {
-        const key2 = item.slice(0, colon2).trim();
-        const rest2 = item.slice(colon2 + 1).trim();
-        const object3 = {};
-        if (rest2) object3[key2] = scalar(rest2);
-        parent.push(object3);
-        stack.push({ indent, value: object3 });
-      } else {
-        parent.push(scalar(item));
-      }
-      continue;
-    }
-    if (!objectLike2(parent) || Array.isArray(parent)) throw new Error("mapping entry without object parent");
-    const colon = line.indexOf(":");
-    if (colon < 0) throw new Error(`invalid mapping line: ${line}`);
-    const key = line.slice(0, colon).trim();
-    const rest = line.slice(colon + 1).trim();
-    if (rest === "[]") {
-      parent[key] = [];
-      continue;
-    }
-    if (rest) {
-      parent[key] = scalar(rest);
-      continue;
-    }
-    let nextIndex = lineIndex + 1;
-    while (nextIndex < lines.length && (!lines[nextIndex].trim() || lines[nextIndex].trim().startsWith("#"))) nextIndex += 1;
-    const next = nextIndex < lines.length ? lines[nextIndex] : "";
-    const nextIndent = next.match(/^ */)?.[0].length ?? 0;
-    const nextTrimmed = next.trim();
-    if (next && nextIndent > indent && nextTrimmed.startsWith("- ")) {
-      const child = [];
-      parent[key] = child;
-      stack.push({ indent, value: child });
-    } else {
-      const child = {};
-      parent[key] = child;
-      stack.push({ indent, value: child });
-    }
-  }
-  return root;
-}
 function parentOnlyResolution(source, path, issues = []) {
   return Object.freeze({
     schema: MANUAL_SUBAGENT_POLICY_SCHEMA,
@@ -31978,11 +32618,11 @@ function validateManualSubagentPolicy(value, label = "manual_subagent_policy") {
   return errors;
 }
 function resolveManualSubagentPolicy(options = {}) {
-  const path = options.preferencesPath ?? defaultHostPreferencesPath2(options);
-  if (!existsSync5(path)) return parentOnlyResolution("default", path);
+  const path = options.preferencesPath ?? defaultHostPreferencesPath(options);
+  if (!existsSync6(path)) return parentOnlyResolution("default", path);
   let parsed;
   try {
-    parsed = parsePreferenceYaml(readFileSync5(path, "utf8"));
+    parsed = parsePreferenceYaml(readFileSync7(path, "utf8"));
   } catch (error2) {
     return parentOnlyResolution("invalid-fallback", path, [`preferences file is unreadable: ${error2.message}`]);
   }
@@ -32015,17 +32655,17 @@ function resolveManualSubagentPolicy(options = {}) {
 
 // hooks/model-inheritance-state.mjs
 import {
-  chmodSync,
-  existsSync as existsSync6,
-  mkdirSync as mkdirSync2,
-  readFileSync as readFileSync6,
-  readdirSync as readdirSync2,
-  renameSync as renameSync2,
-  rmSync,
+  chmodSync as chmodSync2,
+  existsSync as existsSync7,
+  mkdirSync as mkdirSync3,
+  readFileSync as readFileSync8,
+  readdirSync as readdirSync3,
+  renameSync as renameSync3,
+  rmSync as rmSync2,
   statSync,
-  writeFileSync as writeFileSync2
+  writeFileSync as writeFileSync3
 } from "node:fs";
-import { dirname as dirname3, join as join7, resolve as resolve7 } from "node:path";
+import { dirname as dirname4, join as join7, resolve as resolve8 } from "node:path";
 var MODEL_INCIDENT_CAUSES = Object.freeze([
   "explicit-child-model",
   "actual-child-mismatch",
@@ -32041,7 +32681,7 @@ var incidentDirectory = (stateRoot, incidentId) => join7(modelRoot(stateRoot), "
 var incidentPath = (stateRoot, incidentId) => join7(incidentDirectory(stateRoot, incidentId), "incident.json");
 function readJson(path) {
   try {
-    const value = JSON.parse(readFileSync6(path, "utf8"));
+    const value = JSON.parse(readFileSync8(path, "utf8"));
     return value && typeof value === "object" && !Array.isArray(value) ? value : null;
   } catch {
     return null;
@@ -32054,8 +32694,8 @@ function readIncident(stateRoot, incidentId) {
   let childExecuted = false;
   let resultReturned = false;
   let lastObservedAt = incident.recorded_at;
-  if (existsSync6(observationsDirectory)) {
-    for (const name of readdirSync2(observationsDirectory).sort()) {
+  if (existsSync7(observationsDirectory)) {
+    for (const name of readdirSync3(observationsDirectory).sort()) {
       if (!name.endsWith(".json")) continue;
       const observation = readJson(join7(observationsDirectory, name));
       if (!observation) continue;
@@ -32110,10 +32750,10 @@ function cleanSummary(overrides = {}) {
 }
 function modelInheritanceSummary(stateRoot) {
   const incidentsRoot = join7(modelRoot(stateRoot), "incidents");
-  if (!existsSync6(incidentsRoot)) return cleanSummary();
+  if (!existsSync7(incidentsRoot)) return cleanSummary();
   let incidentEntries;
   try {
-    incidentEntries = readdirSync2(incidentsRoot, { withFileTypes: true }).filter((entry) => entry.isDirectory());
+    incidentEntries = readdirSync3(incidentsRoot, { withFileTypes: true }).filter((entry) => entry.isDirectory());
   } catch {
     return cleanSummary({
       status: "unattestable",
@@ -32137,11 +32777,11 @@ function modelInheritanceSummary(stateRoot) {
 }
 
 // src/mcp/artifact-handlers.mjs
-import { createHash as createHash6 } from "node:crypto";
+import { createHash as createHash8 } from "node:crypto";
 
 // src/controller/delivery-closeout.mjs
-var import_yaml3 = __toESM(require_dist2(), 1);
-import { createHash as createHash5 } from "node:crypto";
+var import_yaml4 = __toESM(require_dist2(), 1);
+import { createHash as createHash7 } from "node:crypto";
 
 // src/controller/strategy.mjs
 var TASK_RECIPES = Object.freeze({
@@ -32162,15 +32802,15 @@ function aggregateEvidence(entries) {
 }
 
 // src/controller/delivery-closeout.mjs
-function sha2563(value) {
-  return createHash5("sha256").update(String(value)).digest("hex");
+function sha2565(value) {
+  return createHash7("sha256").update(String(value)).digest("hex");
 }
-function stable(value) {
-  if (Array.isArray(value)) return value.map(stable);
+function stable2(value) {
+  if (Array.isArray(value)) return value.map(stable2);
   if (!value || typeof value !== "object") return value;
-  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])]));
+  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable2(value[key])]));
 }
-function unique3(values) {
+function unique4(values) {
   return [...new Set(values)];
 }
 function cell(value) {
@@ -32204,28 +32844,39 @@ function normalizeArtifacts(rootPlanText, artifacts, pluginRoot2) {
   }
   return { rootId, entries: [...byId.values()] };
 }
-function expectedCheckMap(contract, correction) {
+function expectedCheckMap(contract, correction, unresolvedRootChecks = /* @__PURE__ */ new Map()) {
   const checks = correction?.checks?.filter((check) => check.Required === "yes") ?? contract.checks.filter((check) => check.Required === "yes");
-  return new Map(checks.map((check) => [check["Check ID"], check]));
+  return new Map([
+    ...checks.map((check) => [check["Check ID"], check]),
+    ...unresolvedRootChecks
+  ]);
 }
 function rootCheckMap(contract) {
   return new Map(contract.checks.filter((check) => check.Required === "yes").map((check) => [check["Check ID"], check]));
 }
-function normalizeCheckEvidence(input, plannedChecks, rootChecks, evidenceMode2) {
+function unresolvedRootCheckMap(contract, predecessorEvidence) {
+  const effectiveChecks = predecessorEvidence?.effective?.checks;
+  return new Map([...rootCheckMap(contract)].filter(([checkId]) => effectiveChecks?.get(checkId)?.status !== "passed"));
+}
+function normalizeCheckEvidence(input, plannedChecks, rootChecks, evidenceMode2, {
+  enforceManualCheckReceipts = false,
+  manualCheckReceipts = [],
+  existingCheckEvidence = []
+} = {}) {
   if (!Array.isArray(input) || input.length === 0) throw new Error("closeout requires structured Check evidence");
   const ids2 = input.map((entry) => entry?.check_id);
   if (new Set(ids2).size !== ids2.length) throw new Error("closeout Check evidence IDs must be unique");
   for (const id of plannedChecks.keys()) if (!ids2.includes(id)) throw new Error(`closeout is missing required Check ${id}`);
   const known = new Map([...rootChecks, ...plannedChecks]);
-  return input.map((entry) => {
+  const normalized = input.map((entry) => {
     const planned = known.get(entry?.check_id);
     if (!planned) throw new Error(`closeout received unknown Check ${entry?.check_id}`);
     if (!(/* @__PURE__ */ new Set(["verified", "supported", "partial", "unavailable", "failed"])).has(entry.grade)) throw new Error(`closeout Check ${entry.check_id} has invalid grade`);
-    const limitations = unique3(Array.isArray(entry.limitations) ? entry.limitations.map(String).filter(Boolean) : []);
+    const limitations = unique4(Array.isArray(entry.limitations) ? entry.limitations.map(String).filter(Boolean) : []);
     const repetitions = Number.isInteger(entry.repetitions) && entry.repetitions >= 0 ? entry.repetitions : 0;
     if (entry.grade === "verified" && repetitions < 1) throw new Error(`verified Check ${entry.check_id} requires at least one repetition`);
     if (entry.grade === "unavailable" && limitations.length === 0) throw new Error(`unavailable Check ${entry.check_id} requires a concrete limitation`);
-    const normalized = {
+    const normalized2 = {
       check_id: entry.check_id,
       feature_id: entry.feature_id ?? null,
       grade: entry.grade,
@@ -32235,16 +32886,26 @@ function normalizeCheckEvidence(input, plannedChecks, rootChecks, evidenceMode2)
       expected: entry.expected ?? planned["Expected Result"] ?? "required Check succeeds",
       observed: String(entry.observed ?? "not fully observed"),
       repetitions,
-      artifact_hashes: unique3((entry.artifact_hashes ?? []).filter((value) => /^[a-f0-9]{64}$/.test(String(value)))),
+      artifact_hashes: unique4((entry.artifact_hashes ?? []).filter((value) => /^[a-f0-9]{64}$/.test(String(value)))),
       limitations
     };
+    return normalized2;
+  });
+  const calibrated = enforceManualCheckReceipts ? calibrateManualCheckEvidence({
+    entries: normalized,
+    plannedChecks: known,
+    receipts: manualCheckReceipts,
+    existingCheckEvidence
+  }) : normalized;
+  return calibrated.map((entry) => {
+    const value = { ...entry };
     if (evidenceMode2 === "lean") {
-      if (!normalized.surface && normalized.grade === "verified") throw new Error(`verified Check ${entry.check_id} requires a surface`);
-      delete normalized.baseline_or_patched;
-      if (normalized.artifact_hashes.length === 0) delete normalized.artifact_hashes;
-      if (!normalized.feature_id) delete normalized.feature_id;
+      if (!value.surface && value.grade === "verified") throw new Error(`verified Check ${entry.check_id} requires a surface`);
+      delete value.baseline_or_patched;
+      if ((value.artifact_hashes ?? []).length === 0) delete value.artifact_hashes;
+      if (!value.feature_id) delete value.feature_id;
     }
-    return normalized;
+    return value;
   });
 }
 function overallGrade(entries) {
@@ -32255,7 +32916,7 @@ function artifactStatus(grade) {
   return grade === "verified" ? "complete" : "provisional";
 }
 function correctionObjectives(correction) {
-  return unique3((correction?.fixes ?? []).flatMap((fix) => String(fix["Root Objectives"] ?? "").match(/OBJ-[1-9][0-9]*/g) ?? []));
+  return unique4((correction?.fixes ?? []).flatMap((fix) => String(fix["Root Objectives"] ?? "").match(/OBJ-[1-9][0-9]*/g) ?? []));
 }
 function checkObjectives(check) {
   return String(check?.Objectives ?? "").match(/OBJ-[1-9][0-9]*/g) ?? [];
@@ -32271,7 +32932,7 @@ function evidenceMode(fields, effectiveProfile) {
   return effectiveProfile === "manual" && fields.profile_max === "manual" && fields.risk !== "high" && (fields.hard_triggers ?? []).length === 0 ? "lean" : "full";
 }
 function evidenceSeed({ contract, subjectId, sourceReviewId, predecessorEvidenceId, strategyRevision, mode, paths, entries, repositorySnapshot, summary: summary2 }) {
-  return sha2563(JSON.stringify(stable({
+  return sha2565(JSON.stringify(stable2({
     root: contract.authoritative_projection_hash,
     subjectId,
     sourceReviewId,
@@ -32314,12 +32975,13 @@ ${table(["Objective ID", "Result", "Evidence"], correction.fixes.map((fix) => ({
   sections.push(`## Objective outcomes
 
 ${table(["Objective ID", "Status", "Evidence"], outcomes)}`);
+  const coverageIds = correction ? unique4((correction.fixes ?? []).map((fix) => fix["FIX ID"]).filter(Boolean)) : fields.affected_objectives;
   sections.push(changedPaths.length > 0 ? `## Changes
 
 ${table(["Path or Symbol", "Change", "Objective Coverage"], changedPaths.map((path) => ({
     "Path or Symbol": path,
     Change: "Declared by deterministic closeout",
-    "Objective Coverage": fields.affected_objectives.join(", ")
+    "Objective Coverage": coverageIds.join(", ")
   })))}` : "## Changes\n\nNone.");
   const snapshot2 = repositorySnapshot ?? {};
   sections.push(`## Repository snapshot
@@ -32342,7 +33004,7 @@ ${table(["Check ID", "Observed Result", "Status", "Prerequisite fingerprints"], 
   })))}`);
   sections.push("## Deviations\n\nNone.");
   sections.push("## Operational evidence\n\nNot applicable.");
-  const limitations = unique3(entries.flatMap((entry) => entry.limitations ?? []));
+  const limitations = unique4(entries.flatMap((entry) => entry.limitations ?? []));
   sections.push(`## Limitations
 
 ${limitations.length > 0 ? limitations.map((item) => `- ${item}`).join("\n") : "None."}`);
@@ -32357,6 +33019,8 @@ function buildDeliveryEvidence({
   effectiveProfile = null,
   repositorySnapshot = null,
   summary: summary2 = null,
+  manualCheckReceipts = [],
+  enforceManualCheckReceipts = null,
   pluginRoot: pluginRoot2
 }) {
   const normalized = normalizeArtifacts(rootPlanText, artifacts, pluginRoot2);
@@ -32374,6 +33038,7 @@ function buildDeliveryEvidence({
   let predecessorEvidenceId = null;
   let representation = "full";
   const mode = evidenceMode(contract.fields, effectiveProfile ?? contract.fields.profile_max);
+  const requireManualReceipts = enforceManualCheckReceipts ?? (effectiveProfile ?? contract.fields.profile_max) === "manual";
   const effectiveStrategyRevision = mode === "full" ? strategyRevision : 0;
   const effectiveRepositorySnapshot = mode === "full" ? repositorySnapshot : null;
   if (evidenceTipId) {
@@ -32381,8 +33046,12 @@ function buildDeliveryEvidence({
       const existing = normalized.entries.find((entry) => inspectArtifactText(entry.text, pluginRoot2).artifact?.fields?.id === evidenceTipId);
       const existingFields = priorInspection.effective.get(evidenceTipId)?.fields ?? null;
       if ((checkEvidence2 ?? []).length > 0 || changedPaths.length > 0) {
-        const entries2 = normalizeCheckEvidence(checkEvidence2, expectedCheckMap(contract, null), rootCheckMap(contract), mode);
-        const suppliedPaths = unique3(changedPaths.map(String).map((path) => path.trim()).filter(Boolean)).sort();
+        const entries2 = normalizeCheckEvidence(checkEvidence2, expectedCheckMap(contract, null), rootCheckMap(contract), mode, {
+          enforceManualCheckReceipts: requireManualReceipts,
+          manualCheckReceipts,
+          existingCheckEvidence: existingFields?.check_evidence ?? []
+        });
+        const suppliedPaths = unique4(changedPaths.map(String).map((path) => path.trim()).filter(Boolean)).sort();
         const expectedSeed = evidenceSeed({
           contract,
           subjectId: normalized.rootId,
@@ -32396,10 +33065,21 @@ function buildDeliveryEvidence({
           summary: summary2
         });
         const expectedId = `de-${normalized.rootId.replace(/^wp-/, "")}-${expectedSeed.slice(0, 12)}`;
-        const sameInputs = JSON.stringify(stable(entries2)) === JSON.stringify(stable(existingFields?.check_evidence ?? [])) && JSON.stringify(suppliedPaths) === JSON.stringify(existingFields?.changed_paths ?? []) && (mode === "lean" || (existingFields?.strategy_revision ?? 0) === effectiveStrategyRevision) && expectedId === evidenceTipId;
+        const sameInputs = JSON.stringify(stable2(entries2)) === JSON.stringify(stable2(existingFields?.check_evidence ?? [])) && JSON.stringify(suppliedPaths) === JSON.stringify(existingFields?.changed_paths ?? []) && (mode === "lean" || (existingFields?.strategy_revision ?? 0) === effectiveStrategyRevision) && expectedId === evidenceTipId;
         if (!sameInputs) throw new Error(`stale or competing closeout conflicts with current Evidence tip ${evidenceTipId}`);
       }
-      return { duplicate: true, artifact: existing?.text ?? null, artifact_hash: existing ? sha2563(existing.text) : null, fields: existingFields };
+      const projection2 = manualConstraintProjection({ checks: contract.checks, evidence: existingFields?.check_evidence ?? [] });
+      const unattested = projection2.constraint_summary.legacy_unattested_verified_checks ?? [];
+      if (unattested.length > 0) {
+        throw new Error(`existing Evidence tip ${evidenceTipId} has receiptless verified machine Checks (${unattested.join(", ")}); run a fresh review and refresh them through its bounded correction route`);
+      }
+      return {
+        duplicate: true,
+        artifact: existing?.text ?? null,
+        artifact_hash: existing ? sha2565(existing.text) : null,
+        fields: existingFields,
+        ...projection2
+      };
     }
     correction = review.correction;
     subjectId = review.fields.correction_id;
@@ -32410,18 +33090,27 @@ function buildDeliveryEvidence({
   if (mode === "full" && (!repositorySnapshot?.head || !repositorySnapshot?.relevant_fingerprints)) {
     throw new Error("full closeout requires repository snapshot HEAD and relevant fingerprints");
   }
-  const plannedChecks = expectedCheckMap(contract, correction);
   const roots = rootCheckMap(contract);
-  const entries = normalizeCheckEvidence(checkEvidence2, plannedChecks, roots, mode);
+  const unresolvedRootChecks = correction ? unresolvedRootCheckMap(contract, priorInspection.effective.get(evidenceTipId)) : /* @__PURE__ */ new Map();
+  const suppliedCheckIds = new Set((checkEvidence2 ?? []).map((entry) => entry?.check_id));
+  const missingRootRefresh = [...unresolvedRootChecks.keys()].filter((checkId) => !suppliedCheckIds.has(checkId));
+  if (missingRootRefresh.length > 0) {
+    throw new Error(`correction closeout requires fresh evidence for inherited non-passed Root Checks: ${missingRootRefresh.join(", ")}`);
+  }
+  const plannedChecks = expectedCheckMap(contract, correction, unresolvedRootChecks);
+  const entries = normalizeCheckEvidence(checkEvidence2, plannedChecks, roots, mode, {
+    enforceManualCheckReceipts: requireManualReceipts,
+    manualCheckReceipts
+  });
   const grade = overallGrade(entries);
   const status = artifactStatus(grade);
   const rootObjectives = contract.objectives;
-  const affectedObjectives = correction ? unique3([...correctionObjectives(correction), ...entries.flatMap((entry) => checkObjectives(roots.get(entry.check_id)))]) : [...rootObjectives];
+  const affectedObjectives = correction ? unique4([...correctionObjectives(correction), ...entries.flatMap((entry) => checkObjectives(roots.get(entry.check_id)))]) : [...rootObjectives];
   const affected = affectedObjectives.length > 0 ? affectedObjectives : [...rootObjectives];
   const reusedObjectives = representation === "delta" ? rootObjectives.filter((id2) => !affected.includes(id2)) : [];
   const executedChecks = entries.map((entry) => entry.check_id);
   const reusedChecks = representation === "delta" ? [...roots.keys()].filter((id2) => !executedChecks.includes(id2)) : [];
-  const paths = unique3(changedPaths.map(String).map((path) => path.trim()).filter(Boolean)).sort();
+  const paths = unique4(changedPaths.map(String).map((path) => path.trim()).filter(Boolean)).sort();
   const seed = evidenceSeed({
     contract,
     subjectId,
@@ -32461,7 +33150,7 @@ function buildDeliveryEvidence({
 
 ${renderedSummary}` : fullBody({ fields, contract, entries, changedPaths: paths, correction, repositorySnapshot, summary: renderedSummary });
   const artifact2 = `---
-${(0, import_yaml3.stringify)(fields, { lineWidth: 0 }).trimEnd()}
+${(0, import_yaml4.stringify)(fields, { lineWidth: 0 }).trimEnd()}
 ---
 
 ${body}
@@ -32469,14 +33158,16 @@ ${body}
   const finalEntries = [...normalized.entries, { label: id, text: artifact2 }];
   const inspection = inspectArtifactSet(finalEntries.map((entry) => [entry.label, entry.text]), pluginRoot2);
   if (inspection.errors.length > 0) throw new Error(`generated delivery evidence is invalid: ${inspection.errors.join("; ")}`);
+  const projection = manualConstraintProjection({ checks: contract.checks, evidence: entries });
   return {
     duplicate: false,
     artifact: artifact2,
-    artifact_hash: sha2563(artifact2),
+    artifact_hash: sha2565(artifact2),
     fields,
     evidence_mode: mode,
     overall_grade: grade,
-    status
+    status,
+    ...projection
   };
 }
 function persistCloseout({ handoffStore, rootPlanText, artifacts = [], closeout }) {
@@ -32507,8 +33198,8 @@ function persistCloseout({ handoffStore, rootPlanText, artifacts = [], closeout 
 }
 
 // src/mcp/workspace-roots.mjs
-import { lstatSync, realpathSync as realpathSync2, statSync as statSync2 } from "node:fs";
-import { resolve as resolve8 } from "node:path";
+import { lstatSync as lstatSync3, realpathSync as realpathSync3, statSync as statSync2 } from "node:fs";
+import { resolve as resolve9 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 var HOST_WORKSPACE_ENV = "GELDMACHER_WORKFLOW_WORKSPACE_ROOT";
 var WorkspaceRootError = class extends Error {
@@ -32519,7 +33210,11 @@ var WorkspaceRootError = class extends Error {
   }
 };
 function isWorkspaceRootsUnavailable(error2) {
-  return error2 instanceof WorkspaceRootError && ["roots-request-failed", "roots-empty"].includes(error2.code);
+  return error2 instanceof WorkspaceRootError && [
+    "roots-request-failed",
+    "roots-empty",
+    "host-workspace-unavailable"
+  ].includes(error2.code);
 }
 function validateDirectoryRoot(advertised, {
   unavailableCode = "root-unavailable",
@@ -32529,14 +33224,14 @@ function validateDirectoryRoot(advertised, {
 } = {}) {
   let stat;
   try {
-    stat = lstatSync(advertised);
+    stat = lstatSync3(advertised);
   } catch (error2) {
     throw new WorkspaceRootError(unavailableCode, `${label} is unavailable: ${advertised}`, { cause: error2 });
   }
   if (stat.isSymbolicLink()) throw new WorkspaceRootError(symlinkCode, `${label} may not be symlink redirected: ${advertised}`);
   let canonical;
   try {
-    canonical = realpathSync2(advertised);
+    canonical = realpathSync3(advertised);
   } catch (error2) {
     throw new WorkspaceRootError(unavailableCode, `${label} is unavailable: ${advertised}`, { cause: error2 });
   }
@@ -32560,7 +33255,7 @@ function rootPath(root) {
   if (url.protocol !== "file:") throw new WorkspaceRootError("root-non-file", `Workflow supports only file workspace roots: ${root.uri}`);
   let advertised;
   try {
-    advertised = resolve8(fileURLToPath2(url));
+    advertised = resolve9(fileURLToPath2(url));
   } catch (error2) {
     throw new WorkspaceRootError("root-invalid", `MCP client returned an invalid file workspace root: ${root.uri}`, { cause: error2 });
   }
@@ -32569,7 +33264,9 @@ function rootPath(root) {
 function hostConfiguredRoot(env = process.env) {
   const raw = env?.[HOST_WORKSPACE_ENV];
   if (raw === void 0 || raw === null || String(raw).trim() === "") return null;
-  const advertised = resolve8(String(raw));
+  const value = String(raw).trim();
+  if (/\$\{[^}]+\}/.test(value)) return null;
+  const advertised = resolve9(value);
   return {
     ...validateDirectoryRoot(advertised, {
       unavailableCode: "host-workspace-unavailable",
@@ -32604,9 +33301,9 @@ var WorkspaceRootAuthority = class {
           throw new WorkspaceRootError("roots-request-failed", `trusted MCP workspace roots request failed: ${reason}`, { cause: error2 });
         }
         const entries = (response?.roots ?? []).map(rootPath);
-        const unique4 = new Map(entries.map((entry) => [entry.canonical, entry]));
-        if (unique4.size === 0) throw new WorkspaceRootError("roots-empty", "trusted MCP workspace roots list is empty");
-        return [...unique4.values()].sort((left, right) => left.canonical.localeCompare(right.canonical));
+        const unique5 = new Map(entries.map((entry) => [entry.canonical, entry]));
+        if (unique5.size === 0) throw new WorkspaceRootError("roots-empty", "trusted MCP workspace roots list is empty");
+        return [...unique5.values()].sort((left, right) => left.canonical.localeCompare(right.canonical));
       });
     }
     try {
@@ -32636,7 +33333,7 @@ var WorkspaceRootAuthority = class {
         }
       }
       if (selector !== void 0 && selector !== null && selector !== "") {
-        const requested = resolve8(selector);
+        const requested = resolve9(selector);
         if (requested !== host.advertised && requested !== host.canonical) {
           throw new WorkspaceRootError("root-foreign", `workspace_root does not match host-configured workspace: ${requested}`);
         }
@@ -32648,12 +33345,12 @@ var WorkspaceRootAuthority = class {
       if (roots.length !== 1) throw new WorkspaceRootError("roots-multiple", "multiple MCP workspace roots require workspace_root");
       return roots[0].canonical;
     }
-    const advertised = resolve8(selector);
+    const advertised = resolve9(selector);
     const allowed = roots.find((entry) => entry.advertised === advertised);
     if (!allowed) throw new WorkspaceRootError("root-foreign", `workspace_root is not an advertised MCP root: ${advertised}`);
     let canonical;
     try {
-      canonical = realpathSync2(advertised);
+      canonical = realpathSync3(advertised);
     } catch (error2) {
       throw new WorkspaceRootError("root-unavailable", `workspace_root is unavailable: ${advertised}`, { cause: error2 });
     }
@@ -32668,9 +33365,14 @@ function createArtifactHandlers({
   pluginRoot: pluginRoot2,
   resolveOperationalContext,
   result: result2,
-  handoffStoreFactory = createContentAddressedHandoffStore
+  handoffStoreFactory = createContentAddressedHandoffStore,
+  receiptOptions = {}
 }) {
-  const failure2 = (error2) => result2({
+  const toolResult = (toolName, value, isError = false) => {
+    if (typeof result2 === "function" && result2.toolAware === true) return result2(toolName, value, isError);
+    return result2(value, isError);
+  };
+  const failure2 = (toolName) => (error2) => toolResult(toolName, {
     error: error2.message,
     ...error2 instanceof WorkspaceRootError ? { error_code: error2.code } : {}
   }, true);
@@ -32695,7 +33397,28 @@ function createArtifactHandlers({
     }
     return null;
   };
+  const assertConsistentArtifactTexts = (artifacts = [], { rootPlan = null } = {}) => {
+    const byId = /* @__PURE__ */ new Map();
+    const consider = (text, label = "artifact") => {
+      if (typeof text !== "string" || !text.trim()) return;
+      const inspected = inspectArtifactText(text, pluginRoot2);
+      if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) return;
+      const id = inspected.artifact.fields.id;
+      const prior = byId.get(id);
+      if (prior && prior !== text) {
+        throw new Error(`handoff artifact ${id} has conflicting text`);
+      }
+      byId.set(id, text);
+      return id;
+    };
+    if (rootPlan) consider(rootPlan, "root");
+    for (const entry of artifacts) {
+      consider(entry?.text, entry?.label ?? "artifact");
+    }
+    return byId;
+  };
   const contentHandoff = ({ rootPlanId = null, rootPlan = null, artifacts = [], remember = false } = {}) => {
+    assertConsistentArtifactTexts(artifacts, { rootPlan });
     const resolvedId = inferredRootPlanId(rootPlanId, artifacts);
     const rootPlanText = resolveRootPlanText(pluginRoot2, { rootPlanId: resolvedId, rootPlan, artifacts });
     const root_content_hash = rootContentHash(rootPlanText);
@@ -32748,12 +33471,13 @@ function createArtifactHandlers({
       };
     }
   };
-  const buildCloseout = (input, merged) => {
+  const buildCloseout = (input, merged, workspace = null) => {
     const rootPlan = input.root_plan ?? [...merged.values()].find((text) => {
       const inspected = inspectArtifactText(text, pluginRoot2);
       return inspected.artifact?.fields?.artifact === "work-plan" && inspected.artifact.fields.id === input.root_plan_id;
     });
     if (!rootPlan) throw new Error("workflow_closeout requires the active Root text or a cached Root");
+    const manualCheckReceipts = workspace ? loadManualCheckReceipts({ rootPlanText: rootPlan, pluginRoot: pluginRoot2, workspaceRoot: workspace, options: receiptOptions }) : [];
     const closeoutResult = buildDeliveryEvidence({
       rootPlanText: rootPlan,
       artifacts: [...merged].map(([label, text]) => ({ label, text })),
@@ -32762,6 +33486,9 @@ function createArtifactHandlers({
       strategyRevision: input.strategy_revision,
       effectiveProfile: input.effective_profile,
       repositorySnapshot: input.repository_snapshot ?? null,
+      summary: input.summary ?? null,
+      manualCheckReceipts,
+      enforceManualCheckReceipts: input.effective_profile === "manual",
       pluginRoot: pluginRoot2
     });
     if (closeoutResult.fields.root_plan_id !== input.root_plan_id) throw new Error(`workflow_closeout Root ID mismatch: expected ${input.root_plan_id}, received ${closeoutResult.fields.root_plan_id}`);
@@ -32785,15 +33512,22 @@ function createArtifactHandlers({
     root_plan_id: input.root_plan_id,
     delivery_evidence_id: closeoutResult.fields.id,
     artifact: persisted.artifact,
-    artifact_hash: persisted.artifact_hash ?? createHash6("sha256").update(persisted.artifact).digest("hex"),
+    artifact_hash: persisted.artifact_hash ?? createHash8("sha256").update(persisted.artifact).digest("hex"),
     evidence_mode: persisted.fields.evidence_mode,
     overall_grade: persisted.fields.overall_grade,
     status: persisted.fields.status,
+    subject_id: persisted.fields.subject_id ?? input.root_plan_id,
+    source_review_id: persisted.fields.source_review_id ?? null,
+    predecessor_evidence_id: persisted.fields.predecessor_evidence_id ?? null,
+    changed_paths: persisted.fields.changed_paths ?? input.changed_paths ?? [],
     duplicate: persisted.duplicate,
     handoff_persisted: persisted.handoff_persisted,
     handoff_authoritative: false,
     handoff_mode: handoffMode ?? (persisted.handoff_persisted ? "root-content-cache" : "stateless"),
     ...rootContentHashValue ? { root_content_hash: rootContentHashValue } : {},
+    ...closeoutResult.constraint_summary ? { constraint_summary: closeoutResult.constraint_summary } : {},
+    ...closeoutResult.human_attention ? { human_attention: closeoutResult.human_attention } : {},
+    ...closeoutResult.problem_details ? { problem_details: closeoutResult.problem_details } : {},
     ...persisted.artifact_set_hash ? { artifact_set_hash: persisted.artifact_set_hash } : {},
     ...warning ? { warning } : {},
     ...handoffErrorCode || persisted.handoff_error_code ? { handoff_error_code: handoffErrorCode ?? persisted.handoff_error_code } : {}
@@ -32807,35 +33541,80 @@ function createArtifactHandlers({
           throw new Error("workflow_artifact_record accepts only valid Schema-5 work-plan and work-review artifacts");
         }
       }
-      const { rootPlanText, root_content_hash, handoffStore } = contentHandoff({
-        rootPlan: input.root_plan,
-        artifacts: input.artifacts,
-        remember: true
-      });
+      let rootPlanText;
+      let root_content_hash;
+      let handoffStore;
+      try {
+        ({ rootPlanText, root_content_hash, handoffStore } = contentHandoff({
+          rootPlan: input.root_plan,
+          artifacts: input.artifacts,
+          remember: true
+        }));
+      } catch (error2) {
+        if (/conflict|invalid|corrupt|incompatible|stale|ambiguous|multiple|exact Root/i.test(error2.message)) throw error2;
+        return toolResult("workflow_artifact_record", {
+          workspace_binding: "not-established",
+          workspace_root_used: false,
+          handoff_authoritative: false,
+          handoff_persisted: false,
+          handoff_mode: "stateless",
+          handoff_error_code: "handoff-persist-failed",
+          recorded: [],
+          duplicates: [],
+          warning: `handoff cache unavailable: ${error2.message}; attach the exact artifact explicitly to the next Workflow command`
+        });
+      }
       const operational = await optionalOperational(input.workspace_root);
       const lineage = hydrateLineageArtifacts(rootPlanText, handoffStore);
       const byId = /* @__PURE__ */ new Map();
       for (const entry of [...lineage, ...input.artifacts]) {
         const inspected = inspectArtifactText(entry.text, pluginRoot2);
         if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) {
+          const priorLabel = byId.get(entry.label);
+          if (priorLabel && priorLabel.text !== entry.text) {
+            throw new Error(`handoff artifact label ${entry.label} has conflicting text`);
+          }
           byId.set(entry.label, entry);
           continue;
         }
-        byId.set(inspected.artifact.fields.id, { label: inspected.artifact.fields.id, text: entry.text });
+        const id = inspected.artifact.fields.id;
+        const prior = byId.get(id);
+        if (prior && prior.text !== entry.text) {
+          throw new Error(`handoff artifact ${id} has conflicting text`);
+        }
+        byId.set(id, { label: id, text: entry.text });
       }
-      const recorded = handoffStore.record([...byId.values()]);
-      return result2({
-        ...operational.workspace ? { workspace_root: operational.workspace } : {},
-        workspace_binding: operational.workspace_binding,
-        workspace_root_used: Boolean(operational.workspace),
-        handoff_authoritative: false,
-        handoff_mode: "root-content-cache",
-        root_content_hash,
-        ...recorded,
-        ...operational.workspace_error && input.workspace_root ? { warning: `workspace binding unavailable (${operational.workspace_error.code}); recorded under root-content handoff namespace` } : {}
-      });
+      try {
+        const recorded = handoffStore.record([...byId.values()]);
+        return toolResult("workflow_artifact_record", {
+          ...operational.workspace ? { workspace_root: operational.workspace } : {},
+          workspace_binding: operational.workspace_binding,
+          workspace_root_used: Boolean(operational.workspace),
+          handoff_authoritative: false,
+          handoff_persisted: true,
+          handoff_mode: "root-content-cache",
+          root_content_hash,
+          ...recorded,
+          ...operational.workspace_error && input.workspace_root ? { warning: `workspace binding unavailable (${operational.workspace_error.code}); recorded under root-content handoff namespace` } : {}
+        });
+      } catch (error2) {
+        if (/concurrent|conflict|invalid|corrupt|incompatible|stale|ambiguous|multiple/i.test(error2.message)) throw error2;
+        return toolResult("workflow_artifact_record", {
+          ...operational.workspace ? { workspace_root: operational.workspace } : {},
+          workspace_binding: operational.workspace_binding,
+          workspace_root_used: Boolean(operational.workspace),
+          handoff_authoritative: false,
+          handoff_persisted: false,
+          handoff_mode: "stateless",
+          handoff_error_code: "handoff-persist-failed",
+          root_content_hash,
+          recorded: [],
+          duplicates: [],
+          warning: `handoff cache unavailable: ${error2.message}; attach the exact artifact explicitly to the next Workflow command`
+        });
+      }
     } catch (error2) {
-      return failure2(error2);
+      return failure2("workflow_artifact_record")(error2);
     }
   };
   const context = async (input) => {
@@ -32847,7 +33626,7 @@ function createArtifactHandlers({
       });
       const operational = await optionalOperational(input.workspace_root);
       const chain = handoffStore.context(input.root_plan_id, input.root_plan ?? null);
-      return result2({
+      return toolResult("workflow_artifact_context", {
         ...operational.workspace ? { workspace_root: operational.workspace } : {},
         workspace_binding: operational.workspace_binding,
         workspace_root_used: Boolean(operational.workspace),
@@ -32858,7 +33637,7 @@ function createArtifactHandlers({
         model_inheritance: operational.stateRoot ? modelInheritanceSummary(operational.stateRoot) : { authoritative: false, status: "unavailable", evidence_effect: "none", reason: "workspace-binding-not-established" }
       });
     } catch (error2) {
-      return failure2(error2);
+      return failure2("workflow_artifact_context")(error2);
     }
   };
   const closeout = async (input) => {
@@ -32892,8 +33671,8 @@ function createArtifactHandlers({
         if (!handoff) {
           if (!input.root_plan) throw error2;
           const merged2 = mergeArtifacts(input.artifacts ?? []);
-          const { closeoutResult: closeoutResult2 } = buildCloseout(input, merged2);
-          return result2(closeoutPayload({
+          const { closeoutResult: closeoutResult2 } = buildCloseout(input, merged2, operational.workspace);
+          return toolResult("workflow_closeout", closeoutPayload({
             input,
             workspace: operational.workspace,
             workspaceBinding: operational.workspace_binding,
@@ -32912,7 +33691,7 @@ function createArtifactHandlers({
       } catch {
       }
       const merged = mergeArtifacts([...cached2, ...input.artifacts ?? [], { label: "root", text: rootPlanText }]);
-      const { rootPlan, closeoutResult } = buildCloseout({ ...input, root_plan: rootPlanText }, merged);
+      const { rootPlan, closeoutResult } = buildCloseout({ ...input, root_plan: rootPlanText }, merged, operational.workspace);
       const persisted = persistCloseout({
         handoffStore,
         rootPlanText: rootPlan,
@@ -32920,9 +33699,12 @@ function createArtifactHandlers({
         closeout: closeoutResult
       });
       if (persisted.handoff_persisted) rememberContentAddressedRoot(rootPlan, pluginRoot2);
+      if (persisted.handoff_persisted && operational.workspace) {
+        invalidateManualCheckReceipts({ rootPlanText: rootPlan, workspaceRoot: operational.workspace, options: receiptOptions });
+      }
       const selectorNotice = !operational.workspace && input.workspace_root ? `; the supplied workspace_root was not used (${operational.workspace_error?.code ?? "workspace-binding-not-established"})` : "";
       const warning = persisted.warning ?? (selectorNotice ? `workspace binding unavailable${selectorNotice}` : void 0);
-      return result2(closeoutPayload({
+      return toolResult("workflow_closeout", closeoutPayload({
         input,
         workspace: operational.workspace,
         workspaceBinding: operational.workspace_binding,
@@ -32934,10 +33716,678 @@ function createArtifactHandlers({
         handoffErrorCode: persisted.handoff_error_code
       }));
     } catch (error2) {
-      return failure2(error2);
+      return failure2("workflow_closeout")(error2);
     }
   };
   return Object.freeze({ record: record2, context, closeout });
+}
+
+// src/mcp/manual-presentation.mjs
+var MANUAL_TOOLS = /* @__PURE__ */ new Set([
+  "workflow_plan_preflight",
+  "workflow_artifact_record",
+  "workflow_artifact_context",
+  "workflow_closeout",
+  "workflow_status"
+]);
+var MAX_DISPLAY_CHANGED_PATHS = 10;
+var TERMINAL_READY_STATES = /* @__PURE__ */ new Set(["achieved", "accepted-provisional"]);
+var TERMINAL_BLOCKED_STATES = /* @__PURE__ */ new Set(["blocked", "stopped", "failed"]);
+var MANUAL_GUIDE_URL = "https://github.com/geldmacher/workflow/blob/main/docs/manual-workflow.md";
+var MANUAL_GUIDE_LABEL = "Manual Workflow guide";
+function helpEntry(topic, anchor, meaning) {
+  return Object.freeze({
+    topic,
+    meaning,
+    label: MANUAL_GUIDE_LABEL,
+    url: `${MANUAL_GUIDE_URL}#${anchor}`
+  });
+}
+var MANUAL_HELP_TOPICS = Object.freeze({
+  "manual-states": helpEntry(
+    "manual-states",
+    "manual-states",
+    "Workflow derived this read-only Manual state from the current artifact chain; its blockers and next action remain authoritative."
+  ),
+  "intent-root-and-plan": helpEntry(
+    "intent-root-and-plan",
+    "intent-root-and-plan",
+    "The Intent Root must define a feasible goal, acceptance, authority, risk, and required Checks before implementation can be approved."
+  ),
+  "artifacts-tips-and-handoff": helpEntry(
+    "artifacts-tips-and-handoff",
+    "artifacts-tips-and-handoff",
+    "Handoff only transports exact artifact bytes; missing cache context requires explicit artifacts and grants no authority."
+  ),
+  "recovery-and-troubleshooting": helpEntry(
+    "recovery-and-troubleshooting",
+    "recovery-and-troubleshooting",
+    "The requested Workflow operation did not produce an actionable result; repair the reported input, chain, or environment issue before continuing."
+  )
+});
+var MANUAL_STATE_HELP = Object.freeze({
+  "intent-clarification": helpEntry(
+    "manual-state-intent-clarification",
+    "intent-clarification",
+    "The Root is not intent-ready because a material goal, acceptance, authority, or risk decision still needs a human answer."
+  ),
+  "root-plan-review": helpEntry(
+    "manual-state-root-plan-review",
+    "root-plan-review",
+    "A ready Intent Root exists and waits for human Implement Plan approval before Delivery Evidence can be created."
+  ),
+  "root-review": helpEntry(
+    "manual-state-root-review",
+    "root-review",
+    "Delivery Evidence exists and now needs a fresh read-only review against the approved Root."
+  ),
+  "waiting-human": helpEntry(
+    "manual-state-waiting-human",
+    "waiting-human",
+    "Workflow needs the human to resolve the listed clarification, correction approval, or missing exact context."
+  ),
+  replan: helpEntry(
+    "manual-state-replan",
+    "replan",
+    "The current Root or chain cannot safely authorize the required work and must be replaced through a newly approved plan."
+  ),
+  "delivery-ready-provisional": helpEntry(
+    "manual-state-delivery-ready-provisional",
+    "delivery-ready-provisional",
+    "No known failed required Check blocks delivery, but proof remains incomplete or unavailable and needs an explicit human decision."
+  ),
+  "accepted-provisional": helpEntry(
+    "manual-state-accepted-provisional",
+    "accepted-provisional",
+    "The human accepted this evidence gap once; the delivery is still not verified and the acceptance is not persisted."
+  ),
+  achieved: helpEntry(
+    "manual-state-achieved",
+    "achieved",
+    "A fresh review verified the required Checks for this repository-only Root, so no further Workflow action is required."
+  ),
+  blocked: helpEntry(
+    "manual-state-blocked",
+    "blocked",
+    "A known failure or safety boundary prevents delivery and cannot be overridden by provisional acceptance."
+  ),
+  failed: helpEntry(
+    "manual-state-failed",
+    "failed",
+    "Workflow could not produce a valid result; repair the reported failure before retrying."
+  ),
+  stopped: helpEntry(
+    "manual-state-stopped",
+    "stopped",
+    "This subject is intentionally non-actionable, commonly because it is read-only Workflow-3 or Workflow-4 history."
+  )
+});
+var MANUAL_EVIDENCE_HELP = Object.freeze({
+  verified: helpEntry(
+    "manual-evidence-verified",
+    "verified",
+    "The required Check was directly observed with the method and repetition needed for verified Evidence."
+  ),
+  supported: helpEntry(
+    "manual-evidence-supported",
+    "supported",
+    "Meaningful inspection supports the claim, but the proof is not strong enough for verified delivery."
+  ),
+  partial: helpEntry(
+    "manual-evidence-partial",
+    "partial",
+    "Some relevant proof exists, but it does not fully cover the required Check or expected result."
+  ),
+  unavailable: helpEntry(
+    "manual-evidence-unavailable",
+    "unavailable",
+    "The required proof surface could not be used; the named limitation is missing proof, not success or failure."
+  ),
+  failed: helpEntry(
+    "manual-evidence-failed",
+    "failed-evidence",
+    "The observed result contradicted a required Check, so delivery is blocked and cannot be accepted provisionally."
+  )
+});
+function manualStateHelp(state) {
+  return MANUAL_STATE_HELP[state] ?? MANUAL_HELP_TOPICS["manual-states"];
+}
+function manualEvidenceHelp(grade) {
+  return MANUAL_EVIDENCE_HELP[grade] ?? helpEntry(
+    "manual-evidence-grades",
+    "evidence-grades",
+    "Evidence grades describe how directly each required Check was observed and never become stronger through review wording alone."
+  );
+}
+function isManualStatusSnapshot(snapshot2) {
+  if (snapshot2.snapshot_source) return snapshot2.snapshot_source === "artifact-chain";
+  if (snapshot2.run_id) return false;
+  const requested = snapshot2.requested_profile ?? "manual";
+  const effective = snapshot2.effective_profile ?? requested;
+  return requested === "manual" && effective === "manual";
+}
+var NEXT_STEP_CATALOG = {
+  "repair-root": {
+    label: "Repair the Root",
+    invoke: "Plan: fix blockers, then /plan-work or $plan-work again",
+    benefit: "Makes the Root feasible before approval.",
+    blocked_when: "Root is infeasible or incomplete.",
+    recovery: "Resolve blocking issues, then re-validate the exact Root."
+  },
+  "implement-plan": {
+    label: "Implement the Plan",
+    invoke: "Human: native Implement Plan (approves the presented Root)",
+    benefit: "Delivers inside the approved Root and runs deterministic closeout.",
+    blocked_when: "No approved Root is ready for implementation.",
+    recovery: "Finish Plan presentation and human approval first."
+  },
+  "attach-artifact": {
+    label: "Attach the exact artifact",
+    invoke: "Agent: attach exact Root/Evidence text to the next Workflow command",
+    benefit: "Preserves the chain when handoff transport is unavailable.",
+    blocked_when: "Handoff cache did not persist the exact artifact.",
+    recovery: "Paste the exact artifact bytes, then continue review or status."
+  },
+  "review-root": {
+    label: "Fresh review",
+    invoke: "Ask: run a fresh /review-work or $review-work against the exact Root/Evidence chain",
+    benefit: "Produces a fresh verdict without Writer assumptions.",
+    blocked_when: "Evidence is missing or the chain is incomplete.",
+    recovery: "Run /close-work [wp-id] or $close-work first, then review."
+  },
+  "accept-provisional": {
+    label: "Accept provisional delivery",
+    invoke: "Ask/Agent: /accept-work provisional or $accept-work provisional only for an explicit provisional acceptance",
+    benefit: "Records a one-time human acceptance of an evidence gap.",
+    blocked_when: "Current review is not provisional.",
+    recovery: "Run a fresh review before accepting."
+  },
+  closeout: {
+    label: "Deterministic closeout",
+    invoke: "Agent: /close-work [wp-id] or $close-work, or finish Implement Plan closeout",
+    benefit: "Builds validated Evidence from observed Checks.",
+    blocked_when: "Exact Root/chain or Check observations are missing.",
+    recovery: "Supply exact artifacts and required Check observations, then retry."
+  },
+  correct: {
+    label: "Fix failing Checks",
+    invoke: "Agent: repair failing required Checks, then closeout again",
+    benefit: "Restores a deliverable Evidence grade.",
+    blocked_when: "Intent, scope, or risk must change.",
+    recovery: "Use /plan-work replan or $plan-work replan instead."
+  },
+  "approve-correction": {
+    label: "Apply bounded correction",
+    invoke: "Agent: /correct-work or $correct-work, then Ask: fresh /review-work",
+    benefit: "Applies only the review-approved in-scope FIX set.",
+    blocked_when: "No actionable correction tip is present.",
+    recovery: "Run /review-work or $review-work first."
+  },
+  "provide-artifacts": {
+    label: "Supply artifact chain",
+    invoke: "Ask/Agent: pass current Schema-5 Root/Evidence/Review to workflow_status",
+    benefit: "Derives status without inventing tips.",
+    blocked_when: "Tips are missing or ambiguous.",
+    recovery: "Pass an explicit wp-* plus exact artifacts."
+  },
+  replan: {
+    label: "Replan the Root",
+    invoke: "Plan: /plan-work replan or $plan-work replan, then approve the replacement",
+    benefit: "Creates a new approval boundary when Intent must change.",
+    blocked_when: "Current review does not require next_action replan.",
+    recovery: "Run a fresh review that requests replan first."
+  },
+  "retry-review": {
+    label: "Retry review",
+    invoke: "Ask: fresh /review-work or $review-work with complete evidence",
+    benefit: "Reassesses once Evidence or context is complete.",
+    blocked_when: "Evidence is still missing or incomplete.",
+    recovery: "Close out or attach Evidence, then retry review."
+  },
+  answer: {
+    label: "Answer clarification",
+    invoke: "Ask: answer the open review clarification",
+    benefit: "Unblocks a human decision without mutating delivery.",
+    blocked_when: "No open clarify decision is pending.",
+    recovery: "Run /work-status or $work-status to see the current tip."
+  },
+  "resolve-intent": {
+    label: "Resolve intent",
+    invoke: "Plan: answer open intent questions or replan",
+    benefit: "Restores Intent Readiness before a Root is presented.",
+    blocked_when: "Goal or acceptance decisions remain open.",
+    recovery: "Run /plan-work <goal> or $plan-work <goal> with decisive answers."
+  },
+  none: {
+    label: "Done",
+    invoke: "No further Workflow command required",
+    benefit: "Delivery is complete for this Root.",
+    blocked_when: null,
+    recovery: "Optional: /learn-from-work or /explain-work (Codex: $learn-from-work / $explain-work)."
+  },
+  learn: {
+    label: "Persist learnings",
+    invoke: "Agent: /learn-from-work or $learn-from-work",
+    benefit: "Captures confirmed reusable guidance after earned delivery.",
+    blocked_when: "Delivery is not verified and achieved.",
+    recovery: "Finish a verified achieved review; provisional acceptance never authorizes Learning."
+  },
+  explain: {
+    label: "Explain the chain",
+    invoke: "Ask: /explain-work or $explain-work",
+    benefit: "Translates the Root/Evidence/Review chain for humans.",
+    blocked_when: "No exact chain is available.",
+    recovery: "Run /work-status or supply exact artifacts first."
+  }
+};
+function asList(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((entry) => {
+    if (typeof entry === "string") return entry;
+    if (entry && typeof entry === "object") return String(entry.message ?? entry.code ?? JSON.stringify(entry));
+    return String(entry);
+  }).filter(Boolean);
+}
+function firstLine(text, fallback = "No summary.") {
+  const value = String(text ?? "").replace(/\s+/g, " ").trim();
+  return value || fallback;
+}
+function resolveNextStep(action, overrides = {}) {
+  const entry = NEXT_STEP_CATALOG[action];
+  if (!entry) {
+    return {
+      action,
+      label: action,
+      invoke: action,
+      benefit: "Continue with the stated Workflow action.",
+      blocked_reason: overrides.blocked_reason ?? null,
+      recovery: overrides.recovery ?? null,
+      label_line: action
+    };
+  }
+  const blockedReason = overrides.blocked_reason ?? null;
+  const recovery = overrides.recovery ?? (blockedReason ? entry.recovery : null);
+  return {
+    action,
+    label: entry.label,
+    invoke: overrides.invoke ?? entry.invoke,
+    benefit: overrides.benefit ?? entry.benefit,
+    blocked_reason: blockedReason,
+    recovery,
+    // Keep a short compatible summary that still embeds the exact invoke tokens.
+    label_line: entry.invoke.includes(":") ? `${entry.invoke}.` : entry.invoke
+  };
+}
+function withNextStepFields(presentation, action, overrides = {}) {
+  const step = resolveNextStep(action, overrides);
+  return {
+    ...presentation,
+    next_action: action,
+    next_action_label: step.label_line,
+    next_action_invoke: step.invoke,
+    next_action_benefit: step.benefit,
+    ...step.blocked_reason ? {
+      next_action_blocked_reason: step.blocked_reason,
+      next_action_recovery: step.recovery
+    } : {}
+  };
+}
+function withHelpFields(presentation, help) {
+  return help ? { ...presentation, help } : presentation;
+}
+function formatHostToolApproval(value) {
+  if (!value) return null;
+  if (typeof value === "string") return `host approvals: ${value}; Workflow grants none`;
+  if (typeof value !== "object" || Array.isArray(value)) return `host approvals: ${String(value)}; Workflow grants none`;
+  const mode = value.tool_approval ?? value.mode;
+  if (!mode) return null;
+  const source = value.source ? ` (source: ${value.source})` : "";
+  if (mode === "strict") return `host approvals: per-call prompts expected${source}; Workflow grants none`;
+  if (mode === "allowlisted") return `host approvals: host allowlist expected${source}; preference grants none`;
+  return `host approvals: ${mode}${source}; Workflow grants none`;
+}
+function formatChangedPaths(paths, { maxDisplay = MAX_DISPLAY_CHANGED_PATHS } = {}) {
+  if (!Array.isArray(paths) || paths.length === 0) return "changed paths: none";
+  if (paths.length <= maxDisplay) return `changed paths (${paths.length}): ${paths.join(", ")}`;
+  const shown = paths.slice(0, maxDisplay).join(", ");
+  return `changed paths (${paths.length}, showing ${maxDisplay}): ${shown}, \u2026 (+${paths.length - maxDisplay} more)`;
+}
+function receiptCoverageLine(summary2) {
+  const coverage = summary2?.receipt_coverage;
+  if (!coverage || !Number.isInteger(coverage.attested) || !Number.isInteger(coverage.eligible)) return null;
+  return `host-attested machine Checks: ${coverage.attested}/${coverage.eligible}`;
+}
+function humanAttentionLines(value) {
+  if (value?.required !== true || !Array.isArray(value.reasons)) return [];
+  return value.reasons.map((reason) => {
+    if (typeof reason === "string") return reason;
+    const check = reason?.check_id ? `${reason.check_id}: ` : "";
+    return `${check}${reason?.message ?? reason?.code ?? "Human attention required"}${reason?.recovery ? ` \u2192 ${reason.recovery}` : ""}`;
+  });
+}
+function problemLines(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((problem) => {
+    if (typeof problem === "string") return problem;
+    return `${problem?.problem ?? "Workflow problem"} Why: ${problem?.why ?? "The current delivery claim is incomplete."} Resolution: ${problem?.resolution ?? "Follow the stated Workflow recovery."}`;
+  });
+}
+function statusPresentationOutcome(snapshot2) {
+  const blockers = asList(snapshot2.blockers);
+  const state = snapshot2.state ?? "unknown";
+  if (blockers.length > 0) return "blocked";
+  if (TERMINAL_READY_STATES.has(state)) return "ready";
+  if (TERMINAL_BLOCKED_STATES.has(state)) return "blocked";
+  return "partial";
+}
+function closeoutPresentation(value) {
+  const persisted = value.handoff_persisted !== false;
+  const status = value.status ?? "unknown";
+  const grade = value.overall_grade ?? "ungraded";
+  const warnings = asList(value.warning ? [value.warning] : []);
+  const evidenceGaps = value.constraint_summary?.evidence_gap_checks ?? [];
+  const legacyReceiptGaps = value.constraint_summary?.legacy_unattested_verified_checks ?? [];
+  const blocked = status === "blocked" || grade === "failed";
+  const provisionalEvidence = status === "provisional" || grade === "partial" || grade === "unavailable" || grade === "supported" || evidenceGaps.length > 0;
+  let outcome = "ready";
+  if (blocked) outcome = "blocked";
+  else if (provisionalEvidence) outcome = "partial";
+  const summary2 = blocked ? `Delivery evidence ${value.delivery_evidence_id ?? "unknown"} is blocked (${grade} / ${status}).` : outcome === "partial" ? `Delivery evidence ${value.delivery_evidence_id ?? "unknown"} is partial (${grade} / ${status}).` : persisted ? `Delivery evidence ${value.delivery_evidence_id ?? "unknown"} is ready (${grade} / ${status}).` : `Delivery evidence ${value.delivery_evidence_id ?? "unknown"} is ready (${grade} / ${status}); handoff cache unavailable \u2014 attach required.`;
+  let nextAction = "review-root";
+  let overrides = {};
+  if (blocked) {
+    nextAction = "review-root";
+    overrides = {
+      blocked_reason: `Evidence status ${status} with grade ${grade} blocks delivery acceptance.`,
+      recovery: "Ask: /review-work or $review-work; then /correct-work or replan as the review directs."
+    };
+  } else if (!persisted) {
+    nextAction = "attach-artifact";
+    overrides = {
+      blocked_reason: "Handoff cache unavailable; exact Evidence must travel with the next command.",
+      recovery: "Attach the returned Evidence artifact, then Ask: /review-work or $review-work."
+    };
+  } else if (legacyReceiptGaps.length > 0) {
+    overrides = {
+      blocked_reason: `Legacy verified claims lack current host receipts: ${legacyReceiptGaps.join(", ")}.`,
+      recovery: "Ask: run a fresh /review-work or $review-work and follow its bounded correction route."
+    };
+  } else if (outcome === "partial" && evidenceGaps.length > 0) {
+    nextAction = "closeout";
+    overrides = {
+      invoke: "Agent: follow each Evidence-gap problem's exact Check rerun, then retry closeout",
+      benefit: "Obtains the missing host receipts before the independent review.",
+      blocked_reason: `Evidence is ${grade} / ${status}; verified acceptance is not available yet.`,
+      recovery: "Run the exact Check reruns listed under Problems, then retry closeout."
+    };
+  } else if (outcome === "partial") {
+    overrides = {
+      blocked_reason: `Evidence is ${grade} / ${status}; verified acceptance is not available yet.`,
+      recovery: "Ask: /review-work or $review-work; accept provisional only if the review allows it."
+    };
+  }
+  const help = blocked ? manualEvidenceHelp("failed") : !persisted ? MANUAL_HELP_TOPICS["artifacts-tips-and-handoff"] : manualEvidenceHelp(grade);
+  return withHelpFields(withNextStepFields({
+    schema: 1,
+    tool: "workflow_closeout",
+    phase: "closeout",
+    outcome,
+    summary: summary2,
+    checks: [
+      `evidence mode: ${value.evidence_mode ?? "unknown"}`,
+      `handoff persisted: ${persisted ? "yes" : "no"}`,
+      formatChangedPaths(value.changed_paths),
+      receiptCoverageLine(value.constraint_summary)
+    ].filter(Boolean),
+    gaps: [
+      ...blocked ? [`Evidence status ${status} with grade ${grade} blocks delivery acceptance.`] : [],
+      ...persisted ? [] : ["Attach the returned Evidence artifact explicitly."],
+      ...(value.constraint_summary?.evidence_gap_checks ?? []).length > 0 ? [`Evidence gaps: ${value.constraint_summary.evidence_gap_checks.join(", ")}.`] : []
+    ],
+    human_attention: humanAttentionLines(value.human_attention),
+    problems: problemLines(value.problem_details),
+    advisories: persisted ? [] : ["Handoff is transport only and never grants authority."],
+    warnings,
+    errors: []
+  }, nextAction, overrides), help);
+}
+function errorPresentation(toolName, value) {
+  const summary2 = firstLine(value?.error, "Workflow tool failed.");
+  const closeoutFailed = toolName === "workflow_closeout";
+  const nextAction = toolName === "workflow_plan_preflight" ? "repair-root" : closeoutFailed ? "review-root" : "provide-artifacts";
+  const recovery = toolName === "workflow_plan_preflight" ? "Repair the Root blockers, then retry validation or /plan-work." : closeoutFailed ? "Repair the exact Root/chain and Check observations, then retry closeout or Ask: /review-work." : "Supply the exact current Schema-5 artifacts, then retry the failed Workflow command.";
+  return withHelpFields(withNextStepFields({
+    schema: 1,
+    tool: toolName,
+    phase: toolName.replace(/^workflow_/, "").replaceAll("_", "-"),
+    outcome: closeoutFailed ? "blocked" : "failed",
+    summary: summary2,
+    checks: [],
+    gaps: [summary2],
+    advisories: [],
+    warnings: [],
+    errors: [summary2]
+  }, nextAction, {
+    blocked_reason: summary2,
+    recovery
+  }), MANUAL_HELP_TOPICS["recovery-and-troubleshooting"]);
+}
+function buildPresentation(toolName, value, { isError = false } = {}) {
+  if (isError || value?.error) {
+    return errorPresentation(toolName, value);
+  }
+  if (toolName === "workflow_plan_preflight") {
+    const blockers = asList(value.blocking_issues);
+    const advisories = asList(value.advisories);
+    const feasible = value.feasible === true && blockers.length === 0;
+    const nextAction = feasible ? "implement-plan" : "repair-root";
+    const overrides = feasible ? {} : {
+      blocked_reason: blockers[0] ?? "Root cannot be presented yet.",
+      recovery: "Repair the Root blockers, then retry validation or /plan-work."
+    };
+    const presentation = withNextStepFields({
+      schema: 1,
+      tool: toolName,
+      phase: "plan-preflight",
+      outcome: feasible ? "ready" : "blocked",
+      summary: feasible ? `Root ${value.root_plan_id ?? "unknown"} is feasible for presentation.` : `Root ${value.root_plan_id ?? "unknown"} cannot be presented yet.`,
+      checks: [
+        `required: ${(value.required_checks ?? []).join(", ") || "none"}`,
+        `deferred: ${(value.deferred_checks ?? []).join(", ") || "none"}`
+      ],
+      gaps: blockers,
+      advisories,
+      warnings: [],
+      errors: []
+    }, nextAction, overrides);
+    return feasible ? presentation : withHelpFields(presentation, MANUAL_HELP_TOPICS["intent-root-and-plan"]);
+  }
+  if (toolName === "workflow_artifact_record") {
+    const persisted = value.handoff_persisted !== false && value.handoff_mode !== "stateless";
+    const warnings = asList(value.warning ? [value.warning] : []);
+    const recordedIds = [...asList(value.recorded), ...asList(value.duplicates)];
+    const containsReview = recordedIds.some((id) => /^wr-/.test(id));
+    const nextAction = persisted ? containsReview ? "provide-artifacts" : "implement-plan" : "attach-artifact";
+    const overrides = persisted ? {} : {
+      blocked_reason: "Artifact validated; handoff cache was unavailable.",
+      recovery: "Attach the exact artifact explicitly; handoff is transport only."
+    };
+    const presentation = withNextStepFields({
+      schema: 1,
+      tool: toolName,
+      phase: "artifact-record",
+      outcome: persisted ? "ready" : "partial",
+      summary: persisted ? `Cached ${(value.recorded ?? []).join(", ") || "artifacts"} in root-content handoff.` : "Artifact validated; handoff cache was unavailable.",
+      checks: [
+        `recorded: ${(value.recorded ?? []).join(", ") || "none"}`,
+        `duplicates: ${(value.duplicates ?? []).join(", ") || "none"}`
+      ],
+      gaps: persisted ? [] : ["Attach the exact artifact explicitly; handoff is transport only."],
+      advisories: ["Handoff is transport only and never grants authority."],
+      warnings,
+      errors: []
+    }, nextAction, overrides);
+    return persisted ? presentation : withHelpFields(presentation, MANUAL_HELP_TOPICS["artifacts-tips-and-handoff"]);
+  }
+  if (toolName === "workflow_artifact_context") {
+    const count = Array.isArray(value.artifacts) ? value.artifacts.length : 0;
+    const nextAction = value.evidence_tip ? "review-root" : "closeout";
+    const overrides = value.evidence_tip ? {} : {
+      blocked_reason: "No Evidence tip is loaded for this Root.",
+      recovery: "Run /close-work [wp-id] or finish Implement Plan closeout, then review."
+    };
+    const presentation = withNextStepFields({
+      schema: 1,
+      tool: toolName,
+      phase: "artifact-context",
+      outcome: value.evidence_tip ? "ready" : "partial",
+      summary: `Loaded ${count} artifact${count === 1 ? "" : "s"} for ${value.root_plan_id ?? "unknown"}.`,
+      checks: [
+        `evidence tip: ${value.evidence_tip ?? "none"}`,
+        `review tip: ${value.review_tip ?? "none"}`
+      ],
+      gaps: value.evidence_tip ? [] : ["Evidence tip missing; closeout before review."],
+      advisories: ["Task artifacts remain authoritative; context is enrichment only."],
+      warnings: asList(value.warning ? [value.warning] : []),
+      errors: []
+    }, nextAction, overrides);
+    return value.evidence_tip && !value.warning ? presentation : withHelpFields(presentation, MANUAL_HELP_TOPICS["artifacts-tips-and-handoff"]);
+  }
+  if (toolName === "workflow_closeout") {
+    return closeoutPresentation(value);
+  }
+  if (toolName === "workflow_status") {
+    const snapshot2 = value.snapshot ?? {};
+    const blockers = asList(snapshot2.blockers);
+    const state = snapshot2.state ?? "unknown";
+    const action = snapshot2.next_action ?? "none";
+    const requestedProfile = snapshot2.requested_profile ?? "manual";
+    const effectiveProfile = snapshot2.effective_profile ?? requestedProfile;
+    const requiredActor = snapshot2.required_actor ?? "unknown";
+    const downgradeReason = snapshot2.downgrade_reason ?? null;
+    const outcome = statusPresentationOutcome(snapshot2);
+    const overrides = (outcome === "blocked" || outcome === "partial") && action !== "none" ? {
+      blocked_reason: blockers[0] ?? `Manual state is ${state}.`,
+      recovery: resolveNextStep(action).invoke
+    } : outcome === "blocked" && blockers.length > 0 ? {
+      blocked_reason: blockers[0],
+      recovery: "Clear blockers with the listed Workflow command, then re-check /work-status."
+    } : {};
+    const presentation = withNextStepFields({
+      schema: 1,
+      tool: toolName,
+      phase: "status",
+      workflow_state: state,
+      outcome,
+      summary: requiredActor === "none" ? `Root ${snapshot2.root_plan_id ?? value.root_plan_id ?? "unknown"} is ${state}; no further actor is required.` : `Root ${snapshot2.root_plan_id ?? value.root_plan_id ?? "unknown"} is ${state}; ${requiredActor} acts next.`,
+      checks: [
+        requestedProfile === effectiveProfile ? `profile: ${effectiveProfile}` : `profile: ${requestedProfile} \u2192 ${effectiveProfile}`,
+        `required actor: ${requiredActor}`,
+        `evidence: ${snapshot2.latest_evidence_id ?? snapshot2.evidence_tip ?? "none"}`,
+        `review: ${snapshot2.latest_review_id ?? snapshot2.review_tip ?? "none"}`,
+        receiptCoverageLine(value.constraint_summary)
+      ].filter(Boolean),
+      gaps: blockers,
+      advisories: asList([
+        formatHostToolApproval(value.host_tool_approval),
+        value.model_inheritance?.status ? `model_inheritance: ${value.model_inheritance.status}` : null
+      ].filter(Boolean)),
+      warnings: asList([
+        ...value.warning ? [value.warning] : [],
+        ...downgradeReason ? [`profile downgrade: ${requestedProfile} \u2192 ${effectiveProfile} (${downgradeReason})`] : []
+      ]),
+      errors: [],
+      human_attention: humanAttentionLines(value.human_attention),
+      problems: problemLines(value.problem_details)
+    }, action, overrides);
+    return isManualStatusSnapshot(snapshot2) ? withHelpFields(presentation, manualStateHelp(state)) : presentation;
+  }
+  return withNextStepFields({
+    schema: 1,
+    tool: toolName,
+    phase: "manual",
+    outcome: "ready",
+    summary: firstLine(JSON.stringify(value), "Workflow tool completed."),
+    checks: [],
+    gaps: [],
+    advisories: [],
+    warnings: [],
+    errors: []
+  }, "none");
+}
+function formatSection(title, items) {
+  if (!items || items.length === 0) return null;
+  return [`${title}:`, ...items.map((item) => `- ${item}`)].join("\n");
+}
+function formatHelp(help) {
+  if (!help?.meaning || !help?.label || !help?.url) return null;
+  return [
+    `Meaning: ${help.meaning}`,
+    `Learn more: [${help.label}](${help.url})`
+  ].join("\n");
+}
+function formatNextStepFooter(presentation) {
+  if (presentation.tool === "workflow_status" && presentation.workflow_state === "achieved" && presentation.next_action === "none") {
+    return [
+      "### Done",
+      "Repository delivery is complete for this Root. Optional: /learn-from-work or /explain-work (Codex: $learn-from-work or $explain-work)."
+    ].join("\n");
+  }
+  if (presentation.tool === "workflow_status" && presentation.workflow_state === "accepted-provisional" && presentation.next_action === "none") {
+    return [
+      "### Accepted provisionally",
+      "This one-time acceptance is not persisted; the next /work-status or $work-status returns delivery-ready-provisional."
+    ].join("\n");
+  }
+  const step = resolveNextStep(presentation.next_action ?? "none");
+  const now = NEXT_STEP_CATALOG[presentation.next_action] ? step.label : presentation.next_action ?? "unknown";
+  const lines = [
+    "### Next step",
+    `- Now: ${now}`,
+    `- How: ${presentation.next_action_invoke ?? step.invoke}`,
+    `- Why: ${presentation.next_action_benefit ?? step.benefit}`
+  ];
+  if (presentation.next_action_blocked_reason && presentation.next_action_recovery) {
+    lines.push(`- Off track: ${presentation.next_action_blocked_reason} \u2192 ${presentation.next_action_recovery}`);
+  }
+  return lines.join("\n");
+}
+function formatManualToolContent(presentation) {
+  const lines = [
+    `${presentation.tool} \u2014 ${presentation.outcome}`,
+    `What happened: ${presentation.summary}`,
+    "",
+    formatSection("Checks", presentation.checks),
+    formatSection("Gaps", presentation.gaps),
+    formatSection("Human attention", presentation.human_attention),
+    formatSection("Problems", presentation.problems),
+    formatSection("Advisories", presentation.advisories),
+    formatSection("Warnings", presentation.warnings),
+    formatSection("Errors", presentation.errors),
+    formatHelp(presentation.help),
+    formatNextStepFooter(presentation)
+  ].filter((line) => line !== null && line !== void 0);
+  return `${lines.join("\n").replace(/\n{3,}/g, "\n\n").trim()}
+`;
+}
+function isManualWorkflowTool(toolName) {
+  return MANUAL_TOOLS.has(toolName);
+}
+function manualMcpResult(toolName, value, isError = false) {
+  if (process.env.GELDMACHER_WORKFLOW_LEGACY_MCP_TEXT === "1" || !isManualWorkflowTool(toolName)) {
+    return {
+      content: [{ type: "text", text: JSON.stringify(value, null, 2) }],
+      structuredContent: value,
+      isError
+    };
+  }
+  const presentation = buildPresentation(toolName, value, { isError });
+  const structuredContent = { ...value, presentation };
+  return {
+    content: [{ type: "text", text: formatManualToolContent(presentation) }],
+    structuredContent,
+    isError
+  };
 }
 
 // src/mcp/manual-tool-annotations.mjs
@@ -33017,15 +34467,15 @@ var checkEvidence = object2({
 });
 var contracts = Object.freeze({
   workflow_plan_preflight: {
-    description: "Validate one exact Schema-5 Root for authority feasibility and Pareto Check selection without workspace discovery, persistence, approval, or mutation.",
+    description: "Validate one exact Schema-5 Root for authority feasibility and Pareto Check selection without workspace discovery, persistence, approval, or mutation. Optional diagnostic for low/medium Manual; CreatePlan still validates Schema-5 Roots.",
     inputSchema: { root_plan: string2().min(1).max(25e4) }
   },
   workflow_artifact_record: {
-    description: "Validate and atomically cache exact Schema-5 work-plan or work-review artifacts in the non-authoritative root-content handoff store.",
+    description: "Best-effort transport: validate and atomically cache exact Schema-5 work-plan or work-review artifacts in the non-authoritative root-content handoff store. Task artifacts remain authoritative; ordinary cache IO failure returns attach instructions without invalidating the artifact.",
     inputSchema: { workspace_root: workspaceRoot, artifacts: array(artifact).min(1).max(32) }
   },
   workflow_artifact_context: {
-    description: "Return the exact revalidated non-authoritative Schema-5 artifact chain cached for one Root under its root-content namespace, optionally hash-bound to the supplied active native Plan.",
+    description: "Best-effort transport enrichment: return the exact revalidated non-authoritative Schema-5 artifact chain cached for one Root under its root-content namespace, optionally hash-bound to the supplied active native Plan. Task artifacts remain authoritative.",
     inputSchema: {
       workspace_root: workspaceRoot,
       root_plan_id: string2().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
@@ -33033,7 +34483,7 @@ var contracts = Object.freeze({
     }
   },
   workflow_closeout: {
-    description: "Deterministically build and validate one Schema-5 delivery-evidence artifact from observed Checks and cache it in the root-content handoff store.",
+    description: "Deterministically build and validate one Schema-5 delivery-evidence artifact from observed Checks and best-effort cache it in the root-content handoff store.",
     inputSchema: {
       workspace_root: workspaceRoot,
       root_plan_id: string2().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
@@ -33043,6 +34493,7 @@ var contracts = Object.freeze({
       strategy_revision: number2().int().min(0).default(0),
       changed_paths: array(string2().min(1).max(1e3)).max(1e3).default([]),
       check_evidence: array(checkEvidence).max(128).default([]),
+      summary: string2().min(1).max(2e3).optional(),
       repository_snapshot: object2({
         head: string2().min(1).optional(),
         working_tree: string2().min(1).optional(),
@@ -33052,7 +34503,7 @@ var contracts = Object.freeze({
     }
   },
   workflow_status: {
-    description: "Return current status for an explicit stateless Manual Schema-5 artifact chain.",
+    description: "Return current status and a uniform read-only learning projection for an explicit stateless Manual Schema-5 artifact chain.",
     inputSchema: {
       workspace_root: workspaceRoot,
       root_plan_id: string2().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
@@ -33103,6 +34554,13 @@ function registerManualWorkflowTools({
   resolveHostToolApprovalPreference = resolveHostToolApproval,
   resolveManualSubagentPolicyPreference = resolveManualSubagentPolicy
 }) {
+  const namedResult = (toolName) => (value, isError = false) => manualMcpResult(toolName, value, isError);
+  const namedFailure = (toolName) => (error2) => namedResult(toolName)({
+    error: error2.message,
+    ...error2?.code ? { error_code: error2.code } : {}
+  }, true);
+  const toolAwareResult = (toolName, value, isError = false) => namedResult(toolName)(value, isError);
+  toolAwareResult.toolAware = true;
   const resolveOperationalContext = async (workspaceRoot2) => {
     const workspace = await workspaceAuthority2.resolve(workspaceRoot2);
     return {
@@ -33112,10 +34570,13 @@ function registerManualWorkflowTools({
     };
   };
   const handoffStoreFactory = (rootPlanText, root) => createContentAddressedHandoffStore(rootPlanText, root);
+  const contextResult = namedResult("workflow_artifact_context");
+  const statusResult = namedResult("workflow_status");
+  const preflightResult = namedResult("workflow_plan_preflight");
   const artifactHandlers = createArtifactHandlers({
     pluginRoot: pluginRoot2,
     resolveOperationalContext,
-    result: result2,
+    result: toolAwareResult,
     handoffStoreFactory
   });
   const status = async (input) => {
@@ -33143,10 +34604,11 @@ function registerManualWorkflowTools({
         pluginRoot: pluginRoot2,
         manualAcceptance: input.manual_acceptance ?? null
       });
-      return result2({
+      return statusResult({
         subject_kind: "artifact-chain",
         run: null,
         ...manual,
+        learning: deriveManualLearningProjection(manual),
         ...workspace ? { workspace_root: workspace } : {},
         workspace_binding: workspaceBinding,
         workspace_root_used: Boolean(workspace),
@@ -33155,19 +34617,18 @@ function registerManualWorkflowTools({
         manual_subagent_policy: publicManualSubagentPolicy(resolveManualSubagentPolicyPreference())
       });
     } catch (error2) {
-      return failure2(error2);
+      return namedFailure("workflow_status")(error2);
     }
   };
-  server2.registerTool("workflow_plan_preflight", contract("workflow_plan_preflight"), async (input) => result2(preflightRootPlan(input.root_plan, pluginRoot2)));
+  server2.registerTool("workflow_plan_preflight", contract("workflow_plan_preflight"), async (input) => preflightResult(preflightRootPlan(input.root_plan, pluginRoot2)));
   server2.registerTool("workflow_artifact_record", contract("workflow_artifact_record"), artifactHandlers.record);
   server2.registerTool("workflow_artifact_context", contract("workflow_artifact_context"), async (input) => {
     try {
       if (!input.root_plan) {
-        let legacy = null;
         try {
           const operational = await resolveOperationalContext(input.workspace_root);
-          legacy = operational.legacyHandoffStore.context(input.root_plan_id, null);
-          return result2({
+          const legacy = operational.legacyHandoffStore.context(input.root_plan_id, null);
+          return contextResult({
             workspace_root: operational.workspace,
             workspace_binding: "trusted-root",
             workspace_root_used: true,
@@ -33184,7 +34645,7 @@ function registerManualWorkflowTools({
       resolveRootPlanText(pluginRoot2, { rootPlanId: input.root_plan_id, rootPlan: input.root_plan });
       return artifactHandlers.context(input);
     } catch (error2) {
-      return failure2(error2);
+      return namedFailure("workflow_artifact_context")(error2);
     }
   });
   server2.registerTool("workflow_closeout", contract("workflow_closeout"), artifactHandlers.closeout);
@@ -33193,8 +34654,27 @@ function registerManualWorkflowTools({
 }
 
 // src/mcp/workflow-mcp-manual.mjs
-var sourceDirectory = dirname4(fileURLToPath3(import.meta.url));
-var pluginRoot = resolve9(process.env.PLUGIN_ROOT ?? resolve9(sourceDirectory, "../.."));
+function hasManualRuntime(candidate) {
+  return existsSync8(join8(candidate, "schemas", "artifacts", "work-plan.schema.json")) && existsSync8(join8(candidate, "scripts", "validate-artifact.mjs"));
+}
+function resolvePluginRoot(sourceDirectory2) {
+  const explicit = process.env.PLUGIN_ROOT?.trim();
+  if (explicit) {
+    const candidate2 = resolve10(explicit);
+    if (!hasManualRuntime(candidate2)) throw new Error(`PLUGIN_ROOT does not contain the Workflow Manual runtime: ${candidate2}`);
+    return candidate2;
+  }
+  let candidate = resolve10(sourceDirectory2);
+  while (true) {
+    if (hasManualRuntime(candidate)) return candidate;
+    const parent = dirname5(candidate);
+    if (parent === candidate) break;
+    candidate = parent;
+  }
+  throw new Error(`Unable to locate the Workflow plugin root from MCP bundle: ${sourceDirectory2}`);
+}
+var sourceDirectory = dirname5(fileURLToPath3(import.meta.url));
+var pluginRoot = resolvePluginRoot(sourceDirectory);
 var server = new McpServer({ name: "geldmacher-workflow-manual", version: PLUGIN_VERSION });
 var workspaceAuthority = new WorkspaceRootAuthority(() => server.server.listRoots());
 server.server.setNotificationHandler(RootsListChangedNotificationSchema, async () => workspaceAuthority.invalidate());

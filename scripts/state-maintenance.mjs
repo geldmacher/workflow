@@ -1,7 +1,12 @@
 import { realpathSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { archiveStateSubject, inspectState, rebuildStateIndexes } from "../src/controller/state-maintenance.mjs";
+import {
+  archiveStateSubject,
+  inspectState,
+  quarantineHandoffReview,
+  rebuildStateIndexes,
+} from "../src/controller/state-maintenance.mjs";
 
 const pluginRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const argument = (name) => {
@@ -10,7 +15,21 @@ const argument = (name) => {
 };
 
 const command = process.argv[2];
-if (!["inspect", "rebuild-index", "archive"].includes(command)) throw new Error("usage: state:maintenance <inspect|rebuild-index|archive> --workspace <absolute-path> [--subject <id>] [--apply]");
+if (!["inspect", "rebuild-index", "archive", "quarantine-handoff"].includes(command)) throw new Error("usage: state:maintenance <inspect|rebuild-index|archive> --workspace <absolute-path> [--subject <id>] [--apply] | quarantine-handoff --root-hash <sha256> --artifact <wr-id> --expected-text-hash <sha256> [--apply]");
+if (command === "quarantine-handoff") {
+  const rootHash = argument("root-hash");
+  const artifactId = argument("artifact");
+  const expectedTextHash = argument("expected-text-hash");
+  if (!rootHash || !artifactId || !expectedTextHash) throw new Error("quarantine-handoff requires --root-hash, --artifact, and --expected-text-hash");
+  console.log(JSON.stringify(quarantineHandoffReview({
+    rootHash,
+    artifactId,
+    expectedTextHash,
+    pluginRoot,
+    apply: process.argv.includes("--apply"),
+  }), null, 2));
+  process.exit(0);
+}
 const workspaceArgument = argument("workspace");
 if (!workspaceArgument) throw new Error("--workspace is required");
 const workspace = realpathSync(resolve(workspaceArgument));

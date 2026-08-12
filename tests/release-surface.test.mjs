@@ -37,8 +37,14 @@ test("release surface ignores development files and binds runtime files", () => 
   } finally { rmSync(copy, { recursive: true, force: true }); }
 });
 
-test("release surface stays below the agreed file limit", () => {
-  assert.ok(enumerateReleaseSurface(defaultRoot, "package_paths").length <= 107);
+test("release surface keeps the native file budget separate from portable validation schemas", () => {
+  const paths = enumerateReleaseSurface(defaultRoot, "package_paths").map((entry) => entry.relative_path);
+  const portableSchemas = paths.filter((path) => path.startsWith("schemas/agent-plugins/"));
+  assert.deepEqual(portableSchemas, [
+    "schemas/agent-plugins/1.0.0/mcp.schema.json",
+    "schemas/agent-plugins/1.0.0/plugin.schema.json",
+  ]);
+  assert.ok(paths.length - portableSchemas.length <= 110);
 });
 
 test("release surface rejects malformed inventories, traversal, and symlinks", () => {

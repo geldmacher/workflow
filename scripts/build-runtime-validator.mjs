@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const source = join(root, "scripts", "validate-artifact.source.mjs");
+const source = join(root, "scripts", "runtime-validator-surface.mjs");
 const output = join(root, "scripts", "validate-artifact.mjs");
 const notices = join(root, "THIRD_PARTY_NOTICES.md");
 const check = process.argv.includes("--check");
@@ -43,7 +43,17 @@ const noticeSections = bundledPackages.map((name) => {
   if (!licensePath) throw new Error(`Bundled package ${name} has no distributable license file`);
   return `## ${name}@${metadata.version}\n\nDeclared license: ${metadata.license ?? "see text below"}\n\n\`\`\`text\n${readFileSync(licensePath, "utf8").trim()}\n\`\`\``;
 });
-const generatedNotices = `# Third-party notices\n\nThe self-contained runtime validator bundles the following packages. Their notices are reproduced verbatim.\n\n${noticeSections.join("\n\n")}\n`;
+const agentPluginsSchemaNotice = `## Agent Plugins Specification 1.0.0 schemas
+
+The canonical \`plugin.schema.json\` and \`mcp.schema.json\` files under
+\`schemas/agent-plugins/1.0.0\` are copied from the
+[Agent Plugins Specification schemas](https://github.com/agentplugins/agent-plugins-spec/tree/main/schemas/1.0.0)
+for network-free build validation.
+
+The Agent Plugins project licenses schemas and other software material under
+the [Apache License 2.0](https://github.com/agentplugins/agent-plugins-spec/blob/main/LICENSE.md).
+No schema is fetched from the network while building, validating, or loading a Workflow package.`;
+const generatedNotices = `# Third-party notices\n\nThe self-contained runtime validator bundles the following packages. Their notices are reproduced verbatim.\n\n${agentPluginsSchemaNotice}\n\n${noticeSections.join("\n\n")}\n`;
 if (check) {
   const committed = readFileSync(output);
   if (!generated.equals(committed)) {

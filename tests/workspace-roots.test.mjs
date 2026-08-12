@@ -121,3 +121,21 @@ test("workspace authority caches roots and refreshes only after invalidation", a
     assert.equal(calls, 2);
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });
+
+test("workspace authority ignores unresolved host env placeholders", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "workflow-roots-placeholder-"));
+  try {
+    const authority = new WorkspaceRootAuthority(async () => roots(directory), {
+      env: { [HOST_WORKSPACE_ENV]: "${workspaceFolder}" },
+    });
+    assert.equal(await authority.resolve(), realpathSync(directory));
+    assert.equal(await authority.resolve(directory), realpathSync(directory));
+
+    const unavailableRoots = new WorkspaceRootAuthority(async () => {
+      throw new Error("client does not support roots/list");
+    }, {
+      env: { [HOST_WORKSPACE_ENV]: "/Users/example/${workspaceFolder}" },
+    });
+    await assert.rejects(() => unavailableRoots.resolve(), (error) => error.code === "roots-request-failed");
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});

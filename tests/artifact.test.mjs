@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
+import { PLAN_CLOSEOUT_ATTESTATION } from "../src/core/manual-attestation.mjs";
 import {
   authoritativeArtifactProjectionFromText,
   defaultRoot,
@@ -25,11 +26,17 @@ const modelInheritMarker = "[workflow-model-inherit-v1]";
 
 function nativePlan(todos) {
   const match = plan.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-  const wrapperTodos = todos.map((todo) => [
-    `  - id: ${todo.id}`,
-    `    content: ${JSON.stringify(todo.content)}`,
-    "    status: pending",
-  ].join("\n")).join("\n");
+  const wrapperTodos = todos.map((todo) => {
+    const lines = [
+      `  - id: ${todo.id}`,
+      `    content: ${JSON.stringify(todo.content)}`,
+      "    status: pending",
+    ];
+    if (todo.workflow_attestation) {
+      lines.push(`    workflow_attestation: ${JSON.stringify(todo.workflow_attestation)}`);
+    }
+    return lines.join("\n");
+  }).join("\n");
   return [
     "---",
     "name: Adaptive retry",
@@ -129,17 +136,81 @@ test("lean, controlled, and certified roots accept their matching semantic contr
   assert.deepEqual(validateArtifactText(autonomousRoot()), []);
 });
 
-test("native Schema-5 plans require the parent-model inheritance marker on every todo", () => {
+test("native Schema-5 plans require the parent-model inheritance marker and typed plan-closeout attestation", () => {
   const valid = nativePlan([
-    { id: "step-1", content: `${modelInheritMarker} STEP-1 implement deterministic retry handling` },
-    { id: "closeout", content: `${modelInheritMarker} Run CHECK-1, call workflow_closeout with the exact Root/chain, and print its returned artifact unchanged` },
+    { id: "step-1", content: "STEP-1 implement deterministic retry handling" },
+    {
+      id: "closeout",
+      content: `${modelInheritMarker} Run CHECK-1 and close out delivery.`,
+      workflow_attestation: { ...PLAN_CLOSEOUT_ATTESTATION },
+    },
   ]);
   assert.deepEqual(validateArtifactText(valid), []);
-  assert.match(validateArtifactText(valid.replace(`${modelInheritMarker} STEP-1`, "STEP-1")).join("\n"), /native todo step-1 must start with \[workflow-model-inherit-v1\]/);
-  assert.match(validateArtifactText(valid.replace(`${modelInheritMarker} Run CHECK-1`, "Run CHECK-1")).join("\n"), /native todo closeout must start with \[workflow-model-inherit-v1\]/);
-  assert.match(validateArtifactText(valid.replace("exact Root/chain", "cached context")).join("\n"), /exact Root\/chain/);
-  assert.match(validateArtifactText(valid.replace("print its returned artifact unchanged", "report completion")).join("\n"), /returned artifact unchanged/);
-  assert.match(validateArtifactText(valid.replace("returned artifact unchanged", "artifact unchanged")).join("\n"), /returned artifact unchanged/);
+  assert.match(
+    validateArtifactText(nativePlan([
+      { id: "step-1", content: "STEP-1 implement deterministic retry handling" },
+      {
+        id: "closeout",
+        content: `Run CHECK-1 and close out delivery.`,
+        workflow_attestation: { ...PLAN_CLOSEOUT_ATTESTATION },
+      },
+    ])).join("\n"),
+    /final native todo must start with \[workflow-model-inherit-v1\]/,
+  );
+  assert.match(
+    validateArtifactText(nativePlan([
+      { id: "step-1", content: "STEP-1 implement deterministic retry handling" },
+      {
+        id: "closeout",
+        content: `${modelInheritMarker} Run CHECK-1 and close out delivery.`,
+      },
+    ])).join("\n"),
+    /workflow_attestation|plan-closeout/,
+  );
+  const freeform = nativePlan([
+    { id: "step-1", content: "STEP-1 implement deterministic retry handling" },
+    {
+      id: "closeout",
+      content: `${modelInheritMarker} Run CHECK-1; call workflow_closeout with the exact Root/chain; retain the exact returned Evidence from structuredContent.`,
+      workflow_attestation: { ...PLAN_CLOSEOUT_ATTESTATION },
+    },
+  ]);
+  assert.match(validateArtifactText(freeform).join("\n"), /workflow_attestation metadata|workflow_closeout prose|plan-closeout/);
+  const unrelatedNegation = nativePlan([
+    { id: "step-1", content: "STEP-1 implement deterministic retry handling" },
+    {
+      id: "closeout",
+      content: `${modelInheritMarker} Do not deploy. Verify CHECK-1 and close out delivery.`,
+      workflow_attestation: { ...PLAN_CLOSEOUT_ATTESTATION },
+    },
+  ]);
+  assert.deepEqual(validateArtifactText(unrelatedNegation), []);
+  for (const todo of [
+    {
+      id: "closeout",
+      content: `${modelInheritMarker} Verify CHECK-1.`,
+      workflow_attestation: { schema: 1, kind: "plan-closeout", action: "other" },
+    },
+    {
+      id: "closeout",
+      content: `${modelInheritMarker} Don't call workflow_closeout.`,
+      workflow_attestation: { ...PLAN_CLOSEOUT_ATTESTATION },
+    },
+    {
+      id: "closeout",
+      content: `${modelInheritMarker} Call workflow_closeout with the exact Root/chain.`,
+    },
+  ]) {
+    const negatedOutput = nativePlan([
+      { id: "step-1", content: "STEP-1 implement deterministic retry handling" },
+      todo,
+    ]);
+    assert.match(
+      validateArtifactText(negatedOutput).join("\n"),
+      /workflow_attestation|plan-closeout|workflow_closeout/,
+      JSON.stringify(todo),
+    );
+  }
   assert.deepEqual(validateArtifactText(plan), []);
 });
 
@@ -285,6 +356,9 @@ test("execution contract separates immutable root projection from initial strate
   assert.equal(contract.fields.authority.delivery, "repository-only");
   assert.equal(contract.strategy.task_class, null);
   assert.equal(contract.strategy.revision, 0);
+  assert.equal(contract.checks[0]["Check ID"], "CHECK-1");
+  assert.equal(contract.checks[0]["Command or Inspection"], "npm test");
+  assert.equal(contract.checks[0]["Evidence Class"], "machine-verifiable");
 });
 
 test("Workflow 3 and Workflow 4 artifacts are rejected by the mutable Schema 5 validator", () => {

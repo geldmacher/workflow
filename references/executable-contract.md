@@ -6,4 +6,4 @@ Initial Roots omit lineage. A replan Root uses a fresh ID and must bind both `pr
 
 `authority` closes allowed roots, protected and approval-required paths, dependencies, external effects, repository-only delivery, and controlled budgets. Manual uses `lean`; supervised uses `controlled`; autonomous uses `certified` plus hashed Verification Profile, task recipe, certified region, and Route Pool.
 
-Intent, Acceptance, Boundaries, and Risks must be meaningfully present, but may be prose, lists, or tables. The Validator checks semantics rather than eight fixed tables. The Root declares primary outcomes; the external Strategy owns mutable steps, targets, and equivalent checks.
+Intent, Acceptance, Boundaries, and Risks must be meaningfully present, but may be prose, lists, or tables. The Validator checks semantics rather than eight fixed tables. The Root declares primary outcomes; Strategy owns mutable steps, targets, and equivalent checks.

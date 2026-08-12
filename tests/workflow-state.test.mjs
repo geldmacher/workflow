@@ -41,6 +41,37 @@ test("verified and provisional deliveries have distinct acceptance actions", () 
   assert.equal(provisional.next_action, "accept-provisional");
 });
 
+test("terminal Manual states require no further actor", () => {
+  const achieved = deriveWorkflowState({
+    ...approved,
+    run_id: null,
+    snapshot_source: "artifact-chain",
+    requested_profile: "manual",
+    effective_profile: "manual",
+    execution_started: true,
+    root_review_complete: true,
+    review: { assessment: "achieved", next_action: "none" },
+  });
+  assert.equal(achieved.state, "achieved");
+  assert.equal(achieved.required_actor, "none");
+  assert.deepEqual(achieved.allowed_actions, ["explain", "learn"]);
+
+  const accepted = deriveWorkflowState({
+    ...approved,
+    run_id: null,
+    snapshot_source: "artifact-chain",
+    requested_profile: "manual",
+    effective_profile: "manual",
+    execution_started: true,
+    delivery_status: "provisional",
+    manual_acceptance: "provisional",
+    acceptance_basis_hash: "a".repeat(64),
+  });
+  assert.equal(accepted.state, "accepted-provisional");
+  assert.equal(accepted.required_actor, "none");
+  assert.equal(accepted.acceptance_persisted, false);
+});
+
 test("accepted-provisional and blocked are honest terminal states", () => {
   assert.equal(deriveWorkflowState({ ...approved, lifecycle: "accepted-provisional" }).state, "accepted-provisional");
   assert.equal(deriveWorkflowState({ ...approved, lifecycle: "blocked", blockers: ["known-check-failure"] }).state, "blocked");

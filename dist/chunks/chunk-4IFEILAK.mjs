@@ -11,10 +11,11 @@ import {
   planningUsage,
   resolveCapabilities,
   validateRootPlanLineage
-} from "./chunk-OM7QZLXO.mjs";
+} from "./chunk-CFAENO4V.mjs";
 import {
   assertContainedPath,
   changedPaths,
+  changedPathsBetween,
   checkpoint,
   createComparisonBaselineWorktree,
   createRunWorktree,
@@ -22,172 +23,47 @@ import {
   parseHostCommand,
   repositoryBaseline,
   rollbackToCheckpoint,
-  runHostCheck
-} from "./chunk-YAMXLYBL.mjs";
+  runHostCheck,
+  workspaceDeliveryMatch
+} from "./chunk-BFZJ6DLB.mjs";
 import {
   CursorWorkerAdapter,
   evaluateAuthorization,
   evaluateEligibility,
   qualificationKey,
   selectWriterRoute
-} from "./chunk-MICWNJTT.mjs";
+} from "./chunk-FBG57FMP.mjs";
 import {
   ArtifactHandoffStore,
   createContentAddressedHandoffStore,
   rememberContentAddressedRoot
-} from "./chunk-URWS3WPX.mjs";
+} from "./chunk-ABS7MFJE.mjs";
 import {
   effectiveCliSummary,
   executionContractFromArtifactText,
   inspectArtifactSet,
   inspectArtifactText
-} from "./chunk-GYZMJGQG.mjs";
+} from "./chunk-LLOAY7ER.mjs";
 import {
-  require_dist
-} from "./chunk-MV4DSQKJ.mjs";
+  repositoryKey,
+  require_dist,
+  rootContentHash,
+  sharedArtifactStateRoot
+} from "./chunk-TT447BBI.mjs";
 import {
   ARTIFACT_SCHEMA,
+  RUN_EVENT_SUBJECT_SCHEMA,
   assertCompatiblePreparation,
-  classifyRunCompatibility
-} from "./chunk-VL4DQUSD.mjs";
+  classifyPreparationCompatibility,
+  classifyRunCompatibility,
+  runEventSubject
+} from "./chunk-XFYK5I23.mjs";
 import {
   __toESM
 } from "./chunk-IQRLCJ3K.mjs";
 
-// src/controller/engine.mjs
-import { createHash as createHash3 } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { spawnSync } from "node:child_process";
-
-// scripts/derive-workflow-state.mjs
-var states = /* @__PURE__ */ new Set([
-  "intake",
-  "intent-clarification",
-  "root-plan-review",
-  "intent-ready",
-  "product-aligned",
-  "architecture-aligned",
-  "program-design-aligned",
-  "slice-ready",
-  "strategy-ready",
-  "baseline-verification",
-  "implementing",
-  "host-verifying",
-  "slice-review",
-  "root-review",
-  "delivery-ready",
-  "delivery-ready-verified",
-  "delivery-ready-provisional",
-  "waiting-human",
-  "replan",
-  "achieved",
-  "accepted-provisional",
-  "blocked",
-  "paused",
-  "interrupted",
-  "stopped",
-  "failed"
-]);
-var terminalLifecycle = /* @__PURE__ */ new Set(["achieved", "accepted-provisional", "blocked", "stopped", "failed"]);
-function snapshot(input, state, overrides = {}) {
-  if (!states.has(state)) throw new Error(`unsupported workflow state ${state}`);
-  const snapshotSource = input.snapshot_source ?? (input.run_id ? "controller-run" : "artifact-chain");
-  return {
-    run_id: input.run_id ?? null,
-    root_plan_id: input.root_plan_id ?? null,
-    requested_profile: input.requested_profile ?? "manual",
-    effective_profile: input.effective_profile ?? input.requested_profile ?? "manual",
-    contract_level: input.plan?.fields?.contract_level ?? input.contract_level ?? null,
-    compatibility: input.compatibility ?? "compatible",
-    state,
-    snapshot_source: snapshotSource,
-    allowed_actions: [],
-    required_actor: "none",
-    next_action: "none",
-    evidence_tip: input.evidence_tip ?? null,
-    review_tip: input.review_tip ?? null,
-    blockers: [...new Set(input.blockers ?? [])],
-    downgrade_reason: input.downgrade_reason ?? null,
-    intent_hash: input.intent_hash ?? input.root_authoritative_projection_hash ?? null,
-    strategy_revision: input.strategy_revision ?? input.strategy?.revision ?? null,
-    strategy_hash: input.strategy?.strategy_hash ?? null,
-    deviations: input.deviations ?? input.strategy?.deviations ?? [],
-    evidence_grade: input.evidence_grade ?? null,
-    delivery_status: input.delivery_status ?? null,
-    dirty_baseline_hash: input.dirty_baseline_hash ?? null,
-    qualification_key: input.qualification_key ?? null,
-    revision: input.revision ?? (snapshotSource === "artifact-chain" ? null : 0),
-    artifact_set_hash: input.artifact_set_hash ?? null,
-    observed_at: input.observed_at ?? (/* @__PURE__ */ new Date()).toISOString(),
-    ...overrides
-  };
-}
-function waiting(input, blocker, nextAction = "answer") {
-  return snapshot(input, "waiting-human", {
-    allowed_actions: ["answer", "pause", "stop"],
-    required_actor: "human",
-    next_action: nextAction,
-    blockers: [...new Set([...input.blockers ?? [], blocker].filter(Boolean))]
-  });
-}
-function deriveWorkflowState(input = {}) {
-  const manualArtifacts = input.snapshot_source === "artifact-chain";
-  if (terminalLifecycle.has(input.lifecycle)) return snapshot(input, input.lifecycle, { required_actor: "none" });
-  if (input.lifecycle === "paused") return snapshot(input, "paused", { allowed_actions: ["resume", "stop"], required_actor: "human", next_action: "resume" });
-  if (input.lifecycle === "interrupted") return snapshot(input, "interrupted", { allowed_actions: ["resume", "stop"], required_actor: "human", next_action: "reconcile-and-resume" });
-  if (manualArtifacts && input.manual_context_incomplete) return snapshot(input, "waiting-human", {
-    allowed_actions: ["provide-artifacts"],
-    required_actor: "human",
-    next_action: "provide-artifacts"
-  });
-  if (input.artifact_chain_valid === false) return snapshot(input, "replan", {
-    allowed_actions: manualArtifacts ? ["replan"] : ["replan", "stop"],
-    required_actor: "human",
-    next_action: manualArtifacts ? "replan" : "create-schema-5-root"
-  });
-  if ((input.blockers ?? []).length > 0 || input.lifecycle === "waiting-human") return waiting(input, null, input.next_action ?? "answer");
-  if (!input.goal && !input.root_plan_id) return snapshot(input, "intake", { allowed_actions: ["provide-goal", "provide-root-plan"], required_actor: "human", next_action: "provide-intent" });
-  if (input.material_open_decisions) return snapshot(input, "intent-clarification", { allowed_actions: manualArtifacts ? ["answer", "replan"] : ["answer", "stop"], required_actor: "human", next_action: "resolve-intent" });
-  if (!input.root_plan_id || input.plan_status === "draft") return snapshot(input, "root-plan-review", { allowed_actions: ["inspect", "approve", "stop"], required_actor: input.plan_status === "draft" ? "human" : "planner", next_action: input.plan_status === "draft" ? "approve-plan" : "create-root-plan" });
-  if (!input.plan_approved) return snapshot(input, "root-plan-review", manualArtifacts ? { allowed_actions: ["inspect", "implement", "replan"], required_actor: "human", next_action: "implement-plan" } : { allowed_actions: ["inspect", "approve", "stop"], required_actor: "human", next_action: "approve-plan" });
-  if (!input.intent_ready) return snapshot(input, "replan", { allowed_actions: ["replan", "stop"], required_actor: "human", next_action: "replan", blockers: ["root-plan-not-intent-ready"] });
-  if (input.root_schema_valid === false) return snapshot(input, "replan", {
-    allowed_actions: ["replan", "stop"],
-    required_actor: "human",
-    next_action: "create-schema-5-root",
-    blockers: ["invalid-schema-5-root"]
-  });
-  if (!input.execution_started) return snapshot(input, manualArtifacts ? "root-plan-review" : "strategy-ready", manualArtifacts ? { allowed_actions: ["inspect", "implement", "replan"], required_actor: "human", next_action: "implement-plan" } : { allowed_actions: ["execute", "pause", "stop"], required_actor: "controller", next_action: "execute-strategy" });
-  if (input.phase === "baseline-verification") return snapshot(input, "baseline-verification", { allowed_actions: ["pause", "stop"], required_actor: "verifier", next_action: "capture-baseline" });
-  if (input.phase === "strategy-ready") return snapshot(input, "strategy-ready", { allowed_actions: ["execute", "pause", "stop"], required_actor: "controller", next_action: "execute-strategy" });
-  if (input.phase === "implementing") return snapshot(input, "implementing", { allowed_actions: ["pause", "stop"], required_actor: "writer", next_action: "finish-slice" });
-  if (input.phase === "host-verifying") return snapshot(input, "host-verifying", { allowed_actions: ["pause", "stop"], required_actor: "controller", next_action: "verify-slice" });
-  if (input.phase === "slice-review") return snapshot(input, "slice-review", { allowed_actions: ["pause", "stop"], required_actor: "reviewer", next_action: "review-slice" });
-  const nextAction = input.review?.next_action;
-  if (manualArtifacts && input.correction_evidence_pending_review) return snapshot(input, "root-review", { allowed_actions: ["review"], required_actor: "reviewer", next_action: "review-root" });
-  if (nextAction === "clarify") return manualArtifacts ? snapshot(input, "waiting-human", { allowed_actions: ["answer", "replan"], required_actor: "human", next_action: "answer", blockers: [.../* @__PURE__ */ new Set([...input.blockers ?? [], "review-requires-clarification"])] }) : waiting(input, "review-requires-clarification", "answer");
-  if (nextAction === "replan") return snapshot(input, "replan", { allowed_actions: manualArtifacts ? ["replan"] : ["replan", "stop"], required_actor: "human", next_action: "replan" });
-  if (nextAction === "correct") return manualArtifacts ? snapshot(input, "waiting-human", { allowed_actions: ["inspect", "correct", "replan"], required_actor: "human", next_action: "approve-correction" }) : snapshot(input, "slice-review", { allowed_actions: ["correct", "pause", "stop"], required_actor: "writer", next_action: "correct" });
-  if (nextAction === "retry-review") return manualArtifacts ? snapshot(input, "root-review", { allowed_actions: ["review"], required_actor: "reviewer", next_action: "retry-review" }) : snapshot(input, "slice-review", { allowed_actions: ["retry-review", "pause", "stop"], required_actor: "reviewer", next_action: "retry-review" });
-  if (input.more_slices) return snapshot(input, "slice-ready", { allowed_actions: ["implement", "pause", "stop"], required_actor: "writer", next_action: "implement-next-slice" });
-  if (manualArtifacts && input.delivery_status === "provisional") {
-    if (input.manual_acceptance === "provisional") return snapshot(input, "accepted-provisional", {
-      allowed_actions: ["inspect"],
-      required_actor: "human",
-      next_action: "none",
-      acceptance_persisted: false,
-      acceptance_basis_hash: input.acceptance_basis_hash ?? input.artifact_set_hash ?? null
-    });
-    return snapshot(input, "delivery-ready-provisional", { allowed_actions: ["accept-provisional", "inspect"], required_actor: "human", next_action: "accept-provisional" });
-  }
-  if (!input.root_review_complete) return snapshot(input, "root-review", { allowed_actions: manualArtifacts ? ["review"] : ["review", "pause", "stop"], required_actor: "reviewer", next_action: "review-root" });
-  if (input.phase === "delivery-ready-provisional" || input.delivery_status === "provisional") return snapshot(input, "delivery-ready-provisional", { allowed_actions: ["accept-provisional", "inspect", "stop"], required_actor: "human", next_action: "accept-provisional" });
-  if (!manualArtifacts && (input.phase === "delivery-ready-verified" || input.delivery_status === "verified" && !input.delivery_accepted)) return snapshot(input, "delivery-ready-verified", { allowed_actions: ["accept-verified", "inspect", "stop"], required_actor: "human", next_action: "accept-verified" });
-  if (input.review?.assessment !== "achieved") return snapshot(input, "replan", { allowed_actions: ["replan", "stop"], required_actor: "human", next_action: "replan", blockers: ["root-review-not-achieved"] });
-  return snapshot(input, "achieved", { allowed_actions: ["explain", "learn"], required_actor: "human", next_action: "none" });
-}
-var workflowStates = Object.freeze([...states]);
+// src/controller/learning-context.mjs
+import { createHash as createHash2 } from "node:crypto";
 
 // src/controller/strategy.mjs
 import { createHash } from "node:crypto";
@@ -321,18 +197,902 @@ function calibrateRecipeEvidence(taskClass, entries, stage, baselineEntries = []
   });
 }
 
+// src/controller/learning-context.mjs
+var learningIdPattern = /^LRN-[A-Za-z0-9][A-Za-z0-9-]*$/;
+var findingKeyPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+var candidateKeys = /* @__PURE__ */ new Set(["finding_keys", "reusable_guidance", "candidate_targets", "confirmation_evidence"]);
+var candidateLimit = 16;
+function hash(value) {
+  return createHash2("sha256").update(typeof value === "string" ? value : JSON.stringify(value)).digest("hex");
+}
+function canonicalValue(value) {
+  if (Array.isArray(value)) return value.map((entry) => canonicalValue(entry));
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.keys(value).sort().filter((key) => value[key] !== void 0).map((key) => [key, canonicalValue(value[key])]));
+}
+function stableHash(value) {
+  return hash(JSON.stringify(canonicalValue(value)));
+}
+function runIntegrityBlockers(run, pluginRoot) {
+  const blockers = [];
+  let root;
+  try {
+    root = executionContractFromArtifactText(run?.root_plan_text, pluginRoot);
+  } catch (error) {
+    return [`intent-root-unreadable:${error.message}`];
+  }
+  if (root.errors.length > 0) blockers.push("intent-root-invalid");
+  if (root.raw_hash !== run.root_plan_hash) blockers.push("intent-root-content-hash-mismatch");
+  if (root.authoritative_projection_hash !== run.root_authoritative_projection_hash || root.authoritative_projection_hash !== run.intent_hash) blockers.push("intent-root-projection-hash-mismatch");
+  if (hash(root.fields) !== hash(run.plan?.fields)) blockers.push("intent-root-state-mismatch");
+  if (run.strategy?.root_projection_hash !== run.intent_hash) blockers.push("strategy-root-projection-mismatch");
+  if (run.strategy) {
+    const { strategy_hash: declaredHash, ...projection } = run.strategy;
+    if (strategyHash(projection) !== declaredHash) blockers.push("strategy-hash-mismatch");
+  } else blockers.push("strategy-missing");
+  return unique(blockers);
+}
+function unique(values) {
+  return [...new Set((values ?? []).filter(Boolean))];
+}
+function boundedText(value, label, maximum = 4e3) {
+  if (typeof value !== "string" || value.trim() === "") throw new Error(`${label} must be non-empty text`);
+  const normalized = value.trim();
+  if (normalized.length > maximum) throw new Error(`${label} exceeds ${maximum} characters`);
+  return normalized;
+}
+function normalizedStringArray(value, label, { maximum = 32, pattern = null, itemMaximum = 1e3 } = {}) {
+  if (!Array.isArray(value) || value.length === 0) throw new Error(`${label} must be a non-empty array`);
+  if (value.length > maximum) throw new Error(`${label} exceeds ${maximum} items`);
+  const normalized = unique(value.map((entry) => boundedText(entry, label, itemMaximum)));
+  if (normalized.length !== value.length) throw new Error(`${label} must contain unique items`);
+  if (pattern && normalized.some((entry) => !pattern.test(entry))) throw new Error(`${label} contains an invalid item`);
+  return normalized.toSorted();
+}
+function normalizedInteger(value, label, { minimum = 0 } = {}) {
+  if (!Number.isInteger(value) || value < minimum) throw new Error(`${label} must be an integer of at least ${minimum}`);
+  return value;
+}
+function candidatePayload(candidate, label = "controller learning candidate") {
+  return {
+    finding_keys: normalizedStringArray(candidate?.finding_keys, `${label} finding_keys`, { pattern: findingKeyPattern }),
+    reusable_guidance: boundedText(candidate?.reusable_guidance, `${label} reusable_guidance`, 2e3),
+    candidate_targets: normalizedStringArray(candidate?.candidate_targets, `${label} candidate_targets`, { maximum: 16, itemMaximum: 500 }),
+    confirmation_evidence: boundedText(candidate?.confirmation_evidence, `${label} confirmation_evidence`, 2e3)
+  };
+}
+function candidateIdentity(runId, rootPlanId, candidate) {
+  return stableHash({ run_id: runId, root_plan_id: rootPlanId, candidate: candidatePayload(candidate) });
+}
+function controllerLearningCandidateSemanticHash(candidate) {
+  return stableHash(candidatePayload(candidate));
+}
+function controllerLearningDecisionHash(decision, candidate) {
+  return stableHash({
+    assessment: decision?.assessment ?? null,
+    delivery_status: decision?.delivery_status ?? null,
+    next_action: decision?.next_action ?? null,
+    finding_keys: unique(decision?.finding_keys).toSorted(),
+    findings: decision?.findings ?? [],
+    learning_candidate: candidatePayload(candidate)
+  });
+}
+function normalizeSourceBindings(candidate, decision, receiptIds) {
+  const supplied = Array.isArray(candidate?.source_bindings) ? candidate.source_bindings : null;
+  const bindings = supplied ?? unique(receiptIds).map((receiptId) => ({
+    source_receipt_id: receiptId,
+    source_decision_hash: controllerLearningDecisionHash(decision, candidate)
+  }));
+  if (bindings.length === 0 || bindings.length > 16) throw new Error("controller learning candidate requires bounded reviewer provenance");
+  const normalized = bindings.map((binding) => ({
+    source_receipt_id: boundedText(binding?.source_receipt_id, "controller learning source receipt", 500),
+    source_decision_hash: boundedText(binding?.source_decision_hash, "controller learning source decision hash", 64)
+  }));
+  if (normalized.some((binding) => !/^[a-f0-9]{64}$/.test(binding.source_decision_hash))) throw new Error("controller learning source decision hash is invalid");
+  return [...new Map(normalized.map((binding) => [stableHash(binding), binding])).values()].toSorted((left, right) => left.source_receipt_id.localeCompare(right.source_receipt_id) || left.source_decision_hash.localeCompare(right.source_decision_hash));
+}
+function normalizedLineageEntry(value) {
+  return {
+    correction_id: boundedText(value?.correction_id, "controller learning correction ID", 500),
+    correction_cycle: normalizedInteger(value?.correction_cycle, "controller learning correction cycle", { minimum: 1 }),
+    strategy_revision: normalizedInteger(value?.strategy_revision, "controller learning strategy revision"),
+    source_bindings: normalizeSourceBindings({ source_bindings: value?.source_bindings }, null, [])
+  };
+}
+function projectedControllerLearningCandidate(candidate) {
+  const payload = candidatePayload(candidate);
+  const sourceDecisionHash = boundedText(candidate?.source_decision_hash, "controller learning source decision hash", 64);
+  if (!/^[a-f0-9]{64}$/.test(sourceDecisionHash)) throw new Error("controller learning source decision hash is invalid");
+  const projected = {
+    learning_id: boundedText(candidate?.learning_id, "controller learning ID", 500),
+    source_kind: boundedText(candidate?.source_kind, "controller learning source kind", 100),
+    run_id: boundedText(candidate?.run_id, "controller learning Run ID", 500),
+    root_plan_id: boundedText(candidate?.root_plan_id, "controller learning Root ID", 500),
+    candidate_hash: boundedText(candidate?.candidate_hash, "controller learning candidate hash", 64),
+    correction_id: boundedText(candidate?.correction_id, "controller learning correction ID", 500),
+    correction_cycle: normalizedInteger(candidate?.correction_cycle, "controller learning correction cycle", { minimum: 1 }),
+    strategy_revision: normalizedInteger(candidate?.strategy_revision, "controller learning strategy revision"),
+    ...payload,
+    source_receipt_ids: normalizedStringArray(candidate?.source_receipt_ids, "controller learning source receipt IDs", { maximum: 16, itemMaximum: 500 }),
+    source_decision_hash: sourceDecisionHash,
+    lineage: (candidate?.lineage ?? []).map((entry) => normalizedLineageEntry(entry))
+  };
+  if (!learningIdPattern.test(projected.learning_id)) throw new Error("controller learning candidate has an invalid learning_id");
+  if (projected.source_kind !== "controller-review") throw new Error("controller learning candidate has an invalid source kind");
+  if (!/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(projected.root_plan_id)) throw new Error("controller learning candidate has an invalid Root ID");
+  if (!/^[a-f0-9]{64}$/.test(projected.candidate_hash)) throw new Error("controller learning candidate has an invalid candidate hash");
+  if (!/^cp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(projected.correction_id)) throw new Error("controller learning candidate has an invalid correction ID");
+  if (projected.lineage.length === 0) throw new Error(`controller learning candidate ${projected.learning_id} has no correction lineage`);
+  return projected;
+}
+function normalizeDecisionLearningCandidates(value, findingKeys = [], nextAction = "none") {
+  if (value == null) return [];
+  if (!Array.isArray(value)) throw new Error("learning_candidates must be an array");
+  if (value.length > candidateLimit) throw new Error(`learning_candidates exceeds ${candidateLimit} items`);
+  if (nextAction !== "correct" && value.length > 0) throw new Error("learning_candidates are allowed only when next_action is correct");
+  const allowedFindings = new Set(findingKeys);
+  const normalized = value.map((candidate, index) => {
+    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) throw new Error(`learning candidate ${index + 1} must be an object`);
+    const unknown = Object.keys(candidate).filter((key) => !candidateKeys.has(key));
+    if (unknown.length > 0) throw new Error(`learning candidate ${index + 1} has unknown fields: ${unknown.join(", ")}`);
+    const candidateFindings = normalizedStringArray(candidate.finding_keys, `learning candidate ${index + 1} finding_keys`, { pattern: findingKeyPattern });
+    if (candidateFindings.some((key) => !allowedFindings.has(key))) throw new Error(`learning candidate ${index + 1} references an unknown finding key`);
+    const candidateTargets = normalizedStringArray(candidate.candidate_targets, `learning candidate ${index + 1} candidate_targets`, { maximum: 16, itemMaximum: 500 });
+    if (candidateTargets.some((target) => target.startsWith("/") || target.split(/[\\/]/).includes(".."))) {
+      throw new Error(`learning candidate ${index + 1} contains a non-project target`);
+    }
+    return {
+      finding_keys: candidateFindings,
+      reusable_guidance: boundedText(candidate.reusable_guidance, `learning candidate ${index + 1} reusable_guidance`, 2e3),
+      candidate_targets: candidateTargets,
+      confirmation_evidence: boundedText(candidate.confirmation_evidence, `learning candidate ${index + 1} confirmation_evidence`, 2e3)
+    };
+  });
+  const seen = /* @__PURE__ */ new Set();
+  return normalized.filter((candidate) => {
+    const digest = hash(candidate);
+    if (seen.has(digest)) return false;
+    seen.add(digest);
+    return true;
+  });
+}
+function materializeControllerLearningCandidates({ run, decision, correctionCycle, receiptIds = [] }) {
+  const proposed = decision?.learning_candidates ?? [];
+  if (decision?.next_action !== "correct") return { correction_id: null, candidates: [] };
+  const rootPlanId = run.plan?.fields?.id ?? run.root_plan_id;
+  if (!/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(rootPlanId))) throw new Error("controller learning candidates require a valid Root ID");
+  const rootSuffix = rootPlanId.replace(/^wp-/, "");
+  const cycle = Number.isInteger(correctionCycle) && correctionCycle > 0 ? correctionCycle : 1;
+  const correctionId = `cp-${rootSuffix}-controller-${cycle}`;
+  const candidates = proposed.map((candidate) => {
+    const payload = candidatePayload(candidate);
+    const candidateHash = candidateIdentity(run.run_id, rootPlanId, payload);
+    const sourceBindings = normalizeSourceBindings(candidate, decision, receiptIds);
+    const lineage = [{
+      correction_id: correctionId,
+      correction_cycle: cycle,
+      strategy_revision: run.strategy?.revision ?? 0,
+      source_bindings: sourceBindings
+    }];
+    return {
+      learning_id: `LRN-${rootSuffix}-${candidateHash.slice(0, 12)}`,
+      source_kind: "controller-review",
+      run_id: run.run_id,
+      root_plan_id: rootPlanId,
+      candidate_hash: candidateHash,
+      correction_id: correctionId,
+      correction_cycle: cycle,
+      strategy_revision: run.strategy?.revision ?? 0,
+      ...payload,
+      source_receipt_ids: sourceBindings.map((binding) => binding.source_receipt_id),
+      source_decision_hash: sourceBindings[0].source_decision_hash,
+      lineage
+    };
+  });
+  return { correction_id: correctionId, candidates };
+}
+function mergeControllerLearningCandidates(existing = [], additions = []) {
+  const merged = /* @__PURE__ */ new Map();
+  for (const candidate of [...existing, ...additions]) {
+    const normalizedCandidate = projectedControllerLearningCandidate(candidate);
+    const payload = candidatePayload(normalizedCandidate);
+    const candidateHash = candidateIdentity(normalizedCandidate.run_id, normalizedCandidate.root_plan_id, payload);
+    const expectedId = `LRN-${String(normalizedCandidate.root_plan_id).replace(/^wp-/, "")}-${candidateHash.slice(0, 12)}`;
+    if (normalizedCandidate.candidate_hash !== candidateHash || normalizedCandidate.learning_id !== expectedId) throw new Error(`controller learning candidate ${normalizedCandidate.learning_id} has inconsistent content identity`);
+    const lineage = normalizedCandidate.lineage;
+    const first = lineage[0];
+    const receiptIds = unique(lineage.flatMap((entry) => entry.source_bindings.map((binding) => binding.source_receipt_id))).toSorted();
+    if (normalizedCandidate.correction_id !== first.correction_id || normalizedCandidate.correction_cycle !== first.correction_cycle || normalizedCandidate.strategy_revision !== first.strategy_revision || normalizedCandidate.source_decision_hash !== first.source_bindings[0]?.source_decision_hash || JSON.stringify(normalizedCandidate.source_receipt_ids) !== JSON.stringify(receiptIds)) {
+      throw new Error(`controller learning candidate ${normalizedCandidate.learning_id} has inconsistent correction provenance`);
+    }
+    const prior = merged.get(candidateHash);
+    if (prior && stableHash(candidatePayload(prior)) !== stableHash(payload)) throw new Error(`controller learning candidate ${candidate.learning_id} conflicts with its prior record`);
+    if (!prior) {
+      merged.set(candidateHash, normalizedCandidate);
+      continue;
+    }
+    const combinedLineage = [...new Map([...prior.lineage, ...lineage].map((entry) => [stableHash(entry), entry])).values()].toSorted((left, right) => left.correction_cycle - right.correction_cycle || left.correction_id.localeCompare(right.correction_id));
+    const sourceReceiptIds = unique(combinedLineage.flatMap((entry) => entry.source_bindings.map((binding) => binding.source_receipt_id))).toSorted();
+    const primary = combinedLineage[0];
+    merged.set(candidateHash, {
+      ...prior,
+      correction_id: primary.correction_id,
+      correction_cycle: primary.correction_cycle,
+      strategy_revision: primary.strategy_revision,
+      lineage: combinedLineage,
+      source_receipt_ids: sourceReceiptIds,
+      source_decision_hash: primary.source_bindings[0].source_decision_hash
+    });
+  }
+  return [...merged.values()];
+}
+function controllerLearningEventRefs(candidates = []) {
+  return candidates.flatMap((candidate) => (candidate.lineage ?? []).map((lineage) => ({
+    learning_id: candidate.learning_id,
+    candidate_hash: candidate.candidate_hash,
+    run_id: candidate.run_id,
+    root_plan_id: candidate.root_plan_id,
+    correction_id: lineage.correction_id,
+    correction_cycle: lineage.correction_cycle,
+    strategy_revision: lineage.strategy_revision,
+    source_bindings: lineage.source_bindings
+  }))).toSorted((left, right) => left.learning_id.localeCompare(right.learning_id) || left.correction_cycle - right.correction_cycle);
+}
+function deliveryPathsHash(deliveryCommit, deliveredPaths) {
+  return stableHash({ delivery_commit: deliveryCommit, delivered_paths: unique(deliveredPaths).toSorted() });
+}
+function verifyEventChain(events = []) {
+  let previousHash = null;
+  for (const event of events) {
+    if (!event || event.previous_hash !== previousHash || typeof event.event_hash !== "string") return { valid: false, blocker: "controller-event-chain-invalid" };
+    const { event_hash: eventHash, ...unsigned } = event;
+    if (hash(unsigned) !== eventHash) return { valid: false, blocker: "controller-event-chain-invalid" };
+    previousHash = eventHash;
+  }
+  return { valid: true, blocker: null, last_hash: previousHash };
+}
+function terminalDeliveryEvent(run, events, deliveredPaths, { allowUnboundLegacy = false } = {}) {
+  const requiredResult = run.effective_profile === "supervised" ? "accepted-verified" : "achieved";
+  const expectedPathsHash = deliveryPathsHash(run.delivery_commit, deliveredPaths);
+  const expectedSubject = runEventSubject(run);
+  const subjectRequired = run.event_subject_schema === RUN_EVENT_SUBJECT_SCHEMA;
+  const legacySubjectAbsent = !Object.hasOwn(run, "event_subject_schema");
+  if (!subjectRequired && !legacySubjectAbsent) return false;
+  const expectedSubjectValid = expectedSubject.run_id === run.run_id && /^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(expectedSubject.root_plan_id)) && /^[a-f0-9]{64}$/.test(String(expectedSubject.intent_hash)) && ["supervised", "autonomous"].includes(expectedSubject.effective_profile);
+  const projectionFields = ["delivery_evidence_hash", "delivery_commit", "delivered_paths_hash"];
+  return events.some((event) => {
+    if (event.type !== "decision" || event.payload?.result !== requiredResult || !event.payload?.evidence_refs?.includes(run.delivery_evidence_hash)) return false;
+    const hasProjectionBinding = projectionFields.some((field) => Object.hasOwn(event.payload ?? {}, field));
+    const projectionMatches = event.payload?.delivery_evidence_hash === run.delivery_evidence_hash && event.payload?.delivery_commit === run.delivery_commit && event.payload?.delivered_paths_hash === expectedPathsHash;
+    const hasSubject = Object.hasOwn(event, "subject");
+    const subjectMatches = expectedSubjectValid && hasSubject && stableHash(event.subject) === stableHash(expectedSubject);
+    if (subjectRequired || hasSubject) return projectionMatches && subjectMatches;
+    return allowUnboundLegacy && legacySubjectAbsent && (projectionMatches || !hasProjectionBinding);
+  });
+}
+function reviewerReceiptConfirmed(run, receiptId) {
+  const matches = (run.receipts ?? []).filter((receipt2) => receipt2?.request_id === receiptId);
+  if (matches.length !== 1) return false;
+  const [receipt] = matches;
+  return ["reviewer", "investigator"].includes(receipt.phase) && receipt.model_attested === true && receipt.status === "finished" && receipt.reader_repository_unchanged !== false && typeof receipt.agent_id === "string" && receipt.agent_id !== "" && Number.isFinite(receipt.duration_ms) && receipt.duration_ms >= 0 && Number.isFinite(receipt.usage?.totalTokens) && receipt.usage.totalTokens >= 0 && Number.isFinite(receipt.cost_usd) && receipt.cost_usd >= 0 && receipt.artifact_projection_hash === run.intent_hash;
+}
+function controllerCandidateConfirmed(candidate, { eligible, run, events, chainValid, deliveredPaths }) {
+  if (!eligible || !chainValid) return false;
+  let projected;
+  try {
+    projected = projectedControllerLearningCandidate(candidate);
+  } catch {
+    return false;
+  }
+  const payload = candidatePayload(projected);
+  const rootPlanId = run.plan?.fields?.id ?? run.root_plan_id;
+  const candidateHash = candidateIdentity(run.run_id, rootPlanId, payload);
+  const expectedId = `LRN-${String(rootPlanId).replace(/^wp-/, "")}-${candidateHash.slice(0, 12)}`;
+  if (projected.run_id !== run.run_id || projected.root_plan_id !== rootPlanId || projected.candidate_hash !== candidateHash || projected.learning_id !== expectedId) return false;
+  const lineage = projected.lineage;
+  const first = lineage[0];
+  const expectedReceiptIds = unique(lineage.flatMap((entry) => entry.source_bindings.map((binding) => binding.source_receipt_id))).toSorted();
+  if (projected.correction_id !== first.correction_id || projected.correction_cycle !== first.correction_cycle || projected.strategy_revision !== first.strategy_revision || projected.source_decision_hash !== first.source_bindings[0]?.source_decision_hash || JSON.stringify(projected.source_receipt_ids) !== JSON.stringify(expectedReceiptIds)) return false;
+  const correctionLinked = lineage.every((entry) => {
+    const expectedRef = controllerLearningEventRefs([{ ...projected, lineage: [entry] }])[0];
+    const sourceReceiptIds = entry.source_bindings.map((binding) => binding.source_receipt_id).toSorted();
+    return events.some((event) => event.type === "decision" && event.payload?.correction_id === entry.correction_id && event.payload?.learning_candidate_ids?.includes(projected.learning_id) && sourceReceiptIds.every((receiptId) => (event.payload?.actor_receipts ?? []).includes(receiptId)) && (event.payload?.learning_candidate_refs ?? []).some((reference) => stableHash(reference) === stableHash(expectedRef)));
+  });
+  const provenanceAttested = expectedReceiptIds.every((receiptId) => reviewerReceiptConfirmed(run, receiptId));
+  const evidenceLinked = typeof run.delivery_evidence_hash === "string" && typeof run.delivery_commit === "string" && terminalDeliveryEvent(run, events, deliveredPaths);
+  const finalFindings = new Set(run.review?.finding_keys ?? []);
+  return correctionLinked && provenanceAttested && evidenceLinked && projected.finding_keys.every((key) => !finalFindings.has(key));
+}
+function deriveControllerLearningContext({ run, events = [], workspaceRoot, pluginRoot, sourceBinding = null }) {
+  const blockers = [];
+  const compatibility = classifyRunCompatibility(run);
+  if (!compatibility.compatible) blockers.push(compatibility.blocker ?? "controller-run-protocol-incompatible");
+  if (run?.event_subject_schema === RUN_EVENT_SUBJECT_SCHEMA) blockers.push(...runIntegrityBlockers(run, pluginRoot));
+  if (sourceBinding?.confirmed !== true) blockers.push(sourceBinding?.blocker ?? "controller-learning-source-not-current-task-bound");
+  if (run.lifecycle !== "achieved") blockers.push("learning-source-not-achieved");
+  if (run.delivery_status !== "verified" || run.evidence_grade !== "verified") blockers.push("learning-source-not-verified");
+  if (!run.root_review_complete || run.review?.assessment !== "achieved" || run.review?.delivery_status !== "verified") blockers.push("learning-review-not-achieved");
+  if ((run.blockers ?? []).length > 0) blockers.push("learning-source-has-blockers");
+  if (run.effective_profile === "supervised" && !(run.delivery_accepted === true && run.accepted_as === "verified")) blockers.push("supervised-learning-requires-verified-acceptance");
+  if (!["supervised", "autonomous"].includes(run.effective_profile)) blockers.push("controller-learning-profile-invalid");
+  const chain = verifyEventChain(events);
+  if (events.length === 0) blockers.push("controller-event-chain-missing");
+  if (!chain.valid) blockers.push(chain.blocker);
+  const deliveryCommit = run.delivery_commit ?? run.checkpoints?.at(-1)?.commit ?? null;
+  const humanBaseline = run.worktree?.human_baseline ?? null;
+  let storedPaths = null;
+  if (Array.isArray(run.delivered_paths)) {
+    try {
+      storedPaths = normalizedStringArray(run.delivered_paths, "controller delivered_paths", { maximum: 1e4, itemMaximum: 4e3 });
+    } catch {
+      blockers.push("controller-delivery-paths-invalid");
+    }
+  }
+  let deliveredPaths = null;
+  if (!deliveryCommit || !humanBaseline) blockers.push("controller-delivery-fingerprint-unavailable");
+  if (deliveryCommit && humanBaseline) {
+    try {
+      deliveredPaths = changedPathsBetween(workspaceRoot, humanBaseline, deliveryCommit);
+      if (deliveredPaths.length === 0) blockers.push("controller-delivery-paths-empty");
+      if (storedPaths && JSON.stringify(storedPaths) !== JSON.stringify(deliveredPaths)) blockers.push("controller-delivery-paths-mismatch");
+    } catch {
+      blockers.push("controller-delivery-paths-unavailable");
+    }
+  }
+  let workspaceMatch = { status: "unverifiable", matched: false, paths: deliveredPaths ?? [] };
+  if (deliveryCommit && deliveredPaths) {
+    workspaceMatch = workspaceDeliveryMatch(workspaceRoot, deliveryCommit, deliveredPaths);
+    if (!workspaceMatch.matched) blockers.push(`controller-delivery-${workspaceMatch.status}`);
+  }
+  if (chain.valid && deliveredPaths && !terminalDeliveryEvent(run, events, deliveredPaths, { allowUnboundLegacy: true })) blockers.push("controller-delivery-event-unconfirmed");
+  const projectedCandidates = [];
+  for (const candidate of run.learning_candidates ?? []) {
+    try {
+      projectedCandidates.push(projectedControllerLearningCandidate(candidate));
+    } catch {
+      blockers.push("controller-learning-candidate-invalid");
+    }
+  }
+  const eligible = blockers.length === 0;
+  const candidates = projectedCandidates.map((candidate) => ({
+    ...candidate,
+    evidence_confirmed: controllerCandidateConfirmed(candidate, { eligible, run, events, chainValid: chain.valid, deliveredPaths: deliveredPaths ?? [] })
+  }));
+  return {
+    schema: 1,
+    eligible,
+    source_kind: "controller-run",
+    source_id: run.run_id,
+    root_plan_id: run.plan?.fields?.id ?? run.root_plan_id ?? null,
+    effective_profile: run.effective_profile ?? null,
+    blockers: unique(blockers),
+    workspace_match: workspaceMatch,
+    delivery_commit: deliveryCommit,
+    delivered_paths: deliveredPaths ?? [],
+    event_chain_valid: chain.valid,
+    compatibility: compatibility.compatibility,
+    source_binding: sourceBinding?.confirmed === true ? { status: "confirmed", kind: sourceBinding.kind ?? "ephemeral-receipt" } : { status: "unconfirmed", kind: sourceBinding?.kind ?? null },
+    candidates
+  };
+}
+function derivePreparationLearningContext(preparation) {
+  const compatibility = classifyPreparationCompatibility(preparation);
+  return {
+    schema: 1,
+    eligible: false,
+    source_kind: "controller-preparation",
+    source_id: preparation?.preparation_id ?? null,
+    root_plan_id: preparation?.root_plan_id ?? preparation?.plan?.fields?.id ?? null,
+    effective_profile: preparation?.requested_profile ?? null,
+    blockers: [compatibility.blocker ?? "learning-source-not-delivery-run"],
+    workspace_match: { status: "not-applicable", matched: false, paths: [] },
+    delivery_commit: null,
+    delivered_paths: [],
+    event_chain_valid: false,
+    compatibility: compatibility.compatibility,
+    source_binding: { status: "not-applicable", kind: null },
+    candidates: []
+  };
+}
+
+// src/controller/engine.mjs
+import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync as readFileSync3, statSync } from "node:fs";
+import { join as join2, resolve as resolve3 } from "node:path";
+import { spawnSync as spawnSync2 } from "node:child_process";
+
+// scripts/derive-workflow-state.mjs
+var states = /* @__PURE__ */ new Set([
+  "intake",
+  "intent-clarification",
+  "root-plan-review",
+  "intent-ready",
+  "product-aligned",
+  "architecture-aligned",
+  "program-design-aligned",
+  "slice-ready",
+  "strategy-ready",
+  "baseline-verification",
+  "implementing",
+  "host-verifying",
+  "slice-review",
+  "root-review",
+  "delivery-ready",
+  "delivery-ready-verified",
+  "delivery-ready-provisional",
+  "waiting-human",
+  "replan",
+  "achieved",
+  "accepted-provisional",
+  "blocked",
+  "paused",
+  "interrupted",
+  "stopped",
+  "failed"
+]);
+var terminalLifecycle = /* @__PURE__ */ new Set(["achieved", "accepted-provisional", "blocked", "stopped", "failed"]);
+function snapshot(input, state, overrides = {}) {
+  if (!states.has(state)) throw new Error(`unsupported workflow state ${state}`);
+  const snapshotSource = input.snapshot_source ?? (input.run_id ? "controller-run" : "artifact-chain");
+  return {
+    run_id: input.run_id ?? null,
+    root_plan_id: input.root_plan_id ?? null,
+    requested_profile: input.requested_profile ?? "manual",
+    effective_profile: input.effective_profile ?? input.requested_profile ?? "manual",
+    contract_level: input.plan?.fields?.contract_level ?? input.contract_level ?? null,
+    compatibility: input.compatibility ?? "compatible",
+    state,
+    snapshot_source: snapshotSource,
+    allowed_actions: [],
+    required_actor: "none",
+    next_action: "none",
+    evidence_tip: input.evidence_tip ?? null,
+    review_tip: input.review_tip ?? null,
+    blockers: [...new Set(input.blockers ?? [])],
+    downgrade_reason: input.downgrade_reason ?? null,
+    intent_hash: input.intent_hash ?? input.root_authoritative_projection_hash ?? null,
+    strategy_revision: input.strategy_revision ?? input.strategy?.revision ?? null,
+    strategy_hash: input.strategy?.strategy_hash ?? null,
+    deviations: input.deviations ?? input.strategy?.deviations ?? [],
+    evidence_grade: input.evidence_grade ?? null,
+    delivery_status: input.delivery_status ?? null,
+    dirty_baseline_hash: input.dirty_baseline_hash ?? null,
+    qualification_key: input.qualification_key ?? null,
+    revision: input.revision ?? (snapshotSource === "artifact-chain" ? null : 0),
+    artifact_set_hash: input.artifact_set_hash ?? null,
+    observed_at: input.observed_at ?? (/* @__PURE__ */ new Date()).toISOString(),
+    ...overrides
+  };
+}
+function waiting(input, blocker, nextAction = "answer") {
+  return snapshot(input, "waiting-human", {
+    allowed_actions: ["answer", "pause", "stop"],
+    required_actor: "human",
+    next_action: nextAction,
+    blockers: [...new Set([...input.blockers ?? [], blocker].filter(Boolean))]
+  });
+}
+function deriveWorkflowState(input = {}) {
+  const manualArtifacts = input.snapshot_source === "artifact-chain";
+  if (terminalLifecycle.has(input.lifecycle)) return snapshot(input, input.lifecycle, { required_actor: "none" });
+  if (input.lifecycle === "paused") return snapshot(input, "paused", { allowed_actions: ["resume", "stop"], required_actor: "human", next_action: "resume" });
+  if (input.lifecycle === "interrupted") return snapshot(input, "interrupted", { allowed_actions: ["resume", "stop"], required_actor: "human", next_action: "reconcile-and-resume" });
+  if (manualArtifacts && input.manual_context_incomplete) return snapshot(input, "waiting-human", {
+    allowed_actions: ["provide-artifacts"],
+    required_actor: "human",
+    next_action: "provide-artifacts"
+  });
+  if (input.artifact_chain_valid === false) return snapshot(input, "replan", {
+    allowed_actions: manualArtifacts ? ["replan"] : ["replan", "stop"],
+    required_actor: "human",
+    next_action: manualArtifacts ? "replan" : "create-schema-5-root"
+  });
+  if ((input.blockers ?? []).length > 0 || input.lifecycle === "waiting-human") return waiting(input, null, input.next_action ?? "answer");
+  if (!input.goal && !input.root_plan_id) return snapshot(input, "intake", { allowed_actions: ["provide-goal", "provide-root-plan"], required_actor: "human", next_action: "provide-intent" });
+  if (input.material_open_decisions) return snapshot(input, "intent-clarification", { allowed_actions: manualArtifacts ? ["answer", "replan"] : ["answer", "stop"], required_actor: "human", next_action: "resolve-intent" });
+  if (!input.root_plan_id || input.plan_status === "draft") return snapshot(input, "root-plan-review", { allowed_actions: ["inspect", "approve", "stop"], required_actor: input.plan_status === "draft" ? "human" : "planner", next_action: input.plan_status === "draft" ? "approve-plan" : "create-root-plan" });
+  if (!input.plan_approved) return snapshot(input, "root-plan-review", manualArtifacts ? { allowed_actions: ["inspect", "implement", "replan"], required_actor: "human", next_action: "implement-plan" } : { allowed_actions: ["inspect", "approve", "stop"], required_actor: "human", next_action: "approve-plan" });
+  if (!input.intent_ready) return snapshot(input, "replan", { allowed_actions: ["replan", "stop"], required_actor: "human", next_action: "replan", blockers: ["root-plan-not-intent-ready"] });
+  if (input.root_schema_valid === false) return snapshot(input, "replan", {
+    allowed_actions: ["replan", "stop"],
+    required_actor: "human",
+    next_action: "create-schema-5-root",
+    blockers: ["invalid-schema-5-root"]
+  });
+  if (!input.execution_started) return snapshot(input, manualArtifacts ? "root-plan-review" : "strategy-ready", manualArtifacts ? { allowed_actions: ["inspect", "implement", "replan"], required_actor: "human", next_action: "implement-plan" } : { allowed_actions: ["execute", "pause", "stop"], required_actor: "controller", next_action: "execute-strategy" });
+  if (input.phase === "baseline-verification") return snapshot(input, "baseline-verification", { allowed_actions: ["pause", "stop"], required_actor: "verifier", next_action: "capture-baseline" });
+  if (input.phase === "strategy-ready") return snapshot(input, "strategy-ready", { allowed_actions: ["execute", "pause", "stop"], required_actor: "controller", next_action: "execute-strategy" });
+  if (input.phase === "implementing") return snapshot(input, "implementing", { allowed_actions: ["pause", "stop"], required_actor: "writer", next_action: "finish-slice" });
+  if (input.phase === "host-verifying") return snapshot(input, "host-verifying", { allowed_actions: ["pause", "stop"], required_actor: "controller", next_action: "verify-slice" });
+  if (input.phase === "slice-review") return snapshot(input, "slice-review", { allowed_actions: ["pause", "stop"], required_actor: "reviewer", next_action: "review-slice" });
+  const nextAction = input.review?.next_action;
+  if (manualArtifacts && input.correction_evidence_pending_review) return snapshot(input, "root-review", { allowed_actions: ["review"], required_actor: "reviewer", next_action: "review-root" });
+  if (nextAction === "clarify") return manualArtifacts ? snapshot(input, "waiting-human", { allowed_actions: ["answer", "replan"], required_actor: "human", next_action: "answer", blockers: [.../* @__PURE__ */ new Set([...input.blockers ?? [], "review-requires-clarification"])] }) : waiting(input, "review-requires-clarification", "answer");
+  if (nextAction === "replan") return snapshot(input, "replan", { allowed_actions: manualArtifacts ? ["replan"] : ["replan", "stop"], required_actor: "human", next_action: "replan" });
+  if (nextAction === "correct") return manualArtifacts ? snapshot(input, "waiting-human", { allowed_actions: ["inspect", "correct", "replan"], required_actor: "human", next_action: "approve-correction" }) : snapshot(input, "slice-review", { allowed_actions: ["correct", "pause", "stop"], required_actor: "writer", next_action: "correct" });
+  if (nextAction === "retry-review") return manualArtifacts ? snapshot(input, "root-review", { allowed_actions: ["review"], required_actor: "reviewer", next_action: "retry-review" }) : snapshot(input, "slice-review", { allowed_actions: ["retry-review", "pause", "stop"], required_actor: "reviewer", next_action: "retry-review" });
+  if (input.more_slices) return snapshot(input, "slice-ready", { allowed_actions: ["implement", "pause", "stop"], required_actor: "writer", next_action: "implement-next-slice" });
+  if (manualArtifacts && input.delivery_status === "provisional") {
+    if (input.manual_acceptance === "provisional") return snapshot(input, "accepted-provisional", {
+      allowed_actions: ["inspect"],
+      required_actor: "none",
+      next_action: "none",
+      acceptance_persisted: false,
+      acceptance_basis_hash: input.acceptance_basis_hash ?? input.artifact_set_hash ?? null
+    });
+    return snapshot(input, "delivery-ready-provisional", { allowed_actions: ["accept-provisional", "inspect"], required_actor: "human", next_action: "accept-provisional" });
+  }
+  if (!input.root_review_complete) return snapshot(input, "root-review", { allowed_actions: manualArtifacts ? ["review"] : ["review", "pause", "stop"], required_actor: "reviewer", next_action: "review-root" });
+  if (input.phase === "delivery-ready-provisional" || input.delivery_status === "provisional") return snapshot(input, "delivery-ready-provisional", { allowed_actions: ["accept-provisional", "inspect", "stop"], required_actor: "human", next_action: "accept-provisional" });
+  if (!manualArtifacts && (input.phase === "delivery-ready-verified" || input.delivery_status === "verified" && !input.delivery_accepted)) return snapshot(input, "delivery-ready-verified", { allowed_actions: ["accept-verified", "inspect", "stop"], required_actor: "human", next_action: "accept-verified" });
+  if (input.review?.assessment !== "achieved") return snapshot(input, "replan", { allowed_actions: ["replan", "stop"], required_actor: "human", next_action: "replan", blockers: ["root-review-not-achieved"] });
+  return snapshot(input, "achieved", { allowed_actions: ["explain", "learn"], required_actor: "none", next_action: "none" });
+}
+var workflowStates = Object.freeze([...states]);
+
 // src/controller/delivery-closeout.mjs
 var import_yaml = __toESM(require_dist(), 1);
-import { createHash as createHash2 } from "node:crypto";
+import { createHash as createHash5 } from "node:crypto";
+
+// src/core/manual-check-receipts.mjs
+import { createHash as createHash4, randomUUID } from "node:crypto";
+import {
+  chmodSync,
+  existsSync,
+  lstatSync as lstatSync2,
+  mkdirSync,
+  readdirSync,
+  readFileSync as readFileSync2,
+  realpathSync,
+  renameSync,
+  rmSync,
+  writeFileSync
+} from "node:fs";
+import { dirname, join, relative, resolve as resolve2, sep } from "node:path";
+
+// src/core/manual-repository-snapshot.mjs
+import { createHash as createHash3 } from "node:crypto";
+import { spawnSync } from "node:child_process";
+import {
+  lstatSync,
+  readFileSync,
+  readlinkSync
+} from "node:fs";
+import { resolve } from "node:path";
+function git(workspaceRoot, args, options = {}) {
+  const runner = options.spawnSync ?? spawnSync;
+  const result = runner("git", ["-C", workspaceRoot, ...args], {
+    encoding: args.includes("-z") ? "buffer" : "utf8",
+    maxBuffer: 16 * 1024 * 1024,
+    windowsHide: true
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    const stderr = Buffer.isBuffer(result.stderr) ? result.stderr.toString("utf8") : String(result.stderr ?? "");
+    throw new Error(`repository snapshot failed: git ${args.join(" ")} (${stderr.trim() || `exit ${result.status}`})`);
+  }
+  return result.stdout;
+}
+function nulPaths(value) {
+  const buffer = Buffer.isBuffer(value) ? value : Buffer.from(String(value ?? ""));
+  return buffer.toString("utf8").split("\0").filter(Boolean);
+}
 function sha256(value) {
-  return createHash2("sha256").update(String(value)).digest("hex");
+  return createHash3("sha256").update(value).digest("hex");
+}
+function repositoryPathFingerprint(workspaceRoot, repositoryPath) {
+  const absolute = resolve(workspaceRoot, repositoryPath);
+  try {
+    const stat = lstatSync(absolute);
+    if (stat.isSymbolicLink()) return `symlink:${sha256(Buffer.from(readlinkSync(absolute), "utf8"))}`;
+    if (stat.isFile()) return `file:${stat.mode.toString(8)}:${sha256(readFileSync(absolute))}`;
+    if (stat.isDirectory()) return `directory:${stat.mode.toString(8)}`;
+    return `other:${stat.mode.toString(8)}:${stat.size}`;
+  } catch (error) {
+    if (error?.code === "ENOENT") return "missing";
+    throw error;
+  }
+}
+function captureRepositorySnapshot(workspaceRoot, options = {}) {
+  const root = String(git(workspaceRoot, ["rev-parse", "--show-toplevel"], options)).trim();
+  const head = String(git(root, ["rev-parse", "HEAD"], options)).trim();
+  const index = git(root, ["ls-files", "--stage", "-z", "--"], options);
+  const status = git(root, ["status", "--porcelain=v2", "--untracked-files=all", "-z", "--"], options);
+  const tracked = nulPaths(git(root, ["diff", "--name-only", "-z", "HEAD", "--"], options));
+  const untracked = nulPaths(git(root, ["ls-files", "--others", "--exclude-standard", "-z", "--"], options));
+  const dirtyPaths = [.../* @__PURE__ */ new Set([...tracked, ...untracked])].sort();
+  const fingerprints = Object.fromEntries(dirtyPaths.map((path) => [path, repositoryPathFingerprint(root, path)]));
+  return {
+    schema: 1,
+    repository_root: root,
+    head,
+    dirty_paths: dirtyPaths,
+    fingerprints,
+    index_fingerprint: sha256(Buffer.isBuffer(index) ? index : Buffer.from(String(index))),
+    status_fingerprint: sha256(Buffer.isBuffer(status) ? status : Buffer.from(String(status))),
+    working_tree: dirtyPaths.length > 0 ? "modified" : "unchanged",
+    captured_at: (/* @__PURE__ */ new Date()).toISOString()
+  };
+}
+
+// src/core/manual-check-receipts.mjs
+var MANUAL_CHECK_RECEIPT_TTL_MS = 24 * 60 * 60 * 1e3;
+var MANUAL_CHECK_RECEIPT_SURFACE = "host-tool-receipt";
+function sha2562(value) {
+  return createHash4("sha256").update(String(value)).digest("hex");
 }
 function stable2(value) {
   if (Array.isArray(value)) return value.map(stable2);
   if (!value || typeof value !== "object") return value;
   return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable2(value[key])]));
 }
-function unique(values) {
+function stableJson(value) {
+  return JSON.stringify(stable2(value));
+}
+function unique2(values) {
+  return [...new Set((values ?? []).filter(Boolean).map(String))];
+}
+function normalizeManualCheckCommand(value) {
+  const trimmed = String(value ?? "").trim();
+  return trimmed.startsWith("rtk ") ? trimmed.slice(4) : trimmed;
+}
+function plannedWorkingDirectory(value) {
+  const source = String(value ?? "").trim();
+  if (!source || /^repository root$/i.test(source) || source === ".") return ".";
+  const normalized = source.replaceAll("\\", "/").replace(/^\.\//, "").replace(/\/$/, "");
+  if (!normalized || normalized === ".." || normalized.startsWith("../") || normalized.startsWith("/")) return null;
+  return normalized;
+}
+function manualMachineChecks(rootPlanText, pluginRoot) {
+  const contract = executionContractFromArtifactText(rootPlanText, pluginRoot);
+  if (contract.errors.length > 0 || contract.fields?.schema !== 5) {
+    throw new Error(`manual Check receipts require a valid Schema-5 Root: ${contract.errors.join("; ")}`);
+  }
+  return {
+    root_plan_id: contract.fields.id,
+    root_hash: rootContentHash(rootPlanText),
+    checks: contract.checks.filter((check) => check.Required === "yes" && check["Evidence Class"] === "machine-verifiable").map((check) => ({
+      check_id: check["Check ID"],
+      command: normalizeManualCheckCommand(check["Command or Inspection"]),
+      command_hash: sha2562(normalizeManualCheckCommand(check["Command or Inspection"])),
+      working_directory: plannedWorkingDirectory(check["Working Directory"]),
+      expected: check["Expected Result"],
+      required_repetitions: 1
+    })),
+    all_checks: contract.checks.filter((check) => check.Required === "yes")
+  };
+}
+function repositorySnapshotFingerprint(snapshot2) {
+  if (!snapshot2 || typeof snapshot2 !== "object") throw new Error("manual Check receipt requires a repository snapshot");
+  return sha2562(stableJson({
+    repository_root: resolve2(snapshot2.repository_root),
+    head: snapshot2.head,
+    dirty_paths: snapshot2.dirty_paths,
+    fingerprints: snapshot2.fingerprints,
+    index_fingerprint: snapshot2.index_fingerprint ?? null,
+    status_fingerprint: snapshot2.status_fingerprint ?? null
+  }));
+}
+function proofBase(workspaceRoot, rootHash, options = {}) {
+  return join(sharedArtifactStateRoot(canonicalWorkspaceRoot(workspaceRoot), options), "manual-check-receipts", rootHash);
+}
+function canonicalWorkspaceRoot(workspaceRoot) {
+  try {
+    return realpathSync(workspaceRoot);
+  } catch {
+    return resolve2(workspaceRoot);
+  }
+}
+function assertSafeDirectory(path, base) {
+  const resolvedBase = resolve2(base);
+  const resolvedPath = resolve2(path);
+  if (resolvedPath !== resolvedBase && !resolvedPath.startsWith(`${resolvedBase}${sep}`)) {
+    throw new Error("manual Check receipt path escapes its protected state root");
+  }
+  let current = resolvedPath;
+  while (current !== resolvedBase && !existsSync(current)) current = dirname(current);
+  if (existsSync(current) && lstatSync2(current).isSymbolicLink()) {
+    throw new Error("manual Check receipt state may not be symlink redirected");
+  }
+}
+function readReceiptRecord(path, base) {
+  assertSafeDirectory(path, base);
+  const stat = lstatSync2(path);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 64 * 1024) return null;
+  const value = JSON.parse(readFileSync2(path, "utf8"));
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+function existingRecords(directory, base) {
+  if (!existsSync(directory)) return [];
+  assertSafeDirectory(directory, base);
+  if (lstatSync2(directory).isSymbolicLink()) return [];
+  return readdirSync(directory).filter((name) => /^[a-f0-9]{64}\.json$/.test(name)).flatMap((name) => {
+    try {
+      const record = readReceiptRecord(join(directory, name), base);
+      return record ? [record] : [];
+    } catch {
+      return [];
+    }
+  });
+}
+function invalidateManualCheckReceipts({ rootPlanText, workspaceRoot, options = {} }) {
+  if (typeof rootPlanText !== "string" || !rootPlanText.trim()) return false;
+  const rootHash = rootContentHash(rootPlanText);
+  const canonicalRoot = canonicalWorkspaceRoot(workspaceRoot);
+  const base = proofBase(canonicalRoot, rootHash, options);
+  if (!existsSync(base)) return false;
+  const stateRoot = sharedArtifactStateRoot(canonicalRoot, options);
+  assertSafeDirectory(base, stateRoot);
+  if (lstatSync2(base).isSymbolicLink()) throw new Error("manual Check receipt state may not be symlink redirected");
+  rmSync(base, { recursive: true, force: true });
+  return true;
+}
+function validStoredReceipt(record, { plan, repositoryRoot, currentFingerprint, now }) {
+  if (!record || record.schema !== 1 || record.kind !== "manual-check-receipt-record") return false;
+  const receipt = record.receipt;
+  if (!receipt || receipt.schema !== 1 || receipt.kind !== "manual-check-receipt") return false;
+  if (!/^[a-f0-9]{64}$/.test(String(record.receipt_hash ?? ""))) return false;
+  if (sha2562(stableJson(receipt)) !== record.receipt_hash) return false;
+  if (receipt.root_hash !== plan.root_hash || receipt.repository_key !== repositoryKey(repositoryRoot)) return false;
+  if (receipt.snapshot_fingerprint !== currentFingerprint) return false;
+  const expires = Date.parse(record.expires_at);
+  if (!Number.isFinite(expires) || expires <= now.getTime()) return false;
+  const check = plan.checks.find((entry) => entry.check_id === receipt.check_id);
+  if (!check || check.command_hash !== receipt.command_hash || check.working_directory !== receipt.working_directory) return false;
+  return ["passed", "failed"].includes(receipt.result_status) && Number.isInteger(receipt.repetition_ordinal) && receipt.repetition_ordinal >= 1;
+}
+function loadManualCheckReceipts({
+  rootPlanText,
+  pluginRoot,
+  workspaceRoot,
+  captureSnapshot = captureRepositorySnapshot,
+  now = () => /* @__PURE__ */ new Date(),
+  options = {}
+}) {
+  if (typeof rootPlanText !== "string" || !rootPlanText.trim() || !workspaceRoot) return [];
+  const plan = manualMachineChecks(rootPlanText, pluginRoot);
+  const current = captureSnapshot(workspaceRoot);
+  const currentFingerprint = repositorySnapshotFingerprint(current);
+  const canonicalRoot = current.repository_root;
+  const base = proofBase(canonicalRoot, plan.root_hash, options);
+  const stateRoot = sharedArtifactStateRoot(canonicalRoot, options);
+  if (!existsSync(base)) return [];
+  try {
+    assertSafeDirectory(base, stateRoot);
+    if (lstatSync2(base).isSymbolicLink()) return [];
+    return readdirSync(base, { withFileTypes: true }).filter((entry) => entry.isDirectory() && /^CHECK-[1-9][0-9]*$/.test(entry.name)).flatMap((entry) => existingRecords(join(base, entry.name), stateRoot)).filter((record) => validStoredReceipt(record, {
+      plan,
+      repositoryRoot: current.repository_root,
+      currentFingerprint,
+      now: now()
+    })).map((record) => ({ ...record.receipt, receipt_hash: record.receipt_hash })).sort((left, right) => left.check_id.localeCompare(right.check_id) || left.repetition_ordinal - right.repetition_ordinal);
+  } catch {
+    return [];
+  }
+}
+function limitationFor(check) {
+  const command = normalizeManualCheckCommand(check["Command or Inspection"]);
+  const workingDirectory = String(check["Working Directory"] ?? "repository root");
+  return `HOST-RECEIPT-MISSING: ${check["Check ID"]} was not host-attested for the current repository snapshot. Re-run exactly \`${command}\` from ${workingDirectory}, then retry closeout.`;
+}
+function sameCallerObservation(entry, existing) {
+  return Boolean(existing && entry?.grade === existing.grade && String(entry?.observed ?? "not fully observed") === String(existing.observed ?? "not fully observed") && String(entry?.expected ?? existing.expected ?? "") === String(existing.expected ?? ""));
+}
+function calibrateManualCheckEvidence({ entries, plannedChecks, receipts = [], existingCheckEvidence = [] }) {
+  const existingByCheck = new Map((existingCheckEvidence ?? []).map((entry) => [entry.check_id, entry]));
+  return entries.map((entry) => {
+    const check = plannedChecks.get(entry.check_id);
+    if (!check || check["Evidence Class"] !== "machine-verifiable") return entry;
+    const commandHash = sha2562(normalizeManualCheckCommand(check["Command or Inspection"]));
+    const workingDirectory = plannedWorkingDirectory(check["Working Directory"]);
+    const checkReceipts = receipts.filter((receipt) => receipt.command_hash === commandHash && receipt.working_directory === workingDirectory);
+    const failures = checkReceipts.filter((receipt) => receipt.result_status === "failed");
+    const successes = checkReceipts.filter((receipt) => receipt.result_status === "passed");
+    if (failures.length > 0) {
+      return {
+        ...entry,
+        grade: "failed",
+        surface: MANUAL_CHECK_RECEIPT_SURFACE,
+        method: normalizeManualCheckCommand(check["Command or Inspection"]),
+        repetitions: failures.length + successes.length,
+        artifact_hashes: unique2([...failures, ...successes].map((receipt) => receipt.receipt_hash)),
+        limitations: unique2([...entry.limitations ?? [], `HOST-RECEIPT-FAILED: ${entry.check_id} returned a host-observed failure for the current repository snapshot.`])
+      };
+    }
+    if (entry.grade !== "verified") return entry;
+    if (successes.length >= 1) {
+      return {
+        ...entry,
+        grade: "verified",
+        surface: MANUAL_CHECK_RECEIPT_SURFACE,
+        method: normalizeManualCheckCommand(check["Command or Inspection"]),
+        repetitions: successes.length,
+        artifact_hashes: unique2(successes.map((receipt) => receipt.receipt_hash))
+      };
+    }
+    const existing = existingByCheck.get(entry.check_id);
+    if (existing?.grade === "verified" && existing.surface === MANUAL_CHECK_RECEIPT_SURFACE && Array.isArray(existing.artifact_hashes) && existing.artifact_hashes.length > 0 && sameCallerObservation(entry, existing)) {
+      return { ...existing };
+    }
+    const meaningful = String(entry.observed ?? "").trim() && !/^not (?:fully )?observed$/i.test(String(entry.observed).trim());
+    return {
+      ...entry,
+      grade: meaningful ? "supported" : "unavailable",
+      surface: "repository",
+      method: normalizeManualCheckCommand(check["Command or Inspection"]),
+      repetitions: 0,
+      artifact_hashes: [],
+      limitations: unique2([...entry.limitations ?? [], limitationFor(check)])
+    };
+  });
+}
+function manualConstraintProjection({ checks = [], evidence = [], pending = false }) {
+  const required = checks.filter((check) => check.Required === "yes");
+  const byId = new Map((evidence ?? []).map((entry) => [entry.check_id, entry]));
+  const ids = (predicate) => required.filter(predicate).map((check) => check["Check ID"]);
+  const hostAttested = ids((check) => {
+    const entry = byId.get(check["Check ID"]);
+    return entry?.grade === "verified" && entry.surface === MANUAL_CHECK_RECEIPT_SURFACE && (entry.artifact_hashes?.length ?? 0) > 0;
+  });
+  const machine = ids((check) => check["Evidence Class"] === "machine-verifiable");
+  const failed = ids((check) => byId.get(check["Check ID"])?.grade === "failed");
+  const unattestedVerified = pending ? [] : ids((check) => {
+    const entry = byId.get(check["Check ID"]);
+    return check["Evidence Class"] === "machine-verifiable" && entry?.grade === "verified" && !(entry.surface === MANUAL_CHECK_RECEIPT_SURFACE && (entry.artifact_hashes?.length ?? 0) > 0);
+  });
+  const ordinaryGaps = pending ? [] : ids((check) => {
+    const entry = byId.get(check["Check ID"]);
+    return !entry || ["supported", "partial", "unavailable"].includes(entry.grade);
+  });
+  const gaps = unique2([...unattestedVerified, ...ordinaryGaps]);
+  const humanReview = ids((check) => check["Evidence Class"] === "human-review-required");
+  const humanApproval = ids((check) => check["Evidence Class"] === "human-approval-required");
+  const reasons = pending ? [] : [
+    ...failed.map((checkId) => ({ code: "check-failed", check_id: checkId, message: `${checkId} failed and blocks delivery.`, recovery: `Repair the cause, rerun ${checkId}, then retry closeout.` })),
+    ...unattestedVerified.map((checkId) => ({ code: "legacy-receipt-gap", check_id: checkId, message: `${checkId} is marked verified without a valid host receipt.`, recovery: `Run a fresh review for ${checkId}; use its bounded correction route to refresh Evidence with current host receipts.` })),
+    ...ordinaryGaps.map((checkId) => ({ code: "evidence-gap", check_id: checkId, message: `${checkId} is not fully verified.`, recovery: `Follow the Check limitation, rerun ${checkId}, then retry closeout.` })),
+    ...humanReview.map((checkId) => ({ code: "human-review-required", check_id: checkId, message: `${checkId} requires human review.`, recovery: `Complete the stated review for ${checkId} and record the bounded observation.` })),
+    ...humanApproval.map((checkId) => ({ code: "human-approval-required", check_id: checkId, message: `${checkId} requires explicit human approval.`, recovery: `Request the named approval before continuing.` }))
+  ];
+  return {
+    constraint_summary: {
+      schema: 1,
+      scope: "current-delivery",
+      required_checks: required.map((check) => check["Check ID"]),
+      host_attested_checks: hostAttested,
+      human_review_checks: humanReview,
+      human_approval_checks: humanApproval,
+      failed_checks: failed,
+      evidence_gap_checks: gaps,
+      legacy_unattested_verified_checks: unattestedVerified,
+      receipt_coverage: {
+        attested: hostAttested.length,
+        eligible: machine.length
+      }
+    },
+    human_attention: {
+      required: reasons.length > 0,
+      reasons
+    },
+    problem_details: reasons.map((reason) => ({
+      problem: reason.message,
+      why: reason.code === "check-failed" ? "A required failed Check blocks delivery acceptance." : ["evidence-gap", "legacy-receipt-gap"].includes(reason.code) ? "The current evidence cannot support a verified delivery claim." : "This Check is intentionally reserved for human judgment or authority.",
+      resolution: reason.recovery,
+      blocking: ["check-failed", "human-approval-required"].includes(reason.code),
+      check_id: reason.check_id
+    }))
+  };
+}
+
+// src/controller/delivery-closeout.mjs
+function sha2563(value) {
+  return createHash5("sha256").update(String(value)).digest("hex");
+}
+function stable3(value) {
+  if (Array.isArray(value)) return value.map(stable3);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable3(value[key])]));
+}
+function unique3(values) {
   return [...new Set(values)];
 }
 function cell(value) {
@@ -366,28 +1126,39 @@ function normalizeArtifacts(rootPlanText, artifacts, pluginRoot) {
   }
   return { rootId, entries: [...byId.values()] };
 }
-function expectedCheckMap(contract, correction) {
+function expectedCheckMap(contract, correction, unresolvedRootChecks = /* @__PURE__ */ new Map()) {
   const checks = correction?.checks?.filter((check) => check.Required === "yes") ?? contract.checks.filter((check) => check.Required === "yes");
-  return new Map(checks.map((check) => [check["Check ID"], check]));
+  return new Map([
+    ...checks.map((check) => [check["Check ID"], check]),
+    ...unresolvedRootChecks
+  ]);
 }
 function rootCheckMap(contract) {
   return new Map(contract.checks.filter((check) => check.Required === "yes").map((check) => [check["Check ID"], check]));
 }
-function normalizeCheckEvidence(input, plannedChecks, rootChecks, evidenceMode2) {
+function unresolvedRootCheckMap(contract, predecessorEvidence) {
+  const effectiveChecks = predecessorEvidence?.effective?.checks;
+  return new Map([...rootCheckMap(contract)].filter(([checkId]) => effectiveChecks?.get(checkId)?.status !== "passed"));
+}
+function normalizeCheckEvidence(input, plannedChecks, rootChecks, evidenceMode2, {
+  enforceManualCheckReceipts = false,
+  manualCheckReceipts = [],
+  existingCheckEvidence = []
+} = {}) {
   if (!Array.isArray(input) || input.length === 0) throw new Error("closeout requires structured Check evidence");
   const ids = input.map((entry) => entry?.check_id);
   if (new Set(ids).size !== ids.length) throw new Error("closeout Check evidence IDs must be unique");
   for (const id of plannedChecks.keys()) if (!ids.includes(id)) throw new Error(`closeout is missing required Check ${id}`);
   const known = new Map([...rootChecks, ...plannedChecks]);
-  return input.map((entry) => {
+  const normalized = input.map((entry) => {
     const planned = known.get(entry?.check_id);
     if (!planned) throw new Error(`closeout received unknown Check ${entry?.check_id}`);
     if (!(/* @__PURE__ */ new Set(["verified", "supported", "partial", "unavailable", "failed"])).has(entry.grade)) throw new Error(`closeout Check ${entry.check_id} has invalid grade`);
-    const limitations = unique(Array.isArray(entry.limitations) ? entry.limitations.map(String).filter(Boolean) : []);
+    const limitations = unique3(Array.isArray(entry.limitations) ? entry.limitations.map(String).filter(Boolean) : []);
     const repetitions = Number.isInteger(entry.repetitions) && entry.repetitions >= 0 ? entry.repetitions : 0;
     if (entry.grade === "verified" && repetitions < 1) throw new Error(`verified Check ${entry.check_id} requires at least one repetition`);
     if (entry.grade === "unavailable" && limitations.length === 0) throw new Error(`unavailable Check ${entry.check_id} requires a concrete limitation`);
-    const normalized = {
+    const normalized2 = {
       check_id: entry.check_id,
       feature_id: entry.feature_id ?? null,
       grade: entry.grade,
@@ -397,16 +1168,26 @@ function normalizeCheckEvidence(input, plannedChecks, rootChecks, evidenceMode2)
       expected: entry.expected ?? planned["Expected Result"] ?? "required Check succeeds",
       observed: String(entry.observed ?? "not fully observed"),
       repetitions,
-      artifact_hashes: unique((entry.artifact_hashes ?? []).filter((value) => /^[a-f0-9]{64}$/.test(String(value)))),
+      artifact_hashes: unique3((entry.artifact_hashes ?? []).filter((value) => /^[a-f0-9]{64}$/.test(String(value)))),
       limitations
     };
+    return normalized2;
+  });
+  const calibrated = enforceManualCheckReceipts ? calibrateManualCheckEvidence({
+    entries: normalized,
+    plannedChecks: known,
+    receipts: manualCheckReceipts,
+    existingCheckEvidence
+  }) : normalized;
+  return calibrated.map((entry) => {
+    const value = { ...entry };
     if (evidenceMode2 === "lean") {
-      if (!normalized.surface && normalized.grade === "verified") throw new Error(`verified Check ${entry.check_id} requires a surface`);
-      delete normalized.baseline_or_patched;
-      if (normalized.artifact_hashes.length === 0) delete normalized.artifact_hashes;
-      if (!normalized.feature_id) delete normalized.feature_id;
+      if (!value.surface && value.grade === "verified") throw new Error(`verified Check ${entry.check_id} requires a surface`);
+      delete value.baseline_or_patched;
+      if ((value.artifact_hashes ?? []).length === 0) delete value.artifact_hashes;
+      if (!value.feature_id) delete value.feature_id;
     }
-    return normalized;
+    return value;
   });
 }
 function overallGrade(entries) {
@@ -417,7 +1198,7 @@ function artifactStatus(grade) {
   return grade === "verified" ? "complete" : "provisional";
 }
 function correctionObjectives(correction) {
-  return unique((correction?.fixes ?? []).flatMap((fix) => String(fix["Root Objectives"] ?? "").match(/OBJ-[1-9][0-9]*/g) ?? []));
+  return unique3((correction?.fixes ?? []).flatMap((fix) => String(fix["Root Objectives"] ?? "").match(/OBJ-[1-9][0-9]*/g) ?? []));
 }
 function checkObjectives(check) {
   return String(check?.Objectives ?? "").match(/OBJ-[1-9][0-9]*/g) ?? [];
@@ -433,7 +1214,7 @@ function evidenceMode(fields, effectiveProfile) {
   return effectiveProfile === "manual" && fields.profile_max === "manual" && fields.risk !== "high" && (fields.hard_triggers ?? []).length === 0 ? "lean" : "full";
 }
 function evidenceSeed({ contract, subjectId, sourceReviewId, predecessorEvidenceId, strategyRevision, mode, paths, entries, repositorySnapshot, summary }) {
-  return sha256(JSON.stringify(stable2({
+  return sha2563(JSON.stringify(stable3({
     root: contract.authoritative_projection_hash,
     subjectId,
     sourceReviewId,
@@ -476,12 +1257,13 @@ ${table(["Objective ID", "Result", "Evidence"], correction.fixes.map((fix) => ({
   sections.push(`## Objective outcomes
 
 ${table(["Objective ID", "Status", "Evidence"], outcomes)}`);
+  const coverageIds = correction ? unique3((correction.fixes ?? []).map((fix) => fix["FIX ID"]).filter(Boolean)) : fields.affected_objectives;
   sections.push(changedPaths2.length > 0 ? `## Changes
 
 ${table(["Path or Symbol", "Change", "Objective Coverage"], changedPaths2.map((path) => ({
     "Path or Symbol": path,
     Change: "Declared by deterministic closeout",
-    "Objective Coverage": fields.affected_objectives.join(", ")
+    "Objective Coverage": coverageIds.join(", ")
   })))}` : "## Changes\n\nNone.");
   const snapshot2 = repositorySnapshot ?? {};
   sections.push(`## Repository snapshot
@@ -504,7 +1286,7 @@ ${table(["Check ID", "Observed Result", "Status", "Prerequisite fingerprints"], 
   })))}`);
   sections.push("## Deviations\n\nNone.");
   sections.push("## Operational evidence\n\nNot applicable.");
-  const limitations = unique(entries.flatMap((entry) => entry.limitations ?? []));
+  const limitations = unique3(entries.flatMap((entry) => entry.limitations ?? []));
   sections.push(`## Limitations
 
 ${limitations.length > 0 ? limitations.map((item) => `- ${item}`).join("\n") : "None."}`);
@@ -519,6 +1301,8 @@ function buildDeliveryEvidence({
   effectiveProfile = null,
   repositorySnapshot = null,
   summary = null,
+  manualCheckReceipts = [],
+  enforceManualCheckReceipts = null,
   pluginRoot
 }) {
   const normalized = normalizeArtifacts(rootPlanText, artifacts, pluginRoot);
@@ -536,6 +1320,7 @@ function buildDeliveryEvidence({
   let predecessorEvidenceId = null;
   let representation = "full";
   const mode = evidenceMode(contract.fields, effectiveProfile ?? contract.fields.profile_max);
+  const requireManualReceipts = enforceManualCheckReceipts ?? (effectiveProfile ?? contract.fields.profile_max) === "manual";
   const effectiveStrategyRevision = mode === "full" ? strategyRevision : 0;
   const effectiveRepositorySnapshot = mode === "full" ? repositorySnapshot : null;
   if (evidenceTipId) {
@@ -543,8 +1328,12 @@ function buildDeliveryEvidence({
       const existing = normalized.entries.find((entry) => inspectArtifactText(entry.text, pluginRoot).artifact?.fields?.id === evidenceTipId);
       const existingFields = priorInspection.effective.get(evidenceTipId)?.fields ?? null;
       if ((checkEvidence2 ?? []).length > 0 || changedPaths2.length > 0) {
-        const entries2 = normalizeCheckEvidence(checkEvidence2, expectedCheckMap(contract, null), rootCheckMap(contract), mode);
-        const suppliedPaths = unique(changedPaths2.map(String).map((path) => path.trim()).filter(Boolean)).sort();
+        const entries2 = normalizeCheckEvidence(checkEvidence2, expectedCheckMap(contract, null), rootCheckMap(contract), mode, {
+          enforceManualCheckReceipts: requireManualReceipts,
+          manualCheckReceipts,
+          existingCheckEvidence: existingFields?.check_evidence ?? []
+        });
+        const suppliedPaths = unique3(changedPaths2.map(String).map((path) => path.trim()).filter(Boolean)).sort();
         const expectedSeed = evidenceSeed({
           contract,
           subjectId: normalized.rootId,
@@ -558,10 +1347,21 @@ function buildDeliveryEvidence({
           summary
         });
         const expectedId = `de-${normalized.rootId.replace(/^wp-/, "")}-${expectedSeed.slice(0, 12)}`;
-        const sameInputs = JSON.stringify(stable2(entries2)) === JSON.stringify(stable2(existingFields?.check_evidence ?? [])) && JSON.stringify(suppliedPaths) === JSON.stringify(existingFields?.changed_paths ?? []) && (mode === "lean" || (existingFields?.strategy_revision ?? 0) === effectiveStrategyRevision) && expectedId === evidenceTipId;
+        const sameInputs = JSON.stringify(stable3(entries2)) === JSON.stringify(stable3(existingFields?.check_evidence ?? [])) && JSON.stringify(suppliedPaths) === JSON.stringify(existingFields?.changed_paths ?? []) && (mode === "lean" || (existingFields?.strategy_revision ?? 0) === effectiveStrategyRevision) && expectedId === evidenceTipId;
         if (!sameInputs) throw new Error(`stale or competing closeout conflicts with current Evidence tip ${evidenceTipId}`);
       }
-      return { duplicate: true, artifact: existing?.text ?? null, artifact_hash: existing ? sha256(existing.text) : null, fields: existingFields };
+      const projection2 = manualConstraintProjection({ checks: contract.checks, evidence: existingFields?.check_evidence ?? [] });
+      const unattested = projection2.constraint_summary.legacy_unattested_verified_checks ?? [];
+      if (unattested.length > 0) {
+        throw new Error(`existing Evidence tip ${evidenceTipId} has receiptless verified machine Checks (${unattested.join(", ")}); run a fresh review and refresh them through its bounded correction route`);
+      }
+      return {
+        duplicate: true,
+        artifact: existing?.text ?? null,
+        artifact_hash: existing ? sha2563(existing.text) : null,
+        fields: existingFields,
+        ...projection2
+      };
     }
     correction = review.correction;
     subjectId = review.fields.correction_id;
@@ -572,18 +1372,27 @@ function buildDeliveryEvidence({
   if (mode === "full" && (!repositorySnapshot?.head || !repositorySnapshot?.relevant_fingerprints)) {
     throw new Error("full closeout requires repository snapshot HEAD and relevant fingerprints");
   }
-  const plannedChecks = expectedCheckMap(contract, correction);
   const roots = rootCheckMap(contract);
-  const entries = normalizeCheckEvidence(checkEvidence2, plannedChecks, roots, mode);
+  const unresolvedRootChecks = correction ? unresolvedRootCheckMap(contract, priorInspection.effective.get(evidenceTipId)) : /* @__PURE__ */ new Map();
+  const suppliedCheckIds = new Set((checkEvidence2 ?? []).map((entry) => entry?.check_id));
+  const missingRootRefresh = [...unresolvedRootChecks.keys()].filter((checkId) => !suppliedCheckIds.has(checkId));
+  if (missingRootRefresh.length > 0) {
+    throw new Error(`correction closeout requires fresh evidence for inherited non-passed Root Checks: ${missingRootRefresh.join(", ")}`);
+  }
+  const plannedChecks = expectedCheckMap(contract, correction, unresolvedRootChecks);
+  const entries = normalizeCheckEvidence(checkEvidence2, plannedChecks, roots, mode, {
+    enforceManualCheckReceipts: requireManualReceipts,
+    manualCheckReceipts
+  });
   const grade = overallGrade(entries);
   const status = artifactStatus(grade);
   const rootObjectives = contract.objectives;
-  const affectedObjectives = correction ? unique([...correctionObjectives(correction), ...entries.flatMap((entry) => checkObjectives(roots.get(entry.check_id)))]) : [...rootObjectives];
+  const affectedObjectives = correction ? unique3([...correctionObjectives(correction), ...entries.flatMap((entry) => checkObjectives(roots.get(entry.check_id)))]) : [...rootObjectives];
   const affected = affectedObjectives.length > 0 ? affectedObjectives : [...rootObjectives];
   const reusedObjectives = representation === "delta" ? rootObjectives.filter((id2) => !affected.includes(id2)) : [];
   const executedChecks = entries.map((entry) => entry.check_id);
   const reusedChecks = representation === "delta" ? [...roots.keys()].filter((id2) => !executedChecks.includes(id2)) : [];
-  const paths = unique(changedPaths2.map(String).map((path) => path.trim()).filter(Boolean)).sort();
+  const paths = unique3(changedPaths2.map(String).map((path) => path.trim()).filter(Boolean)).sort();
   const seed = evidenceSeed({
     contract,
     subjectId,
@@ -631,14 +1440,16 @@ ${body}
   const finalEntries = [...normalized.entries, { label: id, text: artifact }];
   const inspection = inspectArtifactSet(finalEntries.map((entry) => [entry.label, entry.text]), pluginRoot);
   if (inspection.errors.length > 0) throw new Error(`generated delivery evidence is invalid: ${inspection.errors.join("; ")}`);
+  const projection = manualConstraintProjection({ checks: contract.checks, evidence: entries });
   return {
     duplicate: false,
     artifact,
-    artifact_hash: sha256(artifact),
+    artifact_hash: sha2563(artifact),
     fields,
     evidence_mode: mode,
     overall_grade: grade,
-    status
+    status,
+    ...projection
   };
 }
 function persistCloseout({ handoffStore, rootPlanText, artifacts = [], closeout }) {
@@ -671,8 +1482,11 @@ function persistCloseout({ handoffStore, rootPlanText, artifacts = [], closeout 
 // src/controller/engine.mjs
 var profileRank = Object.freeze({ manual: 0, supervised: 1, autonomous: 2 });
 var secretPatterns = [/(?:^|\n)-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/, /\bAKIA[0-9A-Z]{16}\b/, /\bgh[opsu]_[A-Za-z0-9]{30,}\b/, /\bsk-[A-Za-z0-9_-]{32,}\b/];
-function hash(value) {
-  return createHash3("sha256").update(typeof value === "string" ? value : JSON.stringify(value)).digest("hex");
+function learningSourceHashes(candidates = []) {
+  return [...new Set(candidates.flatMap((candidate) => (candidate.lineage ?? []).flatMap((lineage) => (lineage.source_bindings ?? []).map((binding) => binding.source_decision_hash))))];
+}
+function learningSourceReceiptIds(candidates = []) {
+  return [...new Set(candidates.flatMap((candidate) => (candidate.lineage ?? []).flatMap((lineage) => (lineage.source_bindings ?? []).map((binding) => binding.source_receipt_id))))].sort();
 }
 function jsonObject(text) {
   const source = String(text ?? "");
@@ -686,6 +1500,14 @@ function jsonDecision(text) {
   if (!["none", "accept-provisional", "correct", "clarify", "replan", "retry-review"].includes(value.next_action)) throw new Error("review decision has invalid next_action");
   if (!Array.isArray(value.finding_keys)) throw new Error("review decision requires finding_keys");
   value.delivery_status ??= value.assessment === "achieved" ? "verified" : value.next_action === "accept-provisional" ? "provisional" : "blocked";
+  value.learning_candidates = normalizeDecisionLearningCandidates(value.learning_candidates, value.finding_keys, value.next_action);
+  if (value.learning_candidates.length > 0) {
+    if (!Array.isArray(value.findings)) throw new Error("learning candidates require review findings");
+    const describedFindings = new Set(value.findings.map((finding) => finding?.key ?? finding?.finding_key).filter(Boolean));
+    if (value.learning_candidates.some((candidate) => candidate.finding_keys.some((key) => !describedFindings.has(key)))) {
+      throw new Error("learning candidate references a finding without a valid review finding");
+    }
+  }
   return value;
 }
 function routeSelection(validation, role) {
@@ -722,10 +1544,10 @@ function pathInside(path, roots) {
 function containsSensitiveChange(worktree, paths) {
   for (const path of paths) {
     const candidate = assertContainedPath(worktree, path);
-    if (!existsSync(candidate) || !statSync(candidate).isFile() || statSync(candidate).size > 2 * 1024 * 1024) continue;
+    if (!existsSync2(candidate) || !statSync(candidate).isFile() || statSync(candidate).size > 2 * 1024 * 1024) continue;
     let source;
     try {
-      source = readFileSync(candidate, "utf8");
+      source = readFileSync3(candidate, "utf8");
     } catch {
       continue;
     }
@@ -755,33 +1577,14 @@ function usageForRun(run) {
 function budgetBoundaryBlockers(run) {
   return evaluateAuthorization({ plan: run.plan.fields, usage: usageForRun(run) }).blockers.filter((blocker) => ["token-budget-exhausted", "cost-budget-exhausted", "time-budget-exhausted", "correction-budget-exhausted"].includes(blocker));
 }
-function runIntegrityBlockers(run, pluginRoot) {
-  const blockers = [];
-  let root;
-  try {
-    root = executionContractFromArtifactText(run.root_plan_text, pluginRoot);
-  } catch (error) {
-    return [`intent-root-unreadable:${error.message}`];
-  }
-  if (root.errors.length > 0) blockers.push("intent-root-invalid");
-  if (root.raw_hash !== run.root_plan_hash) blockers.push("intent-root-content-hash-mismatch");
-  if (root.authoritative_projection_hash !== run.root_authoritative_projection_hash || root.authoritative_projection_hash !== run.intent_hash) blockers.push("intent-root-projection-hash-mismatch");
-  if (hash(root.fields) !== hash(run.plan?.fields)) blockers.push("intent-root-state-mismatch");
-  if (run.strategy?.root_projection_hash !== run.intent_hash) blockers.push("strategy-root-projection-mismatch");
-  if (run.strategy) {
-    const { strategy_hash: declaredHash, ...projection } = run.strategy;
-    if (strategyHash(projection) !== declaredHash) blockers.push("strategy-hash-mismatch");
-  } else blockers.push("strategy-missing");
-  return [...new Set(blockers)];
-}
 var WorkflowEngine = class {
   constructor({ workspaceRoot, store, preparationStore, pluginRoot, stateRoot, worktreeRoot, adapterFactory, capabilitiesFactory, handoffStore } = {}) {
-    this.workspaceRoot = resolve(workspaceRoot);
+    this.workspaceRoot = resolve3(workspaceRoot);
     this.store = store;
     this.preparationStore = preparationStore;
-    this.pluginRoot = resolve(pluginRoot);
-    this.stateRoot = resolve(stateRoot);
-    this.worktreeRoot = worktreeRoot ? resolve(worktreeRoot) : null;
+    this.pluginRoot = resolve3(pluginRoot);
+    this.stateRoot = resolve3(stateRoot);
+    this.worktreeRoot = worktreeRoot ? resolve3(worktreeRoot) : null;
     this.handoffStore = handoffStore ?? new ArtifactHandoffStore(this.stateRoot, this.pluginRoot);
     this.adapterFactory = adapterFactory ?? ((run) => new CursorWorkerAdapter({ runDirectory: this.store.runDirectory(run.run_id), pluginRoot: this.pluginRoot }));
     this.capabilitiesFactory = capabilitiesFactory ?? ((additions = {}) => resolveCapabilities(this.stateRoot, additions, { pluginRoot: this.pluginRoot }));
@@ -949,7 +1752,7 @@ var WorkflowEngine = class {
       try {
         worktree = createRunWorktree(this.workspaceRoot, runId, {
           ...this.worktreeRoot ? { root: this.worktreeRoot } : {},
-          snapshotPath: join(this.store.runDirectory(runId), "dirty-snapshot.json")
+          snapshotPath: join2(this.store.runDirectory(runId), "dirty-snapshot.json")
         });
       } catch (error) {
         return this.block(run, [`dirty-snapshot-blocked:${error.message}`]);
@@ -1134,10 +1937,49 @@ ${JSON.stringify(run.review, null, 2)}` : ""
       previousFindingKeys = review.decision.finding_keys;
       const maximum = run.project_policy.maximum_budgets?.max_correction_cycles ?? 3;
       if (correctionCycle > maximum) return { completed: false, run: this.wait(run, ["correction-budget-exhausted"]) };
-      const deviation = { id: `DEV-${run.strategy.revision + 1}`, kind: "review-correction", finding_keys: review.decision.finding_keys, at: (/* @__PURE__ */ new Date()).toISOString() };
+      const learning = materializeControllerLearningCandidates({
+        run,
+        decision: review.decision,
+        correctionCycle,
+        receiptIds: [review.receipt?.request_id].filter(Boolean)
+      });
+      const learningCandidateIds = learning.candidates.map((candidate) => candidate.learning_id);
+      const correctionDecision = {
+        ...review.decision,
+        correction_id: learning.correction_id,
+        learning_candidate_ids: learningCandidateIds
+      };
+      const deviation = {
+        id: `DEV-${run.strategy.revision + 1}`,
+        kind: "review-correction",
+        correction_id: learning.correction_id,
+        finding_keys: correctionDecision.finding_keys,
+        learning_candidate_ids: learningCandidateIds,
+        at: (/* @__PURE__ */ new Date()).toISOString()
+      };
       const strategy = reviseStrategy(run.strategy, { deviations: [deviation] }, { reason: `review correction ${correctionCycle}`, createdBy: role, authority: run.plan.fields.authority });
-      run = this.update(run.run_id, (draft) => ({ ...draft, strategy, correction_cycles: correctionCycle, finding_repeated: findingRepeated, review: review.decision, phase: "implementing" }), "strategy-revised");
-      this.store.appendDecision(run.run_id, { phase: "adapt", actor_receipt: review.receipt.request_id, decision: "revise-strategy", reason: strategy.rationale, input_hashes: [run.intent_hash, strategy.parent_hash], strategy_revision: strategy.revision, result: strategy.strategy_hash });
+      run = this.update(run.run_id, (draft) => ({
+        ...draft,
+        strategy,
+        correction_cycles: correctionCycle,
+        finding_repeated: findingRepeated,
+        review: correctionDecision,
+        learning_candidates: mergeControllerLearningCandidates(draft.learning_candidates, learning.candidates),
+        phase: "implementing"
+      }), "strategy-revised");
+      this.store.appendDecision(run.run_id, {
+        phase: "adapt",
+        actor_receipt: review.receipt?.request_id ?? null,
+        actor_receipts: learningSourceReceiptIds(learning.candidates),
+        decision: "revise-strategy",
+        reason: strategy.rationale,
+        input_hashes: [run.intent_hash, strategy.parent_hash, ...learningSourceHashes(learning.candidates)],
+        strategy_revision: strategy.revision,
+        result: strategy.strategy_hash,
+        correction_id: learning.correction_id,
+        learning_candidate_ids: learningCandidateIds,
+        learning_candidate_refs: controllerLearningEventRefs(learning.candidates)
+      });
     }
   }
   verify(run, slice, stage, adapter, hostReceipts = []) {
@@ -1160,8 +2002,8 @@ ${JSON.stringify(run.review, null, 2)}` : ""
         receipt: null
       };
     }
-    const artifactDirectory = join(this.store.runDirectory(run.run_id), "artifacts", `strategy-${run.strategy.revision}`, stage);
-    mkdirSync(artifactDirectory, { recursive: true, mode: 448 });
+    const artifactDirectory = join2(this.store.runDirectory(run.run_id), "artifacts", `strategy-${run.strategy.revision}`, stage);
+    mkdirSync2(artifactDirectory, { recursive: true, mode: 448 });
     const recipe = TASK_RECIPES[run.strategy.task_class];
     const prompt = [
       `Act as a read-only verifier for the ${stage} state. Do not modify repository files.`,
@@ -1219,7 +2061,7 @@ ${artifactDirectory}`
     const prompt = [
       "Independently review the current strategy state. You are read-only and have no writer conversation.",
       "Judge the immutable intent, current strategy, repository diff and evidence entries. Reviewer opinion must not upgrade evidence.",
-      "Return JSON with assessment, delivery_status, next_action, finding_keys, findings. Known failed evidence can never be provisional or verified.",
+      "Return JSON with assessment, delivery_status, next_action, finding_keys, findings, and learning_candidates. learning_candidates is optional and allowed only for next_action correct; each item contains finding_keys, reusable_guidance, candidate_targets, and confirmation_evidence. Do not assign Learning IDs. Known failed evidence can never be provisional or verified.",
       `INTENT
 ${run.plan.authoritative_projection_text}`,
       `STRATEGY
@@ -1248,7 +2090,7 @@ ${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
     const diff = this.gitDiff(run.worktree.path, run.strategy.task_class === "verify-existing" ? run.worktree.baseline.head : run.worktree.human_baseline);
     const prompt = [
       "Independently judge the immutable intent, current strategy, diff and evidence. You are read-only.",
-      "Return JSON with assessment, delivery_status, next_action, finding_keys, findings. Do not upgrade evidence and never treat a known failure as provisional.",
+      "Return JSON with assessment, delivery_status, next_action, finding_keys, findings, and learning_candidates. learning_candidates is optional and allowed only for next_action correct; each item contains finding_keys, reusable_guidance, candidate_targets, and confirmation_evidence. Do not assign Learning IDs. Do not upgrade evidence and never treat a known failure as provisional.",
       `INTENT
 ${run.plan.authoritative_projection_text}`,
       `STRATEGY
@@ -1274,7 +2116,7 @@ ${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
     } catch (error) {
       return { decision: null, receipt: null, receipts: [], blockers: [`read-fanout-failed:${error.message}`] };
     }
-    const decisions = [];
+    const decisionRecords = [];
     const blockers = [];
     for (const [index, result] of results.entries()) {
       const role = phases[index].role;
@@ -1285,23 +2127,43 @@ ${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
         continue;
       }
       try {
-        decisions.push(jsonDecision(result.response.result));
+        decisionRecords.push({ decision: jsonDecision(result.response.result), receipt: result.receipt });
       } catch (error) {
         blockers.push(`${role}-invalid-decision:${error.message}`);
       }
     }
-    if (decisions.length === 0) return { decision: null, receipts: results.map((result) => result.receipt), blockers: [...new Set(blockers)] };
+    if (decisionRecords.length === 0) return { decision: null, receipts: results.map((result) => result.receipt), blockers: [...new Set(blockers)] };
     const actionRank = { replan: 6, clarify: 5, correct: 4, "retry-review": 3, "accept-provisional": 2, none: 1 };
-    const selected = decisions.toSorted((left, right) => actionRank[right.next_action] - actionRank[left.next_action])[0];
-    const bothAchieved = decisions.length === 2 && decisions.every((decision2) => decision2.assessment === "achieved" && decision2.next_action === "none");
+    const selected = decisionRecords.toSorted((left, right) => actionRank[right.decision.next_action] - actionRank[left.decision.next_action])[0].decision;
+    const bothAchieved = decisionRecords.length === 2 && decisionRecords.every(({ decision: decision2 }) => decision2.assessment === "achieved" && decision2.next_action === "none");
+    const learningBySemanticIdentity = /* @__PURE__ */ new Map();
+    if (selected.next_action === "correct") {
+      for (const { decision: sourceDecision, receipt } of decisionRecords.filter(({ decision: decision2 }) => decision2.next_action === "correct")) {
+        for (const candidate of sourceDecision.learning_candidates ?? []) {
+          const key = controllerLearningCandidateSemanticHash(candidate);
+          const sourceBinding = {
+            source_receipt_id: receipt.request_id,
+            source_decision_hash: controllerLearningDecisionHash(sourceDecision, candidate)
+          };
+          const prior = learningBySemanticIdentity.get(key);
+          if (!prior) {
+            learningBySemanticIdentity.set(key, { ...candidate, source_bindings: [sourceBinding] });
+            continue;
+          }
+          prior.source_bindings = [...new Map([...prior.source_bindings, sourceBinding].map((binding) => [`${binding.source_receipt_id}:${binding.source_decision_hash}`, binding])).values()].toSorted((left, right) => left.source_receipt_id.localeCompare(right.source_receipt_id));
+        }
+      }
+    }
+    const learningCandidates = [...learningBySemanticIdentity.values()];
     const decision = {
       ...selected,
       assessment: bothAchieved ? "achieved" : selected.assessment === "achieved" ? "provisional" : selected.assessment,
       delivery_status: bothAchieved ? "verified" : selected.delivery_status === "blocked" ? "blocked" : "provisional",
       next_action: bothAchieved ? "none" : selected.next_action === "none" ? "accept-provisional" : selected.next_action,
-      finding_keys: [...new Set(decisions.flatMap((item) => item.finding_keys ?? []))],
-      findings: decisions.flatMap((item) => item.findings ?? []),
-      agreement: bothAchieved ? "consensus" : decisions.length === 2 ? "contested" : "single-valid-review"
+      finding_keys: [...new Set(decisionRecords.flatMap(({ decision: item }) => item.finding_keys ?? []))].toSorted(),
+      findings: decisionRecords.flatMap(({ decision: item }) => item.findings ?? []),
+      learning_candidates: learningCandidates,
+      agreement: bothAchieved ? "consensus" : decisionRecords.length === 2 ? "contested" : "single-valid-review"
     };
     return { decision, receipts: results.map((result) => result.receipt), blockers };
   }
@@ -1324,12 +2186,26 @@ ${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
     }
     const review = this.reviewFanout(run, evidence, adapter, candidate.artifact);
     const reviewReceipts = review.receipts ?? (review.receipt ? [review.receipt] : []);
+    const rootLearning = materializeControllerLearningCandidates({
+      run,
+      decision: review.decision,
+      correctionCycle: (run.correction_cycles ?? 0) + 1,
+      receiptIds: reviewReceipts.map((receipt) => receipt?.request_id).filter(Boolean)
+    });
+    const rootDecision = review.decision ? {
+      ...review.decision,
+      ...review.decision.next_action === "correct" ? {
+        correction_id: rootLearning.correction_id,
+        learning_candidate_ids: rootLearning.candidates.map((item) => item.learning_id)
+      } : {}
+    } : null;
     const sourceBaselineAtDelivery = repositoryBaseline(this.workspaceRoot);
     const sourceDriftAtDelivery = currentBaselineDiffers(run.source_baseline_at_start ?? run.baseline, sourceBaselineAtDelivery);
     run = this.update(runId, (draft) => ({
       ...draft,
       root_review_complete: Boolean(review.decision),
-      review: review.decision,
+      review: rootDecision,
+      learning_candidates: mergeControllerLearningCandidates(draft.learning_candidates, rootLearning.candidates),
       receipts: [...draft.receipts, ...reviewReceipts],
       phase: "root-review",
       evidence_grade: aggregate.grade,
@@ -1337,6 +2213,22 @@ ${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
       source_drift_at_delivery: sourceDriftAtDelivery,
       integration_warnings: sourceDriftAtDelivery ? ["source-worktree-drift-may-conflict-with-human-integration"] : []
     }), "root-reviewed");
+    if (rootDecision?.next_action === "correct") {
+      const actorReceipts = learningSourceReceiptIds(rootLearning.candidates);
+      this.store.appendDecision(runId, {
+        phase: "review",
+        actor_receipt: reviewReceipts[0]?.request_id ?? null,
+        actor_receipts: actorReceipts,
+        decision: "request-correction",
+        reason: "root review requires a bounded correction",
+        input_hashes: [run.intent_hash, run.strategy.strategy_hash, ...learningSourceHashes(rootLearning.candidates)],
+        strategy_revision: run.strategy.revision,
+        result: "waiting-human",
+        correction_id: rootLearning.correction_id,
+        learning_candidate_ids: rootLearning.candidates.map((item) => item.learning_id),
+        learning_candidate_refs: controllerLearningEventRefs(rootLearning.candidates)
+      });
+    }
     if (review.hard_error) {
       const materialized2 = this.materializeDeliveryEvidence(run, candidate);
       return this.block(materialized2.run, [...review.blockers, ...materialized2.blocker ? [materialized2.blocker] : []]);
@@ -1351,8 +2243,8 @@ ${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
       const materialized2 = this.materializeDeliveryEvidence(run, candidate);
       return this.update(runId, (draft) => ({ ...draft, lifecycle: "blocked", delivery_status: "blocked", blockers: ["known-check-failure", ...materialized2.blocker ? [materialized2.blocker] : []], next_action: "correct-or-replan" }), "delivery-blocked");
     }
-    if (["correct", "clarify", "replan", "retry-review"].includes(review.decision.next_action)) return this.wait(run, [`root-review-${review.decision.next_action}`]);
-    const verified = aggregate.delivery === "verified" && review.decision.assessment === "achieved" && review.decision.delivery_status === "verified";
+    if (["correct", "clarify", "replan", "retry-review"].includes(rootDecision.next_action)) return this.wait(run, [`root-review-${rootDecision.next_action}`]);
+    const verified = aggregate.delivery === "verified" && rootDecision.assessment === "achieved" && rootDecision.delivery_status === "verified";
     const deliveryStatus = verified ? "verified" : "provisional";
     if (deliveryStatus === "provisional" && run.effective_profile === "autonomous") {
       run = this.update(runId, (draft) => ({ ...draft, effective_profile: "supervised", downgraded: true, downgrade_reason: "evidence-shortfall" }), "profile-auto-downgraded");
@@ -1362,16 +2254,38 @@ ${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
     if (materialized.blocker) return this.block(run, [materialized.blocker]);
     if (deliveryStatus === "verified" && run.effective_profile === "autonomous") {
       const achieved = this.update(runId, (draft) => ({ ...draft, lifecycle: "achieved", delivery_status: "verified", delivery_accepted: false, phase: "achieved", next_action: "none", blockers: [] }), "run-achieved");
-      this.store.appendDecision(runId, { phase: "delivery", decision: "achieved", reason: "certified evidence and independent review", input_hashes: [run.intent_hash, run.strategy.strategy_hash], strategy_revision: run.strategy.revision, evidence_refs: evidence.flatMap((entry) => entry.artifact_hashes), result: "achieved" });
+      this.store.appendDecision(runId, {
+        phase: "delivery",
+        decision: "achieved",
+        reason: "certified evidence and independent review",
+        input_hashes: [run.intent_hash, run.strategy.strategy_hash],
+        strategy_revision: run.strategy.revision,
+        evidence_refs: [.../* @__PURE__ */ new Set([...evidence.flatMap((entry) => entry.artifact_hashes), run.delivery_evidence_hash])].filter(Boolean),
+        result: "achieved",
+        delivery_evidence_hash: run.delivery_evidence_hash,
+        delivery_commit: run.delivery_commit,
+        delivered_paths_hash: deliveryPathsHash(run.delivery_commit, run.delivered_paths)
+      });
       return achieved;
     }
     const delivery = this.update(runId, (draft) => ({ ...draft, lifecycle: "waiting-human", delivery_status: deliveryStatus, phase: deliveryStatus === "verified" ? "delivery-ready-verified" : "delivery-ready-provisional", next_action: deliveryStatus === "verified" ? "accept-verified" : "accept-provisional", blockers: [] }), "delivery-ready");
-    this.store.appendDecision(runId, { phase: "delivery", decision: `deliver-${deliveryStatus}`, reason: verified ? "all evidence verified" : "no known failure but strongest evidence is incomplete", input_hashes: [run.intent_hash, run.strategy.strategy_hash], strategy_revision: run.strategy.revision, evidence_refs: evidence.flatMap((entry) => entry.artifact_hashes), result: delivery.lifecycle });
+    this.store.appendDecision(runId, {
+      phase: "delivery",
+      decision: `deliver-${deliveryStatus}`,
+      reason: verified ? "all evidence verified" : "no known failure but strongest evidence is incomplete",
+      input_hashes: [run.intent_hash, run.strategy.strategy_hash],
+      strategy_revision: run.strategy.revision,
+      evidence_refs: [.../* @__PURE__ */ new Set([...evidence.flatMap((entry) => entry.artifact_hashes), run.delivery_evidence_hash])].filter(Boolean),
+      result: delivery.lifecycle,
+      delivery_evidence_hash: run.delivery_evidence_hash,
+      delivery_commit: run.delivery_commit,
+      delivered_paths_hash: deliveryPathsHash(run.delivery_commit, run.delivered_paths)
+    });
     return delivery;
   }
   deliveryEvidenceCandidate(run, evidence) {
     const snapshot2 = repositoryBaseline(run.worktree?.path ?? this.workspaceRoot);
-    const paths = run.worktree?.path ? changedPaths(run.worktree.path) : [];
+    const paths = run.worktree?.path ? changedPathsBetween(run.worktree.path, run.worktree.human_baseline, snapshot2.head) : changedPaths(this.workspaceRoot);
     const supplied = new Map(evidence.map((entry) => [entry.check_id, entry]));
     const completeEvidence = run.plan.checks.filter((check) => check.Required === "yes").map((check) => supplied.get(check["Check ID"]) ?? {
       check_id: check["Check ID"],
@@ -1384,7 +2298,7 @@ ${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
       artifact_hashes: [],
       limitations: ["delivery stopped before this required Check could run"]
     });
-    return buildDeliveryEvidence({
+    const candidate = buildDeliveryEvidence({
       rootPlanText: run.root_plan_text,
       checkEvidence: completeEvidence,
       changedPaths: paths,
@@ -1398,6 +2312,7 @@ ${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
       },
       pluginRoot: this.pluginRoot
     });
+    return { ...candidate, delivery_commit: snapshot2.head, delivered_paths: paths };
   }
   materializeDeliveryEvidence(run, candidate) {
     let handoffPersisted = true;
@@ -1431,6 +2346,8 @@ ${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
       delivery_evidence_id: candidate.fields.id,
       delivery_evidence_hash: candidate.artifact_hash,
       delivery_evidence_artifact: candidate.artifact,
+      delivery_commit: candidate.delivery_commit,
+      delivered_paths: candidate.delivered_paths,
       handoff_persisted: handoffPersisted,
       integration_warnings: [.../* @__PURE__ */ new Set([...draft.integration_warnings ?? [], ...handoffWarning ? [handoffWarning] : []])]
     }), "delivery-evidence-materialized");
@@ -1442,7 +2359,20 @@ ${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
     if (run.lifecycle !== "waiting-human" || run.next_action !== (acceptance === "verified" ? "accept-verified" : "accept-provisional")) throw new Error("delivery is not awaiting this acceptance");
     if (run.delivery_status !== acceptance) throw new Error(`delivery acceptance mismatch: expected ${run.delivery_status}`);
     const lifecycle = acceptance === "verified" ? "achieved" : "accepted-provisional";
-    return this.update(runId, (draft) => ({ ...draft, lifecycle, delivery_accepted: true, accepted_as: acceptance, phase: lifecycle, next_action: "none", blockers: [] }), acceptance === "verified" ? "delivery-accepted" : "provisional-delivery-accepted");
+    const accepted = this.update(runId, (draft) => ({ ...draft, lifecycle, delivery_accepted: true, accepted_as: acceptance, phase: lifecycle, next_action: "none", blockers: [] }), acceptance === "verified" ? "delivery-accepted" : "provisional-delivery-accepted");
+    this.store.appendDecision(runId, {
+      phase: "delivery",
+      decision: `accept-${acceptance}`,
+      reason: `human accepted the ${acceptance} delivery`,
+      input_hashes: [run.intent_hash, run.strategy?.strategy_hash].filter(Boolean),
+      strategy_revision: run.strategy?.revision ?? null,
+      evidence_refs: [run.delivery_evidence_hash].filter(Boolean),
+      result: acceptance === "verified" ? "accepted-verified" : "accepted-provisional",
+      delivery_evidence_hash: run.delivery_evidence_hash,
+      delivery_commit: run.delivery_commit,
+      delivered_paths_hash: deliveryPathsHash(run.delivery_commit, run.delivered_paths)
+    });
+    return accepted;
   }
   wait(run, blockers) {
     return this.update(run.run_id, (draft) => ({ ...draft, lifecycle: "waiting-human", blockers: [...new Set(blockers)], next_action: "answer" }), "waiting-human");
@@ -1466,7 +2396,7 @@ ${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
     return usageForRun(run);
   }
   gitDiff(worktreePath, baseline) {
-    const result = spawnSync("git", ["-C", worktreePath, "diff", baseline, "--"], { encoding: "utf8", maxBuffer: 8 * 1024 * 1024 });
+    const result = spawnSync2("git", ["-C", worktreePath, "diff", baseline, "--"], { encoding: "utf8", maxBuffer: 8 * 1024 * 1024 });
     if (result.status !== 0) throw new Error(result.stderr.trim());
     return result.stdout.slice(-25e4);
   }
@@ -1474,7 +2404,12 @@ ${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
 
 export {
   deriveWorkflowState,
+  invalidateManualCheckReceipts,
+  loadManualCheckReceipts,
+  manualConstraintProjection,
   buildDeliveryEvidence,
   persistCloseout,
+  deriveControllerLearningContext,
+  derivePreparationLearningContext,
   WorkflowEngine
 };

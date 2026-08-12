@@ -21,15 +21,15 @@ const checkEvidence = z.object({
 
 const contracts = Object.freeze({
   workflow_plan_preflight: {
-    description: "Validate one exact Schema-5 Root for authority feasibility and Pareto Check selection without workspace discovery, persistence, approval, or mutation.",
+    description: "Validate one exact Schema-5 Root for authority feasibility and Pareto Check selection without workspace discovery, persistence, approval, or mutation. Optional diagnostic for low/medium Manual; CreatePlan still validates Schema-5 Roots.",
     inputSchema: { root_plan: z.string().min(1).max(250_000) },
   },
   workflow_artifact_record: {
-    description: "Validate and atomically cache exact Schema-5 work-plan or work-review artifacts in the non-authoritative root-content handoff store.",
+    description: "Best-effort transport: validate and atomically cache exact Schema-5 work-plan or work-review artifacts in the non-authoritative root-content handoff store. Task artifacts remain authoritative; ordinary cache IO failure returns attach instructions without invalidating the artifact.",
     inputSchema: { workspace_root: workspaceRoot, artifacts: z.array(artifact).min(1).max(32) },
   },
   workflow_artifact_context: {
-    description: "Return the exact revalidated non-authoritative Schema-5 artifact chain cached for one Root under its root-content namespace, optionally hash-bound to the supplied active native Plan.",
+    description: "Best-effort transport enrichment: return the exact revalidated non-authoritative Schema-5 artifact chain cached for one Root under its root-content namespace, optionally hash-bound to the supplied active native Plan. Task artifacts remain authoritative.",
     inputSchema: {
       workspace_root: workspaceRoot,
       root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
@@ -37,7 +37,7 @@ const contracts = Object.freeze({
     },
   },
   workflow_closeout: {
-    description: "Deterministically build and validate one Schema-5 delivery-evidence artifact from observed Checks and cache it in the root-content handoff store.",
+    description: "Deterministically build and validate one Schema-5 delivery-evidence artifact from observed Checks and best-effort cache it in the root-content handoff store.",
     inputSchema: {
       workspace_root: workspaceRoot,
       root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
@@ -47,6 +47,7 @@ const contracts = Object.freeze({
       strategy_revision: z.number().int().min(0).default(0),
       changed_paths: z.array(z.string().min(1).max(1000)).max(1000).default([]),
       check_evidence: z.array(checkEvidence).max(128).default([]),
+      summary: z.string().min(1).max(2_000).optional(),
       repository_snapshot: z.object({
         head: z.string().min(1).optional(),
         working_tree: z.string().min(1).optional(),
@@ -56,7 +57,7 @@ const contracts = Object.freeze({
     },
   },
   workflow_status: {
-    description: "Return current status for an explicit stateless Manual Schema-5 artifact chain.",
+    description: "Return current status and a uniform read-only learning projection for an explicit stateless Manual Schema-5 artifact chain.",
     inputSchema: {
       workspace_root: workspaceRoot,
       root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),

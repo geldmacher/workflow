@@ -6,6 +6,10 @@ import {
   rootContentHash,
 } from "../controller/artifact-handoff.mjs";
 import { buildDeliveryEvidence, persistCloseout } from "../controller/delivery-closeout.mjs";
+import {
+  invalidateManualCheckReceipts,
+  loadManualCheckReceipts,
+} from "../core/manual-check-receipts.mjs";
 import { inspectArtifactText } from "../../scripts/validate-artifact.source.mjs";
 import { modelInheritanceSummary } from "../../hooks/model-inheritance-state.mjs";
 import { isWorkspaceRootsUnavailable, WorkspaceRootError } from "./workspace-roots.mjs";
@@ -17,8 +21,13 @@ export function createArtifactHandlers({
   resolveOperationalContext,
   result,
   handoffStoreFactory = createContentAddressedHandoffStore,
+  receiptOptions = {},
 }) {
-  const failure = (error) => result({
+  const toolResult = (toolName, value, isError = false) => {
+    if (typeof result === "function" && result.toolAware === true) return result(toolName, value, isError);
+    return result(value, isError);
+  };
+  const failure = (toolName) => (error) => toolResult(toolName, {
     error: error.message,
     ...(error instanceof WorkspaceRootError ? { error_code: error.code } : {}),
   }, true);
@@ -46,7 +55,29 @@ export function createArtifactHandlers({
     return null;
   };
 
+  const assertConsistentArtifactTexts = (artifacts = [], { rootPlan = null } = {}) => {
+    const byId = new Map();
+    const consider = (text, label = "artifact") => {
+      if (typeof text !== "string" || !text.trim()) return;
+      const inspected = inspectArtifactText(text, pluginRoot);
+      if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) return;
+      const id = inspected.artifact.fields.id;
+      const prior = byId.get(id);
+      if (prior && prior !== text) {
+        throw new Error(`handoff artifact ${id} has conflicting text`);
+      }
+      byId.set(id, text);
+      return id;
+    };
+    if (rootPlan) consider(rootPlan, "root");
+    for (const entry of artifacts) {
+      consider(entry?.text, entry?.label ?? "artifact");
+    }
+    return byId;
+  };
+
   const contentHandoff = ({ rootPlanId = null, rootPlan = null, artifacts = [], remember = false } = {}) => {
+    assertConsistentArtifactTexts(artifacts, { rootPlan });
     const resolvedId = inferredRootPlanId(rootPlanId, artifacts);
     const rootPlanText = resolveRootPlanText(pluginRoot, { rootPlanId: resolvedId, rootPlan, artifacts });
     const root_content_hash = rootContentHash(rootPlanText);
@@ -96,12 +127,15 @@ export function createArtifactHandlers({
     }
   };
 
-  const buildCloseout = (input, merged) => {
+  const buildCloseout = (input, merged, workspace = null) => {
     const rootPlan = input.root_plan ?? [...merged.values()].find((text) => {
       const inspected = inspectArtifactText(text, pluginRoot);
       return inspected.artifact?.fields?.artifact === "work-plan" && inspected.artifact.fields.id === input.root_plan_id;
     });
     if (!rootPlan) throw new Error("workflow_closeout requires the active Root text or a cached Root");
+    const manualCheckReceipts = workspace
+      ? loadManualCheckReceipts({ rootPlanText: rootPlan, pluginRoot, workspaceRoot: workspace, options: receiptOptions })
+      : [];
     const closeoutResult = buildDeliveryEvidence({
       rootPlanText: rootPlan,
       artifacts: [...merged].map(([label, text]) => ({ label, text })),
@@ -110,6 +144,9 @@ export function createArtifactHandlers({
       strategyRevision: input.strategy_revision,
       effectiveProfile: input.effective_profile,
       repositorySnapshot: input.repository_snapshot ?? null,
+      summary: input.summary ?? null,
+      manualCheckReceipts,
+      enforceManualCheckReceipts: input.effective_profile === "manual",
       pluginRoot,
     });
     if (closeoutResult.fields.root_plan_id !== input.root_plan_id) throw new Error(`workflow_closeout Root ID mismatch: expected ${input.root_plan_id}, received ${closeoutResult.fields.root_plan_id}`);
@@ -138,11 +175,18 @@ export function createArtifactHandlers({
     evidence_mode: persisted.fields.evidence_mode,
     overall_grade: persisted.fields.overall_grade,
     status: persisted.fields.status,
+    subject_id: persisted.fields.subject_id ?? input.root_plan_id,
+    source_review_id: persisted.fields.source_review_id ?? null,
+    predecessor_evidence_id: persisted.fields.predecessor_evidence_id ?? null,
+    changed_paths: persisted.fields.changed_paths ?? input.changed_paths ?? [],
     duplicate: persisted.duplicate,
     handoff_persisted: persisted.handoff_persisted,
     handoff_authoritative: false,
     handoff_mode: handoffMode ?? (persisted.handoff_persisted ? "root-content-cache" : "stateless"),
     ...(rootContentHashValue ? { root_content_hash: rootContentHashValue } : {}),
+    ...(closeoutResult.constraint_summary ? { constraint_summary: closeoutResult.constraint_summary } : {}),
+    ...(closeoutResult.human_attention ? { human_attention: closeoutResult.human_attention } : {}),
+    ...(closeoutResult.problem_details ? { problem_details: closeoutResult.problem_details } : {}),
     ...(persisted.artifact_set_hash ? { artifact_set_hash: persisted.artifact_set_hash } : {}),
     ...(warning ? { warning } : {}),
     ...(handoffErrorCode || persisted.handoff_error_code ? { handoff_error_code: handoffErrorCode ?? persisted.handoff_error_code } : {}),
@@ -157,36 +201,81 @@ export function createArtifactHandlers({
           throw new Error("workflow_artifact_record accepts only valid Schema-5 work-plan and work-review artifacts");
         }
       }
-      const { rootPlanText, root_content_hash, handoffStore } = contentHandoff({
-        rootPlan: input.root_plan,
-        artifacts: input.artifacts,
-        remember: true,
-      });
+      let rootPlanText;
+      let root_content_hash;
+      let handoffStore;
+      try {
+        ({ rootPlanText, root_content_hash, handoffStore } = contentHandoff({
+          rootPlan: input.root_plan,
+          artifacts: input.artifacts,
+          remember: true,
+        }));
+      } catch (error) {
+        if (/conflict|invalid|corrupt|incompatible|stale|ambiguous|multiple|exact Root/i.test(error.message)) throw error;
+        return toolResult("workflow_artifact_record", {
+          workspace_binding: "not-established",
+          workspace_root_used: false,
+          handoff_authoritative: false,
+          handoff_persisted: false,
+          handoff_mode: "stateless",
+          handoff_error_code: "handoff-persist-failed",
+          recorded: [],
+          duplicates: [],
+          warning: `handoff cache unavailable: ${error.message}; attach the exact artifact explicitly to the next Workflow command`,
+        });
+      }
       const operational = await optionalOperational(input.workspace_root);
       const lineage = hydrateLineageArtifacts(rootPlanText, handoffStore);
       const byId = new Map();
       for (const entry of [...lineage, ...input.artifacts]) {
         const inspected = inspectArtifactText(entry.text, pluginRoot);
         if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) {
+          const priorLabel = byId.get(entry.label);
+          if (priorLabel && priorLabel.text !== entry.text) {
+            throw new Error(`handoff artifact label ${entry.label} has conflicting text`);
+          }
           byId.set(entry.label, entry);
           continue;
         }
-        byId.set(inspected.artifact.fields.id, { label: inspected.artifact.fields.id, text: entry.text });
+        const id = inspected.artifact.fields.id;
+        const prior = byId.get(id);
+        if (prior && prior.text !== entry.text) {
+          throw new Error(`handoff artifact ${id} has conflicting text`);
+        }
+        byId.set(id, { label: id, text: entry.text });
       }
-      const recorded = handoffStore.record([...byId.values()]);
-      return result({
-        ...(operational.workspace ? { workspace_root: operational.workspace } : {}),
-        workspace_binding: operational.workspace_binding,
-        workspace_root_used: Boolean(operational.workspace),
-        handoff_authoritative: false,
-        handoff_mode: "root-content-cache",
-        root_content_hash,
-        ...recorded,
-        ...(operational.workspace_error && input.workspace_root
-          ? { warning: `workspace binding unavailable (${operational.workspace_error.code}); recorded under root-content handoff namespace` }
-          : {}),
-      });
-    } catch (error) { return failure(error); }
+      try {
+        const recorded = handoffStore.record([...byId.values()]);
+        return toolResult("workflow_artifact_record", {
+          ...(operational.workspace ? { workspace_root: operational.workspace } : {}),
+          workspace_binding: operational.workspace_binding,
+          workspace_root_used: Boolean(operational.workspace),
+          handoff_authoritative: false,
+          handoff_persisted: true,
+          handoff_mode: "root-content-cache",
+          root_content_hash,
+          ...recorded,
+          ...(operational.workspace_error && input.workspace_root
+            ? { warning: `workspace binding unavailable (${operational.workspace_error.code}); recorded under root-content handoff namespace` }
+            : {}),
+        });
+      } catch (error) {
+        if (/concurrent|conflict|invalid|corrupt|incompatible|stale|ambiguous|multiple/i.test(error.message)) throw error;
+        return toolResult("workflow_artifact_record", {
+          ...(operational.workspace ? { workspace_root: operational.workspace } : {}),
+          workspace_binding: operational.workspace_binding,
+          workspace_root_used: Boolean(operational.workspace),
+          handoff_authoritative: false,
+          handoff_persisted: false,
+          handoff_mode: "stateless",
+          handoff_error_code: "handoff-persist-failed",
+          root_content_hash,
+          recorded: [],
+          duplicates: [],
+          warning: `handoff cache unavailable: ${error.message}; attach the exact artifact explicitly to the next Workflow command`,
+        });
+      }
+    } catch (error) { return failure("workflow_artifact_record")(error); }
   };
 
   const context = async (input) => {
@@ -198,7 +287,7 @@ export function createArtifactHandlers({
       });
       const operational = await optionalOperational(input.workspace_root);
       const chain = handoffStore.context(input.root_plan_id, input.root_plan ?? null);
-      return result({
+      return toolResult("workflow_artifact_context", {
         ...(operational.workspace ? { workspace_root: operational.workspace } : {}),
         workspace_binding: operational.workspace_binding,
         workspace_root_used: Boolean(operational.workspace),
@@ -210,7 +299,7 @@ export function createArtifactHandlers({
           ? modelInheritanceSummary(operational.stateRoot)
           : { authoritative: false, status: "unavailable", evidence_effect: "none", reason: "workspace-binding-not-established" },
       });
-    } catch (error) { return failure(error); }
+    } catch (error) { return failure("workflow_artifact_context")(error); }
   };
 
   const closeout = async (input) => {
@@ -244,8 +333,8 @@ export function createArtifactHandlers({
         if (!handoff) {
           if (!input.root_plan) throw error;
           const merged = mergeArtifacts(input.artifacts ?? []);
-          const { closeoutResult } = buildCloseout(input, merged);
-          return result(closeoutPayload({
+          const { closeoutResult } = buildCloseout(input, merged, operational.workspace);
+          return toolResult("workflow_closeout", closeoutPayload({
             input,
             workspace: operational.workspace,
             workspaceBinding: operational.workspace_binding,
@@ -263,7 +352,7 @@ export function createArtifactHandlers({
       try { cached = handoffStore.context(input.root_plan_id, rootPlanText).artifacts.map(({ label, text }) => ({ label, text })); }
       catch { /* exact Root still allows closeout */ }
       const merged = mergeArtifacts([...cached, ...(input.artifacts ?? []), { label: "root", text: rootPlanText }]);
-      const { rootPlan, closeoutResult } = buildCloseout({ ...input, root_plan: rootPlanText }, merged);
+      const { rootPlan, closeoutResult } = buildCloseout({ ...input, root_plan: rootPlanText }, merged, operational.workspace);
       const persisted = persistCloseout({
         handoffStore,
         rootPlanText: rootPlan,
@@ -271,12 +360,15 @@ export function createArtifactHandlers({
         closeout: closeoutResult,
       });
       if (persisted.handoff_persisted) rememberContentAddressedRoot(rootPlan, pluginRoot);
+      if (persisted.handoff_persisted && operational.workspace) {
+        invalidateManualCheckReceipts({ rootPlanText: rootPlan, workspaceRoot: operational.workspace, options: receiptOptions });
+      }
       const selectorNotice = !operational.workspace && input.workspace_root
         ? `; the supplied workspace_root was not used (${operational.workspace_error?.code ?? "workspace-binding-not-established"})`
         : "";
       const warning = persisted.warning
         ?? (selectorNotice ? `workspace binding unavailable${selectorNotice}` : undefined);
-      return result(closeoutPayload({
+      return toolResult("workflow_closeout", closeoutPayload({
         input,
         workspace: operational.workspace,
         workspaceBinding: operational.workspace_binding,
@@ -287,7 +379,7 @@ export function createArtifactHandlers({
         handoffMode: persisted.handoff_persisted ? "root-content-cache" : "stateless",
         handoffErrorCode: persisted.handoff_error_code,
       }));
-    } catch (error) { return failure(error); }
+    } catch (error) { return failure("workflow_closeout")(error); }
   };
 
   return Object.freeze({ record, context, closeout });

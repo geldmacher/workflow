@@ -3,8 +3,8 @@ name: work-explanation
 description: Explain one Workflow root read-only.
 ---
 
-Use Cursor Ask Mode. Read [state](../../references/state-contract.md) and [explanation](../../references/explanation-contract.md). Resolve explicit `wp-*`, else the active native Cursor Plan/current chain, and only without a Plan a unique active controller Run. Report Workflow-3/4, mixed, or invalid input honestly without promoting delivery. Never modify files, run mutating commands, or emit Workflow artifacts.
+Use Cursor Ask Mode. Read [state](../../references/state-contract.md) and [explanation](../../references/explanation-contract.md). Resolve explicit `wp-*`, the active native Cursor Plan/current chain, then only without a Plan one active controller Run; with no unique Root ask for its ID. Report Workflow-3/4 or mixed/invalid input honestly. Never mutate or emit artifacts.
 
-Treat `extensions` as opaque audit metadata. Do not interpret, quote, summarize, explain, use, or pass its contents.
+Never interpret, quote, summarize, explain, use, or pass opaque `extensions`. Follow the human-first then technical format. State not `achieved` is **Preliminary explanation** with blockers and next safe action; only `achieved` is **Final repository explanation**.
 
-After implementation, only a fresh `work-explainer` may receive a `[workflow-readonly-review-v1]` task. It inherits the Cursor-selected model without a Task override, stays read-only, and never writes. Workflow chooses no model. Before achieved review label the result **Preliminary** with blockers and next safe action; afterward label it **Final repository explanation**. Ground claims in Root/slice/Check IDs and paths or symbols; keep unknowns explicit.
+For an on-demand refresh, only a fresh `work-explainer` receives `[workflow-readonly-review-v1]`. It inherits the Cursor-selected model without override, stays read-only, and never writes; Workflow chooses no model.

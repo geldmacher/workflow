@@ -2,15 +2,16 @@
 import { createRequire as __workflowCreateRequire } from 'node:module';
 const require = __workflowCreateRequire(import.meta.url);
 import {
-  ArtifactHandoffStore
-} from "./chunks/chunk-URWS3WPX.mjs";
-import "./chunks/chunk-GYZMJGQG.mjs";
+  ArtifactHandoffStore,
+  quarantineContentAddressedHandoffArtifact
+} from "./chunks/chunk-ABS7MFJE.mjs";
+import "./chunks/chunk-LLOAY7ER.mjs";
 import {
   PreparationStore,
   RunStore,
   defaultStateRoot
-} from "./chunks/chunk-MV4DSQKJ.mjs";
-import "./chunks/chunk-VL4DQUSD.mjs";
+} from "./chunks/chunk-TT447BBI.mjs";
+import "./chunks/chunk-XFYK5I23.mjs";
 import "./chunks/chunk-IQRLCJ3K.mjs";
 
 // scripts/state-maintenance.mjs
@@ -46,6 +47,25 @@ function rebuildStateIndexes({ workspace: workspace2, pluginRoot: pluginRoot2, s
   const preparations = new PreparationStore(stateRoot).rebuildIndex();
   const handoff = new ArtifactHandoffStore(stateRoot, pluginRoot2).rebuildIndex();
   return { command: "rebuild-index", workspace: workspace2, runs: runs.subjects.length, preparations: preparations.subjects.length, handoff_artifacts: handoff.entries.length };
+}
+function quarantineHandoffReview({
+  rootHash,
+  artifactId,
+  expectedTextHash,
+  pluginRoot: pluginRoot2,
+  apply = false,
+  now,
+  handoffOptions = {}
+}) {
+  return quarantineContentAddressedHandoffArtifact({
+    rootHash,
+    artifactId,
+    expectedTextHash,
+    pluginRoot: pluginRoot2,
+    apply,
+    now,
+    options: handoffOptions
+  });
 }
 function archiveStateSubject({ workspace: workspace2, subject, apply = false, stateRoot = defaultStateRoot(workspace2) }) {
   const runStore = new RunStore(stateRoot);
@@ -90,7 +110,21 @@ var argument = (name) => {
   return index >= 0 ? process.argv[index + 1] : null;
 };
 var command = process.argv[2];
-if (!["inspect", "rebuild-index", "archive"].includes(command)) throw new Error("usage: state:maintenance <inspect|rebuild-index|archive> --workspace <absolute-path> [--subject <id>] [--apply]");
+if (!["inspect", "rebuild-index", "archive", "quarantine-handoff"].includes(command)) throw new Error("usage: state:maintenance <inspect|rebuild-index|archive> --workspace <absolute-path> [--subject <id>] [--apply] | quarantine-handoff --root-hash <sha256> --artifact <wr-id> --expected-text-hash <sha256> [--apply]");
+if (command === "quarantine-handoff") {
+  const rootHash = argument("root-hash");
+  const artifactId = argument("artifact");
+  const expectedTextHash = argument("expected-text-hash");
+  if (!rootHash || !artifactId || !expectedTextHash) throw new Error("quarantine-handoff requires --root-hash, --artifact, and --expected-text-hash");
+  console.log(JSON.stringify(quarantineHandoffReview({
+    rootHash,
+    artifactId,
+    expectedTextHash,
+    pluginRoot,
+    apply: process.argv.includes("--apply")
+  }), null, 2));
+  process.exit(0);
+}
 var workspaceArgument = argument("workspace");
 if (!workspaceArgument) throw new Error("--workspace is required");
 var workspace = realpathSync(resolve(workspaceArgument));

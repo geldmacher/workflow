@@ -7,7 +7,7 @@ import {
 import {
   repositoryKey,
   require_dist
-} from "./chunk-MV4DSQKJ.mjs";
+} from "./chunk-TT447BBI.mjs";
 import {
   __toESM
 } from "./chunk-IQRLCJ3K.mjs";
@@ -204,7 +204,7 @@ function resolveRouteProfile(config, name = "default") {
 }
 
 // src/controller/worktree.mjs
-import { existsSync as existsSync2, mkdirSync, mkdtempSync, readFileSync as readFileSync2, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync as existsSync2, lstatSync, mkdirSync, mkdtempSync, readFileSync as readFileSync2, rmSync, statSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { homedir as homedir2, tmpdir } from "node:os";
 import { dirname, isAbsolute as isAbsolute2, join as join2, relative, resolve as resolve2, sep as sep2 } from "node:path";
@@ -293,6 +293,44 @@ function changedPaths(worktreePath) {
   const lines = git(worktreePath, ["status", "--porcelain=v1", "-uall"]);
   if (!lines) return [];
   return lines.split("\n").map((line) => line.slice(3).split(" -> ").at(-1)).filter(Boolean);
+}
+function changedPathsBetween(workspaceRoot, fromRef, toRef = "HEAD") {
+  if (!fromRef || !toRef) throw new Error("cumulative changed paths require two Git references");
+  return git(workspaceRoot, ["diff", "--no-renames", "--name-only", "-z", `${fromRef}..${toRef}`], { raw: true }).split("\0").filter(Boolean).sort();
+}
+function gitStatus(workspace, args) {
+  const result = spawnSync("git", ["-C", workspace, ...args], { encoding: "utf8", timeout: 12e4 });
+  if (result.error) return { status: null, error: result.error.message };
+  return { status: result.status, stdout: result.stdout, stderr: result.stderr };
+}
+function workspaceDeliveryMatch(workspaceRoot, deliveryCommit, deliveredPaths = []) {
+  const paths = [...new Set(deliveredPaths)].sort();
+  const object = gitStatus(workspaceRoot, ["cat-file", "-e", `${deliveryCommit}^{commit}`]);
+  if (object.status !== 0) return { status: "unverifiable", matched: false, paths, reason: "delivery-commit-unavailable" };
+  if (paths.length === 0) return { status: "matched", matched: true, paths, reason: "no-delivered-paths" };
+  const deliveredTree = gitStatus(workspaceRoot, ["--literal-pathspecs", "ls-tree", "-r", "-t", "--name-only", "-z", deliveryCommit, "--", ...paths]);
+  if (deliveredTree.status !== 0) return { status: "unverifiable", matched: false, paths, reason: deliveredTree.stderr?.trim() || "delivery-tree-comparison-failed" };
+  const presentAtDelivery = new Set(deliveredTree.stdout.split("\0").filter(Boolean));
+  let recreatedDeletion = false;
+  try {
+    recreatedDeletion = paths.some((path) => {
+      if (presentAtDelivery.has(path)) return false;
+      try {
+        lstatSync(assertContainedPath(workspaceRoot, path));
+        return true;
+      } catch (error) {
+        if (error?.code === "ENOENT" || error?.code === "ENOTDIR") return false;
+        throw error;
+      }
+    });
+  } catch (error) {
+    return { status: "unverifiable", matched: false, paths, reason: error.message || "delivery-deletion-comparison-failed" };
+  }
+  const comparison = gitStatus(workspaceRoot, ["--literal-pathspecs", "diff", "--quiet", deliveryCommit, "--", ...paths]);
+  if (comparison.status === 0 && !recreatedDeletion) return { status: "matched", matched: true, paths, reason: "delivered-content-present" };
+  if (![0, 1].includes(comparison.status)) return { status: "unverifiable", matched: false, paths, reason: comparison.stderr?.trim() || "delivery-comparison-failed" };
+  const ancestor = gitStatus(workspaceRoot, ["merge-base", "--is-ancestor", deliveryCommit, "HEAD"]);
+  return ancestor.status === 0 ? { status: "drifted", matched: false, paths, reason: "integrated-content-drifted" } : { status: "not-integrated", matched: false, paths, reason: "delivered-content-not-present" };
 }
 var dependencyManifestNames = /* @__PURE__ */ new Set(["package.json", "package-lock.json", "npm-shrinkwrap.json", "pnpm-lock.yaml", "yarn.lock", "bun.lock", "bun.lockb", "requirements.txt", "pyproject.toml", "poetry.lock", "Pipfile", "Pipfile.lock", "Gemfile", "Gemfile.lock", "Cargo.toml", "Cargo.lock", "go.mod", "go.sum"]);
 function packageDependencies(value) {
@@ -434,6 +472,8 @@ export {
   createRunWorktree,
   createComparisonBaselineWorktree,
   changedPaths,
+  changedPathsBetween,
+  workspaceDeliveryMatch,
   detectDependencyChanges,
   assertContainedPath,
   checkpoint,

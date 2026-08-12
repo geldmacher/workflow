@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { parse } from "yaml";
+import { parsePreferenceYaml } from "./preference-yaml.mjs";
 
 export const TOOL_APPROVAL_MODES = Object.freeze(["strict", "allowlisted"]);
 const preferenceKeys = Object.freeze(["schema", "tool_approval", "manual_subagent_policy", "extensions"]);
@@ -59,7 +59,7 @@ export function resolveHostToolApproval(options = {}) {
   if (!existsSync(path)) return strictSummary(path, "default");
   let parsed;
   try {
-    parsed = parse(readFileSync(path, "utf8"));
+    parsed = parsePreferenceYaml(readFileSync(path, "utf8"));
   } catch (error) {
     return strictSummary(path, "invalid-fallback", [`preferences file is unreadable: ${error.message}`]);
   }

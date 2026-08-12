@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { deriveManualWorkflowSnapshot, resolveManualRootPlanId } from "../src/controller/manual-status.mjs";
+import { deriveManualLearningProjection, deriveManualWorkflowSnapshot, resolveManualRootPlanId } from "../src/controller/manual-status.mjs";
 import { authoritativeArtifactProjectionFromText } from "../scripts/validate-artifact.source.mjs";
 import { workflowClient } from "./mcp-client.mjs";
 
@@ -14,8 +14,14 @@ const rootPlanId = "wp-adaptive-retry";
 const artifact = (name) => ({ label: name, text: readFileSync(join(fixtureRoot, name), "utf8") });
 const planFixture = artifact("work-plan.valid.md");
 const plan = { ...planFixture, text: planFixture.text.replace("profile_max: supervised", "profile_max: manual").replace("contract_level: controlled", "contract_level: lean") };
+const blockedPlan = {
+  ...plan,
+  label: "work-plan.blocked.md",
+  text: plan.text.replace("status: ready", "status: blocked").replace("intent_ready: true", "intent_ready: false"),
+};
 const evidenceFixture = artifact("delivery-evidence.valid.md");
-const evidence = { ...evidenceFixture, text: evidenceFixture.text.replace(/^intent_hash:.*$/m, `intent_hash: ${authoritativeArtifactProjectionFromText(plan.text).projection_hash}`) };
+const legacyEvidence = { ...evidenceFixture, text: evidenceFixture.text.replace(/^intent_hash:.*$/m, `intent_hash: ${authoritativeArtifactProjectionFromText(plan.text).projection_hash}`) };
+const evidence = { ...legacyEvidence, text: legacyEvidence.text.replace("surface: repository-test", "surface: host-tool-receipt") };
 const review = artifact("work-review.valid.md");
 const derive = (artifacts) => deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot: root, observedAt: "2026-07-30T10:00:00.000Z" });
 const deriveActive = (artifacts) => deriveManualWorkflowSnapshot({ artifacts, pluginRoot: root, observedAt: "2026-07-30T10:00:00.000Z" });
@@ -60,16 +66,38 @@ test("manual remains a compact human-started path without controller state", () 
   assert.equal(value.snapshot.contract_level, "lean");
   assert.equal(value.snapshot.state, "root-plan-review");
   assert.equal(value.snapshot.next_action, "implement-plan");
+  assert.deepEqual(value.constraint_summary.receipt_coverage, { attested: 0, eligible: 1 });
+  assert.equal(value.human_attention.required, false);
+  const clarification = derive([blockedPlan]);
+  assert.equal(clarification.snapshot.state, "intent-clarification");
+  assert.equal(clarification.snapshot.next_action, "resolve-intent");
 });
 
 test("manual evidence waits for review and a verified review achieves", () => {
   const delivered = derive([plan, evidence]);
   assert.equal(delivered.snapshot.state, "root-review");
   assert.equal(delivered.snapshot.required_actor, "reviewer");
+  assert.deepEqual(delivered.constraint_summary.evidence_gap_checks, []);
+  assert.deepEqual(delivered.constraint_summary.host_attested_checks, ["CHECK-1"]);
   const achieved = derive([plan, evidence, review]);
   assert.equal(achieved.snapshot.state, "achieved");
+  assert.equal(achieved.snapshot.required_actor, "none");
   assert.equal(achieved.snapshot.evidence_tip, "de-adaptive-retry");
   assert.equal(achieved.snapshot.review_tip, "wr-adaptive-retry");
+  assert.equal(deriveManualLearningProjection(achieved).eligible, true);
+  assert.equal(deriveManualLearningProjection(delivered).eligible, false);
+});
+
+test("manual status never achieves a receiptless legacy verified chain", () => {
+  const delivered = derive([plan, legacyEvidence]);
+  assert.equal(delivered.snapshot.state, "root-review");
+  assert.equal(delivered.snapshot.evidence_grade, "supported");
+  assert.deepEqual(delivered.constraint_summary.evidence_gap_checks, ["CHECK-1"]);
+  assert.deepEqual(delivered.constraint_summary.legacy_unattested_verified_checks, ["CHECK-1"]);
+  const reviewed = derive([plan, legacyEvidence, review]);
+  assert.equal(reviewed.snapshot.state, "root-review");
+  assert.equal(reviewed.snapshot.required_actor, "reviewer");
+  assert.equal(deriveManualLearningProjection(reviewed).eligible, false);
 });
 
 test("manual status distinguishes absent context, invalid Schema 5, and Workflow 3/4 history", () => {
@@ -113,6 +141,7 @@ test("manual provisional acceptance is stateless and hash-bound", () => {
     manualAcceptance: "provisional",
   });
   assert.equal(accepted.snapshot.state, "accepted-provisional");
+  assert.equal(accepted.snapshot.required_actor, "none");
   assert.equal(accepted.snapshot.acceptance_persisted, false);
   assert.equal(accepted.snapshot.acceptance_basis_hash, ready.snapshot.artifact_set_hash);
   assert.equal(derive(artifacts).snapshot.state, "delivery-ready-provisional");
@@ -149,6 +178,11 @@ test("manual workflow_status is read-only and creates no controller state", asyn
     assert.equal(response.isError, false);
     assert.equal(response.structuredContent.subject_kind, "artifact-chain");
     assert.equal(response.structuredContent.snapshot.next_action, "implement-plan");
+    assert.equal(response.structuredContent.presentation.help.topic, "manual-state-root-plan-review");
+    assert.match(response.content[0].text, /Meaning: A ready Intent Root exists/);
+    assert.match(response.content[0].text, /Learn more: \[Manual Workflow guide\]\(https:\/\/github\.com\/geldmacher\/workflow\/blob\/main\/docs\/manual-workflow\.md#root-plan-review\)/);
+    assert.equal(response.structuredContent.learning.eligible, false);
+    assert.equal(response.structuredContent.learning.source_kind, "artifact-chain");
     assert.deepEqual(response.structuredContent.model_inheritance, {
       authoritative: false,
       status: "clean",
@@ -188,13 +222,22 @@ test("manual workflow_status is read-only and creates no controller state", asyn
     });
     assert.equal(accepted.isError, false);
     assert.equal(accepted.structuredContent.snapshot.state, "accepted-provisional");
+    assert.equal(accepted.structuredContent.snapshot.required_actor, "none");
     assert.equal(accepted.structuredContent.snapshot.acceptance_persisted, false);
     assert.equal(accepted.structuredContent.snapshot.root_plan_id, rootPlanId);
+    assert.equal(accepted.structuredContent.presentation.workflow_state, "accepted-provisional");
+    assert.equal(accepted.structuredContent.presentation.help.topic, "manual-state-accepted-provisional");
+    assert.match(accepted.content[0].text, /### Accepted provisionally/);
+    assert.doesNotMatch(accepted.content[0].text, /### Done/);
     const fresh = await client.callTool({
       name: "workflow_status",
       arguments: { workspace_root: root, root_plan_id: rootPlanId, artifacts: [plan, provisionalEvidence, provisionalReview] },
     });
     assert.equal(fresh.structuredContent.snapshot.state, "delivery-ready-provisional");
+    assert.equal(fresh.structuredContent.presentation.outcome, "partial");
+    assert.equal(fresh.structuredContent.presentation.help.topic, "manual-state-delivery-ready-provisional");
+    assert.match(fresh.content[0].text, /workflow_status — partial/);
+    assert.equal(accepted.structuredContent.presentation.outcome, "ready");
     assert.equal(existsSync(join(home, ".cursor", "geldmacher-workflow")), false);
   } finally {
     await client.close().catch(() => {});
@@ -232,6 +275,7 @@ test("manual workflow_status surfaces allowlisted host preference without granti
     assert.equal(response.structuredContent.host_tool_approval.authoritative, false);
     assert.equal(response.structuredContent.host_tool_approval.grants_host_approval, false);
     assert.equal(response.structuredContent.host_tool_approval.host_allowlist_required, true);
+    assert.match(response.content[0].text, /host approvals: host allowlist expected \(source: file\); preference grants none/);
   } finally {
     await client.close().catch(() => {});
     rmSync(home, { recursive: true, force: true });

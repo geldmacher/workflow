@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
-import { defaultRoot, preflightRootPlan, validateArtifactText } from "../scripts/validate-artifact.source.mjs";
+import {
+  defaultRoot,
+  executionContractFromArtifactText,
+  inspectArtifactText,
+  preflightRootPlan,
+  validateArtifactText,
+} from "../scripts/validate-artifact.source.mjs";
 import { deriveManualWorkflowSnapshot } from "../src/controller/manual-status.mjs";
 
 const plan = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
@@ -78,6 +84,9 @@ test("historical bare Schema-5 roots remain parseable without explicit Verificat
   const preflight = preflightRootPlan(historical);
   assert.equal(preflight.feasible, false);
   assert.equal(preflight.blocking_issues.some((entry) => entry.code === "explicit-verification-required"), true);
+  const contract = executionContractFromArtifactText(historical);
+  assert.equal(contract.checks[0]["Command or Inspection"], "verification-profile");
+  assert.equal(inspectArtifactText(historical).artifact.normalizations.includes("synthesized strategy checks from acceptance outcomes"), true);
   const snapshot = deriveManualWorkflowSnapshot({
     rootPlanId: "wp-adaptive-retry",
     artifacts: [{ label: "historical-root", text: historical }],
@@ -85,4 +94,28 @@ test("historical bare Schema-5 roots remain parseable without explicit Verificat
   });
   assert.equal(snapshot.snapshot.root_plan_id, "wp-adaptive-retry");
   assert.equal(snapshot.snapshot.state, "root-plan-review");
+});
+
+test("execution contract uses the same explicit nested Verification checks as preflight", () => {
+  const preflight = preflightRootPlan(plan);
+  const contract = executionContractFromArtifactText(plan);
+  assert.deepEqual(
+    contract.checks.filter((row) => row.Required === "yes").map((row) => row["Check ID"]),
+    preflight.required_checks,
+  );
+  assert.equal(contract.checks[0]["Command or Inspection"], "npm test");
+  assert.equal(contract.checks[0]["Expected Result"], "Retry verification passes twice");
+  assert.notEqual(contract.checks[0]["Command or Inspection"], "verification-profile");
+  assert.equal(contract.checks[0]["Evidence Class"], "machine-verifiable");
+});
+
+test("top-level Verification takes precedence over nested Acceptance Verification", () => {
+  const dual = plan
+    .replace(
+      "## Risks\n\nThe main risk is an accidental public-contract regression; preserve and verify that contract.\n",
+      "## Verification\n\n| Check ID | Objectives | Working Directory | Command or Inspection | Expected Result | Required | Evidence Class | Cost Class | Prerequisites |\n|---|---|---|---|---|---|---|---|---|\n| CHECK-1 | OBJ-1 | repository root | npm run top-level | Top-level verification wins | yes | machine-verifiable | standard | src, tests |\n\n## Risks\n\nThe main risk is an accidental public-contract regression; preserve and verify that contract.\n",
+    );
+  const contract = executionContractFromArtifactText(dual);
+  assert.equal(contract.checks[0]["Command or Inspection"], "npm run top-level");
+  assert.equal(contract.checks[0]["Expected Result"], "Top-level verification wins");
 });

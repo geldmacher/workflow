@@ -1,13 +1,11 @@
 # Derived Workflow state
 
-State is derived from Root, Strategy, evidence, ledger, approvals, and observations; it is never an artifact.
+State is derived, never stored. Snapshots expose delivery, Profile, blockers, actor, actions, revision, and source. Manual status adds `Meaning:` plus the state [guide](https://github.com/geldmacher/workflow/blob/main/docs/manual-workflow.md#manual-states); unknown states use its generic topic, controller states none.
 
-Snapshots expose hashes, Strategy revision, Profiles, delivery, deviations, Dirty Baseline, Qualification Key, blockers, actor, actions, and revision. Manual uses `artifact-chain`; controller uses `controller-run`.
+`workflow_status.learning` is a uniform read-only projection for Manual chains, Runs, and Preparations (ineligible), with source binding, eligibility/blockers, workspace/delivery proof, compatibility, and candidates. An explicit selector wins; otherwise resolve one Plan tip, then one controller subject only without Manual context. Zero/multiple tips authorize nothing.
 
-An explicit selector wins. Otherwise resolve the unique active Plan lineage tip; only without Manual context may status use one active controller subject. Missing or multiple tips authorize nothing.
+Manual `achieved/verified/none` completes directly; provisional needs ephemeral `/accept-work provisional`, stays nonpersistent/non-qualifying, and grants no Learning. Terminal snapshots need no actor.
 
-Verified Manual delivery reaches `achieved` after review. A provisional review waits at `delivery-ready-provisional`; `/accept-work [wp-id] provisional` yields an ephemeral `accepted-provisional` snapshot with `root_plan_id`, `acceptance_persisted: false`, and `acceptance_basis_hash`. Later status returns provisional again.
+Supervised qualifies only after verified acceptance; Autonomous needs every required Check and no final acceptance unless downgraded. Controller Learning also needs current-workspace content plus the process-local receipt issued when state-establishing start/control/answer returned that Run. Stored-ID status/watch lookup is diagnostic and issues no receipt.
 
-Supervised delivery waits at `delivery-ready-verified` or provisional. Failed acceptance is `blocked`. Only verified, accepted Runs qualify; provisional acceptance never qualifies or publishes Learning. Autonomous `achieved` requires every required Check.
-
-Pause, resume, interruption, budget cancellation, and crash recovery preserve Strategy revisions and the hash-chained ledger. Status/watch are read-only. Workflow-3 and Workflow-4 documents and Runs appear as `read-only-workflow-3` or `read-only-workflow-4`; they cannot mutate, block active Workflow-5 work, or qualify.
+Recovery preserves Strategy revisions and the chained candidate/path ledger. Broken lineage, fresh Root/Strategy integrity, event schema, reviewer receipts, Git objects, integration, or drift proof blocks Learning. Status/watch mutate nothing. Workflow-3/4 remains read-only and non-qualifying.

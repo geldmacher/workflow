@@ -1,9 +1,11 @@
 import { createHash } from "node:crypto";
 import {
   effectiveCliSummary,
+  executionContractFromArtifactText,
   inspectArtifactSet,
   inspectArtifactText,
 } from "../../scripts/validate-artifact.source.mjs";
+import { manualConstraintProjection } from "../core/manual-check-receipts.mjs";
 import { deriveWorkflowState } from "../../scripts/derive-workflow-state.mjs";
 
 function unique(values) {
@@ -30,12 +32,35 @@ function baseInput(rootPlanId, entries, observedAt) {
   };
 }
 
-function summary(rootPlanId, entries, evidenceTip = null, reviewTip = null) {
+function summary(rootPlanId, entries, evidenceTip = null, reviewTip = null, learningCandidates = []) {
   return {
     root_plan_id: rootPlanId,
     artifact_count: entries.length,
     evidence_tip: evidenceTip,
     review_tip: reviewTip,
+    learning_candidates: learningCandidates,
+  };
+}
+
+export function deriveManualLearningProjection({ snapshot, artifact_summary: artifactSummary }) {
+  const blockers = [];
+  if (snapshot?.state !== "achieved") blockers.push("learning-source-not-achieved");
+  if (snapshot?.delivery_status !== "verified") blockers.push("learning-source-not-verified");
+  return {
+    schema: 1,
+    eligible: blockers.length === 0,
+    source_kind: "artifact-chain",
+    source_id: snapshot?.root_plan_id ?? artifactSummary?.root_plan_id ?? null,
+    root_plan_id: snapshot?.root_plan_id ?? artifactSummary?.root_plan_id ?? null,
+    effective_profile: "manual",
+    blockers,
+    workspace_match: { status: "not-required", matched: true, paths: [] },
+    delivery_commit: null,
+    delivered_paths: [],
+    event_chain_valid: null,
+    compatibility: snapshot?.compatibility ?? "compatible",
+    source_binding: { status: "confirmed", kind: "current-task-artifacts" },
+    candidates: (artifactSummary?.learning_candidates ?? []).map((candidate) => ({ ...candidate })),
   };
 }
 
@@ -189,6 +214,15 @@ export function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot
   const correctionEvidencePendingReview = Boolean(review
     && evidence?.fields.source_review_id === review.fields.id
     && evidence?.fields.subject_id === review.fields.correction_id);
+  const contract = executionContractFromArtifactText(rootRecords[0].entry.text, pluginRoot);
+  const constraintProjection = contract.errors.length === 0
+    ? manualConstraintProjection({
+      checks: contract.checks,
+      evidence: evidence?.fields.check_evidence ?? [],
+      pending: !evidence,
+    })
+    : {};
+  const legacyReceiptGap = (constraintProjection.constraint_summary?.legacy_unattested_verified_checks?.length ?? 0) > 0;
   const acceptanceEligible = root?.fields.profile_max === "manual"
     && evidence
     && review
@@ -218,19 +252,20 @@ export function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot
     evidence_tip: evidenceTipId,
     review_tip: reviewTipId,
     review: review?.fields ?? null,
-    evidence_grade: evidence?.fields.overall_grade ?? null,
-    delivery_status: review?.fields.delivery_status ?? null,
+    evidence_grade: legacyReceiptGap ? "supported" : (evidence?.fields.overall_grade ?? null),
+    delivery_status: legacyReceiptGap ? null : (review?.fields.delivery_status ?? null),
     intent_hash: evidence?.fields.intent_hash ?? null,
     strategy_revision: evidence?.fields.strategy_revision ?? (evidence?.fields.evidence_mode === "lean" ? 0 : null),
     manual_acceptance: manualAcceptance,
     acceptance_basis_hash: manualAcceptance ? artifactSetHash(relatedEntries) : null,
     correction_evidence_pending_review: correctionEvidencePendingReview,
-    root_review_complete: review?.fields.assessment === "achieved" && review?.fields.next_action === "none",
+    root_review_complete: !legacyReceiptGap && review?.fields.assessment === "achieved" && review?.fields.next_action === "none",
     more_slices: false,
   };
   return {
     snapshot: deriveWorkflowState(input),
-    artifact_summary: summary(rootPlanId, relatedEntries, evidenceTipId, reviewTipId),
+    artifact_summary: summary(rootPlanId, relatedEntries, evidenceTipId, reviewTipId, tips.learning_candidates),
     diagnostics: unique([...chain.normalizations, ...chain.diagnostics]),
+    ...constraintProjection,
   };
 }

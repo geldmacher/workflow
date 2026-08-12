@@ -10,6 +10,7 @@ import {
   classifyRunCompatibility,
   preparationProtocolFields,
   protocolFields,
+  runEventSubject,
 } from "./protocol.mjs";
 
 export { repositoryKey } from "../core/state-paths.mjs";
@@ -90,10 +91,17 @@ function loadEventHead(eventPath, headPath) {
   } catch { return rebuildEventHead(eventPath, headPath); }
 }
 
-function appendIndexedEvent(directory, eventPath, headPath, type, payload) {
+function appendIndexedEvent(directory, eventPath, headPath, type, payload, subject = null) {
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   const head = loadEventHead(eventPath, headPath);
-  const event = { id: randomUUID(), at: new Date().toISOString(), type, payload, previous_hash: head.last_hash };
+  const event = {
+    id: randomUUID(),
+    at: new Date().toISOString(),
+    type,
+    payload,
+    ...(subject ? { subject } : {}),
+    previous_hash: head.last_hash,
+  };
   event.event_hash = createHash("sha256").update(JSON.stringify(event)).digest("hex");
   const line = `${JSON.stringify(event)}\n`;
   const checkpoints = [...head.checkpoints];
@@ -293,11 +301,46 @@ export class RunStore {
   }
 
   appendEvent(runId, type, payload = {}) {
-    appendIndexedEvent(this.runDirectory(runId), this.eventPath(runId), this.eventHeadPath(runId), type, payload);
+    const run = this.get(runId);
+    appendIndexedEvent(this.runDirectory(runId), this.eventPath(runId), this.eventHeadPath(runId), type, payload, runEventSubject(run));
   }
 
-  appendDecision(runId, { phase, actor_receipt = null, decision, reason, input_hashes = [], strategy_revision = null, evidence_refs = [], result = null, supersedes = null }) {
-    this.appendEvent(runId, "decision", { phase, actor_receipt, decision, reason, input_hashes, strategy_revision, evidence_refs, result, supersedes });
+  appendDecision(runId, {
+    phase,
+    actor_receipt = null,
+    actor_receipts = [],
+    decision,
+    reason,
+    input_hashes = [],
+    strategy_revision = null,
+    evidence_refs = [],
+    result = null,
+    supersedes = null,
+    correction_id = null,
+    learning_candidate_ids = [],
+    learning_candidate_refs = [],
+    delivery_evidence_hash = null,
+    delivery_commit = null,
+    delivered_paths_hash = null,
+  }) {
+    this.appendEvent(runId, "decision", {
+      phase,
+      actor_receipt,
+      actor_receipts,
+      decision,
+      reason,
+      input_hashes,
+      strategy_revision,
+      evidence_refs,
+      result,
+      supersedes,
+      correction_id,
+      learning_candidate_ids,
+      learning_candidate_refs,
+      delivery_evidence_hash,
+      delivery_commit,
+      delivered_paths_hash,
+    });
   }
 
   events(runId, after = 0) {

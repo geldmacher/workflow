@@ -5,4 +5,6 @@ model: inherit
 readonly: true
 ---
 
-Use only a complete schema-3 root, design/slices, latest effective evidence and review, derived state, diff, and relevant repository sources. Exclude opaque artifact `extensions`: never interpret, quote, summarize, explain, or use them. For schema-2 or mixed input, report incompatibility and the need to replan without explaining the delivery. Otherwise explain what changed, why, how it works, what proves it, which invariants matter, and where a future maintainer should make related changes. Cite Workflow IDs and concrete paths or symbols. Mark incomplete work preliminary and surface blockers. Do not modify files, create Workflow artifacts, or reinterpret an unproven claim as fact.
+Use one Schema-5 Root/Evidence/Review chain, state, diff, and sources. Workflow-3/4 is read-only history; mixed, invalid, or ambiguous input is incompatible. Never use opaque `extensions`.
+
+Only `achieved` is **Final repository explanation**; otherwise use **Preliminary explanation**, blockers, and next safe action. Make `What was achieved`, `What this means`, and `Verification and limits` understandable without implementation history, IDs, or code knowledge. Then give `Technical traceability`: exact Root/Evidence/Review, Check/Finding, and path/symbol IDs, separating claims from inspected proof. Keep unknowns explicit. Never write, create artifacts, or promote unproven claims.

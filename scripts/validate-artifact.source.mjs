@@ -7,6 +7,18 @@ import { evidenceHasKnownFailure, leanEvidenceData } from "./artifact-validator/
 import { linearChain, lineageTips } from "./artifact-validator/lineage.mjs";
 import { opaqueExtensionsFromArtifactText, parseArtifact, replaceOpaqueExtensions } from "./artifact-validator/parser.mjs";
 import { schemaFor, validateArtifactSchema } from "./artifact-validator/schema.mjs";
+import { planCloseoutAttestationIssues } from "../src/core/manual-attestation.mjs";
+
+export {
+  evaluateDeliveryCompletion,
+  expectedLineageFromArtifacts,
+  formatDeliveryReportFence,
+  formatPlanCloseoutAttestationFence,
+  planCloseoutAttestationIssues,
+  readCloseoutRecord,
+} from "../src/core/manual-attestation.mjs";
+
+export { rootContentHash } from "../src/core/state-paths.mjs";
 
 export { opaqueExtensionsFromArtifactText, parseArtifact, replaceOpaqueExtensions };
 
@@ -295,6 +307,20 @@ function subsection(content, name) {
   return content.slice(start, end).trim();
 }
 
+function verificationSectionContent(artifact) {
+  const sections = artifact?.sections instanceof Map ? artifact.sections : new Map();
+  const topLevel = sections.get("Verification") ?? "";
+  if (tableRows(topLevel, tables.verification).length > 0
+    || tableRows(topLevel, tables.verificationWithClass).length > 0) {
+    return topLevel;
+  }
+  if ((artifact?.fields?.schema ?? 0) >= 5) {
+    const nested = subsection(sections.get("Acceptance") ?? "", "Verification");
+    if (nested.trim()) return nested;
+  }
+  return "";
+}
+
 function noneLike(value) {
   return /^(?:none\.?|no (?:findings|changes|deviations|candidates|correction|open decisions)\.?)$/i.test(String(value).trim());
 }
@@ -328,7 +354,10 @@ function requireTable(sections, sectionName, headers, failures, { allowNone = fa
 }
 
 function placeholder(value) {
-  return /<(?:placeholder|replace[-_ ]?me|insert[-_ ][^>\r\n]+|[^>\r\n]*\.{3}[^>\r\n]*)>|\b(?:TBD|TODO|UNKNOWN)\b/i.test(String(value));
+  // Explicit unfinished-content tokens only. Ordinary title-case words such as
+  // "Todo" must not fail closed; match TBD/TODO/UNKNOWN in that exact uppercase form.
+  return /<(?:placeholder|replace[-_ ]?me|insert[-_ ][^>\r\n]+|[^>\r\n]*\.{3}[^>\r\n]*)>/i.test(String(value))
+    || /\b(?:TBD|TODO|UNKNOWN)\b/.test(String(value));
 }
 
 function rejectPlaceholders(parsed, schema, sections, failures) {
@@ -422,8 +451,9 @@ function planData(artifact) {
       "Observable outcome": outcome,
       "Acceptance evidence": outcome,
     }));
-    const declaredChecks = tableRows(artifact.sections.get("Verification") ?? "", tables.verification);
-    const declaredWithClass = tableRows(artifact.sections.get("Verification") ?? "", tables.verificationWithClass);
+    const verificationContent = verificationSectionContent(artifact);
+    const declaredChecks = tableRows(verificationContent, tables.verification);
+    const declaredWithClass = tableRows(verificationContent, tables.verificationWithClass);
     const checks = declaredChecks.length > 0 ? declaredChecks : objectives.map((objective, index) => ({
       "Check ID": `CHECK-${index + 1}`,
       Objectives: objective["Objective ID"],
@@ -457,10 +487,11 @@ function planData(artifact) {
     };
   }
   const objectives = tableRows(artifact.sections.get("Objectives") ?? "", tables.objectives);
-  const checks = tableRows(artifact.sections.get("Verification") ?? "", tables.verification);
+  const verificationContent = verificationSectionContent(artifact);
+  const checks = tableRows(verificationContent, tables.verification);
   const steps = tableRows(artifact.sections.get("Execution steps") ?? "", tables.steps);
   const scope = tableRows(artifact.sections.get("Scope and targets") ?? "", tables.scope);
-  const verificationWithClass = tableRows(artifact.sections.get("Verification") ?? "", tables.verificationWithClass);
+  const verificationWithClass = tableRows(verificationContent, tables.verificationWithClass);
   const slices = tableRows(subsection(artifact.sections.get("Execution steps") ?? "", "Vertical slices"), tables.slices);
   const objectiveDependencies = new Map(objectives.map((row) => [row["Objective ID"], new Set()]));
   for (const check of checks) for (const objective of ids(check.Objectives, objectivePattern)) for (const target of targetTokens(check.Prerequisites)) objectiveDependencies.get(objective)?.add(target);
@@ -494,7 +525,7 @@ function validatePlanV4(parsed, sections, failures) {
     for (const field of ["max_active_minutes", "max_total_tokens", "max_cost_usd"]) if (!Number.isFinite(authority[field]) || authority[field] <= 0) failures.push(`controlled authority requires ${field}`);
   }
   const data = planData(parsed);
-  const verification = tableRows(sections.get("Verification") ?? "", tables.verificationWithClass);
+  const verification = tableRows(verificationSectionContent(parsed), tables.verificationWithClass);
   for (const row of verification) {
     if (!/^CHECK-[1-9][0-9]*$/.test(row["Check ID"])) failures.push(`Verification: invalid Check ID ${row["Check ID"]}`);
     if (!/^(?:yes|no)$/.test(row.Required)) failures.push(`Verification: ${row["Check ID"]} Required must be yes|no`);
@@ -504,15 +535,25 @@ function validatePlanV4(parsed, sections, failures) {
   if (data.objectives.size !== parsed.fields.acceptance.length) failures.push("acceptance outcomes must map one-to-one to objectives");
   if (parsed.wrapper) {
     const todos = parsed.wrapper.todos ?? [];
-    for (const todo of todos) {
-      if (!String(todo.content ?? "").startsWith(modelInheritMarker)) failures.push(`native todo ${todo.id ?? "<unknown>"} must start with ${modelInheritMarker}`);
+    const finalTodo = todos.at(-1) ?? null;
+    const final = String(finalTodo?.content ?? "");
+    const marked = todos.some((todo) => String(todo.content ?? "").includes(modelInheritMarker))
+      || String(parsed.wrapper.overview ?? "").includes(modelInheritMarker)
+      || String(parsed.wrapper.name ?? "").includes(modelInheritMarker);
+    if (!marked && !final.startsWith(modelInheritMarker)) {
+      failures.push(`native Plan must include ${modelInheritMarker} on the final closeout todo or plan overview`);
     }
-    const final = String(todos.at(-1)?.content ?? "");
-    if (!/verify|check|evidence|snapshot/i.test(final)) failures.push("final native todo must verify or evidence the implemented result");
+    if (todos.length > 0 && !final.startsWith(modelInheritMarker) && !todos.some((todo) => String(todo.content ?? "").startsWith(modelInheritMarker))) {
+      failures.push(`final native todo must start with ${modelInheritMarker} when no other todo carries it`);
+    }
+    if (!/verify|check|evidence|snapshot|close\s*out/i.test(final)) {
+      failures.push("final native todo must verify or evidence the implemented result");
+    }
     if (parsed.fields.schema === 5) {
-      if (!/workflow_closeout/.test(final)) failures.push("final native todo must call workflow_closeout");
-      if (!/exact Root\/chain/i.test(final)) failures.push("final native todo must supply the exact Root/chain to workflow_closeout");
-      if (!/(?:print|return|output)[\s\S]{0,100}(?:returned artifact|artifact returned by workflow_closeout)[\s\S]{0,100}(?:unchanged|byte-for-byte)/i.test(final)) failures.push("final native todo must print the returned artifact unchanged");
+      if (!final.startsWith(modelInheritMarker)) failures.push(`final native todo must start with ${modelInheritMarker}`);
+      for (const issue of planCloseoutAttestationIssues(finalTodo ?? final, { role: "final native todo" })) {
+        failures.push(issue);
+      }
     }
   }
 }
@@ -1070,7 +1111,7 @@ export function preflightRootPlan(text, root = defaultRoot) {
     ));
   }
 
-  const rows = tableRows(parsed.sections.get("Acceptance") ?? "", tables.verificationWithClass);
+  const rows = tableRows(verificationSectionContent(parsed), tables.verificationWithClass);
   const objectiveIds = new Set((parsed.fields.acceptance ?? []).map((_, index) => `OBJ-${index + 1}`));
   const requiredChecks = [];
   const deferredChecks = [];
@@ -1635,6 +1676,31 @@ export function effectiveCliSummary(inspection) {
   const evidenceTips = tips("delivery-evidence", "predecessor_evidence_id");
   const reviewTips = tips("work-review", "predecessor_review_id");
   const activeReview = activeRootId && reviewTips[activeRootId] ? inspection.effective.get(reviewTips[activeRootId]) : null;
+  const learningCandidates = artifacts
+    .filter((artifact) => artifact.fields.artifact === "work-review"
+      && artifact.fields.root_plan_id === activeRootId
+      && activeReview?.fields.assessment === "achieved"
+      && activeReview?.fields.delivery_status === "verified"
+      && artifact.correction?.learnings?.length > 0)
+    .flatMap((artifact) => artifact.correction.learnings.map((learning) => {
+      const evidence = artifacts.find((candidate) => candidate.fields.artifact === "delivery-evidence"
+        && candidate.fields.subject_id === artifact.fields.correction_id
+        && candidate.fields.status === "complete");
+      return {
+        source_kind: "manual-correction",
+        root_plan_id: artifact.fields.root_plan_id,
+        review_id: artifact.fields.id,
+        correction_id: artifact.fields.correction_id,
+        learning_id: learning["Learning ID"],
+        finding_keys: String(learning["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean),
+        reusable_guidance: learning["Reusable guidance"],
+        candidate_targets: targetTokens(learning["Candidate targets"]),
+        confirmation_evidence: learning["Confirmation evidence"],
+        correction_evidence_id: evidence?.fields.id ?? null,
+        evidence_confirmed: Boolean(evidence),
+      };
+    }))
+    .toSorted((left, right) => left.review_id.localeCompare(right.review_id) || left.learning_id.localeCompare(right.learning_id));
   return {
     active_root_id: activeRootId,
     root_tips: rootTips,
@@ -1646,25 +1712,7 @@ export function effectiveCliSummary(inspection) {
         && artifact.fields.id === reviewTips[activeRootId]
         && artifact.fields.next_action === "correct")
       .map((artifact) => ({ root_plan_id: artifact.fields.root_plan_id, review_id: artifact.fields.id, correction_id: artifact.fields.correction_id, base_evidence_id: artifact.fields.latest_evidence_id })),
-    learning_candidates: artifacts
-      .filter((artifact) => artifact.fields.artifact === "work-review"
-        && artifact.fields.root_plan_id === activeRootId
-        && activeReview?.fields.assessment === "achieved"
-        && activeReview?.fields.delivery_status === "verified"
-        && artifact.correction?.learnings?.length > 0)
-      .flatMap((artifact) => artifact.correction.learnings.map((learning) => {
-        const evidence = artifacts.find((candidate) => candidate.fields.artifact === "delivery-evidence"
-          && candidate.fields.subject_id === artifact.fields.correction_id
-          && candidate.fields.status === "complete");
-        return {
-          root_plan_id: artifact.fields.root_plan_id,
-          review_id: artifact.fields.id,
-          correction_id: artifact.fields.correction_id,
-          learning_id: learning["Learning ID"],
-          correction_evidence_id: evidence?.fields.id ?? null,
-          evidence_confirmed: Boolean(evidence),
-        };
-      })),
+    learning_candidates: learningCandidates,
   };
 }
 

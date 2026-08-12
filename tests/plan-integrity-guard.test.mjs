@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { evaluateCreatePlanGuard } from "../hooks/plan-integrity-guard.mjs";
+import { PLAN_CLOSEOUT_ATTESTATION } from "../src/core/manual-attestation.mjs";
+import { finalCloseoutTodo } from "./support/manual-attestation-fixtures.mjs";
 import { defaultRoot } from "../scripts/validate-artifact.source.mjs";
 
 const marker = "[workflow-model-inherit-v1]";
@@ -20,8 +23,8 @@ function event(overrides = {}) {
       overview: "Implement and verify deterministic retry handling.",
       plan: nativePlan,
       todos: [
-        { id: "STEP-1", content: `${marker} STEP-1 implement deterministic retry handling` },
-        { id: "closeout", content: `${marker} Run CHECK-1, call workflow_closeout with the exact Root/chain, and print its returned artifact unchanged` },
+        { id: "STEP-1", content: "STEP-1 implement deterministic retry handling" },
+        { ...finalCloseoutTodo, content: `${marker} Run CHECK-1 and close out delivery.` },
       ],
     },
     ...overrides,
@@ -30,6 +33,15 @@ function event(overrides = {}) {
 
 test("CreatePlan guard accepts a valid native Schema-5 plan", () => {
   assert.deepEqual(evaluateCreatePlanGuard(event(), { pluginRoot: defaultRoot }), {});
+});
+
+test("CreatePlan guard accepts typed plan-closeout attestation metadata", () => {
+  const candidate = event();
+  candidate.tool_input.todos[1] = {
+    ...finalCloseoutTodo,
+    content: `${marker} Verify CHECK-1 and close out delivery.`,
+  };
+  assert.deepEqual(evaluateCreatePlanGuard(candidate, { pluginRoot: defaultRoot }), {});
 });
 
 test("CreatePlan guard rejects the KIP pattern without marked deterministic closeout", () => {
@@ -45,12 +57,38 @@ test("CreatePlan guard rejects the KIP pattern without marked deterministic clos
     },
   }), { pluginRoot: defaultRoot });
   assert.equal(result.permission, "deny");
-  assert.match(result.user_message, /workflow-model-inherit-v1/);
-  assert.match(result.user_message, /workflow_closeout|returned artifact unchanged/);
+  assert.match(result.user_message, /workflow-model-inherit-v1|final native todo/);
+  assert.match(result.user_message, /workflow_attestation|plan-closeout|workflow_closeout|workflow-closeout-v1|closeout/);
   assert.match(result.user_message, /no Plan was created/);
 });
 
-test("CreatePlan guard rejects cache-dependent or lossy closeout todos", () => {
+test("CreatePlan guard accepts STEP todos without the inheritance marker when closeout is marked", () => {
+  assert.deepEqual(evaluateCreatePlanGuard(event(), { pluginRoot: defaultRoot }), {});
+});
+
+test("CreatePlan guard records the approved Root and rejects infeasible preflight", () => {
+  const stateRoot = mkdtempSync(join(tmpdir(), "workflow-plan-integrity-coverage-"));
+  try {
+    const accepted = evaluateCreatePlanGuard(event({
+      conversation_id: "create-plan-active-root",
+    }), { pluginRoot: defaultRoot, stateRoot });
+    assert.deepEqual(accepted, {});
+  } finally {
+    rmSync(stateRoot, { recursive: true, force: true });
+  }
+
+  const denied = evaluateCreatePlanGuard(event(), {
+    pluginRoot: defaultRoot,
+    preflightRootPlan: () => ({
+      feasible: false,
+      blocking_issues: [{ message: "authority envelope incomplete" }],
+    }),
+  });
+  assert.equal(denied.permission, "deny");
+  assert.match(denied.user_message, /Root preflight failed|authority envelope incomplete|no Plan was created/);
+});
+
+test("CreatePlan guard rejects cache-dependent or noncanonical closeout todos", () => {
   for (const replacement of [
     "call workflow_closeout with cached context, and print its returned artifact unchanged",
     "call workflow_closeout with the exact Root/chain, and report completion",

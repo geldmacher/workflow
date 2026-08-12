@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto";
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
-import { ArtifactHandoffStore } from "./artifact-handoff.mjs";
+import {
+  ArtifactHandoffStore,
+  quarantineContentAddressedHandoffArtifact,
+} from "./artifact-handoff.mjs";
 import { PreparationStore, RunStore, defaultStateRoot } from "./store.mjs";
 
 export function stateInventory(root) {
@@ -30,6 +33,26 @@ export function rebuildStateIndexes({ workspace, pluginRoot, stateRoot = default
   const preparations = new PreparationStore(stateRoot).rebuildIndex();
   const handoff = new ArtifactHandoffStore(stateRoot, pluginRoot).rebuildIndex();
   return { command: "rebuild-index", workspace, runs: runs.subjects.length, preparations: preparations.subjects.length, handoff_artifacts: handoff.entries.length };
+}
+
+export function quarantineHandoffReview({
+  rootHash,
+  artifactId,
+  expectedTextHash,
+  pluginRoot,
+  apply = false,
+  now,
+  handoffOptions = {},
+}) {
+  return quarantineContentAddressedHandoffArtifact({
+    rootHash,
+    artifactId,
+    expectedTextHash,
+    pluginRoot,
+    apply,
+    now,
+    options: handoffOptions,
+  });
 }
 
 export function archiveStateSubject({ workspace, subject, apply = false, stateRoot = defaultStateRoot(workspace) }) {

@@ -13,7 +13,11 @@ export class WorkspaceRootError extends Error {
 }
 
 export function isWorkspaceRootsUnavailable(error) {
-  return error instanceof WorkspaceRootError && ["roots-request-failed", "roots-empty"].includes(error.code);
+  return error instanceof WorkspaceRootError && [
+    "roots-request-failed",
+    "roots-empty",
+    "host-workspace-unavailable",
+  ].includes(error.code);
 }
 
 function validateDirectoryRoot(advertised, {
@@ -51,7 +55,10 @@ function rootPath(root) {
 function hostConfiguredRoot(env = process.env) {
   const raw = env?.[HOST_WORKSPACE_ENV];
   if (raw === undefined || raw === null || String(raw).trim() === "") return null;
-  const advertised = resolve(String(raw));
+  const value = String(raw).trim();
+  // Unexpanded host placeholders (for example ${workspaceFolder}) are absent config, not a path.
+  if (/\$\{[^}]+\}/.test(value)) return null;
+  const advertised = resolve(value);
   return {
     ...validateDirectoryRoot(advertised, {
       unavailableCode: "host-workspace-unavailable",

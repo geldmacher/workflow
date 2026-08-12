@@ -3,7 +3,7 @@ import { createRequire as __workflowCreateRequire } from 'node:module';
 const require = __workflowCreateRequire(import.meta.url);
 import {
   require_dist
-} from "./chunk-MV4DSQKJ.mjs";
+} from "./chunk-TT447BBI.mjs";
 import {
   __commonJS,
   __toESM
@@ -7082,6 +7082,177 @@ function validateArtifactSchema(root, parsed, failures) {
   return schema;
 }
 
+// src/core/manual-attestation.mjs
+var import_yaml2 = __toESM(require_dist(), 1);
+var PLAN_CLOSEOUT_ATTESTATION = Object.freeze({
+  schema: 1,
+  kind: "plan-closeout",
+  action: "delivery-closeout"
+});
+var LEGACY_PLAN_CLOSEOUT_ATTESTATION = Object.freeze({
+  schema: 1,
+  kind: "plan-closeout",
+  action: "workflow_closeout"
+});
+var CLOSEOUT_INPUT_PHASES = Object.freeze([
+  "implementation",
+  "correction",
+  "review-recovery"
+]);
+var FINAL_STEP_HEADING = /^##\s+Final implementation step\s*$/im;
+var ATTESTATION_FENCE_OPEN = /^```yaml workflow-attestation\s*$/;
+var ATTESTATION_FENCE_CLOSE = /^```\s*$/;
+function asObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+function normalizeNewlines(text) {
+  return String(text ?? "").replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+}
+function isPlanCloseoutAttestation(value) {
+  const object = asObject(value);
+  if (!object) return false;
+  return object.schema === PLAN_CLOSEOUT_ATTESTATION.schema && object.kind === PLAN_CLOSEOUT_ATTESTATION.kind && [PLAN_CLOSEOUT_ATTESTATION.action, LEGACY_PLAN_CLOSEOUT_ATTESTATION.action].includes(object.action) && Object.keys(object).length === 3;
+}
+var CLOSEOUT_INPUT_FIELDS = Object.freeze([
+  "schema",
+  "kind",
+  "phase",
+  "root_plan_id",
+  "strategy_revision",
+  "changed_paths",
+  "check_evidence",
+  "summary"
+]);
+var CHECK_EVIDENCE_FIELDS = Object.freeze([
+  "check_id",
+  "feature_id",
+  "grade",
+  "surface",
+  "method",
+  "expected",
+  "observed",
+  "repetitions",
+  "limitations"
+]);
+function extractFinalImplementationStep(text) {
+  const value = normalizeNewlines(text);
+  const match = value.match(FINAL_STEP_HEADING);
+  if (!match || match.index == null) return null;
+  const start = match.index + match[0].length;
+  const rest = value.slice(start);
+  const nextHeading = rest.search(/^##\s+/m);
+  return (nextHeading >= 0 ? rest.slice(0, nextHeading) : rest).replace(/^\n+/, "").replace(/\n+$/, "");
+}
+function countFinalImplementationSections(text) {
+  return [...normalizeNewlines(text).matchAll(/^##\s+Final implementation step\s*$/gim)].length;
+}
+function extractWorkflowAttestations(text) {
+  const lines = normalizeNewlines(text).split("\n");
+  const attestations = [];
+  let inForeignFence = false;
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (inForeignFence) {
+      if (ATTESTATION_FENCE_CLOSE.test(line)) inForeignFence = false;
+      continue;
+    }
+    if (/^```(?!yaml workflow-attestation\s*$)/.test(line)) {
+      inForeignFence = true;
+      continue;
+    }
+    if (!ATTESTATION_FENCE_OPEN.test(line)) continue;
+    const body = [];
+    let cursor = index + 1;
+    let closed = false;
+    while (cursor < lines.length) {
+      if (ATTESTATION_FENCE_CLOSE.test(lines[cursor])) {
+        closed = true;
+        break;
+      }
+      body.push(lines[cursor]);
+      cursor += 1;
+    }
+    if (!closed) continue;
+    try {
+      const parsed = (0, import_yaml2.parse)(body.join("\n"));
+      if (asObject(parsed)) {
+        attestations.push({
+          value: parsed,
+          startLine: index,
+          endLine: cursor,
+          raw: `${lines[index]}
+${body.join("\n")}
+${lines[cursor]}`
+        });
+      }
+    } catch {
+    }
+    index = cursor;
+  }
+  return attestations;
+}
+function parsePlanCloseoutAttestationFromText(text, { requireFinalStepSection = false, role = "instruction" } = {}) {
+  let value = normalizeNewlines(text);
+  if (requireFinalStepSection) {
+    const sectionCount = countFinalImplementationSections(value);
+    if (sectionCount === 0) {
+      return { ok: false, issues: [`${role} must appear as an explicit ## Final implementation step section`] };
+    }
+    if (sectionCount > 1) {
+      return { ok: false, issues: [`${role} must include exactly one ## Final implementation step section`] };
+    }
+    value = extractFinalImplementationStep(value) ?? "";
+  }
+  const attestations = extractWorkflowAttestations(value);
+  const planCloseouts = attestations.filter((entry) => isPlanCloseoutAttestation(entry.value));
+  const issues = [];
+  if (planCloseouts.length === 0) {
+    issues.push(`${role} must include exactly one unindented \`\`\`yaml workflow-attestation plan-closeout block`);
+  } else if (planCloseouts.length > 1) {
+    issues.push(`${role} must include exactly one plan-closeout attestation`);
+  }
+  let remainder = value;
+  for (const entry of [...attestations].reverse()) {
+    const lines = remainder.split("\n");
+    remainder = [...lines.slice(0, entry.startLine), ...lines.slice(entry.endLine + 1)].join("\n");
+  }
+  if (/\[workflow-closeout-v\d+\]/i.test(remainder) || /\bworkflow_closeout\b/.test(remainder) || /\bexact Root\/chain\b/i.test(remainder)) {
+    issues.push(`${role} must not include free-form closeout marker or workflow_closeout prose outside typed attestation`);
+  }
+  if (/\b(?:do\s+not|don't|does\s+not|shouldn'?t|ignore)\b[\s\S]{0,120}\b(?:attestation|closeout|workflow_closeout)\b/i.test(remainder) || /\b(?:attestation|closeout|workflow_closeout)\b[\s\S]{0,120}\b(?:do\s+not|don't|ignore)\b/i.test(remainder) || /<!--[\s\S]*workflow-attestation[\s\S]*-->/i.test(value) || /~~[\s\S]*workflow-attestation[\s\S]*~~/i.test(value)) {
+    issues.push(`${role} must not negate or comment out the typed plan-closeout attestation`);
+  }
+  if (issues.length > 0) return { ok: false, issues };
+  return { ok: true, issues: [], attestation: planCloseouts[0]?.value ?? null };
+}
+function todoPlanCloseoutIssues(todo, { role = "final native todo" } = {}) {
+  const issues = [];
+  if (!todo || typeof todo !== "object" || Array.isArray(todo)) {
+    return [`${role} must be a structured native todo with typed workflow_attestation`];
+  }
+  const content = String(todo.content ?? "");
+  if (!content.startsWith("[workflow-model-inherit-v1]")) {
+    issues.push(`${role} must start with [workflow-model-inherit-v1]`);
+  }
+  if (!/verify|check|evidence|snapshot|close\s*out/i.test(content)) {
+    issues.push(`${role} must verify or evidence the implemented result`);
+  }
+  if (/\[workflow-closeout-v\d+\]/i.test(content) || /\bworkflow_closeout\b/.test(content)) {
+    issues.push(`${role} must keep closeout ceremony in workflow_attestation metadata, not todo prose`);
+  }
+  if (!isPlanCloseoutAttestation(todo.workflow_attestation)) {
+    issues.push(`${role} requires workflow_attestation: { schema: 1, kind: plan-closeout, action: delivery-closeout }; legacy workflow_closeout remains accepted`);
+  }
+  return issues;
+}
+function planCloseoutAttestationIssues(source, options = {}) {
+  const { role = "instruction", requireFinalStepSection = false } = options;
+  if (asObject(source) && Object.prototype.hasOwnProperty.call(source, "workflow_attestation")) {
+    return todoPlanCloseoutIssues(source, { role });
+  }
+  return parsePlanCloseoutAttestationFromText(String(source ?? ""), { role, requireFinalStepSection }).issues;
+}
+
 // scripts/validate-artifact.source.mjs
 var scriptDirectory = dirname(fileURLToPath(import.meta.url));
 var defaultRoot = dirname(scriptDirectory);
@@ -7357,6 +7528,18 @@ function subsection(content, name) {
   const end = matches[index + 1]?.index ?? content.length;
   return content.slice(start, end).trim();
 }
+function verificationSectionContent(artifact) {
+  const sections = artifact?.sections instanceof Map ? artifact.sections : /* @__PURE__ */ new Map();
+  const topLevel = sections.get("Verification") ?? "";
+  if (tableRows(topLevel, tables.verification).length > 0 || tableRows(topLevel, tables.verificationWithClass).length > 0) {
+    return topLevel;
+  }
+  if ((artifact?.fields?.schema ?? 0) >= 5) {
+    const nested = subsection(sections.get("Acceptance") ?? "", "Verification");
+    if (nested.trim()) return nested;
+  }
+  return "";
+}
 function noneLike(value) {
   return /^(?:none\.?|no (?:findings|changes|deviations|candidates|correction|open decisions)\.?)$/i.test(String(value).trim());
 }
@@ -7387,7 +7570,7 @@ function requireTable(sections, sectionName, headers, failures, { allowNone = fa
   return matches[0];
 }
 function placeholder(value) {
-  return /<(?:placeholder|replace[-_ ]?me|insert[-_ ][^>\r\n]+|[^>\r\n]*\.{3}[^>\r\n]*)>|\b(?:TBD|TODO|UNKNOWN)\b/i.test(String(value));
+  return /<(?:placeholder|replace[-_ ]?me|insert[-_ ][^>\r\n]+|[^>\r\n]*\.{3}[^>\r\n]*)>/i.test(String(value)) || /\b(?:TBD|TODO|UNKNOWN)\b/.test(String(value));
 }
 function rejectPlaceholders(parsed, schema, sections, failures) {
   if (!["ready", "complete", "current", "active"].includes(parsed.fields.status)) return;
@@ -7465,8 +7648,9 @@ function planData(artifact) {
       "Observable outcome": outcome,
       "Acceptance evidence": outcome
     }));
-    const declaredChecks = tableRows(artifact.sections.get("Verification") ?? "", tables.verification);
-    const declaredWithClass = tableRows(artifact.sections.get("Verification") ?? "", tables.verificationWithClass);
+    const verificationContent2 = verificationSectionContent(artifact);
+    const declaredChecks = tableRows(verificationContent2, tables.verification);
+    const declaredWithClass = tableRows(verificationContent2, tables.verificationWithClass);
     const checks2 = declaredChecks.length > 0 ? declaredChecks : objectives2.map((objective, index) => ({
       "Check ID": `CHECK-${index + 1}`,
       Objectives: objective["Objective ID"],
@@ -7501,10 +7685,11 @@ function planData(artifact) {
     };
   }
   const objectives = tableRows(artifact.sections.get("Objectives") ?? "", tables.objectives);
-  const checks = tableRows(artifact.sections.get("Verification") ?? "", tables.verification);
+  const verificationContent = verificationSectionContent(artifact);
+  const checks = tableRows(verificationContent, tables.verification);
   const steps = tableRows(artifact.sections.get("Execution steps") ?? "", tables.steps);
   const scope = tableRows(artifact.sections.get("Scope and targets") ?? "", tables.scope);
-  const verificationWithClass = tableRows(artifact.sections.get("Verification") ?? "", tables.verificationWithClass);
+  const verificationWithClass = tableRows(verificationContent, tables.verificationWithClass);
   const slices = tableRows(subsection(artifact.sections.get("Execution steps") ?? "", "Vertical slices"), tables.slices);
   const objectiveDependencies = new Map(objectives.map((row) => [row["Objective ID"], /* @__PURE__ */ new Set()]));
   for (const check of checks) for (const objective of ids(check.Objectives, objectivePattern)) for (const target of targetTokens(check.Prerequisites)) objectiveDependencies.get(objective)?.add(target);
@@ -7537,7 +7722,7 @@ function validatePlanV4(parsed, sections, failures) {
     for (const field of ["max_active_minutes", "max_total_tokens", "max_cost_usd"]) if (!Number.isFinite(authority[field]) || authority[field] <= 0) failures.push(`controlled authority requires ${field}`);
   }
   const data = planData(parsed);
-  const verification = tableRows(sections.get("Verification") ?? "", tables.verificationWithClass);
+  const verification = tableRows(verificationSectionContent(parsed), tables.verificationWithClass);
   for (const row of verification) {
     if (!/^CHECK-[1-9][0-9]*$/.test(row["Check ID"])) failures.push(`Verification: invalid Check ID ${row["Check ID"]}`);
     if (!/^(?:yes|no)$/.test(row.Required)) failures.push(`Verification: ${row["Check ID"]} Required must be yes|no`);
@@ -7547,15 +7732,23 @@ function validatePlanV4(parsed, sections, failures) {
   if (data.objectives.size !== parsed.fields.acceptance.length) failures.push("acceptance outcomes must map one-to-one to objectives");
   if (parsed.wrapper) {
     const todos = parsed.wrapper.todos ?? [];
-    for (const todo of todos) {
-      if (!String(todo.content ?? "").startsWith(modelInheritMarker)) failures.push(`native todo ${todo.id ?? "<unknown>"} must start with ${modelInheritMarker}`);
+    const finalTodo = todos.at(-1) ?? null;
+    const final = String(finalTodo?.content ?? "");
+    const marked = todos.some((todo) => String(todo.content ?? "").includes(modelInheritMarker)) || String(parsed.wrapper.overview ?? "").includes(modelInheritMarker) || String(parsed.wrapper.name ?? "").includes(modelInheritMarker);
+    if (!marked && !final.startsWith(modelInheritMarker)) {
+      failures.push(`native Plan must include ${modelInheritMarker} on the final closeout todo or plan overview`);
     }
-    const final = String(todos.at(-1)?.content ?? "");
-    if (!/verify|check|evidence|snapshot/i.test(final)) failures.push("final native todo must verify or evidence the implemented result");
+    if (todos.length > 0 && !final.startsWith(modelInheritMarker) && !todos.some((todo) => String(todo.content ?? "").startsWith(modelInheritMarker))) {
+      failures.push(`final native todo must start with ${modelInheritMarker} when no other todo carries it`);
+    }
+    if (!/verify|check|evidence|snapshot|close\s*out/i.test(final)) {
+      failures.push("final native todo must verify or evidence the implemented result");
+    }
     if (parsed.fields.schema === 5) {
-      if (!/workflow_closeout/.test(final)) failures.push("final native todo must call workflow_closeout");
-      if (!/exact Root\/chain/i.test(final)) failures.push("final native todo must supply the exact Root/chain to workflow_closeout");
-      if (!/(?:print|return|output)[\s\S]{0,100}(?:returned artifact|artifact returned by workflow_closeout)[\s\S]{0,100}(?:unchanged|byte-for-byte)/i.test(final)) failures.push("final native todo must print the returned artifact unchanged");
+      if (!final.startsWith(modelInheritMarker)) failures.push(`final native todo must start with ${modelInheritMarker}`);
+      for (const issue2 of planCloseoutAttestationIssues(finalTodo ?? final, { role: "final native todo" })) {
+        failures.push(issue2);
+      }
     }
   }
 }
@@ -8076,7 +8269,7 @@ function preflightRootPlan(text, root = defaultRoot) {
       { target, ...state }
     ));
   }
-  const rows = tableRows(parsed.sections.get("Acceptance") ?? "", tables.verificationWithClass);
+  const rows = tableRows(verificationSectionContent(parsed), tables.verificationWithClass);
   const objectiveIds = new Set((parsed.fields.acceptance ?? []).map((_, index) => `OBJ-${index + 1}`));
   const requiredChecks = [];
   const deferredChecks = [];
@@ -8590,23 +8783,29 @@ function effectiveCliSummary(inspection) {
   const evidenceTips = tips("delivery-evidence", "predecessor_evidence_id");
   const reviewTips = tips("work-review", "predecessor_review_id");
   const activeReview = activeRootId && reviewTips[activeRootId] ? inspection.effective.get(reviewTips[activeRootId]) : null;
+  const learningCandidates = artifacts.filter((artifact) => artifact.fields.artifact === "work-review" && artifact.fields.root_plan_id === activeRootId && activeReview?.fields.assessment === "achieved" && activeReview?.fields.delivery_status === "verified" && artifact.correction?.learnings?.length > 0).flatMap((artifact) => artifact.correction.learnings.map((learning) => {
+    const evidence = artifacts.find((candidate) => candidate.fields.artifact === "delivery-evidence" && candidate.fields.subject_id === artifact.fields.correction_id && candidate.fields.status === "complete");
+    return {
+      source_kind: "manual-correction",
+      root_plan_id: artifact.fields.root_plan_id,
+      review_id: artifact.fields.id,
+      correction_id: artifact.fields.correction_id,
+      learning_id: learning["Learning ID"],
+      finding_keys: String(learning["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean),
+      reusable_guidance: learning["Reusable guidance"],
+      candidate_targets: targetTokens(learning["Candidate targets"]),
+      confirmation_evidence: learning["Confirmation evidence"],
+      correction_evidence_id: evidence?.fields.id ?? null,
+      evidence_confirmed: Boolean(evidence)
+    };
+  })).toSorted((left, right) => left.review_id.localeCompare(right.review_id) || left.learning_id.localeCompare(right.learning_id));
   return {
     active_root_id: activeRootId,
     root_tips: rootTips,
     evidence_tips: evidenceTips,
     review_tips: reviewTips,
     actionable_reviews: artifacts.filter((artifact) => artifact.fields.artifact === "work-review" && artifact.fields.root_plan_id === activeRootId && artifact.fields.id === reviewTips[activeRootId] && artifact.fields.next_action === "correct").map((artifact) => ({ root_plan_id: artifact.fields.root_plan_id, review_id: artifact.fields.id, correction_id: artifact.fields.correction_id, base_evidence_id: artifact.fields.latest_evidence_id })),
-    learning_candidates: artifacts.filter((artifact) => artifact.fields.artifact === "work-review" && artifact.fields.root_plan_id === activeRootId && activeReview?.fields.assessment === "achieved" && activeReview?.fields.delivery_status === "verified" && artifact.correction?.learnings?.length > 0).flatMap((artifact) => artifact.correction.learnings.map((learning) => {
-      const evidence = artifacts.find((candidate) => candidate.fields.artifact === "delivery-evidence" && candidate.fields.subject_id === artifact.fields.correction_id && candidate.fields.status === "complete");
-      return {
-        root_plan_id: artifact.fields.root_plan_id,
-        review_id: artifact.fields.id,
-        correction_id: artifact.fields.correction_id,
-        learning_id: learning["Learning ID"],
-        correction_evidence_id: evidence?.fields.id ?? null,
-        evidence_confirmed: Boolean(evidence)
-      };
-    }))
+    learning_candidates: learningCandidates
   };
 }
 function runCli() {

@@ -7,7 +7,7 @@ import test from "node:test";
 import { validateProjectPolicy, validateWorkflowConfig } from "../src/controller/config.mjs";
 import { evaluateAuthorization, evaluateEligibility, qualificationKey, selectWriterRoute } from "../src/controller/policy.mjs";
 import { RunStore } from "../src/controller/store.mjs";
-import { classifyPreparationCompatibility, classifyRunCompatibility, preparationProtocolFields, preparationView, protocolFields } from "../src/controller/protocol.mjs";
+import { classifyPreparationCompatibility, classifyRunCompatibility, preparationProtocolFields, preparationView, protocolFields, runEventSubject, runView } from "../src/controller/protocol.mjs";
 import { captureDirtySnapshot, createRunWorktree, repositoryBaseline } from "../src/controller/worktree.mjs";
 import { validatePoolAgainstCatalog } from "../src/controller/worker-adapter.mjs";
 
@@ -154,12 +154,20 @@ test("Decision Ledger events are hash chained", () => {
   const root = mkdtempSync(join(tmpdir(), "workflow-store-"));
   try {
     const store = new RunStore(root);
-    const run = store.create({ requested_profile: "supervised", lifecycle: "waiting-human" });
+    const run = store.create({
+      requested_profile: "supervised",
+      effective_profile: "supervised",
+      lifecycle: "waiting-human",
+      intent_hash: "a".repeat(64),
+      plan: { fields: { id: "wp-event-subject" } },
+    });
     store.appendDecision(run.run_id, { phase: "strategy", decision: "revise", reason: "equivalent check", input_hashes: ["a".repeat(64)], strategy_revision: 1 });
     const events = store.events(run.run_id);
     assert.equal(events.length, 2);
     assert.equal(events[1].previous_hash, events[0].event_hash);
     assert.match(events[1].event_hash, /^[a-f0-9]{64}$/);
+    assert.deepEqual(events[0].subject, runEventSubject(run));
+    assert.deepEqual(events[1].subject, runEventSubject(run));
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
@@ -201,6 +209,7 @@ test("Workflow 3/4 runs remain visible read-only and cannot block Workflow 5", (
   const workflow4 = { run_record_schema: 2, artifact_schema: 4, controller_protocol: 4, plugin_version: "4.0.0" };
   assert.equal(classifyRunCompatibility(workflow4).compatibility, "read-only-workflow-4");
   assert.equal(classifyRunCompatibility(protocolFields()).compatible, true);
+  assert.equal(classifyRunCompatibility({ ...protocolFields(), event_subject_schema: 2 }).blocker, "incompatible-run-event-subject-schema");
   assert.equal(classifyPreparationCompatibility({ ...workflow4, preparation_record_schema: 2 }).compatibility, "read-only-workflow-4");
   assert.equal(classifyPreparationCompatibility({ preparation_record_schema: 1, artifact_schema: 3, controller_protocol: 3, plugin_version: "3.0.0" }).compatibility, "read-only-workflow-3");
   assert.equal(classifyPreparationCompatibility(preparationProtocolFields()).compatible, true);
@@ -211,6 +220,17 @@ test("preparation views expose lineage binding without replaying raw artifacts",
   assert.equal(view.input_root_lineage_hash, "a".repeat(64));
   assert.equal(view.input_root_lineage_artifact_count, 1);
   assert.equal(Object.hasOwn(view, "input_root_lineage_artifacts"), false);
+});
+
+test("run views expose learning candidates only through the normalized learning projection", () => {
+  const view = runView({
+    ...protocolFields(),
+    run_id: "run-learning-view",
+    learning_candidates: [{ learning_id: "LRN-unconfirmed", reusable_guidance: "Untrusted raw candidate." }],
+    delivery_evidence_artifact: "unbounded evidence text",
+  });
+  assert.equal(Object.hasOwn(view, "learning_candidates"), false);
+  assert.equal(Object.hasOwn(view, "delivery_evidence_artifact"), false);
 });
 
 test("dirty snapshot reproduces tracked and untracked human state without changing the source worktree", () => {

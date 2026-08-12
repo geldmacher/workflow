@@ -26,7 +26,7 @@ const expected = Object.freeze({
   skills: ["work-automation", "work-closeout", "work-execution", "work-explanation", "work-learning", "work-planning", "work-review"],
   rules: [],
   artifacts: ["delivery-evidence", "work-plan", "work-review"],
-  references: ["artifact-protocol", "automation-contract", "automation-preparation-contract", "closeout-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "host-approval-contract", "learning-contract", "manual-subagent-policy", "manual-workflow-contract", "model-routing-contract", "plan-container-contract", "review-contract", "state-contract", "verification-profile-contract"],
+  references: ["artifact-protocol", "automation-contract", "automation-preparation-contract", "closeout-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "host-approval-contract", "learning-contract", "manual-attestation-contract", "manual-subagent-policy", "manual-workflow-contract", "model-routing-contract", "plan-container-contract", "review-contract", "state-contract", "verification-profile-contract"],
 });
 
 const readText = (path) => readFileSync(path, "utf8");
@@ -187,18 +187,28 @@ function validateHookSurface(root, manifest, failures) {
   const expectedPath = "./hooks/hooks.json";
   const expectedCommand = "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"";
   const expectedPlanCommand = "node \"${CURSOR_PLUGIN_ROOT}/hooks/plan-integrity-guard.mjs\"";
+  const expectedCloseoutCommand = "node \"${CURSOR_PLUGIN_ROOT}/hooks/closeout-guard.mjs\"";
   if (manifest.hooks !== expectedPath) failures.push(`plugin.json hooks must reference ${expectedPath}`);
   const directory = join(root, "hooks");
   const configPath = join(directory, "hooks.json");
   const statePath = join(directory, "model-inheritance-state.mjs");
   const planGuardPath = join(directory, "plan-integrity-guard.mjs");
+  const closeoutGuardPath = join(directory, "closeout-guard.mjs");
   const scriptPath = join(directory, "subagent-guard.mjs");
   if (!existsSync(configPath)) failures.push("hooks/hooks.json is missing");
   if (!existsSync(statePath)) failures.push("hooks/model-inheritance-state.mjs is missing");
   if (!existsSync(planGuardPath)) failures.push("hooks/plan-integrity-guard.mjs is missing");
+  if (!existsSync(closeoutGuardPath)) failures.push("hooks/closeout-guard.mjs is missing");
   if (!existsSync(scriptPath)) failures.push("hooks/subagent-guard.mjs is missing");
   const files = listFiles(directory, () => true).map((file) => relative(root, file));
-  const expectedFiles = ["hooks/hooks.json", "hooks/manual-subagent-policy.mjs", "hooks/model-inheritance-state.mjs", "hooks/plan-integrity-guard.mjs", "hooks/subagent-guard.mjs"];
+  const expectedFiles = [
+    "hooks/closeout-guard.mjs",
+    "hooks/hooks.json",
+    "hooks/manual-subagent-policy.mjs",
+    "hooks/model-inheritance-state.mjs",
+    "hooks/plan-integrity-guard.mjs",
+    "hooks/subagent-guard.mjs",
+  ];
   if (files.join("\n") !== expectedFiles.join("\n")) failures.push(`hooks: expected [${expectedFiles.join(", ")}], received [${files.join(", ")}]`);
   if (!existsSync(configPath)) return;
   try {
@@ -206,21 +216,42 @@ function validateHookSurface(root, manifest, failures) {
     const topLevelKeys = Object.keys(config).sort();
     if (topLevelKeys.join("\n") !== ["hooks", "version"].join("\n")) failures.push("hooks/hooks.json must contain only version and hooks");
     if (config.version !== 1) failures.push("hooks/hooks.json version must equal 1");
-    const expectedEvents = ["sessionStart", "beforeSubmitPrompt", "preToolUse", "subagentStart", "subagentStop", "postToolUse"];
+    const expectedEvents = [
+      "sessionStart",
+      "beforeSubmitPrompt",
+      "preToolUse",
+      "subagentStart",
+      "subagentStop",
+      "postToolUse",
+      "afterAgentResponse",
+      "stop",
+    ];
     const eventNames = Object.keys(config.hooks ?? {});
     if (eventNames.join("\n") !== expectedEvents.join("\n")) failures.push(`hooks/hooks.json must declare ${expectedEvents.join(", ")} in order`);
+    const expectedByEvent = {
+      sessionStart: [{ command: expectedCommand, failClosed: false }],
+      beforeSubmitPrompt: [
+        { command: expectedCommand, failClosed: false },
+        { command: expectedCloseoutCommand, failClosed: false },
+      ],
+      preToolUse: [
+        { command: expectedCommand, matcher: "Task", failClosed: true },
+        { command: expectedPlanCommand, matcher: "CreatePlan", failClosed: true },
+        { command: expectedCloseoutCommand, matcher: "TodoWrite|Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook", failClosed: true },
+      ],
+      subagentStart: [{ command: expectedCommand, failClosed: true }],
+      subagentStop: [{ command: expectedCommand, failClosed: false }],
+      postToolUse: [
+        { command: expectedCommand, matcher: "Task", failClosed: false },
+        { command: expectedCloseoutCommand, matcher: "MCP:workflow_closeout", failClosed: true },
+        { command: expectedCloseoutCommand, matcher: "Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook", failClosed: false },
+      ],
+      afterAgentResponse: [{ command: expectedCloseoutCommand, failClosed: true }],
+      stop: [{ command: expectedCloseoutCommand, failClosed: true, loop_limit: 1 }],
+    };
     for (const eventName of expectedEvents) {
       const entries = config.hooks?.[eventName];
-      const expectedEntries = eventName === "preToolUse"
-        ? [
-            { command: expectedCommand, matcher: "Task", failClosed: true },
-            { command: expectedPlanCommand, matcher: "CreatePlan", failClosed: true },
-          ]
-        : [{
-            command: expectedCommand,
-            ...(eventName === "postToolUse" ? { matcher: "Task" } : {}),
-            failClosed: eventName === "subagentStart",
-          }];
+      const expectedEntries = expectedByEvent[eventName];
       if (!Array.isArray(entries) || entries.length !== expectedEntries.length) {
         failures.push(`hooks/hooks.json must declare ${expectedEntries.length} ${eventName} command${expectedEntries.length === 1 ? "" : "s"}`);
         continue;
@@ -231,8 +262,15 @@ function validateHookSurface(root, manifest, failures) {
         if (entry?.command !== expected.command) failures.push(`${eventName} hook ${index + 1} must use its bundled Node guard through CURSOR_PLUGIN_ROOT`);
         if (entry?.failClosed !== expected.failClosed) failures.push(`${eventName} hook ${index + 1} must set failClosed ${expected.failClosed}`);
         if (expected.matcher && entry?.matcher !== expected.matcher) failures.push(`${eventName} hook ${index + 1} must match ${expected.matcher}`);
-        const expectedKeys = expected.matcher ? ["command", "failClosed", "matcher", "type"] : ["command", "failClosed", "type"];
-        if (Object.keys(entry ?? {}).sort().join("\n") !== expectedKeys.join("\n")) failures.push(`${eventName} hook ${index + 1} contains unsupported fields`);
+        if (expected.loop_limit != null && entry?.loop_limit !== expected.loop_limit) {
+          failures.push(`${eventName} hook ${index + 1} must set loop_limit ${expected.loop_limit}`);
+        }
+        const expectedKeys = ["command", "failClosed", "type"];
+        if (expected.matcher) expectedKeys.push("matcher");
+        if (expected.loop_limit != null) expectedKeys.push("loop_limit");
+        if (Object.keys(entry ?? {}).sort().join("\n") !== expectedKeys.sort().join("\n")) {
+          failures.push(`${eventName} hook ${index + 1} contains unsupported fields`);
+        }
       });
     }
     if (/\bnpx\b|\blatest\b/i.test(JSON.stringify(config))) failures.push("hooks must not install or resolve runtime dependencies");
