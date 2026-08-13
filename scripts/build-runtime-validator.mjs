@@ -40,7 +40,10 @@ const bundledPackages = [...new Set(Object.keys(result.metafile.inputs).flatMap(
 const noticeSections = bundledPackages.map((name) => {
   const directory = join(root, "node_modules", ...name.split("/"));
   const metadata = JSON.parse(readFileSync(join(directory, "package.json"), "utf8"));
-  const licensePath = ["LICENSE", "LICENSE.md", "LICENSE.txt"].map((file) => join(directory, file)).find(existsSync);
+  // Match LICENSE and lowercase license on case-sensitive filesystems (Linux CI).
+  const licensePath = ["LICENSE", "LICENSE.md", "LICENSE.txt", "license", "license.md", "license.txt"]
+    .map((file) => join(directory, file))
+    .find(existsSync);
   if (!licensePath) throw new Error(`Bundled package ${name} has no distributable license file`);
   return `## ${name}@${metadata.version}\n\nDeclared license: ${metadata.license ?? "see text below"}\n\n\`\`\`text\n${readFileSync(licensePath, "utf8").trim()}\n\`\`\``;
 });

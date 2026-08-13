@@ -12,21 +12,21 @@ Workflow turns AI output into trustworthy repository delivery. Preserve human au
 
 ## Manual — default path
 
-**For:** interactive Cursor/Codex work and all development without controller certification.  
-**Tasks:** plan, implement, correct, review, explain, learn.  
-**Achieve:** Plan → Implement Plan → deterministic closeout → fresh review; human selects the model; Lean Evidence for low/medium risk without Hard Triggers.  
+**For:** interactive Cursor/Codex work and all development without controller certification.
+**Tasks:** plan, implement, correct, review, explain, learn.
+**Achieve:** Plan → Implement Plan → deterministic closeout → fresh review; human selects the model; Lean Evidence for low/medium risk without Hard Triggers.
 **Not required:** User Config, Project Policy, Capability Receipt, Verification Profile, or qualifying history. Do not impose controller ceremony on Manual.
 
 ## Supervised — orchestrated, human acceptance
 
-**For:** longer controller-driven execution with a human handoff at delivery.  
-**Achieve:** controller owns Strategy, model Pools, worktree, and Full Evidence; human approves the Root and accepts every verified or explicitly provisional delivery.  
+**For:** longer controller-driven execution with a human handoff at delivery.
+**Achieve:** controller owns Strategy, model Pools, worktree, and Full Evidence; human approves the Root and accepts every verified or explicitly provisional delivery.
 **Needs:** User Config, `supervised_enabled`, positive Capability Receipt, complete budgets/routing. Without proof → Shadow Mode.
 
 ## Autonomous — earned, exact, narrow
 
-**For:** one exact Qualification Key that already earned permission — never a repo-wide switch.  
-**Achieve:** fully verified delivery may reach `achieved` without final acceptance; qualification gaps downgrade to supervised; safety violations block.  
+**For:** one exact Qualification Key that already earned permission — never a repo-wide switch.
+**Achieve:** fully verified delivery may reach `achieved` without final acceptance; qualification gaps downgrade to supervised; safety violations block.
 **Needs:** everything supervised plus `autonomous_enabled`, approved Verification Profile, exact Qualification Key, and qualifying history.
 
 ## Change guardrails
