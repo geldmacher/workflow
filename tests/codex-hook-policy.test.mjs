@@ -78,6 +78,11 @@ Only src and tests.
 Low residual risk.
 `;
 
+const verificationBlock = leanRoot.match(/\n### Verification[\s\S]*?(?=\n## Boundaries)/)?.[0] ?? "";
+const misplacedVerificationRoot = leanRoot
+  .replace(verificationBlock, "")
+  .replace("\n## Boundaries", `\n## Interfaces and compatibility\n\nNo public interface changes.\n${verificationBlock}\n\n## Boundaries`);
+
 const highRoot = leanRoot
   .replace("id: wp-retry", "id: wp-high-retry")
   .replace("risk: medium", "risk: high")
@@ -102,11 +107,125 @@ const efficientPolicy = {
 test("Codex plan-work requires Plan mode and a native plan", () => {
   let value = step({}, { hook_event_name: "UserPromptSubmit", permission_mode: "default", prompt: "$plan-work add retries" });
   assert.equal(value.output.decision, "block");
+  assert.equal(value.state.turn, null);
 
   value = step({}, { hook_event_name: "UserPromptSubmit", permission_mode: "plan", prompt: "$plan-work add retries" });
   let state = value.state;
   value = step(state, { hook_event_name: "Stop", last_assistant_message: "no plan marker" });
   assert.equal(value.output.decision, "block");
+});
+
+test("Codex normalizes all explicit Workflow skill representations exactly", () => {
+  const commands = [
+    ["plan-work", "planning"],
+    ["correct-work", "correction"],
+    ["review-work", "review"],
+    ["explain-work", "explain"],
+    ["close-work", "close"],
+    ["learn-from-work", "learn-from"],
+    ["work-status", "work-status"],
+    ["accept-work", "accept"],
+  ];
+  const representations = (command) => [
+    `$${command}`,
+    `$geldmacher-workflow:${command}`,
+    `[$geldmacher-workflow:${command}](/Users/test/.codex/plugins/cache/personal/geldmacher-workflow/5.3.0/skills/${command}/SKILL.md)`,
+  ];
+  for (const [command, phase] of commands) {
+    for (const prompt of representations(command)) {
+      const state = phase === "planning"
+        ? {}
+        : { active_root_plan_id: "wp-retry", active_root_content_hash: TEST_ROOT_CONTENT_HASH, active_root_plan_text: leanRoot };
+      const value = step(state, { hook_event_name: "UserPromptSubmit", permission_mode: phase === "planning" ? "plan" : "default", prompt });
+      assert.equal(value.output.decision, undefined, prompt);
+      assert.equal(value.state.turn.phase, phase, prompt);
+    }
+  }
+
+  for (const prompt of [
+    "$plan",
+    "$plan-work-extra",
+    "$plan-work:foreign",
+    "$foreign-workflow:plan-work",
+    "[$foreign-workflow:plan-work](/foreign/SKILL.md)",
+    "[$geldmacher-workflow:plan-work](/foreign/skills/plan-work/SKILL.md)",
+  ]) {
+    const value = step({ turn: { phase: "review" } }, { hook_event_name: "UserPromptSubmit", prompt });
+    assert.equal(value.output.decision, undefined, prompt);
+    assert.equal(value.state.turn, null, prompt);
+  }
+
+  const ambiguous = step({}, { hook_event_name: "UserPromptSubmit", permission_mode: "plan", prompt: "$plan-work then $review-work" });
+  assert.equal(ambiguous.output.decision, "block");
+  assert.equal(ambiguous.state.turn, null);
+});
+
+test("Codex recognizes only bounded implementation imperatives", () => {
+  const rootState = { active_root_plan_id: "wp-retry", active_root_content_hash: TEST_ROOT_CONTENT_HASH, active_root_plan_text: leanRoot };
+  for (const prompt of ["Plan umsetzen", "Setze den Plan um", "Setze diesen Plan um"]) {
+    const value = step(rootState, { hook_event_name: "UserPromptSubmit", prompt });
+    assert.equal(value.output.decision, undefined, prompt);
+    assert.equal(value.state.turn.phase, "implementation", prompt);
+  }
+  for (const prompt of ["Soll ich den Plan umsetzen?", "Plan nicht umsetzen", "umsetzen", "Setze den Plan"]) {
+    const value = step({ ...rootState, turn: { phase: "review" } }, { hook_event_name: "UserPromptSubmit", prompt });
+    assert.equal(value.output.decision, undefined, prompt);
+    assert.equal(value.state.turn, null, prompt);
+  }
+});
+
+test("Codex reproduces the exact UI-link incident and binds both German and native implementation actions", () => {
+  const prompt = "[$geldmacher-workflow:plan-work](/Users/example/.codex/plugins/cache/personal/geldmacher-workflow/5.3.0+local.codex.fixture/skills/plan-work/SKILL.md) Es muss sichergestellt werden, dass ein replan einen neuen Plan erzeugt.";
+  for (const implementationPrompt of ["plan umsetzen", "Implement Plan"]) {
+    let value = step({}, {
+      hook_event_name: "UserPromptSubmit",
+      permission_mode: "plan",
+      prompt,
+      turn_id: `incident-plan-${implementationPrompt}`,
+    });
+    value = step(value.state, {
+      hook_event_name: "Stop",
+      last_assistant_message: `<proposed_plan>\n${leanRoot}\n</proposed_plan>`,
+      turn_id: `incident-plan-${implementationPrompt}`,
+    });
+    assert.deepEqual(value.output, {});
+    assert.equal(value.state.active_root_plan_text, leanRoot);
+    assert.equal(value.state.active_root_content_hash, TEST_ROOT_CONTENT_HASH);
+    value = step(value.state, {
+      hook_event_name: "UserPromptSubmit",
+      prompt: implementationPrompt,
+      turn_id: `incident-implementation-${implementationPrompt}`,
+    });
+    assert.equal(value.output.decision, undefined, implementationPrompt);
+    assert.equal(value.state.turn.phase, "implementation", implementationPrompt);
+    assert.equal(value.state.turn.root_plan_id, "wp-retry", implementationPrompt);
+  }
+});
+
+test("misplaced Verification fails during planning and leaves later ordinary activity inert", () => {
+  let value = step({}, {
+    hook_event_name: "UserPromptSubmit",
+    permission_mode: "plan",
+    prompt: "[$geldmacher-workflow:plan-work](/plugin/geldmacher-workflow/skills/plan-work/SKILL.md) reproduce invalid layout",
+    turn_id: "invalid-layout-plan",
+  });
+  value = step(value.state, {
+    hook_event_name: "Stop",
+    last_assistant_message: `<proposed_plan>\n${misplacedVerificationRoot}\n</proposed_plan>`,
+    turn_id: "invalid-layout-plan",
+  });
+  assert.equal(value.output.decision, "block");
+  assert.match(value.output.reason, /explicit-verification-required|Verification/i);
+  assert.equal(value.state.active_root_plan_id, undefined);
+  assert.equal(value.state.active_root_plan_text, undefined);
+
+  value = step(value.state, { hook_event_name: "UserPromptSubmit", prompt: "Was ist hier schiefgegangen?", turn_id: "ordinary-after-invalid-plan" });
+  assert.deepEqual(value.output, {});
+  assert.equal(value.state.turn, null);
+  value = step(value.state, { hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command: "git status --short" } });
+  assert.deepEqual(value.output, {});
+  value = step(value.state, { hook_event_name: "Stop", last_assistant_message: "ordinary explanation" });
+  assert.deepEqual(value.output, {});
 });
 
 test("Codex plan-work allows low/medium Manual Roots without Hard Triggers to skip standalone preflight", () => {
@@ -224,6 +343,8 @@ test("Codex correction selector must match the exact task-bound Root", () => {
   assert.equal(mismatch.output.decision, "block");
   assert.match(mismatch.output.reason, /wp-other.*task-bound Root wp-retry/i);
   assert.equal(mismatch.state.active_root_plan_id, "wp-retry");
+  assert.equal(mismatch.state.active_root_plan_text, leanRoot);
+  assert.equal(mismatch.state.turn, null);
 });
 
 test("Codex Stop-hook continuations never reopen a completed Manual phase", () => {
@@ -241,6 +362,54 @@ test("Codex Stop-hook continuations never reopen a completed Manual phase", () =
   assert.equal(result.output.decision, undefined);
   assert.equal(result.state.turn, null);
   assert.equal(result.state.active_root_plan_id, "wp-retry");
+});
+
+test("Codex terminalizes a second failed Stop and leaves later activity unconstrained", () => {
+  let value = step({}, { hook_event_name: "UserPromptSubmit", permission_mode: "plan", prompt: "$plan-work add retries" });
+  value = step(value.state, { hook_event_name: "Stop", last_assistant_message: `<proposed_plan>\n${leanRoot}\n</proposed_plan>` });
+  value = step(value.state, { hook_event_name: "UserPromptSubmit", prompt: "Setze den Plan um" });
+
+  const invalidCloseout = "```yaml workflow-attestation\nschema: 1\nkind: closeout-input\n```";
+  value = step(value.state, { hook_event_name: "Stop", stop_hook_active: false, last_assistant_message: invalidCloseout });
+  assert.equal(value.output.decision, "block");
+  assert.ok(value.state.turn);
+
+  value = step(value.state, {
+    hook_event_name: "UserPromptSubmit",
+    prompt: '<hook_prompt hook_run_id="stop:8:/plugin/hooks.json">Correct the typed closeout-input.</hook_prompt>',
+  });
+  assert.ok(value.state.turn);
+  value = step(value.state, { hook_event_name: "Stop", stop_hook_active: true, last_assistant_message: invalidCloseout });
+  assert.equal(value.output.continue, false);
+  assert.equal(value.output.decision, undefined);
+  assert.match(value.output.stopReason, /ended blocked.*one recovery continuation/i);
+  assert.match(value.output.systemMessage, /terminal Stop recorded no Evidence and no delivery success/i);
+  assert.equal(value.state.turn, null);
+  assert.equal(value.state.active_root_plan_id, "wp-retry");
+  assert.equal(value.state.active_root_plan_text, leanRoot);
+  assert.equal(value.state.last_terminal_stop_failure.authoritative, false);
+  assert.equal(value.state.last_terminal_stop_failure.code, "invalid-closeout-input");
+  assert.equal(value.state.task_artifacts_by_root[TEST_ROOT_CONTENT_HASH].artifacts.some((entry) => entry.artifact_type === "delivery-evidence"), false);
+
+  value = step(value.state, { hook_event_name: "Stop", stop_hook_active: false, last_assistant_message: "ordinary later stop" });
+  assert.deepEqual(value.output, {});
+  value = step(value.state, { hook_event_name: "UserPromptSubmit", prompt: "Was ist fehlgeschlagen?" });
+  assert.deepEqual(value.output, {});
+  value = step(value.state, { hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command: "git status --short" } });
+  assert.deepEqual(value.output, {});
+});
+
+test("Codex accepts a valid closeout on the single Stop continuation", () => {
+  let value = beginImplementationWithEvidence("de-full", {
+    artifact: exactFullEvidence,
+    artifactHash: exactFullEvidenceHash,
+  });
+  value = step(value.state, { hook_event_name: "Stop", stop_hook_active: false, last_assistant_message: report("de-stale") });
+  assert.equal(value.output.decision, "block");
+  value = step(value.state, { hook_event_name: "Stop", stop_hook_active: true, last_assistant_message: report("de-full") });
+  assert.deepEqual(value.output, {});
+  assert.equal(value.state.turn, null);
+  assert.equal(value.state.last_terminal_stop_failure, null);
 });
 
 test("Codex plan-work rejects Root-only proposed plans that omit closeout retention", () => {
@@ -909,6 +1078,7 @@ function beginImplementationWithEvidence(evidenceId = "de-current", {
   handoffPersisted = true,
   activeRootPlanId = "wp-retry",
   activeRootContentHash = TEST_ROOT_CONTENT_HASH,
+  activeRootPlanText = activeRootPlanId === "wp-retry" ? leanRoot : leanRoot.replace("id: wp-retry", `id: ${activeRootPlanId}`),
   closeoutRootPlanId = null,
   omitHandoffPersisted = false,
   artifacts = null,
@@ -924,6 +1094,7 @@ function beginImplementationWithEvidence(evidenceId = "de-current", {
   }, {
     active_root_plan_id: activeRootPlanId,
     active_root_content_hash: activeRootContentHash,
+    active_root_plan_text: activeRootPlanText,
   });
   let toolResponse;
   if (response != null) {
@@ -998,7 +1169,7 @@ function report(id) {
   return formatDeliveryReportFence(id);
 }
 
-test("Codex implementation cannot stop without a closeout artifact", () => {
+test("Codex rejected implementation prompts do not arm later Stop enforcement", () => {
   let value = evaluateCodexHook({
     hook_event_name: "UserPromptSubmit",
     session_id: "session",
@@ -1009,6 +1180,23 @@ test("Codex implementation cannot stop without a closeout artifact", () => {
   }, {
     active_root_plan_id: "wp-retry",
     active_root_content_hash: TEST_ROOT_CONTENT_HASH,
+  });
+  assert.equal(value.output.decision, "block");
+  assert.equal(value.state.turn, null);
+  value = step(value.state, { hook_event_name: "Stop", last_assistant_message: "Implementation complete" });
+  assert.deepEqual(value.output, {});
+
+  value = evaluateCodexHook({
+    hook_event_name: "UserPromptSubmit",
+    session_id: "session",
+    turn_id: "turn",
+    model: "gpt-parent",
+    permission_mode: "default",
+    prompt: "Implement the plan",
+  }, {
+    active_root_plan_id: "wp-retry",
+    active_root_content_hash: TEST_ROOT_CONTENT_HASH,
+    active_root_plan_text: leanRoot,
   });
   value = step(value.state, { hook_event_name: "Stop", last_assistant_message: "Implementation complete" });
   assert.equal(value.output.decision, "block");
@@ -1309,6 +1497,7 @@ test("Codex closeout Stop binds persistence, chain Root, and raw-byte Evidence i
     artifact: exactDeltaEvidence,
     artifactHash: exactDeltaEvidenceHash,
     activeRootPlanId: "wp-other",
+    activeRootContentHash: rootContentHash(leanRoot.replace("id: wp-retry", "id: wp-other")),
     expectRecorded: false,
   });
   value = step(value.state, { hook_event_name: "Stop", last_assistant_message: report("de-current") });
@@ -1443,9 +1632,8 @@ test("shared lifecycle matrix executes on the Codex source surface", () => {
         rootContentHash: entry.id === "crlf-active-root-hash-mismatch"
           ? TEST_ROOT_CONTENT_HASH_CRLF
           : "0".repeat(64),
-        activeRootContentHash: entry.id === "crlf-active-root-hash-mismatch"
-          ? TEST_ROOT_CONTENT_HASH
-          : "1".repeat(64),
+        activeRootContentHash: TEST_ROOT_CONTENT_HASH,
+        activeRootPlanText: leanRoot,
         expectRecorded: false,
       });
       value = step(value.state, { hook_event_name: "Stop", last_assistant_message: report("de-full") });
@@ -1469,7 +1657,8 @@ test("shared lifecycle matrix executes on the Codex source surface", () => {
       continue;
     }
     if (entry.id === "missing-active-root") {
-      // Implementation phase needs an active Root ID; omit only the content hash.
+      // A pre-execution Root rejection is transactional and must not arm later
+      // closeout or tool restrictions.
       let value = evaluateCodexHook({
         hook_event_name: "UserPromptSubmit",
         session_id: "session",
@@ -1480,6 +1669,8 @@ test("shared lifecycle matrix executes on the Codex source surface", () => {
       }, {
         active_root_plan_id: "wp-retry",
       });
+      assert.equal(value.output.decision, "block");
+      assert.equal(value.state.turn, null);
       value = step(value.state, {
         hook_event_name: "PostToolUse",
         tool_name: "mcp__geldmacher_workflow__workflow_closeout",
@@ -1491,9 +1682,9 @@ test("shared lifecycle matrix executes on the Codex source surface", () => {
           }),
         },
       });
-      assert.equal(value.state.turn.closeout_recorded, false);
+      assert.equal(value.state.turn, null);
       value = step(value.state, { hook_event_name: "Stop", last_assistant_message: report("de-full") });
-      assert.equal(value.output.decision, "block");
+      assert.deepEqual(value.output, {});
       continue;
     }
     if (entry.id === "foreign-active-root") {

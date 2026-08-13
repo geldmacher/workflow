@@ -80,6 +80,10 @@ ${planCloseoutFence}
 const leanRootHash = rootContentHash(leanRoot);
 const leanRootCrlf = leanRoot.replace(/\n/g, "\r\n");
 const leanRootHashCrlf = rootContentHash(leanRootCrlf);
+const verificationBlock = leanRoot.match(/\n### Verification[\s\S]*?(?=\n## Boundaries)/)?.[0] ?? "";
+const misplacedVerificationRoot = leanRoot
+  .replace(verificationBlock, "")
+  .replace("\n## Boundaries", `\n## Interfaces and compatibility\n\nNo public interface changes.\n${verificationBlock}\n\n## Boundaries`);
 
 function bundleCloseout(artifact, overrides = {}) {
   return closeoutStructured(artifact, {
@@ -163,6 +167,167 @@ test("built Codex hook bundle closes out natively without an MCP call", () => {
     assert.deepEqual(completed, {});
   } finally {
     rmSync(temporary, { recursive: true, force: true });
+  }
+});
+
+test("built Codex hook bundle binds UI-link plans and terminalizes recursive Stop recovery", () => {
+  const stateRoot = mkdtempSync(join(tmpdir(), "codex-hook-bundle-stop-terminal-"));
+  try {
+    const base = {
+      session_id: "bundle-stop-terminal-session",
+      turn_id: "bundle-stop-terminal-plan",
+      model: "gpt-parent",
+      cwd: defaultRoot,
+    };
+    const started = runHook({
+      ...base,
+      hook_event_name: "UserPromptSubmit",
+      permission_mode: "plan",
+      prompt: "[$geldmacher-workflow:plan-work](/Users/example/.codex/plugins/cache/personal/geldmacher-workflow/5.3.0+local.codex.fixture/skills/plan-work/SKILL.md) Es muss sichergestellt werden, dass ein replan einen neuen Plan erzeugt.",
+    }, stateRoot);
+    assert.match(started.hookSpecificOutput.additionalContext, /workflow-codex-plan-v1/);
+    assert.deepEqual(runHook({
+      ...base,
+      hook_event_name: "Stop",
+      last_assistant_message: `<proposed_plan>\n${leanRoot}\n</proposed_plan>`,
+    }, stateRoot), {});
+
+    const implementation = { ...base, turn_id: "bundle-stop-terminal-implementation" };
+    runHook({
+      ...implementation,
+      hook_event_name: "UserPromptSubmit",
+      permission_mode: "default",
+      prompt: "Setze diesen Plan um",
+    }, stateRoot);
+    const invalidCloseout = "```yaml workflow-attestation\nschema: 1\nkind: closeout-input\n```";
+    const first = runHook({
+      ...implementation,
+      hook_event_name: "Stop",
+      stop_hook_active: false,
+      last_assistant_message: invalidCloseout,
+    }, stateRoot);
+    assert.equal(first.decision, "block");
+
+    runHook({
+      ...implementation,
+      hook_event_name: "UserPromptSubmit",
+      prompt: '<hook_prompt hook_run_id="stop:8:/plugin/hooks.json">Correct the typed closeout-input.</hook_prompt>',
+    }, stateRoot);
+    const terminal = runHook({
+      ...implementation,
+      hook_event_name: "Stop",
+      stop_hook_active: true,
+      last_assistant_message: invalidCloseout,
+    }, stateRoot);
+    assert.equal(terminal.continue, false);
+    assert.equal(terminal.decision, undefined);
+    assert.match(terminal.stopReason, /ended blocked.*one recovery continuation/i);
+    assert.match(terminal.systemMessage, /terminal Stop recorded no Evidence and no delivery success/i);
+
+    assert.deepEqual(runHook({
+      ...implementation,
+      hook_event_name: "PreToolUse",
+      tool_name: "Bash",
+      tool_input: { command: "git status --short" },
+    }, stateRoot), {});
+    assert.deepEqual(runHook({
+      ...implementation,
+      hook_event_name: "Stop",
+      stop_hook_active: false,
+      last_assistant_message: "later ordinary stop",
+    }, stateRoot), {});
+
+    const nativeImplementation = runHook({
+      ...base,
+      turn_id: "bundle-native-implement-plan",
+      hook_event_name: "UserPromptSubmit",
+      permission_mode: "default",
+      prompt: "Implement Plan",
+    }, stateRoot);
+    assert.match(nativeImplementation.hookSpecificOutput.additionalContext, /workflow-codex-implementation-v1/);
+  } finally {
+    rmSync(stateRoot, { recursive: true, force: true });
+  }
+});
+
+test("built Codex hook bundle rejects misplaced Verification before implementation authority exists", () => {
+  const stateRoot = mkdtempSync(join(tmpdir(), "codex-hook-bundle-invalid-layout-"));
+  try {
+    const base = {
+      session_id: "bundle-invalid-layout-session",
+      turn_id: "bundle-invalid-layout-plan",
+      model: "gpt-parent",
+      cwd: defaultRoot,
+    };
+    const started = runHook({
+      ...base,
+      hook_event_name: "UserPromptSubmit",
+      permission_mode: "plan",
+      prompt: "[$geldmacher-workflow:plan-work](/plugin/geldmacher-workflow/skills/plan-work/SKILL.md) reproduce invalid layout",
+    }, stateRoot);
+    assert.match(started.hookSpecificOutput.additionalContext, /workflow-codex-plan-v1/);
+    const rejected = runHook({
+      ...base,
+      hook_event_name: "Stop",
+      last_assistant_message: `<proposed_plan>\n${misplacedVerificationRoot}\n</proposed_plan>`,
+    }, stateRoot);
+    assert.equal(rejected.decision, "block");
+    assert.match(rejected.reason, /explicit-verification-required|Verification/i);
+
+    assert.deepEqual(runHook({
+      ...base,
+      turn_id: "bundle-invalid-layout-ordinary",
+      hook_event_name: "UserPromptSubmit",
+      prompt: "Explain the invalid plan layout",
+    }, stateRoot), {});
+    assert.deepEqual(runHook({
+      ...base,
+      turn_id: "bundle-invalid-layout-ordinary",
+      hook_event_name: "PreToolUse",
+      tool_name: "Bash",
+      tool_input: { command: "git status --short" },
+    }, stateRoot), {});
+    assert.deepEqual(runHook({
+      ...base,
+      turn_id: "bundle-invalid-layout-ordinary",
+      hook_event_name: "Stop",
+      last_assistant_message: "ordinary explanation",
+    }, stateRoot), {});
+  } finally {
+    rmSync(stateRoot, { recursive: true, force: true });
+  }
+});
+
+test("built Codex hook bundle discards pre-execution rejected turns", () => {
+  const stateRoot = mkdtempSync(join(tmpdir(), "codex-hook-bundle-rejected-turn-"));
+  try {
+    const base = {
+      session_id: "bundle-rejected-turn-session",
+      turn_id: "bundle-rejected-turn",
+      model: "gpt-parent",
+      cwd: defaultRoot,
+    };
+    const rejected = runHook({
+      ...base,
+      hook_event_name: "UserPromptSubmit",
+      permission_mode: "default",
+      prompt: "Plan umsetzen",
+    }, stateRoot);
+    assert.equal(rejected.decision, "block");
+    assert.match(rejected.reason, /Plan required/i);
+    assert.deepEqual(runHook({
+      ...base,
+      hook_event_name: "PreToolUse",
+      tool_name: "apply_patch",
+      tool_input: { patch: "*** Begin Patch" },
+    }, stateRoot), {});
+    assert.deepEqual(runHook({
+      ...base,
+      hook_event_name: "Stop",
+      last_assistant_message: "No implementation ran.",
+    }, stateRoot), {});
+  } finally {
+    rmSync(stateRoot, { recursive: true, force: true });
   }
 });
 
@@ -776,7 +941,8 @@ test("shared lifecycle matrix executes on the Codex bundle surface", () => {
           hook_event_name: "Stop",
           last_assistant_message: `<proposed_plan>\n${leanRoot}\n</proposed_plan>`,
         }, stateRoot);
-        // Keep the active Root ID so implementation starts, but drop the content hash.
+        // Corrupt the exact binding before implementation. The rejected prompt
+        // must remain transactional and leave later closeout/Stop events inert.
         const clearHash = (dir) => {
           for (const entry of readdirSync(dir, { withFileTypes: true })) {
             const path = join(dir, entry.name);
@@ -796,11 +962,12 @@ test("shared lifecycle matrix executes on the Codex bundle surface", () => {
           turn_id: `${base.turn_id}-impl`,
           permission_mode: "default",
         };
-        runHook({
+        const rejected = runHook({
           ...impl,
           hook_event_name: "UserPromptSubmit",
           prompt: "Implement the plan",
         }, stateRoot);
+        assert.equal(rejected.decision, "block");
         const artifact = readFileSync(join(defaultRoot, "tests/fixtures/artifacts/delivery-evidence.valid.md"), "utf8")
           .replace("id: de-adaptive-retry", "id: de-bundle-missing-root")
           .replace("root_plan_id: wp-adaptive-retry", "root_plan_id: wp-bundle-lean")
@@ -817,12 +984,12 @@ test("shared lifecycle matrix executes on the Codex bundle surface", () => {
             }),
           },
         }, stateRoot);
-        const blocked = runHook({
+        const laterStop = runHook({
           ...impl,
           hook_event_name: "Stop",
           last_assistant_message: report("de-bundle-missing-root"),
         }, stateRoot);
-        assert.equal(blocked.decision, "block");
+        assert.deepEqual(laterStop, {});
         continue;
       }
 

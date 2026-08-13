@@ -46,7 +46,19 @@ export const CODEX_REVIEW_MARKER = "[workflow-codex-review-v1]";
 export const CODEX_IMPLEMENTATION_MARKER = "[workflow-codex-implementation-v1]";
 export const MODEL_INHERIT_MARKER = "[workflow-model-inherit-v1]";
 
-const WORKFLOW_COMMAND = /(?:^|\s)\$(plan-work|correct-work|review-work|explain-work|close-work|learn-from-work|work-status|accept-work)(?=\s|$)/i;
+const WORKFLOW_SKILLS = [
+  "plan-work",
+  "correct-work",
+  "review-work",
+  "explain-work",
+  "close-work",
+  "learn-from-work",
+  "work-status",
+  "accept-work",
+];
+const WORKFLOW_SKILL_NAMES = WORKFLOW_SKILLS.join("|");
+const WORKFLOW_TOKEN = new RegExp(`(?:^|[\\s('"\\x60])\\$(?:geldmacher-workflow:)?(${WORKFLOW_SKILL_NAMES})(?=$|[\\s.,;!?')"\\x60]|:(?=\\s|$))`, "gi");
+const WORKFLOW_MARKDOWN_LINK = new RegExp(`\\[\\$(?:geldmacher-workflow:)?(${WORKFLOW_SKILL_NAMES})\\]\\(([^)\\r\\n]+)\\)`, "gi");
 const ROOT_ID = /\bwp-[A-Za-z0-9][A-Za-z0-9-]*\b/;
 const UNAVAILABLE_MODEL = /(?:unknown|unavailable|not\s+found|unsupported).{0,80}model|model.{0,80}(?:unknown|unavailable|not\s+found|unsupported)/i;
 
@@ -58,19 +70,46 @@ const denyTool = (reason) => ({
   },
 });
 
-function phaseForPrompt(prompt, state) {
+function isHookContinuationPrompt(prompt) {
   const text = String(prompt ?? "");
   // Codex may resubmit a Stop-hook continuation through UserPromptSubmit. It is
   // host guidance, not fresh human authority, even when surrounding task
   // context still contains an earlier Workflow command.
-  if (/^\s*<hook_prompt\b[^>]*\bhook_run_id\s*=\s*["'][^"']+["'][^>]*>[\s\S]*<\/hook_prompt>\s*$/i.test(text)) return null;
-  const command = text.match(WORKFLOW_COMMAND)?.[1]?.toLowerCase();
-  if (command === "plan-work") return "planning";
-  if (command === "correct-work") return "correction";
-  if (command === "review-work") return "review";
-  if (command) return command.replace(/-work$/, "");
-  if (/\b(?:implement(?:\s+(?:this|the))?\s+plan|plan\s+implementieren|implementiere\s+(?:diesen\s+)?plan)\b/i.test(text)) return "implementation";
-  return null;
+  return /^\s*<hook_prompt\b[^>]*\bhook_run_id\s*=\s*["'][^"']+["'][^>]*>[\s\S]*<\/hook_prompt>\s*$/i.test(text);
+}
+
+function explicitWorkflowCommand(prompt) {
+  const text = String(prompt ?? "");
+  const commands = [];
+  for (const match of text.matchAll(WORKFLOW_MARKDOWN_LINK)) {
+    const command = match[1].toLowerCase();
+    const target = match[2].trim().replace(/^<|>$/g, "");
+    const expectedSuffix = new RegExp(`/skills/${command}/SKILL\\.md(?:[?#].*)?$`, "i");
+    if (/(?:^|\/)geldmacher-workflow(?:\/|$)/i.test(target) && expectedSuffix.test(target)) commands.push(command);
+  }
+  for (const match of text.matchAll(WORKFLOW_TOKEN)) commands.push(match[1].toLowerCase());
+  if (commands.length === 0) return { command: null, ambiguous: false };
+  if (commands.length > 1) return { command: null, ambiguous: true };
+  return { command: commands[0], ambiguous: false };
+}
+
+function implementationImperative(prompt) {
+  const text = String(prompt ?? "");
+  if (/\?/.test(text) || /\b(?:nicht|kein(?:e|en|em|er|es)?|not|never)\b|\bdo\s+not\b|\bdon['’]t\b/i.test(text)) return false;
+  return /^\s*(?:please\s+|bitte\s+)?(?:implement(?:\s+(?:this|the))?\s+plan|plan\s+implementieren|implementiere\s+(?:(?:diesen|den)\s+)?plan|plan\s+umsetzen|setze\s+(?:den|diesen)\s+plan\s+um)\b/i.test(text);
+}
+
+function classifyPrompt(prompt) {
+  if (isHookContinuationPrompt(prompt)) return { kind: "hook-continuation", phase: null };
+  const explicit = explicitWorkflowCommand(prompt);
+  if (explicit.ambiguous) return { kind: "ambiguous-workflow-skill", phase: null };
+  const command = explicit.command;
+  if (command === "plan-work") return { kind: "workflow-skill", phase: "planning" };
+  if (command === "correct-work") return { kind: "workflow-skill", phase: "correction" };
+  if (command === "review-work") return { kind: "workflow-skill", phase: "review" };
+  if (command) return { kind: "workflow-skill", phase: command.replace(/-work$/, "") };
+  if (implementationImperative(prompt)) return { kind: "implementation-imperative", phase: "implementation" };
+  return { kind: "ordinary", phase: null };
 }
 
 export { isReadOnlyShell };
@@ -108,6 +147,35 @@ function clearCloseoutTurn(turn) {
   turn.native_closeout = false;
   turn.native_closeout_error = null;
   turn.native_closeout_error_code = null;
+}
+
+function boundedStopText(value, limit = 400) {
+  const text = String(value ?? "Workflow Manual phase is incomplete.").replace(/\s+/g, " ").trim();
+  return text.length <= limit ? text : `${text.slice(0, limit - 1)}…`;
+}
+
+function stopDecision(state, turn, input, reason, code = "manual-phase-incomplete") {
+  if (input.stop_hook_active !== true) {
+    return { output: { decision: "block", reason }, state };
+  }
+  const detail = boundedStopText(reason);
+  state.last_terminal_stop_failure = {
+    kind: "manual-stop-failure",
+    authoritative: false,
+    code: boundedStopText(code, 80),
+    phase: turn.phase,
+    root_plan_id: state.active_root_plan_id ?? turn.root_plan_id ?? null,
+    reason: detail,
+  };
+  state.turn = null;
+  return {
+    output: {
+      continue: false,
+      stopReason: "Workflow Manual phase ended blocked after one recovery continuation.",
+      systemMessage: `Workflow ended blocked: ${detail} This terminal Stop recorded no Evidence and no delivery success.`,
+    },
+    state,
+  };
 }
 
 function exactArtifactFromMessage(message, options = {}) {
@@ -459,7 +527,22 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
   }
 
   if (event === "UserPromptSubmit") {
-    const phase = phaseForPrompt(input.prompt, state);
+    const classification = classifyPrompt(input.prompt);
+    if (classification.kind === "hook-continuation") return { output: {}, state };
+
+    // A genuine new human prompt supersedes any earlier armed phase. Candidate
+    // authority below is staged separately and commits only after every gate.
+    state.turn = null;
+    if (classification.kind === "ambiguous-workflow-skill") {
+      return {
+        output: {
+          decision: "block",
+          reason: "Workflow · Blocked. Use exactly one explicit Workflow skill in this prompt; multiple distinct skill invocations are ambiguous.",
+        },
+        state,
+      };
+    }
+    const phase = classification.phase;
     if (!phase) return { output: {}, state };
     const turn = {
       turn_id: input.turn_id ?? null,
@@ -502,46 +585,51 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
         reasoning_effort_attested: false,
       },
     };
+    const stagedState = structuredClone(state);
     const selectedRootId = String(input.prompt ?? "").match(ROOT_ID)?.[0] ?? null;
     const previouslyBoundRootId = state.active_root_plan_id ?? null;
     if (selectedRootId && phase !== "planning") turn.root_plan_id = selectedRootId;
     const embeddedRoot = phase !== "planning" ? extractRootPlanText(input.prompt) : null;
     if (embeddedRoot) {
       const inspected = inspectArtifactText(embeddedRoot, options.pluginRoot);
-      if (inspected.errors.length === 0 && inspected.artifact?.fields?.artifact === "work-plan") {
-        const embeddedRootId = inspected.artifact.fields.id;
-        if (["implementation", "correction"].includes(phase) && selectedRootId && selectedRootId !== embeddedRootId) {
-          state.turn = turn;
-          return {
-            output: {
-              decision: "block",
-              reason: `Workflow · Blocked. The approved selector ${selectedRootId} does not match the supplied Root ${embeddedRootId}. Use one exact Root only.`,
-            },
-            state,
-          };
-        }
-        if (phase === "correction" && previouslyBoundRootId && previouslyBoundRootId !== embeddedRootId) {
-          state.turn = turn;
-          return {
-            output: {
-              decision: "block",
-              reason: `Workflow · Blocked. Correction cannot replace the task-bound Root ${previouslyBoundRootId} with ${embeddedRootId}. Return to the exact reviewed chain.`,
-            },
-            state,
-          };
-        }
-        turn.root_plan_id = inspected.artifact.fields.id;
-        state.active_root_plan_id = inspected.artifact.fields.id;
-        state.active_root_content_hash = rootContentHash(embeddedRoot);
-        state.active_root_plan_text = embeddedRoot;
+      if (inspected.errors.length > 0 || inspected.artifact?.fields?.artifact !== "work-plan") {
+        return {
+          output: {
+            decision: "block",
+            reason: `Workflow · Blocked. The supplied Root is not one valid Schema-5 work-plan: ${inspected.errors[0] ?? "artifact type mismatch"}`,
+          },
+          state,
+        };
       }
+      const embeddedRootId = inspected.artifact.fields.id;
+      if (["implementation", "correction"].includes(phase) && selectedRootId && selectedRootId !== embeddedRootId) {
+        return {
+          output: {
+            decision: "block",
+            reason: `Workflow · Blocked. The approved selector ${selectedRootId} does not match the supplied Root ${embeddedRootId}. Use one exact Root only.`,
+          },
+          state,
+        };
+      }
+      if (phase === "correction" && previouslyBoundRootId && previouslyBoundRootId !== embeddedRootId) {
+        return {
+          output: {
+            decision: "block",
+            reason: `Workflow · Blocked. Correction cannot replace the task-bound Root ${previouslyBoundRootId} with ${embeddedRootId}. Return to the exact reviewed chain.`,
+          },
+          state,
+        };
+      }
+      turn.root_plan_id = embeddedRootId;
+      stagedState.active_root_plan_id = embeddedRootId;
+      stagedState.active_root_content_hash = rootContentHash(embeddedRoot);
+      stagedState.active_root_plan_text = embeddedRoot;
     }
-    state.turn = turn;
     if (phase === "planning" && input.permission_mode !== "plan") {
       return { output: { decision: "block", reason: "$plan-work requires Codex Plan mode." }, state };
     }
     if (["implementation", "correction"].includes(phase)) {
-      const bound = inspectActiveStateRoot(state, options);
+      const bound = inspectActiveStateRoot(stagedState, options);
       if (!bound.ok) {
         return {
           output: {
@@ -551,26 +639,31 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
           state,
         };
       }
-      if (selectedRootId && selectedRootId !== state.active_root_plan_id) {
+      if (selectedRootId && selectedRootId !== stagedState.active_root_plan_id) {
         return {
           output: {
             decision: "block",
-            reason: `Workflow · Blocked. The approved selector ${selectedRootId} does not match the task-bound Root ${state.active_root_plan_id}. Approve the exact current Root only.`,
+            reason: `Workflow · Blocked. The approved selector ${selectedRootId} does not match the task-bound Root ${stagedState.active_root_plan_id}. Approve the exact current Root only.`,
           },
           state,
         };
       }
-      if (phase === "correction" && previouslyBoundRootId && previouslyBoundRootId !== state.active_root_plan_id) {
+      if (phase === "correction" && previouslyBoundRootId && previouslyBoundRootId !== stagedState.active_root_plan_id) {
         return {
           output: {
             decision: "block",
-            reason: `Workflow · Blocked. Correction cannot replace the task-bound Root ${previouslyBoundRootId} with ${state.active_root_plan_id}. Return to the exact reviewed chain.`,
+            reason: `Workflow · Blocked. Correction cannot replace the task-bound Root ${previouslyBoundRootId} with ${stagedState.active_root_plan_id}. Return to the exact reviewed chain.`,
           },
           state,
         };
       }
-      turn.root_plan_id = state.active_root_plan_id;
+      turn.root_plan_id = stagedState.active_root_plan_id;
     }
+    state.active_root_plan_id = stagedState.active_root_plan_id;
+    state.active_root_content_hash = stagedState.active_root_content_hash;
+    state.active_root_plan_text = stagedState.active_root_plan_text;
+    state.turn = turn;
+    state.last_terminal_stop_failure = null;
     const marker = phase === "planning" ? CODEX_PLAN_MARKER : phase === "review" ? CODEX_REVIEW_MARKER : ["implementation", "correction"].includes(phase) ? CODEX_IMPLEMENTATION_MARKER : "[workflow-codex-manual-v1]";
     const routingNote = routingEnabled(policy)
       ? "Codex may use the configured ordered Manual subagent candidates with parent fallback."
@@ -844,24 +937,12 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
     if (turn.phase === "planning") {
       const hasNativePlan = /<proposed_plan>[\s\S]*<\/proposed_plan>/i.test(message) && ROOT_ID.test(message);
       if (!hasNativePlan) {
-        return {
-          output: {
-            decision: "block",
-            reason: "Finish $plan-work: return one <proposed_plan> containing the exact Schema-5 Root and its wp-* ID. Handoff record is best-effort transport only.",
-          },
-          state,
-        };
+        return stopDecision(state, turn, input, "Finish $plan-work: return one <proposed_plan> containing the exact Schema-5 Root and its wp-* ID. Handoff record is best-effort transport only.", "planning-root-missing");
       }
 
       const presentedText = extractRootPlanText(message);
       if (!presentedText) {
-        return {
-          output: {
-            decision: "block",
-            reason: "Finish $plan-work: <proposed_plan> must contain the exact Schema-5 Root text, not only a wp-* ID. Prior workflow_plan_preflight success does not authorize an ID-only presentation.",
-          },
-          state,
-        };
+        return stopDecision(state, turn, input, "Finish $plan-work: <proposed_plan> must contain the exact Schema-5 Root text, not only a wp-* ID. Prior workflow_plan_preflight success does not authorize an ID-only presentation.", "planning-root-text-missing");
       }
 
       const presented = inspectPresentedRootPlan(presentedText, {
@@ -874,26 +955,20 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
           .map((issue) => String(issue?.message ?? issue).replace(/\s+/g, " ").slice(0, 200))
           .filter(Boolean)
           .join("; ");
-        return {
-          output: {
-            decision: "block",
-            reason: `Finish $plan-work: <proposed_plan> must contain one Schema-5 Root that passes the same native semantic validation Cursor CreatePlan embeds${detail ? `: ${detail}` : "."}`,
-          },
+        return stopDecision(
           state,
-        };
+          turn,
+          input,
+          `Finish $plan-work: <proposed_plan> must contain one Schema-5 Root that passes the same native semantic validation Cursor CreatePlan embeds${detail ? `: ${detail}` : "."}`,
+          "planning-root-invalid",
+        );
       }
 
       if (turn.preflight_passed) {
         const idMatch = !turn.preflight_root_id || turn.preflight_root_id === presented.fields.id;
         const fingerprintMatch = !turn.preflight_fingerprint || turn.preflight_fingerprint === presented.fingerprint;
         if (!idMatch || !fingerprintMatch) {
-          return {
-            output: {
-              decision: "block",
-              reason: "Finish $plan-work: the presented Root must exactly match the Root attested by workflow_plan_preflight.",
-            },
-            state,
-          };
+          return stopDecision(state, turn, input, "Finish $plan-work: the presented Root must exactly match the Root attested by workflow_plan_preflight.", "planning-root-preflight-mismatch");
         }
       }
       turn.local_preflight_passed = true;
@@ -905,13 +980,13 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
         requireFinalStepSection: true,
       });
       if (retentionIssues.length > 0) {
-        return {
-          output: {
-            decision: "block",
-            reason: `Finish $plan-work: <proposed_plan> must include an explicit ## Final implementation step with one typed plan-closeout attestation:\n${formatPlanCloseoutAttestationFence()}`,
-          },
+        return stopDecision(
           state,
-        };
+          turn,
+          input,
+          `Finish $plan-work: <proposed_plan> must include an explicit ## Final implementation step with one typed plan-closeout attestation:\n${formatPlanCloseoutAttestationFence()}`,
+          "planning-closeout-retention-missing",
+        );
       }
 
       turn.root_plan_id = presented.fields.id;
@@ -923,24 +998,15 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
     }
     if (["implementation", "correction", "review"].includes(turn.phase)) {
       if (turn.task_artifact_error) {
-        return {
-          output: {
-            decision: "block",
-            reason: `Workflow task-local artifact capture failed closed: ${turn.task_artifact_error}. Preserve the exact Root/chain bytes and resolve the conflict before closeout.`,
-          },
-          state,
-        };
+        return stopDecision(state, turn, input, `Workflow task-local artifact capture failed closed: ${turn.task_artifact_error}. Preserve the exact Root/chain bytes and resolve the conflict before closeout.`, "task-artifact-conflict");
       }
       const native = parseCloseoutInput(message);
       if (native.ok) {
         if (turn.phase === "review" && turn.review_recovery_count >= 1) {
-          return {
-            output: {
-              decision: "block",
-              reason: "Workflow review recovery is bounded to one native continuation. Use the exact hydrated chain or report the remaining Evidence uncertainty without another recovery attempt.",
-            },
-            state,
-          };
+          return stopDecision(state, turn, input, "Workflow review recovery is bounded to one native continuation. Use the exact hydrated chain or report the remaining Evidence uncertainty without another recovery attempt.", "review-recovery-exhausted");
+        }
+        if (turn.phase === "review" && input.stop_hook_active === true) {
+          return stopDecision(state, turn, input, "Workflow review Evidence recovery would require another continuation, so it remains blocked without recording new Evidence.", "review-recovery-terminal");
         }
         try {
           const rootPlanText = state.active_root_plan_text;
@@ -973,13 +1039,7 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
           rememberTaskArtifact(state, closeout.artifact, options, { rootHash: state.active_root_content_hash });
           if (turn.phase === "review") {
             turn.review_recovery_count += 1;
-            return {
-              output: {
-                decision: "block",
-                reason: `Workflow recovered exact Evidence ${closeout.fields.id}. Continue this same read-only review once with the hydrated chain; preserve its ${closeout.fields.status} status and ${closeout.fields.overall_grade} grade.`,
-              },
-              state,
-            };
+            return stopDecision(state, turn, input, `Workflow recovered exact Evidence ${closeout.fields.id}. Continue this same read-only review once with the hydrated chain; preserve its ${closeout.fields.status} status and ${closeout.fields.overall_grade} grade.`, "review-recovery-required");
           }
         } catch (error) {
           turn.native_closeout_error = String(error?.message ?? error);
@@ -991,31 +1051,19 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
           turn.native_closeout_error_code = errorCode;
           if (boundaryReceipt) {
             turn.boundary_receipt = boundaryReceipt;
-            return {
-              output: {
-                decision: "block",
-                reason: `Workflow Evidence recovery is deterministically unavailable. A fresh protected root-boundary receipt was captured for the exact Root and repository snapshot. Emit only an insufficient-evidence/blocked/replan root-boundary review using this internal receipt: ${JSON.stringify(boundaryReceipt)}`,
-              },
+            return stopDecision(
               state,
-            };
+              turn,
+              input,
+              `Workflow Evidence recovery is deterministically unavailable. A fresh protected root-boundary receipt was captured for the exact Root and repository snapshot. Emit only an insufficient-evidence/blocked/replan root-boundary review using this internal receipt: ${JSON.stringify(boundaryReceipt)}`,
+              "review-boundary-recovery",
+            );
           }
-          return {
-            output: {
-              decision: "block",
-              reason: `Workflow native closeout failed closed [${turn.native_closeout_error_code}]: ${turn.native_closeout_error}. Correct the exact Root/chain or typed observations; do not claim delivery success.`,
-            },
-            state,
-          };
+          return stopDecision(state, turn, input, `Workflow native closeout failed closed [${turn.native_closeout_error_code}]: ${turn.native_closeout_error}. Correct the exact Root/chain or typed observations; do not claim delivery success.`, turn.native_closeout_error_code);
         }
       } else if (/\bkind\s*:\s*closeout-input\b|\bcloseout-input\b/i.test(message)) {
         turn.native_closeout_error = native.issues.join("; ");
-        return {
-          output: {
-            decision: "block",
-            reason: `Workflow native closeout attestation is invalid: ${turn.native_closeout_error}`,
-          },
-          state,
-        };
+        return stopDecision(state, turn, input, `Workflow native closeout attestation is invalid: ${turn.native_closeout_error}`, "invalid-closeout-input");
       }
     }
     if (turn.phase === "review") {
@@ -1026,13 +1074,7 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
           if (captured.fields.artifact !== "work-review") throw new Error(`review response produced ${captured.fields.artifact}, not work-review`);
         } catch (error) {
           turn.task_artifact_error = String(error?.message ?? error);
-          return {
-            output: {
-              decision: "block",
-              reason: `Workflow exact review capture failed closed: ${turn.task_artifact_error}. Keep the authoritative review bytes in this task and resolve any immutable ID conflict before correction.`,
-            },
-            state,
-          };
+          return stopDecision(state, turn, input, `Workflow exact review capture failed closed: ${turn.task_artifact_error}. Keep the authoritative review bytes in this task and resolve any immutable ID conflict before correction.`, "review-artifact-conflict");
         }
       }
     }
@@ -1048,17 +1090,11 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
         delivery_evidence_root_plan_id: turn.delivery_evidence_root_plan_id,
         });
       if (!completion.ok) {
-        return {
-          output: {
-            decision: "block",
-            reason: "Finish Manual Workflow with one typed closeout-input for native lifecycle closeout, or use optional workflow_closeout and then report its exact delivery-report (attach the exact artifact only when handoff_persisted is false).",
-          },
-          state,
-        };
+        return stopDecision(state, turn, input, "Finish Manual Workflow with one typed closeout-input for native lifecycle closeout, or use optional workflow_closeout and then report its exact delivery-report (attach the exact artifact only when handoff_persisted is false).", "delivery-closeout-missing");
       }
     }
     if (Object.keys(turn.invalid_agents ?? {}).length > 0) {
-      return { output: { decision: "block", reason: "Discard the unattested subagent result and complete the Workflow step without using it as evidence." }, state };
+      return stopDecision(state, turn, input, "Discard the unattested subagent result and complete the Workflow step without using it as evidence.", "unattested-subagent-result");
     }
     state.turn = null;
     return { output: {}, state };

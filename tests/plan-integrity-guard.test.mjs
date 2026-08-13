@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { evaluateCreatePlanGuard } from "../hooks/plan-integrity-guard.mjs";
+import { evaluateCloseoutGuard, readActiveRootPlan } from "../hooks/closeout-guard.mjs";
 import { PLAN_CLOSEOUT_ATTESTATION } from "../src/core/manual-attestation.mjs";
 import { finalCloseoutTodo } from "./support/manual-attestation-fixtures.mjs";
 import { defaultRoot } from "../scripts/validate-artifact.source.mjs";
@@ -13,11 +14,19 @@ const marker = "[workflow-model-inherit-v1]";
 const rootPlan = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
 const rootMatch = rootPlan.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
 const nativePlan = `# Adaptive retry\n\n\`\`\`yaml artifact-envelope\n${rootMatch[1]}\n\`\`\`\n${rootMatch[2]}`;
+const replanRoot = rootPlan
+  .replace("id: wp-adaptive-retry", "id: wp-adaptive-retry-v2")
+  .replace("hard_triggers: []", "hard_triggers: []\npredecessor_plan_id: wp-adaptive-retry\nreplan_source_review_id: wr-adaptive-retry");
+const replanMatch = replanRoot.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+const replanNativePlan = `# Adaptive retry v2\n\n\`\`\`yaml artifact-envelope\n${replanMatch[1]}\n\`\`\`\n${replanMatch[2]}`;
 
 function event(overrides = {}) {
   return {
     hook_event_name: "preToolUse",
+    conversation_id: "create-plan-conversation",
+    generation_id: "create-plan-generation",
     tool_name: "CreatePlan",
+    tool_use_id: "create-plan-tool-use",
     tool_input: {
       name: "Adaptive retry",
       overview: "Implement and verify deterministic retry handling.",
@@ -31,17 +40,41 @@ function event(overrides = {}) {
   };
 }
 
+function post(candidate) {
+  return { ...candidate, hook_event_name: "postToolUse" };
+}
+
+function promptEvent(prompt, overrides = {}) {
+  return {
+    hook_event_name: "beforeSubmitPrompt",
+    conversation_id: "create-plan-conversation",
+    generation_id: "create-plan-generation",
+    prompt,
+    ...overrides,
+  };
+}
+
 test("CreatePlan guard accepts a valid native Schema-5 plan", () => {
-  assert.deepEqual(evaluateCreatePlanGuard(event(), { pluginRoot: defaultRoot }), {});
+  const stateRoot = mkdtempSync(join(tmpdir(), "workflow-plan-valid-"));
+  try {
+    assert.deepEqual(evaluateCreatePlanGuard(event(), { pluginRoot: defaultRoot, stateRoot }), {});
+  } finally {
+    rmSync(stateRoot, { recursive: true, force: true });
+  }
 });
 
 test("CreatePlan guard accepts typed plan-closeout attestation metadata", () => {
+  const stateRoot = mkdtempSync(join(tmpdir(), "workflow-plan-attestation-"));
   const candidate = event();
   candidate.tool_input.todos[1] = {
     ...finalCloseoutTodo,
     content: `${marker} Verify CHECK-1 and close out delivery.`,
   };
-  assert.deepEqual(evaluateCreatePlanGuard(candidate, { pluginRoot: defaultRoot }), {});
+  try {
+    assert.deepEqual(evaluateCreatePlanGuard(candidate, { pluginRoot: defaultRoot, stateRoot }), {});
+  } finally {
+    rmSync(stateRoot, { recursive: true, force: true });
+  }
 });
 
 test("CreatePlan guard rejects the KIP pattern without marked deterministic closeout", () => {
@@ -63,20 +96,32 @@ test("CreatePlan guard rejects the KIP pattern without marked deterministic clos
 });
 
 test("CreatePlan guard accepts STEP todos without the inheritance marker when closeout is marked", () => {
-  assert.deepEqual(evaluateCreatePlanGuard(event(), { pluginRoot: defaultRoot }), {});
-});
-
-test("CreatePlan guard records the approved Root and rejects infeasible preflight", () => {
-  const stateRoot = mkdtempSync(join(tmpdir(), "workflow-plan-integrity-coverage-"));
+  const stateRoot = mkdtempSync(join(tmpdir(), "workflow-plan-step-todos-"));
   try {
-    const accepted = evaluateCreatePlanGuard(event({
-      conversation_id: "create-plan-active-root",
-    }), { pluginRoot: defaultRoot, stateRoot });
-    assert.deepEqual(accepted, {});
+    assert.deepEqual(evaluateCreatePlanGuard(event(), { pluginRoot: defaultRoot, stateRoot }), {});
   } finally {
     rmSync(stateRoot, { recursive: true, force: true });
   }
+});
 
+test("CreatePlan guard activates the approved Root only after matching successful postToolUse", () => {
+  const stateRoot = mkdtempSync(join(tmpdir(), "workflow-plan-integrity-coverage-"));
+  try {
+    const candidate = event({ conversation_id: "create-plan-active-root" });
+    const accepted = evaluateCreatePlanGuard(candidate, { pluginRoot: defaultRoot, stateRoot });
+    assert.deepEqual(accepted, {});
+    assert.equal(readActiveRootPlan(candidate, { stateRoot }), null);
+    assert.deepEqual(evaluateCreatePlanGuard(post(candidate), { pluginRoot: defaultRoot, stateRoot }), {});
+    const active = readActiveRootPlan(candidate, { stateRoot });
+    assert.equal(active.root_plan_id, "wp-adaptive-retry");
+    assert.equal(active.root_plan_text, rootPlan);
+    assert.match(active.root_content_hash, /^[a-f0-9]{64}$/);
+  } finally {
+    rmSync(stateRoot, { recursive: true, force: true });
+  }
+});
+
+test("CreatePlan guard rejects infeasible preflight", () => {
   const denied = evaluateCreatePlanGuard(event(), {
     pluginRoot: defaultRoot,
     preflightRootPlan: () => ({
@@ -86,6 +131,185 @@ test("CreatePlan guard records the approved Root and rejects infeasible prefligh
   });
   assert.equal(denied.permission, "deny");
   assert.match(denied.user_message, /Root preflight failed|authority envelope incomplete|no Plan was created/);
+});
+
+test("Cursor replan suspends its predecessor and commits only a fresh lineage-valid receipt", () => {
+  const stateRoot = mkdtempSync(join(tmpdir(), "workflow-plan-replan-receipt-"));
+  const options = { pluginRoot: defaultRoot, stateRoot };
+  try {
+    const initial = event({ generation_id: "gen-initial", tool_use_id: "tool-initial" });
+    assert.deepEqual(evaluateCreatePlanGuard(initial, options), {});
+    assert.deepEqual(evaluateCreatePlanGuard(post(initial), options), {});
+    assert.equal(readActiveRootPlan(initial, options).root_plan_id, "wp-adaptive-retry");
+
+    const replanPrompt = promptEvent("/plan-work replan wp-adaptive-retry", { generation_id: "gen-replan" });
+    assert.deepEqual(evaluateCreatePlanGuard(replanPrompt, options), {});
+    assert.equal(readActiveRootPlan(replanPrompt, options), null);
+
+    const candidate = event({
+      generation_id: "gen-replan",
+      tool_use_id: "tool-replan",
+      tool_input: {
+        ...event().tool_input,
+        name: "Adaptive retry v2",
+        plan: replanNativePlan,
+      },
+    });
+    assert.deepEqual(evaluateCreatePlanGuard(candidate, options), {});
+    assert.equal(readActiveRootPlan(candidate, options), null);
+    assert.deepEqual(evaluateCreatePlanGuard(post(candidate), options), {});
+    const active = readActiveRootPlan(candidate, options);
+    assert.equal(active.root_plan_id, "wp-adaptive-retry-v2");
+    assert.equal(active.root_plan_text, replanRoot);
+    const transactionRoot = join(stateRoot, "manual-plan-transactions");
+    const conversationDirectory = join(transactionRoot, readdirSync(transactionRoot)[0]);
+    const receipts = readdirSync(conversationDirectory)
+      .map((name) => JSON.parse(readFileSync(join(conversationDirectory, name), "utf8")))
+      .filter((entry) => entry.status === "committed" && entry.mode === "replan");
+    assert.equal(receipts.length, 1);
+    assert.equal(receipts[0].receipt.tool_use_id, "tool-replan");
+    assert.equal(receipts[0].receipt.root_plan_id, "wp-adaptive-retry-v2");
+    assert.equal(receipts[0].receipt.predecessor_plan_id, "wp-adaptive-retry");
+    assert.equal(receipts[0].receipt.replan_source_review_id, "wr-adaptive-retry");
+    assert.match(receipts[0].receipt.root_content_hash, /^[a-f0-9]{64}$/);
+  } finally {
+    rmSync(stateRoot, { recursive: true, force: true });
+  }
+});
+
+test("failed, mismatched, and superseded replan receipts activate neither candidate nor predecessor", () => {
+  for (const failure of ["post-mismatch", "tool-failure", "superseded"]) {
+    const stateRoot = mkdtempSync(join(tmpdir(), `workflow-plan-replan-${failure}-`));
+    const options = { pluginRoot: defaultRoot, stateRoot };
+    try {
+      const initial = event({ generation_id: `gen-initial-${failure}`, tool_use_id: `tool-initial-${failure}` });
+      evaluateCreatePlanGuard(initial, options);
+      evaluateCreatePlanGuard(post(initial), options);
+      const replanPrompt = promptEvent("/plan-work replan", { generation_id: `gen-replan-${failure}` });
+      assert.deepEqual(evaluateCreatePlanGuard(replanPrompt, options), {});
+      const candidate = event({
+        generation_id: `gen-replan-${failure}`,
+        tool_use_id: `tool-replan-${failure}`,
+        tool_input: { ...event().tool_input, name: "Adaptive retry v2", plan: replanNativePlan },
+      });
+      assert.deepEqual(evaluateCreatePlanGuard(candidate, options), {});
+      if (failure === "post-mismatch") {
+        evaluateCreatePlanGuard(post({ ...candidate, tool_use_id: "foreign-tool-use" }), options);
+      } else if (failure === "tool-failure") {
+        evaluateCreatePlanGuard({ ...candidate, hook_event_name: "postToolUseFailure", failure_type: "error" }, options);
+      } else {
+        evaluateCreatePlanGuard(promptEvent("ordinary unrelated prompt", { generation_id: "gen-new-human" }), options);
+        evaluateCreatePlanGuard(post(candidate), options);
+      }
+      assert.equal(readActiveRootPlan(candidate, options), null, failure);
+      const reapproval = {
+        hook_event_name: "beforeSubmitPrompt",
+        conversation_id: candidate.conversation_id,
+        generation_id: `explicit-predecessor-reapproval-${failure}`,
+        prompt: `Implement Plan\n\n${rootPlan}`,
+      };
+      assert.deepEqual(evaluateCloseoutGuard(reapproval, options), {});
+      assert.equal(readActiveRootPlan(reapproval, options).root_plan_id, "wp-adaptive-retry");
+    } finally {
+      rmSync(stateRoot, { recursive: true, force: true });
+    }
+  }
+});
+
+test("replan requires explicit intent, fresh identity, and exact predecessor lineage", () => {
+  const stateRoot = mkdtempSync(join(tmpdir(), "workflow-plan-replan-lineage-"));
+  const options = { pluginRoot: defaultRoot, stateRoot };
+  try {
+    const lineageWithoutPrompt = event({
+      generation_id: "lineage-without-prompt",
+      tool_use_id: "lineage-without-prompt-tool",
+      tool_input: { ...event().tool_input, plan: replanNativePlan },
+    });
+    assert.match(evaluateCreatePlanGuard(lineageWithoutPrompt, options).user_message, /explicit \/plan-work replan/i);
+
+    const initial = event({ generation_id: "lineage-initial", tool_use_id: "lineage-initial-tool" });
+    evaluateCreatePlanGuard(initial, options);
+    evaluateCreatePlanGuard(post(initial), options);
+    evaluateCreatePlanGuard(promptEvent("/plan-work replan", { generation_id: "lineage-replan" }), options);
+    for (const plan of [
+      replanNativePlan.replace("id: wp-adaptive-retry-v2", "id: wp-adaptive-retry"),
+      replanNativePlan.replace("predecessor_plan_id: wp-adaptive-retry", "predecessor_plan_id: wp-foreign"),
+      replanNativePlan.replace("replan_source_review_id: wr-adaptive-retry", "replan_source_review_id: missing"),
+    ]) {
+      const denied = evaluateCreatePlanGuard(event({
+        generation_id: "lineage-replan",
+        tool_use_id: `lineage-${plan.length}`,
+        tool_input: { ...event().tool_input, plan },
+      }), options);
+      assert.equal(denied.permission, "deny");
+      assert.match(denied.user_message, /fresh wp|predecessor_plan_id|replan_source_review_id|lineage/i);
+    }
+  } finally {
+    rmSync(stateRoot, { recursive: true, force: true });
+  }
+});
+
+test("planning prompt gates reject missing identity, predecessor, and selector drift", () => {
+  const stateRoot = mkdtempSync(join(tmpdir(), "workflow-plan-prompt-gates-"));
+  const options = { pluginRoot: defaultRoot, stateRoot };
+  try {
+    const missingIdentity = evaluateCreatePlanGuard(promptEvent("/plan-work", {
+      conversation_id: null,
+      generation_id: null,
+    }), options);
+    assert.equal(missingIdentity.continue, false);
+    assert.match(missingIdentity.user_message, /conversation_id.*generation_id/i);
+
+    const missingPredecessor = evaluateCreatePlanGuard(promptEvent("/plan-work replan", {
+      generation_id: "missing-predecessor",
+    }), options);
+    assert.equal(missingPredecessor.continue, false);
+    assert.match(missingPredecessor.user_message, /no exact active.*predecessor/i);
+
+    const initial = event({ generation_id: "selector-initial", tool_use_id: "selector-initial-tool" });
+    evaluateCreatePlanGuard(initial, options);
+    evaluateCreatePlanGuard(post(initial), options);
+    const wrongSelector = evaluateCreatePlanGuard(promptEvent("/plan-work replan wp-foreign", {
+      generation_id: "selector-replan",
+    }), options);
+    assert.equal(wrongSelector.continue, false);
+    assert.match(wrongSelector.user_message, /wp-foreign.*wp-adaptive-retry/i);
+  } finally {
+    rmSync(stateRoot, { recursive: true, force: true });
+  }
+});
+
+test("pending planning rejects omitted Root and missing tool receipt identity", () => {
+  for (const failure of ["omitted-root", "missing-tool-use"]) {
+    const stateRoot = mkdtempSync(join(tmpdir(), `workflow-plan-stage-${failure}-`));
+    const options = { pluginRoot: defaultRoot, stateRoot };
+    try {
+      const generation_id = `stage-${failure}`;
+      assert.deepEqual(evaluateCreatePlanGuard(promptEvent("/plan-work create a Root", { generation_id }), options), {});
+      const candidate = event({ generation_id });
+      if (failure === "omitted-root") {
+        candidate.tool_input = {
+          ...candidate.tool_input,
+          plan: "# Ordinary plan\n\nImplement a local refactor.",
+        };
+      } else {
+        candidate.tool_use_id = "";
+      }
+      const denied = evaluateCreatePlanGuard(candidate, options);
+      assert.equal(denied.permission, "deny");
+      assert.match(denied.user_message, failure === "omitted-root" ? /exact Schema-5 Root/i : /tool_use_id/i);
+      assert.equal(readActiveRootPlan(candidate, options), null);
+    } finally {
+      rmSync(stateRoot, { recursive: true, force: true });
+    }
+  }
+});
+
+test("unrelated hook events and tools stay inert", () => {
+  assert.deepEqual(evaluateCreatePlanGuard(event({ hook_event_name: "unknownEvent" }), { pluginRoot: defaultRoot }), {});
+  for (const hook_event_name of ["preToolUse", "postToolUse", "postToolUseFailure"]) {
+    assert.deepEqual(evaluateCreatePlanGuard(event({ hook_event_name, tool_name: "Read" }), { pluginRoot: defaultRoot }), {});
+  }
 });
 
 test("CreatePlan guard rejects cache-dependent or noncanonical closeout todos", () => {

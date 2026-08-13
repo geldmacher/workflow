@@ -23,6 +23,7 @@ async function createFixture(explicitPaths) {
       sessionStart: [{ type: "command", command, failClosed: false }],
       beforeSubmitPrompt: [
         { type: "command", command, failClosed: false },
+        { type: "command", command: planCommand, failClosed: true },
         { type: "command", command: closeoutCommand, failClosed: false },
       ],
       preToolUse: [
@@ -33,10 +34,12 @@ async function createFixture(explicitPaths) {
       subagentStart: [{ type: "command", command, failClosed: true }],
       subagentStop: [{ type: "command", command, failClosed: false }],
       postToolUse: [
+        { type: "command", command: planCommand, matcher: "CreatePlan", failClosed: true },
         { type: "command", command, matcher: "Task", failClosed: false },
         { type: "command", command: closeoutCommand, matcher: "MCP:workflow_closeout", failClosed: true },
         { type: "command", command: closeoutCommand, matcher: "Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook", failClosed: false },
       ],
+      postToolUseFailure: [{ type: "command", command: planCommand, matcher: "CreatePlan", failClosed: true }],
       afterAgentResponse: [{ type: "command", command: closeoutCommand, failClosed: true }],
       stop: [{ type: "command", command: closeoutCommand, failClosed: true, loop_limit: 1 }],
     },

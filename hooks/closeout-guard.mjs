@@ -15,6 +15,7 @@ import {
   readdirSync,
   readFileSync,
   renameSync,
+  rmSync,
   writeFileSync,
   chmodSync,
 } from "node:fs";
@@ -315,6 +316,19 @@ export function readActiveRootPlan(input, options = {}) {
     if (value?.root_plan_id) return value;
   }
   return null;
+}
+
+export function clearActiveRootPlan(input, options = {}) {
+  const conversation = conversationHash(input);
+  if (!conversation) return false;
+  let cleared = false;
+  for (const root of stateRoots(input, options)) {
+    const path = activeRootPath(root, conversation);
+    if (!existsSync(path)) continue;
+    rmSync(path, { force: true });
+    cleared = true;
+  }
+  return cleared;
 }
 
 function readTurn(input, options = {}) {

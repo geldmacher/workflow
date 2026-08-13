@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fixed Codex Manual phase binding for exact bare, plugin-qualified, and host-rendered Workflow skill links; made pre-execution prompt rejection transactional; added bounded German implementation imperatives; and terminalized a repeated failed Stop after one continuation without Evidence, delivery success, or stale tool restrictions.
+- Bound Cursor Workflow Roots to successful generation/tool-correlated `CreatePlan` receipts, made replans suspend immutable predecessors until a fresh lineage-valid Root commits, and required canonical Schema-5 Verification tables inside Acceptance across planning guidance.
 - Added a guided Manual Plan/Do/Review/Correct journey with one primary chat action, secondary Technical traceability, deterministic update keys, automatic native closeout, explicit portable enforcement limits, and a fail-closed two-round correction stop.
 - Added exact task-Root, pre-mutation baseline, and direct path-authority gates for Cursor and Codex plus a narrowly invariant Schema-5 root-boundary Review that can authorize only a separately approved lineage-preserving replan.
 - Made native Codex closeout use only host-derived changed paths for Evidence and Authority, with optional caller paths retained solely as non-authoritative compatibility hints.

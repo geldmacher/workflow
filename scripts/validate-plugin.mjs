@@ -223,6 +223,7 @@ function validateHookSurface(root, manifest, failures) {
       "subagentStart",
       "subagentStop",
       "postToolUse",
+      "postToolUseFailure",
       "afterAgentResponse",
       "stop",
     ];
@@ -232,6 +233,7 @@ function validateHookSurface(root, manifest, failures) {
       sessionStart: [{ command: expectedCommand, failClosed: false }],
       beforeSubmitPrompt: [
         { command: expectedCommand, failClosed: false },
+        { command: expectedPlanCommand, failClosed: true },
         { command: expectedCloseoutCommand, failClosed: false },
       ],
       preToolUse: [
@@ -242,10 +244,12 @@ function validateHookSurface(root, manifest, failures) {
       subagentStart: [{ command: expectedCommand, failClosed: true }],
       subagentStop: [{ command: expectedCommand, failClosed: false }],
       postToolUse: [
+        { command: expectedPlanCommand, matcher: "CreatePlan", failClosed: true },
         { command: expectedCommand, matcher: "Task", failClosed: false },
         { command: expectedCloseoutCommand, matcher: "MCP:workflow_closeout", failClosed: true },
         { command: expectedCloseoutCommand, matcher: "Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook", failClosed: false },
       ],
+      postToolUseFailure: [{ command: expectedPlanCommand, matcher: "CreatePlan", failClosed: true }],
       afterAgentResponse: [{ command: expectedCloseoutCommand, failClosed: true }],
       stop: [{ command: expectedCloseoutCommand, failClosed: true, loop_limit: 1 }],
     };

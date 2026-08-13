@@ -57,6 +57,9 @@ test("planning uses compact semantic Root with immutable intent and adaptive str
   assert.match(runtime, /fresh `wp-\*`|fresh Root ID/i);
   assert.match(runtime, /predecessor_plan_id.*replan_source_review_id/is);
   assert.match(runtime, /source review.*next_action: replan/is);
+  assert.match(runtime, /`### Verification`.*directly inside `## Acceptance`/is);
+  assert.match(runtime, /successful.*`CreatePlan` receipt.*exact Root hash/is);
+  assert.match(runtime, /no stable internal Plan UI ID|undocumented Cursor UI Plan ID/i);
   assert.match(runtime, /Cursor-selected primary owns \*\*Implement Plan\*\*/i);
   assert.match(runtime, /subagents.*inherit.*(?:main|its) model/is);
   assert.match(runtime, /Manual approved candidate|parent-or-approved/i);
@@ -200,7 +203,7 @@ test("runtime surface has one bundled controller and no automatic publication", 
   assert.equal("rules" in manifest, false);
   assert.equal(manifest.hooks, "./hooks/hooks.json");
   const hooks = read("hooks/hooks.json");
-  for (const event of ["sessionStart", "beforeSubmitPrompt", "preToolUse", "subagentStart", "subagentStop", "postToolUse"]) assert.match(hooks, new RegExp(event));
+  for (const event of ["sessionStart", "beforeSubmitPrompt", "preToolUse", "subagentStart", "subagentStop", "postToolUse", "postToolUseFailure"]) assert.match(hooks, new RegExp(event));
   assert.match(hooks, /"matcher": "Task"/);
   assert.match(hooks, /plan-integrity-guard\.mjs/);
   assert.match(hooks, /"matcher": "CreatePlan"/);
