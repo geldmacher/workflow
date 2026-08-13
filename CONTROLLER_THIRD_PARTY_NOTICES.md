@@ -1,6 +1,6 @@
 # Controller third-party notices
 
-The built MCP/controller bundles contain the packages selected by the build, and the worker declares the exact Cursor SDK and matching platform package below as external runtime dependencies. License texts are reproduced from their installed packages; the Cursor platform package uses the Cursor SDK license shipped with the matching version. The external SDK is not copied into dist and must be proven present in the actually installed plugin before automation activation.
+The built MCP/controller bundles contain the packages selected by the build, and the worker declares the exact Cursor SDK and its optional platform packages below as external runtime dependencies. License texts are reproduced from their installed packages; each Cursor platform package uses the Cursor SDK license shipped with the matching version. The external SDK is not copied into dist and must be proven present in the actually installed plugin before automation activation.
 
 ## @cursor/sdk@1.0.24
 
@@ -13,6 +13,46 @@ Declared license: SEE LICENSE IN LICENSE.md
 ```
 
 ## @cursor/sdk-darwin-arm64@1.0.24
+
+Declared license: SEE LICENSE IN LICENSE.md
+
+```text
+# Cursor SDK License
+
+© Anysphere Inc. All rights reserved. Use is subject to Cursor's [Terms of Service](https://cursor.com/terms-of-service).
+```
+
+## @cursor/sdk-darwin-x64@1.0.24
+
+Declared license: SEE LICENSE IN LICENSE.md
+
+```text
+# Cursor SDK License
+
+© Anysphere Inc. All rights reserved. Use is subject to Cursor's [Terms of Service](https://cursor.com/terms-of-service).
+```
+
+## @cursor/sdk-linux-arm64@1.0.24
+
+Declared license: SEE LICENSE IN LICENSE.md
+
+```text
+# Cursor SDK License
+
+© Anysphere Inc. All rights reserved. Use is subject to Cursor's [Terms of Service](https://cursor.com/terms-of-service).
+```
+
+## @cursor/sdk-linux-x64@1.0.24
+
+Declared license: SEE LICENSE IN LICENSE.md
+
+```text
+# Cursor SDK License
+
+© Anysphere Inc. All rights reserved. Use is subject to Cursor's [Terms of Service](https://cursor.com/terms-of-service).
+```
+
+## @cursor/sdk-win32-x64@1.0.24
 
 Declared license: SEE LICENSE IN LICENSE.md
 
