@@ -1,0 +1,13 @@
+[
+  { "state": "plan-ready", "action": "implement-plan", "outcome": "ready" },
+  { "state": "implementation-active", "action": "closeout", "outcome": "partial" },
+  { "state": "closeout-recovery-required", "action": "closeout", "outcome": "partial", "blocker": "Closeout recovery is required." },
+  { "state": "review-ready", "action": "review-root", "outcome": "ready" },
+  { "state": "review-active", "action": "retry-review", "outcome": "partial" },
+  { "state": "correction-approval-required", "action": "approve-correction", "outcome": "partial" },
+  { "state": "replan-approval-required", "action": "replan", "outcome": "blocked", "blocker": "The current Root boundary is insufficient." },
+  { "state": "provisional-acceptance-required", "action": "accept-provisional", "outcome": "partial" },
+  { "state": "clarification-required", "action": "answer", "outcome": "partial" },
+  { "state": "blocked", "action": "repair-root", "outcome": "blocked", "blocker": "Authority validation failed." },
+  { "state": "done", "action": null, "outcome": "ready" }
+]

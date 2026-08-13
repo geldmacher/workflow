@@ -1,6 +1,4 @@
 import { createHash } from "node:crypto";
-import { existsSync, realpathSync } from "node:fs";
-import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import {
   effectiveCliSummary,
   inspectArtifactSet,
@@ -10,8 +8,10 @@ import { parseCloseoutInput, validateCloseoutInput } from "../core/manual-attest
 import {
   invalidateManualCheckReceipts,
   loadManualCheckReceipts,
+  repositorySnapshotFingerprint,
 } from "../core/manual-check-receipts.mjs";
 import { rootContentHash } from "../core/state-paths.mjs";
+import { assertChangedPathAuthority } from "../core/manual-path-authority.mjs";
 import {
   createContentAddressedHandoffStore,
   rememberContentAddressedRoot,
@@ -20,47 +20,6 @@ import { buildDeliveryEvidence, persistCloseout } from "./delivery-closeout.mjs"
 
 function uniqueSorted(values) {
   return [...new Set((values ?? []).map(String))].sort();
-}
-
-function pathMatchesRoot(path, root) {
-  return path === root || path.startsWith(`${root}/`);
-}
-
-function assertRepositoryContainment(repositoryRoot, repositoryPath) {
-  const root = realpathSync(repositoryRoot);
-  const lexical = resolve(root, repositoryPath);
-  if (lexical !== root && !lexical.startsWith(`${root}${sep}`)) {
-    throw new Error(`native closeout path escapes the repository: ${repositoryPath}`);
-  }
-  let existing = lexical;
-  while (!existsSync(existing) && existing !== root) existing = dirname(existing);
-  const resolvedExisting = realpathSync(existing);
-  if (resolvedExisting !== root && !resolvedExisting.startsWith(`${root}${sep}`)) {
-    throw new Error(`native closeout path resolves outside the repository: ${repositoryPath}`);
-  }
-}
-
-export function assertChangedPathAuthority(rootFields, changedPaths, repositoryRoot) {
-  const authority = rootFields?.authority ?? {};
-  const allowed = uniqueSorted(authority.allowed_roots);
-  const protectedPaths = uniqueSorted(authority.protected_paths);
-  const approvalRequired = uniqueSorted(authority.approval_required_paths);
-  if (allowed.length === 0) throw new Error("native closeout Root has no allowed path authority");
-  for (const path of uniqueSorted(changedPaths)) {
-    if (isAbsolute(path) || path.includes("\\") || relative(".", path).startsWith("..")) {
-      throw new Error(`native closeout path is not repository-relative: ${path}`);
-    }
-    if (protectedPaths.some((entry) => pathMatchesRoot(path, entry))) {
-      throw new Error(`native closeout path is protected by the Root: ${path}`);
-    }
-    if (approvalRequired.some((entry) => pathMatchesRoot(path, entry))) {
-      throw new Error(`native closeout path requires separate human approval that the closeout report cannot grant: ${path}`);
-    }
-    if (!allowed.some((entry) => pathMatchesRoot(path, entry))) {
-      throw new Error(`native closeout path is outside Root authority: ${path}`);
-    }
-    assertRepositoryContainment(repositoryRoot, path);
-  }
 }
 
 function mergeArtifacts(entries, pluginRoot) {
@@ -108,7 +67,7 @@ function assertCorrectionSourceReview(rootPlanText, rootFields, chain, pluginRoo
   }
 }
 
-export function nativeCloseoutStructuredContent(closeout, rootPlanText) {
+export function nativeCloseoutStructuredContent(closeout, rootPlanText, repositoryDelta = null) {
   if (!closeout?.artifact || !closeout?.fields?.id) throw new Error("native closeout result is incomplete");
   return {
     root_plan_id: closeout.fields.root_plan_id,
@@ -122,11 +81,15 @@ export function nativeCloseoutStructuredContent(closeout, rootPlanText) {
     source_review_id: closeout.fields.source_review_id ?? null,
     predecessor_evidence_id: closeout.fields.predecessor_evidence_id ?? null,
     changed_paths: closeout.fields.changed_paths ?? [],
+    check_evidence: closeout.fields.check_evidence ?? [],
     duplicate: Boolean(closeout.duplicate),
     handoff_persisted: closeout.handoff_persisted,
     handoff_authoritative: false,
     handoff_mode: closeout.handoff_persisted ? "root-content-cache" : "stateless",
     root_content_hash: rootContentHash(rootPlanText),
+    ...(repositoryDelta?.repository_snapshot
+      ? { repository_snapshot_hash: repositorySnapshotFingerprint(repositoryDelta.repository_snapshot) }
+      : {}),
     ...(closeout.constraint_summary ? { constraint_summary: closeout.constraint_summary } : {}),
     ...(closeout.human_attention ? { human_attention: closeout.human_attention } : {}),
     ...(closeout.problem_details ? { problem_details: closeout.problem_details } : {}),
@@ -223,6 +186,6 @@ export function performNativeCloseout({
   return {
     ...persisted,
     report: effectiveReport,
-    structuredContent: nativeCloseoutStructuredContent(persisted, rootPlanText),
+    structuredContent: nativeCloseoutStructuredContent(persisted, rootPlanText, repositoryDelta),
   };
 }

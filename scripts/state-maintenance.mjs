@@ -15,7 +15,7 @@ const argument = (name) => {
 };
 
 const command = process.argv[2];
-if (!["inspect", "rebuild-index", "archive", "quarantine-handoff"].includes(command)) throw new Error("usage: state:maintenance <inspect|rebuild-index|archive> --workspace <absolute-path> [--subject <id>] [--apply] | quarantine-handoff --root-hash <sha256> --artifact <wr-id> --expected-text-hash <sha256> [--apply]");
+if (!["inspect", "rebuild-index", "archive", "quarantine-handoff"].includes(command)) throw new Error("usage: state:maintenance <inspect|rebuild-index|archive> --workspace <absolute-path> [--subject <id>] [--apply] | quarantine-handoff --root-hash <sha256> --artifact <wr|de-id> --expected-text-hash <sha256> [--apply]");
 if (command === "quarantine-handoff") {
   const rootHash = argument("root-hash");
   const artifactId = argument("artifact");

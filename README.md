@@ -21,7 +21,7 @@ The default Manual path needs three human actions:
 2. **Implement** inside that approved boundary.
 3. **Review and understand** the delivery in a fresh task; the result is explained before its technical evidence and traceability.
 
-Correct, replan, accept provisional delivery, or learn only when you explicitly ask for it.
+Correct, replan, accept provisional delivery, or learn only when you explicitly ask for it. After implementation, Workflow presents one compact next action at a time and keeps exact Root, Evidence, Review, path, receipt, and enforcement details in secondary Technical traceability. A correction closes out automatically and returns to fresh review; two correction rounds without measurable progress stop for clarification or a separately approved replan.
 
 Workflow keeps the approved Intent fixed, lets Strategy adapt inside the envelope, and connects the final verdict to the exact Plan and Evidence that produced it.
 

@@ -20,15 +20,18 @@ The normal path is deliberately short:
 4. `/review-work` or `$review-work` starts a fresh read-only review and automatically explains the result for someone who did not follow implementation.
 5. The verdict completes the Root, asks for a bounded human decision, or stops for correction or replanning.
 
+Every actionable response uses the same two-layer chat card. The primary layer shows one journey state, one plain-language outcome, the required-Check summary, at most one blocker, and exactly one action. Root/Evidence/Review/Correction IDs, receipts, hashes, paths, and host enforcement move to the following **Technical traceability** disclosure. Repeated output with the same Root, state, problem, and action has one stable deduplication key so a host can coalesce it instead of creating a status-message stream.
+
 Manual creates no controller Run, Route Pool, worktree orchestration, qualification history, or background execution.
 
 ## Constraint loop and host receipts
 
-Manual keeps the visible four-step flow while adding three layers of back-pressure behind it:
+Manual keeps the visible four-step flow while adding four layers of back-pressure behind it:
 
 1. **Preflight:** the Root fixes acceptance, authority, risk, and the cheapest sufficient required Checks before implementation.
-2. **In-loop feedback:** Cursor or Codex observes each required machine Check when the agent runs the exact planned command in the planned working directory. One leading `rtk` wrapper is fine; chained or rewritten commands do not match.
-3. **Delivery boundary:** closeout binds the Check result to the exact Root bytes and current repository snapshot before it may be called `verified`.
+2. **Mutation gate:** Cursor or Codex revalidates the exact task-bound Root, captures the repository baseline before the first write, and rejects directly observable protected, approval-required, or out-of-authority paths before execution. Baseline failure blocks the mutation. Opaque mutation surfaces remain subject to the complete host-derived closeout inventory.
+3. **In-loop feedback:** Cursor or Codex observes each required machine Check when the agent runs the exact planned command in the planned working directory. One leading `rtk` wrapper is fine; chained or rewritten commands do not match.
+4. **Delivery boundary:** closeout binds the Check result to the exact Root bytes and current repository snapshot before it may be called `verified`.
 
 The host creates a compact content-addressed receipt without storing raw command output. Receipt capture is automatic: the user does not enter a hash, copy terminal output, confirm another step, or run another Workflow command. A later repository mutation invalidates earlier receipts. Active receipt records expire after 24 hours and are removed after successful persisted closeout; only their hashes remain in Delivery Evidence.
 
@@ -119,7 +122,7 @@ Manual Workflow uses one exact Schema-5 chain:
 
 - `work-plan` (`wp-*`): the approved Intent Root.
 - `delivery-evidence` (`de-*`): builder-owned observations, changed paths, Check grades, and repository binding.
-- `work-review` (`wr-*`): the fresh verdict and `next_action` bound to one Evidence tip.
+- `work-review` (`wr-*`): normally the fresh verdict and `next_action` bound to one Evidence tip. The only Evidence-free variant is a root-boundary Review that can request only a separately approved replan.
 - correction (`cp-*`): a Findings-backed bounded fix referenced by a Review; its Evidence is a delta on the existing chain.
 
 A **tip** is the current endpoint of a plan, evidence, or review lineage. A predecessor remains immutable history; a newer tip supersedes it for current decisions. Explicit IDs win over automatic selection, and ambiguous or mixed tips authorize nothing.
@@ -176,8 +179,11 @@ Common combinations:
 | blocked with `clarify` | A human decision is required before the verdict can progress. | Answer the stated question; do not let the agent guess. |
 | blocked with `replan` | Intent or authority must change. | Create and approve a replacement Root. |
 | `insufficient-evidence` with `retry-review` | The reviewer lacks required proof or exact context. | Close out or attach Evidence, then review again. |
+| root-boundary `insufficient-evidence / blocked / replan` | One recovery proved that the old Root can no longer produce trustworthy Evidence because baseline, workspace binding, or path authority was lost after mutation. | Create a lineage-bound replacement Root and approve it separately; do not correct or accept the old delivery. |
 
 `review_route` describes review depth, not quality: `inline` is the bounded primary review, `targeted` adds one relevant specialist, and `full` adds the required delivery/risk/design coverage for broader or higher-risk work.
+
+A root-boundary Review is deliberately narrower than a delivery review. It has `review_basis: root-boundary`, `latest_evidence_id: null`, and a short-lived protected host receipt containing `receipt_id`, `observed_at`, a typed irrecoverable `recovery_error_code`, the exact Root hash, the current repository-snapshot hash, and canonical observed paths. Coverage is empty, there are no Findings, and the only action is `next_action: replan`. The validator rechecks the protected record and current snapshot; portable/rootless validation, missing host trust, stale receipts, and transient tool or handoff failures grant no replan. It exists to prevent the deadlock where Evidence cannot be created but a lineage-preserving replan previously required an Evidence-backed Review.
 
 ## Reading the review explanation
 
@@ -202,6 +208,7 @@ Learning is optional and always human-started. Manual Learning requires the exac
 ## Recovery and troubleshooting
 
 - Missing Evidence after implementation: use `/close-work` or `$close-work`, or attach the exact Evidence returned by native closeout.
+- Evidence cannot exist after one recovery because the baseline, Root binding, workspace identity, or path authority was irrecoverably lost: emit the constrained root-boundary Review and use its sole replan action.
 - Missing or ambiguous artifacts: provide the exact current `wp-*`, `de-*`, and `wr-*` chain; do not reconstruct it from filenames or memory.
 - Provisional proof: inspect the named limitations, improve the relevant Checks when practical, then review again; otherwise accept the gap explicitly.
 - Failed Check: correct the current Findings-backed issue or replan. Never relabel failure as unavailable.

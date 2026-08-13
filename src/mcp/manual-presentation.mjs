@@ -1,3 +1,11 @@
+import {
+  MANUAL_JOURNEY_STATE_LABELS,
+  MANUAL_PRIMARY_ACTIONS,
+  deriveManualJourneyState,
+  normalizeManualPrimaryAction,
+  taskBoundManualInvoke,
+} from "../core/manual-journey.mjs";
+
 const MANUAL_TOOLS = new Set([
   "workflow_plan_preflight",
   "workflow_artifact_record",
@@ -11,6 +19,10 @@ const TERMINAL_READY_STATES = new Set(["achieved", "accepted-provisional"]);
 const TERMINAL_BLOCKED_STATES = new Set(["blocked", "stopped", "failed"]);
 const MANUAL_GUIDE_URL = "https://github.com/geldmacher/workflow/blob/main/docs/manual-workflow.md";
 const MANUAL_GUIDE_LABEL = "Manual Workflow guide";
+
+const JOURNEY_STATE_LABELS = MANUAL_JOURNEY_STATE_LABELS;
+const RECENT_PRESENTATION_UPDATES = new Map();
+const MAX_RECENT_PRESENTATION_UPDATES = 256;
 
 function helpEntry(topic, anchor, meaning) {
   return Object.freeze({
@@ -281,10 +293,11 @@ function firstLine(text, fallback = "No summary.") {
 
 function resolveNextStep(action, overrides = {}) {
   const entry = NEXT_STEP_CATALOG[action];
+  const shared = MANUAL_PRIMARY_ACTIONS[action];
   if (!entry) {
     return {
       action,
-      label: action,
+      label: shared?.label ?? action,
       invoke: action,
       benefit: "Continue with the stated Workflow action.",
       blocked_reason: overrides.blocked_reason ?? null,
@@ -296,13 +309,13 @@ function resolveNextStep(action, overrides = {}) {
   const recovery = overrides.recovery ?? (blockedReason ? entry.recovery : null);
   return {
     action,
-    label: entry.label,
-    invoke: overrides.invoke ?? entry.invoke,
+    label: shared?.label ?? entry.label,
+    invoke: overrides.invoke ?? shared?.command ?? entry.invoke,
     benefit: overrides.benefit ?? entry.benefit,
     blocked_reason: blockedReason,
     recovery,
     // Keep a short compatible summary that still embeds the exact invoke tokens.
-    label_line: entry.invoke.includes(":") ? `${entry.invoke}.` : entry.invoke,
+    label_line: overrides.invoke ?? shared?.command ?? entry.invoke,
   };
 }
 
@@ -310,13 +323,68 @@ function nextActionLabel(action) {
   return resolveNextStep(action).label_line;
 }
 
+function journeyStateFor(presentation, action) {
+  return deriveManualJourneyState(presentation, action);
+}
+
+function firstProblem(presentation) {
+  return [
+    ...asList(presentation.errors),
+    ...asList(presentation.gaps),
+    ...asList(presentation.human_attention),
+    ...asList(presentation.problems),
+  ][0] ?? null;
+}
+
+function defaultTechnicalTraceability(presentation) {
+  return {
+    root_plan_id: presentation.root_plan_id ?? null,
+    evidence_id: presentation.evidence_id ?? null,
+    review_id: presentation.review_id ?? null,
+    correction_id: presentation.correction_id ?? null,
+    check_ids: presentation.check_ids ?? [],
+    finding_ids: presentation.finding_ids ?? [],
+    changed_paths: presentation.changed_paths ?? [],
+    root_content_hash: presentation.root_content_hash ?? null,
+    evidence_hash: presentation.evidence_hash ?? null,
+    review_hash: presentation.review_hash ?? null,
+    artifact_set_hash: presentation.artifact_set_hash ?? null,
+    repository_snapshot_hash: presentation.repository_snapshot_hash ?? null,
+    receipt_ids: presentation.receipt_ids ?? [],
+  };
+}
+
+function normalizedEnforcementLevel(value) {
+  return ["host-native", "explicit"].includes(value) ? value : "explicit";
+}
+
 function withNextStepFields(presentation, action, overrides = {}) {
-  const step = resolveNextStep(action, overrides);
+  const normalizedAction = normalizeManualPrimaryAction(presentation, action);
+  const step = resolveNextStep(normalizedAction, overrides);
+  const technicalTraceability = presentation.technical_traceability ?? defaultTechnicalTraceability(presentation);
+  const journeyState = presentation.journey_state ?? journeyStateFor(presentation, normalizedAction);
+  const enforcementLevel = normalizedEnforcementLevel(presentation.enforcement_level);
+  const problem = firstProblem(presentation);
+  const primaryInvoke = taskBoundManualInvoke(normalizedAction, technicalTraceability);
   return {
     ...presentation,
-    next_action: action,
-    next_action_label: step.label_line,
-    next_action_invoke: step.invoke,
+    journey_state: journeyState,
+    enforcement_level: enforcementLevel,
+    primary_action: normalizedAction === "none"
+      ? null
+      : { id: normalizedAction, label: step.label, invoke: primaryInvoke, why: step.benefit },
+    technical_traceability: { ...technicalTraceability, enforcement_level: enforcementLevel },
+    deduplication_key: [
+      technicalTraceability.root_plan_id ?? "no-root",
+      technicalTraceability.evidence_id ?? "no-evidence",
+      technicalTraceability.review_id ?? "no-review",
+      journeyState,
+      problem ?? "no-problem",
+      normalizedAction,
+    ].join("|"),
+    next_action: normalizedAction,
+    next_action_label: step.label,
+    next_action_invoke: primaryInvoke,
     next_action_benefit: step.benefit,
     ...(step.blocked_reason
       ? {
@@ -400,12 +468,12 @@ function closeoutPresentation(value) {
   else if (provisionalEvidence) outcome = "partial";
 
   const summary = blocked
-    ? `Delivery evidence ${value.delivery_evidence_id ?? "unknown"} is blocked (${grade} / ${status}).`
+    ? "Delivery is blocked because required evidence contains a known failure."
     : outcome === "partial"
-      ? `Delivery evidence ${value.delivery_evidence_id ?? "unknown"} is partial (${grade} / ${status}).`
+      ? "Implementation closeout is incomplete; at least one required proof remains limited."
       : persisted
-        ? `Delivery evidence ${value.delivery_evidence_id ?? "unknown"} is ready (${grade} / ${status}).`
-        : `Delivery evidence ${value.delivery_evidence_id ?? "unknown"} is ready (${grade} / ${status}); handoff cache unavailable — attach required.`;
+        ? "Implementation closeout is complete and ready for an independent review."
+        : "Implementation closeout is complete, but the exact artifact must be attached because handoff storage is unavailable.";
 
   let nextAction = "review-root";
   let overrides = {};
@@ -413,7 +481,7 @@ function closeoutPresentation(value) {
     nextAction = "review-root";
     overrides = {
       blocked_reason: `Evidence status ${status} with grade ${grade} blocks delivery acceptance.`,
-      recovery: "Ask: /review-work or $review-work; then /correct-work or replan as the review directs.",
+      recovery: "Run one fresh independent review and follow only the single action it selects.",
     };
   } else if (!persisted) {
     nextAction = "attach-artifact";
@@ -453,6 +521,33 @@ function closeoutPresentation(value) {
     phase: "closeout",
     outcome,
     summary,
+    check_summary: blocked
+      ? "Required delivery evidence contains a known failure."
+      : outcome === "partial"
+        ? `${evidenceGaps.length || 1} required proof gap${evidenceGaps.length === 1 ? "" : "s"} remain.`
+        : "Required closeout evidence is ready for fresh review.",
+    enforcement_level: value.enforcement_level
+      ?? ((value.constraint_summary?.receipt_coverage?.eligible ?? 0) > 0
+        && value.constraint_summary.receipt_coverage.attested === value.constraint_summary.receipt_coverage.eligible
+        ? "host-native"
+        : "explicit"),
+    technical_traceability: {
+      root_plan_id: value.root_plan_id ?? null,
+      root_content_hash: value.root_content_hash ?? null,
+      evidence_id: value.delivery_evidence_id ?? null,
+      evidence_hash: value.artifact_hash ?? null,
+      artifact_set_hash: value.artifact_set_hash ?? null,
+      repository_snapshot_hash: value.repository_snapshot_hash ?? null,
+      review_id: value.source_review_id ?? null,
+      correction_id: value.correction_id ?? null,
+      check_ids: (value.check_evidence ?? []).map((entry) => entry.check_id).filter(Boolean),
+      finding_ids: [],
+      changed_paths: value.changed_paths ?? [],
+      receipt_ids: [...new Set((value.check_evidence ?? []).flatMap((entry) => entry.artifact_hashes ?? []))],
+      evidence_status: status,
+      evidence_grade: grade,
+      handoff_persisted: persisted,
+    },
     checks: [
       `evidence mode: ${value.evidence_mode ?? "unknown"}`,
       `handoff persisted: ${persisted ? "yes" : "no"}`,
@@ -527,8 +622,19 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
       phase: "plan-preflight",
       outcome: feasible ? "ready" : "blocked",
       summary: feasible
-        ? `Root ${value.root_plan_id ?? "unknown"} is feasible for presentation.`
-        : `Root ${value.root_plan_id ?? "unknown"} cannot be presented yet.`,
+        ? "The Intent Root is valid and ready for human implementation approval."
+        : "The Intent Root is not ready for implementation approval.",
+      check_summary: feasible ? "Root structure and required Checks are feasible." : "Root validation has blocking issues.",
+      technical_traceability: {
+        root_plan_id: value.root_plan_id ?? null,
+        root_content_hash: value.root_content_hash ?? null,
+        evidence_id: null,
+        review_id: null,
+        correction_id: null,
+        check_ids: value.required_checks ?? [],
+        finding_ids: [],
+        changed_paths: [],
+      },
       checks: [
         `required: ${(value.required_checks ?? []).join(", ") || "none"}`,
         `deferred: ${(value.deferred_checks ?? []).join(", ") || "none"}`,
@@ -561,8 +667,9 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
       phase: "artifact-record",
       outcome: persisted ? "ready" : "partial",
       summary: persisted
-        ? `Cached ${(value.recorded ?? []).join(", ") || "artifacts"} in root-content handoff.`
+        ? "The exact artifact chain is available for the next Manual phase."
         : "Artifact validated; handoff cache was unavailable.",
+      check_summary: persisted ? "Artifact bytes were validated and retained." : "Artifact bytes are valid but not retained.",
       checks: [
         `recorded: ${(value.recorded ?? []).join(", ") || "none"}`,
         `duplicates: ${(value.duplicates ?? []).join(", ") || "none"}`,
@@ -589,7 +696,21 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
       tool: toolName,
       phase: "artifact-context",
       outcome: value.evidence_tip ? "ready" : "partial",
-      summary: `Loaded ${count} artifact${count === 1 ? "" : "s"} for ${value.root_plan_id ?? "unknown"}.`,
+      summary: value.evidence_tip
+        ? "The exact current artifact chain is ready for fresh review."
+        : "The current artifact chain is loaded, but Delivery Evidence is still missing.",
+      check_summary: value.evidence_tip ? "Delivery Evidence is available." : "Delivery Evidence is missing.",
+      technical_traceability: {
+        root_plan_id: value.root_plan_id ?? null,
+        root_content_hash: value.root_content_hash ?? null,
+        evidence_id: value.evidence_tip ?? null,
+        review_id: value.review_tip ?? null,
+        correction_id: null,
+        check_ids: [],
+        finding_ids: [],
+        changed_paths: [],
+        artifact_count: count,
+      },
       checks: [
         `evidence tip: ${value.evidence_tip ?? "none"}`,
         `review tip: ${value.review_tip ?? "none"}`,
@@ -618,10 +739,11 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
     const requiredActor = snapshot.required_actor ?? "unknown";
     const downgradeReason = snapshot.downgrade_reason ?? null;
     const outcome = statusPresentationOutcome(snapshot);
+    const safeAction = normalizeManualPrimaryAction({ outcome }, action);
     const overrides = (outcome === "blocked" || outcome === "partial") && action !== "none"
       ? {
         blocked_reason: blockers[0] ?? `Manual state is ${state}.`,
-        recovery: resolveNextStep(action).invoke,
+        recovery: resolveNextStep(safeAction).invoke,
       }
       : outcome === "blocked" && blockers.length > 0
         ? {
@@ -634,10 +756,37 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
       tool: toolName,
       phase: "status",
       workflow_state: state,
+      journey_state: snapshot.journey_state ?? null,
       outcome,
       summary: requiredActor === "none"
-        ? `Root ${snapshot.root_plan_id ?? value.root_plan_id ?? "unknown"} is ${state}; no further actor is required.`
-        : `Root ${snapshot.root_plan_id ?? value.root_plan_id ?? "unknown"} is ${state}; ${requiredActor} acts next.`,
+        ? `The Manual delivery is ${state}; no further actor is required.`
+        : `The Manual delivery is ${state}; ${requiredActor} acts next.`,
+      check_summary: state === "achieved"
+        ? "Fresh review verified the required repository evidence."
+        : state === "root-review"
+          ? "Delivery Evidence is ready for fresh review."
+          : state === "root-plan-review"
+            ? "Implementation Evidence does not exist yet."
+            : blockers.length > 0
+              ? "The current Workflow state has blocking evidence or context."
+              : "Current Checks and evidence remain visible in technical traceability.",
+      enforcement_level: value.enforcement_level ?? "explicit",
+      technical_traceability: {
+        root_plan_id: snapshot.root_plan_id ?? value.root_plan_id ?? null,
+        root_content_hash: value.root_content_hash ?? value.artifact_summary?.root_content_hash ?? null,
+        evidence_id: snapshot.latest_evidence_id ?? snapshot.evidence_tip ?? null,
+        evidence_hash: value.evidence_hash ?? value.artifact_summary?.evidence_hash ?? null,
+        review_id: snapshot.latest_review_id ?? snapshot.review_tip ?? null,
+        review_hash: value.artifact_summary?.review_hash ?? null,
+        correction_id: snapshot.review?.correction_id ?? null,
+        check_ids: value.constraint_summary?.required_checks ?? [],
+        finding_ids: value.artifact_summary?.finding_ids ?? [],
+        changed_paths: [],
+        artifact_set_hash: snapshot.artifact_set_hash ?? value.artifact_summary?.artifact_set_hash ?? null,
+        repository_snapshot_hash: value.repository_snapshot_hash ?? null,
+        receipt_ids: value.receipt_ids ?? value.artifact_summary?.receipt_ids ?? [],
+        workflow_state: state,
+      },
       checks: [
         requestedProfile === effectiveProfile
           ? `profile: ${effectiveProfile}`
@@ -659,7 +808,7 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
       errors: [],
       human_attention: humanAttentionLines(value.human_attention),
       problems: problemLines(value.problem_details),
-    }, action, overrides);
+    }, safeAction, overrides);
     return isManualStatusSnapshot(snapshot)
       ? withHelpFields(presentation, manualStateHelp(state))
       : presentation;
@@ -696,7 +845,7 @@ function formatNextStepFooter(presentation) {
   if (presentation.tool === "workflow_status" && presentation.workflow_state === "achieved" && presentation.next_action === "none") {
     return [
       "### Done",
-      "Repository delivery is complete for this Root. Optional: /learn-from-work or /explain-work (Codex: $learn-from-work or $explain-work).",
+      "Repository delivery is complete for this Root.",
     ].join("\n");
   }
   if (presentation.tool === "workflow_status" && presentation.workflow_state === "accepted-provisional" && presentation.next_action === "none") {
@@ -705,25 +854,44 @@ function formatNextStepFooter(presentation) {
       "This one-time acceptance is not persisted; the next /work-status or $work-status returns delivery-ready-provisional.",
     ].join("\n");
   }
-  const step = resolveNextStep(presentation.next_action ?? "none");
-  const now = NEXT_STEP_CATALOG[presentation.next_action] ? step.label : (presentation.next_action ?? "unknown");
-  const lines = [
+  const primary = presentation.primary_action;
+  if (!primary) return ["### Done", "No further Workflow action is required."].join("\n");
+  return [
     "### Next step",
-    `- Now: ${now}`,
-    `- How: ${presentation.next_action_invoke ?? step.invoke}`,
-    `- Why: ${presentation.next_action_benefit ?? step.benefit}`,
-  ];
-  if (presentation.next_action_blocked_reason && presentation.next_action_recovery) {
-    lines.push(`- Off track: ${presentation.next_action_blocked_reason} → ${presentation.next_action_recovery}`);
-  }
-  return lines.join("\n");
+    `- Now: ${primary.label}`,
+    `- How: ${primary.invoke}`,
+    `- Why: ${primary.why}`,
+  ].join("\n");
 }
 
-export function formatManualToolContent(presentation) {
-  const lines = [
+function traceValue(value) {
+  if (Array.isArray(value)) return value.length > 0 ? value.join(", ") : "none";
+  if (value && typeof value === "object") return JSON.stringify(value);
+  return value === null || value === undefined || value === "" ? "none" : String(value);
+}
+
+function formatTechnicalTraceability(presentation, { disclosure = true } = {}) {
+  const trace = presentation.technical_traceability ?? {};
+  const identity = [
+    `Root: ${trace.root_plan_id ?? "none"}`,
+    `Root hash: ${trace.root_content_hash ?? "none"}`,
+    `Evidence: ${trace.evidence_id ?? "none"}`,
+    `Evidence hash: ${trace.evidence_hash ?? "none"}`,
+    `Review: ${trace.review_id ?? "none"}`,
+    `Review hash: ${trace.review_hash ?? "none"}`,
+    `Correction: ${trace.correction_id ?? "none"}`,
+    `Artifact set hash: ${trace.artifact_set_hash ?? "none"}`,
+    `Repository snapshot hash: ${trace.repository_snapshot_hash ?? "none"}`,
+    `Receipt IDs: ${traceValue(trace.receipt_ids)}`,
+    `Check IDs: ${traceValue(trace.check_ids)}`,
+    `Finding IDs: ${traceValue(trace.finding_ids)}`,
+    formatChangedPaths(trace.changed_paths),
+    `Enforcement: ${presentation.enforcement_level ?? trace.enforcement_level ?? "explicit"}`,
+    `Update key: ${presentation.deduplication_key ?? "none"}`,
+  ];
+  const body = [
     `${presentation.tool} — ${presentation.outcome}`,
-    `What happened: ${presentation.summary}`,
-    "",
+    ...identity,
     formatSection("Checks", presentation.checks),
     formatSection("Gaps", presentation.gaps),
     formatSection("Human attention", presentation.human_attention),
@@ -731,14 +899,51 @@ export function formatManualToolContent(presentation) {
     formatSection("Advisories", presentation.advisories),
     formatSection("Warnings", presentation.warnings),
     formatSection("Errors", presentation.errors),
+    presentation.next_action_blocked_reason ? `Action blocker: ${presentation.next_action_blocked_reason}` : null,
+    presentation.next_action_recovery ? `Recovery detail: ${presentation.next_action_recovery}` : null,
     formatHelp(presentation.help),
+  ].filter((line) => line !== null && line !== undefined).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  return disclosure
+    ? `<details><summary>Technical traceability</summary>\n\n${body}\n\n</details>`
+    : `---\n\n### Technical traceability\n\n${body}`;
+}
+
+export function formatManualToolContent(presentation, { technicalDisclosure = true } = {}) {
+  const journeyLabel = JOURNEY_STATE_LABELS[presentation.journey_state] ?? presentation.journey_state ?? "Manual state";
+  const blocker = firstProblem(presentation);
+  const lines = [
+    `## Workflow · ${journeyLabel}`,
+    `What happened: ${presentation.summary}`,
+    `Checks: ${presentation.check_summary ?? "See technical traceability for exact evidence."}`,
+    blocker ? `Blocker: ${blocker}` : null,
     formatNextStepFooter(presentation),
+    formatTechnicalTraceability(presentation, { disclosure: technicalDisclosure }),
   ].filter((line) => line !== null && line !== undefined);
   return `${lines.join("\n").replace(/\n{3,}/g, "\n\n").trim()}\n`;
 }
 
 export function isManualWorkflowTool(toolName) {
   return MANUAL_TOOLS.has(toolName);
+}
+
+export function resetManualPresentationDedupe() {
+  RECENT_PRESENTATION_UPDATES.clear();
+}
+
+export function coalesceManualPresentation(presentation) {
+  const trace = presentation.technical_traceability ?? {};
+  const subject = trace.root_plan_id
+    ? `root|${trace.root_plan_id}`
+    : [presentation.tool, "no-root", presentation.phase ?? "manual"].join("|");
+  const duplicate = RECENT_PRESENTATION_UPDATES.get(subject) === presentation.deduplication_key;
+  if (!duplicate) {
+    RECENT_PRESENTATION_UPDATES.delete(subject);
+    RECENT_PRESENTATION_UPDATES.set(subject, presentation.deduplication_key);
+    while (RECENT_PRESENTATION_UPDATES.size > MAX_RECENT_PRESENTATION_UPDATES) {
+      RECENT_PRESENTATION_UPDATES.delete(RECENT_PRESENTATION_UPDATES.keys().next().value);
+    }
+  }
+  return { ...presentation, update_suppressed: duplicate };
 }
 
 export function manualMcpResult(toolName, value, isError = false) {
@@ -749,10 +954,10 @@ export function manualMcpResult(toolName, value, isError = false) {
       isError,
     };
   }
-  const presentation = buildPresentation(toolName, value, { isError });
+  const presentation = coalesceManualPresentation(buildPresentation(toolName, value, { isError }));
   const structuredContent = { ...value, presentation };
   return {
-    content: [{ type: "text", text: formatManualToolContent(presentation) }],
+    content: presentation.update_suppressed ? [] : [{ type: "text", text: formatManualToolContent(presentation) }],
     structuredContent,
     isError,
   };
@@ -766,7 +971,9 @@ export {
   MANUAL_GUIDE_URL,
   MANUAL_HELP_TOPICS,
   MANUAL_STATE_HELP,
+  JOURNEY_STATE_LABELS,
   NEXT_STEP_CATALOG,
+  MANUAL_PRIMARY_ACTIONS,
   resolveNextStep,
   statusPresentationOutcome,
 };

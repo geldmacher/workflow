@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added a guided Manual Plan/Do/Review/Correct journey with one primary chat action, secondary Technical traceability, deterministic update keys, automatic native closeout, explicit portable enforcement limits, and a fail-closed two-round correction stop.
+- Added exact task-Root, pre-mutation baseline, and direct path-authority gates for Cursor and Codex plus a narrowly invariant Schema-5 root-boundary Review that can authorize only a separately approved lineage-preserving replan.
 - Made native Codex closeout use only host-derived changed paths for Evidence and Authority, with optional caller paths retained solely as non-authoritative compatibility hints.
 - Bound exact task-local Root, Evidence, and Review bytes automatically for correction delta closeout without requiring MCP Roots or a prior `workflow_artifact_record`, while preserving immutable ID/hash and lineage conflicts.
 - Added classified user-visible native closeout failures plus dry-run-first, hash-bound, dependent-safe Review quarantine that preserves the original record and prior index for recovery.

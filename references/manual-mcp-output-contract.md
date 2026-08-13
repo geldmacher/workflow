@@ -4,9 +4,9 @@ Manual MCP tools keep `structuredContent` as the authoritative machine contract.
 
 ## Content vs structuredContent
 
-- `content[0].text` leads with outcome, checks, gaps/blockers, advisories or warnings, then ends with the Next-step footer.
+- `content[0].text` leads with journey state, outcome, a required-Check summary, at most one blocker, and one Next-step action. Secondary technical traceability follows.
 - `content[0].text` never duplicates full Root/Evidence artifact text or pretty-printed JSON.
-- Contextual help, when present, renders exactly one `Meaning:` sentence and one `Learn more:` Markdown link before the final Next-step or terminal block.
+- Contextual help, when present, renders exactly one `Meaning:` sentence and one `Learn more:` Markdown link inside secondary technical traceability.
 - `structuredContent` retains every existing field plus optional `presentation`.
 - Exact artifacts remain in `structuredContent.artifact` or `structuredContent.artifacts`.
 - Status presentation may add `presentation.workflow_state`; it never replaces `structuredContent.snapshot.state`.
@@ -37,7 +37,7 @@ Distinguish **tool success**, **delivery semantics**, and **transport follow-up*
 - Manual phases lead with outcome, checks, and gaps. Actionable phases end with the Next-step footer; terminal status uses the compact state-specific completion block before any required machine attestation fence.
 - Every emitted review adds a self-contained explanation in this order: `What was achieved`, `What this means`, `Verification and limits`, then `Technical traceability`. The current reviewer produces it directly; `/explain-work` remains an optional read-only refresh. Only `achieved` is **Final repository explanation**; other reviewed states are **Preliminary explanation** with blockers and next safe action.
 - Never duplicate full Root/Evidence text in chat when the exact copy already lives in the Plan envelope or `structuredContent.artifact`.
-- Always surface authoritative IDs (`wp-*`, `de-*`, `wr-*`) and attach the exact artifact when `handoff_persisted: false`.
+- Always surface authoritative IDs (`wp-*`, `de-*`, `wr-*`) in secondary technical traceability and attach the exact artifact when `handoff_persisted: false`.
 - Compact prose, lists, or tables are valid for low/medium Manual Intent/Acceptance/Boundaries/Risks; Verification remains an explicit table at presentation. High-risk, Hard-Trigger, and controller preparation stay fail-closed.
 
 ## Next-step footer
@@ -52,7 +52,7 @@ Actionable human-facing Manual MCP text and agent chat must end with this recogn
 - Off track: <reason> → <recovery>
 ```
 
-Omit `Off track` unless `presentation.outcome` is `blocked` or `partial` and a recovery path exists. Place the footer last in human-facing prose; only required typed attestation fences may follow.
+Omit `Off track` unless `presentation.outcome` is `blocked` or `partial` and a recovery path exists. Place the footer at the end of the primary human layer. A single `Technical traceability` disclosure may follow; only required typed attestation fences may follow that disclosure.
 
 Terminal `workflow_status` is deliberately shorter:
 
@@ -85,6 +85,8 @@ Stable `next_action` ids and their default invoke/benefit/recovery copy:
 
 ## Presentation fields
 
-`presentation.schema` is `1`. Required fields: `tool`, `phase`, `outcome` (`ready|blocked|partial|failed`), `summary`, `checks`, `gaps`, `advisories`, `warnings`, `errors`, `next_action`, `next_action_label`.
+`presentation.schema` is `1`. Required fields: `tool`, `phase`, `outcome` (`ready|blocked|partial|failed`), `summary`, `checks`, `gaps`, `advisories`, `warnings`, `errors`, `next_action`, `next_action_label`, `journey_state`, `enforcement_level`, `primary_action`, and `technical_traceability`.
 
-Additive fields (always set when a catalog action is known): `next_action_invoke`, `next_action_benefit`. When Off track applies: `next_action_blocked_reason`, `next_action_recovery`. Optional contextual help is `help: { topic, meaning, label, url }`; `label` is `Manual Workflow guide`, and `url` uses `https://github.com/geldmacher/workflow/blob/main/docs/manual-workflow.md` plus a validated topic anchor. `workflow_status` additionally sets optional `workflow_state` from the derived snapshot so terminal formatting never guesses from prose, and its structured response includes the uniform read-only `learning` projection. Keep `next_action` and `next_action_label` stable for compatibility; `next_action_label` remains the short Now/How summary line.
+`journey_state` is one of `plan-ready|implementation-active|closeout-recovery-required|review-ready|review-active|correction-approval-required|replan-approval-required|provisional-acceptance-required|clarification-required|blocked|done`. `enforcement_level` is `host-native|explicit`. `primary_action` is exactly `{ id, label, invoke, why }` or `null`; it is the only primary action. `technical_traceability` carries Root/Evidence/Review/Correction IDs, Checks, Findings, paths, and enforcement detail. `deduplication_key` is deterministically derived from Root, journey state, first problem, and action so hosts can coalesce repeated messages.
+
+Compatibility fields remain: `next_action_invoke`, `next_action_benefit`, and, when Off track applies, `next_action_blocked_reason`, `next_action_recovery`. Optional contextual help is `help: { topic, meaning, label, url }`; `label` is `Manual Workflow guide`, and `url` uses `https://github.com/geldmacher/workflow/blob/main/docs/manual-workflow.md` plus a validated topic anchor. `workflow_status` additionally sets optional `workflow_state` from the derived snapshot and includes the uniform read-only `learning` projection. Keep `next_action` and `next_action_label` stable.

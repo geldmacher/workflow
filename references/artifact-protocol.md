@@ -1,11 +1,13 @@
-Schema 5 supports `work-plan|delivery-evidence|work-review`. Workflow-3/4 is immutable history. The `wp-*` Intent Root is authoritative; Strategy and Ledger evolve only within it.
+Schema 5 has `work-plan|delivery-evidence|work-review`; Workflow-3/4 is immutable. The `wp-*` Root grants authority; Strategy/Ledger adapt only inside it.
 
-Selector precedence is explicit ID, active Plan/current-task chain, then—without Manual context—a controller subject. Replans form a linear `predecessor_plan_id`/`replan_source_review_id` lineage whose unique tip is active. Zero or multiple tips authorize nothing.
+Select explicit ID, current task/Plan, then—without Manual context—one controller subject. Replans are linear; only the unique tip is active.
 
-Validation is strict and presentation-tolerant. Lean Evidence needs `Summary`; Full keeps proof tables. Unknown authority, ambiguous tips, scope/risk expansion, missing identity, unsafe reuse, and fabricated success block. `extensions` is opaque audit metadata, never model context or authority.
+Validation is strict, presentation-tolerant. Lean Evidence needs `Summary`; Full keeps proof tables. Unknown authority, ambiguity, expansion, missing identity, unsafe reuse, or fabricated success blocks. `extensions` is non-authoritative.
 
-`achieved` requires every required Check. Deferred Checks are not gates. `accepted-provisional` acknowledges missing/unavailable proof and never qualifies. Failure is `blocked`; review cannot upgrade it.
+`achieved` needs all required Checks. Missing/unavailable proof may be accepted provisionally but never qualifies; failure stays blocked.
 
-Resolve by semantic `artifact`, never filename. Repository delivery excludes push, PR, merge, deployment, production access, and success claims.
+Reviews bind Evidence except `review_basis: root-boundary` after irrecoverable post-mutation recovery. Its protected host receipt binds ID/time/error to the exact Root/current snapshot; `latest_evidence_id:null`, blocked, only `replan`. Missing host record/workspace binding fails closed. It grants no proof, correction, acceptance, achievement, or Learning. Existing Reviews may omit `review_basis`.
 
-Manual transport may use the append-only Schema-1 root-content handoff cache, namespaced by the full SHA-256 of exact Root text. Reads revalidate exact text and active-Plan binding. The cache grants no authority, Run, approval, acceptance, qualification, or Learning.
+Resolve by semantic `artifact`, never filename. Delivery excludes push, PR, merge, deploy, production access, or external claims.
+
+The optional Schema-1 handoff cache is keyed by exact Root-text SHA-256. Reads revalidate bytes/binding; transport grants no authority/state.

@@ -11,6 +11,11 @@ import { WORKFLOW_TOOL_ANNOTATIONS } from "../src/mcp/tool-annotations.mjs";
 import { workflowClient } from "./mcp-client.mjs";
 
 const expectedTools = ["workflow_artifact_context", "workflow_artifact_record", "workflow_closeout", "workflow_plan_preflight", "workflow_status"];
+const expectedJourneyStates = [
+  "plan-ready", "implementation-active", "closeout-recovery-required", "review-ready", "review-active",
+  "correction-approval-required", "replan-approval-required", "provisional-acceptance-required",
+  "clarification-required", "blocked", "done",
+];
 const rootPlan = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
 const manualGuide = readFileSync(join(defaultRoot, "docs", "manual-workflow.md"), "utf8");
 
@@ -38,6 +43,11 @@ test("deterministic target build isolates Codex and exposes exactly five Manual 
       for (const developmentRoot of [".agents", ".build", ".cursor", ".git", "node_modules", "tests"]) {
         assert.equal(existsSync(join(target, developmentRoot)), false, `${developmentRoot} leaked into ${target}`);
       }
+      const manualRuntime = readFileSync(join(target, "dist", "workflow-mcp.mjs"), "utf8");
+      for (const state of expectedJourneyStates) assert.match(manualRuntime, new RegExp(`\\b${state}\\b`), `${target} misses journey state ${state}`);
+      for (const action of ["Implement Plan", "review-work", "correct-work", "plan-work replan", "accept-work"]) {
+        assert.match(manualRuntime, new RegExp(action.replace(" ", "\\s+")), `${target} misses shared action ${action}`);
+      }
     }
     const codexReleaseSurface = JSON.parse(readFileSync(join(first.codex.path, "release-surface.json"), "utf8"));
     assert.ok(codexReleaseSurface.runtime_paths.includes("docs"));
@@ -56,6 +66,7 @@ test("deterministic target build isolates Codex and exposes exactly five Manual 
       assert.match(`${codexReview}\n${codexExplain}\n${explanationContract}`, new RegExp(heading, "i"));
     }
     assert.match(codexReview, /current reviewer.*not another subagent or model call/is);
+    assert.match(codexReview, /protected root-boundary receipt.*Never invent/is);
     assert.match(`${codexReview}\n${reviewContract}`, /first three.*stand alone.*without.*implementation history.*code knowledge/is);
     assert.match(reviewContract, /separates executor claims from independently inspected evidence/is);
     assert.match(codexExplain, /Final repository explanation.*only for `achieved`/is);

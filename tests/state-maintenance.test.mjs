@@ -135,6 +135,58 @@ test("handoff review quarantine is exact, dry-run first, recoverable, and allows
   assert.deepEqual(readFileSync(applied.target), reviewBefore);
 });
 
+test("handoff quarantine can recover an exact dependent-free Evidence tip", () => {
+  const baseRoot = mkdtempSync(join(tmpdir(), "workflow-handoff-quarantine-evidence-"));
+  const store = createContentAddressedHandoffStore(leanRoot, defaultRoot, { baseRoot });
+  const { initial, review } = correctionChain();
+  const delta = buildDeliveryEvidence({
+    rootPlanText: leanRoot,
+    artifacts: [
+      { label: initial.fields.id, text: initial.artifact },
+      { label: "wr-retry", text: review },
+    ],
+    checkEvidence: [{
+      check_id: "CHECK-101",
+      grade: "verified",
+      surface: "repository",
+      method: "node --test",
+      expected: "pass",
+      observed: "Correction Check passed.",
+      repetitions: 1,
+      limitations: [],
+    }],
+    changedPaths: ["src/retry.mjs"],
+    effectiveProfile: "manual",
+    enforceManualCheckReceipts: false,
+    pluginRoot: defaultRoot,
+  });
+  store.record([
+    { label: "root", text: leanRoot },
+    { label: "evidence", text: initial.artifact },
+    { label: "review", text: review },
+    { label: "delta", text: delta.artifact },
+  ]);
+  const evidenceBefore = readFileSync(store.artifactPath(delta.fields.id));
+  const expectedTextHash = JSON.parse(evidenceBefore).text_hash;
+  const input = {
+    rootHash: rootContentHash(leanRoot),
+    artifactId: delta.fields.id,
+    expectedTextHash,
+    pluginRoot: defaultRoot,
+    handoffOptions: { baseRoot },
+  };
+
+  const dryRun = quarantineHandoffReview(input);
+  assert.equal(dryRun.applicable, true);
+  assert.deepEqual(dryRun.dependents, []);
+  const applied = quarantineHandoffReview({ ...input, apply: true });
+  assert.equal(applied.applied, true);
+  assert.equal(existsSync(store.artifactPath(delta.fields.id)), false);
+  assert.deepEqual(readFileSync(applied.target), evidenceBefore);
+  assert.equal(store.context("wp-retry", leanRoot).evidence_tip, initial.fields.id);
+  assert.equal(store.context("wp-retry", leanRoot).review_tip, "wr-retry");
+});
+
 test("handoff quarantine refuses to orphan active dependent Evidence", () => {
   const baseRoot = mkdtempSync(join(tmpdir(), "workflow-handoff-quarantine-dependent-"));
   const store = createContentAddressedHandoffStore(leanRoot, defaultRoot, { baseRoot });

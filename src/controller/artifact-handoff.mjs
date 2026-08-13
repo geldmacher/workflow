@@ -35,11 +35,11 @@ export const HANDOFF_TIP_SCHEMA = 1;
 export { rootContentHash };
 
 export function createContentAddressedHandoffStore(rootPlanText, pluginRoot, options = {}) {
-  return new ArtifactHandoffStore(contentAddressedHandoffRoot(rootPlanText, options), pluginRoot);
+  return new ArtifactHandoffStore(contentAddressedHandoffRoot(rootPlanText, options), pluginRoot, options.artifactSetOptions);
 }
 
 export function createContentAddressedHandoffStoreByHash(rootHash, pluginRoot, options = {}) {
-  return new ArtifactHandoffStore(contentAddressedHandoffRootByHash(rootHash, options), pluginRoot);
+  return new ArtifactHandoffStore(contentAddressedHandoffRootByHash(rootHash, options), pluginRoot, options.artifactSetOptions);
 }
 
 export function quarantineContentAddressedHandoffArtifact({
@@ -254,9 +254,10 @@ function referencedIds(fields) {
 }
 
 export class ArtifactHandoffStore {
-  constructor(root, pluginRoot) {
+  constructor(root, pluginRoot, artifactSetOptions = {}) {
     this.root = resolve(root);
     this.pluginRoot = resolve(pluginRoot);
+    this.artifactSetOptions = artifactSetOptions ?? {};
     this.directory = join(this.root, "handoff", "artifacts");
   }
 
@@ -377,7 +378,7 @@ export class ArtifactHandoffStore {
           recorded.push(record.artifact_id);
         }
       }
-      const inspection = inspectArtifactSet([...merged.values()].map((record) => [record.artifact_id, record.text]), this.pluginRoot);
+      const inspection = inspectArtifactSet([...merged.values()].map((record) => [record.artifact_id, record.text]), this.pluginRoot, this.artifactSetOptions);
       if (inspection.errors.length > 0) throw new Error(`handoff chain is invalid: ${inspection.errors.join("; ")}`);
       for (const id of recorded) atomicJson(this.artifactPath(id), merged.get(id));
       if (recorded.length > 0) this.writeIndex(recorded.map((id) => merged.get(id)), index);
@@ -452,7 +453,7 @@ export class ArtifactHandoffStore {
       const rank = { "work-plan": 0, "delivery-evidence": 1, "work-review": 2 };
       return rank[left.artifact_type] - rank[right.artifact_type] || left.recorded_at.localeCompare(right.recorded_at) || left.artifact_id.localeCompare(right.artifact_id);
     });
-    const inspection = inspectArtifactSet(ordered.map((record) => [record.artifact_id, record.text]), this.pluginRoot);
+    const inspection = inspectArtifactSet(ordered.map((record) => [record.artifact_id, record.text]), this.pluginRoot, this.artifactSetOptions);
     if (inspection.errors.length > 0) throw new Error(`cached handoff chain is invalid: ${inspection.errors.join("; ")}`);
     const tips = effectiveCliSummary(inspection);
     return {
@@ -466,15 +467,17 @@ export class ArtifactHandoffStore {
   }
 
   quarantineArtifact(artifactId, { expectedTextHash, apply = false, now = () => new Date() } = {}) {
-    if (!/^wr-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(artifactId ?? ""))) {
-      throw new Error("handoff quarantine accepts only an exactly identified wr-* transport record");
+    if (!/^(?:wr|de)-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(artifactId ?? ""))) {
+      throw new Error("handoff quarantine accepts only an exactly identified wr-* or de-* transport record");
     }
     if (!/^[a-f0-9]{64}$/.test(String(expectedTextHash ?? ""))) {
-      throw new Error("handoff quarantine requires --expected-text-hash with the exact cached review hash");
+      throw new Error("handoff quarantine requires --expected-text-hash with the exact cached artifact hash");
     }
     const record = this.records([artifactId])[0];
     if (!record) throw new Error(`handoff quarantine cannot find ${artifactId}`);
-    if (record.artifact_type !== "work-review") throw new Error(`handoff quarantine refuses non-review artifact ${artifactId}`);
+    if (!["work-review", "delivery-evidence"].includes(record.artifact_type)) {
+      throw new Error(`handoff quarantine refuses unsupported artifact ${artifactId}`);
+    }
     if (record.text_hash !== expectedTextHash) {
       throw new Error(`handoff quarantine expected ${expectedTextHash} but ${artifactId} has ${record.text_hash}`);
     }

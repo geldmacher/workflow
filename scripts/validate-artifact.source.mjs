@@ -962,6 +962,9 @@ function validateCompactReview(parsed, sections, failures) {
     if (ids(row.Objectives, objectivePattern).length === 0) failures.push(`Findings: ${key} needs root Objectives`);
     if (ids(row.Checks, checkPattern).length === 0) failures.push(`Findings: ${key} needs root Checks`);
   }
+  const boundaryReview = parsed.fields.review_basis === "root-boundary";
+  if (boundaryReview && findings.rows.length > 0) failures.push("root-boundary review cannot contain delivery findings");
+  parsed.findings = findings.rows;
   const actualAuditors = new Set(parsed.fields.auditors_run ?? []);
   const auditorRow = coverageByKind.get(normalizedHeader("Auditors"))?.[0];
   const visibleAuditors = new Set(String(auditorRow?.Inspected ?? "").split(",").map((value) => value.trim()).filter((value) => value && !noneLike(value)));
@@ -1513,7 +1516,7 @@ function validatePlanLineage(artifacts, failures) {
   return plans.filter((plan) => !referencedPlans.has(plan.fields.id)).map((plan) => plan.fields.id).sort();
 }
 
-function inspectCompactArtifactSet(entries, root = defaultRoot) {
+function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
   const errors = [];
   const diagnostics = [];
   const normalizations = [];
@@ -1533,7 +1536,7 @@ function inspectCompactArtifactSet(entries, root = defaultRoot) {
     built.normalizations.forEach((item) => normalizations.push(`${label}: ${item}`));
     if (built.failures.length > 0 || !built.parsed?.fields.id) continue;
     if (artifacts.has(built.parsed.fields.id)) errors.push(`${label}: duplicate artifact ID ${built.parsed.fields.id}`);
-    artifacts.set(built.parsed.fields.id, { label, ...built.parsed });
+    artifacts.set(built.parsed.fields.id, { label, text, ...built.parsed });
   }
 
   const rootTips = validatePlanLineage(artifacts, errors);
@@ -1578,6 +1581,44 @@ function inspectCompactArtifactSet(entries, root = defaultRoot) {
     const rootEvidence = orderedEvidenceByRoot.get(rootId) ?? [];
     for (let index = 0; index < ordered.length; index += 1) {
       const review = ordered[index];
+      const boundaryReview = review.fields.review_basis === "root-boundary";
+      if (boundaryReview) {
+        const receipt = review.fields.boundary_receipt ?? {};
+        if (receipt.root_content_hash !== sha256(rootPlan.text)) errors.push(`${review.label}: boundary receipt root_content_hash does not match exact Root bytes`);
+        for (const path of receipt.observed_paths ?? []) {
+          if (path.startsWith("/") || path === ".." || path.startsWith("../") || path.includes("\\")) {
+            errors.push(`${review.label}: boundary receipt path must remain normalized and repository-relative: ${path}`);
+          }
+        }
+        if (typeof options.boundaryReceiptVerifier !== "function") {
+          errors.push(`${review.label}: root-boundary review requires a fresh protected host receipt; portable or rootless validation fails closed`);
+        } else {
+          try {
+            const trusted = options.boundaryReceiptVerifier({ receipt, rootPlanText: rootPlan.text, reviewFields: review.fields });
+            if (trusted?.ok !== true) errors.push(`${review.label}: boundary receipt is not trusted: ${trusted?.reason ?? "host verification failed"}`);
+          } catch (error) {
+            errors.push(`${review.label}: boundary receipt host verification failed: ${String(error?.message ?? error)}`);
+          }
+        }
+        review.effective = {
+          ...review.effective,
+          plannedAssurance: rootPlan.fields.contract_level === "certified" ? "deep" : rootPlan.fields.contract_level === "controlled" ? "standard" : "lean",
+          assuranceUsed: "inline",
+          snapshotId: receipt.repository_snapshot_hash ?? null,
+          correctionRound: rootEvidence.length > 0 ? rootEvidence.length - 1 : 0,
+          reviewReady: false,
+          loopState: "blocked",
+          boundaryReview: true,
+          proxies: {
+            objectivesInspected: 0,
+            objectivesReused: 0,
+            checksExecuted: 0,
+            checksReused: 0,
+            auditorsRun: 1,
+          },
+        };
+        continue;
+      }
       const evidence = artifacts.get(review.fields.latest_evidence_id);
       if (!evidence || evidence.fields.artifact !== "delivery-evidence") {
         errors.push(`${review.label}: missing latest evidence ${review.fields.latest_evidence_id}`);
@@ -1637,6 +1678,7 @@ function inspectCompactArtifactSet(entries, root = defaultRoot) {
 
     for (let index = 2; index < ordered.length; index += 1) {
       const window = ordered.slice(index - 2, index + 1);
+      if (window.some((review) => review.fields.review_basis === "root-boundary")) continue;
       const priorCorrectionsExecuted = window.slice(0, 2).every((review) => review.fields.correction_id && [...artifacts.values()].some((candidate) => candidate.fields.artifact === "delivery-evidence" && candidate.fields.subject_id === review.fields.correction_id));
       if (!priorCorrectionsExecuted) continue;
       const states = window.map((review) => progressState(review, artifacts));
@@ -1647,6 +1689,9 @@ function inspectCompactArtifactSet(entries, root = defaultRoot) {
           const current = window[2];
           current.effective.loopState = "stalled";
           diagnostics.push(`${current.label}: Finding key ${key} survived two corrections without measurable progress; clarify or replan is recommended`);
+          if (!["clarify", "replan"].includes(current.fields.next_action)) {
+            errors.push(`${current.label}: two correction rounds without measurable progress require next_action clarify or replan`);
+          }
         }
       }
       if (!window[2].effective.loopState) window[2].effective.loopState = reviewData(window[2]).findings.length > 0 ? "degraded" : "healthy";
@@ -1656,12 +1701,12 @@ function inspectCompactArtifactSet(entries, root = defaultRoot) {
   return { errors: unique(errors), diagnostics: unique(diagnostics), normalizations: unique(normalizations), effective: artifacts, root_tips: rootTips };
 }
 
-export function inspectArtifactSet(entries, root = defaultRoot) {
-  return inspectCompactArtifactSet(entries, root);
+export function inspectArtifactSet(entries, root = defaultRoot, options = {}) {
+  return inspectCompactArtifactSet(entries, root, options);
 }
 
-export function validateArtifactSet(entries, root = defaultRoot) {
-  return inspectCompactArtifactSet(entries, root).errors;
+export function validateArtifactSet(entries, root = defaultRoot, options = {}) {
+  return inspectCompactArtifactSet(entries, root, options).errors;
 }
 
 export function effectiveCliSummary(inspection) {

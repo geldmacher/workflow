@@ -11,7 +11,7 @@ import {
   planningUsage,
   resolveCapabilities,
   validateRootPlanLineage
-} from "./chunk-CFAENO4V.mjs";
+} from "./chunk-ZRGMCLE3.mjs";
 import {
   assertContainedPath,
   changedPaths,
@@ -37,13 +37,13 @@ import {
   ArtifactHandoffStore,
   createContentAddressedHandoffStore,
   rememberContentAddressedRoot
-} from "./chunk-ABS7MFJE.mjs";
+} from "./chunk-KBTCLDVF.mjs";
 import {
   effectiveCliSummary,
   executionContractFromArtifactText,
   inspectArtifactSet,
   inspectArtifactText
-} from "./chunk-LLOAY7ER.mjs";
+} from "./chunk-LERB6VEC.mjs";
 import {
   repositoryKey,
   require_dist,
@@ -817,7 +817,7 @@ function captureRepositorySnapshot(workspaceRoot, options = {}) {
 // src/core/manual-check-receipts.mjs
 var MANUAL_CHECK_RECEIPT_TTL_MS = 24 * 60 * 60 * 1e3;
 var MANUAL_CHECK_RECEIPT_SURFACE = "host-tool-receipt";
-function sha2562(value) {
+function manualReceiptHash(value) {
   return createHash4("sha256").update(String(value)).digest("hex");
 }
 function stable2(value) {
@@ -825,9 +825,11 @@ function stable2(value) {
   if (!value || typeof value !== "object") return value;
   return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable2(value[key])]));
 }
-function stableJson(value) {
+function stableManualReceiptJson(value) {
   return JSON.stringify(stable2(value));
 }
+var sha2562 = manualReceiptHash;
+var stableJson = stableManualReceiptJson;
 function unique2(values) {
   return [...new Set((values ?? []).filter(Boolean).map(String))];
 }
@@ -875,14 +877,15 @@ function repositorySnapshotFingerprint(snapshot2) {
 function proofBase(workspaceRoot, rootHash, options = {}) {
   return join(sharedArtifactStateRoot(canonicalWorkspaceRoot(workspaceRoot), options), "manual-check-receipts", rootHash);
 }
-function canonicalWorkspaceRoot(workspaceRoot) {
+function canonicalManualWorkspaceRoot(workspaceRoot) {
   try {
     return realpathSync(workspaceRoot);
   } catch {
     return resolve2(workspaceRoot);
   }
 }
-function assertSafeDirectory(path, base) {
+var canonicalWorkspaceRoot = canonicalManualWorkspaceRoot;
+function assertManualReceiptPath(path, base) {
   const resolvedBase = resolve2(base);
   const resolvedPath = resolve2(path);
   if (resolvedPath !== resolvedBase && !resolvedPath.startsWith(`${resolvedBase}${sep}`)) {
@@ -894,13 +897,15 @@ function assertSafeDirectory(path, base) {
     throw new Error("manual Check receipt state may not be symlink redirected");
   }
 }
-function readReceiptRecord(path, base) {
+var assertSafeDirectory = assertManualReceiptPath;
+function readManualReceiptRecord(path, base) {
   assertSafeDirectory(path, base);
   const stat = lstatSync2(path);
   if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 64 * 1024) return null;
   const value = JSON.parse(readFileSync2(path, "utf8"));
   return value && typeof value === "object" && !Array.isArray(value) ? value : null;
 }
+var readReceiptRecord = readManualReceiptRecord;
 function existingRecords(directory, base) {
   if (!existsSync(directory)) return [];
   assertSafeDirectory(directory, base);
@@ -2404,6 +2409,12 @@ ${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
 
 export {
   deriveWorkflowState,
+  captureRepositorySnapshot,
+  manualReceiptHash,
+  stableManualReceiptJson,
+  repositorySnapshotFingerprint,
+  canonicalManualWorkspaceRoot,
+  readManualReceiptRecord,
   invalidateManualCheckReceipts,
   loadManualCheckReceipts,
   manualConstraintProjection,

@@ -23,7 +23,16 @@ import {
   invalidateManualCheckReceipts,
   isReadOnlyShell,
 } from "./manual-check-receipts.mjs";
+import {
+  createManualBoundaryReceipt,
+  verifyManualBoundaryReceipt,
+} from "./manual-boundary-receipts.mjs";
 import { performNativeCloseout } from "../controller/native-closeout.mjs";
+import {
+  assertChangedPathAuthority,
+  directMutationTargets,
+} from "./manual-path-authority.mjs";
+import { manualJourneyDecision } from "./manual-journey.mjs";
 import {
   extractRootPlanText,
   inspectPresentedRootPlan,
@@ -50,12 +59,17 @@ const denyTool = (reason) => ({
 });
 
 function phaseForPrompt(prompt, state) {
-  const command = String(prompt ?? "").match(WORKFLOW_COMMAND)?.[1]?.toLowerCase();
+  const text = String(prompt ?? "");
+  // Codex may resubmit a Stop-hook continuation through UserPromptSubmit. It is
+  // host guidance, not fresh human authority, even when surrounding task
+  // context still contains an earlier Workflow command.
+  if (/^\s*<hook_prompt\b[^>]*\bhook_run_id\s*=\s*["'][^"']+["'][^>]*>[\s\S]*<\/hook_prompt>\s*$/i.test(text)) return null;
+  const command = text.match(WORKFLOW_COMMAND)?.[1]?.toLowerCase();
   if (command === "plan-work") return "planning";
   if (command === "correct-work") return "correction";
   if (command === "review-work") return "review";
   if (command) return command.replace(/-work$/, "");
-  if (state.active_root_plan_id && /\bimplement(?:iere|ation)?\s+(?:the\s+)?plan\b/i.test(String(prompt ?? ""))) return "implementation";
+  if (/\b(?:implement(?:\s+(?:this|the))?\s+plan|plan\s+implementieren|implementiere\s+(?:diesen\s+)?plan)\b/i.test(text)) return "implementation";
   return null;
 }
 
@@ -132,6 +146,22 @@ function rememberTaskArtifact(state, text, options = {}, { rootHash = null } = {
   if (state.active_root_content_hash && boundHash !== state.active_root_content_hash) {
     throw new Error(`task-local artifact ${fields.id} has a conflicting exact Root-content hash`);
   }
+  if (fields.artifact === "work-review" && fields.review_basis === "root-boundary") {
+    const expected = state.turn?.boundary_receipt;
+    if (!expected || expected.receipt_id !== fields.boundary_receipt?.receipt_id) {
+      throw new Error("root-boundary review has no matching task-bound protected host receipt");
+    }
+    const verified = (options.verifyManualBoundaryReceipt ?? verifyManualBoundaryReceipt)({
+      receipt: fields.boundary_receipt,
+      rootPlanText: state.active_root_plan_text,
+      pluginRoot: options.pluginRoot,
+      workspaceRoot: state.turn.boundary_receipt_workspace_root,
+      captureSnapshot: options.captureRepositorySnapshot ?? captureRepositorySnapshot,
+      now: options.now,
+      options: options.receiptOptions ?? {},
+    });
+    if (verified?.ok !== true) throw new Error(`root-boundary review receipt is not trusted: ${verified?.reason ?? "host verification failed"}`);
+  }
   const bucket = taskArtifactBucket(state, boundHash, rootPlanId);
   const prior = bucket.artifacts.find((entry) => entry.label === fields.id);
   const textHash = sha256RawUtf8(text);
@@ -174,10 +204,11 @@ function captureToolTaskArtifacts(state, input, options = {}) {
 
 function nativeCloseoutErrorCode(error) {
   const message = String(error?.message ?? error);
-  if (/different immutable bytes|conflicting text|immutable handoff Root|Root-content hash|Root mismatch/i.test(message)) return "artifact-text-conflict";
+  if (/different immutable bytes|conflicting text|immutable handoff Root|Root-content hash|Root mismatch|active Root .* does not match/i.test(message)) return "artifact-text-conflict";
   if (/missing exact Source Review/i.test(message)) return "missing-source-review";
   if (/predecessor Evidence/i.test(message)) return "missing-predecessor-evidence";
   if (/outside Root authority|protected by the Root|requires separate human approval|path escapes|resolves outside/i.test(message)) return "authority-violation";
+  if (/pre-mutation repository baseline|baseline unavailable after mutation/i.test(message)) return "baseline-unavailable-after-mutation";
   if (/stale or competing|lineage|correction/i.test(message)) return "evidence-lineage-conflict";
   if (/repository baseline|repository delta|repository snapshot|repository root changed|HEAD changed/i.test(message)) return "repository-observation-conflict";
   if (/attestation|closeout-input|phase must/i.test(message)) return "invalid-closeout-input";
@@ -292,14 +323,53 @@ function workspaceRootForInput(input, options = {}) {
   return options.workspaceRoot ?? input.cwd ?? process.cwd();
 }
 
+function captureTurnBoundaryReceipt(turn, state, input, errorCode, options = {}) {
+  if (turn.phase !== "review" || !state.active_root_plan_text) return null;
+  try {
+    const workspaceRoot = workspaceRootForInput(input, options);
+    const receipt = (options.createManualBoundaryReceipt ?? createManualBoundaryReceipt)({
+      rootPlanText: state.active_root_plan_text,
+      pluginRoot: options.pluginRoot,
+      workspaceRoot,
+      recoveryErrorCode: errorCode,
+      captureSnapshot: options.captureRepositorySnapshot ?? captureRepositorySnapshot,
+      now: options.now,
+      options: options.receiptOptions ?? {},
+    });
+    turn.boundary_receipt = receipt;
+    turn.boundary_receipt_workspace_root = workspaceRoot;
+    return receipt;
+  } catch {
+    return null;
+  }
+}
+
+function inspectActiveStateRoot(state, options = {}) {
+  if (!state.active_root_plan_id || typeof state.active_root_plan_text !== "string") {
+    return { ok: false, reason: "No exact task-bound Schema-5 Root is available." };
+  }
+  const inspected = inspectArtifactText(state.active_root_plan_text, options.pluginRoot);
+  const fields = inspected.artifact?.fields;
+  if (inspected.errors.length > 0 || fields?.artifact !== "work-plan" || fields?.schema !== 5 || fields.id !== state.active_root_plan_id) {
+    return { ok: false, reason: `The task-bound Root is invalid: ${inspected.errors[0] ?? "Root identity mismatch"}` };
+  }
+  if (state.active_root_content_hash !== rootContentHash(state.active_root_plan_text)) {
+    return { ok: false, reason: "The task-bound Root bytes no longer match their recorded hash." };
+  }
+  return { ok: true, fields };
+}
+
 function captureTurnBaseline(turn, input, options = {}) {
-  if (turn.repository_baseline || turn.repository_baseline_error) return;
+  if (turn.repository_baseline) return { ok: true };
+  if (turn.repository_baseline_error) return { ok: false, reason: turn.repository_baseline_error };
   try {
     const capture = options.captureRepositorySnapshot ?? captureRepositorySnapshot;
     turn.repository_baseline = capture(workspaceRootForInput(input, options));
     turn.repository_baseline_error = null;
+    return { ok: true };
   } catch (error) {
     turn.repository_baseline_error = String(error?.message ?? error);
+    return { ok: false, reason: turn.repository_baseline_error };
   }
 }
 
@@ -420,6 +490,8 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
       native_closeout_error: null,
       native_closeout_error_code: null,
       task_artifact_error: null,
+      boundary_receipt: null,
+      boundary_receipt_workspace_root: null,
       review_recovery_count: 0,
       pending_agents: [],
       invalid_agents: {},
@@ -431,11 +503,33 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
       },
     };
     const selectedRootId = String(input.prompt ?? "").match(ROOT_ID)?.[0] ?? null;
+    const previouslyBoundRootId = state.active_root_plan_id ?? null;
     if (selectedRootId && phase !== "planning") turn.root_plan_id = selectedRootId;
     const embeddedRoot = phase !== "planning" ? extractRootPlanText(input.prompt) : null;
     if (embeddedRoot) {
       const inspected = inspectArtifactText(embeddedRoot, options.pluginRoot);
       if (inspected.errors.length === 0 && inspected.artifact?.fields?.artifact === "work-plan") {
+        const embeddedRootId = inspected.artifact.fields.id;
+        if (["implementation", "correction"].includes(phase) && selectedRootId && selectedRootId !== embeddedRootId) {
+          state.turn = turn;
+          return {
+            output: {
+              decision: "block",
+              reason: `Workflow · Blocked. The approved selector ${selectedRootId} does not match the supplied Root ${embeddedRootId}. Use one exact Root only.`,
+            },
+            state,
+          };
+        }
+        if (phase === "correction" && previouslyBoundRootId && previouslyBoundRootId !== embeddedRootId) {
+          state.turn = turn;
+          return {
+            output: {
+              decision: "block",
+              reason: `Workflow · Blocked. Correction cannot replace the task-bound Root ${previouslyBoundRootId} with ${embeddedRootId}. Return to the exact reviewed chain.`,
+            },
+            state,
+          };
+        }
         turn.root_plan_id = inspected.artifact.fields.id;
         state.active_root_plan_id = inspected.artifact.fields.id;
         state.active_root_content_hash = rootContentHash(embeddedRoot);
@@ -445,6 +539,37 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
     state.turn = turn;
     if (phase === "planning" && input.permission_mode !== "plan") {
       return { output: { decision: "block", reason: "$plan-work requires Codex Plan mode." }, state };
+    }
+    if (["implementation", "correction"].includes(phase)) {
+      const bound = inspectActiveStateRoot(state, options);
+      if (!bound.ok) {
+        return {
+          output: {
+            decision: "block",
+            reason: `Workflow · Plan required. ${bound.reason} Present and approve one exact Schema-5 Root before implementation or correction.`,
+          },
+          state,
+        };
+      }
+      if (selectedRootId && selectedRootId !== state.active_root_plan_id) {
+        return {
+          output: {
+            decision: "block",
+            reason: `Workflow · Blocked. The approved selector ${selectedRootId} does not match the task-bound Root ${state.active_root_plan_id}. Approve the exact current Root only.`,
+          },
+          state,
+        };
+      }
+      if (phase === "correction" && previouslyBoundRootId && previouslyBoundRootId !== state.active_root_plan_id) {
+        return {
+          output: {
+            decision: "block",
+            reason: `Workflow · Blocked. Correction cannot replace the task-bound Root ${previouslyBoundRootId} with ${state.active_root_plan_id}. Return to the exact reviewed chain.`,
+          },
+          state,
+        };
+      }
+      turn.root_plan_id = state.active_root_plan_id;
     }
     const marker = phase === "planning" ? CODEX_PLAN_MARKER : phase === "review" ? CODEX_REVIEW_MARKER : ["implementation", "correction"].includes(phase) ? CODEX_IMPLEMENTATION_MARKER : "[workflow-codex-manual-v1]";
     const routingNote = routingEnabled(policy)
@@ -469,8 +594,37 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
     if (Object.keys(turn.invalid_agents ?? {}).length > 0) {
       return { output: denyTool("Workflow blocked this tool because a subagent model could not be attested. Its result is invalid evidence."), state };
     }
+    if (turn.phase === "review" && mutatingReviewTool(input)) {
+      return {
+        output: denyTool(manualJourneyDecision({
+          state: "blocked",
+          blocker: "$review-work is repository-read-only; mutations require a separate human-authorized correction.",
+          action: "retry-review",
+          trace: { root_plan_id: state.active_root_plan_id ?? turn.root_plan_id ?? null },
+        })),
+        state,
+      };
+    }
     if (["implementation", "correction"].includes(turn.phase) && mutatingReviewTool(input)) {
-      captureTurnBaseline(turn, input, options);
+      const bound = inspectActiveStateRoot(state, options);
+      if (!bound.ok) return { output: denyTool(`Workflow · Blocked. ${bound.reason} Return to the approved Plan before editing.`), state };
+      const baseline = captureTurnBaseline(turn, input, options);
+      if (!baseline.ok) {
+        return {
+          output: denyTool(`Workflow · Blocked. The pre-mutation repository baseline could not be captured: ${baseline.reason} Resolve repository observation, then retry the same approved phase.`),
+          state,
+        };
+      }
+      try {
+        const repositoryRoot = workspaceRootForInput(input, options);
+        const targets = directMutationTargets({ toolName: input.tool_name, toolInput: input.tool_input, repositoryRoot });
+        assertChangedPathAuthority(bound.fields, targets, repositoryRoot);
+      } catch (error) {
+        return {
+          output: denyTool(`Workflow · Blocked. ${String(error?.message ?? error)} Use $plan-work replan if the required path is outside the approved Root.`),
+          state,
+        };
+      }
     }
     captureTurnCheckCandidate(turn, state, input, options);
     if (agentToolName(input.tool_name)) {
@@ -514,9 +668,6 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
         },
         state,
       };
-    }
-    if (turn.phase === "review" && mutatingReviewTool(input)) {
-      return { output: denyTool("$review-work is read-only; mutating tools are blocked until a separate human-authorized correction or implementation task."), state };
     }
     return { output: {}, state };
   }
@@ -834,9 +985,20 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
           turn.native_closeout_error = String(error?.message ?? error);
           turn.native_closeout_error_code = nativeCloseoutErrorCode(error);
           const errorCode = turn.native_closeout_error_code;
+          const boundaryReceipt = captureTurnBoundaryReceipt(turn, state, input, errorCode, options);
           clearCloseoutTurn(turn);
           turn.native_closeout_error = String(error?.message ?? error);
           turn.native_closeout_error_code = errorCode;
+          if (boundaryReceipt) {
+            turn.boundary_receipt = boundaryReceipt;
+            return {
+              output: {
+                decision: "block",
+                reason: `Workflow Evidence recovery is deterministically unavailable. A fresh protected root-boundary receipt was captured for the exact Root and repository snapshot. Emit only an insufficient-evidence/blocked/replan root-boundary review using this internal receipt: ${JSON.stringify(boundaryReceipt)}`,
+              },
+              state,
+            };
+          }
           return {
             output: {
               decision: "block",

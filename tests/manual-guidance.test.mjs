@@ -61,6 +61,7 @@ test("Manual guide covers the complete user-visible vocabulary", () => {
     ...reviewSchema.properties.delivery_status.enum,
     ...reviewSchema.properties.review_route.enum,
     ...reviewSchema.properties.next_action.enum,
+    ...reviewSchema.properties.review_basis.enum,
     "work-plan",
     "delivery-evidence",
     "work-review",
@@ -122,6 +123,7 @@ test("Manual guidance explains invisible host receipts, human recovery, and prop
   for (const token of [
     "Constraint loop and host receipts",
     "Preflight",
+    "Mutation gate",
     "In-loop feedback",
     "Delivery boundary",
     "What happened",
@@ -135,5 +137,7 @@ test("Manual guidance explains invisible host receipts, human recovery, and prop
   assert.match(guide, /does not require all six/is);
   assert.match(read("skills/work-execution/SKILL.md"), /exact standalone planned command\/directory.*leading `rtk`/is);
   assert.match(read("skills/work-review/SKILL.md"), /constraint_summary.*human_attention.*problem_details/is);
+  assert.match(read("skills/work-review/SKILL.md"), /root-boundary.*latest_evidence_id: null.*insufficient-evidence\/blocked\/replan/is);
+  assert.match(read("references/manual-mcp-output-contract.md"), /journey_state.*primary_action.*technical_traceability/is);
   assert.match(read("references/manual-workflow-contract.md"), /fresh host receipt bound to exact Root.*repository snapshot/is);
 });

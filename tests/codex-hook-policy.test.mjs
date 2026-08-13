@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -118,6 +118,129 @@ test("Codex plan-work allows low/medium Manual Roots without Hard Triggers to sk
   assert.deepEqual(value.output, {});
   assert.equal(value.state.active_root_plan_id, "wp-retry");
   assert.equal(value.state.turn, null);
+});
+
+test("Codex implementation blocks missing Root, baseline failure, and direct out-of-authority paths before mutation", () => {
+  const missing = step({}, { hook_event_name: "UserPromptSubmit", prompt: "Please implement this plan." });
+  assert.equal(missing.output.decision, "block");
+  assert.match(missing.output.reason, /Plan required/);
+
+  const repository = mkdtempSync(join(tmpdir(), "codex-authority-gate-"));
+  try {
+    mkdirSync(join(repository, "src"), { recursive: true });
+    const planned = step({}, { hook_event_name: "UserPromptSubmit", permission_mode: "plan", prompt: "$plan-work add retries" });
+    const presented = step(planned.state, {
+      hook_event_name: "Stop",
+      last_assistant_message: `<proposed_plan>\n${leanRoot}\n</proposed_plan>`,
+    });
+    const implementation = step(presented.state, {
+      hook_event_name: "UserPromptSubmit",
+      prompt: "Please implement this plan.",
+      cwd: repository,
+    });
+    assert.equal(implementation.output.decision, undefined);
+    const baselineFailure = step(implementation.state, {
+      hook_event_name: "PreToolUse",
+      tool_name: "Edit",
+      tool_input: { file_path: join(repository, "src/retry.mjs") },
+      cwd: repository,
+    }, {
+      workspaceRoot: repository,
+      captureRepositorySnapshot: () => { throw new Error("snapshot unavailable"); },
+    });
+    assert.equal(baselineFailure.output.hookSpecificOutput.permissionDecision, "deny");
+    assert.match(baselineFailure.output.hookSpecificOutput.permissionDecisionReason, /baseline could not be captured.*snapshot unavailable/i);
+
+    const implementation2 = step(presented.state, {
+      hook_event_name: "UserPromptSubmit",
+      prompt: "Implement the plan.",
+      cwd: repository,
+    });
+    const capture = () => ({ repository_root: repository, snapshot_id: "baseline" });
+    const outside = step(implementation2.state, {
+      hook_event_name: "PreToolUse",
+      tool_name: "Edit",
+      tool_input: { file_path: join(repository, "outside.txt") },
+      cwd: repository,
+    }, { workspaceRoot: repository, captureRepositorySnapshot: capture });
+    assert.equal(outside.output.hookSpecificOutput.permissionDecision, "deny");
+    assert.match(outside.output.hookSpecificOutput.permissionDecisionReason, /outside Root authority/);
+    const outsideList = step(implementation2.state, {
+      hook_event_name: "PreToolUse",
+      tool_name: "Write",
+      tool_input: { paths: [join(repository, "src/retry.mjs"), join(repository, "outside-list.txt")] },
+      cwd: repository,
+    }, { workspaceRoot: repository, captureRepositorySnapshot: capture });
+    assert.equal(outsideList.output.hookSpecificOutput.permissionDecision, "deny");
+    assert.match(outsideList.output.hookSpecificOutput.permissionDecisionReason, /outside Root authority/);
+    const traversal = step(implementation2.state, {
+      hook_event_name: "PreToolUse",
+      tool_name: "Edit",
+      tool_input: { file_path: "src/../outside-traversal.txt" },
+      cwd: repository,
+    }, { workspaceRoot: repository, captureRepositorySnapshot: capture });
+    assert.equal(traversal.output.hookSpecificOutput.permissionDecision, "deny");
+    assert.match(traversal.output.hookSpecificOutput.permissionDecisionReason, /outside Root authority/);
+    const moveDestination = step(implementation2.state, {
+      hook_event_name: "PreToolUse",
+      tool_name: "ApplyPatch",
+      tool_input: "*** Begin Patch\n*** Update File: src/retry.mjs\n*** Move to: outside-move.mjs\n*** End Patch",
+      cwd: repository,
+    }, { workspaceRoot: repository, captureRepositorySnapshot: capture });
+    assert.equal(moveDestination.output.hookSpecificOutput.permissionDecision, "deny");
+    assert.match(moveDestination.output.hookSpecificOutput.permissionDecisionReason, /outside Root authority/);
+    writeFileSync(join(repository, "outside-target.txt"), "protected\n");
+    symlinkSync("../outside-target.txt", join(repository, "src/link.txt"));
+    const symlinkDestination = step(implementation2.state, {
+      hook_event_name: "PreToolUse",
+      tool_name: "Edit",
+      tool_input: { file_path: "src/link.txt" },
+      cwd: repository,
+    }, { workspaceRoot: repository, captureRepositorySnapshot: capture });
+    assert.equal(symlinkDestination.output.hookSpecificOutput.permissionDecision, "deny");
+    assert.match(symlinkDestination.output.hookSpecificOutput.permissionDecisionReason, /outside Root authority/);
+    const allowed = step(implementation2.state, {
+      hook_event_name: "PreToolUse",
+      tool_name: "Edit",
+      tool_input: { file_path: join(repository, "src/retry.mjs") },
+      cwd: repository,
+    }, { workspaceRoot: repository, captureRepositorySnapshot: capture });
+    assert.equal(allowed.output.hookSpecificOutput?.permissionDecision, undefined);
+  } finally {
+    rmSync(repository, { recursive: true, force: true });
+  }
+});
+
+test("Codex correction selector must match the exact task-bound Root", () => {
+  const planned = step({}, { hook_event_name: "UserPromptSubmit", permission_mode: "plan", prompt: "$plan-work add retries" });
+  const presented = step(planned.state, {
+    hook_event_name: "Stop",
+    last_assistant_message: `<proposed_plan>\n${leanRoot}\n</proposed_plan>`,
+  });
+  const mismatch = step(presented.state, {
+    hook_event_name: "UserPromptSubmit",
+    prompt: "$correct-work wp-other",
+  });
+  assert.equal(mismatch.output.decision, "block");
+  assert.match(mismatch.output.reason, /wp-other.*task-bound Root wp-retry/i);
+  assert.equal(mismatch.state.active_root_plan_id, "wp-retry");
+});
+
+test("Codex Stop-hook continuations never reopen a completed Manual phase", () => {
+  const prior = {
+    active_root_plan_id: "wp-retry",
+    active_root_content_hash: rootContentHash(leanRoot),
+    active_root_plan_text: leanRoot,
+    turn: null,
+  };
+  const result = step(prior, {
+    hook_event_name: "UserPromptSubmit",
+    prompt: '<hook_prompt hook_run_id="stop:8:/plugin/hooks.json">Finish Manual Workflow for the earlier $correct-work wp-retry request.</hook_prompt>',
+    turn_id: "host-continuation",
+  });
+  assert.equal(result.output.decision, undefined);
+  assert.equal(result.state.turn, null);
+  assert.equal(result.state.active_root_plan_id, "wp-retry");
 });
 
 test("Codex plan-work rejects Root-only proposed plans that omit closeout retention", () => {
@@ -403,6 +526,8 @@ test("Codex review allows inspections and artifact recording but blocks mutation
   value = step(value.state, { hook_event_name: "PreToolUse", tool_name: "apply_patch", tool_input: { command: "*** Begin Patch" } });
   assert.equal(value.output.hookSpecificOutput.permissionDecision, "deny");
   value = step(value.state, { hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command: "git add src/file.mjs" } });
+  assert.equal(value.output.hookSpecificOutput.permissionDecision, "deny");
+  value = step(value.state, { hook_event_name: "PreToolUse", tool_name: "spawn_agent", tool_input: { message: "edit the repository" } });
   assert.equal(value.output.hookSpecificOutput.permissionDecision, "deny");
   value = step(value.state, { hook_event_name: "PreToolUse", tool_name: "mcp__geldmacher_workflow__workflow_artifact_record", tool_input: {} });
   assert.deepEqual(value.output, {});

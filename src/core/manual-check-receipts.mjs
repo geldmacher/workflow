@@ -23,7 +23,7 @@ import {
 export const MANUAL_CHECK_RECEIPT_TTL_MS = 24 * 60 * 60 * 1000;
 export const MANUAL_CHECK_RECEIPT_SURFACE = "host-tool-receipt";
 
-function sha256(value) {
+export function manualReceiptHash(value) {
   return createHash("sha256").update(String(value)).digest("hex");
 }
 
@@ -33,9 +33,12 @@ function stable(value) {
   return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])]));
 }
 
-function stableJson(value) {
+export function stableManualReceiptJson(value) {
   return JSON.stringify(stable(value));
 }
+
+const sha256 = manualReceiptHash;
+const stableJson = stableManualReceiptJson;
 
 function unique(values) {
   return [...new Set((values ?? []).filter(Boolean).map(String))];
@@ -257,12 +260,14 @@ function proofBase(workspaceRoot, rootHash, options = {}) {
   return join(sharedArtifactStateRoot(canonicalWorkspaceRoot(workspaceRoot), options), "manual-check-receipts", rootHash);
 }
 
-function canonicalWorkspaceRoot(workspaceRoot) {
+export function canonicalManualWorkspaceRoot(workspaceRoot) {
   try { return realpathSync(workspaceRoot); }
   catch { return resolve(workspaceRoot); }
 }
 
-function assertSafeDirectory(path, base) {
+const canonicalWorkspaceRoot = canonicalManualWorkspaceRoot;
+
+export function assertManualReceiptPath(path, base) {
   const resolvedBase = resolve(base);
   const resolvedPath = resolve(path);
   if (resolvedPath !== resolvedBase && !resolvedPath.startsWith(`${resolvedBase}${sep}`)) {
@@ -274,6 +279,8 @@ function assertSafeDirectory(path, base) {
     throw new Error("manual Check receipt state may not be symlink redirected");
   }
 }
+
+const assertSafeDirectory = assertManualReceiptPath;
 
 function ensureDirectory(path, base) {
   assertSafeDirectory(path, base);
@@ -288,7 +295,7 @@ function ensureDirectory(path, base) {
   }
 }
 
-function writeReceiptRecord(path, value, base) {
+export function writeManualReceiptRecord(path, value, base) {
   ensureDirectory(dirname(path), base);
   const temporary = `${path}.${process.pid}.${randomUUID()}.tmp`;
   writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
@@ -296,13 +303,18 @@ function writeReceiptRecord(path, value, base) {
   try { chmodSync(path, 0o600); } catch { /* best effort */ }
 }
 
-function readReceiptRecord(path, base) {
+
+const writeReceiptRecord = writeManualReceiptRecord;
+
+export function readManualReceiptRecord(path, base) {
   assertSafeDirectory(path, base);
   const stat = lstatSync(path);
   if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 64 * 1024) return null;
   const value = JSON.parse(readFileSync(path, "utf8"));
   return value && typeof value === "object" && !Array.isArray(value) ? value : null;
 }
+
+const readReceiptRecord = readManualReceiptRecord;
 
 function existingRecords(directory, base) {
   if (!existsSync(directory)) return [];

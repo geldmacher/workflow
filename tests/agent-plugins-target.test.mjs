@@ -123,6 +123,11 @@ test("Agent Plugins v1 target is deterministic, closed, and immediately discover
         assert.equal(existsSync(join(skillRoot, match[1])), true, `${skill} misses ${match[1]}`);
       }
     }
+    const portableReview = readFileSync(join(plugin, "skills", "review-work", "SKILL.md"), "utf8");
+    const portableImplement = readFileSync(join(plugin, "skills", "implement-work", "SKILL.md"), "utf8");
+    assert.match(portableReview, /enforcement_level: explicit.*cannot mint a protected native receipt/is);
+    assert.match(portableReview, /Without that host proof, fail closed with no replan/is);
+    assert.match(portableImplement, /one primary journey action.*enforcement_level: explicit/is);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

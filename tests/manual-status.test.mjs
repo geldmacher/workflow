@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { deriveManualLearningProjection, deriveManualWorkflowSnapshot, resolveManualRootPlanId } from "../src/controller/manual-status.mjs";
+import { createManualBoundaryReceipt } from "../src/core/manual-boundary-receipts.mjs";
 import { authoritativeArtifactProjectionFromText } from "../scripts/validate-artifact.source.mjs";
 import { workflowClient } from "./mcp-client.mjs";
 
@@ -23,8 +25,9 @@ const evidenceFixture = artifact("delivery-evidence.valid.md");
 const legacyEvidence = { ...evidenceFixture, text: evidenceFixture.text.replace(/^intent_hash:.*$/m, `intent_hash: ${authoritativeArtifactProjectionFromText(plan.text).projection_hash}`) };
 const evidence = { ...legacyEvidence, text: legacyEvidence.text.replace("surface: repository-test", "surface: host-tool-receipt") };
 const review = artifact("work-review.valid.md");
-const derive = (artifacts) => deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot: root, observedAt: "2026-07-30T10:00:00.000Z" });
-const deriveActive = (artifacts) => deriveManualWorkflowSnapshot({ artifacts, pluginRoot: root, observedAt: "2026-07-30T10:00:00.000Z" });
+const trustedBoundary = () => ({ ok: true });
+const derive = (artifacts) => deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot: root, observedAt: "2026-07-30T10:00:00.000Z", boundaryReceiptVerifier: trustedBoundary });
+const deriveActive = (artifacts) => deriveManualWorkflowSnapshot({ artifacts, pluginRoot: root, observedAt: "2026-07-30T10:00:00.000Z", boundaryReceiptVerifier: trustedBoundary });
 const provisionalEvidence = {
   ...evidence,
   text: evidence.text
@@ -57,6 +60,46 @@ const replacementPlan = {
   ...plan,
   label: "work-plan.replanned.md",
   text: plan.text.replace("id: wp-adaptive-retry", "id: wp-adaptive-retry-v2\npredecessor_plan_id: wp-adaptive-retry\nreplan_source_review_id: wr-adaptive-replan"),
+};
+const boundaryReview = {
+  label: "work-review.boundary.md",
+  text: `---
+artifact: work-review
+schema: 5
+id: wr-adaptive-boundary
+status: complete
+root_plan_id: wp-adaptive-retry
+latest_evidence_id: null
+review_basis: root-boundary
+boundary_receipt:
+  receipt_id: br-${"c".repeat(64)}
+  observed_at: 2026-08-12T10:00:00.000Z
+  recovery_error_code: authority-violation
+  reason_codes: [out-of-authority-changes]
+  root_content_hash: ${createHash("sha256").update(plan.text).digest("hex")}
+  repository_snapshot_hash: ${"b".repeat(64)}
+  observed_paths: [unexpected/outside.txt]
+assessment: insufficient-evidence
+delivery_status: blocked
+review_route: inline
+next_action: replan
+correction_id: null
+predecessor_review_id: null
+inspected_objectives: []
+reused_objectives: []
+inspected_checks: []
+reused_checks: []
+auditors_run: [inline]
+---
+
+## Assessment
+
+Insufficient-evidence. Valid Delivery Evidence cannot be recovered for the observed Root boundary.
+
+## Next action
+
+replan: create and separately approve a replacement Root.
+`,
 };
 
 test("manual remains a compact human-started path without controller state", () => {
@@ -128,6 +171,21 @@ test("manual active root resolution selects one Root or the unique replan lineag
   assert.throws(() => deriveActive([plan, unrelated]), /active root resolution is ambiguous/);
 });
 
+test("manual root-boundary review routes directly to a human-authorized replan without Evidence", () => {
+  const untrusted = deriveManualWorkflowSnapshot({ rootPlanId, artifacts: [plan, boundaryReview], pluginRoot: root });
+  assert.notEqual(untrusted.snapshot.next_action, "replan");
+  assert.equal(untrusted.snapshot.next_action, "provide-artifacts");
+  assert.match(untrusted.snapshot.blockers.join("\n"), /protected host receipt/);
+  const value = derive([plan, boundaryReview]);
+  assert.equal(value.snapshot.state, "replan");
+  assert.equal(value.snapshot.next_action, "replan");
+  assert.equal(value.snapshot.required_actor, "human");
+  assert.equal(value.snapshot.evidence_tip, null);
+  assert.equal(value.snapshot.review_tip, "wr-adaptive-boundary");
+  assert.equal(value.snapshot.delivery_status, "blocked");
+  assert.equal(deriveManualLearningProjection(value).eligible, false);
+});
+
 test("manual provisional acceptance is stateless and hash-bound", () => {
   const artifacts = [plan, provisionalEvidence, provisionalReview];
   const ready = derive(artifacts);
@@ -164,11 +222,29 @@ test("manual provisional acceptance rejects failed, stale, legacy, and verified 
 
 test("manual workflow_status is read-only and creates no controller state", async () => {
   const home = mkdtempSync(join(tmpdir(), "workflow-manual-status-home-"));
+  const sharedRoot = join(home, "shared");
+  const trustedReceipt = createManualBoundaryReceipt({
+    rootPlanText: plan.text,
+    pluginRoot: root,
+    workspaceRoot: root,
+    recoveryErrorCode: "repository-observation-conflict",
+    options: { baseRoot: sharedRoot },
+  });
+  const trustedBoundaryReview = {
+    ...boundaryReview,
+    text: boundaryReview.text
+      .replace(/^  receipt_id:.*$/m, `  receipt_id: ${trustedReceipt.receipt_id}`)
+      .replace(/^  observed_at:.*$/m, `  observed_at: ${trustedReceipt.observed_at}`)
+      .replace(/^  recovery_error_code:.*$/m, `  recovery_error_code: ${trustedReceipt.recovery_error_code}`)
+      .replace(/^  reason_codes:.*$/m, `  reason_codes: [${trustedReceipt.reason_codes.join(", ")}]`)
+      .replace(/^  repository_snapshot_hash:.*$/m, `  repository_snapshot_hash: ${trustedReceipt.repository_snapshot_hash}`)
+      .replace(/^  observed_paths:.*$/m, `  observed_paths: [${trustedReceipt.observed_paths.join(", ")}]`),
+  };
   const transport = new StdioClientTransport({
     command: process.execPath,
     args: [join(root, "dist", "workflow-mcp.mjs")],
     cwd: root,
-    env: { ...process.env, HOME: home, CURSOR_PLUGIN_ROOT: root },
+    env: { ...process.env, HOME: home, CURSOR_PLUGIN_ROOT: root, GELDMACHER_WORKFLOW_SHARED_ROOT: sharedRoot },
     stderr: "pipe",
   });
   const client = workflowClient("workflow-manual-status-test", [root]);
@@ -236,8 +312,18 @@ test("manual workflow_status is read-only and creates no controller state", asyn
     assert.equal(fresh.structuredContent.snapshot.state, "delivery-ready-provisional");
     assert.equal(fresh.structuredContent.presentation.outcome, "partial");
     assert.equal(fresh.structuredContent.presentation.help.topic, "manual-state-delivery-ready-provisional");
-    assert.match(fresh.content[0].text, /workflow_status — partial/);
+    assert.match(fresh.content[0].text, /## Workflow · Provisional acceptance required/);
+    assert.match(fresh.content[0].text, /Technical traceability[\s\S]*workflow_status — partial/);
     assert.equal(accepted.structuredContent.presentation.outcome, "ready");
+    const boundary = await client.callTool({
+      name: "workflow_status",
+      arguments: { workspace_root: root, root_plan_id: rootPlanId, artifacts: [plan, trustedBoundaryReview] },
+    });
+    assert.equal(boundary.isError, false);
+    assert.equal(boundary.structuredContent.snapshot.next_action, "replan");
+    assert.equal(boundary.structuredContent.presentation.journey_state, "replan-approval-required");
+    assert.equal(boundary.structuredContent.presentation.primary_action.id, "replan");
+    assert.match(boundary.content[0].text, /Workflow · Replan approval required/);
     assert.equal(existsSync(join(home, ".cursor", "geldmacher-workflow")), false);
   } finally {
     await client.close().catch(() => {});

@@ -1,6 +1,7 @@
 import { ArtifactHandoffStore, createContentAddressedHandoffStore, resolveRootPlanText } from "../controller/artifact-handoff.mjs";
 import { deriveManualLearningProjection, deriveManualWorkflowSnapshot } from "../controller/manual-status.mjs";
 import { resolveHostToolApproval } from "../core/host-preferences.mjs";
+import { boundaryReceiptVerifier } from "../core/manual-boundary-receipts.mjs";
 import { resolveManualSubagentPolicy } from "../core/manual-subagent-policy.mjs";
 import { sharedArtifactStateRoot } from "../core/state-paths.mjs";
 import { modelInheritanceSummary } from "../../hooks/model-inheritance-state.mjs";
@@ -99,6 +100,9 @@ export function registerManualWorkflowTools({
         artifacts: input.artifacts,
         pluginRoot,
         manualAcceptance: input.manual_acceptance ?? null,
+        boundaryReceiptVerifier: workspace
+          ? boundaryReceiptVerifier({ pluginRoot, workspaceRoot: workspace })
+          : null,
       });
       return statusResult({
         subject_kind: "artifact-chain",

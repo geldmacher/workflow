@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -687,7 +687,7 @@ test("Cursor closeout guard records lean Evidence despite interpretative normali
   });
 });
 
-test("Cursor closeout guard records active Root from Implement Plan prompts", () => {
+test("Cursor closeout guard rejects malformed Implement Plan Roots and records one exact valid Root", () => {
   withState((stateRoot) => {
     const base = {
       conversation_id: "conv-active-root-prompt",
@@ -705,14 +705,186 @@ test("Cursor closeout guard records active Root from Implement Plan prompts", ()
       "",
       "Add retries for transient MCP tool failures.",
     ].join("\n");
-    assert.deepEqual(evaluateCloseoutGuard({
+    const malformed = evaluateCloseoutGuard({
       ...base,
       hook_event_name: "beforeSubmitPrompt",
       prompt: envelope,
+    }, { stateRoot });
+    assert.equal(malformed.permission, "deny");
+    assert.match(malformed.user_message, /missing required section Acceptance/);
+    assert.equal(readActiveRootPlan(base, { stateRoot }), null);
+    assert.deepEqual(evaluateCloseoutGuard({
+      ...base,
+      hook_event_name: "beforeSubmitPrompt",
+      prompt: `Please implement this plan.\n\n${leanRoot}`,
     }, { stateRoot }), {});
     const active = readActiveRootPlan(base, { stateRoot });
     assert.equal(active?.root_plan_id, "wp-retry");
     assert.match(String(active?.root_content_hash ?? ""), /^[a-f0-9]{64}$/);
+  });
+});
+
+test("Cursor implementation blocks missing Root, baseline failure, and direct out-of-authority paths before mutation", () => {
+  withState((stateRoot) => {
+    const repository = mkdtempSync(join(tmpdir(), "cursor-authority-gate-"));
+    try {
+      mkdirSync(join(repository, "src"), { recursive: true });
+      const base = {
+        conversation_id: "conv-authority-gate",
+        generation_id: "gen-authority-gate",
+        workspace_roots: [repository],
+      };
+      const missing = evaluateCloseoutGuard({
+        ...base,
+        hook_event_name: "beforeSubmitPrompt",
+        prompt: "Please implement this plan.",
+      }, { stateRoot });
+      assert.equal(missing.permission, "deny");
+      assert.match(missing.user_message, /Plan required/);
+
+      assert.deepEqual(evaluateCloseoutGuard({
+        ...base,
+        hook_event_name: "beforeSubmitPrompt",
+        prompt: `Please implement this plan.\n\n${leanRoot}`,
+      }, { stateRoot }), {});
+      const baselineFailure = evaluateCloseoutGuard({
+        ...base,
+        hook_event_name: "preToolUse",
+        tool_name: "Edit",
+        tool_input: { file_path: join(repository, "src/retry.mjs") },
+      }, {
+        stateRoot,
+        captureRepositorySnapshot: () => { throw new Error("snapshot unavailable"); },
+      });
+      assert.equal(baselineFailure.permission, "deny");
+      assert.match(baselineFailure.user_message, /baseline could not be captured.*snapshot unavailable/i);
+
+      const secondBase = { ...base, conversation_id: "conv-authority-path", generation_id: "gen-authority-path" };
+      assert.deepEqual(evaluateCloseoutGuard({
+        ...secondBase,
+        hook_event_name: "beforeSubmitPrompt",
+        prompt: `Implement the plan.\n\n${leanRoot}`,
+      }, { stateRoot }), {});
+      const capture = () => ({ repository_root: repository, snapshot_id: "baseline" });
+      const outside = evaluateCloseoutGuard({
+        ...secondBase,
+        hook_event_name: "preToolUse",
+        tool_name: "Edit",
+        tool_input: { file_path: join(repository, "outside.txt") },
+      }, { stateRoot, captureRepositorySnapshot: capture });
+      assert.equal(outside.permission, "deny");
+      assert.match(outside.user_message, /outside Root authority/);
+      const outsidePatch = evaluateCloseoutGuard({
+        ...secondBase,
+        hook_event_name: "preToolUse",
+        tool_name: "ApplyPatch",
+        tool_input: "*** Begin Patch\n*** Add File: outside-patch.txt\n+blocked\n*** End Patch",
+      }, { stateRoot, captureRepositorySnapshot: capture });
+      assert.equal(outsidePatch.permission, "deny");
+      assert.match(outsidePatch.user_message, /outside Root authority/);
+      const traversal = evaluateCloseoutGuard({
+        ...secondBase,
+        hook_event_name: "preToolUse",
+        tool_name: "Edit",
+        tool_input: { file_path: "src/../outside-traversal.txt" },
+      }, { stateRoot, captureRepositorySnapshot: capture });
+      assert.equal(traversal.permission, "deny");
+      assert.match(traversal.user_message, /outside Root authority/);
+      const moveDestination = evaluateCloseoutGuard({
+        ...secondBase,
+        hook_event_name: "preToolUse",
+        tool_name: "ApplyPatch",
+        tool_input: "*** Begin Patch\n*** Update File: src/retry.mjs\n*** Move to: outside-move.mjs\n*** End Patch",
+      }, { stateRoot, captureRepositorySnapshot: capture });
+      assert.equal(moveDestination.permission, "deny");
+      assert.match(moveDestination.user_message, /outside Root authority/);
+      writeFileSync(join(repository, "outside-target.txt"), "protected\n");
+      symlinkSync("../outside-target.txt", join(repository, "src/link.txt"));
+      const symlinkDestination = evaluateCloseoutGuard({
+        ...secondBase,
+        hook_event_name: "preToolUse",
+        tool_name: "Edit",
+        tool_input: { file_path: "src/link.txt" },
+      }, { stateRoot, captureRepositorySnapshot: capture });
+      assert.equal(symlinkDestination.permission, "deny");
+      assert.match(symlinkDestination.user_message, /outside Root authority/);
+      assert.deepEqual(evaluateCloseoutGuard({
+        ...secondBase,
+        hook_event_name: "preToolUse",
+        tool_name: "Edit",
+        tool_input: { file_path: join(repository, "src/retry.mjs") },
+      }, { stateRoot, captureRepositorySnapshot: capture }), {});
+    } finally {
+      rmSync(repository, { recursive: true, force: true });
+    }
+  });
+});
+
+test("Cursor Review is read-only and correction selector stays bound to the exact Root", () => {
+  withState((stateRoot) => {
+    const repository = mkdtempSync(join(tmpdir(), "cursor-review-write-gate-"));
+    try {
+      mkdirSync(join(repository, "src"), { recursive: true });
+      const base = {
+        conversation_id: "conv-review-write-gate",
+        generation_id: "gen-review-write-gate",
+        workspace_roots: [repository],
+      };
+      assert.deepEqual(evaluateCloseoutGuard({
+        ...base,
+        hook_event_name: "beforeSubmitPrompt",
+        prompt: `Implement the plan.\n\n${leanRoot}`,
+      }, { stateRoot }), {});
+      const correctionMismatch = evaluateCloseoutGuard({
+        ...base,
+        hook_event_name: "beforeSubmitPrompt",
+        prompt: "/correct-work wp-other",
+      }, { stateRoot });
+      assert.equal(correctionMismatch.permission, "deny");
+      assert.match(correctionMismatch.user_message, /wp-other.*task-bound Root wp-retry/i);
+
+      assert.deepEqual(evaluateCloseoutGuard({
+        ...base,
+        hook_event_name: "beforeSubmitPrompt",
+        prompt: "/review-work wp-retry",
+      }, { stateRoot }), {});
+      const deniedEdit = evaluateCloseoutGuard({
+        ...base,
+        hook_event_name: "preToolUse",
+        tool_name: "Edit",
+        tool_input: { file_path: "src/retry.mjs" },
+      }, { stateRoot });
+      assert.equal(deniedEdit.permission, "deny");
+      assert.match(deniedEdit.user_message, /Review is repository-read-only/);
+      assert.deepEqual(evaluateCloseoutGuard({
+        ...base,
+        hook_event_name: "preToolUse",
+        tool_name: "Shell",
+        tool_input: { command: "git diff -- src/retry.mjs" },
+      }, { stateRoot }), {});
+      const unprotectedAuditor = evaluateCloseoutGuard({
+        ...base,
+        hook_event_name: "preToolUse",
+        tool_name: "Task",
+        tool_input: {
+          subagent_type: "delivery-auditor",
+          prompt: "[workflow-readonly-review-v1] Inspect only.",
+        },
+      }, { stateRoot });
+      assert.equal(unprotectedAuditor.permission, "deny");
+      assert.deepEqual(evaluateCloseoutGuard({
+        ...base,
+        hook_event_name: "preToolUse",
+        tool_name: "Task",
+        tool_input: {
+          subagent_type: "delivery-auditor",
+          readonly: true,
+          prompt: "[workflow-readonly-review-v1] Inspect only.",
+        },
+      }, { stateRoot }), {});
+    } finally {
+      rmSync(repository, { recursive: true, force: true });
+    }
   });
 });
 

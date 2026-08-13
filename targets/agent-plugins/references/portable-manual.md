@@ -23,6 +23,8 @@ This Agent Plugins target implements only Workflow's Manual profile. Agent Plugi
 4. A fresh `review-work` invocation inspects the exact Root/Evidence chain read-only and emits the Review.
 5. `correct-work`, `accept-work`, and `learn-from-work` remain separate human decisions.
 
+If one read-only recovery proves that Evidence cannot exist after mutation because the baseline, Root binding, workspace identity, or Authority boundary was lost, `review-work` may emit the constrained root-boundary Review only when the client supplies and validates a protected short-lived host receipt bound to the exact Root and current repository snapshot. Portable skill execution cannot mint that trust and must otherwise fail closed. The Review's sole action is a separately approved lineage-preserving replan; it grants no correction, acceptance, achievement, or Learning authority.
+
 All MCP persistence must remain below the client-provided `PLUGIN_DATA`. The package is immutable runtime material below `PLUGIN_ROOT`.
 
-Human-facing closeout, status, and review lead with what happened and one next action. Human attention and Problems appear only when actionable and explain why plus one recovery. Receipts, when available, contain hashes rather than raw command output and never create cross-delivery analytics or automatic learning.
+Human-facing closeout, status, and review use one primary journey action. IDs, paths, receipts, and `enforcement_level: explicit` live in secondary Technical traceability. Human attention and Problems appear only when actionable and explain why plus one recovery. Receipts, when available, contain hashes rather than raw command output and never create cross-delivery analytics or automatic learning.

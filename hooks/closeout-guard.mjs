@@ -29,22 +29,30 @@ import {
   invalidateManualCheckReceipts,
   isReadOnlyShell,
   captureRepositorySnapshot,
+  assertChangedPathAuthority,
+  directMutationTargets,
   deriveRepositoryDelta,
   parseCloseoutInput,
   performNativeCloseout,
   readCloseoutRecord,
   rootContentHash,
+  manualJourneyDecision,
+  createManualBoundaryReceipt,
+  verifyManualBoundaryReceipt,
 } from "../scripts/validate-artifact.mjs";
 import {
   hashWorkflowIdentifier,
   workflowStateRoot,
 } from "./model-inheritance-state.mjs";
-
 const MAX_INPUT_BYTES = 1024 * 1024;
 const pluginRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-const IMPLEMENTATION_MARKER = /\[workflow-model-inherit-v1\]|\/(?:correct-work|close-work)\b|Implement(?: the)? [Pp]lan/;
+const IMPLEMENT_PLAN_MARKER = /\b(?:implement(?:\s+(?:this|the))?\s+plan|plan\s+implementieren|implementiere\s+(?:diesen\s+)?plan)\b/i;
+const IMPLEMENTATION_MARKER = /\[workflow-model-inherit-v1\]|\/(?:correct-work|close-work)\b|\b(?:implement(?:\s+(?:this|the))?\s+plan|plan\s+implementieren|implementiere\s+(?:diesen\s+)?plan)\b/i;
 const REVIEW_MARKER = /\/(?:review-work)\b|\[workflow-codex-review-v1\]/;
-const MUTATING_TOOL = /^(?:Write|Edit|Delete|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook)$/i;
+const MUTATING_TOOL = /^(?:Write|Edit|Delete|Task|Agent|spawn_agent|ApplyPatch|apply_patch|DeleteFile|StrReplace|EditNotebook)$/i;
+const ROOT_ID = /\bwp-[A-Za-z0-9][A-Za-z0-9-]*\b/;
+const READONLY_REVIEW_MARKER = "[workflow-readonly-review-v1]";
+const READONLY_REVIEW_AGENTS = new Set(["delivery-auditor", "risk-auditor", "work-design-auditor"]);
 const PLAN_CLOSEOUT_ATTESTATION = Object.freeze({
   schema: 1,
   kind: "plan-closeout",
@@ -167,6 +175,16 @@ function isMutatingTool(input) {
   return MUTATING_TOOL.test(name);
 }
 
+function isHostEnforcedReadOnlyReviewAgent(input) {
+  if (!/^(?:Task|Agent|spawn_agent)$/i.test(String(input.tool_name ?? ""))) return false;
+  const source = toolInputObject(input);
+  const prompt = String(source.prompt ?? source.task ?? "");
+  const agent = String(source.subagent_type ?? source.agent_type ?? "");
+  return source.readonly === true
+    && prompt.includes(READONLY_REVIEW_MARKER)
+    && READONLY_REVIEW_AGENTS.has(agent);
+}
+
 function isPlanCloseoutAttestation(value) {
   return Boolean(
     value
@@ -213,6 +231,46 @@ function extractRootPlanText(source) {
     return bare[1];
   }
   return null;
+}
+
+function exactSchemaArtifact(source, artifactType, options = {}) {
+  const text = String(source ?? "");
+  const starts = [...text.matchAll(/^---\r?$/gm)].map((match) => match.index).filter(Number.isInteger);
+  for (const start of starts) {
+    const candidate = text.slice(start);
+    const inspected = (options.inspectArtifactText ?? inspectArtifactText)(candidate, options.pluginRoot ?? pluginRoot);
+    if (inspected.errors.length === 0 && inspected.artifact?.fields?.artifact === artifactType && inspected.artifact.fields.schema === 5) return candidate;
+  }
+  const inspected = (options.inspectArtifactText ?? inspectArtifactText)(text, options.pluginRoot ?? pluginRoot);
+  return inspected.errors.length === 0 && inspected.artifact?.fields?.artifact === artifactType && inspected.artifact.fields.schema === 5 ? text : null;
+}
+
+function nativeCloseoutErrorCode(error) {
+  const message = String(error?.message ?? error);
+  if (/different immutable bytes|conflicting text|Root-content hash|Root mismatch/i.test(message)) return "artifact-text-conflict";
+  if (/outside Root authority|protected by the Root|requires separate human approval|path escapes|resolves outside/i.test(message)) return "authority-violation";
+  if (/repository baseline.*unavailable/i.test(message)) return "baseline-unavailable-after-mutation";
+  if (/repository baseline|repository delta|repository snapshot|repository root changed|HEAD changed/i.test(message)) return "repository-observation-conflict";
+  return "native-closeout-failed";
+}
+
+function captureBoundaryReceipt(input, turn, active, errorCode, options = {}) {
+  if (turn.phase !== "review" || typeof active?.root_plan_text !== "string") return null;
+  try {
+    const workspaceRoot = workspaceRootForInput(input, options);
+    const receipt = (options.createManualBoundaryReceipt ?? createManualBoundaryReceipt)({
+      rootPlanText: active.root_plan_text,
+      pluginRoot: options.pluginRoot ?? pluginRoot,
+      workspaceRoot,
+      recoveryErrorCode: errorCode,
+      captureSnapshot: options.captureRepositorySnapshot ?? captureRepositorySnapshot,
+      now: options.now,
+      options: options.receiptOptions ?? {},
+    });
+    return { receipt, workspaceRoot };
+  } catch {
+    return null;
+  }
 }
 
 export function recordActiveRootPlan(input, {
@@ -337,12 +395,29 @@ function workspaceRootForInput(input, options = {}) {
   return process.cwd();
 }
 
+function inspectBoundActiveRoot(active, options = {}) {
+  if (!active?.root_plan_id || typeof active.root_plan_text !== "string") {
+    return { ok: false, reason: "No exact task-bound Schema-5 Root is available." };
+  }
+  const inspected = (options.inspectArtifactText ?? inspectArtifactText)(active.root_plan_text, options.pluginRoot ?? pluginRoot);
+  const fields = inspected.artifact?.fields;
+  if (inspected.errors.length > 0 || fields?.artifact !== "work-plan" || fields?.schema !== 5 || fields.id !== active.root_plan_id) {
+    return { ok: false, reason: `The task-bound Root is invalid: ${inspected.errors[0] ?? "Root identity mismatch"}` };
+  }
+  if (active.root_content_hash !== rootContentHash(active.root_plan_text)) {
+    return { ok: false, reason: "The task-bound Root bytes no longer match their recorded hash." };
+  }
+  return { ok: true, fields };
+}
+
 function captureBaselineBeforeMutation(input, options = {}) {
-  if (!isMutatingTool(input) || isWorkflowCloseoutTool(input.tool_name)) return;
+  if (!isMutatingTool(input) || isWorkflowCloseoutTool(input.tool_name)) return { ok: true };
   const active = readActiveRootPlan(input, options);
   const turn = readTurn(input, options) ?? {};
   const phase = turn.phase ?? null;
-  if (!active?.root_plan_id || turn.required !== true || !["implementation", "correction"].includes(phase) || turn.repository_baseline) return;
+  if (!active?.root_plan_id || turn.required !== true || !["implementation", "correction"].includes(phase)) return { ok: false, reason: "This mutation is not bound to an approved implementation or correction phase." };
+  if (turn.repository_baseline) return { ok: true };
+  if (turn.repository_baseline_error) return { ok: false, reason: turn.repository_baseline_error };
   try {
     const capture = options.captureRepositorySnapshot ?? captureRepositorySnapshot;
     writeTurn(input, {
@@ -352,14 +427,49 @@ function captureBaselineBeforeMutation(input, options = {}) {
       repository_baseline: capture(workspaceRootForInput(input, options)),
       repository_baseline_error: null,
     }, options);
+    return { ok: true };
   } catch (error) {
+    const reason = String(error?.message ?? error);
     writeTurn(input, {
       ...turn,
       required: true,
       phase,
-      repository_baseline_error: String(error?.message ?? error),
+      repository_baseline_error: reason,
     }, options);
+    return { ok: false, reason };
   }
+}
+
+function evaluateMutationAuthorityGate(input, options = {}) {
+  if (!isMutatingTool(input) || isWorkflowCloseoutTool(input.tool_name)) return {};
+  const turn = readTurn(input, options) ?? {};
+  if (turn.phase === "review") {
+    if (isHostEnforcedReadOnlyReviewAgent(input)) return {};
+    return deny(manualJourneyDecision({
+      state: "blocked",
+      blocker: "Review is repository-read-only; repository writes require a separately approved correction.",
+      action: "retry-review",
+      trace: { root_plan_id: readActiveRootPlan(input, options)?.root_plan_id ?? null },
+    }));
+  }
+  if (!["implementation", "correction"].includes(turn.phase)) return {};
+  const active = readActiveRootPlan(input, options);
+  const bound = inspectBoundActiveRoot(active, options);
+  if (!bound.ok) return deny(`Workflow · Blocked. ${bound.reason} Next: return to the approved Plan or correction before editing.`);
+  const baseline = captureBaselineBeforeMutation(input, options);
+  if (!baseline.ok) return deny(`Workflow · Blocked. The pre-mutation repository baseline could not be captured: ${baseline.reason} Next: resolve the repository observation problem, then retry the same approved phase.`);
+  try {
+    const repositoryRoot = workspaceRootForInput(input, options);
+    const targets = directMutationTargets({
+      toolName: input.tool_name,
+      toolInput: input.tool_input,
+      repositoryRoot,
+    });
+    assertChangedPathAuthority(bound.fields, targets, repositoryRoot);
+  } catch (error) {
+    return deny(`Workflow · Blocked. ${String(error?.message ?? error)} Next: use /plan-work replan if the required path is outside the approved Root.`);
+  }
+  return {};
 }
 
 function capturePendingCheckReceipt(input, options = {}) {
@@ -463,10 +573,17 @@ function evaluateBeforeSubmitPrompt(input, options = {}) {
         ? "implementation"
         : null;
   if (!phase) return {};
+  const requiresBoundRoot = phase === "correction" || (phase === "implementation" && IMPLEMENT_PLAN_MARKER.test(prompt));
+  const selectedRootId = prompt.match(ROOT_ID)?.[0] ?? null;
   const rootText = extractRootPlanText(prompt);
   if (!rootText) {
     const active = readActiveRootPlan(input, options);
     if (active?.root_plan_id) {
+      const bound = inspectBoundActiveRoot(active, options);
+      if (requiresBoundRoot && !bound.ok) return deny(`Workflow · Plan required. ${bound.reason} Next: present and approve one valid Schema-5 Root.`);
+      if (requiresBoundRoot && selectedRootId && selectedRootId !== active.root_plan_id) {
+        return deny(`Workflow · Blocked. The approved selector ${selectedRootId} does not match the task-bound Root ${active.root_plan_id}. Next: approve the exact current Root only.`);
+      }
       recordActiveRootPlan(input, {
         rootPlanId: active.root_plan_id,
         rootContentHash: active.root_content_hash,
@@ -474,12 +591,25 @@ function evaluateBeforeSubmitPrompt(input, options = {}) {
         phase,
       }, options);
       writeTurn(input, { required: phase !== "review", phase }, options);
+    } else if (requiresBoundRoot) {
+      return deny("Workflow · Plan required. Implement Plan and correction need one exact valid Root bound to this conversation. Next: present and approve the Schema-5 Plan.");
     }
     return {};
   }
   const inspected = (options.inspectArtifactText ?? inspectArtifactText)(rootText, options.pluginRoot ?? pluginRoot);
   const rootPlanId = inspected.artifact?.fields?.id ?? null;
-  if (!rootPlanId) return {};
+  if (inspected.errors.length > 0 || inspected.artifact?.fields?.artifact !== "work-plan" || inspected.artifact?.fields?.schema !== 5 || !rootPlanId) {
+    return requiresBoundRoot
+      ? deny(`Workflow · Plan required. The supplied Root is invalid: ${inspected.errors[0] ?? "invalid Schema-5 Root"}. Next: repair and approve the Plan.`)
+      : {};
+  }
+  if (requiresBoundRoot && selectedRootId && selectedRootId !== rootPlanId) {
+    return deny(`Workflow · Blocked. The approved selector ${selectedRootId} does not match the supplied Root ${rootPlanId}. Next: use one exact Root only.`);
+  }
+  const active = readActiveRootPlan(input, options);
+  if (requiresBoundRoot && active?.root_plan_id && active.root_plan_id !== rootPlanId) {
+    return deny(`Workflow · Blocked. The supplied Root ${rootPlanId} does not match the task-bound Root ${active.root_plan_id}. Next: return to the exact approved Plan or correction.`);
+  }
   recordActiveRootPlan(input, { rootPlanId, rootPlanText: rootText, phase }, options);
   writeTurn(input, { required: phase !== "review", phase }, options);
   return {};
@@ -551,7 +681,8 @@ export function evaluateCloseoutGuard(input, options = {}) {
   }
 
   if (event === "preToolUse") {
-    captureBaselineBeforeMutation(input, options);
+    const mutationGate = evaluateMutationAuthorityGate(input, options);
+    if (mutationGate.permission === "deny") return mutationGate;
     capturePendingCheckReceipt(input, options);
     return evaluateTodoWriteGate(input, options);
   }
@@ -696,6 +827,8 @@ export function evaluateCloseoutGuard(input, options = {}) {
           final_text: text.slice(0, 200_000),
         }, options);
       } catch (error) {
+        const errorCode = nativeCloseoutErrorCode(error);
+        const boundary = captureBoundaryReceipt(input, turn, active, errorCode, options);
         writeTurn(input, {
           ...turn,
           required: true,
@@ -703,6 +836,11 @@ export function evaluateCloseoutGuard(input, options = {}) {
           closeout_recorded: false,
           native_closeout: false,
           native_closeout_error: String(error?.message ?? error),
+          native_closeout_error_code: errorCode,
+          ...(boundary ? {
+            boundary_receipt: boundary.receipt,
+            boundary_receipt_workspace_root: boundary.workspaceRoot,
+          } : {}),
           delivery_report_ok: false,
           final_text: text.slice(0, 200_000),
         }, options);
@@ -718,6 +856,46 @@ export function evaluateCloseoutGuard(input, options = {}) {
         final_text: text.slice(0, 200_000),
       }, options);
       return {};
+    }
+    if (phase === "review") {
+      const reviewText = exactSchemaArtifact(text, "work-review", options);
+      if (reviewText) {
+        const inspected = (options.inspectArtifactText ?? inspectArtifactText)(reviewText, options.pluginRoot ?? pluginRoot);
+        const fields = inspected.artifact.fields;
+        if (fields.root_plan_id !== active.root_plan_id) {
+          writeTurn(input, { ...turn, review_artifact_error: `review Root ${fields.root_plan_id} does not match ${active.root_plan_id}`, final_text: text.slice(0, 200_000) }, options);
+          return {};
+        }
+        if (fields.review_basis === "root-boundary") {
+          const expected = turn.boundary_receipt;
+          const verified = expected?.receipt_id === fields.boundary_receipt?.receipt_id
+            ? (options.verifyManualBoundaryReceipt ?? verifyManualBoundaryReceipt)({
+              receipt: fields.boundary_receipt,
+              rootPlanText: active.root_plan_text,
+              pluginRoot: options.pluginRoot ?? pluginRoot,
+              workspaceRoot: turn.boundary_receipt_workspace_root,
+              captureSnapshot: options.captureRepositorySnapshot ?? captureRepositorySnapshot,
+              now: options.now,
+              options: options.receiptOptions ?? {},
+            })
+            : { ok: false, reason: "no matching task-bound protected host receipt" };
+          if (verified?.ok !== true) {
+            writeTurn(input, { ...turn, review_artifact_error: `root-boundary review receipt is not trusted: ${verified?.reason ?? "host verification failed"}`, final_text: text.slice(0, 200_000) }, options);
+            return {};
+          }
+        }
+        writeTurn(input, {
+          ...turn,
+          required: false,
+          review_artifact_id: fields.id,
+          review_artifact_error: null,
+          native_closeout_error: null,
+          native_closeout_error_code: null,
+          boundary_receipt: null,
+          final_text: text.slice(0, 200_000),
+        }, options);
+        return {};
+      }
     }
     if (!turn?.required) return {};
     const completion = evaluateDeliveryCompletion(text, turn);
@@ -747,6 +925,10 @@ export function evaluateCloseoutGuard(input, options = {}) {
       if (turn.recovery_issued) return {};
       writeTurn(input, { ...turn, recovery_issued: true }, options);
       return reviewRecoveryFollowUp(turn);
+    }
+    if (turn?.review_artifact_error) return nativeCloseoutFailureFollowUp(turn.review_artifact_error);
+    if (turn?.boundary_receipt) {
+      return nativeCloseoutFailureFollowUp(`Evidence recovery is deterministically unavailable. Use only an insufficient-evidence/blocked/replan root-boundary review with this internal receipt: ${JSON.stringify(turn.boundary_receipt)}`);
     }
     if (turn?.native_closeout_error) return nativeCloseoutFailureFollowUp(turn.native_closeout_error);
     if (turn?.closeout_recorded && turn.delivery_report_ok) return {};

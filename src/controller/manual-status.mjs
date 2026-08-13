@@ -32,13 +32,14 @@ function baseInput(rootPlanId, entries, observedAt) {
   };
 }
 
-function summary(rootPlanId, entries, evidenceTip = null, reviewTip = null, learningCandidates = []) {
+function summary(rootPlanId, entries, evidenceTip = null, reviewTip = null, learningCandidates = [], traceability = {}) {
   return {
     root_plan_id: rootPlanId,
     artifact_count: entries.length,
     evidence_tip: evidenceTip,
     review_tip: reviewTip,
     learning_candidates: learningCandidates,
+    ...traceability,
   };
 }
 
@@ -119,7 +120,7 @@ export function resolveManualRootPlanId({ artifacts, pluginRoot }) {
   return activeRootFromEntries(normalizeEntries(artifacts), pluginRoot);
 }
 
-export function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot, observedAt = new Date().toISOString(), manualAcceptance = null }) {
+export function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot, observedAt = new Date().toISOString(), manualAcceptance = null, boundaryReceiptVerifier = null }) {
   if (manualAcceptance !== null && manualAcceptance !== "provisional") throw new Error("manual acceptance must be provisional");
   if (!Array.isArray(artifacts) || artifacts.length === 0) {
     if (manualAcceptance) throw new Error("manual provisional acceptance requires a complete current Schema 5 artifact chain");
@@ -200,9 +201,18 @@ export function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot
     return incomplete(rootPlanId, relatedEntries, observedAt, missingReferences);
   }
 
-  const chain = inspectArtifactSet(relatedEntries.map(({ label, text }) => [label, text]), pluginRoot);
+  const chain = inspectArtifactSet(
+    relatedEntries.map(({ label, text }) => [label, text]),
+    pluginRoot,
+    { boundaryReceiptVerifier },
+  );
   if (chain.errors.length > 0) {
     if (manualAcceptance) throw new Error(`manual provisional acceptance rejects an invalid artifact chain: ${chain.errors.join("; ")}`);
+    const boundaryTrustErrors = chain.errors.filter((error) => /root-boundary review requires a fresh protected host receipt|boundary receipt is not trusted|boundary receipt host verification failed/.test(error));
+    if (boundaryTrustErrors.length > 0) {
+      const blocked = incomplete(rootPlanId, relatedEntries, observedAt, boundaryTrustErrors);
+      return { ...blocked, diagnostics: unique([...blocked.diagnostics, ...chain.diagnostics]) };
+    }
     return invalid(rootPlanId, relatedEntries, observedAt, chain.errors, chain.diagnostics);
   }
   const tips = effectiveCliSummary(chain);
@@ -211,6 +221,7 @@ export function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot
   const root = chain.effective.get(rootPlanId);
   const evidence = evidenceTipId ? chain.effective.get(evidenceTipId) : null;
   const review = reviewTipId ? chain.effective.get(reviewTipId) : null;
+  const boundaryReview = review?.fields.review_basis === "root-boundary";
   const correctionEvidencePendingReview = Boolean(review
     && evidence?.fields.source_review_id === review.fields.id
     && evidence?.fields.subject_id === review.fields.correction_id);
@@ -241,14 +252,14 @@ export function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot
     root_schema_valid: true,
     artifact_chain_valid: true,
     plan_status: root.fields.status,
-    plan_approved: Boolean(evidence),
+    plan_approved: Boolean(evidence || boundaryReview),
     intent_ready: root.fields.intent_ready === true,
     material_open_decisions: root.fields.status !== "ready" || root.fields.intent_ready !== true,
     product_aligned: true,
     architecture_aligned: true,
     program_design_aligned: true,
     slices_ready: true,
-    execution_started: Boolean(evidence),
+    execution_started: Boolean(evidence || boundaryReview),
     evidence_tip: evidenceTipId,
     review_tip: reviewTipId,
     review: review?.fields ?? null,
@@ -259,12 +270,20 @@ export function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot
     manual_acceptance: manualAcceptance,
     acceptance_basis_hash: manualAcceptance ? artifactSetHash(relatedEntries) : null,
     correction_evidence_pending_review: correctionEvidencePendingReview,
+    boundary_review: boundaryReview,
     root_review_complete: !legacyReceiptGap && review?.fields.assessment === "achieved" && review?.fields.next_action === "none",
     more_slices: false,
   };
   return {
     snapshot: deriveWorkflowState(input),
-    artifact_summary: summary(rootPlanId, relatedEntries, evidenceTipId, reviewTipId, tips.learning_candidates),
+    artifact_summary: summary(rootPlanId, relatedEntries, evidenceTipId, reviewTipId, tips.learning_candidates, {
+      artifact_set_hash: artifactSetHash(relatedEntries),
+      root_content_hash: createHash("sha256").update(root.text).digest("hex"),
+      evidence_hash: evidence ? createHash("sha256").update(evidence.text).digest("hex") : null,
+      review_hash: review ? createHash("sha256").update(review.text).digest("hex") : null,
+      finding_ids: (review?.findings ?? []).map((finding) => finding["Finding key"]).filter(Boolean),
+      receipt_ids: [...new Set((evidence?.fields.check_evidence ?? []).flatMap((check) => check.artifact_hashes ?? []))],
+    }),
     diagnostics: unique([...chain.normalizations, ...chain.diagnostics]),
     ...constraintProjection,
   };

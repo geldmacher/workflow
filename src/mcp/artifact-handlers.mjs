@@ -10,6 +10,7 @@ import {
   invalidateManualCheckReceipts,
   loadManualCheckReceipts,
 } from "../core/manual-check-receipts.mjs";
+import { boundaryReceiptVerifier } from "../core/manual-boundary-receipts.mjs";
 import { inspectArtifactText } from "../../scripts/validate-artifact.source.mjs";
 import { modelInheritanceSummary } from "../../hooks/model-inheritance-state.mjs";
 import { isWorkspaceRootsUnavailable, WorkspaceRootError } from "./workspace-roots.mjs";
@@ -86,7 +87,7 @@ export function createArtifactHandlers({
     return { rootPlanText, root_content_hash, handoffStore, rootPlanId: resolvedId };
   };
 
-  const hydrateLineageArtifacts = (rootPlanText, handoffStore) => {
+  const hydrateLineageArtifacts = (rootPlanText, handoffStore, workspace = null) => {
     const seeded = [];
     let current = rootPlanText;
     const seen = new Set();
@@ -105,6 +106,7 @@ export function createArtifactHandlers({
       try { current = resolveRootPlanText(pluginRoot, { rootPlanId: predecessorId }); }
       catch { break; }
       const predecessorStore = handoffStoreFactory(current, pluginRoot);
+      bindBoundaryTrust(predecessorStore, workspace);
       try {
         const chain = predecessorStore.context(predecessorId, current);
         for (const entry of chain.artifacts) seeded.push({ label: entry.label, text: entry.text });
@@ -125,6 +127,12 @@ export function createArtifactHandlers({
         workspace_error: error,
       };
     }
+  };
+
+  const bindBoundaryTrust = (handoffStore, workspace) => {
+    handoffStore.artifactSetOptions = workspace
+      ? { boundaryReceiptVerifier: boundaryReceiptVerifier({ pluginRoot, workspaceRoot: workspace, options: receiptOptions }) }
+      : {};
   };
 
   const buildCloseout = (input, merged, workspace = null) => {
@@ -179,6 +187,7 @@ export function createArtifactHandlers({
     source_review_id: persisted.fields.source_review_id ?? null,
     predecessor_evidence_id: persisted.fields.predecessor_evidence_id ?? null,
     changed_paths: persisted.fields.changed_paths ?? input.changed_paths ?? [],
+    check_evidence: persisted.fields.check_evidence ?? [],
     duplicate: persisted.duplicate,
     handoff_persisted: persisted.handoff_persisted,
     handoff_authoritative: false,
@@ -225,7 +234,8 @@ export function createArtifactHandlers({
         });
       }
       const operational = await optionalOperational(input.workspace_root);
-      const lineage = hydrateLineageArtifacts(rootPlanText, handoffStore);
+      bindBoundaryTrust(handoffStore, operational.workspace);
+      const lineage = hydrateLineageArtifacts(rootPlanText, handoffStore, operational.workspace);
       const byId = new Map();
       for (const entry of [...lineage, ...input.artifacts]) {
         const inspected = inspectArtifactText(entry.text, pluginRoot);
@@ -286,6 +296,7 @@ export function createArtifactHandlers({
         artifacts: input.artifacts,
       });
       const operational = await optionalOperational(input.workspace_root);
+      bindBoundaryTrust(handoffStore, operational.workspace);
       const chain = handoffStore.context(input.root_plan_id, input.root_plan ?? null);
       return toolResult("workflow_artifact_context", {
         ...(operational.workspace ? { workspace_root: operational.workspace } : {}),

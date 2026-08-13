@@ -4,8 +4,8 @@ const require = __workflowCreateRequire(import.meta.url);
 import {
   ArtifactHandoffStore,
   quarantineContentAddressedHandoffArtifact
-} from "./chunks/chunk-ABS7MFJE.mjs";
-import "./chunks/chunk-LLOAY7ER.mjs";
+} from "./chunks/chunk-KBTCLDVF.mjs";
+import "./chunks/chunk-LERB6VEC.mjs";
 import {
   PreparationStore,
   RunStore,
@@ -110,7 +110,7 @@ var argument = (name) => {
   return index >= 0 ? process.argv[index + 1] : null;
 };
 var command = process.argv[2];
-if (!["inspect", "rebuild-index", "archive", "quarantine-handoff"].includes(command)) throw new Error("usage: state:maintenance <inspect|rebuild-index|archive> --workspace <absolute-path> [--subject <id>] [--apply] | quarantine-handoff --root-hash <sha256> --artifact <wr-id> --expected-text-hash <sha256> [--apply]");
+if (!["inspect", "rebuild-index", "archive", "quarantine-handoff"].includes(command)) throw new Error("usage: state:maintenance <inspect|rebuild-index|archive> --workspace <absolute-path> [--subject <id>] [--apply] | quarantine-handoff --root-hash <sha256> --artifact <wr|de-id> --expected-text-hash <sha256> [--apply]");
 if (command === "quarantine-handoff") {
   const rootHash = argument("root-hash");
   const artifactId = argument("artifact");

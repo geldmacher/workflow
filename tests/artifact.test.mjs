@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { PLAN_CLOSEOUT_ATTESTATION } from "../src/core/manual-attestation.mjs";
+import { createManualBoundaryReceipt, verifyManualBoundaryReceipt } from "../src/core/manual-boundary-receipts.mjs";
 import {
   authoritativeArtifactProjectionFromText,
   defaultRoot,
@@ -71,6 +74,53 @@ function replanReview({ rootId = "wp-adaptive-retry", evidenceId = "de-adaptive-
 function replanRoot({ id = "wp-adaptive-retry-v2", predecessorId = "wp-adaptive-retry", sourceReviewId = "wr-adaptive-replan" } = {}) {
   return plan
     .replace("id: wp-adaptive-retry", `id: ${id}\npredecessor_plan_id: ${predecessorId}\nreplan_source_review_id: ${sourceReviewId}`);
+}
+
+function boundaryReview({
+  rootText = plan,
+  reviewId = "wr-adaptive-boundary",
+  predecessorReviewId = null,
+  reasonCodes = ["out-of-authority-changes"],
+  observedPaths = ["unexpected/outside.txt"],
+} = {}) {
+  const rootHash = createHash("sha256").update(rootText).digest("hex");
+  return `---
+artifact: work-review
+schema: 5
+id: ${reviewId}
+status: complete
+root_plan_id: wp-adaptive-retry
+latest_evidence_id: null
+review_basis: root-boundary
+boundary_receipt:
+  receipt_id: br-${"c".repeat(64)}
+  observed_at: 2026-08-12T10:00:00.000Z
+  recovery_error_code: authority-violation
+  reason_codes: [${reasonCodes.join(", ")}]
+  root_content_hash: ${rootHash}
+  repository_snapshot_hash: ${"b".repeat(64)}
+  observed_paths: [${observedPaths.join(", ")}]
+assessment: insufficient-evidence
+delivery_status: blocked
+review_route: inline
+next_action: replan
+correction_id: null
+predecessor_review_id: ${predecessorReviewId ?? "null"}
+inspected_objectives: []
+reused_objectives: []
+inspected_checks: []
+reused_checks: []
+auditors_run: [inline]
+---
+
+## Assessment
+
+Insufficient-evidence. The exact Root cannot produce valid Delivery Evidence for the observed repository boundary.
+
+## Next action
+
+replan: create a separately approved replacement Root.
+`;
 }
 
 function evidenceFor(rootId, evidenceId) {
@@ -269,6 +319,90 @@ test("Schema 5 replan lineage is authoritative, linear, and bound to the current
   const reviewA = replanReview({ rootId: "wp-cycle-a", evidenceId: "de-cycle-a", reviewId: "wr-cycle-a" });
   const reviewB = replanReview({ rootId: "wp-cycle-b", evidenceId: "de-cycle-b", reviewId: "wr-cycle-b" });
   assert.match(inspectArtifactSet([["root-a", rootA], ["root-b", rootB], ["evidence-a", evidenceA], ["evidence-b", evidenceB], ["review-a", reviewA], ["review-b", reviewB]]).errors.join("\n"), /lineage is cyclic/);
+});
+
+test("root-boundary review unlocks only a lineage-preserving replan without fabricating Evidence", () => {
+  const boundary = boundaryReview();
+  const replacement = replanRoot({ sourceReviewId: "wr-adaptive-boundary" });
+  assert.deepEqual(validateArtifactText(boundary), []);
+  const trusted = { boundaryReceiptVerifier: () => ({ ok: true }) };
+  assert.match(inspectArtifactSet([["plan", plan], ["boundary", boundary], ["replacement", replacement]]).errors.join("\n"), /protected host receipt/);
+  assert.match(inspectArtifactSet([["plan", plan], ["boundary", boundary]], defaultRoot, { boundaryReceiptVerifier: () => ({ ok: false, reason: "stale snapshot" }) }).errors.join("\n"), /stale snapshot/);
+  const valid = inspectArtifactSet([["plan", plan], ["boundary", boundary], ["replacement", replacement]], defaultRoot, trusted);
+  assert.deepEqual(valid.errors, []);
+  assert.equal(valid.effective.get("wr-adaptive-boundary").effective.boundaryReview, true);
+  assert.equal(effectiveCliSummary(valid).active_root_id, "wp-adaptive-retry-v2");
+
+  assert.match(validateArtifactText(boundary.replace("review_basis: root-boundary\n", "")).join("\n"), /latest_evidence_id|must be string/);
+  assert.match(validateArtifactText(boundary.replace("next_action: replan", "next_action: correct")).join("\n"), /next_action|correction_id|learning_candidates/);
+  assert.match(validateArtifactText(boundary.replace("auditors_run: [inline]", "auditors_run: [inline]\nlearning_candidates: [LRN-invalid]")).join("\n"), /learning_candidates/);
+  assert.match(validateArtifactText(boundaryReview({ observedPaths: [] })).join("\n"), /observed_paths/);
+  assert.match(inspectArtifactSet([["plan", plan], ["boundary", boundary.replace(/^  root_content_hash:.*$/m, `  root_content_hash: ${"a".repeat(64)}`)]]).errors.join("\n"), /root_content_hash/);
+  assert.match(inspectArtifactSet([["plan", plan], ["boundary", boundaryReview({ observedPaths: ["/absolute.txt"] })]]).errors.join("\n"), /repository-relative/);
+});
+
+test("root-boundary host receipts are protected, current-snapshot-bound, and reject temporary recovery errors", () => {
+  const directory = mkdtempSync(join(tmpdir(), "workflow-boundary-receipt-"));
+  const workspace = join(directory, "workspace");
+  mkdirSync(workspace);
+  const snapshot = {
+    schema: 1,
+    repository_root: workspace,
+    head: "1".repeat(40),
+    dirty_paths: ["unexpected/outside.txt"],
+    fingerprints: { "unexpected/outside.txt": "file:test" },
+    index_fingerprint: "2".repeat(64),
+    status_fingerprint: "3".repeat(64),
+  };
+  const stateOptions = { baseRoot: join(directory, "state") };
+  try {
+    assert.throws(() => createManualBoundaryReceipt({
+      rootPlanText: plan,
+      pluginRoot: defaultRoot,
+      workspaceRoot: workspace,
+      recoveryErrorCode: "transport-timeout",
+      captureSnapshot: () => snapshot,
+      options: stateOptions,
+    }), /rejects recoverable or unknown error/);
+    const receipt = createManualBoundaryReceipt({
+      rootPlanText: plan,
+      pluginRoot: defaultRoot,
+      workspaceRoot: workspace,
+      recoveryErrorCode: "authority-violation",
+      captureSnapshot: () => snapshot,
+      now: () => new Date("2026-08-12T10:00:00.000Z"),
+      options: stateOptions,
+    });
+    assert.equal(verifyManualBoundaryReceipt({
+      receipt,
+      rootPlanText: plan,
+      pluginRoot: defaultRoot,
+      workspaceRoot: workspace,
+      captureSnapshot: () => snapshot,
+      now: () => new Date("2026-08-12T10:01:00.000Z"),
+      options: stateOptions,
+    }).ok, true);
+    assert.match(verifyManualBoundaryReceipt({
+      receipt,
+      rootPlanText: plan,
+      pluginRoot: defaultRoot,
+      workspaceRoot: workspace,
+      captureSnapshot: () => ({ ...snapshot, status_fingerprint: "4".repeat(64) }),
+      now: () => new Date("2026-08-12T10:01:00.000Z"),
+      options: stateOptions,
+    }).reason, /snapshot is stale/);
+    assert.match(verifyManualBoundaryReceipt({
+      receipt,
+      rootPlanText: plan,
+      pluginRoot: defaultRoot,
+      workspaceRoot: workspace,
+      captureSnapshot: () => snapshot,
+      now: () => new Date("2026-08-12T10:16:00.000Z"),
+      options: stateOptions,
+    }).reason, /expired/);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test("effective mutation tips are restricted to the unique active Root", () => {
