@@ -21,6 +21,12 @@ for (const name of externalWorkerPackages) {
   const metadata = JSON.parse(readFileSync(join(directory, "package.json"), "utf8"));
   if (metadata.version !== sdkVersion) throw new Error(`${name} must match pinned @cursor/sdk ${sdkVersion}`);
 }
+// Notices must list every optional Cursor platform package so CONTROLLER_THIRD_PARTY_NOTICES.md
+// is host-stable (Linux CI vs macOS local). Only the host platform package is required installed.
+const sdkOptionalPlatformPackages = Object.entries(
+  JSON.parse(readFileSync(join(root, "node_modules", "@cursor", "sdk", "package.json"), "utf8")).optionalDependencies || {},
+).filter(([name]) => name.startsWith("@cursor/sdk-")).sort(([left], [right]) => left.localeCompare(right));
+const sdkOptionalPlatformVersions = Object.fromEntries(sdkOptionalPlatformPackages);
 
 const common = {
   bundle: true,
@@ -128,24 +134,41 @@ function packageName(input) {
 
 const controllerPackages = [...new Set([
   ...[sharedResult, workerResult].flatMap((result) => Object.keys(result.metafile.inputs).map(packageName).filter(Boolean)),
-  ...externalWorkerPackages,
+  "@cursor/sdk",
+  ...sdkOptionalPlatformPackages.map(([name]) => name),
 ])].sort();
+// npm packages commonly ship LICENSE or lowercase license (e.g. path-key, cross-spawn).
+// Lookup must work on case-sensitive filesystems (Linux CI); do not rely on macOS case folding.
+const licenseFileNames = ["LICENSE", "LICENSE.md", "LICENSE.txt", "license", "license.md", "license.txt"];
+function findPackageLicense(directory) {
+  return licenseFileNames.map((file) => join(directory, file)).find(existsSync);
+}
+
 const noticeSections = controllerPackages.map((name) => {
   const directory = join(root, "node_modules", ...name.split("/"));
-  const metadata = JSON.parse(readFileSync(join(directory, "package.json"), "utf8"));
-  let licensePath = ["LICENSE", "LICENSE.md", "LICENSE.txt"].map((file) => join(directory, file)).find(existsSync);
-  if (!licensePath && name === `@cursor/${platformPackage}`) licensePath = join(root, "node_modules", "@cursor", "sdk", "LICENSE.md");
+  const packageJsonPath = join(directory, "package.json");
+  let metadata = null;
+  if (existsSync(packageJsonPath)) {
+    metadata = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+  } else if (sdkOptionalPlatformVersions[name]) {
+    metadata = { version: sdkOptionalPlatformVersions[name], license: "SEE LICENSE IN LICENSE.md" };
+  }
+  if (!metadata) throw new Error(`Controller package ${name} is missing package metadata`);
+  let licensePath = findPackageLicense(directory);
+  if (!licensePath && (name === "@cursor/sdk" || name.startsWith("@cursor/sdk-"))) {
+    licensePath = join(root, "node_modules", "@cursor", "sdk", "LICENSE.md");
+  }
   if (!licensePath) throw new Error(`Controller package ${name} has no distributable license file`);
   return `## ${name}@${metadata.version}\n\nDeclared license: ${metadata.license ?? "see text below"}\n\n\`\`\`text\n${readFileSync(licensePath, "utf8").trim()}\n\`\`\``;
 });
-const generatedNotices = `# Controller third-party notices\n\nThe built MCP/controller bundles contain the packages selected by the build, and the worker declares the exact Cursor SDK and matching platform package below as external runtime dependencies. License texts are reproduced from their installed packages; the Cursor platform package uses the Cursor SDK license shipped with the matching version. The external SDK is not copied into dist and must be proven present in the actually installed plugin before automation activation.\n\n${noticeSections.join("\n\n")}\n`;
+const generatedNotices = `# Controller third-party notices\n\nThe built MCP/controller bundles contain the packages selected by the build, and the worker declares the exact Cursor SDK and its optional platform packages below as external runtime dependencies. License texts are reproduced from their installed packages; each Cursor platform package uses the Cursor SDK license shipped with the matching version. The external SDK is not copied into dist and must be proven present in the actually installed plugin before automation activation.\n\n${noticeSections.join("\n\n")}\n`;
 
 const codexPackages = [...new Set(Object.keys(codexResult.metafile.inputs).map(packageName).filter(Boolean))].sort();
 if (codexPackages.some((name) => name.startsWith("@cursor/"))) throw new Error("Codex bundles must not include Cursor packages");
 const codexNoticeSections = codexPackages.map((name) => {
   const directory = join(root, "node_modules", ...name.split("/"));
   const metadata = JSON.parse(readFileSync(join(directory, "package.json"), "utf8"));
-  const licensePath = ["LICENSE", "LICENSE.md", "LICENSE.txt"].map((file) => join(directory, file)).find(existsSync);
+  const licensePath = findPackageLicense(directory);
   if (!licensePath) throw new Error(`Codex package ${name} has no distributable license file`);
   return `## ${name}@${metadata.version}\n\nDeclared license: ${metadata.license ?? "see text below"}\n\n\`\`\`text\n${readFileSync(licensePath, "utf8").trim()}\n\`\`\``;
 });
