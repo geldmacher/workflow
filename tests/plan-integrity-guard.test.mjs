@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { evaluateCreatePlanGuard } from "../hooks/plan-integrity-guard.mjs";
-import { evaluateCloseoutGuard, readActiveRootPlan } from "../hooks/closeout-guard.mjs";
+import { evaluateCloseoutGuard, readActiveRootPlan, readManualChain, updateManualChain } from "../hooks/closeout-guard.mjs";
 import { PLAN_CLOSEOUT_ATTESTATION } from "../src/core/manual-attestation.mjs";
 import { finalCloseoutTodo } from "./support/manual-attestation-fixtures.mjs";
-import { defaultRoot } from "../scripts/validate-artifact.source.mjs";
+import { defaultRoot, rootContentHash } from "../scripts/validate-artifact.source.mjs";
 
 const marker = "[workflow-model-inherit-v1]";
 const rootPlan = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
@@ -19,6 +19,66 @@ const replanRoot = rootPlan
   .replace("hard_triggers: []", "hard_triggers: []\npredecessor_plan_id: wp-adaptive-retry\nreplan_source_review_id: wr-adaptive-retry");
 const replanMatch = replanRoot.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
 const replanNativePlan = `# Adaptive retry v2\n\n\`\`\`yaml artifact-envelope\n${replanMatch[1]}\n\`\`\`\n${replanMatch[2]}`;
+const validReview = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-review.valid.md"), "utf8");
+const closeoutGuardModule = new URL("../hooks/closeout-guard.mjs", import.meta.url).href;
+
+function replanReviewText(reviewId = "wr-adaptive-retry") {
+  const finding = [
+    "| Finding key | Severity | Objectives | Checks | Evidence | Reasoning |",
+    "|---|---|---|---|---|---|",
+    "| root-boundary | medium | OBJ-1 | CHECK-1 | Current Root cannot authorize the requested change. | A fresh Root is required. |",
+  ].join("\n");
+  return validReview
+    .replace("id: wr-adaptive-retry", `id: ${reviewId}`)
+    .replace("assessment: achieved", "assessment: partially-achieved")
+    .replace("delivery_status: verified", "delivery_status: blocked")
+    .replace("next_action: none", "next_action: replan")
+    .replace("Achieved. The required evidence is verified and no finding remains.", "Partially-achieved. A fresh Root is required.")
+    .replace("## Findings\n\nNone.", `## Findings\n\n${finding}`)
+    .replace("## Next action\n\nNone.", "## Next action\n\nreplan: create a fresh Root.");
+}
+
+function seedReplanReview(input, options, reviewId = "wr-adaptive-retry") {
+  const artifact = replanReviewText(reviewId);
+  assert.equal(updateManualChain(input, {
+    current_review: {
+      review_artifact_id: reviewId,
+      review_artifact: artifact,
+      review_artifact_hash: rootContentHash(artifact),
+      latest_evidence_id: "de-adaptive-retry",
+      next_action: "replan",
+      correction_id: null,
+      recorded_at: new Date().toISOString(),
+    },
+    phase_status: "review-complete",
+  }, options), true);
+  return artifact;
+}
+
+function processUpdate(stateRoot, conversationId, key) {
+  const code = [
+    "const { updateManualChain } = await import(process.env.WORKFLOW_CLOSEOUT_GUARD);",
+    "const input = { conversation_id: process.env.WORKFLOW_CONVERSATION };",
+    "const key = process.env.WORKFLOW_PATCH_KEY;",
+    "if (!updateManualChain(input, { [key]: key }, { stateRoot: process.env.WORKFLOW_STATE_ROOT })) process.exit(2);",
+  ].join("\n");
+  return new Promise((resolvePromise, rejectPromise) => {
+    const child = spawn(process.execPath, ["--input-type=module", "-e", code], {
+      env: {
+        ...process.env,
+        WORKFLOW_CLOSEOUT_GUARD: closeoutGuardModule,
+        WORKFLOW_CONVERSATION: conversationId,
+        WORKFLOW_PATCH_KEY: key,
+        WORKFLOW_STATE_ROOT: stateRoot,
+      },
+      stdio: ["ignore", "ignore", "pipe"],
+    });
+    let stderr = "";
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.on("error", rejectPromise);
+    child.on("exit", (status) => status === 0 ? resolvePromise() : rejectPromise(new Error(`chain update child exited ${status}: ${stderr}`)));
+  });
+}
 
 function event(overrides = {}) {
   return {
@@ -133,7 +193,7 @@ test("CreatePlan guard rejects infeasible preflight", () => {
   assert.match(denied.user_message, /Root preflight failed|authority envelope incomplete|no Plan was created/);
 });
 
-test("Cursor replan suspends its predecessor and commits only a fresh lineage-valid receipt", () => {
+test("Cursor replan preserves its committed predecessor until a fresh lineage-valid receipt commits", () => {
   const stateRoot = mkdtempSync(join(tmpdir(), "workflow-plan-replan-receipt-"));
   const options = { pluginRoot: defaultRoot, stateRoot };
   try {
@@ -141,10 +201,12 @@ test("Cursor replan suspends its predecessor and commits only a fresh lineage-va
     assert.deepEqual(evaluateCreatePlanGuard(initial, options), {});
     assert.deepEqual(evaluateCreatePlanGuard(post(initial), options), {});
     assert.equal(readActiveRootPlan(initial, options).root_plan_id, "wp-adaptive-retry");
+    const predecessorReview = seedReplanReview(initial, options);
 
     const replanPrompt = promptEvent("/plan-work replan wp-adaptive-retry", { generation_id: "gen-replan" });
     assert.deepEqual(evaluateCreatePlanGuard(replanPrompt, options), {});
-    assert.equal(readActiveRootPlan(replanPrompt, options), null);
+    assert.equal(readActiveRootPlan(replanPrompt, options).root_plan_id, "wp-adaptive-retry");
+    assert.equal(readManualChain(replanPrompt, options).current_review.review_artifact, predecessorReview);
 
     const candidate = event({
       generation_id: "gen-replan",
@@ -156,7 +218,7 @@ test("Cursor replan suspends its predecessor and commits only a fresh lineage-va
       },
     });
     assert.deepEqual(evaluateCreatePlanGuard(candidate, options), {});
-    assert.equal(readActiveRootPlan(candidate, options), null);
+    assert.equal(readActiveRootPlan(candidate, options).root_plan_id, "wp-adaptive-retry");
     assert.deepEqual(evaluateCreatePlanGuard(post(candidate), options), {});
     const active = readActiveRootPlan(candidate, options);
     assert.equal(active.root_plan_id, "wp-adaptive-retry-v2");
@@ -171,13 +233,38 @@ test("Cursor replan suspends its predecessor and commits only a fresh lineage-va
     assert.equal(receipts[0].receipt.root_plan_id, "wp-adaptive-retry-v2");
     assert.equal(receipts[0].receipt.predecessor_plan_id, "wp-adaptive-retry");
     assert.equal(receipts[0].receipt.replan_source_review_id, "wr-adaptive-retry");
+    assert.equal(receipts[0].receipt.predecessor_root_content_hash, rootContentHash(rootPlan));
+    assert.equal(receipts[0].receipt.replan_source_review_hash, rootContentHash(predecessorReview));
     assert.match(receipts[0].receipt.root_content_hash, /^[a-f0-9]{64}$/);
+    const chain = readManualChain(candidate, options);
+    const predecessor = chain.lineage.at(-1);
+    assert.equal(predecessor.root.root_plan_text, rootPlan);
+    assert.equal(predecessor.root.root_content_hash, rootContentHash(rootPlan));
+    assert.equal(predecessor.current_review.review_artifact, predecessorReview);
+    assert.equal(predecessor.current_review.review_artifact_hash, rootContentHash(predecessorReview));
+    const processRead = spawnSync(process.execPath, ["--input-type=module", "-e", [
+      "const { readManualChain } = await import(process.env.WORKFLOW_CLOSEOUT_GUARD);",
+      "const chain = readManualChain({ conversation_id: process.env.WORKFLOW_CONVERSATION }, { stateRoot: process.env.WORKFLOW_STATE_ROOT });",
+      "process.stdout.write(JSON.stringify(chain));",
+    ].join("\n")], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        WORKFLOW_CLOSEOUT_GUARD: closeoutGuardModule,
+        WORKFLOW_CONVERSATION: candidate.conversation_id,
+        WORKFLOW_STATE_ROOT: stateRoot,
+      },
+    });
+    assert.equal(processRead.status, 0, processRead.stderr);
+    const processChain = JSON.parse(processRead.stdout);
+    assert.equal(processChain.lineage.at(-1).root.root_plan_text, rootPlan);
+    assert.equal(processChain.lineage.at(-1).current_review.review_artifact, predecessorReview);
   } finally {
     rmSync(stateRoot, { recursive: true, force: true });
   }
 });
 
-test("failed, mismatched, and superseded replan receipts activate neither candidate nor predecessor", () => {
+test("failed, mismatched, and superseded replan receipts preserve the committed predecessor without activating the candidate", () => {
   for (const failure of ["post-mismatch", "tool-failure", "superseded"]) {
     const stateRoot = mkdtempSync(join(tmpdir(), `workflow-plan-replan-${failure}-`));
     const options = { pluginRoot: defaultRoot, stateRoot };
@@ -185,6 +272,7 @@ test("failed, mismatched, and superseded replan receipts activate neither candid
       const initial = event({ generation_id: `gen-initial-${failure}`, tool_use_id: `tool-initial-${failure}` });
       evaluateCreatePlanGuard(initial, options);
       evaluateCreatePlanGuard(post(initial), options);
+      seedReplanReview(initial, options);
       const replanPrompt = promptEvent("/plan-work replan", { generation_id: `gen-replan-${failure}` });
       assert.deepEqual(evaluateCreatePlanGuard(replanPrompt, options), {});
       const candidate = event({
@@ -201,15 +289,24 @@ test("failed, mismatched, and superseded replan receipts activate neither candid
         evaluateCreatePlanGuard(promptEvent("ordinary unrelated prompt", { generation_id: "gen-new-human" }), options);
         evaluateCreatePlanGuard(post(candidate), options);
       }
-      assert.equal(readActiveRootPlan(candidate, options), null, failure);
-      const reapproval = {
+      const active = readActiveRootPlan(candidate, options);
+      const chain = readManualChain(candidate, options);
+      assert.equal(active.root_plan_id, "wp-adaptive-retry", failure);
+      assert.equal(active.root_plan_text, rootPlan, failure);
+      assert.equal(chain.root.root_plan_id, "wp-adaptive-retry", failure);
+      assert.equal(chain.current_review.review_artifact_id, "wr-adaptive-retry", failure);
+      assert.equal(chain.current_review.next_action, "replan", failure);
+      const implicitResume = evaluateCloseoutGuard({
         hook_event_name: "beforeSubmitPrompt",
         conversation_id: candidate.conversation_id,
-        generation_id: `explicit-predecessor-reapproval-${failure}`,
-        prompt: `Implement Plan\n\n${rootPlan}`,
-      };
-      assert.deepEqual(evaluateCloseoutGuard(reapproval, options), {});
-      assert.equal(readActiveRootPlan(reapproval, options).root_plan_id, "wp-adaptive-retry");
+        generation_id: `implicit-predecessor-resume-${failure}`,
+        prompt: "Implement Plan",
+      }, options);
+      assert.equal(implicitResume.permission, "deny", failure);
+      assert.match(implicitResume.user_message, /requires replan|recovery context/i, failure);
+      assert.deepEqual(evaluateCreatePlanGuard(promptEvent("/plan-work replan", {
+        generation_id: `retry-replan-${failure}`,
+      }), options), {}, failure);
     } finally {
       rmSync(stateRoot, { recursive: true, force: true });
     }
@@ -230,6 +327,7 @@ test("replan requires explicit intent, fresh identity, and exact predecessor lin
     const initial = event({ generation_id: "lineage-initial", tool_use_id: "lineage-initial-tool" });
     evaluateCreatePlanGuard(initial, options);
     evaluateCreatePlanGuard(post(initial), options);
+    seedReplanReview(initial, options);
     evaluateCreatePlanGuard(promptEvent("/plan-work replan", { generation_id: "lineage-replan" }), options);
     for (const plan of [
       replanNativePlan.replace("id: wp-adaptive-retry-v2", "id: wp-adaptive-retry"),
@@ -244,6 +342,76 @@ test("replan requires explicit intent, fresh identity, and exact predecessor lin
       assert.equal(denied.permission, "deny");
       assert.match(denied.user_message, /fresh wp|predecessor_plan_id|replan_source_review_id|lineage/i);
     }
+  } finally {
+    rmSync(stateRoot, { recursive: true, force: true });
+  }
+});
+
+test("replan binds the exact current Review tip into the fresh CreatePlan receipt", () => {
+  const stateRoot = mkdtempSync(join(tmpdir(), "workflow-plan-current-review-"));
+  const options = { pluginRoot: defaultRoot, stateRoot };
+  try {
+    const initial = event({ generation_id: "current-review-initial", tool_use_id: "current-review-initial-tool" });
+    evaluateCreatePlanGuard(initial, options);
+    evaluateCreatePlanGuard(post(initial), options);
+    const predecessorReview = seedReplanReview(initial, options, "wr-current-replan");
+
+    const prompt = promptEvent("/plan-work replan", { generation_id: "current-review-replan" });
+    assert.deepEqual(evaluateCreatePlanGuard(prompt, options), {});
+    const candidate = event({
+      generation_id: "current-review-replan",
+      tool_use_id: "current-review-replan-tool",
+      tool_input: {
+        ...event().tool_input,
+        plan: replanNativePlan.replace("replan_source_review_id: wr-adaptive-retry", "replan_source_review_id: wr-current-replan"),
+      },
+    });
+    assert.deepEqual(evaluateCreatePlanGuard(candidate, options), {});
+    assert.deepEqual(evaluateCreatePlanGuard(post(candidate), options), {});
+    const chain = readManualChain(candidate, options);
+    assert.equal(chain.root.root_plan_id, "wp-adaptive-retry-v2");
+    assert.equal(chain.create_plan_receipt.predecessor_plan_id, "wp-adaptive-retry");
+    assert.equal(chain.create_plan_receipt.replan_source_review_id, "wr-current-replan");
+    assert.equal(chain.create_plan_receipt.predecessor_root_content_hash, rootContentHash(rootPlan));
+    assert.equal(chain.create_plan_receipt.replan_source_review_hash, rootContentHash(predecessorReview));
+    assert.equal(chain.lineage.at(-1).current_review.review_artifact, predecessorReview);
+  } finally {
+    rmSync(stateRoot, { recursive: true, force: true });
+  }
+});
+
+test("replan requires one exact current Review tip", () => {
+  const stateRoot = mkdtempSync(join(tmpdir(), "workflow-plan-replan-review-required-"));
+  const options = { pluginRoot: defaultRoot, stateRoot };
+  try {
+    const initial = event({ generation_id: "review-required-initial", tool_use_id: "review-required-tool" });
+    evaluateCreatePlanGuard(initial, options);
+    evaluateCreatePlanGuard(post(initial), options);
+    const missing = evaluateCreatePlanGuard(promptEvent("/plan-work replan", { generation_id: "review-required-replan" }), options);
+    assert.equal(missing.continue, false);
+    assert.match(missing.user_message, /exact current Review|fresh Review/i);
+  } finally {
+    rmSync(stateRoot, { recursive: true, force: true });
+  }
+});
+
+test("Manual chain commits serialize concurrent hook processes without lost updates", async () => {
+  const stateRoot = mkdtempSync(join(tmpdir(), "workflow-chain-concurrent-writers-"));
+  const conversationId = "concurrent-chain-writers";
+  const options = { pluginRoot: defaultRoot, stateRoot };
+  try {
+    const initial = event({ conversation_id: conversationId, generation_id: "concurrent-initial", tool_use_id: "concurrent-initial-tool" });
+    evaluateCreatePlanGuard(initial, options);
+    evaluateCreatePlanGuard(post(initial), options);
+    const keys = Array.from({ length: 16 }, (_, index) => `concurrent_patch_${index}`);
+    await Promise.all(keys.map((key) => processUpdate(stateRoot, conversationId, key)));
+    const chain = readManualChain(initial, options);
+    for (const key of keys) assert.equal(chain[key], key);
+    assert.ok(chain.revision >= keys.length + 2);
+    const chainDirectory = join(stateRoot, "manual-chains", readdirSync(join(stateRoot, "manual-chains"))[0]);
+    const pointer = JSON.parse(readFileSync(join(chainDirectory, "current.json"), "utf8"));
+    assert.equal(pointer.revision, chain.revision);
+    assert.ok(readdirSync(chainDirectory).includes(`${chain.root.root_content_hash}.${chain.revision}.json`));
   } finally {
     rmSync(stateRoot, { recursive: true, force: true });
   }

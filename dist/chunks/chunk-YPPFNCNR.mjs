@@ -11,7 +11,7 @@ import {
   planningUsage,
   resolveCapabilities,
   validateRootPlanLineage
-} from "./chunk-ZRGMCLE3.mjs";
+} from "./chunk-I6YVFW7V.mjs";
 import {
   assertContainedPath,
   changedPaths,
@@ -25,31 +25,31 @@ import {
   rollbackToCheckpoint,
   runHostCheck,
   workspaceDeliveryMatch
-} from "./chunk-BFZJ6DLB.mjs";
+} from "./chunk-4R2RYEAH.mjs";
 import {
   CursorWorkerAdapter,
   evaluateAuthorization,
   evaluateEligibility,
   qualificationKey,
   selectWriterRoute
-} from "./chunk-FBG57FMP.mjs";
+} from "./chunk-DBXU2LFJ.mjs";
 import {
   ArtifactHandoffStore,
   createContentAddressedHandoffStore,
   rememberContentAddressedRoot
-} from "./chunk-KBTCLDVF.mjs";
+} from "./chunk-RKPP3PNR.mjs";
 import {
   effectiveCliSummary,
   executionContractFromArtifactText,
   inspectArtifactSet,
   inspectArtifactText
-} from "./chunk-LERB6VEC.mjs";
+} from "./chunk-JTPOR5B6.mjs";
 import {
   repositoryKey,
   require_dist,
   rootContentHash,
   sharedArtifactStateRoot
-} from "./chunk-TT447BBI.mjs";
+} from "./chunk-LX4EPHHS.mjs";
 import {
   ARTIFACT_SCHEMA,
   RUN_EVENT_SUBJECT_SCHEMA,
@@ -57,7 +57,7 @@ import {
   classifyPreparationCompatibility,
   classifyRunCompatibility,
   runEventSubject
-} from "./chunk-XFYK5I23.mjs";
+} from "./chunk-H6YRBJ7B.mjs";
 import {
   __toESM
 } from "./chunk-IQRLCJ3K.mjs";
@@ -267,21 +267,21 @@ function candidateIdentity(runId, rootPlanId, candidate) {
 function controllerLearningCandidateSemanticHash(candidate) {
   return stableHash(candidatePayload(candidate));
 }
-function controllerLearningDecisionHash(decision, candidate) {
+function controllerLearningDecisionHash(decision2, candidate) {
   return stableHash({
-    assessment: decision?.assessment ?? null,
-    delivery_status: decision?.delivery_status ?? null,
-    next_action: decision?.next_action ?? null,
-    finding_keys: unique(decision?.finding_keys).toSorted(),
-    findings: decision?.findings ?? [],
+    assessment: decision2?.assessment ?? null,
+    delivery_status: decision2?.delivery_status ?? null,
+    next_action: decision2?.next_action ?? null,
+    finding_keys: unique(decision2?.finding_keys).toSorted(),
+    findings: decision2?.findings ?? [],
     learning_candidate: candidatePayload(candidate)
   });
 }
-function normalizeSourceBindings(candidate, decision, receiptIds) {
+function normalizeSourceBindings(candidate, decision2, receiptIds) {
   const supplied = Array.isArray(candidate?.source_bindings) ? candidate.source_bindings : null;
   const bindings = supplied ?? unique(receiptIds).map((receiptId) => ({
     source_receipt_id: receiptId,
-    source_decision_hash: controllerLearningDecisionHash(decision, candidate)
+    source_decision_hash: controllerLearningDecisionHash(decision2, candidate)
   }));
   if (bindings.length === 0 || bindings.length > 16) throw new Error("controller learning candidate requires bounded reviewer provenance");
   const normalized = bindings.map((binding) => ({
@@ -356,9 +356,9 @@ function normalizeDecisionLearningCandidates(value, findingKeys = [], nextAction
     return true;
   });
 }
-function materializeControllerLearningCandidates({ run, decision, correctionCycle, receiptIds = [] }) {
-  const proposed = decision?.learning_candidates ?? [];
-  if (decision?.next_action !== "correct") return { correction_id: null, candidates: [] };
+function materializeControllerLearningCandidates({ run, decision: decision2, correctionCycle, receiptIds = [] }) {
+  const proposed = decision2?.learning_candidates ?? [];
+  if (decision2?.next_action !== "correct") return { correction_id: null, candidates: [] };
   const rootPlanId = run.plan?.fields?.id ?? run.root_plan_id;
   if (!/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(rootPlanId))) throw new Error("controller learning candidates require a valid Root ID");
   const rootSuffix = rootPlanId.replace(/^wp-/, "");
@@ -367,7 +367,7 @@ function materializeControllerLearningCandidates({ run, decision, correctionCycl
   const candidates = proposed.map((candidate) => {
     const payload = candidatePayload(candidate);
     const candidateHash = candidateIdentity(run.run_id, rootPlanId, payload);
-    const sourceBindings = normalizeSourceBindings(candidate, decision, receiptIds);
+    const sourceBindings = normalizeSourceBindings(candidate, decision2, receiptIds);
     const lineage = [{
       correction_id: correctionId,
       correction_cycle: cycle,
@@ -1141,9 +1141,67 @@ function expectedCheckMap(contract, correction, unresolvedRootChecks = /* @__PUR
 function rootCheckMap(contract) {
   return new Map(contract.checks.filter((check) => check.Required === "yes").map((check) => [check["Check ID"], check]));
 }
-function unresolvedRootCheckMap(contract, predecessorEvidence) {
+function correctionRootChecks(correction) {
+  return new Set((correction?.fixes ?? []).flatMap((fix) => String(fix["Root Checks"] ?? "").match(/CHECK-[1-9][0-9]*/g) ?? []));
+}
+function repositoryPaths(value) {
+  return unique3(String(value ?? "").split(/(?:,|<br>)/i).map((entry) => entry.trim().replace(/^\.\//, "").replace(/\/$/, "")).filter((entry) => entry && !/^(?:none|n\/a|repository root)$/i.test(entry) && !/^(?:CHECK|OBJ|FIX|STEP)-[1-9][0-9]*$/i.test(entry) && /^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/.test(entry)));
+}
+function pathsOverlap(left, right) {
+  return left === right || left.startsWith(`${right}/`) || right.startsWith(`${left}/`);
+}
+function fingerprintMap(value) {
+  const result = /* @__PURE__ */ new Map();
+  for (const entry of String(value ?? "").split(/;\s*/)) {
+    const equals = entry.indexOf("=");
+    if (equals <= 0) continue;
+    const path = entry.slice(0, equals).trim().replace(/^`|`$/g, "").replace(/^\.\//, "");
+    if (!path || ["index", "status"].includes(path)) continue;
+    result.set(path, entry.slice(equals + 1));
+  }
+  return result;
+}
+function correctionTargets(correction) {
+  return unique3((correction?.steps ?? []).flatMap((step) => repositoryPaths(step.Targets)));
+}
+function rootChecksToRefresh(contract, correction, predecessorEvidence, repositorySnapshot, changedPaths2 = []) {
   const effectiveChecks = predecessorEvidence?.effective?.checks;
-  return new Map([...rootCheckMap(contract)].filter(([checkId]) => effectiveChecks?.get(checkId)?.status !== "passed"));
+  const explicitlyAffected = correctionRootChecks(correction);
+  const affectedObjectives = new Set(correctionObjectives(correction));
+  const affectedPaths = unique3([
+    ...changedPaths2.flatMap(repositoryPaths),
+    ...correctionTargets(correction)
+  ]);
+  const previousFingerprints = predecessorEvidence?.effective?.snapshot?.["Relevant fingerprints"] ?? null;
+  const currentFingerprints = repositorySnapshot?.relevant_fingerprints ?? null;
+  const previousByPath = fingerprintMap(previousFingerprints);
+  const currentByPath = fingerprintMap(currentFingerprints);
+  const stalePaths = unique3([...previousByPath.keys(), ...currentByPath.keys()]).filter((path) => previousByPath.get(path) !== currentByPath.get(path));
+  const opaqueFingerprintChange = Boolean(
+    previousFingerprints && currentFingerprints && previousFingerprints !== currentFingerprints && previousByPath.size === 0 && currentByPath.size === 0
+  );
+  return new Map([...rootCheckMap(contract)].filter(([checkId, check]) => {
+    const prior = effectiveChecks?.get(checkId);
+    const prerequisites = repositoryPaths(check.Prerequisites);
+    const objectiveAffected = checkObjectives(check).some((objective) => affectedObjectives.has(objective));
+    const pathAffected = prerequisites.some((prerequisite) => affectedPaths.some((path) => pathsOverlap(prerequisite, path)));
+    const fingerprintStale = prerequisites.some((prerequisite) => stalePaths.some((path) => pathsOverlap(prerequisite, path)));
+    const ambiguousImpact = affectedPaths.length > 0 && prerequisites.length === 0;
+    return !prior || ["failed", "blocked"].includes(prior.status) || explicitlyAffected.has(checkId) || objectiveAffected || pathAffected || fingerprintStale || opaqueFingerprintChange || ambiguousImpact;
+  }));
+}
+function inheritedCheckEvidence(inspection, predecessorEvidence, checkIds) {
+  return checkIds.map((checkId) => {
+    const effective = predecessorEvidence?.effective?.checks?.get(checkId);
+    const source = effective?.source ? inspection.effective.get(effective.source) : null;
+    const exact = source?.fields?.check_evidence?.find((entry) => entry.check_id === checkId);
+    if (exact) return exact;
+    return {
+      check_id: checkId,
+      grade: effective?.status === "passed" ? "verified" : effective?.status === "failed" ? "failed" : "supported",
+      limitations: effective?.status === "passed" ? [] : ["Reused predecessor proof retains its prior non-verified grade."]
+    };
+  });
 }
 function normalizeCheckEvidence(input, plannedChecks, rootChecks, evidenceMode2, {
   enforceManualCheckReceipts = false,
@@ -1378,25 +1436,28 @@ function buildDeliveryEvidence({
     throw new Error("full closeout requires repository snapshot HEAD and relevant fingerprints");
   }
   const roots = rootCheckMap(contract);
-  const unresolvedRootChecks = correction ? unresolvedRootCheckMap(contract, priorInspection.effective.get(evidenceTipId)) : /* @__PURE__ */ new Map();
+  const predecessorEvidence = correction ? priorInspection.effective.get(evidenceTipId) : null;
+  const unresolvedRootChecks = correction ? rootChecksToRefresh(contract, correction, predecessorEvidence, repositorySnapshot, changedPaths2) : /* @__PURE__ */ new Map();
   const suppliedCheckIds = new Set((checkEvidence2 ?? []).map((entry) => entry?.check_id));
   const missingRootRefresh = [...unresolvedRootChecks.keys()].filter((checkId) => !suppliedCheckIds.has(checkId));
   if (missingRootRefresh.length > 0) {
-    throw new Error(`correction closeout requires fresh evidence for inherited non-passed Root Checks: ${missingRootRefresh.join(", ")}`);
+    throw new Error(`correction closeout requires fresh evidence for affected, failed, missing, stale, or ambiguous Root Checks: ${missingRootRefresh.join(", ")}`);
   }
   const plannedChecks = expectedCheckMap(contract, correction, unresolvedRootChecks);
   const entries = normalizeCheckEvidence(checkEvidence2, plannedChecks, roots, mode, {
     enforceManualCheckReceipts: requireManualReceipts,
     manualCheckReceipts
   });
-  const grade = overallGrade(entries);
-  const status = artifactStatus(grade);
   const rootObjectives = contract.objectives;
   const affectedObjectives = correction ? unique3([...correctionObjectives(correction), ...entries.flatMap((entry) => checkObjectives(roots.get(entry.check_id)))]) : [...rootObjectives];
   const affected = affectedObjectives.length > 0 ? affectedObjectives : [...rootObjectives];
   const reusedObjectives = representation === "delta" ? rootObjectives.filter((id2) => !affected.includes(id2)) : [];
   const executedChecks = entries.map((entry) => entry.check_id);
   const reusedChecks = representation === "delta" ? [...roots.keys()].filter((id2) => !executedChecks.includes(id2)) : [];
+  const reusedEvidence = representation === "delta" ? inheritedCheckEvidence(priorInspection, predecessorEvidence, reusedChecks) : [];
+  const effectiveEntries = [...entries, ...reusedEvidence];
+  const grade = overallGrade(effectiveEntries);
+  const status = artifactStatus(grade);
   const paths = unique3(changedPaths2.map(String).map((path) => path.trim()).filter(Boolean)).sort();
   const seed = evidenceSeed({
     contract,
@@ -1445,7 +1506,7 @@ ${body}
   const finalEntries = [...normalized.entries, { label: id, text: artifact }];
   const inspection = inspectArtifactSet(finalEntries.map((entry) => [entry.label, entry.text]), pluginRoot);
   if (inspection.errors.length > 0) throw new Error(`generated delivery evidence is invalid: ${inspection.errors.join("; ")}`);
-  const projection = manualConstraintProjection({ checks: contract.checks, evidence: entries });
+  const projection = manualConstraintProjection({ checks: contract.checks, evidence: effectiveEntries });
   return {
     duplicate: false,
     artifact,
@@ -1473,13 +1534,672 @@ function persistCloseout({ handoffStore, rootPlanText, artifacts = [], closeout 
     const persisted = handoffStore.record([...byId].map(([label, text]) => ({ label, text })));
     return { ...closeout, handoff_persisted: true, handoff_authoritative: false, artifact_set_hash: persisted.artifact_set_hash };
   } catch (error) {
-    if (/concurrent|conflict|invalid|corrupt|incompatible|stale|ambiguous|multiple/i.test(error.message)) throw error;
     return {
       ...closeout,
       handoff_persisted: false,
       handoff_authoritative: false,
       handoff_error_code: "handoff-persist-failed",
-      warning: `handoff cache unavailable: ${error.message}; attach the returned artifact explicitly to the next Workflow command`
+      warning: `optional cross-task handoff unavailable: ${error.message}; task-local continuation remains valid`
+    };
+  }
+}
+
+// src/controller/work-review-builder.mjs
+var import_yaml2 = __toESM(require_dist(), 1);
+import { createHash as createHash6 } from "node:crypto";
+var ASSESSMENTS = /* @__PURE__ */ new Set([
+  "achieved",
+  "provisional",
+  "mostly-achieved",
+  "partially-achieved",
+  "not-achieved",
+  "insufficient-evidence"
+]);
+var ASSESSMENT_RANK = Object.freeze({
+  "insufficient-evidence": 0,
+  "not-achieved": 1,
+  "partially-achieved": 2,
+  "mostly-achieved": 3,
+  provisional: 4,
+  achieved: 5
+});
+var ACTIONS = /* @__PURE__ */ new Set(["none", "accept-provisional", "correct", "clarify", "replan", "retry-review"]);
+var SEVERITIES = /* @__PURE__ */ new Set(["low", "medium", "high", "critical"]);
+var RESOLUTIONS = /* @__PURE__ */ new Set(["correct", "clarify", "replan"]);
+var SNAPSHOT_ASSESSMENTS = /* @__PURE__ */ new Set(["consistent", "contradicted", "incomplete"]);
+var AUDITOR_ROLES = /* @__PURE__ */ new Set(["delivery-auditor", "risk-auditor", "work-design-auditor"]);
+var COSTS = /* @__PURE__ */ new Set(["cheap", "standard", "expensive"]);
+var KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+function sha2564(value) {
+  return createHash6("sha256").update(String(value)).digest("hex");
+}
+function compareCanonical(left, right) {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+function codedError(code, message) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+function stable4(value) {
+  if (Array.isArray(value)) return value.map(stable4);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.keys(value).sort(compareCanonical).map((key) => [key, stable4(value[key])]));
+}
+function stableJson2(value) {
+  return JSON.stringify(stable4(value));
+}
+function object(value, label) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} must be an object`);
+  return value;
+}
+function closed(value, allowed, label) {
+  const unknown = Object.keys(value).filter((key) => !allowed.includes(key));
+  if (unknown.length > 0) throw new Error(`${label} contains unsupported field ${unknown[0]}`);
+}
+function requiredField(value, key, label = "review_input") {
+  if (!Object.prototype.hasOwnProperty.call(value, key)) throw new Error(`${label}.${key} is required`);
+  return value[key];
+}
+function line(value, label, { required = true, max = 2e3 } = {}) {
+  if (typeof value !== "string") throw new Error(`${label} must be a string`);
+  const normalized = value.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
+  if (required && !normalized) throw new Error(`${label} is required`);
+  if (normalized.length > max) throw new Error(`${label} exceeds ${max} characters`);
+  return normalized;
+}
+function enumValue(value, values, label) {
+  const normalized = String(value ?? "").trim();
+  if (!values.has(normalized)) throw new Error(`${label} has invalid value ${normalized || "<missing>"}`);
+  return normalized;
+}
+function list(value, label, { max = 64, required = false } = {}) {
+  if (!Array.isArray(value)) throw new Error(`${label} must be an array`);
+  if (required && value.length === 0) throw new Error(`${label} must not be empty`);
+  if (value.length > max) throw new Error(`${label} exceeds ${max} items`);
+  return value;
+}
+function uniqueSorted(values) {
+  return [...new Set(values)].sort(compareCanonical);
+}
+function normalizeIds(value, pattern, allowed, label) {
+  const normalized = uniqueSorted(list(value, label, { required: true }).map((entry) => line(entry, label, { max: 80 })));
+  for (const id of normalized) {
+    if (!pattern.test(id) || !allowed.has(id)) throw new Error(`${label} contains unknown ${id}`);
+  }
+  return normalized;
+}
+function localKey(value, label) {
+  const normalized = line(value, label, { max: 80 });
+  if (!KEY.test(normalized)) throw new Error(`${label} must be a lowercase semantic key`);
+  return normalized;
+}
+function normalizeFindings(value, contract) {
+  const objectiveIds = new Set(contract.objectives);
+  const checkIds = new Set(contract.checks.filter((check) => check.Required === "yes").map((check) => check["Check ID"]));
+  const findings = list(value, "review_input.findings", { max: 32 }).map((entry, index) => {
+    const item = object(entry, `review_input.findings[${index}]`);
+    closed(item, ["key", "severity", "objective_ids", "check_ids", "evidence", "reasoning", "resolution"], `review_input.findings[${index}]`);
+    return {
+      key: localKey(item.key, `review_input.findings[${index}].key`),
+      severity: enumValue(item.severity, SEVERITIES, `review_input.findings[${index}].severity`),
+      objective_ids: normalizeIds(item.objective_ids, /^OBJ-[1-9][0-9]*$/, objectiveIds, `review_input.findings[${index}].objective_ids`),
+      check_ids: normalizeIds(item.check_ids, /^CHECK-[1-9][0-9]*$/, checkIds, `review_input.findings[${index}].check_ids`),
+      evidence: line(item.evidence, `review_input.findings[${index}].evidence`, { max: 4e3 }),
+      reasoning: line(item.reasoning, `review_input.findings[${index}].reasoning`, { max: 4e3 }),
+      resolution: enumValue(item.resolution, RESOLUTIONS, `review_input.findings[${index}].resolution`)
+    };
+  }).sort((left, right) => compareCanonical(left.key, right.key));
+  if (new Set(findings.map((finding) => finding.key)).size !== findings.length) throw new Error("review_input.findings keys must be unique");
+  return findings;
+}
+function normalizeAuditors(value) {
+  const reports = list(value, "review_input.auditor_reports", { max: 3 }).map((entry, index) => {
+    const item = object(entry, `review_input.auditor_reports[${index}]`);
+    closed(item, ["role", "assessment", "summary"], `review_input.auditor_reports[${index}]`);
+    return {
+      role: enumValue(item.role, AUDITOR_ROLES, `review_input.auditor_reports[${index}].role`),
+      assessment: enumValue(item.assessment, ASSESSMENTS, `review_input.auditor_reports[${index}].assessment`),
+      summary: line(item.summary, `review_input.auditor_reports[${index}].summary`, { max: 2e3 })
+    };
+  }).sort((left, right) => compareCanonical(left.role, right.role));
+  if (new Set(reports.map((report) => report.role)).size !== reports.length) throw new Error("review_input.auditor_reports roles must be unique");
+  return reports;
+}
+function normalizeCorrection(value, findingKeys) {
+  if (value == null) return null;
+  const correction = object(value, "review_input.correction");
+  closed(correction, ["fixes", "steps", "checks", "learning_candidates"], "review_input.correction");
+  const fixes = list(correction.fixes, "review_input.correction.fixes", { max: 32, required: true }).map((entry, index) => {
+    const item = object(entry, `review_input.correction.fixes[${index}]`);
+    closed(item, ["key", "finding_keys", "required_outcome", "evidence"], `review_input.correction.fixes[${index}]`);
+    const keys = uniqueSorted(list(item.finding_keys, `review_input.correction.fixes[${index}].finding_keys`, { required: true }).map((key) => localKey(key, `review_input.correction.fixes[${index}].finding_keys`)));
+    if (keys.some((key) => !findingKeys.has(key))) throw new Error(`review_input.correction.fixes[${index}] references an unknown finding`);
+    return {
+      key: localKey(item.key, `review_input.correction.fixes[${index}].key`),
+      finding_keys: keys,
+      required_outcome: line(item.required_outcome, `review_input.correction.fixes[${index}].required_outcome`, { max: 2e3 }),
+      evidence: line(item.evidence, `review_input.correction.fixes[${index}].evidence`, { max: 2e3 })
+    };
+  }).sort((left, right) => compareCanonical(left.key, right.key));
+  const fixKeys = new Set(fixes.map((fix) => fix.key));
+  if (fixKeys.size !== fixes.length) throw new Error("review_input.correction.fixes keys must be unique");
+  const checks = list(correction.checks, "review_input.correction.checks", { max: 32, required: true }).map((entry, index) => {
+    const item = object(entry, `review_input.correction.checks[${index}]`);
+    closed(item, ["key", "fix_keys", "working_directory", "command_or_inspection", "expected_result", "required", "cost_class", "prerequisites"], `review_input.correction.checks[${index}]`);
+    const referencedFixes = uniqueSorted(list(item.fix_keys, `review_input.correction.checks[${index}].fix_keys`, { required: true }).map((key) => localKey(key, `review_input.correction.checks[${index}].fix_keys`)));
+    if (referencedFixes.some((key) => !fixKeys.has(key))) throw new Error(`review_input.correction.checks[${index}] references an unknown fix`);
+    const prerequisites = uniqueSorted(list(item.prerequisites, `review_input.correction.checks[${index}].prerequisites`, { required: true }).map((entryValue) => line(entryValue, `review_input.correction.checks[${index}].prerequisites`, { max: 1e3 })));
+    if (typeof item.required !== "boolean") throw new Error(`review_input.correction.checks[${index}].required must be a boolean`);
+    return {
+      key: localKey(item.key, `review_input.correction.checks[${index}].key`),
+      fix_keys: referencedFixes,
+      working_directory: line(item.working_directory, `review_input.correction.checks[${index}].working_directory`, { max: 1e3 }),
+      command_or_inspection: line(item.command_or_inspection, `review_input.correction.checks[${index}].command_or_inspection`, { max: 2e3 }),
+      expected_result: line(item.expected_result, `review_input.correction.checks[${index}].expected_result`, { max: 2e3 }),
+      required: item.required,
+      cost_class: enumValue(item.cost_class, COSTS, `review_input.correction.checks[${index}].cost_class`),
+      prerequisites
+    };
+  }).sort((left, right) => ({ cheap: 0, standard: 1, expensive: 2 })[left.cost_class] - { cheap: 0, standard: 1, expensive: 2 }[right.cost_class] || compareCanonical(left.key, right.key));
+  const checkKeys = new Set(checks.map((check) => check.key));
+  if (checkKeys.size !== checks.length) throw new Error("review_input.correction.checks keys must be unique");
+  const steps = list(correction.steps, "review_input.correction.steps", { max: 32, required: true }).map((entry, index) => {
+    const item = object(entry, `review_input.correction.steps[${index}]`);
+    closed(item, ["key", "fix_keys", "targets", "required_outcome", "implementation_latitude", "completion_probe", "check_keys", "deviation_action"], `review_input.correction.steps[${index}]`);
+    const referencedFixes = uniqueSorted(list(item.fix_keys, `review_input.correction.steps[${index}].fix_keys`, { required: true }).map((key) => localKey(key, `review_input.correction.steps[${index}].fix_keys`)));
+    const referencedChecks = uniqueSorted(list(item.check_keys, `review_input.correction.steps[${index}].check_keys`, { required: true }).map((key) => localKey(key, `review_input.correction.steps[${index}].check_keys`)));
+    if (referencedFixes.some((key) => !fixKeys.has(key))) throw new Error(`review_input.correction.steps[${index}] references an unknown fix`);
+    if (referencedChecks.some((key) => !checkKeys.has(key))) throw new Error(`review_input.correction.steps[${index}] references an unknown check`);
+    return {
+      key: localKey(item.key, `review_input.correction.steps[${index}].key`),
+      fix_keys: referencedFixes,
+      targets: uniqueSorted(list(item.targets, `review_input.correction.steps[${index}].targets`, { required: true }).map((target) => line(target, `review_input.correction.steps[${index}].targets`, { max: 1e3 }))),
+      required_outcome: line(item.required_outcome, `review_input.correction.steps[${index}].required_outcome`, { max: 2e3 }),
+      implementation_latitude: line(item.implementation_latitude, `review_input.correction.steps[${index}].implementation_latitude`, { max: 2e3 }),
+      completion_probe: line(item.completion_probe, `review_input.correction.steps[${index}].completion_probe`, { max: 2e3 }),
+      check_keys: referencedChecks,
+      deviation_action: line(item.deviation_action, `review_input.correction.steps[${index}].deviation_action`, { max: 2e3 })
+    };
+  }).sort((left, right) => compareCanonical(left.key, right.key));
+  const stepKeys = new Set(steps.map((step) => step.key));
+  if (stepKeys.size !== steps.length) throw new Error("review_input.correction.steps keys must be unique");
+  for (const fix of fixKeys) if (!steps.some((step) => step.fix_keys.includes(fix))) throw new Error(`review_input.correction.steps do not cover ${fix}`);
+  const learningCandidates = list(correction.learning_candidates, "review_input.correction.learning_candidates", { max: 32, required: true }).map((entry, index) => {
+    const item = object(entry, `review_input.correction.learning_candidates[${index}]`);
+    closed(item, ["key", "finding_keys", "reusable_guidance", "candidate_targets", "confirmation_evidence"], `review_input.correction.learning_candidates[${index}]`);
+    const keys = uniqueSorted(list(item.finding_keys, `review_input.correction.learning_candidates[${index}].finding_keys`, { required: true }).map((key) => localKey(key, `review_input.correction.learning_candidates[${index}].finding_keys`)));
+    if (keys.some((key) => !findingKeys.has(key))) throw new Error(`review_input.correction.learning_candidates[${index}] references an unknown finding`);
+    return {
+      key: localKey(item.key, `review_input.correction.learning_candidates[${index}].key`),
+      finding_keys: keys,
+      reusable_guidance: line(item.reusable_guidance, `review_input.correction.learning_candidates[${index}].reusable_guidance`, { max: 2e3 }),
+      candidate_targets: uniqueSorted(list(item.candidate_targets, `review_input.correction.learning_candidates[${index}].candidate_targets`, { required: true }).map((target) => line(target, `review_input.correction.learning_candidates[${index}].candidate_targets`, { max: 1e3 }))),
+      confirmation_evidence: line(item.confirmation_evidence, `review_input.correction.learning_candidates[${index}].confirmation_evidence`, { max: 2e3 })
+    };
+  }).sort((left, right) => compareCanonical(left.key, right.key));
+  if (new Set(learningCandidates.map((candidate) => candidate.key)).size !== learningCandidates.length) throw new Error("review_input.correction.learning_candidates keys must be unique");
+  return { fixes, checks, steps, learning_candidates: learningCandidates };
+}
+function normalizeReviewInput(input, contract) {
+  const value = object(input, "review_input");
+  closed(value, ["schema", "kind", "assessment", "recommended_action", "assessment_summary", "snapshot_assessment", "snapshot_summary", "findings", "missing_evidence", "auditor_reports", "correction"], "review_input");
+  if (value.schema !== 1) throw new Error("review_input.schema must be 1");
+  if (value.kind !== "review-input") throw new Error("review_input.kind must be review-input");
+  const findings = normalizeFindings(requiredField(value, "findings"), contract);
+  const findingKeys = new Set(findings.map((finding) => finding.key));
+  const normalized = {
+    schema: 1,
+    kind: "review-input",
+    assessment: enumValue(requiredField(value, "assessment"), ASSESSMENTS, "review_input.assessment"),
+    recommended_action: enumValue(requiredField(value, "recommended_action"), ACTIONS, "review_input.recommended_action"),
+    assessment_summary: line(requiredField(value, "assessment_summary"), "review_input.assessment_summary", { max: 2e3 }),
+    snapshot_assessment: enumValue(requiredField(value, "snapshot_assessment"), SNAPSHOT_ASSESSMENTS, "review_input.snapshot_assessment"),
+    snapshot_summary: line(requiredField(value, "snapshot_summary"), "review_input.snapshot_summary", { max: 2e3 }),
+    findings,
+    missing_evidence: uniqueSorted(list(requiredField(value, "missing_evidence"), "review_input.missing_evidence", { max: 32 }).map((entry) => line(entry, "review_input.missing_evidence", { max: 2e3 }))),
+    auditor_reports: normalizeAuditors(requiredField(value, "auditor_reports")),
+    correction: normalizeCorrection(value.correction, findingKeys)
+  };
+  if (normalized.recommended_action === "correct") {
+    if (normalized.findings.length === 0) throw new Error("review_input correct requires at least one finding");
+    if (!normalized.correction) throw new Error("review_input correct requires a correction proposal");
+  } else if (normalized.correction) {
+    throw new Error("review_input.correction is allowed only for recommended_action correct");
+  }
+  return normalized;
+}
+function mergeChain(rootPlanText, artifacts, pluginRoot) {
+  const rootInspection = inspectArtifactText(rootPlanText, pluginRoot);
+  if (rootInspection.errors.length > 0 || rootInspection.artifact?.fields?.artifact !== "work-plan" || rootInspection.artifact.fields.schema !== 5) {
+    throw new Error(`review builder requires an exact valid Schema-5 Root: ${rootInspection.errors.join("; ") || "not a work-plan"}`);
+  }
+  const byId = /* @__PURE__ */ new Map([[rootInspection.artifact.fields.id, { label: rootInspection.artifact.fields.id, text: rootPlanText }]]);
+  for (const [index, entry] of (artifacts ?? []).entries()) {
+    if (!entry || typeof entry.text !== "string" || !entry.text.trim()) throw new Error(`review builder artifact ${index + 1} requires exact text`);
+    const inspected = inspectArtifactText(entry.text, pluginRoot);
+    if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) throw new Error(`review builder artifact ${entry.label ?? index + 1} is invalid: ${inspected.errors.join("; ")}`);
+    const id = inspected.artifact.fields.id;
+    const builderProvenance = entry.builder_provenance ?? entry.provenance ?? null;
+    const protectedLegacyReview = entry.legacy_review_recorded === true;
+    if (inspected.artifact.fields.artifact === "work-review") {
+      const validBuilderProvenance = builderProvenance?.schema === 1 && builderProvenance?.kind === "host-work-review-builder" && /^[a-f0-9]{64}$/.test(String(builderProvenance?.review_input_hash ?? "")) && builderProvenance?.artifact_hash === sha2564(entry.text) && Object.keys(builderProvenance).every((key) => ["schema", "kind", "review_input_hash", "artifact_hash"].includes(key));
+      if (builderProvenance && !validBuilderProvenance) {
+        throw codedError("review-artifact-rejected", `review builder artifact ${id} has invalid host builder provenance`);
+      }
+      if (!validBuilderProvenance && !protectedLegacyReview) {
+        throw codedError("review-artifact-rejected", `review builder rejects newly imported work-review ${id} without protected builder provenance; Root, Evidence, and repository work remain unchanged, so repeat Review from the exact Root/Evidence chain in this task`);
+      }
+    }
+    const prior = byId.get(id);
+    if (prior && prior.text !== entry.text) throw new Error(`review builder artifact ${id} has conflicting immutable bytes`);
+    byId.set(id, {
+      label: id,
+      text: entry.text,
+      ...builderProvenance ? { builder_provenance: builderProvenance } : {},
+      ...protectedLegacyReview ? { legacy_review_recorded: true } : {}
+    });
+  }
+  return { rootFields: rootInspection.artifact.fields, entries: [...byId.values()] };
+}
+function knownFailure(evidence) {
+  return evidence?.fields?.status === "blocked" || (evidence?.fields?.check_evidence ?? []).some((entry) => entry.grade === "failed");
+}
+function decision(input, evidence) {
+  for (const report of input.auditor_reports) {
+    if (ASSESSMENT_RANK[report.assessment] < ASSESSMENT_RANK[input.assessment]) {
+      throw new Error(`review_input.assessment ${input.assessment} is more positive than review_input.auditor_reports ${report.role} assessment ${report.assessment}`);
+    }
+  }
+  const failed = knownFailure(evidence);
+  const reviewReady = evidence?.effective?.reviewReady === true && evidence?.fields?.status === "complete";
+  const hasFindings = input.findings.length > 0;
+  const missing = input.missing_evidence.length > 0 || input.snapshot_assessment !== "consistent";
+  let assessment = input.assessment;
+  let nextAction = input.recommended_action;
+  let deliveryStatus = "blocked";
+  if (failed) {
+    if (nextAction === "replan" || nextAction === "clarify") {
+      assessment = ["achieved", "provisional"].includes(assessment) ? "not-achieved" : assessment;
+    } else if (hasFindings && input.correction) {
+      nextAction = "correct";
+      assessment = ["achieved", "provisional"].includes(assessment) ? "not-achieved" : assessment;
+    } else {
+      nextAction = "retry-review";
+      assessment = "insufficient-evidence";
+    }
+    return { assessment, delivery_status: "blocked", next_action: nextAction, review_ready: reviewReady, known_failure: true };
+  }
+  if (nextAction === "replan" || nextAction === "clarify") {
+    assessment = ["achieved", "provisional"].includes(assessment) ? "partially-achieved" : assessment;
+    return { assessment, delivery_status: "blocked", next_action: nextAction, review_ready: reviewReady, known_failure: false };
+  }
+  if (nextAction === "correct" || hasFindings) {
+    if (!input.correction || !hasFindings) throw new Error("review findings requiring correction need one complete correction proposal");
+    assessment = ["achieved", "provisional"].includes(assessment) ? "mostly-achieved" : assessment;
+    return { assessment, delivery_status: "blocked", next_action: "correct", review_ready: reviewReady, known_failure: false };
+  }
+  if (missing || nextAction === "retry-review" || assessment === "insufficient-evidence") {
+    return { assessment: "insufficient-evidence", delivery_status: "blocked", next_action: "retry-review", review_ready: reviewReady, known_failure: false };
+  }
+  if (reviewReady && assessment === "achieved" && nextAction === "none") {
+    return { assessment: "achieved", delivery_status: "verified", next_action: "none", review_ready: true, known_failure: false };
+  }
+  if (!["none", "accept-provisional"].includes(nextAction)) throw new Error(`review_input recommended_action ${nextAction} is inconsistent with an evidence-only provisional result`);
+  if (!["achieved", "provisional"].includes(assessment)) {
+    throw new Error(`review_input.assessment ${assessment} is inconsistent with review_input.recommended_action ${nextAction}; provide the missing Evidence or choose correct, clarify, replan, or retry-review`);
+  }
+  return { assessment: "provisional", delivery_status: "provisional", next_action: "accept-provisional", review_ready: reviewReady, known_failure: false };
+}
+function routeFor(rootFields, input, outcome) {
+  const roles = new Set(input.auditor_reports.map((report) => report.role));
+  const deterministicBlocked = outcome.delivery_status === "blocked" && (outcome.next_action === "replan" || outcome.next_action === "correct" && outcome.known_failure);
+  const fullRequired = rootFields.contract_level === "certified" || rootFields.risk === "high" || (rootFields.hard_triggers ?? []).length > 0;
+  if (roles.has("risk-auditor")) {
+    if (!roles.has("delivery-auditor")) throw new Error("risk-auditor review input also requires delivery-auditor input");
+    return { review_route: "full", auditors_run: ["inline", "delivery-auditor", "risk-auditor", ...roles.has("work-design-auditor") ? ["work-design-auditor"] : []] };
+  }
+  if (fullRequired && !deterministicBlocked) throw new Error("certified, high-risk, or hard-trigger review requires delivery-auditor and risk-auditor reports");
+  if (roles.has("delivery-auditor")) return { review_route: "targeted", auditors_run: ["inline", "delivery-auditor"] };
+  if (roles.has("work-design-auditor")) return { review_route: "targeted", auditors_run: ["inline", "work-design-auditor"] };
+  return { review_route: "inline", auditors_run: ["inline"] };
+}
+function cell2(value) {
+  const text = String(value ?? "").replace(/\r?\n/g, "<br>").replace(/\|/g, "\\|").trim();
+  return text || "none";
+}
+function table2(headers, rows) {
+  return [
+    `| ${headers.join(" | ")} |`,
+    `|${headers.map(() => "---").join("|")}|`,
+    ...rows.map((row) => `| ${headers.map((header) => cell2(row[header])).join(" | ")} |`)
+  ].join("\n");
+}
+function nextCheckNumber(entries, pluginRoot) {
+  let maximum = 0;
+  for (const entry of entries) {
+    const inspected = inspectArtifactText(entry.text, pluginRoot);
+    const matches = entry.text.match(/\bCHECK-([1-9][0-9]*)\b/g) ?? [];
+    for (const match of matches) maximum = Math.max(maximum, Number(match.slice(6)));
+    if (inspected.errors.length > 0) continue;
+  }
+  return maximum + 1;
+}
+function correctionProjection({ normalized, findings, seed, rootFields, evidenceId, reviewId, predecessorReview, entries, pluginRoot }) {
+  if (!normalized.correction) return null;
+  const correctionId = `cp-${rootFields.id.replace(/^wp-/, "")}-${seed.slice(0, 12)}`;
+  const fixIds = new Map(normalized.correction.fixes.map((fix, index) => [fix.key, `FIX-${index + 1}`]));
+  const stepIds = new Map(normalized.correction.steps.map((step, index) => [step.key, `STEP-${index + 1}`]));
+  const checkStart = nextCheckNumber(entries, pluginRoot);
+  const checkIds = new Map(normalized.correction.checks.map((check, index) => [check.key, `CHECK-${checkStart + index}`]));
+  const learningIds = new Map(normalized.correction.learning_candidates.map((candidate, index) => [candidate.key, `LRN-${seed.slice(0, 8)}-${index + 1}`]));
+  const findingsByKey = new Map(findings.map((finding) => [finding.key, finding]));
+  const fixes = normalized.correction.fixes.map((fix) => {
+    const mapped = fix.finding_keys.map((key) => findingsByKey.get(key));
+    return {
+      "FIX ID": fixIds.get(fix.key),
+      "Finding keys": fix.finding_keys.join(", "),
+      "Root Objectives": uniqueSorted(mapped.flatMap((finding) => finding.objective_ids)).join(", "),
+      "Root Checks": uniqueSorted(mapped.flatMap((finding) => finding.check_ids)).join(", "),
+      "Required outcome": fix.required_outcome,
+      Evidence: fix.evidence
+    };
+  });
+  const steps = normalized.correction.steps.map((step, index) => ({
+    "Step ID": stepIds.get(step.key),
+    "FIX IDs": step.fix_keys.map((key) => fixIds.get(key)).join(", "),
+    Targets: step.targets.join(", "),
+    "Required outcome": step.required_outcome,
+    "Implementation latitude": step.implementation_latitude,
+    "Completion probe": `PROBE-${index + 1}: ${step.completion_probe}`,
+    "Check IDs": step.check_keys.map((key) => checkIds.get(key)).join(", "),
+    "Deviation action": step.deviation_action
+  }));
+  const checks = normalized.correction.checks.map((check) => ({
+    "Check ID": checkIds.get(check.key),
+    "FIX IDs": check.fix_keys.map((key) => fixIds.get(key)).join(", "),
+    "Working Directory": check.working_directory,
+    "Command or Inspection": check.command_or_inspection,
+    "Expected Result": check.expected_result,
+    Required: check.required ? "yes" : "no",
+    "Cost Class": check.cost_class,
+    Prerequisites: check.prerequisites.join(", ")
+  }));
+  const learnings = normalized.correction.learning_candidates.map((candidate) => ({
+    "Learning ID": learningIds.get(candidate.key),
+    "Finding keys": candidate.finding_keys.join(", "),
+    "Reusable guidance": candidate.reusable_guidance,
+    "Candidate targets": candidate.candidate_targets.join(", "),
+    "Confirmation evidence": candidate.confirmation_evidence
+  }));
+  const predecessorCorrection = predecessorReview?.fields?.correction_id ?? "None.";
+  const body = [
+    `## Correction plan
+
+### ${correctionId}`,
+    table2(["Correction ID", "Root Plan", "Source Review", "Base Evidence", "Predecessor Correction", "Risk"], [{
+      "Correction ID": correctionId,
+      "Root Plan": rootFields.id,
+      "Source Review": reviewId,
+      "Base Evidence": evidenceId,
+      "Predecessor Correction": predecessorCorrection,
+      Risk: rootFields.risk
+    }]),
+    table2(["FIX ID", "Finding keys", "Root Objectives", "Root Checks", "Required outcome", "Evidence"], fixes),
+    table2(["Step ID", "FIX IDs", "Targets", "Required outcome", "Implementation latitude", "Completion probe", "Check IDs", "Deviation action"], steps),
+    table2(["Check ID", "FIX IDs", "Working Directory", "Command or Inspection", "Expected Result", "Required", "Cost Class", "Prerequisites"], checks),
+    table2(["Learning ID", "Finding keys", "Reusable guidance", "Candidate targets", "Confirmation evidence"], learnings)
+  ].join("\n\n");
+  return { correction_id: correctionId, learning_ids: [...learningIds.values()], body };
+}
+function reviewBody({ normalized, outcome, route, coverage, evidenceId, correction }) {
+  const sections = [
+    `## Assessment
+
+${outcome.assessment}: ${normalized.assessment_summary}`,
+    `## Evidence coverage
+
+${table2(["Kind", "Inspected", "Reused", "Result", "Evidence"], [
+      { Kind: "Objectives", Inspected: coverage.inspectedObjectives.join(", ") || "none", Reused: coverage.reusedObjectives.join(", ") || "none", Result: outcome.assessment, Evidence: `exact Evidence ${evidenceId}` },
+      { Kind: "Checks", Inspected: coverage.inspectedChecks.join(", ") || "none", Reused: coverage.reusedChecks.join(", ") || "none", Result: outcome.delivery_status === "verified" ? "passed" : outcome.delivery_status, Evidence: `exact Evidence ${evidenceId}` },
+      { Kind: "Auditors", Inspected: route.auditors_run.join(", "), Reused: "none", Result: "complete", Evidence: "validated review input" },
+      { Kind: "Snapshot", Inspected: evidenceId, Reused: "none", Result: normalized.snapshot_assessment, Evidence: normalized.snapshot_summary }
+    ])}`,
+    normalized.findings.length === 0 ? "## Findings\n\nNone." : `## Findings
+
+${table2(["Finding key", "Severity", "Objectives", "Checks", "Evidence", "Reasoning"], normalized.findings.map((finding) => ({
+      "Finding key": finding.key,
+      Severity: finding.severity,
+      Objectives: finding.objective_ids.join(", "),
+      Checks: finding.check_ids.join(", "),
+      Evidence: finding.evidence,
+      Reasoning: finding.reasoning
+    })))}`,
+    `## Next action
+
+${outcome.next_action}: ${outcome.next_action === "none" ? "No further Workflow action is required." : `Continue through the bounded ${outcome.next_action} route in this task.`}`
+  ];
+  if (correction) sections.push(correction.body);
+  return sections.join("\n\n");
+}
+function boundaryBody(receipt) {
+  return [
+    "## Assessment\n\ninsufficient-evidence: deterministic Evidence recovery is unavailable for the exact current boundary.",
+    `## Evidence coverage
+
+${table2(["Kind", "Inspected", "Reused", "Result", "Evidence"], [
+      { Kind: "Objectives", Inspected: "none", Reused: "none", Result: "blocked", Evidence: "protected root-boundary receipt" },
+      { Kind: "Checks", Inspected: "none", Reused: "none", Result: "blocked", Evidence: "protected root-boundary receipt" },
+      { Kind: "Auditors", Inspected: "inline", Reused: "none", Result: "complete", Evidence: "host boundary validation" },
+      { Kind: "Snapshot", Inspected: receipt.repository_snapshot_hash, Reused: "none", Result: "incomplete", Evidence: receipt.recovery_error_code }
+    ])}`,
+    "## Findings\n\nNone.",
+    "## Next action\n\nreplan: create a fresh Root through separate human approval."
+  ].join("\n\n");
+}
+function buildWorkReview({
+  rootPlanText,
+  artifacts = [],
+  reviewInput = null,
+  boundaryReceipt = null,
+  boundaryReceiptVerifier = null,
+  pluginRoot
+}) {
+  const merged = mergeChain(rootPlanText, artifacts, pluginRoot);
+  const contract = executionContractFromArtifactText(rootPlanText, pluginRoot);
+  if (contract.errors.length > 0 || contract.fields.schema !== 5) throw new Error(`review builder Root is invalid: ${contract.errors.join("; ")}`);
+  const inspectionOptions = boundaryReceipt && typeof boundaryReceiptVerifier === "function" ? { boundaryReceiptVerifier } : {};
+  const prior = inspectArtifactSet(merged.entries.map((entry) => [entry.label, entry.text]), pluginRoot, inspectionOptions);
+  if (prior.errors.length > 0) throw new Error(`review builder input chain is invalid: ${prior.errors.join("; ")}`);
+  const tips = effectiveCliSummary(prior);
+  const predecessorReviewId = tips.review_tips[merged.rootFields.id] ?? null;
+  const predecessorReview = predecessorReviewId ? prior.effective.get(predecessorReviewId) : null;
+  const predecessorReviewText = predecessorReviewId ? merged.entries.find((entry) => entry.label === predecessorReviewId)?.text ?? "" : "";
+  if (boundaryReceipt) {
+    if (typeof boundaryReceiptVerifier !== "function") throw new Error("root-boundary review requires a protected host verifier");
+    const trusted = boundaryReceiptVerifier({ receipt: boundaryReceipt, rootPlanText, reviewFields: null });
+    if (trusted?.ok !== true) throw new Error(`root-boundary receipt is not trusted: ${trusted?.reason ?? "host verification failed"}`);
+    const seedInput2 = {
+      schema: 1,
+      root_content_hash: rootContentHash(rootPlanText),
+      root_projection_hash: contract.authoritative_projection_hash,
+      predecessor_review_id: predecessorReviewId,
+      predecessor_review_hash: predecessorReviewText ? sha2564(predecessorReviewText) : null,
+      boundary_receipt: boundaryReceipt
+    };
+    const reviewInputHash2 = sha2564(stableJson2(seedInput2));
+    const id2 = `wr-${merged.rootFields.id.replace(/^wp-/, "")}-${reviewInputHash2.slice(0, 12)}`;
+    const fields2 = {
+      artifact: "work-review",
+      schema: 5,
+      id: id2,
+      status: "complete",
+      root_plan_id: merged.rootFields.id,
+      latest_evidence_id: null,
+      review_basis: "root-boundary",
+      boundary_receipt: boundaryReceipt,
+      assessment: "insufficient-evidence",
+      delivery_status: "blocked",
+      review_route: "inline",
+      next_action: "replan",
+      correction_id: null,
+      predecessor_review_id: predecessorReviewId,
+      inspected_objectives: [],
+      reused_objectives: [],
+      inspected_checks: [],
+      reused_checks: [],
+      auditors_run: ["inline"]
+    };
+    const artifact2 = `---
+${(0, import_yaml2.stringify)(fields2, { lineWidth: 0 }).trimEnd()}
+---
+
+${boundaryBody(boundaryReceipt)}
+`;
+    const duplicate2 = merged.entries.find((entry) => entry.label === id2);
+    if (duplicate2 && duplicate2.text !== artifact2) throw new Error(`review builder generated conflicting immutable bytes for ${id2}`);
+    const finalEntries2 = duplicate2 ? merged.entries : [...merged.entries, { label: id2, text: artifact2 }];
+    const validated2 = inspectArtifactSet(finalEntries2.map((entry) => [entry.label, entry.text]), pluginRoot, { boundaryReceiptVerifier });
+    if (validated2.errors.length > 0) throw new Error(`generated work-review is invalid: ${validated2.errors.join("; ")}`);
+    const artifactHash2 = sha2564(artifact2);
+    return { duplicate: Boolean(duplicate2), artifact: artifact2, artifact_hash: artifactHash2, review_input_hash: reviewInputHash2, fields: fields2, provenance: { schema: 1, kind: "host-work-review-builder", review_input_hash: reviewInputHash2, artifact_hash: artifactHash2 } };
+  }
+  const evidenceId = tips.evidence_tips[merged.rootFields.id] ?? null;
+  if (!evidenceId) throw new Error("review builder requires the exact current Evidence tip");
+  const evidence = prior.effective.get(evidenceId);
+  const evidenceText = merged.entries.find((entry) => entry.label === evidenceId)?.text;
+  if (!evidence || !evidenceText) throw new Error(`review builder cannot resolve exact Evidence ${evidenceId}`);
+  let normalized;
+  let outcome;
+  let route;
+  try {
+    normalized = normalizeReviewInput(reviewInput, contract);
+    outcome = decision(normalized, evidence);
+    route = routeFor(merged.rootFields, normalized, outcome);
+  } catch (error) {
+    if (error?.code) throw error;
+    throw codedError("review-input-invalid", error?.message ?? "review_input is invalid");
+  }
+  const currentReviewEntry = predecessorReviewId ? merged.entries.find((entry) => entry.label === predecessorReviewId) : null;
+  const currentProvenance = currentReviewEntry?.builder_provenance;
+  if (currentProvenance?.schema === 1 && currentProvenance?.kind === "host-work-review-builder" && currentProvenance?.artifact_hash === sha2564(currentReviewEntry.text) && predecessorReview?.fields?.latest_evidence_id === evidenceId) {
+    const priorPredecessorId = predecessorReview.fields.predecessor_review_id ?? null;
+    const priorPredecessorText = priorPredecessorId ? merged.entries.find((entry) => entry.label === priorPredecessorId)?.text ?? "" : "";
+    const retrySeed = {
+      schema: 1,
+      root_content_hash: rootContentHash(rootPlanText),
+      root_projection_hash: contract.authoritative_projection_hash,
+      evidence_id: evidenceId,
+      evidence_hash: sha2564(evidenceText),
+      predecessor_review_id: priorPredecessorId,
+      predecessor_review_hash: priorPredecessorText ? sha2564(priorPredecessorText) : null,
+      auditors_run: route.auditors_run,
+      review_input: normalized
+    };
+    const retryInputHash = sha2564(stableJson2(retrySeed));
+    if (retryInputHash === currentProvenance.review_input_hash && predecessorReviewId === `wr-${merged.rootFields.id.replace(/^wp-/, "")}-${retryInputHash.slice(0, 12)}`) {
+      return {
+        duplicate: true,
+        artifact: currentReviewEntry.text,
+        artifact_hash: currentProvenance.artifact_hash,
+        review_input_hash: retryInputHash,
+        fields: predecessorReview.fields,
+        normalized_review_input: normalized,
+        outcome,
+        provenance: currentProvenance
+      };
+    }
+  }
+  const rootChecks = contract.checks.filter((check) => check.Required === "yes").map((check) => check["Check ID"]);
+  const reusedObjectives = predecessorReviewId ? (evidence.fields.reused_objectives ?? []).filter((id2) => contract.objectives.includes(id2)).sort(compareCanonical) : [];
+  const reusedChecks = predecessorReviewId ? (evidence.fields.reused_checks ?? []).filter((id2) => rootChecks.includes(id2)).sort(compareCanonical) : [];
+  const coverage = {
+    reusedObjectives,
+    inspectedObjectives: contract.objectives.filter((id2) => !reusedObjectives.includes(id2)),
+    reusedChecks,
+    inspectedChecks: rootChecks.filter((id2) => !reusedChecks.includes(id2))
+  };
+  const seedInput = {
+    schema: 1,
+    root_content_hash: rootContentHash(rootPlanText),
+    root_projection_hash: contract.authoritative_projection_hash,
+    evidence_id: evidenceId,
+    evidence_hash: sha2564(evidenceText),
+    predecessor_review_id: predecessorReviewId,
+    predecessor_review_hash: predecessorReviewText ? sha2564(predecessorReviewText) : null,
+    auditors_run: route.auditors_run,
+    review_input: normalized
+  };
+  const reviewInputHash = sha2564(stableJson2(seedInput));
+  const id = `wr-${merged.rootFields.id.replace(/^wp-/, "")}-${reviewInputHash.slice(0, 12)}`;
+  const correction = correctionProjection({ normalized, findings: normalized.findings, seed: reviewInputHash, rootFields: merged.rootFields, evidenceId, reviewId: id, predecessorReview, entries: merged.entries, pluginRoot });
+  const fields = {
+    artifact: "work-review",
+    schema: 5,
+    id,
+    status: "complete",
+    root_plan_id: merged.rootFields.id,
+    latest_evidence_id: evidenceId,
+    assessment: outcome.assessment,
+    delivery_status: outcome.delivery_status,
+    review_route: route.review_route,
+    next_action: outcome.next_action,
+    correction_id: correction?.correction_id ?? null,
+    predecessor_review_id: predecessorReviewId,
+    auditors_run: route.auditors_run,
+    inspected_objectives: coverage.inspectedObjectives,
+    reused_objectives: coverage.reusedObjectives,
+    inspected_checks: coverage.inspectedChecks,
+    reused_checks: coverage.reusedChecks,
+    ...correction ? { learning_candidates: correction.learning_ids } : {}
+  };
+  const artifact = `---
+${(0, import_yaml2.stringify)(fields, { lineWidth: 0 }).trimEnd()}
+---
+
+${reviewBody({ normalized, outcome, route, coverage, evidenceId, correction })}
+`;
+  const duplicate = merged.entries.find((entry) => entry.label === id);
+  if (duplicate && duplicate.text !== artifact) throw new Error(`review builder generated conflicting immutable bytes for ${id}`);
+  const finalEntries = duplicate ? merged.entries : [...merged.entries, { label: id, text: artifact }];
+  const validated = inspectArtifactSet(finalEntries.map((entry) => [entry.label, entry.text]), pluginRoot);
+  if (validated.errors.length > 0) throw new Error(`generated work-review is invalid: ${validated.errors.join("; ")}`);
+  const artifactHash = sha2564(artifact);
+  return {
+    duplicate: Boolean(duplicate),
+    artifact,
+    artifact_hash: artifactHash,
+    review_input_hash: reviewInputHash,
+    fields,
+    normalized_review_input: normalized,
+    outcome,
+    provenance: { schema: 1, kind: "host-work-review-builder", review_input_hash: reviewInputHash, artifact_hash: artifactHash }
+  };
+}
+function persistWorkReview({ handoffStore, rootPlanText, artifacts = [], review }) {
+  if (!review?.artifact || !review?.fields?.id || !review?.provenance) throw new Error("persistWorkReview requires one generated work-review");
+  try {
+    const byId = /* @__PURE__ */ new Map();
+    for (const entry of [{ label: review.fields.root_plan_id, text: rootPlanText }, ...artifacts, { label: review.fields.id, text: review.artifact, provenance: review.provenance }]) {
+      const inspected = inspectArtifactText(entry.text, handoffStore.pluginRoot);
+      const id = inspected.artifact?.fields?.id ?? entry.label;
+      const prior = byId.get(id);
+      if (prior && prior.text !== entry.text) throw new Error(`work-review persistence found conflicting immutable bytes for ${id}`);
+      byId.set(id, {
+        label: id,
+        text: entry.text,
+        ...entry.provenance || entry.builder_provenance ? { provenance: entry.provenance ?? entry.builder_provenance } : prior?.provenance ? { provenance: prior.provenance } : {}
+      });
+    }
+    const persisted = handoffStore.record([...byId.values()]);
+    return { ...review, handoff_persisted: true, handoff_authoritative: false, artifact_set_hash: persisted.artifact_set_hash };
+  } catch (error) {
+    return {
+      ...review,
+      handoff_persisted: false,
+      handoff_authoritative: false,
+      handoff_error_code: "handoff-persist-failed",
+      warning: `optional cross-task review handoff unavailable: ${error.message}; task-local Review remains valid`
     };
   }
 }
@@ -1514,6 +2234,110 @@ function jsonDecision(text) {
     }
   }
   return value;
+}
+function reviewerSummary(decision2) {
+  if (typeof decision2?.assessment_summary !== "string") throw new Error("review decision requires assessment_summary as a string");
+  const value = decision2.assessment_summary.trim();
+  if (!value) throw new Error("review decision requires assessment_summary");
+  return value;
+}
+function reviewerSnapshot(decision2) {
+  if (!["consistent", "contradicted", "incomplete"].includes(decision2?.snapshot_assessment)) throw new Error("review decision requires a valid snapshot_assessment");
+  if (typeof decision2?.snapshot_summary !== "string") throw new Error("review decision requires snapshot_summary as a string");
+  const summary = decision2.snapshot_summary.trim();
+  if (!summary) throw new Error("review decision requires snapshot_summary");
+  return { assessment: decision2.snapshot_assessment, summary };
+}
+function controllerReviewInput(run, decision2, auditorReports = []) {
+  if (!Array.isArray(decision2?.findings)) throw new Error("review decision requires findings as an array");
+  if (!Array.isArray(decision2?.missing_evidence)) throw new Error("review decision requires missing_evidence as an array");
+  const findingByKey = /* @__PURE__ */ new Map();
+  for (const item of decision2.findings) {
+    const rawKey = item?.key ?? item?.finding_key;
+    if (typeof rawKey !== "string") throw new Error("review finding requires key as a string");
+    const key = rawKey.trim();
+    if (!key || findingByKey.has(key)) continue;
+    if (typeof item?.summary !== "string" || typeof item?.evidence !== "string" || typeof item?.reasoning !== "string") {
+      throw new Error(`review finding ${key || "<missing>"} requires string summary, evidence, and reasoning`);
+    }
+    const summary = item.summary.trim();
+    const evidence = item.evidence.trim();
+    const reasoning = item.reasoning.trim();
+    if (!summary || !evidence || !reasoning) throw new Error(`review finding ${key || "<missing>"} requires summary, evidence, and reasoning`);
+    if (!["low", "medium", "high", "critical"].includes(item.severity)) throw new Error(`review finding ${key} requires a typed severity`);
+    if (!Array.isArray(item.objective_ids) || item.objective_ids.length === 0) throw new Error(`review finding ${key} requires objective_ids`);
+    if (!Array.isArray(item.check_ids) || item.check_ids.length === 0) throw new Error(`review finding ${key} requires check_ids`);
+    if (!["correct", "clarify", "replan"].includes(item.resolution)) throw new Error(`review finding ${key} requires a typed resolution`);
+    findingByKey.set(key, {
+      key,
+      severity: item.severity,
+      objective_ids: item.objective_ids,
+      check_ids: item.check_ids,
+      evidence,
+      reasoning,
+      resolution: item.resolution,
+      summary
+    });
+  }
+  const keys = [...new Set(decision2?.finding_keys ?? [])].sort();
+  if (keys.some((key) => !findingByKey.has(key))) throw new Error("review decision finding_keys must each have one complete typed finding");
+  const findings = keys.map((key) => findingByKey.get(key));
+  const snapshot2 = reviewerSnapshot(decision2);
+  const input = {
+    schema: 1,
+    kind: "review-input",
+    assessment: decision2.assessment,
+    recommended_action: decision2.next_action,
+    assessment_summary: reviewerSummary(decision2),
+    snapshot_assessment: snapshot2.assessment,
+    snapshot_summary: snapshot2.summary,
+    findings: findings.map(({ summary: _summary, ...finding }) => finding),
+    missing_evidence: decision2.missing_evidence,
+    auditor_reports: auditorReports
+  };
+  if (decision2.next_action !== "correct") return input;
+  const learning = decision2.learning_candidates ?? [];
+  if (learning.length === 0) throw new Error("correct review decision requires one typed learning candidate for Schema-5 correction lineage");
+  const fixKeys = findings.map((finding) => `fix-${finding.key}`);
+  const requiredChecks = (run.strategy?.checks ?? []).filter((check) => check.Required === "yes");
+  if (requiredChecks.length === 0) throw new Error("correct review decision requires at least one Root Check");
+  const checkKeys = requiredChecks.map((check) => `check-${String(check["Check ID"]).toLowerCase()}`);
+  input.correction = {
+    fixes: findings.map((finding) => ({
+      key: `fix-${finding.key}`,
+      finding_keys: [finding.key],
+      required_outcome: finding.summary,
+      evidence: finding.evidence
+    })),
+    checks: requiredChecks.map((check) => ({
+      key: `check-${String(check["Check ID"]).toLowerCase()}`,
+      fix_keys: fixKeys,
+      working_directory: check["Working Directory"] ?? "repository root",
+      command_or_inspection: check["Command or Inspection"],
+      expected_result: check["Expected Result"],
+      required: true,
+      cost_class: check["Cost Class"] ?? "standard",
+      prerequisites: String(check.Prerequisites ?? "Root-authorized correction").split(",").map((item) => item.trim()).filter(Boolean)
+    })),
+    steps: findings.map((finding) => ({
+      key: `step-${finding.key}`,
+      fix_keys: [`fix-${finding.key}`],
+      targets: run.strategy?.primary_targets ?? run.plan.fields.authority.allowed_roots,
+      required_outcome: finding.summary,
+      implementation_latitude: "Use the smallest strategy-compatible correction inside the approved Root authority.",
+      completion_probe: `The mapped finding ${finding.key} is absent and all correction Checks pass.`,
+      check_keys: checkKeys,
+      deviation_action: "Stop and replan if the immutable Root boundary or risk must change."
+    })),
+    learning_candidates: learning.map((candidate) => ({
+      key: `learning-${controllerLearningCandidateSemanticHash(candidate).slice(0, 12)}`,
+      finding_keys: candidate.finding_keys,
+      reusable_guidance: candidate.reusable_guidance,
+      candidate_targets: candidate.candidate_targets,
+      confirmation_evidence: candidate.confirmation_evidence
+    }))
+  };
+  return input;
 }
 function routeSelection(validation, role) {
   const result = validation.routes?.[role];
@@ -1831,7 +2655,9 @@ ${JSON.stringify(run.strategy, null, 2)}`,
         `SLICE
 ${JSON.stringify(slice, null, 2)}`,
         correctionCycle > 0 ? `REVIEW
-${JSON.stringify(run.review, null, 2)}` : ""
+${JSON.stringify(run.review, null, 2)}` : "",
+        correctionCycle > 0 && run.work_review_artifact ? `AUTHORITATIVE WORK REVIEW
+${run.work_review_artifact}` : ""
       ].filter(Boolean).join("\n\n");
       const roots = run.plan.fields.authority.allowed_roots;
       const writablePaths = roots.filter((target) => pathInside(target, run.project_policy.allowed_write_roots)).map((target) => assertContainedPath(run.worktree.path, target));
@@ -1893,7 +2719,7 @@ ${JSON.stringify(run.review, null, 2)}` : ""
         });
       }
       const checkIds = String(slice["Check IDs"] ?? "").split(",").map((item) => item.trim()).filter(Boolean);
-      const checks = run.strategy.checks.filter((check) => checkIds.length === 0 || checkIds.includes(check["Check ID"]));
+      const checks = run.strategy.checks.filter((check) => correctionCycle > 0 || checkIds.length === 0 || checkIds.includes(check["Check ID"]));
       const hostReceipts = checks.map((check) => {
         if (check["Evidence Class"] !== "machine-verifiable" || check["Command or Inspection"] === "verification-profile") return { check_id: check["Check ID"], unavailable: true, reason: "verification-profile-required" };
         try {
@@ -1902,20 +2728,47 @@ ${JSON.stringify(run.review, null, 2)}` : ""
           return { check_id: check["Check ID"], unavailable: true, reason: error.message };
         }
       });
-      const verifier = this.verify(run, slice, "patched", adapter, hostReceipts);
+      const verificationSlice = correctionCycle > 0 ? { ...slice, "Check IDs": checks.map((check) => check["Check ID"]).join(", ") } : slice;
+      const verifier = this.verify(run, verificationSlice, "patched", adapter, hostReceipts);
       if (verifier.hard_error) return { completed: false, run: this.block(run, verifier.blockers) };
       const byCheck = new Map(verifier.entries.map((entry) => [entry.check_id, entry]));
       const entries = checks.map((check) => byCheck.get(check["Check ID"]) ?? checkEvidence(check, hostReceipts.find((receipt) => receipt.check_id === check["Check ID"]), "patched"));
       run = this.update(run.run_id, (draft) => ({ ...draft, phase: "slice-review", check_receipts: [...draft.check_receipts ?? [], ...hostReceipts], evidence_entries: [...(draft.evidence_entries ?? []).filter((entry) => !(entry.baseline_or_patched === "patched" && entries.some((candidate) => candidate.check_id === entry.check_id))), ...entries], receipts: [...draft.receipts, ...verifier.receipt ? [verifier.receipt] : []] }), "verification-finished");
       let budgetBlockers = budgetBoundaryBlockers(run);
       if (budgetBlockers.length > 0) return { completed: false, run: this.block(run, budgetBlockers) };
-      const review = this.review(run, slice, entries, adapter);
+      let review = this.review(run, slice, entries, adapter);
       if (review.hard_error) return { completed: false, run: this.block(run, review.blockers) };
       run = this.update(run.run_id, (draft) => ({ ...draft, review: review.decision, receipts: [...draft.receipts, review.receipt] }), "slice-reviewed");
       budgetBlockers = budgetBoundaryBlockers(run);
       if (budgetBlockers.length > 0) return { completed: false, run: this.block(run, budgetBlockers) };
       if (!review.decision) return { completed: false, run: this.wait(run, review.blockers) };
       const aggregate = aggregateEvidence(run.evidence_entries.filter((entry) => entry.baseline_or_patched === "patched"));
+      if (review.decision.next_action !== "none") {
+        const patchedEvidence = run.evidence_entries.filter((entry) => entry.baseline_or_patched === "patched");
+        let candidate;
+        try {
+          candidate = this.deliveryEvidenceCandidate(run, patchedEvidence);
+        } catch (error) {
+          return { completed: false, run: this.block(run, [`delivery-closeout-invalid:${error.message}`]) };
+        }
+        let built;
+        try {
+          built = this.controllerWorkReview(run, candidate, review);
+        } catch (firstError) {
+          const repaired = this.review(run, slice, entries, adapter, candidate.artifact, firstError.message);
+          run = this.update(run.run_id, (draft) => ({ ...draft, receipts: [...draft.receipts, ...repaired.receipt ? [repaired.receipt] : []] }), "review-input-repair-attempted");
+          try {
+            if (!repaired.decision || repaired.hard_error) throw new Error("repair reviewer did not return a valid decision");
+            built = this.controllerWorkReview(run, candidate, repaired);
+            review = repaired;
+          } catch (secondError) {
+            return { completed: false, run: this.wait(run, [`review-input-invalid-after-one-repair:${secondError.message}; repeat Review in this Run`]) };
+          }
+        }
+        review = { ...review, decision: built.controller_decision };
+        run = this.update(run.run_id, (draft) => ({ ...draft, review: built.controller_decision }), "slice-review-authority-built");
+        run = this.materializeControllerReview(run, candidate, built);
+      }
       if (aggregate.delivery === "blocked") {
         const patchedEvidence = run.evidence_entries.filter((entry) => entry.baseline_or_patched === "patched");
         let candidate;
@@ -1951,8 +2804,8 @@ ${JSON.stringify(run.review, null, 2)}` : ""
       const learningCandidateIds = learning.candidates.map((candidate) => candidate.learning_id);
       const correctionDecision = {
         ...review.decision,
-        correction_id: learning.correction_id,
-        learning_candidate_ids: learningCandidateIds
+        controller_learning_correction_id: learning.correction_id,
+        controller_learning_candidate_ids: learningCandidateIds
       };
       const deviation = {
         id: `DEV-${run.strategy.revision + 1}`,
@@ -1962,7 +2815,15 @@ ${JSON.stringify(run.review, null, 2)}` : ""
         learning_candidate_ids: learningCandidateIds,
         at: (/* @__PURE__ */ new Date()).toISOString()
       };
-      const strategy = reviseStrategy(run.strategy, { deviations: [deviation] }, { reason: `review correction ${correctionCycle}`, createdBy: role, authority: run.plan.fields.authority });
+      const parsedCorrection = inspectArtifactText(run.work_review_artifact, this.pluginRoot).artifact?.correction;
+      if (!parsedCorrection?.id || parsedCorrection.id !== review.decision.correction_id) return { completed: false, run: this.wait(run, ["host-built-correction-plan-unavailable"]) };
+      const correctionChecks = parsedCorrection.checks.map((check) => ({
+        ...check,
+        Objectives: parsedCorrection.fixes.filter((fix) => String(check["FIX IDs"]).split(",").map((item) => item.trim()).includes(fix["FIX ID"])).flatMap((fix) => String(fix["Root Objectives"]).split(",").map((item) => item.trim())).filter(Boolean).join(", "),
+        "Evidence Class": "machine-verifiable"
+      }));
+      const checksById = new Map([...run.strategy.checks, ...correctionChecks].map((check) => [check["Check ID"], check]));
+      const strategy = reviseStrategy(run.strategy, { deviations: [deviation], checks: [...checksById.values()] }, { reason: `review correction ${correctionCycle}`, createdBy: role, authority: run.plan.fields.authority });
       run = this.update(run.run_id, (draft) => ({
         ...draft,
         strategy,
@@ -2060,13 +2921,13 @@ ${artifactDirectory}`
       return { entries: [...hostEntries, ...unresolved.map((check) => checkEvidence(check, { unavailable: true, reason: `invalid verifier output: ${error.message}` }, stage))], receipt: phase.receipt };
     }
   }
-  review(run, slice, evidenceEntries, adapter, candidateEvidence = null) {
+  review(run, slice, evidenceEntries, adapter, candidateEvidence = null, repairIssue = null) {
     const selected = routeSelection(run.route_validation, "reviewer");
     const diff = this.gitDiff(run.worktree.path, run.strategy.task_class === "verify-existing" ? run.worktree.baseline.head : run.worktree.human_baseline);
     const prompt = [
       "Independently review the current strategy state. You are read-only and have no writer conversation.",
       "Judge the immutable intent, current strategy, repository diff and evidence entries. Reviewer opinion must not upgrade evidence.",
-      "Return JSON with assessment, delivery_status, next_action, finding_keys, findings, and learning_candidates. learning_candidates is optional and allowed only for next_action correct; each item contains finding_keys, reusable_guidance, candidate_targets, and confirmation_evidence. Do not assign Learning IDs. Known failed evidence can never be provisional or verified.",
+      "Return semantic JSON only: assessment, next_action, assessment_summary, snapshot_assessment, snapshot_summary, finding_keys, findings, missing_evidence, and learning_candidates. Each finding requires key, summary, severity, objective_ids, check_ids, evidence, reasoning, and resolution. For correct, learning_candidates is required and each item contains finding_keys, reusable_guidance, candidate_targets, and confirmation_evidence. Do not assign artifact, Correction, Check, Step, Finding, or Learning IDs. Known failed evidence can never be provisional or verified.",
       `INTENT
 ${run.plan.authoritative_projection_text}`,
       `STRATEGY
@@ -2076,8 +2937,10 @@ ${JSON.stringify(slice, null, 2)}`,
       `DIFF
 ${diff}`,
       `CANDIDATE DELIVERY EVIDENCE
-${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
-    ].join("\n\n");
+${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`,
+      repairIssue ? `ONE REVIEW-INPUT REPAIR
+The prior semantic response could not be normalized: ${repairIssue}. Root, Evidence, and repository work are preserved. Correct only the named semantic field and return the complete JSON again in this Run.` : ""
+    ].filter(Boolean).join("\n\n");
     const guarded = guardReadOnlyRepository(run.worktree.path, () => adapter.runPhase({ role: "reviewer", ...selected, prompt, cwd: run.worktree.path, configurationHash: run.route_hash, artifactProjectionHash: run.intent_hash }));
     const phase = guarded.value;
     if (!guarded.unchanged) return { decision: null, receipt: { ...phase.receipt, reader_repository_unchanged: false }, blockers: ["reader-repository-mutation:reviewer"], hard_error: true };
@@ -2085,17 +2948,23 @@ ${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
     if (!phase.response.ok) blockers.push(phase.response.error?.message ?? "reviewer-failed");
     if (blockers.length > 0) return { decision: null, receipt: phase.receipt, blockers: [...new Set(blockers)] };
     try {
-      return { decision: jsonDecision(phase.response.result), receipt: phase.receipt, blockers: [] };
+      const decision2 = jsonDecision(phase.response.result);
+      return {
+        decision: decision2,
+        receipt: phase.receipt,
+        auditor_reports: [{ role: "delivery-auditor", assessment: decision2.assessment, summary: decision2.assessment_summary }],
+        blockers: []
+      };
     } catch (error) {
       return { decision: null, receipt: phase.receipt, blockers: [`reviewer-invalid-decision:${error.message}`] };
     }
   }
-  reviewFanout(run, evidenceEntries, adapter, candidateEvidence = null) {
+  reviewFanout(run, evidenceEntries, adapter, candidateEvidence = null, repairIssue = null) {
     if (typeof adapter.runReadOnlyFanout !== "function") return this.review(run, { "Slice ID": "ROOT" }, evidenceEntries, adapter, candidateEvidence);
     const diff = this.gitDiff(run.worktree.path, run.strategy.task_class === "verify-existing" ? run.worktree.baseline.head : run.worktree.human_baseline);
     const prompt = [
       "Independently judge the immutable intent, current strategy, diff and evidence. You are read-only.",
-      "Return JSON with assessment, delivery_status, next_action, finding_keys, findings, and learning_candidates. learning_candidates is optional and allowed only for next_action correct; each item contains finding_keys, reusable_guidance, candidate_targets, and confirmation_evidence. Do not assign Learning IDs. Do not upgrade evidence and never treat a known failure as provisional.",
+      "Return semantic JSON only: assessment, next_action, assessment_summary, snapshot_assessment, snapshot_summary, finding_keys, findings, missing_evidence, and learning_candidates. Each finding requires key, summary, severity, objective_ids, check_ids, evidence, reasoning, and resolution. For correct, learning_candidates is required and each item contains finding_keys, reusable_guidance, candidate_targets, and confirmation_evidence. Do not assign artifact, Correction, Check, Step, Finding, or Learning IDs. Do not upgrade evidence and never treat a known failure as provisional.",
       `INTENT
 ${run.plan.authoritative_projection_text}`,
       `STRATEGY
@@ -2103,8 +2972,10 @@ ${JSON.stringify(run.strategy, null, 2)}`,
       `DIFF
 ${diff}`,
       `CANDIDATE DELIVERY EVIDENCE
-${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
-    ].join("\n\n");
+${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`,
+      repairIssue ? `ONE REVIEW-INPUT REPAIR
+The prior semantic response could not be normalized: ${repairIssue}. Root, Evidence, and repository work are preserved. Correct only the named semantic field and return the complete JSON again in this Run.` : ""
+    ].filter(Boolean).join("\n\n");
     const phases = ["reviewer", "investigator"].map((role) => ({
       role,
       ...routeSelection(run.route_validation, role),
@@ -2132,7 +3003,7 @@ ${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
         continue;
       }
       try {
-        decisionRecords.push({ decision: jsonDecision(result.response.result), receipt: result.receipt });
+        decisionRecords.push({ role, decision: jsonDecision(result.response.result), receipt: result.receipt });
       } catch (error) {
         blockers.push(`${role}-invalid-decision:${error.message}`);
       }
@@ -2140,10 +3011,10 @@ ${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
     if (decisionRecords.length === 0) return { decision: null, receipts: results.map((result) => result.receipt), blockers: [...new Set(blockers)] };
     const actionRank = { replan: 6, clarify: 5, correct: 4, "retry-review": 3, "accept-provisional": 2, none: 1 };
     const selected = decisionRecords.toSorted((left, right) => actionRank[right.decision.next_action] - actionRank[left.decision.next_action])[0].decision;
-    const bothAchieved = decisionRecords.length === 2 && decisionRecords.every(({ decision: decision2 }) => decision2.assessment === "achieved" && decision2.next_action === "none");
+    const bothAchieved = decisionRecords.length === 2 && decisionRecords.every(({ decision: decision3 }) => decision3.assessment === "achieved" && decision3.next_action === "none");
     const learningBySemanticIdentity = /* @__PURE__ */ new Map();
     if (selected.next_action === "correct") {
-      for (const { decision: sourceDecision, receipt } of decisionRecords.filter(({ decision: decision2 }) => decision2.next_action === "correct")) {
+      for (const { decision: sourceDecision, receipt } of decisionRecords.filter(({ decision: decision3 }) => decision3.next_action === "correct")) {
         for (const candidate of sourceDecision.learning_candidates ?? []) {
           const key = controllerLearningCandidateSemanticHash(candidate);
           const sourceBinding = {
@@ -2160,7 +3031,7 @@ ${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
       }
     }
     const learningCandidates = [...learningBySemanticIdentity.values()];
-    const decision = {
+    const decision2 = {
       ...selected,
       assessment: bothAchieved ? "achieved" : selected.assessment === "achieved" ? "provisional" : selected.assessment,
       delivery_status: bothAchieved ? "verified" : selected.delivery_status === "blocked" ? "blocked" : "provisional",
@@ -2170,7 +3041,16 @@ ${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
       learning_candidates: learningCandidates,
       agreement: bothAchieved ? "consensus" : decisionRecords.length === 2 ? "contested" : "single-valid-review"
     };
-    return { decision, receipts: results.map((result) => result.receipt), blockers };
+    return {
+      decision: decision2,
+      receipts: results.map((result) => result.receipt),
+      auditor_reports: decisionRecords.map(({ role, decision: sourceDecision }) => ({
+        role: role === "investigator" ? "risk-auditor" : "delivery-auditor",
+        assessment: sourceDecision.assessment,
+        summary: sourceDecision.assessment_summary
+      })),
+      blockers
+    };
   }
   finalReview(runId) {
     let run = this.store.get(runId);
@@ -2189,21 +3069,42 @@ ${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
     } catch (error) {
       return this.block(run, [`delivery-closeout-invalid:${error.message}`]);
     }
-    const review = this.reviewFanout(run, evidence, adapter, candidate.artifact);
-    const reviewReceipts = review.receipts ?? (review.receipt ? [review.receipt] : []);
-    const rootLearning = materializeControllerLearningCandidates({
+    let review = this.reviewFanout(run, evidence, adapter, candidate.artifact);
+    let reviewReceipts = review.receipts ?? (review.receipt ? [review.receipt] : []);
+    let rootLearning = materializeControllerLearningCandidates({
       run,
       decision: review.decision,
       correctionCycle: (run.correction_cycles ?? 0) + 1,
       receiptIds: reviewReceipts.map((receipt) => receipt?.request_id).filter(Boolean)
     });
-    const rootDecision = review.decision ? {
-      ...review.decision,
-      ...review.decision.next_action === "correct" ? {
-        correction_id: rootLearning.correction_id,
-        learning_candidate_ids: rootLearning.candidates.map((item) => item.learning_id)
-      } : {}
-    } : null;
+    let builtReview = null;
+    if (review.decision && !review.hard_error) {
+      try {
+        builtReview = this.controllerWorkReview(run, candidate, review);
+      } catch (firstError) {
+        const repaired = this.reviewFanout(run, evidence, adapter, candidate.artifact, firstError.message);
+        reviewReceipts = [...reviewReceipts, ...repaired.receipts ?? (repaired.receipt ? [repaired.receipt] : [])];
+        review = { ...repaired, blockers: [.../* @__PURE__ */ new Set([...review.blockers ?? [], ...repaired.blockers ?? []])] };
+        try {
+          rootLearning = materializeControllerLearningCandidates({
+            run,
+            decision: review.decision,
+            correctionCycle: (run.correction_cycles ?? 0) + 1,
+            receiptIds: (repaired.receipts ?? (repaired.receipt ? [repaired.receipt] : [])).map((receipt) => receipt?.request_id).filter(Boolean)
+          });
+          if (review.decision && !review.hard_error) builtReview = this.controllerWorkReview(run, candidate, review);
+          else throw new Error("repair reviewer did not return a valid decision");
+        } catch (secondError) {
+          review = {
+            ...review,
+            decision: null,
+            blockers: [.../* @__PURE__ */ new Set([...review.blockers ?? [], `review-input-invalid-after-one-repair:${secondError.message}; repeat Review in this Run`])]
+          };
+          rootLearning = { correction_id: null, candidates: [] };
+        }
+      }
+    }
+    const rootDecision = builtReview?.controller_decision ?? null;
     const sourceBaselineAtDelivery = repositoryBaseline(this.workspaceRoot);
     const sourceDriftAtDelivery = currentBaselineDiffers(run.source_baseline_at_start ?? run.baseline, sourceBaselineAtDelivery);
     run = this.update(runId, (draft) => ({
@@ -2218,6 +3119,7 @@ ${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
       source_drift_at_delivery: sourceDriftAtDelivery,
       integration_warnings: sourceDriftAtDelivery ? ["source-worktree-drift-may-conflict-with-human-integration"] : []
     }), "root-reviewed");
+    if (builtReview) run = this.materializeControllerReview(run, candidate, builtReview);
     if (rootDecision?.next_action === "correct") {
       const actorReceipts = learningSourceReceiptIds(rootLearning.candidates);
       this.store.appendDecision(runId, {
@@ -2292,7 +3194,7 @@ ${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
     const snapshot2 = repositoryBaseline(run.worktree?.path ?? this.workspaceRoot);
     const paths = run.worktree?.path ? changedPathsBetween(run.worktree.path, run.worktree.human_baseline, snapshot2.head) : changedPaths(this.workspaceRoot);
     const supplied = new Map(evidence.map((entry) => [entry.check_id, entry]));
-    const completeEvidence = run.plan.checks.filter((check) => check.Required === "yes").map((check) => supplied.get(check["Check ID"]) ?? {
+    const completeEvidence = run.strategy.checks.filter((check) => check.Required === "yes").map((check) => supplied.get(check["Check ID"]) ?? {
       check_id: check["Check ID"],
       grade: "unavailable",
       surface: "controller",
@@ -2305,6 +3207,7 @@ ${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
     });
     const candidate = buildDeliveryEvidence({
       rootPlanText: run.root_plan_text,
+      artifacts: run.workflow_artifacts ?? [],
       checkEvidence: completeEvidence,
       changedPaths: paths,
       strategyRevision: run.strategy?.revision ?? 0,
@@ -2319,7 +3222,81 @@ ${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`
     });
     return { ...candidate, delivery_commit: snapshot2.head, delivered_paths: paths };
   }
+  controllerWorkReview(run, candidate, review) {
+    if (!review?.decision) throw new Error("controller work-review requires one valid semantic reviewer decision");
+    const reviewInput = controllerReviewInput(run, review.decision, review.auditor_reports ?? []);
+    const built = buildWorkReview({
+      rootPlanText: run.root_plan_text,
+      artifacts: [...run.workflow_artifacts ?? [], { label: candidate.fields.id, text: candidate.artifact }],
+      reviewInput,
+      pluginRoot: this.pluginRoot
+    });
+    return {
+      ...built,
+      controller_decision: {
+        ...review.decision,
+        assessment: built.fields.assessment,
+        delivery_status: built.fields.delivery_status,
+        next_action: built.fields.next_action,
+        review_route: built.fields.review_route,
+        correction_id: built.fields.correction_id ?? null,
+        learning_candidate_ids: built.fields.learning_candidates ?? []
+      }
+    };
+  }
+  materializeControllerReview(run, candidate, review) {
+    const artifactMap = /* @__PURE__ */ new Map();
+    for (const entry of [
+      ...run.workflow_artifacts ?? [],
+      { label: candidate.fields.id, text: candidate.artifact },
+      { label: review.fields.id, text: review.artifact, builder_provenance: review.provenance }
+    ]) {
+      const artifact = entry.text.match(/^id:\s*([^\s]+)$/m)?.[1] ?? entry.label;
+      const prior = artifactMap.get(artifact);
+      if (prior && prior.text !== entry.text) throw new Error(`controller task-local artifact ${artifact} conflicts with immutable bytes`);
+      artifactMap.set(artifact, { label: artifact, text: entry.text, ...entry.builder_provenance ? { builder_provenance: entry.builder_provenance } : prior?.builder_provenance ? { builder_provenance: prior.builder_provenance } : {} });
+    }
+    const workflowArtifacts = [...artifactMap.values()];
+    const handoffEntries = [
+      { label: run.plan.fields.id, text: run.root_plan_text },
+      ...workflowArtifacts.map((entry) => ({ label: entry.label, text: entry.text, ...entry.builder_provenance ? { provenance: entry.builder_provenance } : {} }))
+    ];
+    let handoffPersisted = true;
+    let handoffWarning = null;
+    try {
+      this.handoffStore.record(handoffEntries);
+    } catch (error) {
+      handoffPersisted = false;
+      handoffWarning = `optional controller review handoff unavailable: ${error.message}; task-local Review remains valid`;
+    }
+    try {
+      createContentAddressedHandoffStore(run.root_plan_text, this.pluginRoot).record(handoffEntries);
+      rememberContentAddressedRoot(run.root_plan_text, this.pluginRoot);
+      handoffPersisted = true;
+      handoffWarning = null;
+    } catch {
+    }
+    return this.update(run.run_id, (draft) => ({
+      ...draft,
+      workflow_artifacts: workflowArtifacts,
+      delivery_evidence_id: candidate.fields.id,
+      delivery_evidence_hash: candidate.artifact_hash,
+      delivery_evidence_artifact: candidate.artifact,
+      delivery_commit: candidate.delivery_commit,
+      delivered_paths: candidate.delivered_paths,
+      work_review_id: review.fields.id,
+      work_review_hash: review.artifact_hash,
+      work_review_artifact: review.artifact,
+      review_input_hash: review.review_input_hash,
+      work_review_builder_provenance: review.provenance,
+      handoff_persisted: handoffPersisted,
+      integration_warnings: [.../* @__PURE__ */ new Set([...draft.integration_warnings ?? [], ...handoffWarning ? [handoffWarning] : []])]
+    }), "work-review-materialized");
+  }
   materializeDeliveryEvidence(run, candidate) {
+    if (run.delivery_evidence_id === candidate.fields.id && run.delivery_evidence_hash === candidate.artifact_hash && run.delivery_evidence_artifact === candidate.artifact) {
+      return { run, blocker: null };
+    }
     let handoffPersisted = true;
     let handoffWarning = null;
     let blocker = null;
@@ -2420,6 +3397,8 @@ export {
   manualConstraintProjection,
   buildDeliveryEvidence,
   persistCloseout,
+  buildWorkReview,
+  persistWorkReview,
   deriveControllerLearningContext,
   derivePreparationLearningContext,
   WorkflowEngine

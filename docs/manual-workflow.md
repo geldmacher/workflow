@@ -1,23 +1,23 @@
 # Manual Workflow guide
 
-Manual Workflow is the default human-driven delivery path in Workflow. You approve each material transition; Workflow connects the approved Intent Root to implementation, evidence, fresh review, correction, and optional Learning without starting controller automation.
+Manual Workflow is the default human-driven delivery path in Workflow. You approve each material transition; Workflow connects the approved Intent Root to implementation, evidence, fresh review, correction, and optional Learning without starting controller automation or requiring another task or chat.
 
 ## Manual flow
 
 ```text
-plan-work -> Implement Plan -> delivery closeout -> review-work
-                                             |-> achieved
-                                             |-> accept provisional
-                                             |-> correct and review again
-                                             |-> clarify or replan
+plan-work -> Implement Plan -> review-work
+                              |-> achieved
+                              |-> accept provisional
+                              |-> correct-work -> review-work
+                              |-> plan-work replan -> Implement Plan -> review-work
 ```
 
 The normal path is deliberately short:
 
 1. `/plan-work` or `$plan-work` creates one ready Schema-5 Intent Root.
 2. The human uses **Implement Plan**, which authorizes implementation only inside that Root.
-3. Native lifecycle closeout binds observed Checks and repository changes into Delivery Evidence. `/close-work` or `$close-work` is recovery when Evidence is missing, not a routine extra phase.
-4. `/review-work` or `$review-work` starts a fresh read-only review and automatically explains the result for someone who did not follow implementation.
+3. The lifecycle closes out internally, binding observed Checks and repository changes into Delivery Evidence without showing a `closeout-input`, delivery report, or extra command. `/close-work` or `$close-work` is exceptional diagnostic recovery.
+4. In the same task, `/review-work` or `$review-work` starts a fresh read-only review phase, normalizes missing Evidence internally when possible, and returns one result understandable without replaying the implementation transcript.
 5. The verdict completes the Root, asks for a bounded human decision, or stops for correction or replanning.
 
 Every actionable response uses the same two-layer chat card. The primary layer shows one journey state, one plain-language outcome, the required-Check summary, at most one blocker, and exactly one action. Root/Evidence/Review/Correction IDs, receipts, hashes, paths, and host enforcement move to the following **Technical traceability** disclosure. Repeated output with the same Root, state, problem, and action has one stable deduplication key so a host can coalesce it instead of creating a status-message stream.
@@ -35,7 +35,7 @@ Manual keeps the visible four-step flow while adding four layers of back-pressur
 
 The host creates a compact content-addressed receipt without storing raw command output. Receipt capture is automatic: the user does not enter a hash, copy terminal output, confirm another step, or run another Workflow command. A later repository mutation invalidates earlier receipts. Active receipt records expire after 24 hours and are removed after successful persisted closeout; only their hashes remain in Delivery Evidence.
 
-If a machine Check is claimed as `verified` but its receipt is missing, mismatched, expired, rootless, or tied to an older repository state, Workflow reports `supported` or `unavailable` instead. It names the exact Check, command, and working directory to rerun. A host-observed failed Check remains `failed` and blocks delivery. Checks intentionally reserved for human review or approval do not require machine receipts.
+If a machine Check is claimed as `verified` but its receipt is missing, mismatched, expired, rootless, or tied to an older repository state, Workflow reports `supported` or `unavailable` instead. It names the exact Check, command, and working directory to rerun. A host-observed failed Check remains `failed` and blocks delivery. If that failure arrives after Evidence was already recorded, Workflow invalidates the old tip and uses one internal continuation to persist honest replacement Evidence; the next Review can route directly to correction or replan. Checks intentionally reserved for human review or approval do not require machine receipts.
 
 Closeout, status, and review report constraint effectiveness only for the current delivery. A normal success stays compact. When attention is needed, the response adds:
 
@@ -53,7 +53,7 @@ This does not create cross-run telemetry or automatic Learning.
 | Create or replace the Intent Root | `/plan-work` | `$plan-work` in Plan mode | Define goal, acceptance, authority, risk, and required Checks. |
 | Implement the approved Root | **Implement Plan** | **Implement Plan** | Human approval to edit only inside the Root. |
 | Recover missing Evidence | `/close-work` | `$close-work` | Read-only recovery; normal implementation closes out natively. |
-| Review delivery | `/review-work` | `$review-work` in a fresh task | Independent verdict plus a plain-language result explanation and technical traceability. |
+| Review delivery | `/review-work` | `$review-work` | Fresh read-only phase in the current task; independent verdict plus a plain-language result explanation and technical traceability. |
 | Apply one approved correction | `/correct-work` | `$correct-work` | Execute only the current Findings-backed `cp-*` correction. |
 | Accept an evidence gap once | `/accept-work provisional` | `$accept-work provisional` | Acknowledge provisional proof without calling it verified. |
 | Inspect current state | `/work-status` | `$work-status` | Derive a read-only snapshot from the current Schema-5 chain. |
@@ -74,7 +74,7 @@ A ready `wp-*` Intent Root exists, but implementation has not produced Delivery 
 
 ### root-review
 
-Delivery Evidence exists and a fresh reviewer must assess it against the approved Root. Start `/review-work` or `$review-work`; do not treat implementer claims or closeout alone as the final verdict.
+Delivery Evidence exists and a fresh read-only review phase must assess it against the approved Root. Start `/review-work` or `$review-work` in the current task; a new task is optional, not required. Do not treat implementer claims or closeout alone as the final verdict.
 
 ### waiting-human
 
@@ -122,14 +122,14 @@ Manual Workflow uses one exact Schema-5 chain:
 
 - `work-plan` (`wp-*`): the approved Intent Root.
 - `delivery-evidence` (`de-*`): builder-owned observations, changed paths, Check grades, and repository binding.
-- `work-review` (`wr-*`): normally the fresh verdict and `next_action` bound to one Evidence tip. The only Evidence-free variant is a root-boundary Review that can request only a separately approved replan.
+- `work-review` (`wr-*`): a deterministic host-built fresh verdict and `next_action` bound to one Evidence tip. The reviewer supplies only closed semantic input. The only Evidence-free variant is a host-built root-boundary Review that can request only a separately approved replan.
 - correction (`cp-*`): a Findings-backed bounded fix referenced by a Review; its Evidence is a delta on the existing chain.
 
 A **tip** is the current endpoint of a plan, evidence, or review lineage. A predecessor remains immutable history; a newer tip supersedes it for current decisions. Explicit IDs win over automatic selection, and ambiguous or mixed tips authorize nothing.
 
-For a new correction, closeout reuses only required Root Checks already proved `passed`. Every inherited required Root Check still supported, partial, unavailable, failed, or missing is reported again in the correction Evidence. If a Root Check and correction Check are semantically equivalent, one real probe on the same stable closeout state may support both explicit IDs; this avoids duplicate work without upgrading old proof by wording. A fully verified delta is then ready for the next review without an extra `/close-work` loop.
+For a new correction, closeout reruns correction Checks plus inherited Root Checks that are failed, missing, explicitly affected, fingerprint-stale, or ambiguous. Unaffected proof remains reusable only at its existing grade: supported, partial, or unavailable proof is not upgraded and still prevents verified achievement. If a Root Check and correction Check are semantically equivalent, one real probe on the same stable closeout state may support both explicit IDs. The resulting delta is ready for the next review without an extra `/close-work` loop.
 
-Task artifacts are authoritative. The content-addressed handoff cache only transports exact artifact bytes between tasks or hosts. `cached`, `handoff_persisted`, or a loaded context never grants approval, acceptance, verification, qualification, or Learning authority. If transport fails, attach the exact returned artifact to the next Workflow action.
+Task artifacts are authoritative. The content-addressed handoff cache only transports exact artifact bytes and protected builder provenance between tasks or hosts. `cached`, `handoff_persisted`, or a loaded context never grants approval, acceptance, verification, qualification, or Learning authority. If optional transport fails, the exact current task-local chain remains valid and Review continues normally. Attach an artifact only when deliberately continuing in another task or host. New raw Review envelopes cannot be recorded as authority; older immutable Reviews remain readable.
 
 On Codex, the lifecycle Hook also retains exact task-local Root, generated Evidence, and emitted Review bytes under the Root-content hash. A correction therefore receives the Source Review and predecessor Evidence automatically without reconstructing Review text through MCP. The Hook derives the complete repository path inventory itself; any caller `changed_paths` list is non-authoritative and cannot narrow or widen Evidence or Authority checks. A native failure is shown explicitly in the Stop response rather than leaving a visible closeout report without Evidence.
 
@@ -193,7 +193,7 @@ Only derived `achieved` work is labeled **Final repository explanation**. Provis
 
 ## Human authority and boundaries
 
-Planning, **Implement Plan**, correction, provisional acceptance, replan, and Learning are separate human authorizations. Starting a fresh Manual review authorizes final verification; a verified review completes directly, while provisional delivery needs the separate one-time acceptance.
+Planning, **Implement Plan**, correction, provisional acceptance, replan, and Learning are separate human authorizations. Starting a fresh read-only Manual review phase in the current task authorizes final verification; a verified review completes directly, while provisional delivery needs the separate one-time acceptance.
 
 Host sandbox and tool approvals remain authoritative. Workflow preference metadata can describe expected host approval behavior but grants no permission. Missing, conflicting, stale, mixed, or invalid chains fail closed.
 
@@ -207,12 +207,15 @@ Learning is optional and always human-started. Manual Learning requires the exac
 
 ## Recovery and troubleshooting
 
-- Missing Evidence after implementation: use `/close-work` or `$close-work`, or attach the exact Evidence returned by native closeout.
+Every real block should name both **Blocker** in plain language and **Resolution** as one concrete recovery action. Technical codes, IDs, hashes, receipts, and paths remain available under Technical traceability; they are not the primary explanation.
+
+- Missing Evidence after implementation: start Review normally; it first attempts one internal idempotent closeout. Use `/close-work` or `$close-work` only when that diagnostic recovery is explicitly requested.
 - Evidence cannot exist after one recovery because the baseline, Root binding, workspace identity, or path authority was irrecoverably lost: emit the constrained root-boundary Review and use its sole replan action.
 - Missing or ambiguous artifacts: provide the exact current `wp-*`, `de-*`, and `wr-*` chain; do not reconstruct it from filenames or memory.
+- Optional handoff/cache unavailable: stay in the current task and continue with Review. Export the exact artifact only if you intentionally switch tasks or hosts.
 - Provisional proof: inspect the named limitations, improve the relevant Checks when practical, then review again; otherwise accept the gap explicitly.
 - Failed Check: correct the current Findings-backed issue or replan. Never relabel failure as unavailable.
-- Correction proof: run the correction and every inherited required Root Check not already passed in one closeout; do not repeat an unchanged review to try to raise grades.
+- Correction proof: run correction Checks plus failed, missing, affected, stale, or ambiguous Root Checks; reuse unaffected proof at the same grade and never repeat an unchanged review to raise confidence by wording.
 - Changed goal, scope, public behavior, risk, dependency, or external effect: replan and obtain fresh approval.
 - Workflow-3/4 history: inspect it read-only and create a new Workflow-5 Root for new work.
 - Unsure what happened: run `/work-status` or `$work-status`, then `/explain-work` or `$explain-work` against the exact chain.

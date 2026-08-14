@@ -1,18 +1,18 @@
 ---
 name: work-review
-description: Review delivery against one Workflow root.
+description: Review one Workflow root read-only.
 ---
 
-Use fresh Cursor Ask, not Writer. Read [protocol](../../references/artifact-protocol.md), [evidence](../../references/delivery-evidence-contract.md), and [review](../../references/review-contract.md); inspect read-only via MCP.
+Fresh Cursor Ask, not Writer. Read [protocol](../../references/artifact-protocol.md), [evidence](../../references/delivery-evidence-contract.md), and [review](../../references/review-contract.md); inspect read-only via MCP.
 
-Resolve explicit `wp-*`, active Schema-5 Plan chain, else unique Run. Validate task artifacts first; `workflow_artifact_context` is transport enrichment. Missing workspace binding or `roots-request-failed|roots-empty` cannot discard the task Root/Evidence chain. Other errors, ambiguity, Workflow-3/4 mix, or invalid chain blocks. Manual needs no Preparation/Run; ignore unscoped `workflow_status`. Reuse only equal-strength Evidence.
+Resolve the active Schema-5 Plan chain, explicit `wp-*` for another, else unique Run. Task artifacts first; `workflow_artifact_context` is transport enrichment. Missing workspace binding or `roots-request-failed|roots-empty` cannot discard the task Root/Evidence chain. Workflow-3/4 blocks. Manual needs no Preparation/Run; ignore unscoped `workflow_status`.
 
-Run inline first; fixed `replan|clarify` stops; otherwise smallest route. Use no built-in or general-purpose subagent. Named read-only design/delivery/risk auditors inherit the Cursor-selected model with `[workflow-readonly-review-v1]`; Workflow chooses no model. Clarify decisions, replan boundaries, retry proof gaps, correct in-Root gaps.
+Check authority/boundaries/Checks. Use no built-in or general-purpose subagent. Read-only auditors inherit the model with `[workflow-readonly-review-v1]`.
 
-No Root: request context, no Review. Root without Evidence: observe once, return `closeout-input` phase `review-recovery`; the hook may build Evidence and continue once. `/close-work [wp-id]` is optional.
+No Root, no Review. Root without Evidence uses `workflow_closeout`, else one `closeout-input`; `/close-work` is exceptional. Root-boundary needs host proof: `latest_evidence_id: null`, `insufficient-evidence/blocked/replan`.
 
-Root-boundary needs a fresh protected native-host receipt after typed irrecoverable post-mutation recovery. Copy exact ID/time/error/reason, Root/snapshot hashes, paths; never invent/repair. Emit `review_basis: root-boundary`, `latest_evidence_id: null`, `insufficient-evidence/blocked/replan`, no Finding; only approved linear replan. Missing trust, portable/rootless validation, transport/roots-empty/incomplete proof, or stale receipt blocks.
+Return one closed `json workflow-review-input`, never Review bytes. The host builds/retains the authoritative Review; portable Manual calls `workflow_closeout` with `artifact_kind: work-review` (Evidence default; five tools). Never raise grades/assign IDs. For `correct`, read [correction](../../references/correction-contract.md) and supply complete local-key parts.
 
-Emit a schema-valid Schema-5 Review. `achieved/verified/none` completes; provisional offers only `/accept-work provisional`. Never raise grades or infer production success. For `correct`, load [correction](../../references/correction-contract.md), include non-passed inherited Checks and one Findings-backed correction. Attach unpersisted Review once. Two no-progress corrections require clarify/replan.
+Repair the named field once in this task; Root/Evidence/work remain. A second failure blocks Review only. Persistence is optional; full model Reviews are rejected; history stays readable.
 
-Primary: journey/result, Checks, at most one blocker, one Now/How/Why action. Trace IDs, paths, receipts, enforcement. Use `constraint_summary`, `human_attention`, and `problem_details`.
+The reviewer, not `work-explainer`, leads with result, Checks, one blocker/recovery/action. Trace IDs/paths/receipts, `constraint_summary`, `human_attention`, `problem_details`. Verified completes; provisional offers `/accept-work provisional`.

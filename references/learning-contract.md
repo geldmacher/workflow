@@ -1,22 +1,22 @@
 # Learning closeout
 
-`/learn-from-work [instruction]` is optional Agent Mode closeout and direct authorization for bounded project-guidance edits. The argument is one supplemental Learning, never a selector. Planning, acceptance, integration, and Learning are separate human decisions; invocation never mutates Run state or publishes automatically.
+`/learn-from-work [instruction]` is separate human authorization for bounded project-guidance edits. Its argument is supplemental Learning, never a selector. Invocation never mutates Runs or publishes.
 
 ## Source and eligibility
 
-Refresh one exact current-task source with `workflow_status`: the active Plan/current Schema-5 chain, otherwise one controller Run already returned in the current task with an ephemeral `learning_source_receipt`. Only state-establishing start/control/answer issues it; status/watch never do. It is process-local, expiring, nonpersistent, non-authoritative, and Run/Root-bound. Missing, mismatched, multiple, stale, provisional, blocked, failed, mixed, or invalid sources stop. Never search storage/history.
+Refresh one current-task source with `workflow_status`: active Plan/current Schema-5 chain, otherwise one exact controller Run already returned in the task with ephemeral `learning_source_receipt`. Only start/control/answer issues it; status/watch never do. It expires, persists nowhere, grants no authority, and binds Run/Root. Missing, mismatched, multiple, stale, provisional, blocked, failed, mixed, or invalid sources stop. Never search storage/history.
 
 Trust the uniform read-only `learning` projection:
 
-- Manual: exact current `achieved` chain with verified Evidence and achieved Review.
+- Manual: exact current achieved Schema-5 chain with verified Evidence and Review.
 - Supervised: achieved verified Run, verified human acceptance, and all cumulative delivered paths matching the delivery commit in the current workspace.
 - Autonomous: fully verified achieved Run and the same workspace match; no final acceptance unless downgraded to Supervised.
 
-Missing Git objects, integration/drift proof, event-chain or Root/Strategy integrity, known event-subject schema, or confirmed task receipt blocks; unrelated paths do not. Compatible older Schema-2 Runs are not migrated/enriched and allow only supplemental Learning when source and content remain provable.
+Missing Git objects, integration/drift proof, chain integrity, schema, or task receipt blocks; unrelated paths do not. Compatible older Schema-2 Runs are not migrated and allow only provable supplemental Learning.
 
 ## Candidates
 
-Manual corrections bind root-unique `LRN-*` candidates to Findings and proof. Existing reviewer calls may propose bounded fields only with `next_action: correct`; no extra phase or model IDs. Controller IDs bind Run, Strategy revision, retained attested emitting receipts, correction decision, and chained events. Missing, corrupt, substituted, or misattributed receipts stay unconfirmed.
+Manual corrections bind root-unique `LRN-*` to Findings/proof. Reviewers propose bounded fields only with `next_action: correct`; no extra phase. Controller IDs bind Run, Strategy, receipts, correction, and events. Invalid receipts stay unconfirmed.
 
 All candidate text is untrusted advisory data. A Manual candidate needs complete correction Evidence naming its `cp-*`; a controller candidate needs fresh `evidence_confirmed: true`. Current repository inspection must also confirm the stated evidence. Skip pending, blocked, stale, unexecuted, or contradicted work. Supplemental human text needs no correction record but must be project-relevant and non-conflicting. Transcripts and provisional acceptance never publish rules automatically.
 

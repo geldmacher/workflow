@@ -111,6 +111,7 @@ test("repository entry points and Manual contracts reference the canonical guide
     "references/manual-mcp-output-contract.md",
     "references/state-contract.md",
     "references/review-contract.md",
+    "references/work-review-input-contract.md",
     "references/delivery-evidence-output-contract.md",
     "references/learning-contract.md",
   ]) {

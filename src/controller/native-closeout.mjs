@@ -94,6 +94,8 @@ export function nativeCloseoutStructuredContent(closeout, rootPlanText, reposito
     ...(closeout.human_attention ? { human_attention: closeout.human_attention } : {}),
     ...(closeout.problem_details ? { problem_details: closeout.problem_details } : {}),
     ...(closeout.artifact_set_hash ? { artifact_set_hash: closeout.artifact_set_hash } : {}),
+    ...(closeout.warning ? { warning: closeout.warning } : {}),
+    ...(closeout.handoff_error_code ? { handoff_error_code: closeout.handoff_error_code } : {}),
   };
 }
 
@@ -107,6 +109,7 @@ export function performNativeCloseout({
   pluginRoot,
   handoffOptions = {},
   receiptOptions = {},
+  invalidatedEvidence = null,
 }) {
   const parsed = attestation
     ? validateCloseoutInput(attestation)
@@ -133,9 +136,24 @@ export function performNativeCloseout({
     throw new Error("native implementation and correction closeout require a pre-mutation repository baseline");
   }
   const handoffStore = createContentAddressedHandoffStore(rootPlanText, pluginRoot, handoffOptions);
-  const context = handoffStore.context(rootFields.id, rootPlanText);
-  const cached = context.artifacts;
-  const cachedEvidenceTip = context.evidence_tip;
+  if (invalidatedEvidence?.id && invalidatedEvidence?.hash) {
+    try {
+      const cachedInvalidated = handoffStore.records([invalidatedEvidence.id])[0] ?? null;
+      if (cachedInvalidated) {
+        handoffStore.quarantineArtifact(invalidatedEvidence.id, {
+          expectedTextHash: invalidatedEvidence.hash,
+          apply: true,
+        });
+      }
+    } catch { /* optional cross-task transport must not block exact task-local closeout */ }
+  }
+  let cached = [];
+  let cachedEvidenceTip = null;
+  try {
+    const context = handoffStore.context(rootFields.id, rootPlanText);
+    cached = context.artifacts;
+    cachedEvidenceTip = context.evidence_tip;
+  } catch { /* task artifacts are authoritative; handoff is optional enrichment */ }
   const effectiveReport = repositoryDelta.baseline_available || cachedEvidenceTip
     ? report
     : provisionalWithoutBaseline(report);
@@ -178,11 +196,11 @@ export function performNativeCloseout({
     artifacts: chain,
     closeout,
   });
-  if (!persisted.handoff_persisted) {
-    throw new Error(`native closeout handoff failed: ${persisted.warning ?? "artifact was not persisted"}`);
-  }
   invalidateManualCheckReceipts({ rootPlanText, workspaceRoot: repositoryRoot, options: receiptOptions });
-  rememberContentAddressedRoot(rootPlanText, pluginRoot, handoffOptions);
+  if (persisted.handoff_persisted) {
+    try { rememberContentAddressedRoot(rootPlanText, pluginRoot, handoffOptions); }
+    catch { /* exact Root/Evidence remain retained by the current host task */ }
+  }
   return {
     ...persisted,
     report: effectiveReport,

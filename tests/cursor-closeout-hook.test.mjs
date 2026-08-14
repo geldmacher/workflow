@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -8,18 +8,23 @@ import { createHash } from "node:crypto";
 import {
   evaluateCloseoutGuard,
   readActiveRootPlan,
+  readManualChain,
   recordActiveRootPlan,
   stateRoots,
+  updateManualChain,
 } from "../hooks/closeout-guard.mjs";
 import { PLAN_CLOSEOUT_ATTESTATION } from "../src/core/manual-attestation.mjs";
 import { loadManualCheckReceipts } from "../src/core/manual-check-receipts.mjs";
-import { defaultRoot } from "../scripts/validate-artifact.source.mjs";
+import { createContentAddressedHandoffStore } from "../src/controller/artifact-handoff.mjs";
+import { defaultRoot, executionContractFromArtifactText } from "../scripts/validate-artifact.source.mjs";
 import {
   TEST_ROOT_CONTENT_HASH,
   TEST_ROOT_CONTENT_HASH_CRLF,
   closeoutStructured,
   closeoutInputMessage,
+  correctionReviewArtifact,
   deliveryReportMessage,
+  evidenceHash,
   leanRoot,
   makeEvidence,
   sharedLifecycleCasesFor,
@@ -44,6 +49,26 @@ function withState(run) {
 function withActiveRoot(base, stateRoot, rootPlanId = "wp-retry", rootContentHash = TEST_ROOT_CONTENT_HASH) {
   recordActiveRootPlan(base, { rootPlanId, rootContentHash }, { stateRoot });
   return { stateRoot, activeRootPlanId: rootPlanId, activeRootContentHash: rootContentHash };
+}
+
+function chainValidEvidence(options = {}) {
+  return makeEvidence(options).replace(/^intent_hash: .*$/m, `intent_hash: ${executionContractFromArtifactText(leanRoot, defaultRoot).authoritative_projection_hash}`);
+}
+
+function reviewInputMessage(overrides = {}) {
+  return `\`\`\`json workflow-review-input\n${JSON.stringify({
+    schema: 1,
+    kind: "review-input",
+    assessment: "provisional",
+    recommended_action: "accept-provisional",
+    assessment_summary: "The exact Evidence remains explicitly provisional.",
+    snapshot_assessment: "consistent",
+    snapshot_summary: "The reviewed snapshot matches the exact Evidence tip.",
+    findings: [],
+    missing_evidence: [],
+    auditor_reports: [],
+    ...overrides,
+  })}\n\`\`\``;
 }
 
 test("Cursor closeout guard records structuredContent and validates delivery-report follow-up", () => {
@@ -98,8 +123,7 @@ test("Cursor closeout guard records structuredContent and validates delivery-rep
       status: "completed",
       prompt: "Implement the plan",
     }, options);
-    assert.match(String(followUp.followup_message ?? ""), /recovery follow-up|not an unbypassable hard stop/i);
-    assert.match(String(followUp.followup_message ?? ""), /delivery-report|workflow-attestation/i);
+    assert.deepEqual(followUp, {});
   });
 });
 
@@ -1012,10 +1036,9 @@ test("Cursor review recovery hydrates missing Evidence through one read-only con
         const result = spawnSync("git", ["-C", repository, ...args], { encoding: "utf8" });
         assert.equal(result.status, 0, result.stderr);
       }
-      writeFileSync(join(repository, "src/retry.mjs"), "export const retries = 3;\n");
       const base = {
         conversation_id: "conv-review-recovery",
-        generation_id: "gen-review-recovery",
+        generation_id: "gen-review-recovery-implementation",
         workspace_roots: [repository],
       };
       const options = {
@@ -1029,28 +1052,513 @@ test("Cursor review recovery hydrates missing Evidence through one read-only con
       }, options);
       evaluateCloseoutGuard({
         ...base,
+        hook_event_name: "preToolUse",
+        tool_name: "Edit",
+        tool_input: { path: "src/retry.mjs" },
+      }, options);
+      writeFileSync(join(repository, "src/retry.mjs"), "export const retries = 3;\n");
+      evaluateCloseoutGuard({
+        ...base,
+        generation_id: "gen-review-recovery-review",
         hook_event_name: "beforeSubmitPrompt",
         prompt: "/review-work wp-retry",
       }, options);
       evaluateCloseoutGuard({
         ...base,
+        generation_id: "gen-review-recovery-review",
         hook_event_name: "afterAgentResponse",
         text: closeoutInputMessage({ phase: "review-recovery" }),
       }, options);
       const recovery = evaluateCloseoutGuard({
         ...base,
+        generation_id: "gen-review-recovery-review",
         hook_event_name: "stop",
         status: "completed",
       }, options);
       assert.match(String(recovery.followup_message ?? ""), /recovered and persisted exact Evidence|read-only review once/i);
-      assert.deepEqual(evaluateCloseoutGuard({
+      const continuation = {
         ...base,
+        generation_id: "gen-review-recovery-continuation",
+      };
+      assert.deepEqual(evaluateCloseoutGuard({
+        ...continuation,
+        hook_event_name: "beforeSubmitPrompt",
+        prompt: recovery.followup_message,
+      }, options), {});
+      const evidenceId = readManualChain(continuation, options).current_evidence.delivery_evidence_id;
+      assert.deepEqual(evaluateCloseoutGuard({
+        ...continuation,
+        hook_event_name: "afterAgentResponse",
+        text: reviewInputMessage(),
+      }, options), {});
+      assert.deepEqual(evaluateCloseoutGuard({
+        ...continuation,
         hook_event_name: "stop",
         status: "completed",
+        loop_count: 1,
       }, options), {});
+      const completed = readManualChain(continuation, options);
+      assert.ok(completed.current_review, JSON.stringify(completed, null, 2));
+      assert.match(completed.current_review.review_artifact_id, /^wr-retry-[a-f0-9]{12}$/);
+      assert.equal(completed.current_review.builder_provenance?.kind, "host-work-review-builder");
+      assert.equal(completed.phase_status, "review-complete");
+      assert.equal(completed.pending_continuation, null);
     } finally {
       rmSync(temporary, { recursive: true, force: true });
     }
+  });
+});
+
+test("Cursor internal closeout and Review commit one Root-scoped chain across generations", () => {
+  withState((stateRoot) => {
+    const base = {
+      conversation_id: "conv-fast-review",
+      generation_id: "gen-fast-implementation",
+      workspace_roots: ["/tmp/cursor-closeout-workspace"],
+    };
+    assert.deepEqual(evaluateCloseoutGuard({
+      ...base,
+      hook_event_name: "beforeSubmitPrompt",
+      prompt: `Implement the Plan\n\n${leanRoot}`,
+    }, { stateRoot }), {});
+    const artifact = chainValidEvidence({ id: "de-fast-review" });
+    const reviewBase = { ...base, generation_id: "gen-fast-review" };
+    assert.deepEqual(evaluateCloseoutGuard({
+      ...reviewBase,
+      hook_event_name: "beforeSubmitPrompt",
+      prompt: "/review-work wp-retry",
+    }, { stateRoot }), {});
+    assert.deepEqual(evaluateCloseoutGuard({
+      ...reviewBase,
+      hook_event_name: "postToolUse",
+      tool_name: "MCP:workflow_closeout",
+      tool_input: { root_plan_id: "wp-retry" },
+      tool_output: { structuredContent: closeoutStructured(artifact) },
+    }, { stateRoot }), {});
+    const auditorToolInput = {
+      subagent_type: "delivery-auditor",
+      readonly: true,
+      prompt: "[workflow-readonly-review-v1] Inspect the exact Root and Evidence read-only.",
+    };
+    assert.deepEqual(evaluateCloseoutGuard({
+      ...reviewBase,
+      hook_event_name: "preToolUse",
+      tool_name: "Task",
+      tool_input: auditorToolInput,
+    }, { stateRoot }), {});
+    assert.deepEqual(evaluateCloseoutGuard({
+      ...reviewBase,
+      hook_event_name: "postToolUse",
+      tool_name: "Task",
+      tool_input: auditorToolInput,
+      tool_output: { status: "completed", result: "No remaining delivery gap." },
+    }, { stateRoot }), {});
+    assert.deepEqual(evaluateCloseoutGuard({
+      ...reviewBase,
+      hook_event_name: "afterAgentResponse",
+      text: reviewInputMessage({
+        assessment: "achieved",
+        recommended_action: "none",
+        assessment_summary: "The exact verified Evidence satisfies the Root.",
+        auditor_reports: [{ role: "delivery-auditor", assessment: "achieved", summary: "The host-observed delivery auditor found no remaining gap." }],
+      }),
+    }, { stateRoot }), {});
+    assert.deepEqual(evaluateCloseoutGuard({
+      ...reviewBase,
+      hook_event_name: "stop",
+      status: "completed",
+    }, { stateRoot }), {});
+    const chain = readManualChain(reviewBase, { stateRoot });
+    assert.equal(chain.root.root_plan_id, "wp-retry");
+    assert.equal(chain.current_evidence.delivery_evidence_id, "de-fast-review");
+    assert.match(chain.current_review.review_artifact_id, /^wr-retry-[a-f0-9]{12}$/);
+    assert.equal(chain.current_review.builder_provenance?.kind, "host-work-review-builder");
+    assert.match(chain.current_review.review_artifact, /review_route: targeted/);
+    assert.match(chain.current_review.review_artifact, /- delivery-auditor/);
+    assert.equal(chain.phase_status, "review-complete");
+    const ordinaryWrite = {
+      ...reviewBase,
+      generation_id: "gen-write-after-complete-review",
+      tool_name: "Edit",
+      tool_input: { path: "src/unrelated.mjs" },
+    };
+    assert.deepEqual(evaluateCloseoutGuard({ ...ordinaryWrite, hook_event_name: "preToolUse" }, { stateRoot }), {});
+    assert.deepEqual(evaluateCloseoutGuard({ ...ordinaryWrite, hook_event_name: "postToolUse" }, { stateRoot }), {});
+    const unchanged = readManualChain(reviewBase, { stateRoot });
+    assert.equal(unchanged.revision, chain.revision);
+    assert.equal(unchanged.current_evidence.delivery_evidence_hash, chain.current_evidence.delivery_evidence_hash);
+    assert.equal(unchanged.current_review.review_artifact_hash, chain.current_review.review_artifact_hash);
+    assert.equal(unchanged.phase_status, "review-complete");
+  });
+});
+
+test("Cursor gives malformed Review input exactly one plain same-task repair", () => {
+  withState((stateRoot) => {
+    const base = {
+      conversation_id: "conv-review-input-repair",
+      generation_id: "gen-review-input-repair",
+      workspace_roots: ["/tmp/cursor-closeout-workspace"],
+    };
+    evaluateCloseoutGuard({ ...base, hook_event_name: "beforeSubmitPrompt", prompt: `Implement the Plan\n\n${leanRoot}` }, { stateRoot });
+    evaluateCloseoutGuard({ ...base, hook_event_name: "beforeSubmitPrompt", prompt: "/review-work wp-retry" }, { stateRoot });
+    const evidence = chainValidEvidence({ id: "de-review-input-repair" });
+    evaluateCloseoutGuard({
+      ...base,
+      hook_event_name: "postToolUse",
+      tool_name: "MCP:workflow_closeout",
+      tool_input: { root_plan_id: "wp-retry" },
+      tool_output: { structuredContent: closeoutStructured(evidence) },
+    }, { stateRoot });
+    evaluateCloseoutGuard({
+      ...base,
+      hook_event_name: "afterAgentResponse",
+      text: "```json workflow-review-input\n{bad}\n```",
+    }, { stateRoot });
+    const recovery = evaluateCloseoutGuard({ ...base, hook_event_name: "stop", status: "completed" }, { stateRoot });
+    assert.match(recovery.followup_message, /could not be read/i);
+    assert.match(recovery.followup_message, /Root, Evidence, and repository work are preserved/i);
+    assert.match(recovery.followup_message, /same task/i);
+
+    const continuation = { ...base, generation_id: "gen-review-input-repair-continuation" };
+    assert.deepEqual(evaluateCloseoutGuard({ ...continuation, hook_event_name: "beforeSubmitPrompt", prompt: recovery.followup_message }, { stateRoot }), {});
+    assert.deepEqual(evaluateCloseoutGuard({ ...continuation, hook_event_name: "afterAgentResponse", text: reviewInputMessage({ assessment: "achieved", recommended_action: "none" }) }, { stateRoot }), {});
+    assert.deepEqual(evaluateCloseoutGuard({ ...continuation, hook_event_name: "stop", status: "completed", loop_count: 1 }, { stateRoot }), {});
+    assert.equal(readManualChain(continuation, { stateRoot }).phase_status, "review-complete");
+  });
+});
+
+test("Cursor terminalizes a second failed Stop and leaves later ordinary prompts quiet", () => {
+  withState((stateRoot) => {
+    const base = {
+      conversation_id: "conv-terminal-stop",
+      generation_id: "gen-terminal-stop",
+      workspace_roots: ["/tmp/cursor-closeout-workspace"],
+    };
+    evaluateCloseoutGuard({
+      ...base,
+      hook_event_name: "beforeSubmitPrompt",
+      prompt: `Implement the Plan\n\n${leanRoot}`,
+    }, { stateRoot });
+    const first = evaluateCloseoutGuard({ ...base, hook_event_name: "stop", status: "completed" }, { stateRoot });
+    assert.match(String(first.followup_message ?? ""), /closeout attestation is incomplete/i);
+    const continuation = {
+      ...base,
+      generation_id: "gen-terminal-stop-continuation",
+    };
+    assert.deepEqual(evaluateCloseoutGuard({
+      ...continuation,
+      hook_event_name: "beforeSubmitPrompt",
+      prompt: first.followup_message,
+    }, { stateRoot }), {});
+    assert.deepEqual(evaluateCloseoutGuard({
+      ...continuation,
+      hook_event_name: "afterAgentResponse",
+      text: "The closeout observation remains unavailable.",
+    }, { stateRoot }), {});
+    assert.deepEqual(evaluateCloseoutGuard({
+      ...continuation,
+      hook_event_name: "stop",
+      status: "completed",
+      loop_count: 1,
+    }, { stateRoot }), {});
+    assert.equal(readManualChain(base, { stateRoot }).phase_status, "terminal-blocked");
+    assert.equal(readManualChain(base, { stateRoot }).pending_continuation, null);
+    assert.deepEqual(evaluateCloseoutGuard({
+      ...base,
+      generation_id: "gen-ordinary-after-terminal",
+      hook_event_name: "beforeSubmitPrompt",
+      prompt: "Explain this module without changing it.",
+    }, { stateRoot }), {});
+    assert.deepEqual(evaluateCloseoutGuard({
+      ...base,
+      generation_id: "gen-ordinary-after-terminal",
+      hook_event_name: "stop",
+      status: "completed",
+    }, { stateRoot }), {});
+    const terminal = readManualChain(base, { stateRoot });
+    const ordinaryWrite = {
+      ...base,
+      generation_id: "gen-write-after-terminal",
+      tool_name: "Edit",
+      tool_input: { path: "src/unrelated.mjs" },
+    };
+    assert.deepEqual(evaluateCloseoutGuard({ ...ordinaryWrite, hook_event_name: "preToolUse" }, { stateRoot }), {});
+    assert.deepEqual(evaluateCloseoutGuard({ ...ordinaryWrite, hook_event_name: "postToolUse" }, { stateRoot }), {});
+    const unchanged = readManualChain(base, { stateRoot });
+    assert.equal(unchanged.revision, terminal.revision);
+    assert.deepEqual(unchanged.terminal_diagnostic, terminal.terminal_diagnostic);
+    assert.equal(unchanged.phase_status, "terminal-blocked");
+  });
+});
+
+test("a genuine human prompt supersedes one generated Cursor continuation without stale enforcement", () => {
+  withState((stateRoot) => {
+    const base = {
+      conversation_id: "conv-human-supersedes-recovery",
+      generation_id: "gen-human-supersedes-recovery",
+      workspace_roots: ["/tmp/cursor-closeout-workspace"],
+    };
+    evaluateCloseoutGuard({
+      ...base,
+      hook_event_name: "beforeSubmitPrompt",
+      prompt: `Implement the Plan\n\n${leanRoot}`,
+    }, { stateRoot });
+    const recovery = evaluateCloseoutGuard({
+      ...base,
+      hook_event_name: "stop",
+      status: "completed",
+      loop_count: 0,
+    }, { stateRoot });
+    assert.ok(recovery.followup_message);
+
+    const ordinary = { ...base, generation_id: "gen-human-ordinary" };
+    assert.deepEqual(evaluateCloseoutGuard({
+      ...ordinary,
+      hook_event_name: "beforeSubmitPrompt",
+      prompt: "Explain the retry module without changing it.",
+    }, { stateRoot }), {});
+    const terminal = readManualChain(ordinary, { stateRoot });
+    assert.equal(terminal.phase_status, "terminal-blocked");
+    assert.equal(terminal.pending_continuation, null);
+    assert.equal(terminal.terminal_diagnostic.code, "closeout-recovery-superseded");
+    assert.deepEqual(evaluateCloseoutGuard({
+      ...ordinary,
+      hook_event_name: "stop",
+      status: "completed",
+    }, { stateRoot }), {});
+    assert.deepEqual(evaluateCloseoutGuard({
+      ...ordinary,
+      hook_event_name: "preToolUse",
+      tool_name: "Read",
+      tool_input: { path: "src/retry.mjs" },
+    }, { stateRoot }), {});
+
+    const interrupted = {
+      ...base,
+      conversation_id: "conv-human-interrupts-consumed-recovery",
+      generation_id: "gen-interrupted-source",
+    };
+    evaluateCloseoutGuard({
+      ...interrupted,
+      hook_event_name: "beforeSubmitPrompt",
+      prompt: `Implement the Plan\n\n${leanRoot}`,
+    }, { stateRoot });
+    const interruptedRecovery = evaluateCloseoutGuard({
+      ...interrupted,
+      hook_event_name: "stop",
+      status: "completed",
+      loop_count: 0,
+    }, { stateRoot });
+    const generated = { ...interrupted, generation_id: "gen-interrupted-generated" };
+    evaluateCloseoutGuard({
+      ...generated,
+      hook_event_name: "beforeSubmitPrompt",
+      prompt: interruptedRecovery.followup_message,
+    }, { stateRoot });
+    const replacementHumanPrompt = { ...interrupted, generation_id: "gen-interrupted-human" };
+    assert.deepEqual(evaluateCloseoutGuard({
+      ...replacementHumanPrompt,
+      hook_event_name: "beforeSubmitPrompt",
+      prompt: "Summarize the repository state only.",
+    }, { stateRoot }), {});
+    const interruptedTerminal = readManualChain(replacementHumanPrompt, { stateRoot });
+    assert.equal(interruptedTerminal.phase_status, "terminal-blocked");
+    assert.equal(interruptedTerminal.pending_continuation, null);
+  });
+});
+
+test("Cursor invalidates committed Evidence when a required Check later fails", () => {
+  withState((stateRoot) => {
+    const temporary = mkdtempSync(join(tmpdir(), "cursor-late-check-failure-"));
+    const repository = join(temporary, "repository");
+    try {
+      mkdirSync(join(repository, "src"), { recursive: true });
+      writeFileSync(join(repository, "src/retry.mjs"), "export const retries = 1;\n");
+      for (const args of [
+        ["init", "--quiet"],
+        ["add", "src/retry.mjs"],
+        ["-c", "user.name=Workflow Test", "-c", "user.email=workflow@example.invalid", "commit", "--quiet", "-m", "baseline"],
+      ]) {
+        const result = spawnSync("git", ["-C", repository, ...args], { encoding: "utf8" });
+        assert.equal(result.status, 0, result.stderr);
+      }
+      const base = {
+        conversation_id: "conv-late-check-failure",
+        generation_id: "gen-late-check-failure",
+        workspace_roots: [repository],
+      };
+      const options = {
+        stateRoot,
+        handoffOptions: { baseRoot: join(temporary, "handoff") },
+        receiptOptions: { baseRoot: join(temporary, "receipts") },
+      };
+      evaluateCloseoutGuard({
+        ...base,
+        hook_event_name: "beforeSubmitPrompt",
+        prompt: `Implement the Plan\n\n${leanRoot}`,
+      }, options);
+      evaluateCloseoutGuard({
+        ...base,
+        hook_event_name: "preToolUse",
+        tool_name: "Edit",
+        tool_input: { path: "src/retry.mjs" },
+      }, options);
+      writeFileSync(join(repository, "src/retry.mjs"), "export const retries = 3;\n");
+      evaluateCloseoutGuard({
+        ...base,
+        hook_event_name: "preToolUse",
+        tool_name: "Shell",
+        tool_input: { command: "rtk node --test tests/codex-hook-policy.test.mjs" },
+      }, options);
+      evaluateCloseoutGuard({
+        ...base,
+        hook_event_name: "postToolUse",
+        tool_name: "Shell",
+        tool_input: { command: "rtk node --test tests/codex-hook-policy.test.mjs" },
+        tool_output: { exit_code: 0, output: "ok\n" },
+      }, options);
+      evaluateCloseoutGuard({
+        ...base,
+        hook_event_name: "afterAgentResponse",
+        text: closeoutInputMessage(),
+      }, options);
+      assert.equal(readManualChain(base, options).current_evidence.invalidated, false);
+
+      evaluateCloseoutGuard({
+        ...base,
+        hook_event_name: "preToolUse",
+        tool_name: "Shell",
+        tool_input: { command: "rtk node --test tests/codex-hook-policy.test.mjs" },
+      }, options);
+      evaluateCloseoutGuard({
+        ...base,
+        hook_event_name: "postToolUseFailure",
+        tool_name: "Shell",
+        tool_input: { command: "rtk node --test tests/codex-hook-policy.test.mjs" },
+        failure_type: "error",
+        error_message: "Process exited with code 1",
+      }, options);
+      const invalidated = readManualChain(base, options);
+      assert.equal(invalidated.current_evidence.invalidated, true);
+      assert.equal(invalidated.current_evidence.invalidate_reason, "required-check-failed-after-evidence");
+      assert.equal(invalidated.known_failed_check.check_id, "CHECK-1");
+      assert.equal(invalidated.phase_status, "evidence-invalidated");
+
+      const recovery = evaluateCloseoutGuard({
+        ...base,
+        hook_event_name: "stop",
+        status: "completed",
+      }, options);
+      assert.match(String(recovery.followup_message ?? ""), /required Check CHECK-1 failed|previous Evidence is invalidated/i);
+      const continuation = { ...base, generation_id: "gen-late-check-recovery" };
+      assert.deepEqual(evaluateCloseoutGuard({
+        ...continuation,
+        hook_event_name: "beforeSubmitPrompt",
+        prompt: recovery.followup_message,
+      }, options), {});
+      evaluateCloseoutGuard({
+        ...continuation,
+        hook_event_name: "afterAgentResponse",
+        text: closeoutInputMessage({
+          grade: "failed",
+          observed: "Focused tests failed.",
+          limitations: ["The required Check returned exit code 1."],
+          summary: "Recorded the required Check failure for Review.",
+        }),
+      }, options);
+      assert.deepEqual(evaluateCloseoutGuard({
+        ...continuation,
+        hook_event_name: "stop",
+        status: "completed",
+        loop_count: 1,
+      }, options), {});
+      const replacement = readManualChain(continuation, options);
+      assert.equal(replacement.current_evidence.invalidated, false, JSON.stringify(replacement, null, 2));
+      assert.match(replacement.current_evidence.delivery_evidence_artifact, /grade:\s*failed/);
+      assert.equal(replacement.known_failed_check, null);
+      assert.equal(replacement.pending_continuation, null);
+      const handoff = createContentAddressedHandoffStore(leanRoot, defaultRoot, options.handoffOptions);
+      assert.equal(handoff.context("wp-retry", leanRoot).evidence_tip, replacement.current_evidence.delivery_evidence_id);
+    } finally {
+      rmSync(temporary, { recursive: true, force: true });
+    }
+  });
+});
+
+test("Cursor correction starts only from the exact current correct Review tip", () => {
+  withState((stateRoot) => {
+    const base = {
+      conversation_id: "conv-current-correction",
+      generation_id: "gen-current-correction-implementation",
+      workspace_roots: ["/tmp/cursor-closeout-workspace"],
+    };
+    evaluateCloseoutGuard({
+      ...base,
+      hook_event_name: "beforeSubmitPrompt",
+      prompt: `Implement the Plan\n\n${leanRoot}`,
+    }, { stateRoot });
+    const missing = evaluateCloseoutGuard({
+      ...base,
+      generation_id: "gen-current-correction-missing",
+      hook_event_name: "beforeSubmitPrompt",
+      prompt: "/correct-work",
+    }, { stateRoot });
+    assert.equal(missing.permission, "deny");
+    assert.match(missing.user_message, /exact current Review tip/i);
+
+    updateManualChain(base, {
+      current_review: {
+        review_artifact_id: "wr-current-correction",
+        next_action: "correct",
+        correction_id: "cp-current-correction",
+        recorded_at: new Date().toISOString(),
+      },
+      phase_status: "review-complete",
+    }, { stateRoot });
+    const incomplete = evaluateCloseoutGuard({
+      ...base,
+      generation_id: "gen-current-correction-incomplete",
+      hook_event_name: "beforeSubmitPrompt",
+      prompt: "/correct-work",
+    }, { stateRoot });
+    assert.equal(incomplete.permission, "deny");
+    assert.match(incomplete.user_message, /exact current Review tip.*Evidence tip|exact current Evidence tip/i);
+
+    const evidence = makeEvidence({ id: "de-current-correction" });
+    const review = correctionReviewArtifact({
+      reviewId: "wr-current-correction",
+      correctionId: "cp-current-correction",
+      latestEvidenceId: "de-current-correction",
+    });
+    updateManualChain(base, {
+      current_evidence: {
+        closeout_recorded: true,
+        delivery_report_ok: true,
+        delivery_evidence_id: "de-current-correction",
+        delivery_evidence_artifact: evidence,
+        delivery_evidence_hash: evidenceHash(evidence),
+        delivery_evidence_root_plan_id: "wp-retry",
+        invalidated: false,
+        recorded_at: new Date().toISOString(),
+      },
+      current_review: {
+        review_artifact_id: "wr-current-correction",
+        review_artifact: review,
+        review_artifact_hash: evidenceHash(review),
+        latest_evidence_id: "de-current-correction",
+        next_action: "correct",
+        correction_id: "cp-current-correction",
+        recorded_at: new Date().toISOString(),
+      },
+      phase_status: "review-complete",
+    }, { stateRoot });
+    assert.deepEqual(evaluateCloseoutGuard({
+      ...base,
+      generation_id: "gen-current-correction-approved",
+      hook_event_name: "beforeSubmitPrompt",
+      prompt: "/correct-work",
+    }, { stateRoot }), {});
+    assert.equal(readManualChain(base, { stateRoot }).phase, "correction");
   });
 });
 

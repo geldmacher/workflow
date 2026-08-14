@@ -4,9 +4,11 @@ Workflow 5 is a clean protocol cut, not an in-place artifact migration. Finish a
 
 ## New version bindings
 
-- Plugin `5.3.0`
+- Plugin `5.4.0`
 - Artifact Schema `5`
 - Controller Protocol `5`
+
+In 5.4, new authoritative Reviews are host-owned. Cursor, Codex, supervised/autonomous controller Runs, and portable Manual clients normalize one closed Schema-1 reviewer input through the same deterministic builder. `workflow_closeout` adds `artifact_kind: work-review` without adding a sixth Manual tool; omission remains `delivery-evidence`. New raw model-authored Review envelopes are rejected as authority, while existing immutable Review history remains readable. Exact task-local Review bytes remain valid when optional handoff persistence fails, and malformed semantic input gets one same-task repair attempt before only the Review phase blocks.
 - Run/Preparation Record Schema `2`
 - Capability Receipt Schema `4`
 - User Config and Project Policy Schema `2`
@@ -17,7 +19,7 @@ The profile meaning is unchanged: Manual is human-driven, supervised delegates e
 
 ## Manual delivery
 
-The Lean Intent Root and `/plan-work -> Implement Plan -> /review-work -> optional /correct-work` sequence remain unchanged. The guided Manual presentation now exposes one journey state and one primary action at a time, with IDs, receipts, paths, and host enforcement in Technical traceability. Cursor and Codex require an exact task-bound Root plus a successful pre-mutation baseline and reject directly observable unauthorized paths before writing. The Agent Plugins target performs the same checks inside its explicitly invoked skill and reports `enforcement_level: explicit` when protected host receipts are unavailable.
+The Lean Intent Root and `/plan-work -> Implement Plan -> /review-work -> optional /correct-work` sequence remain unchanged and stay in one task by default. The guided Manual presentation now exposes one journey state and one primary action at a time, with plain-language blocker and resolution text first and IDs, receipts, paths, and host enforcement in Technical traceability. Cursor and Codex require an exact task-bound Root plus a successful pre-mutation baseline and reject directly observable unauthorized paths before writing. The Agent Plugins target performs the same checks inside its explicitly invoked skill and reports `enforcement_level: explicit` when protected host receipts are unavailable.
 
 In 5.3, Implement Plan ends with one strict native `closeout-input`; Cursor and Codex lifecycle hooks independently bind exact Root bytes and lineage, derive repository snapshot and changed paths, call the existing deterministic builder, and persist Evidence without requiring MCP. New plans use `action: delivery-closeout`; legacy `action: workflow_closeout`, all five Manual MCP tools, existing Evidence-backed Schema-5 reviews, and their delivery-report wire contracts remain valid. Every Manual Root receives local host preflight, while standalone MCP preflight and record/context are optional transport. Fresh review may recover missing Evidence through one read-only continuation. If mutation has made valid Evidence irrecoverable because the baseline, workspace, Root binding, or authority boundary was lost, the additive `review_basis: root-boundary` variant requires a fresh protected native-host receipt bound to the exact Root and current repository snapshot, remains blocked, and can authorize only a separately approved lineage-preserving replan. Portable/rootless or stale validation grants no action. Repository gates do not certify live host activation. New `delivery-evidence` adds `evidence_mode` and `changed_paths`:
 
@@ -29,7 +31,7 @@ Lean Evidence carries its semantic proof in closed frontmatter and needs only a 
 
 Manual context commands now share one fail-closed selector contract: an explicit ID wins; otherwise the unique active native Plan lineage of the current task wins. Only when no Manual Plan is active may supported read-only commands use one unique active controller subject. Zero or multiple candidates request context before producing an artifact or mutation.
 
-Exact Schema-5 Roots, Evidences, and reviews can cross fresh Cursor contexts through the root-content external handoff cache, namespaced by the full SHA-256 of exact Root text. It is append-only Schema 1 transport, is revalidated on every read, and never creates authority or workflow state. Append-only Multi-Tips under `handoff/tips/<wp-id>/<root-content-sha256>.json` let different exact Root texts that share one visible `wp-*` ID coexist; exact Root lookup remains deterministic, ID-only lookup succeeds only for one unique hash, and ambiguous ID lookup fails closed. Legacy single-tip files remain readable without deletion. Legacy repository-key stores remain readable and may be migrated with `npm run migrate:handoff`.
+Exact Schema-5 Roots, Evidences, and reviews may cross fresh Cursor contexts through the root-content external handoff cache, namespaced by the full SHA-256 of exact Root text. This is optional resilience and export transport: a cache-write failure does not invalidate exact Evidence retained by the current task. The cache is append-only Schema 1 transport, is revalidated on every read, and never creates authority or workflow state. Append-only Multi-Tips under `handoff/tips/<wp-id>/<root-content-sha256>.json` let different exact Root texts that share one visible `wp-*` ID coexist; exact Root lookup remains deterministic, ID-only lookup succeeds only for one unique hash, and ambiguous ID lookup fails closed. Legacy single-tip files remain readable without deletion. Legacy repository-key stores remain readable and may be migrated with `npm run migrate:handoff`.
 
 `/accept-work provisional` accepts only the unique active Schema-5 Manual provisional review tip; `/accept-work <wp-id> provisional` remains compatible. Its `accepted-provisional` result reports the resolved Root and artifact-set hash, is ephemeral, and creates no controller state, repository artifact, Qualification History, or Learning publication. Verified Manual reviews remain directly `achieved`.
 

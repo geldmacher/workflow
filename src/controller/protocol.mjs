@@ -1,4 +1,4 @@
-export const PLUGIN_VERSION = "5.3.0";
+export const PLUGIN_VERSION = "5.4.0";
 export const ARTIFACT_SCHEMA = 5;
 export const RUN_RECORD_SCHEMA = 2;
 export const PREPARATION_RECORD_SCHEMA = 2;
@@ -122,6 +122,9 @@ export function runView(run) {
   const classification = classifyRunCompatibility(run);
   const {
     delivery_evidence_artifact: _deliveryEvidenceArtifact,
+    work_review_artifact: _workReviewArtifact,
+    workflow_artifacts: _workflowArtifacts,
+    work_review_builder_provenance: _workReviewBuilderProvenance,
     learning_candidates: _learningCandidates,
     ...visible
   } = run ?? {};

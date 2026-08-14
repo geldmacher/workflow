@@ -72,9 +72,91 @@ function rootCheckMap(contract) {
   return new Map(contract.checks.filter((check) => check.Required === "yes").map((check) => [check["Check ID"], check]));
 }
 
-function unresolvedRootCheckMap(contract, predecessorEvidence) {
+function correctionRootChecks(correction) {
+  return new Set((correction?.fixes ?? []).flatMap((fix) => String(fix["Root Checks"] ?? "").match(/CHECK-[1-9][0-9]*/g) ?? []));
+}
+
+function repositoryPaths(value) {
+  return unique(String(value ?? "")
+    .split(/(?:,|<br>)/i)
+    .map((entry) => entry.trim().replace(/^\.\//, "").replace(/\/$/, ""))
+    .filter((entry) => entry
+      && !/^(?:none|n\/a|repository root)$/i.test(entry)
+      && !/^(?:CHECK|OBJ|FIX|STEP)-[1-9][0-9]*$/i.test(entry)
+      && /^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/.test(entry)));
+}
+
+function pathsOverlap(left, right) {
+  return left === right || left.startsWith(`${right}/`) || right.startsWith(`${left}/`);
+}
+
+function fingerprintMap(value) {
+  const result = new Map();
+  for (const entry of String(value ?? "").split(/;\s*/)) {
+    const equals = entry.indexOf("=");
+    if (equals <= 0) continue;
+    const path = entry.slice(0, equals).trim().replace(/^`|`$/g, "").replace(/^\.\//, "");
+    if (!path || ["index", "status"].includes(path)) continue;
+    result.set(path, entry.slice(equals + 1));
+  }
+  return result;
+}
+
+function correctionTargets(correction) {
+  return unique((correction?.steps ?? []).flatMap((step) => repositoryPaths(step.Targets)));
+}
+
+function rootChecksToRefresh(contract, correction, predecessorEvidence, repositorySnapshot, changedPaths = []) {
   const effectiveChecks = predecessorEvidence?.effective?.checks;
-  return new Map([...rootCheckMap(contract)].filter(([checkId]) => effectiveChecks?.get(checkId)?.status !== "passed"));
+  const explicitlyAffected = correctionRootChecks(correction);
+  const affectedObjectives = new Set(correctionObjectives(correction));
+  const affectedPaths = unique([
+    ...changedPaths.flatMap(repositoryPaths),
+    ...correctionTargets(correction),
+  ]);
+  const previousFingerprints = predecessorEvidence?.effective?.snapshot?.["Relevant fingerprints"] ?? null;
+  const currentFingerprints = repositorySnapshot?.relevant_fingerprints ?? null;
+  const previousByPath = fingerprintMap(previousFingerprints);
+  const currentByPath = fingerprintMap(currentFingerprints);
+  const stalePaths = unique([...previousByPath.keys(), ...currentByPath.keys()])
+    .filter((path) => previousByPath.get(path) !== currentByPath.get(path));
+  const opaqueFingerprintChange = Boolean(
+    previousFingerprints
+    && currentFingerprints
+    && previousFingerprints !== currentFingerprints
+    && previousByPath.size === 0
+    && currentByPath.size === 0,
+  );
+  return new Map([...rootCheckMap(contract)].filter(([checkId, check]) => {
+    const prior = effectiveChecks?.get(checkId);
+    const prerequisites = repositoryPaths(check.Prerequisites);
+    const objectiveAffected = checkObjectives(check).some((objective) => affectedObjectives.has(objective));
+    const pathAffected = prerequisites.some((prerequisite) => affectedPaths.some((path) => pathsOverlap(prerequisite, path)));
+    const fingerprintStale = prerequisites.some((prerequisite) => stalePaths.some((path) => pathsOverlap(prerequisite, path)));
+    const ambiguousImpact = affectedPaths.length > 0 && prerequisites.length === 0;
+    return !prior
+      || ["failed", "blocked"].includes(prior.status)
+      || explicitlyAffected.has(checkId)
+      || objectiveAffected
+      || pathAffected
+      || fingerprintStale
+      || opaqueFingerprintChange
+      || ambiguousImpact;
+  }));
+}
+
+function inheritedCheckEvidence(inspection, predecessorEvidence, checkIds) {
+  return checkIds.map((checkId) => {
+    const effective = predecessorEvidence?.effective?.checks?.get(checkId);
+    const source = effective?.source ? inspection.effective.get(effective.source) : null;
+    const exact = source?.fields?.check_evidence?.find((entry) => entry.check_id === checkId);
+    if (exact) return exact;
+    return {
+      check_id: checkId,
+      grade: effective?.status === "passed" ? "verified" : effective?.status === "failed" ? "failed" : "supported",
+      limitations: effective?.status === "passed" ? [] : ["Reused predecessor proof retains its prior non-verified grade."],
+    };
+  });
 }
 
 function normalizeCheckEvidence(input, plannedChecks, rootChecks, evidenceMode, {
@@ -311,21 +393,20 @@ export function buildDeliveryEvidence({
     throw new Error("full closeout requires repository snapshot HEAD and relevant fingerprints");
   }
   const roots = rootCheckMap(contract);
+  const predecessorEvidence = correction ? priorInspection.effective.get(evidenceTipId) : null;
   const unresolvedRootChecks = correction
-    ? unresolvedRootCheckMap(contract, priorInspection.effective.get(evidenceTipId))
+    ? rootChecksToRefresh(contract, correction, predecessorEvidence, repositorySnapshot, changedPaths)
     : new Map();
   const suppliedCheckIds = new Set((checkEvidence ?? []).map((entry) => entry?.check_id));
   const missingRootRefresh = [...unresolvedRootChecks.keys()].filter((checkId) => !suppliedCheckIds.has(checkId));
   if (missingRootRefresh.length > 0) {
-    throw new Error(`correction closeout requires fresh evidence for inherited non-passed Root Checks: ${missingRootRefresh.join(", ")}`);
+    throw new Error(`correction closeout requires fresh evidence for affected, failed, missing, stale, or ambiguous Root Checks: ${missingRootRefresh.join(", ")}`);
   }
   const plannedChecks = expectedCheckMap(contract, correction, unresolvedRootChecks);
   const entries = normalizeCheckEvidence(checkEvidence, plannedChecks, roots, mode, {
     enforceManualCheckReceipts: requireManualReceipts,
     manualCheckReceipts,
   });
-  const grade = overallGrade(entries);
-  const status = artifactStatus(grade);
   const rootObjectives = contract.objectives;
   const affectedObjectives = correction
     ? unique([...correctionObjectives(correction), ...entries.flatMap((entry) => checkObjectives(roots.get(entry.check_id)))])
@@ -334,6 +415,12 @@ export function buildDeliveryEvidence({
   const reusedObjectives = representation === "delta" ? rootObjectives.filter((id) => !affected.includes(id)) : [];
   const executedChecks = entries.map((entry) => entry.check_id);
   const reusedChecks = representation === "delta" ? [...roots.keys()].filter((id) => !executedChecks.includes(id)) : [];
+  const reusedEvidence = representation === "delta"
+    ? inheritedCheckEvidence(priorInspection, predecessorEvidence, reusedChecks)
+    : [];
+  const effectiveEntries = [...entries, ...reusedEvidence];
+  const grade = overallGrade(effectiveEntries);
+  const status = artifactStatus(grade);
   const paths = unique(changedPaths.map(String).map((path) => path.trim()).filter(Boolean)).sort();
   const seed = evidenceSeed({
     contract,
@@ -377,7 +464,7 @@ export function buildDeliveryEvidence({
   const finalEntries = [...normalized.entries, { label: id, text: artifact }];
   const inspection = inspectArtifactSet(finalEntries.map((entry) => [entry.label, entry.text]), pluginRoot);
   if (inspection.errors.length > 0) throw new Error(`generated delivery evidence is invalid: ${inspection.errors.join("; ")}`);
-  const projection = manualConstraintProjection({ checks: contract.checks, evidence: entries });
+  const projection = manualConstraintProjection({ checks: contract.checks, evidence: effectiveEntries });
   return {
     duplicate: false,
     artifact,
@@ -406,13 +493,12 @@ export function persistCloseout({ handoffStore, rootPlanText, artifacts = [], cl
     const persisted = handoffStore.record([...byId].map(([label, text]) => ({ label, text })));
     return { ...closeout, handoff_persisted: true, handoff_authoritative: false, artifact_set_hash: persisted.artifact_set_hash };
   } catch (error) {
-    if (/concurrent|conflict|invalid|corrupt|incompatible|stale|ambiguous|multiple/i.test(error.message)) throw error;
     return {
       ...closeout,
       handoff_persisted: false,
       handoff_authoritative: false,
       handoff_error_code: "handoff-persist-failed",
-      warning: `handoff cache unavailable: ${error.message}; attach the returned artifact explicitly to the next Workflow command`,
+      warning: `optional cross-task handoff unavailable: ${error.message}; task-local continuation remains valid`,
     };
   }
 }

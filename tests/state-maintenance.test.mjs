@@ -145,7 +145,7 @@ test("handoff quarantine can recover an exact dependent-free Evidence tip", () =
       { label: initial.fields.id, text: initial.artifact },
       { label: "wr-retry", text: review },
     ],
-    checkEvidence: [{
+    checkEvidence: [...verifiedRootCheck, {
       check_id: "CHECK-101",
       grade: "verified",
       surface: "repository",
@@ -197,7 +197,7 @@ test("handoff quarantine refuses to orphan active dependent Evidence", () => {
       { label: initial.fields.id, text: initial.artifact },
       { label: "wr-retry", text: review },
     ],
-    checkEvidence: [{
+    checkEvidence: [...verifiedRootCheck, {
       check_id: "CHECK-101",
       grade: "verified",
       surface: "repository",

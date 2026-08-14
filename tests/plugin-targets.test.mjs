@@ -67,6 +67,7 @@ test("deterministic target build isolates Codex and exposes exactly five Manual 
     }
     assert.match(codexReview, /current reviewer.*not another subagent or model call/is);
     assert.match(codexReview, /protected root-boundary receipt.*Never invent/is);
+    assert.match(codexReview, /closed `json workflow-review-input`.*never Schema-5 Review bytes/is);
     assert.match(`${codexReview}\n${reviewContract}`, /first three.*stand alone.*without.*implementation history.*code knowledge/is);
     assert.match(reviewContract, /separates executor claims from independently inspected evidence/is);
     assert.match(codexExplain, /Final repository explanation.*only for `achieved`/is);

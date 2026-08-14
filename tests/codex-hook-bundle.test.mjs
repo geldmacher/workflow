@@ -593,11 +593,29 @@ test("built Codex hook bundle Stop binds persistence, chain Root, and raw-byte E
       hook_event_name: "Stop",
       last_assistant_message: report("de-bundle-current"),
     }, stateRoot);
-    assert.equal(unpersistedIdOnly.decision, "block");
-    assert.match(unpersistedIdOnly.reason, /typed delivery-report|exact Evidence|attach|unpersisted|closeout/i);
+    assert.deepEqual(unpersistedIdOnly, {});
 
+    const implUnpersistedAttached = { ...impl, turn_id: "bundle-impl-unpersisted-attached" };
+    runHook({
+      ...implUnpersistedAttached,
+      hook_event_name: "UserPromptSubmit",
+      prompt: "Implement the plan",
+    }, stateRoot);
+    runHook({
+      ...implUnpersistedAttached,
+      hook_event_name: "PostToolUse",
+      tool_name: "mcp__geldmacher_workflow__workflow_closeout",
+      tool_input: { root_plan_id: "wp-bundle-lean" },
+      tool_response: {
+        structuredContent: bundleCloseout(exactBundleEvidence, {
+          delivery_evidence_id: "de-bundle-current",
+          artifact_hash: exactBundleEvidenceHash,
+          handoff_persisted: false,
+        }),
+      },
+    }, stateRoot);
     const unpersistedAttached = runHook({
-      ...implUnpersisted,
+      ...implUnpersistedAttached,
       hook_event_name: "Stop",
       last_assistant_message: [
         report("de-bundle-current"),

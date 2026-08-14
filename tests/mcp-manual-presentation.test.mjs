@@ -74,7 +74,7 @@ test("Manual presentation keeps success compact and explains actionable receipt 
   }));
   assert.match(success, /host-attested machine Checks: 1\/1/);
   assert.doesNotMatch(success, /Human attention:|Problems:/);
-  assert.match(success, /### Next step[\s\S]*Now: Fresh review/);
+  assert.match(success, /### Next step[\s\S]*Now: Review delivery/);
 
   const gap = formatManualToolContent(buildPresentation("workflow_closeout", {
     delivery_evidence_id: "de-gap",
@@ -107,9 +107,9 @@ test("Manual presentation keeps success compact and explains actionable receipt 
   assert.match(gap, /Human attention:[\s\S]*CHECK-1.*npm test/);
   assert.match(gap, /Problems:[\s\S]*Why: The current evidence cannot support a verified delivery claim/);
   assert.match(gap, /Resolution: Run `npm test` from repository root/);
-  assert.match(gap, /### Next step[\s\S]*Now: Deterministic closeout[\s\S]*Why:/);
-  assert.match(gap, /Technical traceability[\s\S]*exact Check reruns/);
-  assert.doesNotMatch(gap, /Now: Fresh review/);
+  assert.match(gap, /### Next step[\s\S]*Now: Review delivery[\s\S]*Why:/);
+  assert.match(gap, /Technical traceability[\s\S]*Problems:[\s\S]*npm test/);
+  assert.doesNotMatch(gap, /Now: Deterministic closeout/);
 
   const legacy = formatManualToolContent(buildPresentation("workflow_closeout", {
     delivery_evidence_id: "de-legacy",
@@ -127,11 +127,11 @@ test("Manual presentation keeps success compact and explains actionable receipt 
     problem_details: [],
   }));
   assert.match(legacy, /workflow_closeout — partial/);
-  assert.match(legacy, /Now: Fresh review/);
+  assert.match(legacy, /Now: Review delivery/);
   assert.match(legacy, /Legacy verified claims lack current host receipts/);
 });
 
-test("Next-step footer covers ready closeout, attach recovery, and blocked status", () => {
+test("Next-step footer covers task-local closeout, optional handoff loss, and blocked status", () => {
   const readyCloseout = buildPresentation("workflow_closeout", {
     delivery_evidence_id: "de-ready",
     overall_grade: "verified",
@@ -142,12 +142,12 @@ test("Next-step footer covers ready closeout, attach recovery, and blocked statu
   });
   const readyText = formatManualToolContent(readyCloseout);
   assert.match(readyText, /### Next step/);
-  assert.match(readyText, /- Now: Fresh review/);
+  assert.match(readyText, /- Now: Review delivery/);
   assert.match(readyText, /- How: review-work/);
-  assert.match(readyText, /- Why: Produces a fresh verdict/);
+  assert.match(readyText, /- Why: Produces a fresh read-only verdict/);
   assert.doesNotMatch(readyText, /Off track:/);
   assert.equal(readyCloseout.next_action, "review-root");
-  assert.match(readyCloseout.next_action_benefit, /fresh verdict/);
+  assert.match(readyCloseout.next_action_benefit, /fresh read-only verdict/);
 
   const unpersisted = buildPresentation("workflow_closeout", {
     delivery_evidence_id: "de-attach",
@@ -158,11 +158,10 @@ test("Next-step footer covers ready closeout, attach recovery, and blocked statu
     warning: "handoff cache unavailable; attach the returned artifact",
   });
   const attachText = formatManualToolContent(unpersisted);
-  assert.equal(unpersisted.next_action, "attach-artifact");
-  assert.match(attachText, /Action blocker: Handoff cache unavailable/i);
-  assert.match(attachText, /Recovery detail: .*review-work/);
-  assert.match(unpersisted.next_action_blocked_reason, /Handoff cache unavailable/);
-  assert.match(unpersisted.next_action_recovery, /review-work/);
+  assert.equal(unpersisted.next_action, "review-root");
+  assert.match(attachText, /Now: Review delivery/);
+  assert.match(attachText, /task-local Evidence remains valid/i);
+  assert.equal(unpersisted.next_action_blocked_reason, undefined);
 
   const blockedEvidence = buildPresentation("workflow_closeout", {
     delivery_evidence_id: "de-blocked",
@@ -192,7 +191,9 @@ test("Next-step footer covers ready closeout, attach recovery, and blocked statu
   assert.equal(status.workflow_state, "root-plan-review");
   assert.match(statusText, /profile: manual/);
   assert.match(statusText, /required actor: unknown/);
-  assert.match(statusText, /Action blocker: missing evidence/);
+  assert.match(statusText, /Blocker: missing evidence/);
+  assert.match(statusText, /Resolution: Resolve blocking issues/);
+  assert.match(statusText, /Action blocker: Delivery Evidence is not available yet/);
   assert.doesNotMatch(statusText.split("<details>")[0], /Implement Plan/);
   assert.match(status.next_action_invoke, /plan-work wp-x/);
 });
@@ -218,9 +219,10 @@ test("Manual presentation separates blockers from advisories and warnings", () =
     warning: "handoff cache unavailable; attach the returned artifact",
   });
   assert.equal(warning.outcome, "ready");
-  assert.equal(warning.next_action, "attach-artifact");
+  assert.equal(warning.next_action, "review-root");
   assert.match(warning.warnings.join("\n"), /attach the returned artifact/);
-  assert.match(warning.gaps.join("\n"), /Attach the returned Evidence/);
+  assert.match(warning.advisories.join("\n"), /Task-local Evidence remains valid/);
+  assert.equal(warning.gaps.length, 0);
   assert.doesNotMatch(formatManualToolContent(warning), /artifact: delivery-evidence/);
 });
 
@@ -263,8 +265,8 @@ test("Manual presentation covers record, context, status, and error paths", () =
     evidence_tip: null,
     review_tip: null,
   });
-  assert.equal(context.next_action, "closeout");
-  assert.match(formatManualToolContent(context), /artifact chain is loaded/);
+  assert.equal(context.next_action, "review-root");
+  assert.match(formatManualToolContent(context), /Review will attempt one internal Evidence recovery/);
 
   const withEvidence = buildPresentation("workflow_artifact_context", {
     root_plan_id: "wp-x",
@@ -304,6 +306,25 @@ test("Manual presentation covers record, context, status, and error paths", () =
   assert.match(failed.content[0].text, /exact Root text is required/);
   assert.match(failed.content[0].text, /- How: review-work/);
   assert.doesNotMatch(failed.content[0].text, /No further Workflow action/);
+
+  const malformedReview = manualMcpResult("workflow_closeout", {
+    error: "review_input.assessment achieved is more positive than review_input.auditor_reports delivery-auditor assessment not-achieved",
+    error_code: "review-input-invalid",
+  }, true);
+  assert.equal(malformedReview.structuredContent.presentation.phase, "review");
+  assert.equal(malformedReview.structuredContent.presentation.next_action, "retry-review");
+  assert.match(malformedReview.content[0].text, /reviewer response could not be converted/i);
+  assert.match(malformedReview.content[0].text, /Root, Evidence, Checks, and repository work remain unchanged/i);
+  assert.match(malformedReview.content[0].text, /same task|this task/i);
+  assert.doesNotMatch(malformedReview.content[0].text, /Repair the exact Root|Replan the Root/);
+
+  const rejectedReview = manualMcpResult("workflow_artifact_record", {
+    error: "new full model-authored work-review artifacts cannot establish authority; repeat Review in this task",
+  }, true);
+  assert.equal(rejectedReview.structuredContent.presentation.phase, "review");
+  assert.equal(rejectedReview.structuredContent.presentation.next_action, "retry-review");
+  assert.match(rejectedReview.content[0].text, /Remove the supplied work-review artifact/i);
+  assert.doesNotMatch(rejectedReview.content[0].text, /outside the approved plan boundary|plan-work replan/i);
 
   const unknown = buildPresentation("workflow_unknown", { ok: true });
   assert.equal(unknown.outcome, "ready");
@@ -725,17 +746,7 @@ test("golden chat matrix covers every journey state, one action, terminal Done, 
           handoff_persisted: true,
           changed_paths: [],
         })
-        : entry.state === "closeout-recovery-required"
-          ? buildPresentation("workflow_closeout", {
-            root_plan_id: "wp-golden-chat",
-            delivery_evidence_id: "de-golden-gap",
-            overall_grade: "supported",
-            status: "provisional",
-            handoff_persisted: true,
-            changed_paths: [],
-            constraint_summary: { evidence_gap_checks: ["CHECK-1"] },
-          })
-          : buildPresentation("workflow_status", {
+        : buildPresentation("workflow_status", {
             snapshot: {
               root_plan_id: "wp-golden-chat",
               snapshot_source: "artifact-chain",
@@ -747,7 +758,7 @@ test("golden chat matrix covers every journey state, one action, terminal Done, 
               evidence_tip: entry.state === "done" ? "de-golden-chat" : null,
               review_tip: entry.state === "done" ? "wr-golden-chat" : null,
             },
-          });
+        });
     assert.equal(presentation.journey_state, entry.state);
     assert.equal(presentation.outcome, entry.outcome);
     const disclosure = formatManualToolContent(presentation);
@@ -816,7 +827,7 @@ test("blocked closeout with unpersisted handoff still routes to review", () => {
   assert.equal(blocked.outcome, "blocked");
   assert.equal(blocked.next_action, "review-root");
   assert.match(blocked.gaps.join("\n"), /blocks delivery acceptance/);
-  assert.match(blocked.gaps.join("\n"), /Attach the returned Evidence/);
+  assert.doesNotMatch(blocked.gaps.join("\n"), /Attach the returned Evidence/);
 });
 
 test("legacy MCP text flag restores JSON content", () => {

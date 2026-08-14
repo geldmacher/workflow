@@ -16,6 +16,7 @@ import {
   readFileSync,
   renameSync,
   rmSync,
+  statSync,
   writeFileSync,
   chmodSync,
 } from "node:fs";
@@ -40,6 +41,8 @@ import {
   manualJourneyDecision,
   createManualBoundaryReceipt,
   verifyManualBoundaryReceipt,
+  parseReviewInputFromText,
+  performNativeReview,
 } from "../scripts/validate-artifact.mjs";
 import {
   hashWorkflowIdentifier,
@@ -103,6 +106,23 @@ function activeRootPath(stateRoot, conversation) {
   return join(stateRoot, "manual-active-root", `${conversation}.json`);
 }
 
+function chainDirectory(stateRoot, conversation) {
+  return join(stateRoot, "manual-chains", conversation);
+}
+
+function chainPointerPath(stateRoot, conversation) {
+  return join(chainDirectory(stateRoot, conversation), "current.json");
+}
+
+function chainPath(stateRoot, conversation, rootHash, revision = null) {
+  const suffix = Number.isInteger(revision) && revision > 0 ? `.${revision}` : "";
+  return join(chainDirectory(stateRoot, conversation), `${rootHash}${suffix}.json`);
+}
+
+function chainLockPath(stateRoot, conversation) {
+  return join(chainDirectory(stateRoot, conversation), ".writer-lock");
+}
+
 function ensureDirectory(path) {
   mkdirSync(path, { recursive: true, mode: 0o700 });
   try { chmodSync(path, 0o700); } catch { /* best effort */ }
@@ -123,6 +143,97 @@ function readJson(path) {
   } catch {
     return null;
   }
+}
+
+function readChainAt(stateRoot, conversation) {
+  const pointer = readJson(chainPointerPath(stateRoot, conversation));
+  if (!/^[a-f0-9]{64}$/.test(String(pointer?.root_content_hash ?? ""))) return null;
+  const revision = Number.isInteger(pointer.revision) && pointer.revision > 0 ? pointer.revision : null;
+  const value = readJson(chainPath(stateRoot, conversation, pointer.root_content_hash, revision));
+  if (value?.schema !== 1 || value?.kind !== "manual-chain") return null;
+  if (value.root?.root_content_hash !== pointer.root_content_hash) return null;
+  if (revision !== null && value.revision !== revision) return null;
+  return value;
+}
+
+function writeChainAt(stateRoot, conversation, value) {
+  const hash = value?.root?.root_content_hash;
+  if (!/^[a-f0-9]{64}$/.test(String(hash ?? ""))) return false;
+  const revision = Number.isInteger(value.revision) && value.revision > 0 ? value.revision + 1 : 1;
+  const next = {
+    schema: 1,
+    kind: "manual-chain",
+    ...value,
+    revision,
+    conversation_hash: conversation,
+    updated_at: new Date().toISOString(),
+  };
+  // A revision-specific immutable record keeps the old pointer readable until
+  // the final atomic rename publishes the complete next chain.
+  writeJson(chainPath(stateRoot, conversation, hash, revision), next);
+  writeJson(chainPointerPath(stateRoot, conversation), {
+    schema: 1,
+    kind: "manual-chain-pointer",
+    root_plan_id: next.root?.root_plan_id ?? null,
+    root_content_hash: hash,
+    revision,
+    updated_at: next.updated_at,
+  });
+  return true;
+}
+
+function withChainLock(stateRoot, conversation, callback) {
+  const lock = chainLockPath(stateRoot, conversation);
+  ensureDirectory(dirname(lock));
+  const started = Date.now();
+  while (true) {
+    try {
+      mkdirSync(lock, { mode: 0o700 });
+      break;
+    } catch (error) {
+      if (error?.code !== "EEXIST") throw error;
+      try {
+        if (Date.now() - statSync(lock).mtimeMs > 30_000) {
+          rmSync(lock, { recursive: true, force: true });
+          continue;
+        }
+      } catch (statError) {
+        if (statError?.code !== "ENOENT") throw statError;
+        continue;
+      }
+      if (Date.now() - started >= 2_000) throw new Error("manual chain writer lock timed out");
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
+    }
+  }
+  try {
+    return callback();
+  } finally {
+    rmSync(lock, { recursive: true, force: true });
+  }
+}
+
+export function readManualChain(input, options = {}) {
+  const conversation = conversationHash(input);
+  if (!conversation) return null;
+  for (const root of stateRoots(input, options)) {
+    const value = readChainAt(root, conversation);
+    if (value) return value;
+  }
+  return null;
+}
+
+export function updateManualChain(input, patch, options = {}) {
+  const conversation = conversationHash(input);
+  if (!conversation || !patch || typeof patch !== "object" || Array.isArray(patch)) return false;
+  let updated = false;
+  for (const root of stateRoots(input, options)) {
+    const wrote = withChainLock(root, conversation, () => {
+      const current = readChainAt(root, conversation);
+      return current ? writeChainAt(root, conversation, { ...current, ...patch }) : false;
+    });
+    updated ||= wrote;
+  }
+  return updated;
 }
 
 function parseToolOutput(input) {
@@ -176,14 +287,20 @@ function isMutatingTool(input) {
   return MUTATING_TOOL.test(name);
 }
 
-function isHostEnforcedReadOnlyReviewAgent(input) {
+function hostEnforcedReadOnlyReviewAgentRole(input) {
   if (!/^(?:Task|Agent|spawn_agent)$/i.test(String(input.tool_name ?? ""))) return false;
   const source = toolInputObject(input);
   const prompt = String(source.prompt ?? source.task ?? "");
   const agent = String(source.subagent_type ?? source.agent_type ?? "");
   return source.readonly === true
     && prompt.includes(READONLY_REVIEW_MARKER)
-    && READONLY_REVIEW_AGENTS.has(agent);
+    && READONLY_REVIEW_AGENTS.has(agent)
+    ? agent
+    : null;
+}
+
+function isHostEnforcedReadOnlyReviewAgent(input) {
+  return Boolean(hostEnforcedReadOnlyReviewAgentRole(input));
 }
 
 function isPlanCloseoutAttestation(value) {
@@ -246,6 +363,34 @@ function exactSchemaArtifact(source, artifactType, options = {}) {
   return inspected.errors.length === 0 && inspected.artifact?.fields?.artifact === artifactType && inspected.artifact.fields.schema === 5 ? text : null;
 }
 
+function chainArtifactEntries(chain) {
+  const entries = Array.isArray(chain?.artifacts) ? [...chain.artifacts] : [];
+  if (chain?.current_evidence?.delivery_evidence_artifact) entries.push({
+    label: chain.current_evidence.delivery_evidence_id,
+    text: chain.current_evidence.delivery_evidence_artifact,
+  });
+  if (chain?.current_review?.review_artifact) entries.push({
+    label: chain.current_review.review_artifact_id,
+    text: chain.current_review.review_artifact,
+    ...(chain.current_review.builder_provenance ? { builder_provenance: chain.current_review.builder_provenance } : {}),
+  });
+  const byLabel = new Map();
+  for (const entry of entries) {
+    if (!entry?.label || !entry?.text) continue;
+    const prior = byLabel.get(entry.label);
+    if (!prior || prior.text === entry.text) byLabel.set(entry.label, { ...prior, ...entry });
+  }
+  return [...byLabel.values()];
+}
+
+function withChainArtifact(chain, entry) {
+  return chainArtifactEntries({ ...chain, artifacts: [...chainArtifactEntries(chain), entry] });
+}
+
+function reviewInputFailure(reason) {
+  return `Review input could not be read: ${reason}. The exact Root, Evidence, and repository work are preserved. Correct the named workflow-review-input field and repeat Review in this same task; no new task or chat is required.`;
+}
+
 function nativeCloseoutErrorCode(error) {
   const message = String(error?.message ?? error);
   if (/different immutable bytes|conflicting text|Root-content hash|Root mismatch/i.test(message)) return "artifact-text-conflict";
@@ -279,20 +424,41 @@ export function recordActiveRootPlan(input, {
   rootContentHash: providedHash = null,
   rootPlanText = null,
   phase = null,
+  lineage = null,
 } = {}, options = {}) {
   const conversation = conversationHash(input);
   if (!conversation || typeof rootPlanId !== "string" || !/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(rootPlanId)) return false;
   const hash = typeof providedHash === "string" && /^[a-f0-9]{64}$/.test(providedHash)
     ? providedHash
     : (typeof rootPlanText === "string" ? rootContentHash(rootPlanText) : null);
+  if (!hash) return false;
   for (const root of stateRoots(input, options)) {
-    writeJson(activeRootPath(root, conversation), {
-      root_plan_id: rootPlanId,
-      root_content_hash: hash,
-      ...(typeof rootPlanText === "string" ? { root_plan_text: rootPlanText } : {}),
-      ...(typeof phase === "string" ? { phase } : {}),
-      recorded_at: new Date().toISOString(),
-      conversation_hash: conversation,
+    withChainLock(root, conversation, () => {
+      const existing = readChainAt(root, conversation);
+      const sameRoot = existing?.root?.root_plan_id === rootPlanId
+        && existing.root.root_content_hash === hash;
+      writeChainAt(root, conversation, {
+        ...(sameRoot ? existing : {}),
+        root: {
+          root_plan_id: rootPlanId,
+          root_content_hash: hash,
+          ...(typeof rootPlanText === "string"
+            ? { root_plan_text: rootPlanText }
+            : (sameRoot && typeof existing.root.root_plan_text === "string" ? { root_plan_text: existing.root.root_plan_text } : {})),
+        },
+        ...(Array.isArray(lineage) ? { lineage } : {}),
+        ...(typeof phase === "string" ? { phase } : {}),
+        phase_status: typeof phase === "string" ? "active" : (existing?.phase_status ?? "inactive"),
+        recorded_at: sameRoot ? existing.recorded_at : new Date().toISOString(),
+      });
+      writeJson(activeRootPath(root, conversation), {
+        root_plan_id: rootPlanId,
+        root_content_hash: hash,
+        ...(typeof rootPlanText === "string" ? { root_plan_text: rootPlanText } : {}),
+        ...(typeof phase === "string" ? { phase } : {}),
+        recorded_at: new Date().toISOString(),
+        conversation_hash: conversation,
+      });
     });
   }
   return true;
@@ -310,10 +476,34 @@ export function readActiveRootPlan(input, options = {}) {
   const conversation = conversationHash(input);
   if (!conversation) return null;
   for (const root of stateRoots(input, options)) {
+    const chain = readChainAt(root, conversation);
+    if (chain?.root?.root_plan_id) {
+      return {
+        ...chain.root,
+        phase: chain.phase ?? null,
+        phase_status: chain.phase_status ?? null,
+        _chain: chain,
+      };
+    }
+  }
+  for (const root of stateRoots(input, options)) {
     const path = activeRootPath(root, conversation);
     if (!existsSync(path)) continue;
     const value = readJson(path);
-    if (value?.root_plan_id) return value;
+    if (value?.root_plan_id) {
+      const exact = typeof value.root_plan_text === "string"
+        && value.root_content_hash === rootContentHash(value.root_plan_text);
+      if (exact) {
+        recordActiveRootPlan(input, {
+          rootPlanId: value.root_plan_id,
+          rootContentHash: value.root_content_hash,
+          rootPlanText: value.root_plan_text,
+          phase: value.phase ?? null,
+        }, options);
+        return readActiveRootPlan(input, options);
+      }
+      return value;
+    }
   }
   return null;
 }
@@ -323,10 +513,18 @@ export function clearActiveRootPlan(input, options = {}) {
   if (!conversation) return false;
   let cleared = false;
   for (const root of stateRoots(input, options)) {
-    const path = activeRootPath(root, conversation);
-    if (!existsSync(path)) continue;
-    rmSync(path, { force: true });
-    cleared = true;
+    withChainLock(root, conversation, () => {
+      const pointer = chainPointerPath(root, conversation);
+      if (existsSync(pointer)) {
+        rmSync(pointer, { force: true });
+        cleared = true;
+      }
+      const path = activeRootPath(root, conversation);
+      if (existsSync(path)) {
+        rmSync(path, { force: true });
+        cleared = true;
+      }
+    });
   }
   return cleared;
 }
@@ -356,19 +554,85 @@ function writeTurn(input, value, options = {}) {
   }
 }
 
-function invalidateTurn(input, options = {}) {
-  const turn = readTurn(input, options);
-  if (!turn) return;
+function pendingContinuation(input, options = {}) {
+  const chain = readManualChain(input, options);
+  const pending = chain?.pending_continuation;
+  if (!pending || !["issued", "consumed"].includes(pending.status)) return null;
+  if (pending.root_content_hash !== chain.root?.root_content_hash) return null;
+  if (!/^[a-f0-9]{64}$/.test(String(pending.prompt_hash ?? ""))) return null;
+  if (!/^[a-f0-9]{32}$/.test(String(pending.source_generation_hash ?? ""))) return null;
+  if (!["implementation", "correction", "review"].includes(pending.phase)) return null;
+  return pending;
+}
+
+function hydratePendingContinuation(input, options = {}) {
+  const pending = pendingContinuation(input, options);
+  if (!pending || pending.status !== "issued") return false;
+  const prompt = String(input.prompt ?? input.command ?? "");
+  const generation = generationHash(input);
+  if (generation === pending.source_generation_hash || rootContentHash(prompt) !== pending.prompt_hash) return false;
+  const active = readActiveRootPlan(input, options);
+  if (!active?.root_plan_id || active.root_content_hash !== pending.root_content_hash) return false;
   writeTurn(input, {
-    ...turn,
-    closeout_recorded: false,
-    delivery_report_ok: false,
-    invalidated: true,
-    invalidate_reason: "mutating-tool-after-closeout",
+    required: true,
+    phase: pending.phase,
+    recovery_issued: true,
+    continuation_kind: pending.kind,
+    continuation_source_generation_hash: pending.source_generation_hash,
+    active_root_plan_id: active.root_plan_id,
+    active_root_content_hash: active.root_content_hash,
+  }, options);
+  updateManualChain(input, {
+    pending_continuation: {
+      ...pending,
+      status: "consumed",
+      consumed_generation_hash: generation,
+      consumed_at: new Date().toISOString(),
+    },
+  }, options);
+  return true;
+}
+
+function supersedePendingContinuation(input, phase, options = {}) {
+  const pending = pendingContinuation(input, options);
+  if (!pending) return;
+  updateManualChain(input, {
+    pending_continuation: null,
+    ...(phase ? {} : {
+      phase_status: "terminal-blocked",
+      terminal_diagnostic: {
+        code: "closeout-recovery-superseded",
+        reason: "The single generated closeout continuation was superseded by a genuine human prompt.",
+        recorded_at: new Date().toISOString(),
+      },
+    }),
   }, options);
 }
 
+function invalidateTurn(input, options = {}) {
+  const turn = readTurn(input, options);
+  if (turn) {
+    writeTurn(input, {
+      ...turn,
+      closeout_recorded: false,
+      delivery_report_ok: false,
+      invalidated: true,
+      invalidate_reason: "mutating-tool-after-closeout",
+    }, options);
+  }
+  const chain = readManualChain(input, options);
+  if (chain?.current_evidence) {
+    updateManualChain(input, {
+      current_evidence: { ...chain.current_evidence, invalidated: true, invalidate_reason: "mutating-tool-after-closeout" },
+    }, options);
+  }
+}
+
 function findRecordedCloseout(input, options = {}) {
+  const chain = readManualChain(input, options);
+  if (chain?.current_evidence?.closeout_recorded === true && chain.current_evidence.invalidated !== true) {
+    return chain.current_evidence;
+  }
   const turn = readTurn(input, options);
   if (turn?.closeout_recorded === true && turn.invalidated !== true) return turn;
   const conversation = conversationHash(input);
@@ -391,8 +655,9 @@ function conversationHasRecordedCloseout(input, options = {}) {
 
 function closeoutRequired(input, options = {}) {
   const active = readActiveRootPlan(input, options);
+  const chain = readManualChain(input, options);
   const turn = readTurn(input, options);
-  if (turn?.required === true || turn?.closeout_recorded === true) {
+  if (turn?.required === true || turn?.closeout_recorded === true || chain?.phase_status === "active") {
     return Boolean(active?.root_plan_id);
   }
   const prompt = String(input.prompt ?? "");
@@ -424,26 +689,90 @@ function inspectBoundActiveRoot(active, options = {}) {
   return { ok: true, fields };
 }
 
+function inspectExactCorrectionReview(chain, active, options = {}) {
+  const currentEvidence = chain?.current_evidence;
+  const currentReview = chain?.current_review;
+  if (!currentEvidence || typeof currentEvidence.delivery_evidence_artifact !== "string") {
+    return { ok: false, reason: "no exact current Evidence tip is committed" };
+  }
+  if (currentEvidence.invalidated === true) {
+    return { ok: false, reason: "the current Evidence tip was invalidated by later lifecycle mutation" };
+  }
+  const inspect = options.inspectArtifactText ?? inspectArtifactText;
+  const evidence = inspect(currentEvidence.delivery_evidence_artifact, options.pluginRoot ?? pluginRoot);
+  const evidenceFields = evidence.artifact?.fields;
+  if (evidence.errors.length > 0
+    || evidenceFields?.artifact !== "delivery-evidence"
+    || evidenceFields?.schema !== 5
+    || evidenceFields.id !== currentEvidence.delivery_evidence_id
+    || evidenceFields.root_plan_id !== active?.root_plan_id) {
+    return { ok: false, reason: evidence.errors[0] ?? "the current Evidence tip does not match the active Root" };
+  }
+  if (currentEvidence.delivery_evidence_hash !== rootContentHash(currentEvidence.delivery_evidence_artifact)) {
+    return { ok: false, reason: "current Evidence bytes do not match their recorded hash" };
+  }
+  if (!currentReview || typeof currentReview.review_artifact !== "string") {
+    return { ok: false, reason: "no exact current Review tip authorizes correction" };
+  }
+  const review = inspect(currentReview.review_artifact, options.pluginRoot ?? pluginRoot);
+  const reviewFields = review.artifact?.fields;
+  const correction = review.artifact?.correction;
+  if (review.errors.length > 0
+    || reviewFields?.artifact !== "work-review"
+    || reviewFields?.schema !== 5
+    || reviewFields.id !== currentReview.review_artifact_id
+    || reviewFields.root_plan_id !== active?.root_plan_id
+    || reviewFields.latest_evidence_id !== currentEvidence.delivery_evidence_id
+    || reviewFields.next_action !== "correct"
+    || !correction?.id
+    || correction.id !== reviewFields.correction_id
+    || correction.id !== currentReview.correction_id) {
+    return { ok: false, reason: review.errors[0] ?? "the current Review is not one exact correction authority for this Root and Evidence tip" };
+  }
+  if (currentReview.review_artifact_hash !== rootContentHash(currentReview.review_artifact)) {
+    return { ok: false, reason: "current Review bytes do not match their recorded hash" };
+  }
+  return { ok: true, evidence: evidenceFields, review: reviewFields, correction };
+}
+
+function currentLifecycleMutationPhase(input, options = {}) {
+  const turn = readTurn(input, options) ?? {};
+  const chain = readManualChain(input, options);
+  if (turn.terminalized === true) return null;
+  if (["implementation", "correction"].includes(turn.phase) && turn.required === true) return turn.phase;
+  if (turn.phase === "review" && ["active", "review-evidence-ready", "evidence-invalidated", "root-boundary-required", "closeout-failed"].includes(chain?.phase_status)) {
+    return "review";
+  }
+  return null;
+}
+
 function captureBaselineBeforeMutation(input, options = {}) {
   if (!isMutatingTool(input) || isWorkflowCloseoutTool(input.tool_name)) return { ok: true };
   const active = readActiveRootPlan(input, options);
+  const chain = readManualChain(input, options);
   const turn = readTurn(input, options) ?? {};
-  const phase = turn.phase ?? null;
-  if (!active?.root_plan_id || turn.required !== true || !["implementation", "correction"].includes(phase)) return { ok: false, reason: "This mutation is not bound to an approved implementation or correction phase." };
-  if (turn.repository_baseline) return { ok: true };
-  if (turn.repository_baseline_error) return { ok: false, reason: turn.repository_baseline_error };
+  const phase = currentLifecycleMutationPhase(input, options);
+  if (!active?.root_plan_id || !["implementation", "correction"].includes(phase)) return { ok: false, reason: "This mutation is not bound to an approved implementation or correction phase." };
+  if (chain?.repository_baseline) return { ok: true };
+  if (chain?.repository_baseline_error) return { ok: false, reason: chain.repository_baseline_error };
   try {
     const capture = options.captureRepositorySnapshot ?? captureRepositorySnapshot;
+    const repositoryBaseline = capture(workspaceRootForInput(input, options));
+    updateManualChain(input, {
+      repository_baseline: repositoryBaseline,
+      repository_baseline_error: null,
+    }, options);
     writeTurn(input, {
       ...turn,
       required: true,
       phase,
-      repository_baseline: capture(workspaceRootForInput(input, options)),
+      repository_baseline: repositoryBaseline,
       repository_baseline_error: null,
     }, options);
     return { ok: true };
   } catch (error) {
     const reason = String(error?.message ?? error);
+    updateManualChain(input, { repository_baseline_error: reason }, options);
     writeTurn(input, {
       ...turn,
       required: true,
@@ -456,8 +785,9 @@ function captureBaselineBeforeMutation(input, options = {}) {
 
 function evaluateMutationAuthorityGate(input, options = {}) {
   if (!isMutatingTool(input) || isWorkflowCloseoutTool(input.tool_name)) return {};
-  const turn = readTurn(input, options) ?? {};
-  if (turn.phase === "review") {
+  const phase = currentLifecycleMutationPhase(input, options);
+  if (!phase) return {};
+  if (phase === "review") {
     if (isHostEnforcedReadOnlyReviewAgent(input)) return {};
     return deny(manualJourneyDecision({
       state: "blocked",
@@ -466,7 +796,6 @@ function evaluateMutationAuthorityGate(input, options = {}) {
       trace: { root_plan_id: readActiveRootPlan(input, options)?.root_plan_id ?? null },
     }));
   }
-  if (!["implementation", "correction"].includes(turn.phase)) return {};
   const active = readActiveRootPlan(input, options);
   const bound = inspectBoundActiveRoot(active, options);
   if (!bound.ok) return deny(`Workflow · Blocked. ${bound.reason} Next: return to the approved Plan or correction before editing.`);
@@ -536,7 +865,13 @@ function recordCompletedCheckReceipt(input, options = {}) {
       candidate,
       rootPlanText: active.root_plan_text,
       workspaceRoot: workspaceRootForInput(input, options),
-      toolResponse: parseToolOutput(input),
+      toolResponse: input.hook_event_name === "postToolUseFailure"
+        ? {
+          status: "failed",
+          failure_type: input.failure_type ?? "error",
+          error_message: input.error_message ?? "Tool execution failed.",
+        }
+        : parseToolOutput(input),
       captureSnapshot: options.captureRepositorySnapshot ?? captureRepositorySnapshot,
       now: options.now,
       options: options.receiptOptions ?? {},
@@ -560,6 +895,40 @@ function recordCompletedCheckReceipt(input, options = {}) {
   }
 }
 
+function bindFailedCheckToCurrentEvidence(input, completed, options = {}) {
+  const receipt = completed?.receipt;
+  if (!receipt?.check_id || receipt.result_status !== "failed") return;
+  const failure = {
+    check_id: receipt.check_id,
+    receipt_hash: completed.receipt_hash ?? null,
+    root_content_hash: receipt.root_hash,
+    observed_at: new Date().toISOString(),
+  };
+  const turn = readTurn(input, options) ?? {};
+  writeTurn(input, {
+    ...turn,
+    required: true,
+    closeout_recorded: false,
+    delivery_report_ok: false,
+    invalidated: true,
+    invalidate_reason: "required-check-failed-after-evidence",
+    known_failed_check: failure,
+  }, options);
+  const chain = readManualChain(input, options);
+  const currentEvidence = chain?.current_evidence;
+  updateManualChain(input, {
+    ...(currentEvidence ? {
+      current_evidence: {
+        ...currentEvidence,
+        invalidated: true,
+        invalidate_reason: "required-check-failed-after-evidence",
+      },
+    } : {}),
+    known_failed_check: failure,
+    phase_status: "evidence-invalidated",
+  }, options);
+}
+
 function evaluateTodoWriteGate(input, options = {}) {
   if (String(input.tool_name ?? "") !== "TodoWrite") return {};
   const toolInput = toolInputObject(input);
@@ -579,6 +948,7 @@ function evaluateTodoWriteGate(input, options = {}) {
 
 function evaluateBeforeSubmitPrompt(input, options = {}) {
   const prompt = String(input.prompt ?? input.command ?? "");
+  if (hydratePendingContinuation(input, options)) return {};
   const phase = REVIEW_MARKER.test(prompt)
     ? "review"
     : /\/correct-work\b/.test(prompt)
@@ -586,6 +956,7 @@ function evaluateBeforeSubmitPrompt(input, options = {}) {
       : IMPLEMENTATION_MARKER.test(prompt)
         ? "implementation"
         : null;
+  supersedePendingContinuation(input, phase, options);
   if (!phase) return {};
   const requiresBoundRoot = phase === "correction" || (phase === "implementation" && IMPLEMENT_PLAN_MARKER.test(prompt));
   const selectedRootId = prompt.match(ROOT_ID)?.[0] ?? null;
@@ -594,9 +965,21 @@ function evaluateBeforeSubmitPrompt(input, options = {}) {
     const active = readActiveRootPlan(input, options);
     if (active?.root_plan_id) {
       const bound = inspectBoundActiveRoot(active, options);
+      const chain = readManualChain(input, options);
       if (requiresBoundRoot && !bound.ok) return deny(`Workflow · Plan required. ${bound.reason} Next: present and approve one valid Schema-5 Root.`);
       if (requiresBoundRoot && selectedRootId && selectedRootId !== active.root_plan_id) {
         return deny(`Workflow · Blocked. The approved selector ${selectedRootId} does not match the task-bound Root ${active.root_plan_id}. Next: approve the exact current Root only.`);
+      }
+      if (phase === "implementation"
+        && chain?.phase_status === "review-complete"
+        && chain?.current_review?.next_action === "replan") {
+        return deny("Workflow · Blocked. The current Review requires replan, so the predecessor Root is recovery context rather than implementation authority. Next: complete /plan-work replan, or explicitly re-approve the exact predecessor Root bytes.");
+      }
+      if (phase === "correction") {
+        const correction = inspectExactCorrectionReview(chain, active, options);
+        if (!correction.ok) {
+          return deny(`Workflow · Blocked. Correct-work requires the exact current Review tip, its Evidence tip, the bound Root, and one embedded correction: ${correction.reason}. Next: run Review or restore its exact current chain.`);
+        }
       }
       recordActiveRootPlan(input, {
         rootPlanId: active.root_plan_id,
@@ -604,7 +987,7 @@ function evaluateBeforeSubmitPrompt(input, options = {}) {
         rootPlanText: active.root_plan_text,
         phase,
       }, options);
-      writeTurn(input, { required: phase !== "review", phase }, options);
+      writeTurn(input, { required: phase !== "review", phase, observed_review_auditors: [] }, options);
     } else if (requiresBoundRoot) {
       return deny("Workflow · Plan required. Implement Plan and correction need one exact valid Root bound to this conversation. Next: present and approve the Schema-5 Plan.");
     }
@@ -621,11 +1004,18 @@ function evaluateBeforeSubmitPrompt(input, options = {}) {
     return deny(`Workflow · Blocked. The approved selector ${selectedRootId} does not match the supplied Root ${rootPlanId}. Next: use one exact Root only.`);
   }
   const active = readActiveRootPlan(input, options);
+  const chain = readManualChain(input, options);
   if (requiresBoundRoot && active?.root_plan_id && active.root_plan_id !== rootPlanId) {
     return deny(`Workflow · Blocked. The supplied Root ${rootPlanId} does not match the task-bound Root ${active.root_plan_id}. Next: return to the exact approved Plan or correction.`);
   }
+  if (phase === "correction") {
+    const correction = inspectExactCorrectionReview(chain, { ...active, root_plan_id: rootPlanId, root_plan_text: rootText }, options);
+    if (!correction.ok) {
+      return deny(`Workflow · Blocked. Correct-work requires the exact current Review tip, its Evidence tip, the bound Root, and one embedded correction: ${correction.reason}. Next: run Review or restore its exact current chain.`);
+    }
+  }
   recordActiveRootPlan(input, { rootPlanId, rootPlanText: rootText, phase }, options);
-  writeTurn(input, { required: phase !== "review", phase }, options);
+  writeTurn(input, { required: phase !== "review", phase, observed_review_auditors: [] }, options);
   return {};
 }
 
@@ -660,6 +1050,10 @@ function nativeCloseoutFailureFollowUp(reason) {
   };
 }
 
+function reviewInputFailureFollowUp(reason) {
+  return { followup_message: String(reason ?? reviewInputFailure("the semantic input is unavailable")) };
+}
+
 function reviewRecoveryFollowUp(turn) {
   return {
     followup_message: [
@@ -672,18 +1066,44 @@ function reviewRecoveryFollowUp(turn) {
 
 function missingDeliveryReportFollowUp(turn) {
   const expectedId = turn?.delivery_evidence_id ?? "de-*";
-  const attachHint = turn?.handoff_persisted === false
-    ? " Attach the exact Evidence artifact once, then include this delivery-report:"
-    : " Do not dump the artifact. Include this delivery-report:";
   return {
     followup_message: [
       "Workflow closeout attestation is incomplete.",
       "This is a Cursor recovery follow-up, not an unbypassable hard stop.",
       "workflow_closeout already returned Evidence.",
-      `${attachHint}`,
+      "The current conversation already retains the exact Evidence; do not dump the artifact. Include this delivery-report:",
       formatDeliveryReportFence(expectedId),
     ].join(" "),
   };
+}
+
+function failedCheckFollowUp(failure) {
+  return {
+    followup_message: [
+      `Workflow required Check ${failure?.check_id ?? "CHECK-*"} failed after the current Evidence was recorded.`,
+      "The previous Evidence is invalidated.",
+      "Do not rerun or disguise the failed Check; return one typed closeout-input preserving the failed observation so the host can persist honest replacement Evidence for Review.",
+    ].join(" "),
+  };
+}
+
+function armRecoveryContinuation(input, turn, active, followUp, kind, options = {}) {
+  const message = String(followUp?.followup_message ?? "");
+  writeTurn(input, { ...turn, recovery_issued: true }, options);
+  updateManualChain(input, {
+    pending_continuation: {
+      schema: 1,
+      kind,
+      status: "issued",
+      phase: turn?.phase,
+      prompt_hash: rootContentHash(message),
+      root_content_hash: active?.root_content_hash,
+      source_generation_hash: generationHash(input),
+      continuation_count: 1,
+      issued_at: new Date().toISOString(),
+    },
+  }, options);
+  return followUp;
 }
 
 export function evaluateCloseoutGuard(input, options = {}) {
@@ -701,11 +1121,33 @@ export function evaluateCloseoutGuard(input, options = {}) {
     return evaluateTodoWriteGate(input, options);
   }
 
+  if (event === "postToolUseFailure") {
+    const completedReceipt = recordCompletedCheckReceipt(input, options);
+    if (completedReceipt?.status === "failed") bindFailedCheckToCurrentEvidence(input, completedReceipt, options);
+    return {};
+  }
+
   if (event === "postToolUse" || event === "afterMCPExecution") {
     const toolName = input.tool_name;
+    const observedAuditor = hostEnforcedReadOnlyReviewAgentRole(input);
+    if (observedAuditor) {
+      const turn = readTurn(input, options) ?? {};
+      if (turn.phase === "review") {
+        writeTurn(input, {
+          ...turn,
+          observed_review_auditors: [...new Set([...(turn.observed_review_auditors ?? []), observedAuditor])].sort(),
+        }, options);
+      }
+      return {};
+    }
     const completedReceipt = recordCompletedCheckReceipt(input, options);
-    if (["recorded", "failed", "missing-result"].includes(completedReceipt?.status)) return {};
+    if (completedReceipt?.status === "failed") {
+      bindFailedCheckToCurrentEvidence(input, completedReceipt, options);
+      return {};
+    }
+    if (["recorded", "missing-result"].includes(completedReceipt?.status)) return {};
     if (isMutatingTool(input) && !isWorkflowCloseoutTool(toolName)) {
+      if (!currentLifecycleMutationPhase(input, options)) return {};
       try { invalidateCurrentRootReceipts(input, options); } catch { /* closeout will not find eligible proof */ }
       const existing = readTurn(input, options);
       if (existing?.closeout_recorded) invalidateTurn(input, options);
@@ -740,6 +1182,55 @@ export function evaluateCloseoutGuard(input, options = {}) {
       }, options);
       return {};
     }
+    const structured = response?.structuredContent ?? response;
+    if (toolInput.artifact_kind === "work-review" || structured?.artifact_kind === "work-review") {
+      const lifecycleTurn = readTurn(input, options) ?? {};
+      const lifecycleChain = readManualChain(input, options);
+      try {
+        if (structured?.artifact_kind !== "work-review" || typeof structured.artifact !== "string") throw new Error("host response omitted the exact generated work-review");
+        const inspected = (options.inspectArtifactText ?? inspectArtifactText)(structured.artifact, options.pluginRoot ?? pluginRoot);
+        const fields = inspected.artifact?.fields;
+        if (inspected.errors.length > 0 || fields?.artifact !== "work-review" || fields?.schema !== 5) throw new Error(inspected.errors[0] ?? "host response is not a Schema-5 work-review");
+        if (fields.id !== structured.work_review_id || fields.root_plan_id !== activeRootPlanId) throw new Error("host response review identity does not match the active Root");
+        const artifactHash = rootContentHash(structured.artifact);
+        if (structured.artifact_hash !== artifactHash || !/^[a-f0-9]{64}$/.test(String(structured.review_input_hash ?? ""))) throw new Error("host response review hashes are invalid");
+        const builderProvenance = {
+          schema: 1,
+          kind: "host-work-review-builder",
+          review_input_hash: structured.review_input_hash,
+          artifact_hash: artifactHash,
+        };
+        writeTurn(input, {
+          ...lifecycleTurn,
+          required: false,
+          phase: "review",
+          review_artifact_id: fields.id,
+          review_artifact_error: null,
+          review_builder_provenance: builderProvenance,
+          recovery_issued: false,
+        }, options);
+        updateManualChain(input, {
+          current_review: {
+            review_artifact_id: fields.id,
+            review_artifact: structured.artifact,
+            review_artifact_hash: artifactHash,
+            builder_provenance: builderProvenance,
+            latest_evidence_id: fields.latest_evidence_id ?? null,
+            next_action: fields.next_action ?? null,
+            correction_id: fields.correction_id ?? null,
+            recorded_at: new Date().toISOString(),
+          },
+          artifacts: withChainArtifact(lifecycleChain, { label: fields.id, text: structured.artifact, builder_provenance: builderProvenance }),
+          phase_status: "review-complete",
+          terminal_diagnostic: null,
+          pending_continuation: null,
+        }, options);
+      } catch (error) {
+        const reason = reviewInputFailure(String(error?.message ?? error));
+        writeTurn(input, { ...lifecycleTurn, required: true, phase: "review", review_artifact_error: reason }, options);
+      }
+      return {};
+    }
     const inspectArtifact = options.inspectArtifactText ?? inspectForCloseoutRecord;
     const expectedLineage = expectedLineageFromArtifacts(toolInput.artifacts, closeoutRootPlanId ?? activeRootPlanId, {
       inspectArtifactText: inspectArtifact,
@@ -764,9 +1255,14 @@ export function evaluateCloseoutGuard(input, options = {}) {
       }, options);
       return {};
     }
+    const lifecycleTurn = readTurn(input, options) ?? {};
+    const lifecycleChain = readManualChain(input, options);
+    const lifecyclePhase = lifecycleTurn.phase ?? lifecycleChain?.phase ?? "implementation";
     writeTurn(input, {
+      ...lifecycleTurn,
+      phase: lifecyclePhase,
       closeout_recorded: true,
-      delivery_report_ok: false,
+      delivery_report_ok: lifecyclePhase !== "review",
       required: true,
       delivery_evidence_id: recorded.record.id,
       delivery_evidence_artifact: recorded.record.artifact,
@@ -776,7 +1272,29 @@ export function evaluateCloseoutGuard(input, options = {}) {
       active_root_plan_id: activeRootPlanId,
       active_root_content_hash: activeRootContentHash,
       expected_lineage: expectedLineage,
-      enforcement: "cursor-followup",
+      enforcement: "cursor-internal-closeout",
+      review_recovery_pending: lifecyclePhase === "review",
+      recovery_issued: false,
+    }, options);
+    updateManualChain(input, {
+      current_evidence: {
+        closeout_recorded: true,
+        delivery_report_ok: true,
+        delivery_evidence_id: recorded.record.id,
+        delivery_evidence_artifact: recorded.record.artifact,
+        delivery_evidence_hash: recorded.record.hash,
+        handoff_persisted: recorded.record.handoff_persisted,
+        delivery_evidence_root_plan_id: recorded.record.root_plan_id,
+        active_root_plan_id: activeRootPlanId,
+        active_root_content_hash: activeRootContentHash,
+        expected_lineage: expectedLineage,
+        invalidated: false,
+        recorded_at: new Date().toISOString(),
+      },
+      artifacts: withChainArtifact(lifecycleChain, { label: recorded.record.id, text: recorded.record.artifact }),
+      known_failed_check: null,
+      pending_continuation: lifecyclePhase === "review" ? lifecycleChain?.pending_continuation ?? null : null,
+      phase_status: lifecyclePhase === "review" ? "review-evidence-ready" : "closeout-complete",
     }, options);
     return {};
   }
@@ -785,10 +1303,15 @@ export function evaluateCloseoutGuard(input, options = {}) {
     const turn = readTurn(input, options) ?? {};
     const text = typeof input.text === "string" ? input.text : "";
     const active = readActiveRootPlan(input, options);
-    const phase = turn.phase ?? null;
+    const chain = readManualChain(input, options);
+    const phase = turn.phase ?? chain?.phase ?? active?.phase ?? null;
     const workflowBound = Boolean(
       active?.root_plan_id
-      && (turn.required === true || ["implementation", "correction", "review"].includes(phase)),
+      && turn.terminalized !== true
+      && (
+        (["implementation", "correction"].includes(turn.phase) && turn.required === true)
+        || (turn.phase === "review" && ["active", "review-evidence-ready", "evidence-invalidated", "root-boundary-required", "closeout-failed"].includes(chain?.phase_status))
+      ),
     );
     if (!workflowBound) return {};
     const native = parseCloseoutInput(text);
@@ -810,16 +1333,30 @@ export function evaluateCloseoutGuard(input, options = {}) {
         const capture = options.captureRepositorySnapshot ?? captureRepositorySnapshot;
         const current = capture(workspaceRootForInput(input, options));
         const derive = options.deriveRepositoryDelta ?? deriveRepositoryDelta;
-        const repositoryDelta = derive(turn.repository_baseline ?? null, current);
+        const repositoryDelta = derive(chain?.repository_baseline ?? turn.repository_baseline ?? null, current);
+        const chainArtifacts = [
+          chain?.current_evidence?.invalidated !== true && chain?.current_evidence?.delivery_evidence_artifact
+            ? { label: chain.current_evidence.delivery_evidence_id, text: chain.current_evidence.delivery_evidence_artifact }
+            : null,
+          chain?.current_review?.review_artifact
+            ? { label: chain.current_review.review_artifact_id, text: chain.current_review.review_artifact }
+            : null,
+        ].filter(Boolean);
         const closeout = (options.performNativeCloseout ?? performNativeCloseout)({
           attestation: native.report,
           expectedPhase,
           rootPlanText: active.root_plan_text,
-          artifacts: options.artifacts ?? [],
+          artifacts: options.artifacts ?? chainArtifacts,
           repositoryDelta,
           pluginRoot: options.pluginRoot ?? pluginRoot,
           handoffOptions: options.handoffOptions ?? {},
           receiptOptions: options.receiptOptions ?? {},
+          ...(chain?.current_evidence?.invalidated === true ? {
+            invalidatedEvidence: {
+              id: chain.current_evidence.delivery_evidence_id,
+              hash: chain.current_evidence.delivery_evidence_hash,
+            },
+          } : {}),
         });
         writeTurn(input, {
           ...turn,
@@ -840,6 +1377,25 @@ export function evaluateCloseoutGuard(input, options = {}) {
           recovery_issued: false,
           final_text: text.slice(0, 200_000),
         }, options);
+        updateManualChain(input, {
+          current_evidence: {
+            closeout_recorded: true,
+            delivery_report_ok: true,
+            delivery_evidence_id: closeout.fields.id,
+            delivery_evidence_artifact: closeout.artifact,
+            delivery_evidence_hash: closeout.artifact_hash,
+            handoff_persisted: closeout.handoff_persisted,
+            delivery_evidence_root_plan_id: closeout.fields.root_plan_id,
+            active_root_plan_id: active.root_plan_id,
+            active_root_content_hash: active.root_content_hash,
+            invalidated: false,
+            recorded_at: new Date().toISOString(),
+          },
+          artifacts: withChainArtifact(chain, { label: closeout.fields.id, text: closeout.artifact }),
+          known_failed_check: null,
+          pending_continuation: phase === "review" ? chain?.pending_continuation ?? null : null,
+          phase_status: phase === "review" ? "review-evidence-ready" : "closeout-complete",
+        }, options);
       } catch (error) {
         const errorCode = nativeCloseoutErrorCode(error);
         const boundary = captureBoundaryReceipt(input, turn, active, errorCode, options);
@@ -858,6 +1414,14 @@ export function evaluateCloseoutGuard(input, options = {}) {
           delivery_report_ok: false,
           final_text: text.slice(0, 200_000),
         }, options);
+        updateManualChain(input, {
+          terminal_diagnostic: {
+            code: errorCode,
+            reason: String(error?.message ?? error),
+            recorded_at: new Date().toISOString(),
+          },
+          phase_status: boundary ? "root-boundary-required" : "closeout-failed",
+        }, options);
       }
       return {};
     }
@@ -874,45 +1438,81 @@ export function evaluateCloseoutGuard(input, options = {}) {
     if (phase === "review") {
       const reviewText = exactSchemaArtifact(text, "work-review", options);
       if (reviewText) {
-        const inspected = (options.inspectArtifactText ?? inspectArtifactText)(reviewText, options.pluginRoot ?? pluginRoot);
-        const fields = inspected.artifact.fields;
-        if (fields.root_plan_id !== active.root_plan_id) {
-          writeTurn(input, { ...turn, review_artifact_error: `review Root ${fields.root_plan_id} does not match ${active.root_plan_id}`, final_text: text.slice(0, 200_000) }, options);
-          return {};
-        }
-        if (fields.review_basis === "root-boundary") {
-          const expected = turn.boundary_receipt;
-          const verified = expected?.receipt_id === fields.boundary_receipt?.receipt_id
-            ? (options.verifyManualBoundaryReceipt ?? verifyManualBoundaryReceipt)({
-              receipt: fields.boundary_receipt,
-              rootPlanText: active.root_plan_text,
-              pluginRoot: options.pluginRoot ?? pluginRoot,
-              workspaceRoot: turn.boundary_receipt_workspace_root,
-              captureSnapshot: options.captureRepositorySnapshot ?? captureRepositorySnapshot,
-              now: options.now,
-              options: options.receiptOptions ?? {},
-            })
-            : { ok: false, reason: "no matching task-bound protected host receipt" };
-          if (verified?.ok !== true) {
-            writeTurn(input, { ...turn, review_artifact_error: `root-boundary review receipt is not trusted: ${verified?.reason ?? "host verification failed"}`, final_text: text.slice(0, 200_000) }, options);
-            return {};
-          }
-        }
+        writeTurn(input, { ...turn, required: true, review_artifact_error: reviewInputFailure("a full model-authored work-review envelope was returned instead of semantic input"), final_text: text.slice(0, 200_000) }, options);
+        return {};
+      }
+      try {
+        if (!active?.root_plan_id || typeof active.root_plan_text !== "string") throw new Error("the exact task-local Root is unavailable");
+        if (chain?.current_evidence?.invalidated === true && !turn.boundary_receipt) throw new Error("the current Evidence was invalidated and no protected boundary receipt is available");
+        const boundaryReceipt = turn.boundary_receipt ?? null;
+        const parsed = boundaryReceipt ? { ok: true, input: null, issues: [] } : parseReviewInputFromText(text);
+        if (!parsed.ok) throw new Error(parsed.issues.join("; "));
+        const boundaryVerifier = boundaryReceipt ? ({ receipt, rootPlanText }) => {
+          if (receipt?.receipt_id !== boundaryReceipt.receipt_id) return { ok: false, reason: "no matching task-bound protected host receipt" };
+          return (options.verifyManualBoundaryReceipt ?? verifyManualBoundaryReceipt)({
+            receipt,
+            rootPlanText,
+            pluginRoot: options.pluginRoot ?? pluginRoot,
+            workspaceRoot: turn.boundary_receipt_workspace_root,
+            captureSnapshot: options.captureRepositorySnapshot ?? captureRepositorySnapshot,
+            now: options.now,
+            options: options.receiptOptions ?? {},
+          });
+        } : null;
+        const review = (options.performNativeReview ?? performNativeReview)({
+          rootPlanText: active.root_plan_text,
+          artifacts: options.artifacts ?? chainArtifactEntries(chain),
+          reviewInput: parsed.input,
+          boundaryReceipt,
+          boundaryReceiptVerifier: boundaryVerifier,
+          hostObservedAuditorRoles: turn.observed_review_auditors ?? [],
+          pluginRoot: options.pluginRoot ?? pluginRoot,
+          handoffOptions: options.handoffOptions ?? {},
+        });
+        const fields = review.fields;
         writeTurn(input, {
           ...turn,
           required: false,
+          closeout_recorded: false,
+          delivery_report_ok: true,
+          review_recovery_pending: false,
+          recovery_issued: false,
           review_artifact_id: fields.id,
           review_artifact_error: null,
+          review_builder_provenance: review.provenance,
           native_closeout_error: null,
           native_closeout_error_code: null,
           boundary_receipt: null,
           final_text: text.slice(0, 200_000),
         }, options);
+        updateManualChain(input, {
+          current_review: {
+            review_artifact_id: fields.id,
+            review_artifact: review.artifact,
+            review_artifact_hash: review.artifact_hash,
+            builder_provenance: review.provenance,
+            latest_evidence_id: fields.latest_evidence_id ?? null,
+            next_action: fields.next_action ?? null,
+            correction_id: fields.correction_id ?? null,
+            recorded_at: new Date().toISOString(),
+          },
+          artifacts: withChainArtifact(chain, { label: fields.id, text: review.artifact, builder_provenance: review.provenance }),
+          phase_status: "review-complete",
+          terminal_diagnostic: null,
+          pending_continuation: null,
+        }, options);
+        return {};
+      } catch (error) {
+        writeTurn(input, { ...turn, required: true, review_artifact_error: reviewInputFailure(String(error?.message ?? error)), final_text: text.slice(0, 200_000) }, options);
         return {};
       }
     }
     if (!turn?.required) return {};
-    const completion = evaluateDeliveryCompletion(text, turn);
+    const evidence = chain?.current_evidence?.invalidated !== true ? chain?.current_evidence : null;
+    const containsDeliveryAttestation = /\bkind\s*:\s*delivery-report\b|```yaml workflow-attestation/i.test(text);
+    const completion = evidence?.closeout_recorded === true && evidence.delivery_report_ok === true && !containsDeliveryAttestation
+      ? { ok: true, reason: "internal-closeout-committed" }
+      : evaluateDeliveryCompletion(text, turn);
     writeTurn(input, {
       ...turn,
       final_text: text.slice(0, 200_000),
@@ -926,32 +1526,57 @@ export function evaluateCloseoutGuard(input, options = {}) {
     if (input.status && input.status !== "completed") return {};
     const turn = readTurn(input, options);
     const active = readActiveRootPlan(input, options);
+    const chain = readManualChain(input, options);
+    const pending = chain?.pending_continuation;
+    const pendingForActive = Boolean(
+      pending
+      && ["issued", "consumed"].includes(pending.status)
+      && pending.root_content_hash === active?.root_content_hash,
+    );
     if (!active?.root_plan_id && turn?.record_reason === "missing-active-root") {
       return missingActiveRootFollowUp();
     }
     const required = Boolean(
       active?.root_plan_id
-      && (turn?.required === true || turn?.closeout_recorded === true),
+      && (turn?.required === true || turn?.closeout_recorded === true || pendingForActive),
     );
     if (!required) return {};
 
+    const loopCount = Number.isInteger(input.loop_count) ? input.loop_count : Number(input.loop_count ?? 0);
+    const differentContinuationGeneration = pendingForActive
+      && generationHash(input) !== pending.source_generation_hash;
+    if (turn?.recovery_issued === true || (pendingForActive && (loopCount > 0 || differentContinuationGeneration))) {
+      writeTurn(input, { ...(turn ?? {}), required: false, recovery_issued: true, terminalized: true }, options);
+      updateManualChain(input, {
+        phase_status: "terminal-blocked",
+        pending_continuation: null,
+        terminal_diagnostic: {
+          code: turn?.native_closeout_error_code ?? turn?.record_reason ?? "closeout-recovery-exhausted",
+          reason: turn?.native_closeout_error ?? turn?.delivery_report_reason ?? "Manual closeout recovery exhausted its single continuation.",
+          recorded_at: new Date().toISOString(),
+        },
+      }, options);
+      return {};
+    }
+
+    const recoverOnce = (value, kind = "closeout-recovery") => armRecoveryContinuation(input, turn, active, value, kind, options);
+    if (turn?.known_failed_check) return recoverOnce(failedCheckFollowUp(turn.known_failed_check), "required-check-failed");
+    if (turn?.review_artifact_error) return recoverOnce(reviewInputFailureFollowUp(turn.review_artifact_error), "review-input-repair");
     if (turn?.review_recovery_pending) {
-      if (turn.recovery_issued) return {};
-      writeTurn(input, { ...turn, recovery_issued: true }, options);
-      return reviewRecoveryFollowUp(turn);
+      const followUp = reviewRecoveryFollowUp(turn);
+      return armRecoveryContinuation(input, turn, active, followUp, "review-evidence-hydrated", options);
     }
-    if (turn?.review_artifact_error) return nativeCloseoutFailureFollowUp(turn.review_artifact_error);
     if (turn?.boundary_receipt) {
-      return nativeCloseoutFailureFollowUp(`Evidence recovery is deterministically unavailable. Use only an insufficient-evidence/blocked/replan root-boundary review with this internal receipt: ${JSON.stringify(turn.boundary_receipt)}`);
+      return recoverOnce(nativeCloseoutFailureFollowUp(`Evidence recovery is deterministically unavailable. Use only an insufficient-evidence/blocked/replan root-boundary review with this internal receipt: ${JSON.stringify(turn.boundary_receipt)}`));
     }
-    if (turn?.native_closeout_error) return nativeCloseoutFailureFollowUp(turn.native_closeout_error);
+    if (turn?.native_closeout_error) return recoverOnce(nativeCloseoutFailureFollowUp(turn.native_closeout_error));
     if (turn?.closeout_recorded && turn.delivery_report_ok) return {};
-    if (turn?.closeout_recorded) return missingDeliveryReportFollowUp(turn);
+    if (turn?.closeout_recorded) return recoverOnce(missingDeliveryReportFollowUp(turn));
     if (conversationHasRecordedCloseout(input, options)) {
       const recorded = findRecordedCloseout(input, options);
-      return missingDeliveryReportFollowUp(recorded);
+      return recoverOnce(missingDeliveryReportFollowUp(recorded));
     }
-    return missingCloseoutFollowUp();
+    return recoverOnce(missingCloseoutFollowUp());
   }
 
   return {};

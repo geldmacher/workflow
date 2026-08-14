@@ -2,8 +2,18 @@
 
 ## Unreleased
 
+## 5.4.0
+
+- Build every new authoritative Schema-5 `work-review` through one deterministic host-owned kernel shared by Cursor, Codex, controller, and portable Manual clients.
+- Add the backward-compatible `work-review` mode to `workflow_closeout` while preserving the five-tool portable Manual surface and the `delivery-evidence` default.
+- Reject new full model-authored Review envelopes through both artifact recording and closeout-chain input, retain protected historical immutable reviews read-only, and keep valid task-local Reviews usable when optional handoff persistence fails.
+- Keep malformed Review recovery bounded to one plain same-task retry with explicit preservation and field-level recovery guidance; reject null, coerced, or internally contradictory reviewer semantics in the shared kernel, and require non-adverse host-observed delivery/risk review for high-risk Roots.
+- Kept Manual, supervised, and autonomous user journeys in one task by default; made optional cross-task handoff failure non-blocking for exact task-local Evidence; and added plain-language blocker plus resolution guidance before technical traceability.
+- Simplified Manual delivery to the visible Plan → Implement Plan → Review loop with Root-scoped state across Cursor generations, internal closeout, finite recovery, exact correction/replan tips, conservative impact-based Check refresh, and one bundled hook dispatcher per host event.
+- Made the lightweight loop deterministic under Hard Triggers and concurrent host processes: known failed Checks now short-circuit directly to correction, Check reuse follows objective/path/fingerprint dependencies, replans retain exact predecessor artifacts, and revisioned chain commits serialize without lost updates.
+- Bound Cursor Stop continuations across their real next-generation boundary with exact generated-prompt hashes and `loop_count`, and invalidated plus recoverably replaced Evidence when a required Check fails after closeout.
 - Fixed Codex Manual phase binding for exact bare, plugin-qualified, and host-rendered Workflow skill links; made pre-execution prompt rejection transactional; added bounded German implementation imperatives; and terminalized a repeated failed Stop after one continuation without Evidence, delivery success, or stale tool restrictions.
-- Bound Cursor Workflow Roots to successful generation/tool-correlated `CreatePlan` receipts, made replans suspend immutable predecessors until a fresh lineage-valid Root commits, and required canonical Schema-5 Verification tables inside Acceptance across planning guidance.
+- Bound Cursor Workflow Roots to successful generation/tool-correlated `CreatePlan` receipts, kept replan predecessors as exact inert recovery context until a fresh lineage-valid Root commits, blocked implicit predecessor resume, required exact Root–Evidence–Review bytes for correction, and made completed or terminal chains quiet for later ordinary writes.
 - Added a guided Manual Plan/Do/Review/Correct journey with one primary chat action, secondary Technical traceability, deterministic update keys, automatic native closeout, explicit portable enforcement limits, and a fail-closed two-round correction stop.
 - Added exact task-Root, pre-mutation baseline, and direct path-authority gates for Cursor and Codex plus a narrowly invariant Schema-5 root-boundary Review that can authorize only a separately approved lineage-preserving replan.
 - Made native Codex closeout use only host-derived changed paths for Evidence and Authority, with optional caller paths retained solely as non-authoritative compatibility hints.

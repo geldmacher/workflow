@@ -11,7 +11,7 @@ import { deriveControllerLearningContext } from "../src/controller/learning-cont
 import { runView } from "../src/controller/protocol.mjs";
 import { createInitialStrategy, calibrateRecipeEvidence, reviseStrategy, strategyHash } from "../src/controller/strategy.mjs";
 import { repositoryBaseline } from "../src/controller/worktree.mjs";
-import { defaultRoot, executionContractFromArtifactText, inspectArtifactText } from "../scripts/validate-artifact.source.mjs";
+import { defaultRoot, executionContractFromArtifactText, inspectArtifactSet, inspectArtifactText } from "../scripts/validate-artifact.source.mjs";
 
 const rootPlan = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
 const roles = ["planner", "investigator", "writer", "writer_escalated", "verifier", "reviewer", "explainer"];
@@ -87,9 +87,25 @@ function setup({ patchedGrade = "verified", repetitions = 2, taskClass = "bugfix
     duration_ms: 5, usage: { totalTokens: 10 }, cost_usd: 0.0001,
     artifact_projection_hash: input.artifactProjectionHash, status: "finished",
   });
-  const decision = JSON.stringify({ assessment: "achieved", delivery_status: "verified", next_action: "none", finding_keys: [], findings: [] });
+  const completeReviewDecision = (value) => ({
+    assessment_summary: value.assessment === "achieved" ? "The exact controller Evidence satisfies the Root." : "The typed findings determine the bounded next action.",
+    snapshot_assessment: "consistent",
+    snapshot_summary: "The controller reviewer inspected the current worktree snapshot and candidate Evidence.",
+    missing_evidence: [],
+    ...value,
+    findings: (value.findings ?? []).map((finding) => ({
+      severity: "medium",
+      objective_ids: ["OBJ-1"],
+      check_ids: ["CHECK-1"],
+      evidence: finding.summary,
+      reasoning: finding.summary,
+      resolution: "correct",
+      ...finding,
+    })),
+  });
+  const decision = JSON.stringify(completeReviewDecision({ assessment: "achieved", delivery_status: "verified", next_action: "none", finding_keys: [], findings: [] }));
   const queuedReviewDecisions = [...reviewDecisions];
-  const nextReviewDecision = () => JSON.stringify(queuedReviewDecisions.shift() ?? JSON.parse(decision));
+  const nextReviewDecision = () => JSON.stringify(completeReviewDecision(queuedReviewDecisions.shift() ?? JSON.parse(decision)));
   const adapter = {
     validateProfile: () => routeValidation,
     runPhase: (input) => {
@@ -107,11 +123,12 @@ function setup({ patchedGrade = "verified", repetitions = 2, taskClass = "bugfix
         if (readerMutates) writeFileSync(join(input.cwd, "reader-mutation.txt"), "forbidden\n");
         const stage = input.prompt.includes("for the baseline state") ? "baseline" : "patched";
         const grade = stage === "baseline" ? "verified" : patchedGrade;
-        const result = JSON.stringify({ entries: [{
-          check_id: "CHECK-1", grade, surface: "repository-test", method: taskClass === "performance" ? "benchmark trace metric" : taskClass === "refactor" ? "equivalence harness" : "verification profile",
+        const requestedChecks = [...new Set([...input.prompt.matchAll(/"Check ID":\s*"(CHECK-[1-9][0-9]*)"/g)].map((match) => match[1]))];
+        const result = JSON.stringify({ entries: (requestedChecks.length > 0 ? requestedChecks : ["CHECK-1"]).map((checkId) => ({
+          check_id: checkId, grade, surface: "repository-test", method: taskClass === "performance" ? "benchmark trace metric" : taskClass === "refactor" ? "equivalence harness" : "verification profile",
           expected: "expected", observed: grade === "failed" ? "assertion failed" : "observed", repetitions,
           artifact_hashes: ["b".repeat(64)], limitations: grade === "unavailable" ? ["surface unavailable"] : [],
-        }] });
+        })) });
         return { response: { ok: true, status: "finished", result }, receipt: makeReceipt(input.role, input) };
       }
       return { response: { ok: true, status: "finished", result: input.role === "reviewer" ? nextReviewDecision() : decision }, receipt: makeReceipt(input.role, input) };
@@ -159,12 +176,76 @@ test("supervised verified delivery waits for explicit human acceptance", () => {
     assert.equal(delivered.phase, "delivery-ready-verified");
     assert.match(delivered.delivery_evidence_id, /^de-/);
     assert.match(delivered.delivery_evidence_hash, /^[a-f0-9]{64}$/);
+    assert.match(delivered.work_review_id, /^wr-adaptive-retry-[a-f0-9]{12}$/);
+    assert.equal(delivered.work_review_builder_provenance.kind, "host-work-review-builder");
+    assert.equal(delivered.work_review_builder_provenance.artifact_hash, delivered.work_review_hash);
+    assert.deepEqual(inspectArtifactSet([["root", delivered.root_plan_text], ...delivered.workflow_artifacts.map((entry) => [entry.label, entry.text])], defaultRoot).errors, []);
     assert.equal(inspectArtifactText(delivered.delivery_evidence_artifact, defaultRoot).artifact.fields.evidence_mode, "full");
     assert.equal(new ArtifactHandoffStore(env.state, defaultRoot).context("wp-adaptive-retry").evidence_tip, delivered.delivery_evidence_id);
     assert.ok(env.reviewPrompts.some((prompt) => prompt.includes("CANDIDATE DELIVERY EVIDENCE") && prompt.includes(delivered.delivery_evidence_id)));
     assert.equal("delivery_evidence_artifact" in runView(delivered), false);
+    assert.equal("work_review_artifact" in runView(delivered), false);
+    assert.equal("workflow_artifacts" in runView(delivered), false);
     const accepted = env.engine.acceptDelivery(env.run.run_id, "verified");
     assert.equal(accepted.lifecycle, "achieved");
+  } finally { cleanup(env); }
+});
+
+test("controller repairs a missing reviewer-owned collection instead of defaulting it", () => {
+  const malformed = {
+    assessment: "achieved",
+    delivery_status: "verified",
+    next_action: "none",
+    finding_keys: [],
+    findings: [],
+    missing_evidence: null,
+  };
+  const env = setup({ reviewDecisions: [malformed, malformed] });
+  try {
+    const delivered = env.engine.execute(env.run.run_id);
+    assert.equal(delivered.lifecycle, "waiting-human");
+    assert.equal(delivered.delivery_status, "verified");
+    assert.equal(env.reviewPrompts.filter((prompt) => prompt.includes("ONE REVIEW-INPUT REPAIR")).length, 2);
+    assert.ok(env.reviewPrompts.some((prompt) => prompt.includes("missing_evidence as an array")));
+  } finally { cleanup(env); }
+});
+
+test("controller repairs a malformed nonselected auditor report without coercion", () => {
+  const achieved = { assessment: "achieved", delivery_status: "verified", next_action: "none", finding_keys: [], findings: [] };
+  const malformedAuditor = { ...achieved, assessment_summary: 7 };
+  const env = setup({ reviewDecisions: [achieved, achieved, malformedAuditor, achieved, achieved] });
+  try {
+    const delivered = env.engine.execute(env.run.run_id);
+    assert.equal(delivered.lifecycle, "waiting-human");
+    assert.equal(delivered.delivery_status, "verified");
+    assert.equal(env.reviewPrompts.filter((prompt) => prompt.includes("ONE REVIEW-INPUT REPAIR")).length, 2);
+    assert.ok(env.reviewPrompts.some((prompt) => prompt.includes("auditor_reports[1].summary must be a string")));
+  } finally { cleanup(env); }
+});
+
+test("controller repairs a missing finding resolution instead of inventing correct", () => {
+  const correctionDecision = (resolution) => ({
+    assessment: "mostly-achieved",
+    delivery_status: "blocked",
+    next_action: "correct",
+    finding_keys: ["retry-boundary"],
+    findings: [{ key: "retry-boundary", summary: "Retry result needs a stable boundary.", resolution }],
+    learning_candidates: [{
+      finding_keys: ["retry-boundary"],
+      reusable_guidance: "Keep retry results behind the repository retry boundary.",
+      candidate_targets: ["AGENTS.md"],
+      confirmation_evidence: "The corrected delivery passes CHECK-1 without the finding.",
+    }],
+  });
+  const malformed = correctionDecision(null);
+  const repaired = correctionDecision("correct");
+  const env = setup({ reviewDecisions: [malformed, malformed, repaired, repaired] });
+  try {
+    const delivered = env.engine.execute(env.run.run_id);
+    assert.equal(delivered.lifecycle, "waiting-human");
+    assert.equal(delivered.review.next_action, "correct");
+    assert.ok(env.reviewPrompts.filter((prompt) => prompt.includes("ONE REVIEW-INPUT REPAIR")).length >= 1);
+    assert.ok(env.reviewPrompts.some((prompt) => prompt.includes("requires a typed resolution")));
   } finally { cleanup(env); }
 });
 
@@ -188,6 +269,8 @@ test("controller corrections retain bounded learning lineage until verified acce
     assert.deepEqual(delivered.delivered_paths, ["src/result.mjs"]);
     assert.match(delivered.delivery_commit, /^[a-f0-9]{40}$/);
     assert.equal(delivered.learning_candidates.length, 1);
+    assert.match(delivered.work_review_id, /^wr-adaptive-retry-[a-f0-9]{12}$/);
+    assert.deepEqual(inspectArtifactSet([["root", delivered.root_plan_text], ...delivered.workflow_artifacts.map((entry) => [entry.label, entry.text])], defaultRoot).errors, []);
     assert.match(delivered.learning_candidates[0].learning_id, /^LRN-adaptive-retry-/);
     assert.match(delivered.learning_candidates[0].correction_id, /^cp-adaptive-retry-controller-1$/);
     const correctionEvent = env.store.events(delivered.run_id).find((event) => event.payload?.learning_candidate_ids?.length > 0);

@@ -1,6 +1,6 @@
-Schema 5 has `work-plan|delivery-evidence|work-review`; Workflow-3/4 is immutable. The `wp-*` Root grants authority; Strategy/Ledger adapt only inside it.
+Schema 5 has `work-plan|delivery-evidence|work-review`; Workflow-3/4 is immutable. The `wp-*` Root grants authority; Strategy/Ledger adapt only inside it. New `work-review` bytes and every `wr-*`, Correction, FIX, STEP, correction Check, and Learning ID are host-built from closed semantic input plus the exact task-local chain. Raw new model-authored Review envelopes grant no authority; historical immutable Reviews remain readable.
 
-Select explicit ID, current task/Plan, then—without Manual context—one controller subject. Replans are linear; only the unique tip is active.
+Select current task/Plan, then explicit ID, then—without Manual context—one controller subject. Replans are linear; only the unique tip is active. Handoff is optional transport, never a completion step.
 
 Validation is strict, presentation-tolerant. Lean Evidence needs `Summary`; Full keeps proof tables. Unknown authority, ambiguity, expansion, missing identity, unsafe reuse, or fabricated success blocks. `extensions` is non-authoritative.
 
@@ -10,4 +10,4 @@ Reviews bind Evidence except `review_basis: root-boundary` after irrecoverable p
 
 Resolve by semantic `artifact`, never filename. Delivery excludes push, PR, merge, deploy, production access, or external claims.
 
-The optional Schema-1 handoff cache is keyed by exact Root-text SHA-256. Reads revalidate bytes/binding; transport grants no authority/state.
+The optional Schema-1 handoff cache is keyed by exact Root-text SHA-256. Reads revalidate bytes/binding and preserve protected builder provenance when available; transport grants no authority/state. Persistence failure cannot invalidate an already valid task-local Review.

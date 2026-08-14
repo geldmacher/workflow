@@ -5,7 +5,7 @@ import {
   effectiveCliSummary,
   inspectArtifactSet,
   inspectArtifactText
-} from "./chunk-LERB6VEC.mjs";
+} from "./chunk-JTPOR5B6.mjs";
 import {
   contentAddressedHandoffRoot,
   contentAddressedHandoffRootByHash,
@@ -13,12 +13,12 @@ import {
   handoffTipPath,
   legacyHandoffTipPath,
   rootContentHash
-} from "./chunk-TT447BBI.mjs";
+} from "./chunk-LX4EPHHS.mjs";
 import {
   ARTIFACT_SCHEMA,
   CONTROLLER_PROTOCOL,
   PLUGIN_VERSION
-} from "./chunk-XFYK5I23.mjs";
+} from "./chunk-H6YRBJ7B.mjs";
 
 // src/controller/artifact-handoff.mjs
 import {
@@ -208,9 +208,22 @@ function parsedArtifact(text, pluginRoot) {
   }
   return inspected.artifact;
 }
-function recordFor(text, pluginRoot) {
+function normalizedBuilderProvenance(value, fields, textHash) {
+  if (value == null) return null;
+  if (fields.artifact !== "work-review" || value?.schema !== 1 || value?.kind !== "host-work-review-builder" || !/^[a-f0-9]{64}$/.test(String(value?.review_input_hash ?? "")) || value?.artifact_hash !== textHash || Object.keys(value).some((key) => !["schema", "kind", "review_input_hash", "artifact_hash"].includes(key))) {
+    throw new Error("handoff builder provenance is incompatible with the exact work-review text");
+  }
+  return {
+    schema: 1,
+    kind: "host-work-review-builder",
+    review_input_hash: value.review_input_hash,
+    artifact_hash: textHash
+  };
+}
+function recordFor(text, pluginRoot, provenance = null) {
   const artifact = parsedArtifact(text, pluginRoot);
   const fields = artifact.fields;
+  const textHash = sha256(text);
   return {
     handoff_record_schema: HANDOFF_RECORD_SCHEMA,
     artifact_schema: ARTIFACT_SCHEMA,
@@ -219,14 +232,19 @@ function recordFor(text, pluginRoot) {
     artifact_id: fields.id,
     artifact_type: fields.artifact,
     root_plan_id: fields.artifact === "work-plan" ? fields.id : fields.root_plan_id,
-    text_hash: sha256(text),
+    text_hash: textHash,
     recorded_at: (/* @__PURE__ */ new Date()).toISOString(),
+    ...provenance ? { builder_provenance: normalizedBuilderProvenance(provenance, fields, textHash) } : {},
     text
   };
 }
-function validateRecord(record) {
+function validateRecord(record, pluginRoot) {
   if (record?.handoff_record_schema !== HANDOFF_RECORD_SCHEMA || record?.artifact_schema !== ARTIFACT_SCHEMA || record?.controller_protocol !== CONTROLLER_PROTOCOL || !/^(?:wp|de|wr)-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(record?.artifact_id ?? "")) || record?.text_hash !== sha256(record?.text ?? "")) {
     throw new Error(`incompatible or corrupt handoff record ${record?.artifact_id ?? "unknown"}`);
+  }
+  if (record.builder_provenance != null) {
+    const fields = parsedArtifact(record.text, pluginRoot).fields;
+    normalizedBuilderProvenance(record.builder_provenance, fields, record.text_hash);
   }
   return record;
 }
@@ -292,7 +310,7 @@ var ArtifactHandoffStore = class {
   records(ids = null) {
     if (!existsSync(this.directory)) return [];
     const files = ids ? [...new Set(ids)].map((id) => this.artifactPath(id)).filter(existsSync) : readdirSync(this.directory, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".json")).map((entry) => join(this.directory, entry.name));
-    return files.map((path) => validateRecord(JSON.parse(readFileSync(path, "utf8")))).sort((left, right) => left.artifact_id.localeCompare(right.artifact_id));
+    return files.map((path) => validateRecord(JSON.parse(readFileSync(path, "utf8")), this.pluginRoot)).sort((left, right) => left.artifact_id.localeCompare(right.artifact_id));
   }
   record(artifacts) {
     if (!Array.isArray(artifacts) || artifacts.length < 1 || artifacts.length > 32) throw new Error("handoff record requires 1..32 artifacts");
@@ -300,7 +318,7 @@ var ArtifactHandoffStore = class {
       if (!entry || typeof entry.label !== "string" || !entry.label.trim() || typeof entry.text !== "string" || !entry.text.trim()) {
         throw new Error(`handoff artifact ${index + 1} requires non-empty label and text`);
       }
-      return { label: entry.label, record: recordFor(entry.text, this.pluginRoot) };
+      return { label: entry.label, record: recordFor(entry.text, this.pluginRoot, entry.provenance ?? null) };
     });
     const candidateIds = new Set(candidates.map(({ record }) => record.artifact_id));
     if (candidateIds.size !== candidates.length) throw new Error("handoff record contains duplicate artifact IDs");
@@ -429,7 +447,13 @@ var ArtifactHandoffStore = class {
       artifact_set_hash: stableArtifactSetHash(ordered),
       evidence_tip: tips.evidence_tips[rootPlanId] ?? null,
       review_tip: tips.review_tips[rootPlanId] ?? null,
-      artifacts: ordered.map((record) => ({ label: record.artifact_id, text: record.text, text_hash: record.text_hash }))
+      artifacts: ordered.map((record) => ({
+        label: record.artifact_id,
+        text: record.text,
+        text_hash: record.text_hash,
+        ...record.builder_provenance ? { builder_provenance: record.builder_provenance } : {},
+        ...record.artifact_type === "work-review" && !record.builder_provenance ? { legacy_review_recorded: true } : {}
+      }))
     };
   }
   quarantineArtifact(artifactId, { expectedTextHash, apply = false, now = () => /* @__PURE__ */ new Date() } = {}) {

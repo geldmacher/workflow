@@ -12,11 +12,11 @@ import {
   sdkVersion,
   workerRuntimeDirectory,
   writeRuntimeManifest
-} from "./chunks/chunk-FBG57FMP.mjs";
+} from "./chunks/chunk-DBXU2LFJ.mjs";
 import "./chunks/chunk-PKEO6PA3.mjs";
 import {
   PLUGIN_VERSION
-} from "./chunks/chunk-XFYK5I23.mjs";
+} from "./chunks/chunk-H6YRBJ7B.mjs";
 import "./chunks/chunk-IQRLCJ3K.mjs";
 
 // scripts/provision-worker-runtime.mjs

@@ -1,11 +1,11 @@
 # Deterministic Closeout
 
-Hooks build Schema-5 Evidence; MCP closeout is optional.
+Lifecycle builds Schema-5 Evidence; MCP closeout is compatibility transport.
 
-Fail closed on invalid authority/chain, drift, conflict, or missing Checks. `representation: full|delta` is topology; `evidence_mode: lean|full` is risk-calibrated. Correction binds the exact review tip, refreshes non-passed inherited Root Checks, and reuses passed proof; equivalent Checks share an observation, not IDs.
+Fail closed on invalid authority/chain, drift, conflict, or missing Checks. `representation: full|delta` is topology; `evidence_mode: lean|full` is risk. Correction binds the review tip; refresh failed, missing, affected, stale, or ambiguous Root Checks. Unaffected proof keeps its grade; equivalent Checks share observation, not IDs.
 
-Host derives full snapshot/paths and alone enforces Root Authority; caller paths are non-authoritative.
+Host derives snapshot/paths and enforces Authority; caller paths are non-authoritative.
 
-Codex binds exact task-local Root/Evidence/Review by Root hash without MCP record/context; Stop exposes missing Review and byte, Root, lineage, repository, or Authority conflicts.
+Codex binds task-local Root/Evidence/Review by Root hash; Stop exposes identity, lineage, repository, or Authority conflicts.
 
-Root-hash handoff is transport only; native failure blocks. New plans use `action: delivery-closeout`; legacy closeout/report works. Manual `verified` needs a fresh host receipt; never upgrade caller proof, preserve failures, invalidate mutations, or retain unattested/rootless Checks.
+Root-hash handoff is optional. Builder, authority, repository, or Check failure blocks; persistence failure does not block task-local Evidence. New plans use `action: delivery-closeout`; legacy closeout/report works. Manual `verified` needs fresh host receipt; never upgrade proof, preserve failures, invalidate mutations, or retain unattested/rootless Checks.

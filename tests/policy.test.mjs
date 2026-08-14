@@ -34,7 +34,7 @@ test("review without a selector uses the active native Plan before controller st
   assert.match(runtime, /Root (?:without Evidence|resolution succeeds but Evidence is still absent).*\/close-work/is);
   assert.match(runtime, /task artifacts first.*workflow_artifact_context.*transport enrichment/is);
   assert.match(runtime, /(?:Missing workspace binding|roots-request-failed\|roots-empty).*cannot discard.*task Root\/Evidence chain/is);
-  assert.match(runtime, /(?:emit and validate|schema-valid).*Schema-5 review/is);
+  assert.match(runtime, /host.*build.*authoritative Review|host.*Schema-5 review/is);
 });
 
 test("artifact consumers resolve semantically and recognize Workflow 3/4 as history", () => {
@@ -104,9 +104,10 @@ test("manual correction remains bounded and verification-only can avoid edits", 
   assert.match(runtime, /may delegate bounded/i);
   assert.match(runtime, /omit Task model overrides/i);
   assert.match(runtime, /primary owns execution, integration, and closeout/i);
-  assert.match(runtime, /every inherited required Root Check not effectively `?passed`?/i);
+  assert.match(runtime, /failed, missing, (?:explicitly )?affected, (?:fingerprint-)?stale, or ambiguous Root Checks/is);
+  assert.match(runtime, /unaffected proof.*existing grade/is);
   assert.match(runtime, /Equivalent Checks (?:run|may share).*once|Equivalent Root\/correction Checks may share one current closeout observation/is);
-  assert.match(runtime, /unavailable or failed.*explicit/i);
+  assert.match(runtime, /unavailable or failed.*(?:explicit|exact)/i);
   assert.match(runtime, /each machine Check.*exact standalone planned command.*leading `rtk`/is);
   assert.match(runtime, /Receipts downgrade unattested\/stale\/rootless proof, preserve failure/is);
   assert.match(runtime, /invalidate mutations/i);
@@ -115,7 +116,8 @@ test("manual correction remains bounded and verification-only can avoid edits", 
 test("manual closeout is deterministic recovery and cannot mutate the repository", () => {
   const runtime = [read("commands/close-work.md"), read("skills/work-closeout/SKILL.md"), read("references/closeout-contract.md")].join("\n");
   assert.match(runtime, /workflow_closeout/);
-  assert.match(runtime, /structuredContent\.artifact|artifact unchanged|byte-for-byte/i);
+  assert.match(runtime, /internal closeout builder|Invoke `workflow_closeout` internally/i);
+  assert.match(runtime, /print neither a delivery-report nor a persisted artifact|without artifact ceremony/i);
   assert.match(runtime, /handoff_persisted|attach/i);
   assert.match(runtime, /does not authorize repository mutation/i);
   assert.match(runtime, /local, non-interactive/i);
@@ -203,10 +205,12 @@ test("runtime surface has one bundled controller and no automatic publication", 
   assert.equal("rules" in manifest, false);
   assert.equal(manifest.hooks, "./hooks/hooks.json");
   const hooks = read("hooks/hooks.json");
+  const hookConfig = JSON.parse(hooks);
+  assert.deepEqual(Object.values(hookConfig.hooks).map((entries) => entries.length), Array(9).fill(1));
   for (const event of ["sessionStart", "beforeSubmitPrompt", "preToolUse", "subagentStart", "subagentStop", "postToolUse", "postToolUseFailure"]) assert.match(hooks, new RegExp(event));
-  assert.match(hooks, /"matcher": "Task"/);
-  assert.match(hooks, /plan-integrity-guard\.mjs/);
-  assert.match(hooks, /"matcher": "CreatePlan"/);
+  assert.match(hooks, /\|Task\|/);
+  assert.match(hooks, /subagent-guard\.mjs/);
+  assert.match(hooks, /"matcher": "CreatePlan\|TodoWrite/);
   assert.match(hooks, /failClosed/);
   assert.equal(manifest.mcpServers, "mcp.json");
   assert.match(read("mcp.json"), /\$\{CURSOR_PLUGIN_ROOT\}\/dist\/workflow-mcp\.mjs/);

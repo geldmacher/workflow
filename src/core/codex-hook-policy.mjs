@@ -28,6 +28,8 @@ import {
   verifyManualBoundaryReceipt,
 } from "./manual-boundary-receipts.mjs";
 import { performNativeCloseout } from "../controller/native-closeout.mjs";
+import { performNativeReview } from "../controller/native-review.mjs";
+import { parseReviewInputFromText } from "../controller/work-review-builder.mjs";
 import {
   assertChangedPathAuthority,
   directMutationTargets,
@@ -61,6 +63,7 @@ const WORKFLOW_TOKEN = new RegExp(`(?:^|[\\s('"\\x60])\\$(?:geldmacher-workflow:
 const WORKFLOW_MARKDOWN_LINK = new RegExp(`\\[\\$(?:geldmacher-workflow:)?(${WORKFLOW_SKILL_NAMES})\\]\\(([^)\\r\\n]+)\\)`, "gi");
 const ROOT_ID = /\bwp-[A-Za-z0-9][A-Za-z0-9-]*\b/;
 const UNAVAILABLE_MODEL = /(?:unknown|unavailable|not\s+found|unsupported).{0,80}model|model.{0,80}(?:unknown|unavailable|not\s+found|unsupported)/i;
+const NATIVE_AUDITOR_ROLES = new Set(["delivery-auditor", "risk-auditor", "work-design-auditor"]);
 
 const denyTool = (reason) => ({
   hookSpecificOutput: {
@@ -199,7 +202,7 @@ function taskArtifactBucket(state, rootHash, rootPlanId) {
   return state.task_artifacts_by_root[rootHash] ??= { root_plan_id: rootPlanId, artifacts: [] };
 }
 
-function rememberTaskArtifact(state, text, options = {}, { rootHash = null } = {}) {
+function rememberTaskArtifact(state, text, options = {}, { rootHash = null, builderProvenance = null } = {}) {
   const inspected = inspectArtifactText(text, options.pluginRoot);
   const fields = inspected.artifact?.fields;
   if (inspected.errors.length > 0 || fields?.schema !== 5 || !["work-plan", "delivery-evidence", "work-review"].includes(fields?.artifact)) {
@@ -233,6 +236,13 @@ function rememberTaskArtifact(state, text, options = {}, { rootHash = null } = {
   const bucket = taskArtifactBucket(state, boundHash, rootPlanId);
   const prior = bucket.artifacts.find((entry) => entry.label === fields.id);
   const textHash = sha256RawUtf8(text);
+  if (builderProvenance != null && (fields.artifact !== "work-review"
+    || builderProvenance?.schema !== 1
+    || builderProvenance?.kind !== "host-work-review-builder"
+    || !/^[a-f0-9]{64}$/.test(String(builderProvenance?.review_input_hash ?? ""))
+    || builderProvenance?.artifact_hash !== textHash)) {
+    throw new Error(`task-local builder provenance for ${fields.id} is invalid`);
+  }
   if (prior && prior.text_hash !== textHash) {
     throw new Error(`task-local artifact ${fields.id} conflicts with different immutable bytes`);
   }
@@ -240,20 +250,30 @@ function rememberTaskArtifact(state, text, options = {}, { rootHash = null } = {
     if (bucket.artifacts.length >= 32) throw new Error("task-local artifact chain exceeds 32 exact artifacts");
     const totalBytes = bucket.artifacts.reduce((sum, entry) => sum + Buffer.byteLength(entry.text), 0) + Buffer.byteLength(text);
     if (totalBytes > 1024 * 1024) throw new Error("task-local artifact chain exceeds 1 MiB");
-    bucket.artifacts.push({ label: fields.id, text, text_hash: textHash, artifact_type: fields.artifact });
+    bucket.artifacts.push({
+      label: fields.id,
+      text,
+      text_hash: textHash,
+      artifact_type: fields.artifact,
+      ...(builderProvenance ? { builder_provenance: builderProvenance } : {}),
+    });
+  } else if (builderProvenance && !prior.builder_provenance) {
+    prior.builder_provenance = builderProvenance;
   }
   return { fields, root_content_hash: boundHash, text_hash: textHash };
 }
 
 function taskArtifactsForActiveRoot(state) {
   const bucket = state.task_artifacts_by_root?.[state.active_root_content_hash];
-  return (bucket?.artifacts ?? []).map(({ label, text }) => ({ label, text }));
+  return (bucket?.artifacts ?? []).map(({ label, text, builder_provenance }) => ({ label, text, ...(builder_provenance ? { builder_provenance } : {}) }));
 }
 
 function captureToolTaskArtifacts(state, input, options = {}) {
   const entries = [];
   if (isWorkflowTool(input.tool_name, "workflow_artifact_record") || isWorkflowTool(input.tool_name, "workflow_closeout")) {
-    entries.push(...(Array.isArray(input.tool_input?.artifacts) ? input.tool_input.artifacts : []));
+    entries.push(...(Array.isArray(input.tool_input?.artifacts)
+      ? input.tool_input.artifacts.filter((entry) => !isWorkflowTool(input.tool_name, "workflow_artifact_record") || /\bartifact:\s*work-plan\b/.test(String(entry?.text ?? "")))
+      : []));
     if (typeof input.tool_input?.root_plan === "string") entries.push({ text: input.tool_input.root_plan });
   }
   const structured = input.tool_response?.structuredContent;
@@ -261,13 +281,20 @@ function captureToolTaskArtifacts(state, input, options = {}) {
     entries.push(...structured.artifacts.map((entry) => ({ ...entry, rootHash: structured.root_content_hash })));
   }
   if (isWorkflowTool(input.tool_name, "workflow_closeout") && typeof structured?.artifact === "string") {
-    entries.push({ text: structured.artifact, rootHash: structured.root_content_hash });
+    const builderProvenance = structured.artifact_kind === "work-review"
+      ? { schema: 1, kind: "host-work-review-builder", review_input_hash: structured.review_input_hash, artifact_hash: structured.artifact_hash }
+      : null;
+    entries.push({ text: structured.artifact, rootHash: structured.root_content_hash, builderProvenance });
   }
   for (const entry of entries) {
     if (typeof entry?.text === "string" && entry.text.trim()) {
-      rememberTaskArtifact(state, entry.text, options, { rootHash: entry.rootHash ?? null });
+      rememberTaskArtifact(state, entry.text, options, { rootHash: entry.rootHash ?? null, builderProvenance: entry.builderProvenance ?? entry.builder_provenance ?? null });
     }
   }
+}
+
+function reviewInputFailure(reason) {
+  return `Workflow Review input could not be read: ${reason}. The exact Root, Evidence, and repository work are preserved. Correct the named workflow-review-input field and repeat Review in this same task; no new task or chat is required.`;
 }
 
 function nativeCloseoutErrorCode(error) {
@@ -337,6 +364,16 @@ function idsFrom(value, pattern) {
 
 function agentToolName(name) {
   return /^(?:Agent|spawn_agent)$/i.test(String(name ?? ""));
+}
+
+function hostEnforcedReadOnlyReviewAgentRole(input) {
+  if (!agentToolName(input.tool_name)) return null;
+  const source = input.tool_input && typeof input.tool_input === "object" && !Array.isArray(input.tool_input) ? input.tool_input : {};
+  const role = String(source.agent_type ?? source.subagent_type ?? "");
+  const prompt = String(source.prompt ?? source.task ?? "");
+  return source.readonly === true && prompt.includes("[workflow-readonly-review-v1]") && NATIVE_AUDITOR_ROLES.has(role)
+    ? role
+    : null;
 }
 
 function requestedModel(toolInput) {
@@ -578,6 +615,8 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
       review_recovery_count: 0,
       pending_agents: [],
       invalid_agents: {},
+      started_review_auditors: [],
+      observed_review_auditors: [],
       routing: {
         mode: policy.mode,
         unavailable: [],
@@ -687,7 +726,7 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
     if (Object.keys(turn.invalid_agents ?? {}).length > 0) {
       return { output: denyTool("Workflow blocked this tool because a subagent model could not be attested. Its result is invalid evidence."), state };
     }
-    if (turn.phase === "review" && mutatingReviewTool(input)) {
+    if (turn.phase === "review" && mutatingReviewTool(input) && !hostEnforcedReadOnlyReviewAgentRole(input)) {
       return {
         output: denyTool(manualJourneyDecision({
           state: "blocked",
@@ -727,6 +766,7 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
         turn.pending_agents.push({
           tool_use_id: input.tool_use_id ?? null,
           agent_type: input.tool_input?.agent_type ?? input.tool_input?.subagent_type ?? null,
+          review_auditor_role: hostEnforcedReadOnlyReviewAgentRole(input),
           selected_kind: "parent",
           selected_model: turn.parent_model ?? state.parent_model ?? null,
         });
@@ -747,6 +787,7 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
       turn.pending_agents.push({
         tool_use_id: input.tool_use_id ?? null,
         agent_type: input.tool_input?.agent_type ?? input.tool_input?.subagent_type ?? null,
+        review_auditor_role: hostEnforcedReadOnlyReviewAgentRole(input),
         selected_kind: selected.kind,
         selected_model: selected.model_id,
         selected_reasoning_effort: selected.reasoning_effort,
@@ -768,6 +809,10 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
   if (event === "PostToolUse") {
     const completedReceipt = completeTurnCheckCandidate(turn, state, input, options);
     bindActiveRootFromContext(turn, state, input, options);
+    const observedAuditor = hostEnforcedReadOnlyReviewAgentRole(input);
+    if (observedAuditor && toolSucceeded(input.tool_response) && (turn.started_review_auditors ?? []).includes(observedAuditor)) {
+      turn.observed_review_auditors = [...new Set([...(turn.observed_review_auditors ?? []), observedAuditor])].sort();
+    }
     if (agentToolName(input.tool_name) && !toolSucceeded(input.tool_response) && modelUnavailable(input.tool_response)) {
       const failedModel = requestedModel(input.tool_input) ?? routing.selected?.model_id;
       if (failedModel && !routing.unavailable.includes(failedModel)) routing.unavailable.push(failedModel);
@@ -832,6 +877,29 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
         }
       }
       if (isWorkflowTool(input.tool_name, "workflow_closeout")) {
+        const structured = input.tool_response?.structuredContent;
+        if (input.tool_input?.artifact_kind === "work-review" || structured?.artifact_kind === "work-review") {
+          if (structured?.artifact_kind === "work-review"
+            && typeof structured.artifact === "string"
+            && structured.root_plan_id === (state.active_root_plan_id ?? turn.root_plan_id)
+            && structured.artifact_hash === sha256RawUtf8(structured.artifact)
+            && /^[a-f0-9]{64}$/.test(String(structured.review_input_hash ?? ""))) {
+            const inspected = inspectArtifactText(structured.artifact, options.pluginRoot);
+            if (inspected.errors.length === 0 && inspected.artifact?.fields?.artifact === "work-review" && inspected.artifact.fields.id === structured.work_review_id) {
+              turn.review_complete = true;
+              turn.review_artifact_id = structured.work_review_id;
+              turn.review_builder_provenance = {
+                schema: 1,
+                kind: "host-work-review-builder",
+                review_input_hash: structured.review_input_hash,
+                artifact_hash: structured.artifact_hash,
+              };
+              return { output: {}, state };
+            }
+          }
+          turn.task_artifact_error = reviewInputFailure("the workflow_closeout host response omitted valid builder identity or exact Review bytes");
+          return { output: {}, state };
+        }
         const closeoutRootPlanId = typeof input.tool_input?.root_plan_id === "string"
           ? input.tool_input.root_plan_id
           : (idsFrom(input.tool_input?.root_plan, ROOT_ID)[0] ?? null);
@@ -918,6 +986,9 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
       match_mode: selectedMatch ? (pending?.selected_kind === "parent" ? "exact-parent" : "selected-candidate") : allowance.match_mode,
       reasoning_effort_attested: false,
     };
+    if (pending?.review_auditor_role) {
+      turn.started_review_auditors = [...new Set([...(turn.started_review_auditors ?? []), pending.review_auditor_role])].sort();
+    }
     return { output: {}, state };
   }
 
@@ -1069,12 +1140,49 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
     if (turn.phase === "review") {
       const exactReview = exactArtifactFromMessage(message, options);
       if (exactReview) {
+        const inspected = inspectArtifactText(exactReview, options.pluginRoot);
+        if (inspected.artifact?.fields?.artifact === "work-review") {
+          return stopDecision(state, turn, input, reviewInputFailure("a full model-authored work-review envelope was returned instead of semantic input"), "model-authored-review-rejected");
+        }
+      }
+      if (!turn.review_complete) {
         try {
-          const captured = rememberTaskArtifact(state, exactReview, options);
-          if (captured.fields.artifact !== "work-review") throw new Error(`review response produced ${captured.fields.artifact}, not work-review`);
+          const rootPlanText = state.active_root_plan_text;
+          if (typeof rootPlanText !== "string" || !rootPlanText.trim()) throw new Error("the exact task-local Root is unavailable");
+          const boundaryReceipt = turn.boundary_receipt ?? null;
+          const parsed = boundaryReceipt ? { ok: true, input: null, issues: [] } : parseReviewInputFromText(message);
+          if (!parsed.ok) throw new Error(parsed.issues.join("; "));
+          const boundaryVerifier = boundaryReceipt ? ({ receipt, rootPlanText: candidateRoot }) => {
+            if (receipt?.receipt_id !== boundaryReceipt.receipt_id) return { ok: false, reason: "no matching task-bound protected host receipt" };
+            return (options.verifyManualBoundaryReceipt ?? verifyManualBoundaryReceipt)({
+              receipt,
+              rootPlanText: candidateRoot,
+              pluginRoot: options.pluginRoot,
+              workspaceRoot: turn.boundary_receipt_workspace_root,
+              captureSnapshot: options.captureRepositorySnapshot ?? captureRepositorySnapshot,
+              now: options.now,
+              options: options.receiptOptions ?? {},
+            });
+          } : null;
+          const review = (options.performNativeReview ?? performNativeReview)({
+            rootPlanText,
+            artifacts: [...taskArtifactsForActiveRoot(state), ...(options.artifacts ?? [])],
+            reviewInput: parsed.input,
+            boundaryReceipt,
+            boundaryReceiptVerifier: boundaryVerifier,
+            hostObservedAuditorRoles: turn.observed_review_auditors ?? [],
+            pluginRoot: options.pluginRoot,
+            handoffOptions: options.handoffOptions ?? {},
+          });
+          rememberTaskArtifact(state, review.artifact, options, {
+            rootHash: state.active_root_content_hash,
+            builderProvenance: review.provenance,
+          });
+          turn.review_complete = true;
+          turn.review_artifact_id = review.fields.id;
+          turn.review_builder_provenance = review.provenance;
         } catch (error) {
-          turn.task_artifact_error = String(error?.message ?? error);
-          return stopDecision(state, turn, input, `Workflow exact review capture failed closed: ${turn.task_artifact_error}. Keep the authoritative review bytes in this task and resolve any immutable ID conflict before correction.`, "review-artifact-conflict");
+          return stopDecision(state, turn, input, reviewInputFailure(String(error?.message ?? error)), "review-input-invalid");
         }
       }
     }
@@ -1090,7 +1198,7 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
         delivery_evidence_root_plan_id: turn.delivery_evidence_root_plan_id,
         });
       if (!completion.ok) {
-        return stopDecision(state, turn, input, "Finish Manual Workflow with one typed closeout-input for native lifecycle closeout, or use optional workflow_closeout and then report its exact delivery-report (attach the exact artifact only when handoff_persisted is false).", "delivery-closeout-missing");
+        return stopDecision(state, turn, input, "Finish Manual Workflow with one typed closeout-input for native lifecycle closeout, or use optional workflow_closeout and report its exact delivery-report. The current task retains valid Evidence even when optional cross-task handoff is unavailable.", "delivery-closeout-missing");
       }
     }
     if (Object.keys(turn.invalid_agents ?? {}).length > 0) {

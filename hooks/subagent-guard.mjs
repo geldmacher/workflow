@@ -18,6 +18,8 @@ import {
   writeParentModel,
   writeTaskEvent,
 } from "./model-inheritance-state.mjs";
+import { evaluateCreatePlanGuard } from "./plan-integrity-guard.mjs";
+import { evaluateCloseoutGuard } from "./closeout-guard.mjs";
 
 export const MODEL_INHERIT_MARKER = "[workflow-model-inherit-v1]";
 export const READONLY_REVIEW_MARKER = "[workflow-readonly-review-v1]";
@@ -393,6 +395,24 @@ export function evaluateSubagentStart(input, options = {}) {
   return evaluateHookEvent(input, options);
 }
 
+function isBlockingResult(value) {
+  return value?.permission === "deny" || value?.continue === false;
+}
+
+/** One Cursor process per host event; individual policies stay independently testable. */
+export function evaluateLifecycleHook(input, options = {}) {
+  const subagent = evaluateHookEvent(input, options);
+  if (isBlockingResult(subagent)) return subagent;
+  const planning = evaluateCreatePlanGuard(input, options);
+  if (isBlockingResult(planning)) return planning;
+  const closeout = evaluateCloseoutGuard(input, options);
+  if (isBlockingResult(closeout)) return closeout;
+  for (const result of [closeout, planning, subagent]) {
+    if (result && Object.keys(result).length > 0) return result;
+  }
+  return {};
+}
+
 async function readInput() {
   let source = "";
   for await (const chunk of process.stdin) {
@@ -411,12 +431,16 @@ async function main() {
     return;
   }
   try {
-    process.stdout.write(JSON.stringify(evaluateHookEvent(input)));
+    process.stdout.write(JSON.stringify(evaluateLifecycleHook(input)));
   } catch {
-    const observational = ["sessionStart", "beforeSubmitPrompt", "subagentStop", "postToolUse"].includes(input.hook_event_name);
+    const event = input.hook_event_name;
+    const observational = ["sessionStart", "subagentStop"].includes(event);
+    const stop = event === "stop";
     process.stdout.write(JSON.stringify(observational
       ? {}
-      : deny("Workflow model inheritance state was unavailable and failed closed.")));
+      : stop
+        ? { followup_message: "Workflow lifecycle state was unavailable and failed closed once. Do not claim delivery; restart from the exact current Root chain." }
+        : deny("Workflow lifecycle policy was unavailable and failed closed.")));
   }
 }
 

@@ -1,7 +1,7 @@
 [
   { "state": "plan-ready", "action": "implement-plan", "outcome": "ready" },
   { "state": "implementation-active", "action": "closeout", "outcome": "partial" },
-  { "state": "closeout-recovery-required", "action": "closeout", "outcome": "partial", "blocker": "Closeout recovery is required." },
+  { "state": "closeout-recovery-required", "action": "closeout", "outcome": "partial" },
   { "state": "review-ready", "action": "review-root", "outcome": "ready" },
   { "state": "review-active", "action": "retry-review", "outcome": "partial" },
   { "state": "correction-approval-required", "action": "approve-correction", "outcome": "partial" },

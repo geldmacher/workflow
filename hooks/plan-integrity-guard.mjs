@@ -18,10 +18,11 @@ import {
   validateArtifactText,
 } from "../scripts/validate-artifact.mjs";
 import {
-  clearActiveRootPlan,
   readActiveRootPlan,
+  readManualChain,
   recordActiveRootPlan,
   stateRoots,
+  updateManualChain,
 } from "./closeout-guard.mjs";
 import { hashWorkflowIdentifier } from "./model-inheritance-state.mjs";
 
@@ -177,6 +178,37 @@ function inspectExactActiveRoot(active, root) {
   return { ok: true, fields, hash };
 }
 
+function inspectExactReplanReview(chain, active, root) {
+  const current = chain?.current_review;
+  if (!current || typeof current.review_artifact !== "string") {
+    return { ok: false, reason: "no exact current Review authorizes replan" };
+  }
+  const inspected = inspectArtifactText(current.review_artifact, root);
+  const fields = inspected.artifact?.fields;
+  if (inspected.errors.length > 0
+    || fields?.artifact !== "work-review"
+    || fields?.schema !== 5
+    || fields.id !== current.review_artifact_id
+    || fields.root_plan_id !== active.root_plan_id
+    || fields.next_action !== "replan") {
+    return { ok: false, reason: inspected.errors[0] ?? "the current Review is not an exact replan authority for this Root" };
+  }
+  const hash = rootContentHash(current.review_artifact);
+  if (current.review_artifact_hash !== hash) return { ok: false, reason: "current Review bytes do not match their recorded hash" };
+  return { ok: true, fields, hash };
+}
+
+function predecessorLineage(chain) {
+  const prior = Array.isArray(chain?.lineage) ? chain.lineage : [];
+  return [...prior, {
+    root: chain.root,
+    create_plan_receipt: chain.create_plan_receipt ?? null,
+    repository_baseline: chain.repository_baseline ?? null,
+    current_evidence: chain.current_evidence ?? null,
+    current_review: chain.current_review,
+  }];
+}
+
 function beginPromptTransaction(input, options = {}) {
   const prompt = String(input.prompt ?? input.command ?? "");
   supersedePendingTransactions(input, options);
@@ -188,6 +220,7 @@ function beginPromptTransaction(input, options = {}) {
   const root = options.pluginRoot ?? pluginRoot;
   const mode = REPLAN.test(prompt) ? "replan" : "initial";
   const active = readActiveRootPlan(input, options);
+  const chain = readManualChain(input, options);
   let predecessor = null;
   if (mode === "replan") {
     const inspected = inspectExactActiveRoot(active, root);
@@ -196,10 +229,16 @@ function beginPromptTransaction(input, options = {}) {
     if (selected && selected !== active.root_plan_id) {
       return blockPrompt(`Workflow replan blocked: selected predecessor ${selected} does not match active Root ${active.root_plan_id}.`);
     }
+    if (chain?.root?.root_content_hash !== inspected.hash) return blockPrompt("Workflow replan blocked: committed chain and active predecessor Root do not match exactly.");
+    const review = inspectExactReplanReview(chain, active, root);
+    if (!review.ok) return blockPrompt(`Workflow replan blocked: ${review.reason}. Run a fresh Review and select its replan action.`);
     predecessor = {
       root_plan_id: active.root_plan_id,
       root_content_hash: inspected.hash,
       root_plan_text: active.root_plan_text,
+      replan_source_review_id: review.fields.id,
+      replan_source_review_hash: review.hash,
+      lineage: predecessorLineage(chain),
     };
   }
   writeTransaction(input, {
@@ -212,7 +251,6 @@ function beginPromptTransaction(input, options = {}) {
     failure_reason: null,
     started_at: new Date().toISOString(),
   }, options);
-  if (active?.root_plan_id) clearActiveRootPlan(input, options);
   return {};
 }
 
@@ -223,7 +261,6 @@ function ensureTransactionForCandidate(input, fields, options = {}) {
   if (fields.predecessor_plan_id || fields.replan_source_review_id) {
     return { ok: false, reason: "a lineage-bearing replan requires an explicit /plan-work replan prompt in the same Cursor generation" };
   }
-  const active = readActiveRootPlan(input, options);
   writeTransaction(input, {
     status: "pending",
     mode: "initial",
@@ -234,7 +271,6 @@ function ensureTransactionForCandidate(input, fields, options = {}) {
     failure_reason: null,
     started_at: new Date().toISOString(),
   }, options);
-  if (active?.root_plan_id) clearActiveRootPlan(input, options);
   return { ok: true, transaction: readTransaction(input, options) };
 }
 
@@ -245,6 +281,9 @@ function validateTransactionLineage(transaction, fields) {
     if (fields.id === predecessorId) return "a replan must use a fresh wp-* ID";
     if (fields.predecessor_plan_id !== predecessorId) return `replan predecessor_plan_id must equal ${predecessorId}`;
     if (!REVIEW_ID.test(String(fields.replan_source_review_id ?? ""))) return "replan_source_review_id must be one explicit wr-* review ID";
+    if (transaction.predecessor?.replan_source_review_id && fields.replan_source_review_id !== transaction.predecessor.replan_source_review_id) {
+      return `replan_source_review_id must equal current Review ${transaction.predecessor.replan_source_review_id}`;
+    }
     return null;
   }
   if (fields.predecessor_plan_id || fields.replan_source_review_id) return "an initial Plan must omit replan lineage";
@@ -336,7 +375,6 @@ function commitCreatePlan(input, options = {}) {
     && typeof rootText === "string"
     && rootContentHash(rootText) === candidate.root_content_hash;
   if (!matches) {
-    clearActiveRootPlan(input, options);
     failTransaction(input, "post-tool-receipt-mismatch", options);
     return {};
   }
@@ -345,9 +383,9 @@ function commitCreatePlan(input, options = {}) {
     rootContentHash: candidate.root_content_hash,
     rootPlanText: candidate.root_plan_text,
     phase: "planning",
+    lineage: transaction.predecessor?.lineage ?? null,
   }, options);
   if (!recorded) {
-    clearActiveRootPlan(input, options);
     failTransaction(input, "active-root-commit-failed", options);
     return {};
   }
@@ -364,9 +402,27 @@ function commitCreatePlan(input, options = {}) {
       root_content_hash: candidate.root_content_hash,
       mode: transaction.mode,
       predecessor_plan_id: candidate.predecessor_plan_id,
+      predecessor_root_content_hash: transaction.predecessor?.root_content_hash ?? null,
       replan_source_review_id: candidate.replan_source_review_id,
+      replan_source_review_hash: transaction.predecessor?.replan_source_review_hash ?? null,
       committed_at: new Date().toISOString(),
     },
+  }, options);
+  updateManualChain(input, {
+    create_plan_receipt: {
+      conversation_hash: conversationHash(input),
+      generation_hash: generationHash(input),
+      tool_use_id: candidate.tool_use_id,
+      root_plan_id: candidate.root_plan_id,
+      root_content_hash: candidate.root_content_hash,
+      mode: transaction.mode,
+      predecessor_plan_id: candidate.predecessor_plan_id,
+      predecessor_root_content_hash: transaction.predecessor?.root_content_hash ?? null,
+      replan_source_review_id: candidate.replan_source_review_id,
+      replan_source_review_hash: transaction.predecessor?.replan_source_review_hash ?? null,
+      committed_at: new Date().toISOString(),
+    },
+    phase_status: "plan-ready",
   }, options);
   return {};
 }
@@ -375,7 +431,6 @@ function failCreatePlan(input, options = {}) {
   if (input.tool_name !== "CreatePlan") return {};
   const transaction = readTransaction(input, options);
   if (transaction?.candidate && input.tool_use_id !== transaction.candidate.tool_use_id) return {};
-  clearActiveRootPlan(input, options);
   failTransaction(input, `create-plan-${input.failure_type ?? "failed"}`, options);
   return {};
 }

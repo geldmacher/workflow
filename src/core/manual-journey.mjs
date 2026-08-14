@@ -15,8 +15,8 @@ export const MANUAL_JOURNEY_STATE_LABELS = Object.freeze({
 export const MANUAL_PRIMARY_ACTIONS = Object.freeze({
   "repair-root": Object.freeze({ label: "Repair the Root", command: "plan-work" }),
   "implement-plan": Object.freeze({ label: "Implement the Plan", command: "Implement Plan" }),
-  "attach-artifact": Object.freeze({ label: "Attach the exact artifact", command: "attach-artifact" }),
-  "review-root": Object.freeze({ label: "Fresh review", command: "review-work" }),
+  "attach-artifact": Object.freeze({ label: "Export the exact artifact", command: "attach-artifact" }),
+  "review-root": Object.freeze({ label: "Review delivery", command: "review-work" }),
   "accept-provisional": Object.freeze({ label: "Accept provisional delivery", command: "accept-work" }),
   closeout: Object.freeze({ label: "Deterministic closeout", command: "close-work" }),
   correct: Object.freeze({ label: "Fix failing Checks", command: "correct-work" }),
@@ -82,5 +82,5 @@ export function manualJourneyDecision({ state = "blocked", blocker, action, trac
   const normalizedAction = normalizeManualPrimaryAction({ outcome: state === "blocked" ? "blocked" : "partial" }, action);
   const label = MANUAL_JOURNEY_STATE_LABELS[state] ?? state;
   const catalog = MANUAL_PRIMARY_ACTIONS[normalizedAction] ?? { label: normalizedAction };
-  return `Workflow · ${label}. ${blocker} Next: ${catalog.label} — ${taskBoundManualInvoke(normalizedAction, trace)}.`;
+  return `Workflow · ${label}. Reason: ${blocker} Resolution: ${catalog.label} — ${taskBoundManualInvoke(normalizedAction, trace)}.`;
 }

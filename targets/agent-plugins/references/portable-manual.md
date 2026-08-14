@@ -20,10 +20,10 @@ This Agent Plugins target implements only Workflow's Manual profile. Agent Plugi
 1. `plan-work` constructs one exact Root and obtains mandatory MCP preflight.
 2. The human approves that Root by separately invoking `implement-work` with the exact Root available.
 3. `implement-work` revalidates preflight, captures the repository baseline, implements within authority, runs Checks, and calls `workflow_closeout`.
-4. A fresh `review-work` invocation inspects the exact Root/Evidence chain read-only and emits the Review.
+4. In the same task by default, `review-work` returns closed semantic input and calls `workflow_closeout` in `work-review` mode; the host returns the authoritative Review.
 5. `correct-work`, `accept-work`, and `learn-from-work` remain separate human decisions.
 
-If one read-only recovery proves that Evidence cannot exist after mutation because the baseline, Root binding, workspace identity, or Authority boundary was lost, `review-work` may emit the constrained root-boundary Review only when the client supplies and validates a protected short-lived host receipt bound to the exact Root and current repository snapshot. Portable skill execution cannot mint that trust and must otherwise fail closed. The Review's sole action is a separately approved lineage-preserving replan; it grants no correction, acceptance, achievement, or Learning authority.
+If one read-only recovery proves that Evidence cannot exist after mutation because the baseline, Root binding, workspace identity, or Authority boundary was lost, only a supplied and validated protected host receipt bound to the exact Root/current snapshot lets the builder create the constrained root-boundary Review. Portable skill execution cannot mint that trust and must otherwise fail closed. Its sole action is a separately approved lineage-preserving replan.
 
 All MCP persistence must remain below the client-provided `PLUGIN_DATA`. The package is immutable runtime material below `PLUGIN_ROOT`.
 

@@ -19,7 +19,7 @@ The default Manual path needs three human actions:
 
 1. **Plan** an observable outcome with explicit scope and acceptance criteria.
 2. **Implement** inside that approved boundary.
-3. **Review and understand** the delivery in a fresh task; the result is explained before its technical evidence and traceability.
+3. **Review and understand** the delivery in a fresh read-only phase of the same task; the result is explained before its technical evidence and traceability.
 
 Correct, replan, accept provisional delivery, or learn only when you explicitly ask for it. After implementation, Workflow presents one compact next action at a time and keeps exact Root, Evidence, Review, path, receipt, and enforcement details in secondary Technical traceability. A correction closes out automatically and returns to fresh review; two correction rounds without measurable progress stop for clarification or a separately approved replan.
 
@@ -36,6 +36,8 @@ Workflow keeps the approved Intent fixed, lets Strategy adapt inside the envelop
 Manual is the default. Missing controller proof keeps supervised and autonomous execution in read-only Shadow Mode; it never turns missing evidence into success. A failed required Check blocks delivery.
 
 Across every profile, Workflow preserves protected paths, repository limits, budgets, secrets, model accountability, and honest evidence. Read the [profile guide](docs/profiles.md) for the exact prerequisites and downgrade behavior.
+
+Plan, implementation, review, correction, and replan stay in one user-visible task by default in every profile. Persistent Run and handoff state provides crash recovery and deliberate continuation elsewhere; it is not a required chat boundary.
 
 ## Installation
 
@@ -114,7 +116,7 @@ Inspect a dirty status before pulling; commit or stash intentional local changes
 | Create the Plan | `/plan-work` | `$plan-work` in Plan mode | `plan-work` with mandatory MCP preflight |
 | Implement | **Implement Plan** | **Implement Plan** | Separate `implement-work` invocation |
 | Build delivery evidence | Automatic native lifecycle closeout; `/close-work` is recovery only | Automatic native lifecycle closeout; `$close-work` is recovery only | Mandatory `workflow_closeout`; `close-work` is recovery |
-| Review | `/review-work` in a fresh task | `$review-work` in a fresh task | `review-work` in a fresh context |
+| Review | `/review-work` in the current task; host builds `wr-*` | `$review-work` in the current task; host builds `wr-*` | `review-work` calls `workflow_closeout` in `work-review` mode |
 | Check status | `/work-status` | `$work-status` | `work-status` |
 | Refresh the explanation | `/explain-work` | `$explain-work` | `explain-work` |
 
@@ -126,9 +128,9 @@ Optional Manual preferences live in `~/.geldmacher/workflow/preferences.yaml`. T
 
 ## Artifact protocol
 
-Workflow uses Artifact Schema 5 to bind one approved Intent Root to its Delivery Evidence and fresh Review. Evidence is reported as verified, provisional, unavailable, or failed—never upgraded by wording alone.
+Workflow uses Artifact Schema 5 to bind one approved Intent Root to its Delivery Evidence and fresh Review. Evidence is reported as verified, provisional, unavailable, or failed—never upgraded by wording alone. Review models return only closed semantic input; Cursor, Codex, controller, and portable Manual use the same deterministic host-owned `wr-*` builder.
 
-Task artifacts remain authoritative. A content-addressed Handoff Store can transport the exact chain between tasks and hosts without creating approval, acceptance, qualification, or learning authority. See the [artifact protocol](references/artifact-protocol.md) and [Workflow 5 migration guide](docs/migration-workflow-5.md).
+Task artifacts remain authoritative. A content-addressed Handoff Store can optionally transport the exact chain between tasks and hosts without creating approval, acceptance, qualification, or learning authority. Failure of that optional transport does not invalidate a current task-local chain. See the [artifact protocol](references/artifact-protocol.md) and [Workflow 5 migration guide](docs/migration-workflow-5.md).
 
 ## Components
 
@@ -142,7 +144,7 @@ Task artifacts remain authoritative. A content-addressed Handoff Store can trans
 
 ### Versions
 
-- Plugin 5.3.0
+- Plugin 5.4.0
 - Artifact Schema 5
 - Controller Protocol 5
 - Capability Receipt Schema 4

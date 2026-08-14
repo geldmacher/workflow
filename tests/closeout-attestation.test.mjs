@@ -278,6 +278,22 @@ test("native closeout derives paths host-side and is byte-identical and idempote
     assert.equal(hydrated.fields.status, "complete");
     assert.equal(hydrated.artifact, native.artifact);
 
+    const unusableHandoff = join(temporary, "handoff-is-a-file");
+    writeFileSync(unusableHandoff, "not a directory\n");
+    attestRootCheck(repository, receiptOptions);
+    const taskLocal = performNativeCloseout({
+      attestation: report,
+      expectedPhase: "implementation",
+      rootPlanText: leanRoot,
+      repositoryDelta: delta,
+      pluginRoot: defaultRoot,
+      handoffOptions: { baseRoot: unusableHandoff },
+      receiptOptions,
+    });
+    assert.equal(taskLocal.handoff_persisted, false);
+    assert.equal(taskLocal.artifact, native.artifact);
+    assert.match(taskLocal.warning, /task-local continuation remains valid/);
+
     assert.throws(() => performNativeCloseout({
       attestation: {
         ...report,
@@ -395,6 +411,7 @@ test("native correction resolves the current linear review tip and emits delta E
     const correctionBaseline = captureRepositorySnapshot(repository);
     writeFileSync(join(repository, "src/retry.mjs"), "export const retries = 3;\n");
     const correctionDelta = deriveRepositoryDelta(correctionBaseline, captureRepositorySnapshot(repository));
+    attestRootCheck(repository, receiptOptions);
     const correction = performNativeCloseout({
       attestation: {
         schema: 1,
@@ -403,16 +420,28 @@ test("native correction resolves the current linear review tip and emits delta E
         root_plan_id: "wp-retry",
         strategy_revision: 1,
         changed_paths: ["src/retry.mjs"],
-        check_evidence: [{
-          check_id: "CHECK-101",
-          grade: "verified",
-          surface: "repository",
-          method: "node --test",
-          expected: "pass",
-          observed: "Correction Check passed.",
-          repetitions: 1,
-          limitations: [],
-        }],
+        check_evidence: [
+          {
+            check_id: "CHECK-101",
+            grade: "verified",
+            surface: "repository",
+            method: "node --test",
+            expected: "pass",
+            observed: "Correction Check passed.",
+            repetitions: 1,
+            limitations: [],
+          },
+          {
+            check_id: "CHECK-1",
+            grade: "verified",
+            surface: "repository",
+            method: "node --test tests/codex-hook-policy.test.mjs",
+            expected: "Focused Codex hook policy tests pass.",
+            observed: "Affected Root Check passed on the corrected state.",
+            repetitions: 1,
+            limitations: [],
+          },
+        ],
         summary: "Applied and verified the authorized correction.",
       },
       expectedPhase: "correction",
@@ -426,8 +455,8 @@ test("native correction resolves the current linear review tip and emits delta E
     assert.equal(correction.fields.subject_id, "cp-retry");
     assert.equal(correction.fields.source_review_id, "wr-retry");
     assert.equal(correction.fields.predecessor_evidence_id, initial.fields.id);
-    assert.deepEqual(correction.fields.executed_checks, ["CHECK-101"]);
-    assert.deepEqual(correction.fields.reused_checks, ["CHECK-1"]);
+    assert.deepEqual(correction.fields.executed_checks, ["CHECK-101", "CHECK-1"]);
+    assert.deepEqual(correction.fields.reused_checks, []);
   } finally {
     rmSync(temporary, { recursive: true, force: true });
   }
@@ -488,7 +517,7 @@ test("native correction requires and refreshes inherited non-passed Root Checks"
       pluginRoot: defaultRoot,
       handoffOptions: { baseRoot: handoffRoot },
       receiptOptions,
-    }), /fresh evidence for inherited non-passed Root Checks: CHECK-1/);
+    }), /fresh evidence for affected, failed, missing, stale, or ambiguous Root Checks: CHECK-1/);
 
     attestRootCheck(repository, receiptOptions);
     const correction = performNativeCloseout({
@@ -678,7 +707,7 @@ test("delivery-report attestation and bounded attachments enforce persistence ru
   );
 
   const unpersisted = { ...turn, handoff_persisted: false };
-  assert.equal(evaluateDeliveryCompletion(deliveryReportMessage("de-report"), unpersisted).ok, false);
+  assert.equal(evaluateDeliveryCompletion(deliveryReportMessage("de-report"), unpersisted).ok, true);
   assert.equal(
     evaluateDeliveryCompletion(deliveryReportMessage("de-report", { artifact }), unpersisted).ok,
     true,

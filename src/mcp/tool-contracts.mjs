@@ -1,6 +1,7 @@
 import * as z from "zod/v4";
 import { toolAnnotations } from "./tool-annotations.mjs";
 import { WORKFLOW_TOOL_NAMES } from "./tool-registry.mjs";
+import { reviewInputTransportSchema } from "./review-input-contract.mjs";
 
 const workspaceRoot = z.string().min(1).optional();
 const artifact = z.object({
@@ -54,7 +55,7 @@ export const WORKFLOW_TOOL_CONTRACTS = Object.freeze({
     },
   },
   workflow_artifact_record: {
-    description: "Validate and atomically cache exact Schema-5 work-plan or work-review artifacts in the non-authoritative root-content handoff store.",
+    description: "Cache exact Schema-5 work-plan artifacts. New work-review authority is created only by workflow_closeout work-review mode; historical cached reviews remain readable.",
     inputSchema: { workspace_root: workspaceRoot, artifacts: z.array(artifact).min(1).max(32) },
   },
   workflow_artifact_context: {
@@ -66,12 +67,14 @@ export const WORKFLOW_TOOL_CONTRACTS = Object.freeze({
     },
   },
   workflow_closeout: {
-    description: "Deterministically build and validate one Schema-5 delivery-evidence artifact from observed Checks and cache it in the root-content handoff store.",
+    description: "Deterministically build one host-owned Schema-5 delivery-evidence or work-review artifact and cache it; delivery-evidence remains the default.",
     inputSchema: {
       workspace_root: workspaceRoot,
       root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
       root_plan: z.string().min(1).max(250_000).optional(),
       artifacts: z.array(artifact).min(1).max(32).optional(),
+      artifact_kind: z.enum(["delivery-evidence", "work-review"]).default("delivery-evidence"),
+      review_input: reviewInputTransportSchema.optional(),
       effective_profile: z.enum(["manual", "supervised", "autonomous"]).default("manual"),
       strategy_revision: z.number().int().min(0).default(0),
       changed_paths: z.array(z.string().min(1).max(1000)).max(1000).default([]),

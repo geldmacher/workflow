@@ -4,6 +4,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { buildDeliveryEvidence } from "../src/controller/delivery-closeout.mjs";
 import { defaultRoot, inspectArtifactSet, validateArtifactText } from "../scripts/validate-artifact.source.mjs";
+import { correctionReviewArtifact } from "./support/manual-attestation-fixtures.mjs";
 
 const fixtureRoot = join(defaultRoot, "tests", "fixtures", "artifacts");
 const plan = readFileSync(join(fixtureRoot, "work-plan.valid.md"), "utf8");
@@ -88,4 +89,89 @@ test("Hard-Trigger roots require a full review with delivery and risk", () => {
 
   const full = replaceAuditors(targeted.replace("review_route: targeted", "review_route: full"), ["inline", "delivery-auditor", "risk-auditor"]);
   assert.deepEqual(inspectArtifactSet([["plan", hardRoot], ["evidence", evidence.artifact], ["review", full]]).errors, []);
+});
+
+test("high-risk roots require a full review with delivery and risk", () => {
+  const highRiskRoot = plan.replace("risk: medium", "risk: high");
+  const evidence = buildDeliveryEvidence({
+    rootPlanText: highRiskRoot,
+    checkEvidence: [{
+      check_id: "CHECK-1",
+      grade: "verified",
+      surface: "repository-test",
+      method: "deterministic command",
+      expected: "Retry verification passes twice",
+      observed: "Passed twice",
+      repetitions: 2,
+      artifact_hashes: ["e".repeat(64)],
+      limitations: [],
+    }],
+    changedPaths: ["src/retry.mjs"],
+    effectiveProfile: "supervised",
+    repositorySnapshot: { head: "abc123", working_tree: "modified", relevant_fingerprints: "none", known_failures: "none" },
+    pluginRoot: defaultRoot,
+  });
+  const targeted = review.replaceAll("de-adaptive-retry", evidence.fields.id);
+  assert.match(inspectArtifactSet([["plan", highRiskRoot], ["evidence", evidence.artifact], ["review", targeted]]).errors.join("\n"), /high-risk.*requires review_route full/);
+
+  const full = replaceAuditors(targeted.replace("review_route: targeted", "review_route: full"), ["inline", "delivery-auditor", "risk-auditor"]);
+  assert.deepEqual(inspectArtifactSet([["plan", highRiskRoot], ["evidence", evidence.artifact], ["review", full]]).errors, []);
+});
+
+test("a known failed required Check short-circuits hard-trigger review to inline correction", () => {
+  const hardRoot = plan.replace("hard_triggers: []", "hard_triggers:\n  - broad-runtime-impact");
+  const failed = buildDeliveryEvidence({
+    rootPlanText: hardRoot,
+    checkEvidence: [{
+      check_id: "CHECK-1",
+      grade: "failed",
+      surface: "repository-test",
+      method: "deterministic command",
+      expected: "Retry verification passes twice",
+      observed: "The required retry verification failed.",
+      repetitions: 1,
+      artifact_hashes: ["c".repeat(64)],
+      limitations: ["The observed failure blocks delivery."],
+    }],
+    changedPaths: ["src/retry.mjs"],
+    effectiveProfile: "supervised",
+    repositorySnapshot: { head: "abc123", working_tree: "modified", relevant_fingerprints: "src/retry.mjs=failed; index=i; status=s", known_failures: "CHECK-1 failed" },
+    pluginRoot: defaultRoot,
+  });
+  const correction = correctionReviewArtifact({
+    reviewId: "wr-known-failed",
+    correctionId: "cp-known-failed",
+    rootPlanId: "wp-adaptive-retry",
+    latestEvidenceId: failed.fields.id,
+  });
+  assert.deepEqual(inspectArtifactSet([["plan", hardRoot], ["evidence", failed.artifact], ["review", correction]]).errors, []);
+});
+
+test("hard-trigger review cannot use inline correction without a known failed Check", () => {
+  const hardRoot = plan.replace("hard_triggers: []", "hard_triggers:\n  - broad-runtime-impact");
+  const evidence = buildDeliveryEvidence({
+    rootPlanText: hardRoot,
+    checkEvidence: [{
+      check_id: "CHECK-1",
+      grade: "verified",
+      surface: "repository-test",
+      method: "deterministic command",
+      expected: "Retry verification passes twice",
+      observed: "Passed twice",
+      repetitions: 2,
+      artifact_hashes: ["d".repeat(64)],
+      limitations: [],
+    }],
+    changedPaths: ["src/retry.mjs"],
+    effectiveProfile: "supervised",
+    repositorySnapshot: { head: "abc123", working_tree: "modified", relevant_fingerprints: "src/retry.mjs=verified; index=i; status=s", known_failures: "none" },
+    pluginRoot: defaultRoot,
+  });
+  const correction = correctionReviewArtifact({
+    reviewId: "wr-unproven-correction",
+    correctionId: "cp-unproven-correction",
+    rootPlanId: "wp-adaptive-retry",
+    latestEvidenceId: evidence.fields.id,
+  });
+  assert.match(inspectArtifactSet([["plan", hardRoot], ["evidence", evidence.artifact], ["review", correction]]).errors.join("\n"), /requires review_route full/);
 });

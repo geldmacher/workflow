@@ -3,7 +3,7 @@ import { createRequire as __workflowCreateRequire } from 'node:module';
 const require = __workflowCreateRequire(import.meta.url);
 import {
   require_dist
-} from "./chunk-TT447BBI.mjs";
+} from "./chunk-LX4EPHHS.mjs";
 import {
   __commonJS,
   __toESM
@@ -7621,8 +7621,14 @@ function issue(code, message, details = {}) {
   return { code, message, ...details };
 }
 function fingerprintMap(value) {
-  const entries = [...String(value ?? "").matchAll(/`([^`]+)`=([a-f0-9]{64})/g)];
-  return new Map(entries.map((match) => [match[1].replace(/^\.\//, ""), match[2]]));
+  const entries = String(value ?? "").split(/;\s*/).flatMap((entry) => {
+    const match = entry.match(/^`?([^=`]+?)`?=(.+)$/);
+    if (!match) return [];
+    const path = match[1].trim().replace(/^\.\//, "");
+    if (!path || ["index", "status"].includes(path)) return [];
+    return [[path, match[2].trim()]];
+  });
+  return new Map(entries);
 }
 function validateCostOrder(rows, column, label, parsed) {
   let previous = 0;
@@ -7663,6 +7669,12 @@ function planData(artifact) {
     }));
     const evidenceClasses = declaredWithClass.length > 0 ? new Map(declaredWithClass.map((row) => [row["Check ID"], row["Evidence Class"]])) : new Map(checks2.map((row) => [row["Check ID"], "human-review-required"]));
     const objectiveIds = objectives2.map((row) => row["Objective ID"]);
+    const objectiveDependencies2 = new Map(objectiveIds.map((id) => [id, /* @__PURE__ */ new Set()]));
+    for (const check of checks2) {
+      for (const objective of ids(check.Objectives, objectivePattern)) {
+        for (const target of targetTokens(check.Prerequisites)) objectiveDependencies2.get(objective)?.add(target);
+      }
+    }
     return {
       objectives: new Set(objectiveIds),
       checks: new Set(checks2.map((row) => row["Check ID"])),
@@ -7681,7 +7693,7 @@ function planData(artifact) {
       requiredChecks: new Set(checks2.filter((row) => row.Required === "yes").map((row) => row["Check ID"])),
       allowedTargets: [...artifact.fields.authority.allowed_roots],
       prohibitedTargets: [...artifact.fields.authority.protected_paths, ...artifact.fields.authority.approval_required_paths],
-      objectiveDependencies: new Map(objectiveIds.map((id) => [id, new Set(artifact.fields.authority.allowed_roots)]))
+      objectiveDependencies: objectiveDependencies2
     };
   }
   const objectives = tableRows(artifact.sections.get("Objectives") ?? "", tables.objectives);
@@ -8142,7 +8154,7 @@ function validateCompactReview(parsed, sections, failures) {
   const visibleAuditors = new Set(String(auditorRow?.Inspected ?? "").split(",").map((value) => value.trim()).filter((value) => value && !noneLike(value)));
   if (coverage.rows.length > 0 && !sameSet(visibleAuditors, actualAuditors)) parsed.normalizations.push("Evidence coverage: auditor summary derived from frontmatter");
   const routeRank = { inline: 1, targeted: 2, full: 3 };
-  const decisiveBoundary = ["replan", "clarify"].includes(parsed.fields.next_action);
+  const decisiveBoundary = ["correct", "replan", "clarify"].includes(parsed.fields.next_action);
   const unresolvedHighFinding = findings.rows.some((row) => /^(?:high|critical)$/.test(row.Severity)) && !decisiveBoundary;
   let minimumRoute = actualAuditors.has("risk-auditor") || unresolvedHighFinding ? "full" : actualAuditors.has("delivery-auditor") || actualAuditors.has("work-design-auditor") ? "targeted" : "inline";
   if (routeRank[parsed.fields.review_route] < routeRank[minimumRoute]) failures.push(`review_route must be at least computed minimum ${minimumRoute}`);
@@ -8755,9 +8767,10 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
       disjointCoverage(review.fields.inspected_objectives, review.fields.reused_objectives, plan.objectives, `${review.label}: objective review`, errors);
       disjointCoverage(review.fields.inspected_checks, review.fields.reused_checks, plan.requiredChecks, `${review.label}: Check review`, errors);
       if (index === 0 && ((review.fields.reused_objectives ?? []).length > 0 || (review.fields.reused_checks ?? []).length > 0)) errors.push(`${review.label}: first review must inspect all root evidence`);
-      const fullReviewRequired = rootPlan.fields.schema >= 4 ? rootPlan.fields.contract_level === "certified" || (rootPlan.fields.hard_triggers ?? []).length > 0 : rootPlan.fields.assurance_profile === "deep" || (rootPlan.fields.hard_triggers ?? []).length > 0;
-      if (fullReviewRequired && review.fields.review_route !== "full") {
-        errors.push(`${review.label}: certified or hard-trigger root requires review_route full`);
+      const fullReviewRequired = rootPlan.fields.schema >= 4 ? rootPlan.fields.contract_level === "certified" || rootPlan.fields.risk === "high" || (rootPlan.fields.hard_triggers ?? []).length > 0 : rootPlan.fields.assurance_profile === "deep" || (rootPlan.fields.hard_triggers ?? []).length > 0;
+      const deterministicBlockedRoute = review.fields.delivery_status === "blocked" && review.fields.review_route === "inline" && (review.fields.next_action === "replan" || review.fields.next_action === "correct" && knownFailedEvidence);
+      if (fullReviewRequired && review.fields.review_route !== "full" && !deterministicBlockedRoute) {
+        errors.push(`${review.label}: certified, high-risk, or hard-trigger root requires review_route full`);
       }
       for (const objective of review.fields.reused_objectives ?? []) {
         if (!evidence.fields.reused_objectives.includes(objective)) errors.push(`${review.label}: reused review objective ${objective} lacks delta-evidence reuse`);

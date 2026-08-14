@@ -178,18 +178,18 @@ const NEXT_STEP_CATALOG = {
     recovery: "Finish Plan presentation and human approval first.",
   },
   "attach-artifact": {
-    label: "Attach the exact artifact",
-    invoke: "Agent: attach exact Root/Evidence text to the next Workflow command",
-    benefit: "Preserves the chain when handoff transport is unavailable.",
-    blocked_when: "Handoff cache did not persist the exact artifact.",
-    recovery: "Paste the exact artifact bytes, then continue review or status.",
+    label: "Export the exact artifact",
+    invoke: "Agent: attach exact Root/Evidence text only when intentionally continuing in another task or host",
+    benefit: "Exports the chain when optional cross-task transport is unavailable.",
+    blocked_when: "A deliberate cross-task continuation cannot load the exact artifact.",
+    recovery: "Stay in the current task, or paste the exact artifact bytes into the chosen new task.",
   },
   "review-root": {
-    label: "Fresh review",
-    invoke: "Ask: run a fresh /review-work or $review-work against the exact Root/Evidence chain",
-    benefit: "Produces a fresh verdict without Writer assumptions.",
-    blocked_when: "Evidence is missing or the chain is incomplete.",
-    recovery: "Run /close-work [wp-id] or $close-work first, then review.",
+    label: "Review delivery",
+    invoke: "Current task, read-only phase: run /review-work or $review-work against the exact task-local chain",
+    benefit: "Produces a fresh read-only verdict without requiring a new task or chat.",
+    blocked_when: "The current task cannot resolve one exact Root/Evidence chain.",
+    recovery: "Run Review in the current task; it attempts one internal missing-Evidence recovery before asking for another action.",
   },
   "accept-provisional": {
     label: "Accept provisional delivery",
@@ -235,10 +235,10 @@ const NEXT_STEP_CATALOG = {
   },
   "retry-review": {
     label: "Retry review",
-    invoke: "Ask: fresh /review-work or $review-work with complete evidence",
+    invoke: "Current task, read-only phase: rerun /review-work or $review-work with the updated evidence",
     benefit: "Reassesses once Evidence or context is complete.",
     blocked_when: "Evidence is still missing or incomplete.",
-    recovery: "Close out or attach Evidence, then retry review.",
+    recovery: "Keep the exact chain in this task, resolve the named evidence gap, then rerun Review.",
   },
   answer: {
     label: "Answer clarification",
@@ -291,6 +291,43 @@ function firstLine(text, fallback = "No summary.") {
   return value || fallback;
 }
 
+function humanBlocker(value, fallbackRecovery = "Follow the single next action, then retry the same Workflow phase.") {
+  const technical = firstLine(value, "Workflow could not complete this phase.");
+  if (/handoff|cache/i.test(technical)) return {
+    reason: "Optional cross-task handoff is unavailable; the exact task-local chain is still usable in the current task.",
+    recovery: "Continue in the current task. Export the exact artifact only if you intentionally switch tasks or hosts.",
+  };
+  if (/roots-request-failed|roots-empty|workspace roots|workspace binding/i.test(technical)) return {
+    reason: "Workflow cannot establish an optional workspace handoff context.",
+    recovery: "Continue with the exact artifacts already held in this task; otherwise select the current Root explicitly.",
+  };
+  if (/baseline/i.test(technical)) return {
+    reason: "Workflow cannot prove which repository changes belong to this delivery because the pre-change baseline is unavailable.",
+    recovery: "Use the named replan action to create a new clean approval and baseline boundary.",
+  };
+  if (/authority|outside (?:the )?(?:root|scope)|protected path|approval-required/i.test(technical)) return {
+    reason: "The requested or observed change is outside the approved plan boundary.",
+    recovery: "Keep the change inside the approved Root, or run plan-work replan and approve the expanded boundary.",
+  };
+  if (/required .*check.*failed|failed .*required .*check|check .*failed/i.test(technical)) return {
+    reason: "A required verification Check failed, so Workflow cannot call the delivery successful.",
+    recovery: "Run Review in this task, then apply its bounded correction or replan action.",
+  };
+  if (/missing .*evidence|evidence .*missing|no evidence tip/i.test(technical)) return {
+    reason: "Delivery Evidence is not available yet for the approved Root.",
+    recovery: fallbackRecovery,
+  };
+  if (/missing .*root|no .*root|exact root .*unavailable|root .*required/i.test(technical)) return {
+    reason: "The approved Intent Root is not available in this task.",
+    recovery: "Select or approve the exact current Root, then retry the same Workflow phase.",
+  };
+  if (/ambiguous|multiple|conflict|mismatch|different immutable/i.test(technical)) return {
+    reason: "Workflow found conflicting or ambiguous versions and cannot determine one safe current chain.",
+    recovery: "Select the exact current wp-* Root in this task and retry without reconstructing artifact text.",
+  };
+  return { reason: technical, recovery: fallbackRecovery };
+}
+
 function resolveNextStep(action, overrides = {}) {
   const entry = NEXT_STEP_CATALOG[action];
   const shared = MANUAL_PRIMARY_ACTIONS[action];
@@ -329,10 +366,11 @@ function journeyStateFor(presentation, action) {
 
 function firstProblem(presentation) {
   return [
-    ...asList(presentation.errors),
+    ...asList(presentation.blocker ? [presentation.blocker] : []),
     ...asList(presentation.gaps),
     ...asList(presentation.human_attention),
     ...asList(presentation.problems),
+    ...asList(presentation.errors),
   ][0] ?? null;
 }
 
@@ -364,10 +402,11 @@ function withNextStepFields(presentation, action, overrides = {}) {
   const technicalTraceability = presentation.technical_traceability ?? defaultTechnicalTraceability(presentation);
   const journeyState = presentation.journey_state ?? journeyStateFor(presentation, normalizedAction);
   const enforcementLevel = normalizedEnforcementLevel(presentation.enforcement_level);
-  const problem = firstProblem(presentation);
+  const problem = firstProblem(presentation) ?? step.blocked_reason ?? null;
   const primaryInvoke = taskBoundManualInvoke(normalizedAction, technicalTraceability);
   return {
     ...presentation,
+    ...(problem ? { blocker: problem } : {}),
     journey_state: journeyState,
     enforcement_level: enforcementLevel,
     primary_action: normalizedAction === "none"
@@ -451,6 +490,55 @@ function statusPresentationOutcome(snapshot) {
 }
 
 function closeoutPresentation(value) {
+  if (value.artifact_kind === "work-review") {
+    const blocked = value.delivery_status === "blocked";
+    const provisional = value.delivery_status === "provisional";
+    const outcome = blocked ? "blocked" : provisional ? "partial" : "ready";
+    const nextAction = value.next_action ?? "retry-review";
+    const recovery = nextAction === "retry-review"
+      ? "Correct the named review_input field and repeat Review in this task; no repository work or new task is required."
+      : `Continue with ${nextAction} in this task.`;
+    return withNextStepFields({
+      schema: 1,
+      tool: "workflow_closeout",
+      phase: "review",
+      outcome,
+      summary: blocked
+        ? `The host built a valid task-local Review and selected ${nextAction}.`
+        : provisional
+          ? "The host built a valid task-local provisional Review."
+          : "The host built a valid task-local verified Review.",
+      check_summary: `Review input and exact Root/Evidence chain produced ${value.work_review_id ?? "one work-review"}.`,
+      enforcement_level: "host-native",
+      technical_traceability: {
+        root_plan_id: value.root_plan_id ?? null,
+        root_content_hash: value.root_content_hash ?? null,
+        evidence_id: value.latest_evidence_id ?? null,
+        review_id: value.work_review_id ?? null,
+        review_hash: value.artifact_hash ?? null,
+        correction_id: value.correction_id ?? null,
+        artifact_set_hash: value.artifact_set_hash ?? null,
+        check_ids: value.authoritative_fields?.inspected_checks ?? [],
+        finding_ids: [],
+        changed_paths: [],
+        handoff_persisted: value.handoff_persisted !== false,
+      },
+      checks: [
+        `assessment: ${value.assessment ?? "unknown"}`,
+        `delivery status: ${value.delivery_status ?? "unknown"}`,
+        `review route: ${value.review_route ?? "unknown"}`,
+        `task-local valid: ${value.task_local_valid === true ? "yes" : "unknown"}`,
+        `handoff persisted: ${value.handoff_persisted === true ? "yes" : "no"}`,
+      ],
+      gaps: blocked ? [`Review selected ${nextAction}; only the Review/delivery route is blocked.`] : [],
+      advisories: [
+        "The exact task-local artifact is authoritative; optional handoff persistence is resilience only.",
+        ...(value.handoff_persisted === false ? ["Handoff failure did not invalidate this Review."] : []),
+      ],
+      warnings: asList(value.warning ? [value.warning] : []),
+      errors: [],
+    }, nextAction, blocked ? { blocked_reason: `Review selected ${nextAction}.`, recovery } : {});
+  }
   const persisted = value.handoff_persisted !== false;
   const status = value.status ?? "unknown";
   const grade = value.overall_grade ?? "ungraded";
@@ -471,9 +559,7 @@ function closeoutPresentation(value) {
     ? "Delivery is blocked because required evidence contains a known failure."
     : outcome === "partial"
       ? "Implementation closeout is incomplete; at least one required proof remains limited."
-      : persisted
-        ? "Implementation closeout is complete and ready for an independent review."
-        : "Implementation closeout is complete, but the exact artifact must be attached because handoff storage is unavailable.";
+      : "Implementation closeout is complete and ready for task-local read-only review.";
 
   let nextAction = "review-root";
   let overrides = {};
@@ -483,24 +569,16 @@ function closeoutPresentation(value) {
       blocked_reason: `Evidence status ${status} with grade ${grade} blocks delivery acceptance.`,
       recovery: "Run one fresh independent review and follow only the single action it selects.",
     };
-  } else if (!persisted) {
-    nextAction = "attach-artifact";
-    overrides = {
-      blocked_reason: "Handoff cache unavailable; exact Evidence must travel with the next command.",
-      recovery: "Attach the returned Evidence artifact, then Ask: /review-work or $review-work.",
-    };
   } else if (legacyReceiptGaps.length > 0) {
     overrides = {
       blocked_reason: `Legacy verified claims lack current host receipts: ${legacyReceiptGaps.join(", ")}.`,
       recovery: "Ask: run a fresh /review-work or $review-work and follow its bounded correction route.",
     };
   } else if (outcome === "partial" && evidenceGaps.length > 0) {
-    nextAction = "closeout";
     overrides = {
-      invoke: "Agent: follow each Evidence-gap problem's exact Check rerun, then retry closeout",
-      benefit: "Obtains the missing host receipts before the independent review.",
+      benefit: "Lets the fresh read-only review decide whether to rerun proof, correct, or accept a provisional limit.",
       blocked_reason: `Evidence is ${grade} / ${status}; verified acceptance is not available yet.`,
-      recovery: "Run the exact Check reruns listed under Problems, then retry closeout.",
+      recovery: "Run Review in this task and follow its one bounded next action.",
     };
   } else if (outcome === "partial") {
     overrides = {
@@ -556,21 +634,54 @@ function closeoutPresentation(value) {
     ].filter(Boolean),
     gaps: [
       ...(blocked ? [`Evidence status ${status} with grade ${grade} blocks delivery acceptance.`] : []),
-      ...(persisted ? [] : ["Attach the returned Evidence artifact explicitly."]),
       ...((value.constraint_summary?.evidence_gap_checks ?? []).length > 0
         ? [`Evidence gaps: ${value.constraint_summary.evidence_gap_checks.join(", ")}.`]
         : []),
     ],
     human_attention: humanAttentionLines(value.human_attention),
     problems: problemLines(value.problem_details),
-    advisories: persisted ? [] : ["Handoff is transport only and never grants authority."],
+    advisories: persisted
+      ? []
+      : ["Task-local Evidence remains valid; optional cross-task handoff is unavailable."],
     warnings,
     errors: [],
   }, nextAction, overrides), help);
 }
 
 function errorPresentation(toolName, value) {
-  const summary = firstLine(value?.error, "Workflow tool failed.");
+  const technical = firstLine(value?.error, "Workflow tool failed.");
+  const reviewErrorCode = value?.error_code
+    ?? (/review_input|workflow-review-input/i.test(technical)
+      ? "review-input-invalid"
+      : /model-authored work-review|newly imported work-review|host builder provenance/i.test(technical)
+        ? "review-artifact-rejected"
+        : null);
+  if (["review-input-invalid", "review-artifact-rejected"].includes(reviewErrorCode)) {
+    const rejectedArtifact = reviewErrorCode === "review-artifact-rejected";
+    const reason = rejectedArtifact
+      ? "Workflow rejected a supplied Review artifact because it cannot establish host-owned Review authority."
+      : "The reviewer response could not be converted into a valid host-owned Review.";
+    const recovery = rejectedArtifact
+      ? "Remove the supplied work-review artifact, pass only review_input schema 1, and repeat Review in this task. Root, Evidence, Checks, and repository work remain unchanged; no new task, Root repair, or replan is required."
+      : "Correct the named review_input field and repeat Review in this task. Root, Evidence, Checks, and repository work remain unchanged; no new task, Root repair, or replan is required.";
+    return withHelpFields(withNextStepFields({
+      schema: 1,
+      tool: toolName,
+      phase: "review",
+      outcome: "blocked",
+      summary: reason,
+      blocker: reason,
+      checks: [],
+      gaps: [reason],
+      advisories: [],
+      warnings: [],
+      errors: [technical],
+    }, "retry-review", {
+      blocked_reason: reason,
+      recovery,
+      invoke: "Current task, read-only phase: correct the named Review input and rerun /review-work or $review-work",
+    }), MANUAL_HELP_TOPICS["recovery-and-troubleshooting"]);
+  }
   // Every failed Manual tool keeps a recoverable action; errors must never render as Done.
   const closeoutFailed = toolName === "workflow_closeout";
   const nextAction = toolName === "workflow_plan_preflight"
@@ -578,25 +689,27 @@ function errorPresentation(toolName, value) {
     : closeoutFailed
       ? "review-root"
       : "provide-artifacts";
-  const recovery = toolName === "workflow_plan_preflight"
+  const fallbackRecovery = toolName === "workflow_plan_preflight"
     ? "Repair the Root blockers, then retry validation or /plan-work."
     : closeoutFailed
       ? "Repair the exact Root/chain and Check observations, then retry closeout or Ask: /review-work."
       : "Supply the exact current Schema-5 artifacts, then retry the failed Workflow command.";
+  const guidance = humanBlocker(technical, fallbackRecovery);
   return withHelpFields(withNextStepFields({
     schema: 1,
     tool: toolName,
     phase: toolName.replace(/^workflow_/, "").replaceAll("_", "-"),
     outcome: closeoutFailed ? "blocked" : "failed",
-    summary,
+    summary: guidance.reason,
+    blocker: guidance.reason,
     checks: [],
-    gaps: [summary],
+    gaps: [guidance.reason],
     advisories: [],
     warnings: [],
-    errors: [summary],
+    errors: [technical],
   }, nextAction, {
-    blocked_reason: summary,
-    recovery,
+    blocked_reason: guidance.reason,
+    recovery: guidance.recovery,
   }), MANUAL_HELP_TOPICS["recovery-and-troubleshooting"]);
 }
 
@@ -610,17 +723,19 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
     const advisories = asList(value.advisories);
     const feasible = value.feasible === true && blockers.length === 0;
     const nextAction = feasible ? "implement-plan" : "repair-root";
+    const blockerGuidance = feasible ? null : humanBlocker(blockers[0] ?? "Root cannot be presented yet.", "Repair the Root blockers, then retry /plan-work.");
     const overrides = feasible
       ? {}
       : {
-        blocked_reason: blockers[0] ?? "Root cannot be presented yet.",
-        recovery: "Repair the Root blockers, then retry validation or /plan-work.",
+        blocked_reason: blockerGuidance.reason,
+        recovery: blockerGuidance.recovery,
       };
     const presentation = withNextStepFields({
       schema: 1,
       tool: toolName,
       phase: "plan-preflight",
       outcome: feasible ? "ready" : "blocked",
+      ...(blockerGuidance ? { blocker: blockerGuidance.reason } : {}),
       summary: feasible
         ? "The Intent Root is valid and ready for human implementation approval."
         : "The Intent Root is not ready for implementation approval.",
@@ -684,12 +799,12 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
 
   if (toolName === "workflow_artifact_context") {
     const count = Array.isArray(value.artifacts) ? value.artifacts.length : 0;
-    const nextAction = value.evidence_tip ? "review-root" : "closeout";
+    const nextAction = "review-root";
     const overrides = value.evidence_tip
       ? {}
       : {
         blocked_reason: "No Evidence tip is loaded for this Root.",
-        recovery: "Run /close-work [wp-id] or finish Implement Plan closeout, then review.",
+        recovery: "Run Review in this task; it attempts one internal idempotent closeout before asking for another action.",
       };
     const presentation = withNextStepFields({
       schema: 1,
@@ -697,8 +812,8 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
       phase: "artifact-context",
       outcome: value.evidence_tip ? "ready" : "partial",
       summary: value.evidence_tip
-        ? "The exact current artifact chain is ready for fresh review."
-        : "The current artifact chain is loaded, but Delivery Evidence is still missing.",
+        ? "The exact current artifact chain is ready for task-local read-only review."
+        : "The current Root is loaded; task-local Review will attempt one internal Evidence recovery.",
       check_summary: value.evidence_tip ? "Delivery Evidence is available." : "Delivery Evidence is missing.",
       technical_traceability: {
         root_plan_id: value.root_plan_id ?? null,
@@ -715,7 +830,7 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
         `evidence tip: ${value.evidence_tip ?? "none"}`,
         `review tip: ${value.review_tip ?? "none"}`,
       ],
-      gaps: value.evidence_tip ? [] : ["Evidence tip missing; closeout before review."],
+      gaps: value.evidence_tip ? [] : ["Evidence tip missing; Review will attempt one internal recovery."],
       advisories: ["Task artifacts remain authoritative; context is enrichment only."],
       warnings: asList(value.warning ? [value.warning] : []),
       errors: [],
@@ -740,15 +855,15 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
     const downgradeReason = snapshot.downgrade_reason ?? null;
     const outcome = statusPresentationOutcome(snapshot);
     const safeAction = normalizeManualPrimaryAction({ outcome }, action);
-    const overrides = (outcome === "blocked" || outcome === "partial") && action !== "none"
+    const overrides = blockers.length > 0 && (outcome === "blocked" || outcome === "partial") && action !== "none"
       ? {
-        blocked_reason: blockers[0] ?? `Manual state is ${state}.`,
-        recovery: resolveNextStep(safeAction).invoke,
+        blocked_reason: humanBlocker(blockers[0] ?? `Manual state is ${state}.`, resolveNextStep(safeAction).recovery).reason,
+        recovery: humanBlocker(blockers[0] ?? `Manual state is ${state}.`, resolveNextStep(safeAction).recovery).recovery,
       }
       : outcome === "blocked" && blockers.length > 0
         ? {
-          blocked_reason: blockers[0],
-          recovery: "Clear blockers with the listed Workflow command, then re-check /work-status.",
+          blocked_reason: humanBlocker(blockers[0]).reason,
+          recovery: humanBlocker(blockers[0], "Clear the named issue, then re-check /work-status.").recovery,
         }
         : {};
     const presentation = withNextStepFields({
@@ -916,6 +1031,7 @@ export function formatManualToolContent(presentation, { technicalDisclosure = tr
     `What happened: ${presentation.summary}`,
     `Checks: ${presentation.check_summary ?? "See technical traceability for exact evidence."}`,
     blocker ? `Blocker: ${blocker}` : null,
+    blocker && presentation.next_action_recovery ? `Resolution: ${presentation.next_action_recovery}` : null,
     formatNextStepFooter(presentation),
     formatTechnicalTraceability(presentation, { disclosure: technicalDisclosure }),
   ].filter((line) => line !== null && line !== undefined);

@@ -661,9 +661,12 @@ export function evaluateDeliveryCompletion(message, turn) {
   const attachmentCount = boundedEvidenceAttachmentCount(message, turn.delivery_evidence_artifact);
   const occurrenceCount = rawArtifactOccurrenceCount(message, turn.delivery_evidence_artifact);
   if (turn.handoff_persisted === false) {
-    // Unpersisted Evidence must appear exactly once as a bounded attachment and nowhere else.
-    if (attachmentCount !== 1 || occurrenceCount !== 1) {
-      return { ok: false, reason: "unpersisted-attachment-required" };
+    // Task-local lifecycle state already retains the exact Evidence bytes. A single bounded
+    // attachment remains compatible for an intentional cross-task export, but it is not a
+    // prerequisite for continuing and reviewing inside the current task.
+    const containsDifferentEvidence = attachmentCount === 0 && /\bartifact\s*:\s*delivery-evidence\b/i.test(String(message ?? ""));
+    if (attachmentCount > 1 || occurrenceCount !== attachmentCount || containsDifferentEvidence) {
+      return { ok: false, reason: "unpersisted-attachment-invalid" };
     }
   } else if (attachmentCount !== 0 || occurrenceCount !== 0) {
     // Persisted closeout must not dump the retained artifact.

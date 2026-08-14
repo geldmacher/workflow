@@ -1,10 +1,10 @@
 ---
 name: review-work
-description: Review one Workflow root and its delivery in Ask Mode.
+description: Review one Workflow root read-only.
 ---
 
 # /review-work
 
-Designed for Cursor Ask Mode. Optional `wp-*` selects one Root; without it, use the active native Cursor Plan in this task. Read [work-review](../skills/work-review/SKILL.md) completely.
+Designed for Cursor Ask Mode; review is fresh in the current task and a new chat is optional. Optional `wp-*` selects another Root; without it, use the active native Cursor Plan. Read [work-review](../skills/work-review/SKILL.md) completely.
 
-Read-only; may propose but never execute one correction. Manual fresh verified review completes; only provisional needs `/accept-work provisional`.
+Read-only. Return closed Schema-1 input; the host retains the authoritative Review. Failures route to `correct|replan`; never execute correction or author `wr-*` bytes. Verified completes; provisional needs `/accept-work provisional`.

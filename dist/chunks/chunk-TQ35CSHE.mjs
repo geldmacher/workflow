@@ -4,7 +4,7 @@ const require = __workflowCreateRequire(import.meta.url);
 import {
   require_ajv,
   require_dist
-} from "./chunk-LERB6VEC.mjs";
+} from "./chunk-JTPOR5B6.mjs";
 import {
   __export,
   __toESM
@@ -5107,6 +5107,14 @@ function object(shape, params) {
     ...util_exports.normalizeParams(params)
   };
   return new ZodObject(def);
+}
+function strictObject(shape, params) {
+  return new ZodObject({
+    type: "object",
+    shape,
+    catchall: never(),
+    ...util_exports.normalizeParams(params)
+  });
 }
 function looseObject(shape, params) {
   return new ZodObject({
@@ -13545,8 +13553,13 @@ export {
   getLiteralValue,
   string2 as string,
   number2 as number,
+  boolean2 as boolean,
+  unknown,
   array,
   object,
+  strictObject,
+  union,
+  record,
   _enum,
   literal,
   ZodOptional,

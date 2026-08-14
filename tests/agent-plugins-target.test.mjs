@@ -127,6 +127,8 @@ test("Agent Plugins v1 target is deterministic, closed, and immediately discover
     const portableImplement = readFileSync(join(plugin, "skills", "implement-work", "SKILL.md"), "utf8");
     assert.match(portableReview, /enforcement_level: explicit.*cannot mint a protected native receipt/is);
     assert.match(portableReview, /Without that host proof, fail closed with no replan/is);
+    assert.match(portableReview, /closed Schema-1 `review_input`.*workflow_closeout.*artifact_kind: work-review/is);
+    assert.doesNotMatch(portableReview, /Emit one exact Schema-5 `work-review`/i);
     assert.match(portableImplement, /one primary journey action.*enforcement_level: explicit/is);
   } finally {
     rmSync(root, { recursive: true, force: true });

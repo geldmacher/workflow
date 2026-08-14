@@ -165,10 +165,10 @@ var require_code = __commonJS({
     function interpolate(x) {
       return typeof x == "number" || typeof x == "boolean" || x === null ? x : safeStringify(Array.isArray(x) ? x.join(",") : x);
     }
-    function stringify2(x) {
+    function stringify3(x) {
       return new _Code(safeStringify(x));
     }
-    exports.stringify = stringify2;
+    exports.stringify = stringify3;
     function safeStringify(x) {
       return JSON.stringify(x).replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
     }
@@ -250,13 +250,13 @@ var require_scope = __commonJS({
       }
     };
     exports.ValueScopeName = ValueScopeName;
-    var line = (0, code_1._)`\n`;
+    var line3 = (0, code_1._)`\n`;
     var ValueScope = class extends Scope {
       constructor(opts) {
         super(opts);
         this._values = {};
         this._scope = opts.scope;
-        this.opts = { ...opts, _n: opts.lines ? line : code_1.nil };
+        this.opts = { ...opts, _n: opts.lines ? line3 : code_1.nil };
       }
       get() {
         return this._scope;
@@ -6873,8 +6873,8 @@ var require_dist = __commonJS({
         return ajv;
       }
       const [formats, exportName] = opts.mode === "fast" ? [formats_1.fastFormats, fastName] : [formats_1.fullFormats, fullName];
-      const list = opts.formats || formats_1.formatNames;
-      addFormats2(ajv, list, formats, exportName);
+      const list2 = opts.formats || formats_1.formatNames;
+      addFormats2(ajv, list2, formats, exportName);
       if (opts.keywords)
         (0, limit_1.default)(ajv);
       return ajv;
@@ -6886,11 +6886,11 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats2(ajv, list, fs, exportName) {
+    function addFormats2(ajv, list2, fs, exportName) {
       var _a3;
       var _b;
       (_a3 = (_b = ajv.opts.code).formats) !== null && _a3 !== void 0 ? _a3 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
-      for (const f of list)
+      for (const f of list2)
         ajv.addFormat(f, fs[f]);
     }
     module.exports = exports = formatsPlugin;
@@ -7166,13 +7166,13 @@ var require_directives = __commonJS({
        * @param onError - May be called even if the action was successful
        * @returns `true` on success
        */
-      add(line, onError) {
+      add(line3, onError) {
         if (this.atNextDocument) {
           this.yaml = { explicit: _Directives.defaultYaml.explicit, version: "1.1" };
           this.tags = Object.assign({}, _Directives.defaultTags);
           this.atNextDocument = false;
         }
-        const parts = line.trim().split(/[ \t]+/);
+        const parts = line3.trim().split(/[ \t]+/);
         const name = parts.shift();
         switch (name) {
           case "%TAG": {
@@ -8367,7 +8367,7 @@ var require_stringify = __commonJS({
         props.push(doc.directives.tagString(tag));
       return props.join(" ");
     }
-    function stringify2(item, ctx, onComment, onChompKeep) {
+    function stringify3(item, ctx, onComment, onChompKeep) {
       if (identity.isPair(item))
         return item.toString(ctx, onComment, onChompKeep);
       if (identity.isAlias(item)) {
@@ -8396,7 +8396,7 @@ var require_stringify = __commonJS({
 ${ctx.indent}${str}`;
     }
     exports.createStringifyContext = createStringifyContext;
-    exports.stringify = stringify2;
+    exports.stringify = stringify3;
   }
 });
 
@@ -8406,7 +8406,7 @@ var require_stringifyPair = __commonJS({
     "use strict";
     var identity = require_identity();
     var Scalar = require_Scalar();
-    var stringify2 = require_stringify();
+    var stringify3 = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyPair({ key, value }, ctx, onComment, onChompKeep) {
       const { allNullValues, doc, indent, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx;
@@ -8428,7 +8428,7 @@ var require_stringifyPair = __commonJS({
       });
       let keyCommentDone = false;
       let chompKeep = false;
-      let str = stringify2.stringify(key, ctx, () => keyCommentDone = true, () => chompKeep = true);
+      let str = stringify3.stringify(key, ctx, () => keyCommentDone = true, () => chompKeep = true);
       if (!explicitKey && !ctx.inFlow && str.length > 1024) {
         if (simpleKeys)
           throw new Error("With simple keys, single line scalar must not span more than 1024 characters");
@@ -8480,7 +8480,7 @@ ${indent}:`;
         ctx.indent = ctx.indent.substring(2);
       }
       let valueCommentDone = false;
-      const valueStr = stringify2.stringify(value, ctx, () => valueCommentDone = true, () => chompKeep = true);
+      const valueStr = stringify3.stringify(value, ctx, () => valueCommentDone = true, () => chompKeep = true);
       let ws = " ";
       if (keyComment || vsb || vcb) {
         ws = vsb ? "\n" : "";
@@ -8621,7 +8621,7 @@ var require_addPairToJSMap = __commonJS({
     "use strict";
     var log = require_log();
     var merge2 = require_merge();
-    var stringify2 = require_stringify();
+    var stringify3 = require_stringify();
     var identity = require_identity();
     var toJS = require_toJS();
     function addPairToJSMap(ctx, map, { key, value }) {
@@ -8657,7 +8657,7 @@ var require_addPairToJSMap = __commonJS({
       if (typeof jsKey !== "object")
         return String(jsKey);
       if (identity.isNode(key) && ctx?.doc) {
-        const strCtx = stringify2.createStringifyContext(ctx.doc, {});
+        const strCtx = stringify3.createStringifyContext(ctx.doc, {});
         strCtx.anchors = /* @__PURE__ */ new Set();
         for (const node of ctx.anchors.keys())
           strCtx.anchors.add(node.anchor);
@@ -8724,12 +8724,12 @@ var require_stringifyCollection = __commonJS({
   "node_modules/yaml/dist/stringify/stringifyCollection.js"(exports) {
     "use strict";
     var identity = require_identity();
-    var stringify2 = require_stringify();
+    var stringify3 = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyCollection(collection, ctx, options) {
       const flow = ctx.inFlow ?? collection.flow;
-      const stringify3 = flow ? stringifyFlowCollection : stringifyBlockCollection;
-      return stringify3(collection, ctx, options);
+      const stringify4 = flow ? stringifyFlowCollection : stringifyBlockCollection;
+      return stringify4(collection, ctx, options);
     }
     function stringifyBlockCollection({ comment, items }, ctx, { blockItemPrefix, flowChars, itemIndent, onChompKeep, onComment }) {
       const { indent, options: { commentString } } = ctx;
@@ -8754,7 +8754,7 @@ var require_stringifyCollection = __commonJS({
           }
         }
         chompKeep = false;
-        let str2 = stringify2.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = true);
+        let str2 = stringify3.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = true);
         if (comment2)
           str2 += stringifyComment.lineComment(str2, itemIndent, commentString(comment2));
         if (chompKeep && comment2)
@@ -8767,9 +8767,9 @@ var require_stringifyCollection = __commonJS({
       } else {
         str = lines[0];
         for (let i = 1; i < lines.length; ++i) {
-          const line = lines[i];
-          str += line ? `
-${indent}${line}` : "\n";
+          const line3 = lines[i];
+          str += line3 ? `
+${indent}${line3}` : "\n";
         }
       }
       if (comment) {
@@ -8821,13 +8821,13 @@ ${indent}${line}` : "\n";
         }
         if (comment)
           reqNewline = true;
-        let str = stringify2.stringify(item, itemCtx, () => comment = null);
+        let str = stringify3.stringify(item, itemCtx, () => comment = null);
         reqNewline || (reqNewline = lines.length > linesAtValue || str.includes("\n"));
         if (i < items.length - 1) {
           str += ",";
         } else if (ctx.options.trailingComma) {
           if (ctx.options.lineWidth > 0) {
-            reqNewline || (reqNewline = lines.reduce((sum, line) => sum + line.length + 2, 2) + (str.length + 2) > ctx.options.lineWidth);
+            reqNewline || (reqNewline = lines.reduce((sum, line3) => sum + line3.length + 2, 2) + (str.length + 2) > ctx.options.lineWidth);
           }
           if (reqNewline) {
             str += ",";
@@ -8843,14 +8843,14 @@ ${indent}${line}` : "\n";
         return start + end;
       } else {
         if (!reqNewline) {
-          const len = lines.reduce((sum, line) => sum + line.length + 2, 2);
+          const len = lines.reduce((sum, line3) => sum + line3.length + 2, 2);
           reqNewline = ctx.options.lineWidth > 0 && len > ctx.options.lineWidth;
         }
         if (reqNewline) {
           let str = start;
-          for (const line of lines)
-            str += line ? `
-${indentStep}${indent}${line}` : "\n";
+          for (const line3 of lines)
+            str += line3 ? `
+${indentStep}${indent}${line3}` : "\n";
           return `${str}
 ${indent}${end}`;
         } else {
@@ -10182,7 +10182,7 @@ var require_stringifyDocument = __commonJS({
   "node_modules/yaml/dist/stringify/stringifyDocument.js"(exports) {
     "use strict";
     var identity = require_identity();
-    var stringify2 = require_stringify();
+    var stringify3 = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyDocument(doc, options) {
       const lines = [];
@@ -10197,7 +10197,7 @@ var require_stringifyDocument = __commonJS({
       }
       if (hasDirectives)
         lines.push("---");
-      const ctx = stringify2.createStringifyContext(doc, options);
+      const ctx = stringify3.createStringifyContext(doc, options);
       const { commentString } = ctx.options;
       if (doc.commentBefore) {
         if (lines.length !== 1)
@@ -10219,7 +10219,7 @@ var require_stringifyDocument = __commonJS({
           contentComment = doc.contents.comment;
         }
         const onChompKeep = contentComment ? void 0 : () => chompKeep = true;
-        let body = stringify2.stringify(doc.contents, ctx, () => contentComment = null, onChompKeep);
+        let body = stringify3.stringify(doc.contents, ctx, () => contentComment = null, onChompKeep);
         if (contentComment)
           body += stringifyComment.lineComment(body, "", commentString(contentComment));
         if ((body[0] === "|" || body[0] === ">") && lines[lines.length - 1] === "---") {
@@ -10227,7 +10227,7 @@ var require_stringifyDocument = __commonJS({
         } else
           lines.push(body);
       } else {
-        lines.push(stringify2.stringify(doc.contents, ctx));
+        lines.push(stringify3.stringify(doc.contents, ctx));
       }
       if (doc.directives?.docEnd) {
         if (doc.comment) {
@@ -10593,10 +10593,10 @@ var require_errors2 = __commonJS({
       if (error2.pos[0] === -1)
         return;
       error2.linePos = error2.pos.map((pos) => lc.linePos(pos));
-      const { line, col } = error2.linePos[0];
-      error2.message += ` at line ${line}, column ${col}`;
+      const { line: line3, col } = error2.linePos[0];
+      error2.message += ` at line ${line3}, column ${col}`;
       let ci = col - 1;
-      let lineStr = src.substring(lc.lineStarts[line - 1], lc.lineStarts[line]).replace(/[\n\r]+$/, "");
+      let lineStr = src.substring(lc.lineStarts[line3 - 1], lc.lineStarts[line3]).replace(/[\n\r]+$/, "");
       if (ci >= 60 && lineStr.length > 80) {
         const trimStart = Math.min(ci - 39, lineStr.length - 79);
         lineStr = "\u2026" + lineStr.substring(trimStart);
@@ -10604,8 +10604,8 @@ var require_errors2 = __commonJS({
       }
       if (lineStr.length > 80)
         lineStr = lineStr.substring(0, 79) + "\u2026";
-      if (line > 1 && /^ *$/.test(lineStr.substring(0, ci))) {
-        let prev = src.substring(lc.lineStarts[line - 2], lc.lineStarts[line - 1]);
+      if (line3 > 1 && /^ *$/.test(lineStr.substring(0, ci))) {
+        let prev = src.substring(lc.lineStarts[line3 - 2], lc.lineStarts[line3 - 1]);
         if (prev.length > 80)
           prev = prev.substring(0, 79) + "\u2026\n";
         lineStr = prev + lineStr;
@@ -10613,7 +10613,7 @@ var require_errors2 = __commonJS({
       if (/[^ ]/.test(lineStr)) {
         let count = 1;
         const end = error2.linePos[1];
-        if (end?.line === line && end.col > col) {
+        if (end?.line === line3 && end.col > col) {
           count = Math.max(1, Math.min(end.col - col, 80 - ci));
         }
         const pointer = " ".repeat(ci) + "^".repeat(count);
@@ -11562,13 +11562,13 @@ var require_resolve_flow_scalar = __commonJS({
       return foldLines(source.slice(1, -1)).replace(/''/g, "'");
     }
     function foldLines(source) {
-      let first, line;
+      let first, line3;
       try {
         first = new RegExp("(.*?)(?<![ 	])[ 	]*\r?\n", "sy");
-        line = new RegExp("[ 	]*(.*?)(?:(?<![ 	])[ 	]*)?\r?\n", "sy");
+        line3 = new RegExp("[ 	]*(.*?)(?:(?<![ 	])[ 	]*)?\r?\n", "sy");
       } catch {
         first = /(.*?)[ \t]*\r?\n/sy;
-        line = /[ \t]*(.*?)[ \t]*\r?\n/sy;
+        line3 = /[ \t]*(.*?)[ \t]*\r?\n/sy;
       }
       let match = first.exec(source);
       if (!match)
@@ -11576,8 +11576,8 @@ var require_resolve_flow_scalar = __commonJS({
       let res = match[1];
       let sep2 = " ";
       let pos = first.lastIndex;
-      line.lastIndex = pos;
-      while (match = line.exec(source)) {
+      line3.lastIndex = pos;
+      while (match = line3.exec(source)) {
         if (match[1] === "") {
           if (sep2 === "\n")
             res += sep2;
@@ -11587,7 +11587,7 @@ var require_resolve_flow_scalar = __commonJS({
           res += sep2 + match[1];
           sep2 = " ";
         }
-        pos = line.lastIndex;
+        pos = line3.lastIndex;
       }
       const last = /[ \t]*(.*)/sy;
       last.lastIndex = pos;
@@ -12362,7 +12362,7 @@ var require_cst_scalar = __commonJS({
 var require_cst_stringify = __commonJS({
   "node_modules/yaml/dist/parse/cst-stringify.js"(exports) {
     "use strict";
-    var stringify2 = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
+    var stringify3 = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
     function stringifyToken(token) {
       switch (token.type) {
         case "block-scalar": {
@@ -12415,7 +12415,7 @@ var require_cst_stringify = __commonJS({
         res += stringifyToken(value);
       return res;
     }
-    exports.stringify = stringify2;
+    exports.stringify = stringify3;
   }
 });
 
@@ -12717,40 +12717,40 @@ var require_lexer = __commonJS({
         }
       }
       *parseStream() {
-        let line = this.getLine();
-        if (line === null)
+        let line3 = this.getLine();
+        if (line3 === null)
           return this.setNext("stream");
-        if (line[0] === cst.BOM) {
+        if (line3[0] === cst.BOM) {
           yield* this.pushCount(1);
-          line = line.substring(1);
+          line3 = line3.substring(1);
         }
-        if (line[0] === "%") {
-          let dirEnd = line.length;
-          let cs = line.indexOf("#");
+        if (line3[0] === "%") {
+          let dirEnd = line3.length;
+          let cs = line3.indexOf("#");
           while (cs !== -1) {
-            const ch = line[cs - 1];
+            const ch = line3[cs - 1];
             if (ch === " " || ch === "	") {
               dirEnd = cs - 1;
               break;
             } else {
-              cs = line.indexOf("#", cs + 1);
+              cs = line3.indexOf("#", cs + 1);
             }
           }
           while (true) {
-            const ch = line[dirEnd - 1];
+            const ch = line3[dirEnd - 1];
             if (ch === " " || ch === "	")
               dirEnd -= 1;
             else
               break;
           }
           const n = (yield* this.pushCount(dirEnd)) + (yield* this.pushSpaces(true));
-          yield* this.pushCount(line.length - n);
+          yield* this.pushCount(line3.length - n);
           this.pushNewline();
           return "stream";
         }
         if (this.atLineEnd()) {
           const sp = yield* this.pushSpaces(true);
-          yield* this.pushCount(line.length - sp);
+          yield* this.pushCount(line3.length - sp);
           yield* this.pushNewline();
           return "stream";
         }
@@ -12791,13 +12791,13 @@ var require_lexer = __commonJS({
       }
       *parseDocument() {
         yield* this.pushSpaces(true);
-        const line = this.getLine();
-        if (line === null)
+        const line3 = this.getLine();
+        if (line3 === null)
           return this.setNext("doc");
         let n = yield* this.pushIndicators();
-        switch (line[n]) {
+        switch (line3[n]) {
           case "#":
-            yield* this.pushCount(line.length - n);
+            yield* this.pushCount(line3.length - n);
           // fallthrough
           case void 0:
             yield* this.pushNewline();
@@ -12822,7 +12822,7 @@ var require_lexer = __commonJS({
           case ">":
             n += yield* this.parseBlockScalarHeader();
             n += yield* this.pushSpaces(true);
-            yield* this.pushCount(line.length - n);
+            yield* this.pushCount(line3.length - n);
             yield* this.pushNewline();
             return yield* this.parseBlockScalar();
           default:
@@ -12842,11 +12842,11 @@ var require_lexer = __commonJS({
           }
           sp += yield* this.pushSpaces(true);
         } while (nl + sp > 0);
-        const line = this.getLine();
-        if (line === null)
+        const line3 = this.getLine();
+        if (line3 === null)
           return this.setNext("flow");
-        if (indent !== -1 && indent < this.indentNext && line[0] !== "#" || indent === 0 && (line.startsWith("---") || line.startsWith("...")) && isEmpty(line[3])) {
-          const atFlowEndMarker = indent === this.indentNext - 1 && this.flowLevel === 1 && (line[0] === "]" || line[0] === "}");
+        if (indent !== -1 && indent < this.indentNext && line3[0] !== "#" || indent === 0 && (line3.startsWith("---") || line3.startsWith("...")) && isEmpty(line3[3])) {
+          const atFlowEndMarker = indent === this.indentNext - 1 && this.flowLevel === 1 && (line3[0] === "]" || line3[0] === "}");
           if (!atFlowEndMarker) {
             this.flowLevel = 0;
             yield cst.FLOW_END;
@@ -12854,17 +12854,17 @@ var require_lexer = __commonJS({
           }
         }
         let n = 0;
-        while (line[n] === ",") {
+        while (line3[n] === ",") {
           n += yield* this.pushCount(1);
           n += yield* this.pushSpaces(true);
           this.flowKey = false;
         }
         n += yield* this.pushIndicators();
-        switch (line[n]) {
+        switch (line3[n]) {
           case void 0:
             return "flow";
           case "#":
-            yield* this.pushCount(line.length - n);
+            yield* this.pushCount(line3.length - n);
             return "flow";
           case "{":
           case "[":
@@ -13210,15 +13210,15 @@ var require_parser = __commonJS({
     var node_process = __require("process");
     var cst = require_cst();
     var lexer = require_lexer();
-    function includesToken(list, type) {
-      for (let i = 0; i < list.length; ++i)
-        if (list[i].type === type)
+    function includesToken(list2, type) {
+      for (let i = 0; i < list2.length; ++i)
+        if (list2[i].type === type)
           return true;
       return false;
     }
-    function findNonEmptyIndex(list) {
-      for (let i = 0; i < list.length; ++i) {
-        switch (list[i].type) {
+    function findNonEmptyIndex(list2) {
+      for (let i = 0; i < list2.length; ++i) {
+        switch (list2[i].type) {
           case "space":
           case "comment":
           case "newline":
@@ -14145,7 +14145,7 @@ var require_public_api = __commonJS({
       }
       return doc.toJS(Object.assign({ reviver: _reviver }, options));
     }
-    function stringify2(value, replacer, options) {
+    function stringify3(value, replacer, options) {
       let _replacer = null;
       if (typeof replacer === "function" || Array.isArray(replacer)) {
         _replacer = replacer;
@@ -14170,7 +14170,7 @@ var require_public_api = __commonJS({
     exports.parse = parse4;
     exports.parseAllDocuments = parseAllDocuments;
     exports.parseDocument = parseDocument2;
-    exports.stringify = stringify2;
+    exports.stringify = stringify3;
   }
 });
 
@@ -14263,10 +14263,10 @@ var util;
       return obj[e];
     });
   };
-  util2.objectKeys = typeof Object.keys === "function" ? (obj) => Object.keys(obj) : (object3) => {
+  util2.objectKeys = typeof Object.keys === "function" ? (obj) => Object.keys(obj) : (object4) => {
     const keys = [];
-    for (const key in object3) {
-      if (Object.prototype.hasOwnProperty.call(object3, key)) {
+    for (const key in object4) {
+      if (Object.prototype.hasOwnProperty.call(object4, key)) {
         keys.push(key);
       }
     }
@@ -18305,9 +18305,9 @@ function floatSafeRemainder2(val, step) {
   return ratio - roundedRatio;
 }
 var EVALUATING = /* @__PURE__ */ Symbol("evaluating");
-function defineLazy(object3, key, getter) {
+function defineLazy(object4, key, getter) {
   let value = void 0;
-  Object.defineProperty(object3, key, {
+  Object.defineProperty(object4, key, {
     get() {
       if (value === EVALUATING) {
         return void 0;
@@ -18319,7 +18319,7 @@ function defineLazy(object3, key, getter) {
       return value;
     },
     set(v) {
-      Object.defineProperty(object3, key, {
+      Object.defineProperty(object4, key, {
         value: v
         // configurable: true,
       });
@@ -19498,8 +19498,8 @@ var Doc = class {
     const lines = content.split("\n").filter((x) => x);
     const minIndent = Math.min(...lines.map((x) => x.length - x.trimStart().length));
     const dedented = lines.map((x) => x.slice(minIndent)).map((x) => " ".repeat(this.indent * 2) + x);
-    for (const line of dedented) {
-      this.content.push(line);
+    for (const line3 of dedented) {
+      this.content.push(line3);
     }
   }
   compile() {
@@ -23412,6 +23412,14 @@ function object2(shape, params) {
   };
   return new ZodObject2(def);
 }
+function strictObject(shape, params) {
+  return new ZodObject2({
+    type: "object",
+    shape,
+    catchall: never(),
+    ...util_exports.normalizeParams(params)
+  });
+}
 function looseObject(shape, params) {
   return new ZodObject2({
     type: "object",
@@ -26003,11 +26011,11 @@ function parseMapDef(def, refs) {
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/nativeEnum.js
 function parseNativeEnumDef(def) {
-  const object3 = def.values;
+  const object4 = def.values;
   const actualKeys = Object.keys(def.values).filter((key) => {
-    return typeof object3[object3[key]] !== "number";
+    return typeof object4[object4[key]] !== "number";
   });
-  const actualValues = actualKeys.map((key) => object3[key]);
+  const actualValues = actualKeys.map((key) => object4[key]);
   const parsedTypes = Array.from(new Set(actualValues.map((values) => typeof values)));
   return {
     type: parsedTypes.length === 1 ? parsedTypes[0] === "string" ? "string" : "number" : ["string", "number"],
@@ -29144,16 +29152,16 @@ var ReadBuffer = class {
     if (index === -1) {
       return null;
     }
-    const line = this._buffer.toString("utf8", 0, index).replace(/\r$/, "");
+    const line3 = this._buffer.toString("utf8", 0, index).replace(/\r$/, "");
     this._buffer = this._buffer.subarray(index + 1);
-    return deserializeMessage(line);
+    return deserializeMessage(line3);
   }
   clear() {
     this._buffer = void 0;
   }
 };
-function deserializeMessage(line) {
-  return JSONRPCMessageSchema.parse(JSON.parse(line));
+function deserializeMessage(line3) {
+  return JSONRPCMessageSchema.parse(JSON.parse(line3));
 }
 function serializeMessage(message) {
   return JSON.stringify(message) + "\n";
@@ -29356,7 +29364,7 @@ function codexOperationalStateRoot(workspaceRoot2, options = {}) {
 }
 
 // src/controller/protocol.mjs
-var PLUGIN_VERSION = "5.3.0";
+var PLUGIN_VERSION = "5.4.0";
 var ARTIFACT_SCHEMA = 5;
 var CONTROLLER_PROTOCOL = 5;
 var LEGACY_WORKFLOW_3 = Object.freeze({
@@ -29435,11 +29443,11 @@ function linearChain(items, predecessorField, label, failures) {
     const predecessor = item.fields[predecessorField];
     if (!predecessor) continue;
     if (!byId.has(predecessor)) failures.push(`${item.label}: missing predecessor ${predecessor}`);
-    const list = successors.get(predecessor) ?? [];
-    list.push(item);
-    successors.set(predecessor, list);
+    const list2 = successors.get(predecessor) ?? [];
+    list2.push(item);
+    successors.set(predecessor, list2);
   }
-  for (const [id, list] of successors) if (list.length > 1) failures.push(`${label}: chain branches after ${id}`);
+  for (const [id, list2] of successors) if (list2.length > 1) failures.push(`${label}: chain branches after ${id}`);
   const ordered = [];
   const seen = /* @__PURE__ */ new Set();
   let cursor = starts[0];
@@ -29588,9 +29596,9 @@ function normalizeNewlines(text) {
   return String(text ?? "").replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 }
 function isPlanCloseoutAttestation(value) {
-  const object3 = asObject(value);
-  if (!object3) return false;
-  return object3.schema === PLAN_CLOSEOUT_ATTESTATION.schema && object3.kind === PLAN_CLOSEOUT_ATTESTATION.kind && [PLAN_CLOSEOUT_ATTESTATION.action, LEGACY_PLAN_CLOSEOUT_ATTESTATION.action].includes(object3.action) && Object.keys(object3).length === 3;
+  const object4 = asObject(value);
+  if (!object4) return false;
+  return object4.schema === PLAN_CLOSEOUT_ATTESTATION.schema && object4.kind === PLAN_CLOSEOUT_ATTESTATION.kind && [PLAN_CLOSEOUT_ATTESTATION.action, LEGACY_PLAN_CLOSEOUT_ATTESTATION.action].includes(object4.action) && Object.keys(object4).length === 3;
 }
 var CLOSEOUT_INPUT_FIELDS = Object.freeze([
   "schema",
@@ -29630,28 +29638,28 @@ function extractWorkflowAttestations(text) {
   const attestations = [];
   let inForeignFence = false;
   for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
+    const line3 = lines[index];
     if (inForeignFence) {
-      if (ATTESTATION_FENCE_CLOSE.test(line)) inForeignFence = false;
+      if (ATTESTATION_FENCE_CLOSE.test(line3)) inForeignFence = false;
       continue;
     }
-    if (/^```(?!yaml workflow-attestation\s*$)/.test(line)) {
+    if (/^```(?!yaml workflow-attestation\s*$)/.test(line3)) {
       inForeignFence = true;
       continue;
     }
-    if (!ATTESTATION_FENCE_OPEN.test(line)) continue;
+    if (!ATTESTATION_FENCE_OPEN.test(line3)) continue;
     const body = [];
     let cursor = index + 1;
-    let closed = false;
+    let closed2 = false;
     while (cursor < lines.length) {
       if (ATTESTATION_FENCE_CLOSE.test(lines[cursor])) {
-        closed = true;
+        closed2 = true;
         break;
       }
       body.push(lines[cursor]);
       cursor += 1;
     }
-    if (!closed) continue;
+    if (!closed2) continue;
     try {
       const parsed = (0, import_yaml3.parse)(body.join("\n"));
       if (asObject(parsed)) {
@@ -29878,15 +29886,15 @@ function sha256(value) {
 }
 function maskFences(text) {
   let fence = null;
-  return String(text).split(/(?<=\n)/).map((line) => {
+  return String(text).split(/(?<=\n)/).map((line3) => {
     if (!fence) {
-      const marker = line.match(/^[ \t]*(`{3,}|~{3,})/);
-      if (!marker) return line;
+      const marker = line3.match(/^[ \t]*(`{3,}|~{3,})/);
+      if (!marker) return line3;
       fence = { char: marker[1][0], size: marker[1].length };
-      return line.replace(/[^\r\n]/g, " ");
+      return line3.replace(/[^\r\n]/g, " ");
     }
-    const masked = line.replace(/[^\r\n]/g, " ");
-    if (new RegExp(`^[ \\t]*${fence.char}{${fence.size},}[ \\t]*(?:\\r?\\n)?$`).test(line)) fence = null;
+    const masked = line3.replace(/[^\r\n]/g, " ");
+    if (new RegExp(`^[ \\t]*${fence.char}{${fence.size},}[ \\t]*(?:\\r?\\n)?$`).test(line3)) fence = null;
     return masked;
   }).join("");
 }
@@ -29926,11 +29934,11 @@ function trimTrailingNotes(body, required2, normalizations) {
   }
   return body;
 }
-function cells(line) {
+function cells(line3) {
   const parsed = [];
   let current = "";
   let escaped = false;
-  for (const char of String(line).trim()) {
+  for (const char of String(line3).trim()) {
     if (escaped) {
       current += char;
       escaped = false;
@@ -29958,7 +29966,7 @@ function markdownTables(content) {
   for (let index = 0; index < lines.length - 1; index += 1) {
     const headers = cells(lines[index]);
     const separator = cells(lines[index + 1]);
-    if (headers.length < 2 || separator.length !== headers.length || !separator.every((cell2) => /^:?-{3,}:?$/.test(cell2))) continue;
+    if (headers.length < 2 || separator.length !== headers.length || !separator.every((cell3) => /^:?-{3,}:?$/.test(cell3))) continue;
     const rows = [];
     index += 2;
     while (index < lines.length && lines[index].includes("|")) {
@@ -30023,7 +30031,7 @@ function noneLike(value) {
   return /^(?:none\.?|no (?:findings|changes|deviations|candidates|correction|open decisions)\.?)$/i.test(String(value).trim());
 }
 function hasStandaloneNone(content) {
-  return String(content).split(/\r?\n/).some((line) => /^(?:\*\*[^*\r\n]+:\*\*\s*)?None\.?$/i.test(line.trim()));
+  return String(content).split(/\r?\n/).some((line3) => /^(?:\*\*[^*\r\n]+:\*\*\s*)?None\.?$/i.test(line3.trim()));
 }
 function requireTable(sections, sectionName, headers, failures, { allowNone = false, optional: optional2 = false, normalizations = [] } = {}) {
   const content = sections.get(sectionName) ?? "";
@@ -30100,8 +30108,14 @@ function issue2(code, message, details = {}) {
   return { code, message, ...details };
 }
 function fingerprintMap(value) {
-  const entries = [...String(value ?? "").matchAll(/`([^`]+)`=([a-f0-9]{64})/g)];
-  return new Map(entries.map((match) => [match[1].replace(/^\.\//, ""), match[2]]));
+  const entries = String(value ?? "").split(/;\s*/).flatMap((entry) => {
+    const match = entry.match(/^`?([^=`]+?)`?=(.+)$/);
+    if (!match) return [];
+    const path = match[1].trim().replace(/^\.\//, "");
+    if (!path || ["index", "status"].includes(path)) return [];
+    return [[path, match[2].trim()]];
+  });
+  return new Map(entries);
 }
 function validateCostOrder(rows, column, label, parsed) {
   let previous = 0;
@@ -30142,6 +30156,12 @@ function planData(artifact2) {
     }));
     const evidenceClasses = declaredWithClass.length > 0 ? new Map(declaredWithClass.map((row) => [row["Check ID"], row["Evidence Class"]])) : new Map(checks2.map((row) => [row["Check ID"], "human-review-required"]));
     const objectiveIds = objectives2.map((row) => row["Objective ID"]);
+    const objectiveDependencies2 = new Map(objectiveIds.map((id) => [id, /* @__PURE__ */ new Set()]));
+    for (const check of checks2) {
+      for (const objective of ids(check.Objectives, objectivePattern)) {
+        for (const target of targetTokens(check.Prerequisites)) objectiveDependencies2.get(objective)?.add(target);
+      }
+    }
     return {
       objectives: new Set(objectiveIds),
       checks: new Set(checks2.map((row) => row["Check ID"])),
@@ -30160,7 +30180,7 @@ function planData(artifact2) {
       requiredChecks: new Set(checks2.filter((row) => row.Required === "yes").map((row) => row["Check ID"])),
       allowedTargets: [...artifact2.fields.authority.allowed_roots],
       prohibitedTargets: [...artifact2.fields.authority.protected_paths, ...artifact2.fields.authority.approval_required_paths],
-      objectiveDependencies: new Map(objectiveIds.map((id) => [id, new Set(artifact2.fields.authority.allowed_roots)]))
+      objectiveDependencies: objectiveDependencies2
     };
   }
   const objectives = tableRows(artifact2.sections.get("Objectives") ?? "", tables.objectives);
@@ -30380,8 +30400,8 @@ function validatePlan(parsed, sections, failures) {
   if (parsed.fields.assurance_override === "lowered") {
     if (triggers.length > 0) failures.push("hard-trigger assurance cannot be lowered");
     if (selectedRank >= derivedRank) failures.push("lowered assurance override must select a lower profile than derived");
-    const decision = decisions.rows.find((row) => row["Decision ID"] === parsed.fields.assurance_override_decision_id);
-    if (!decisionIds.has(parsed.fields.assurance_override_decision_id) || !/\bHuman (?:decision|approval)\b/i.test(decision?.Source ?? "")) failures.push("lowered assurance requires a human-sourced decision");
+    const decision2 = decisions.rows.find((row) => row["Decision ID"] === parsed.fields.assurance_override_decision_id);
+    if (!decisionIds.has(parsed.fields.assurance_override_decision_id) || !/\bHuman (?:decision|approval)\b/i.test(decision2?.Source ?? "")) failures.push("lowered assurance requires a human-sourced decision");
   }
   const controls = requireTable(sections, "Risk and closeout", tables.controls, failures, { allowNone: true, normalizations: parsed.normalizations });
   exactIdSet(controls.rows, "Control ID", /CTRL-[1-9][0-9]*/, "Pareto controls", failures);
@@ -30621,7 +30641,7 @@ function validateCompactReview(parsed, sections, failures) {
   const visibleAuditors = new Set(String(auditorRow?.Inspected ?? "").split(",").map((value) => value.trim()).filter((value) => value && !noneLike(value)));
   if (coverage.rows.length > 0 && !sameSet(visibleAuditors, actualAuditors)) parsed.normalizations.push("Evidence coverage: auditor summary derived from frontmatter");
   const routeRank = { inline: 1, targeted: 2, full: 3 };
-  const decisiveBoundary = ["replan", "clarify"].includes(parsed.fields.next_action);
+  const decisiveBoundary = ["correct", "replan", "clarify"].includes(parsed.fields.next_action);
   const unresolvedHighFinding = findings.rows.some((row) => /^(?:high|critical)$/.test(row.Severity)) && !decisiveBoundary;
   let minimumRoute = actualAuditors.has("risk-auditor") || unresolvedHighFinding ? "full" : actualAuditors.has("delivery-auditor") || actualAuditors.has("work-design-auditor") ? "targeted" : "inline";
   if (routeRank[parsed.fields.review_route] < routeRank[minimumRoute]) failures.push(`review_route must be at least computed minimum ${minimumRoute}`);
@@ -30654,13 +30674,13 @@ function validateCompactReview(parsed, sections, failures) {
   if (parsed.fields.next_action === "correct" && findings.rows.length === 0) failures.push("correct review requires findings");
   if (parsed.fields.next_action !== "correct" && Array.isArray(parsed.fields.learning_candidates)) failures.push("learning_candidates are allowed only when next_action is correct");
   if (parsed.fields.next_action === "retry-review" && parsed.fields.assessment !== "insufficient-evidence") failures.push("retry-review requires assessment insufficient-evidence");
-  const correction = parseCorrection(parsed, sections, failures);
-  if (correction) {
-    for (const fix of correction.fixes) {
+  const correction2 = parseCorrection(parsed, sections, failures);
+  if (correction2) {
+    for (const fix of correction2.fixes) {
       const referenced = String(fix["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean);
       for (const key of referenced) if (!keys.has(key)) failures.push(`Correction ${fix["FIX ID"]} references unknown Finding key ${key}`);
     }
-    for (const learning of correction.learnings) {
+    for (const learning of correction2.learnings) {
       const referenced = String(learning["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean);
       for (const key of referenced) if (!keys.has(key)) failures.push(`Learning ${learning["Learning ID"]} references unknown Finding key ${key}`);
     }
@@ -30676,7 +30696,7 @@ function validateCompactReview(parsed, sections, failures) {
     missingAuditors,
     findings: findings.rows
   };
-  return correction;
+  return correction2;
 }
 function buildArtifact(text, root, options = {}) {
   const failures = [];
@@ -30764,37 +30784,37 @@ function preflightRootPlan(text, root = defaultRoot) {
     const requiredObjectives = /* @__PURE__ */ new Set();
     const classifiedChecks = [];
     for (const row of rows) {
-      const checkId = row["Check ID"];
-      if (!/^CHECK-[1-9][0-9]*$/.test(checkId)) blocking.push(issue2("invalid-check-id", `Verification has invalid Check ID ${checkId || "<missing>"}`));
-      else if (seenIds.has(checkId)) blocking.push(issue2("duplicate-check-id", `Verification repeats ${checkId}`, { check_id: checkId }));
-      else seenIds.add(checkId);
+      const checkId2 = row["Check ID"];
+      if (!/^CHECK-[1-9][0-9]*$/.test(checkId2)) blocking.push(issue2("invalid-check-id", `Verification has invalid Check ID ${checkId2 || "<missing>"}`));
+      else if (seenIds.has(checkId2)) blocking.push(issue2("duplicate-check-id", `Verification repeats ${checkId2}`, { check_id: checkId2 }));
+      else seenIds.add(checkId2);
       const boundObjectives = ids(row.Objectives, objectivePattern);
       if (boundObjectives.length === 0 || boundObjectives.some((id) => !objectiveIds.has(id))) blocking.push(issue2(
         "invalid-check-objectives",
-        `${checkId || "Verification Check"} must reference only current Acceptance objectives`,
-        { check_id: checkId || null, objectives: boundObjectives }
+        `${checkId2 || "Verification Check"} must reference only current Acceptance objectives`,
+        { check_id: checkId2 || null, objectives: boundObjectives }
       ));
-      if (!/^(?:yes|no)$/.test(row.Required)) blocking.push(issue2("invalid-required-value", `${checkId || "Verification Check"} Required must be yes or no`, { check_id: checkId || null }));
-      if (!/^(?:machine-verifiable|human-review-required|human-approval-required)$/.test(row["Evidence Class"])) blocking.push(issue2("invalid-evidence-class", `${checkId || "Verification Check"} has an invalid Evidence Class`, { check_id: checkId || null }));
-      if (!/^(?:cheap|standard|expensive)$/.test(row["Cost Class"])) blocking.push(issue2("invalid-cost-class", `${checkId || "Verification Check"} has an invalid Cost Class`, { check_id: checkId || null }));
+      if (!/^(?:yes|no)$/.test(row.Required)) blocking.push(issue2("invalid-required-value", `${checkId2 || "Verification Check"} Required must be yes or no`, { check_id: checkId2 || null }));
+      if (!/^(?:machine-verifiable|human-review-required|human-approval-required)$/.test(row["Evidence Class"])) blocking.push(issue2("invalid-evidence-class", `${checkId2 || "Verification Check"} has an invalid Evidence Class`, { check_id: checkId2 || null }));
+      if (!/^(?:cheap|standard|expensive)$/.test(row["Cost Class"])) blocking.push(issue2("invalid-cost-class", `${checkId2 || "Verification Check"} has an invalid Cost Class`, { check_id: checkId2 || null }));
       else costs[row["Cost Class"]] += 1;
       if (row.Required === "yes") {
-        requiredChecks.push(checkId);
+        requiredChecks.push(checkId2);
         boundObjectives.forEach((id) => requiredObjectives.add(id));
         const signature = [boundObjectives.sort().join(","), row["Command or Inspection"], row["Expected Result"], targetTokens(row.Prerequisites).sort().join(",")].map((value) => normalizedHeader(value)).join("|");
-        classifiedChecks.push({ check_id: checkId, required: true, cost: row["Cost Class"], signature });
+        classifiedChecks.push({ check_id: checkId2, required: true, cost: row["Cost Class"], signature });
         const prior = signatures.get(signature);
-        if (prior) blocking.push(issue2("duplicate-required-check", `${checkId} duplicates required Check ${prior}`, { check_id: checkId, duplicate_of: prior }));
-        else signatures.set(signature, checkId);
+        if (prior) blocking.push(issue2("duplicate-required-check", `${checkId2} duplicates required Check ${prior}`, { check_id: checkId2, duplicate_of: prior }));
+        else signatures.set(signature, checkId2);
         if (row["Cost Class"] === "expensive" && parsed.fields.risk !== "high" && (parsed.fields.hard_triggers ?? []).length === 0) advisories.push(issue2(
           "expensive-required-check",
-          `${checkId} is expensive and required; retain it only when no cheaper equivalent proves the same essential outcome`,
-          { check_id: checkId }
+          `${checkId2} is expensive and required; retain it only when no cheaper equivalent proves the same essential outcome`,
+          { check_id: checkId2 }
         ));
       } else if (row.Required === "no") {
-        deferredChecks.push(checkId);
+        deferredChecks.push(checkId2);
         classifiedChecks.push({
-          check_id: checkId,
+          check_id: checkId2,
           required: false,
           cost: row["Cost Class"],
           signature: [boundObjectives.sort().join(","), row["Command or Inspection"], row["Expected Result"], targetTokens(row.Prerequisites).sort().join(",")].map((value) => normalizedHeader(value)).join("|")
@@ -31018,12 +31038,12 @@ function materializeEvidence(artifact2, artifacts, cache, failures, rootDirector
     if (artifact2.fields.source_review_id || artifact2.fields.predecessor_evidence_id) failures.push(`${artifact2.label}: initial evidence cannot reference review or predecessor evidence`);
   } else {
     const sourceReview = artifacts.get(artifact2.fields.source_review_id);
-    const correction = correctionForId(artifacts, artifact2.fields.subject_id);
-    if (!sourceReview || sourceReview.fields.correction_id !== artifact2.fields.subject_id || !correction) failures.push(`${artifact2.label}: correction evidence does not resolve its source review and correction`);
+    const correction2 = correctionForId(artifacts, artifact2.fields.subject_id);
+    if (!sourceReview || sourceReview.fields.correction_id !== artifact2.fields.subject_id || !correction2) failures.push(`${artifact2.label}: correction evidence does not resolve its source review and correction`);
     else {
-      const expectedFixes = new Set(correction.fixes.map((row) => row["FIX ID"]));
+      const expectedFixes = new Set(correction2.fixes.map((row) => row["FIX ID"]));
       if (!leanMode && !sameSet(new Set(data.results.map((row) => row["Objective ID"])), expectedFixes)) failures.push(`${artifact2.label}: correction Subject results must cover every FIX`);
-      for (const check of correction.checks.filter((row) => row.Required === "yes")) if (!executed.has(check["Check ID"])) failures.push(`${artifact2.label}: missing executed correction Check ${check["Check ID"]}`);
+      for (const check of correction2.checks.filter((row) => row.Required === "yes")) if (!executed.has(check["Check ID"])) failures.push(`${artifact2.label}: missing executed correction Check ${check["Check ID"]}`);
     }
   }
   const reviewReady = artifact2.fields.status === "complete" && (artifact2.fields.schema < 4 || artifact2.fields.overall_grade === "verified") && operationalReady && [...plan.requiredChecks].every((id) => checks.get(id)?.status === "passed");
@@ -31034,9 +31054,9 @@ function materializeEvidence(artifact2, artifacts, cache, failures, rootDirector
   return effective;
 }
 function validateCompactCorrection(review, root, evidence, artifacts, failures) {
-  const correction = review.correction;
-  if (!correction) return;
-  const metadata = correction.metadata ?? {};
+  const correction2 = review.correction;
+  if (!correction2) return;
+  const metadata = correction2.metadata ?? {};
   if (metadata["Correction ID"] !== review.fields.correction_id) failures.push(`${review.label}: correction metadata ID mismatch`);
   if (metadata["Root Plan"] !== root.fields.id) failures.push(`${review.label}: correction root mismatch`);
   if (metadata["Source Review"] !== review.fields.id) failures.push(`${review.label}: correction source review mismatch`);
@@ -31044,12 +31064,12 @@ function validateCompactCorrection(review, root, evidence, artifacts, failures) 
   if ((riskRank[metadata.Risk] ?? 99) > (riskRank[root.fields.risk] ?? 0)) failures.push(`${review.label}: correction raises root risk and requires replan`);
   const plan = planData(root);
   const findingKeys = new Set(reviewData(review).findings.map((row) => row["Finding key"]));
-  for (const fix of correction.fixes) {
+  for (const fix of correction2.fixes) {
     for (const key of String(fix["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean)) if (!findingKeys.has(key)) failures.push(`${review.label}: correction references unknown Finding key ${key}`);
     for (const objective of ids(fix["Root Objectives"], objectivePattern)) if (!plan.objectives.has(objective)) failures.push(`${review.label}: correction references unknown root ${objective}`);
     for (const check of ids(fix["Root Checks"], checkPattern)) if (!plan.checks.has(check)) failures.push(`${review.label}: correction references unknown root ${check}`);
   }
-  for (const step of correction.steps) for (const target of targetTokens(step.Targets)) {
+  for (const step of correction2.steps) for (const target of targetTokens(step.Targets)) {
     const allowed = plan.allowedTargets.some((scope) => targetMatches(target, scope));
     const prohibited = plan.prohibitedTargets.filter((scope) => !/^all other (?:files|paths|targets)$/i.test(scope)).some((scope) => targetMatches(target, scope));
     if (!allowed || prohibited) failures.push(`${review.label}: correction target ${target} is outside root scope`);
@@ -31059,13 +31079,13 @@ function progressState(review, artifacts) {
   const evidence = artifacts.get(review.fields.latest_evidence_id);
   const effective = evidence?.effective;
   const findings = reviewData(review).findings;
-  return new Map(findings.map((finding) => {
-    const objectives = ids(finding.Objectives, objectivePattern);
-    const checks = ids(finding.Checks, checkPattern);
+  return new Map(findings.map((finding2) => {
+    const objectives = ids(finding2.Objectives, objectivePattern);
+    const checks = ids(finding2.Checks, checkPattern);
     const objectiveRank = objectives.reduce((sum, id) => sum + ({ blocked: 0, "not-achieved": 1, "partially-achieved": 2, achieved: 3 }[effective?.objectives.get(id)?.status] ?? 0), 0);
     const passedChecks = checks.filter((id) => effective?.checks.get(id)?.status === "passed").length;
     const fingerprintSignature = objectives.flatMap((id) => [...effective?.plan.objectiveDependencies.get(id) ?? []]).sort().map((path) => `${path}=${effective?.snapshotFingerprints.get(path) ?? "missing"}`).join(";");
-    return [finding["Finding key"], { severity: { critical: 4, high: 3, medium: 2, low: 1 }[finding.Severity] ?? 9, objectiveRank, passedChecks, fingerprintSignature }];
+    return [finding2["Finding key"], { severity: { critical: 4, high: 3, medium: 2, low: 1 }[finding2.Severity] ?? 9, objectiveRank, passedChecks, fingerprintSignature }];
   }));
 }
 function measurableProgress(previous, current) {
@@ -31096,11 +31116,11 @@ function validatePlanLineage(artifacts, failures) {
       const reviewTips = predecessorReviews.filter((review) => !referencedReviews.has(review.fields.id));
       if (reviewTips.length !== 1 || reviewTips[0].fields.id !== sourceReviewId) failures.push(`${plan.label}: replan source review must be the unique current predecessor review tip`);
     }
-    const list = successors.get(predecessorId) ?? [];
-    list.push(plan);
-    successors.set(predecessorId, list);
+    const list2 = successors.get(predecessorId) ?? [];
+    list2.push(plan);
+    successors.set(predecessorId, list2);
   }
-  for (const [predecessorId, list] of successors) if (list.length > 1) failures.push(`work-plan lineage branches after ${predecessorId}`);
+  for (const [predecessorId, list2] of successors) if (list2.length > 1) failures.push(`work-plan lineage branches after ${predecessorId}`);
   const visiting = /* @__PURE__ */ new Set();
   const visited = /* @__PURE__ */ new Set();
   const visit = (plan) => {
@@ -31149,14 +31169,14 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
   for (const artifact2 of artifacts.values()) {
     if (artifact2.fields.artifact === "delivery-evidence") {
       materializeEvidence(artifact2, artifacts, evidenceCache, errors, root);
-      const list = evidenceByRoot.get(artifact2.fields.root_plan_id) ?? [];
-      list.push(artifact2);
-      evidenceByRoot.set(artifact2.fields.root_plan_id, list);
+      const list2 = evidenceByRoot.get(artifact2.fields.root_plan_id) ?? [];
+      list2.push(artifact2);
+      evidenceByRoot.set(artifact2.fields.root_plan_id, list2);
     }
     if (artifact2.fields.artifact === "work-review") {
-      const list = reviewsByRoot.get(artifact2.fields.root_plan_id) ?? [];
-      list.push(artifact2);
-      reviewsByRoot.set(artifact2.fields.root_plan_id, list);
+      const list2 = reviewsByRoot.get(artifact2.fields.root_plan_id) ?? [];
+      list2.push(artifact2);
+      reviewsByRoot.set(artifact2.fields.root_plan_id, list2);
     }
   }
   for (const [rootId, evidence] of evidenceByRoot) {
@@ -31234,15 +31254,16 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
       disjointCoverage(review.fields.inspected_objectives, review.fields.reused_objectives, plan.objectives, `${review.label}: objective review`, errors);
       disjointCoverage(review.fields.inspected_checks, review.fields.reused_checks, plan.requiredChecks, `${review.label}: Check review`, errors);
       if (index === 0 && ((review.fields.reused_objectives ?? []).length > 0 || (review.fields.reused_checks ?? []).length > 0)) errors.push(`${review.label}: first review must inspect all root evidence`);
-      const fullReviewRequired = rootPlan.fields.schema >= 4 ? rootPlan.fields.contract_level === "certified" || (rootPlan.fields.hard_triggers ?? []).length > 0 : rootPlan.fields.assurance_profile === "deep" || (rootPlan.fields.hard_triggers ?? []).length > 0;
-      if (fullReviewRequired && review.fields.review_route !== "full") {
-        errors.push(`${review.label}: certified or hard-trigger root requires review_route full`);
+      const fullReviewRequired = rootPlan.fields.schema >= 4 ? rootPlan.fields.contract_level === "certified" || rootPlan.fields.risk === "high" || (rootPlan.fields.hard_triggers ?? []).length > 0 : rootPlan.fields.assurance_profile === "deep" || (rootPlan.fields.hard_triggers ?? []).length > 0;
+      const deterministicBlockedRoute = review.fields.delivery_status === "blocked" && review.fields.review_route === "inline" && (review.fields.next_action === "replan" || review.fields.next_action === "correct" && knownFailedEvidence);
+      if (fullReviewRequired && review.fields.review_route !== "full" && !deterministicBlockedRoute) {
+        errors.push(`${review.label}: certified, high-risk, or hard-trigger root requires review_route full`);
       }
       for (const objective of review.fields.reused_objectives ?? []) {
         if (!evidence.fields.reused_objectives.includes(objective)) errors.push(`${review.label}: reused review objective ${objective} lacks delta-evidence reuse`);
         const previousEvidence = index > 0 ? artifacts.get(ordered[index - 1].fields.latest_evidence_id)?.effective : null;
         if (previousEvidence?.objectives.get(objective)?.status !== "achieved") errors.push(`${review.label}: reused objective ${objective} requires achieved predecessor status`);
-        if (reviewData(review).findings.some((finding) => ids(finding.Objectives, objectivePattern).includes(objective))) errors.push(`${review.label}: reused objective ${objective} has a current finding`);
+        if (reviewData(review).findings.some((finding2) => ids(finding2.Objectives, objectivePattern).includes(objective))) errors.push(`${review.label}: reused objective ${objective} has a current finding`);
       }
       for (const check of review.fields.reused_checks ?? []) if (!evidence.fields.reused_checks.includes(check) || effective?.checks.get(check)?.status !== "passed") errors.push(`${review.label}: reused Check ${check} lacks valid passed delta evidence`);
       if (review.fields.assessment === "achieved") {
@@ -31523,9 +31544,22 @@ function parsedArtifact(text, pluginRoot2) {
   }
   return inspected.artifact;
 }
-function recordFor(text, pluginRoot2) {
+function normalizedBuilderProvenance(value, fields, textHash) {
+  if (value == null) return null;
+  if (fields.artifact !== "work-review" || value?.schema !== 1 || value?.kind !== "host-work-review-builder" || !/^[a-f0-9]{64}$/.test(String(value?.review_input_hash ?? "")) || value?.artifact_hash !== textHash || Object.keys(value).some((key) => !["schema", "kind", "review_input_hash", "artifact_hash"].includes(key))) {
+    throw new Error("handoff builder provenance is incompatible with the exact work-review text");
+  }
+  return {
+    schema: 1,
+    kind: "host-work-review-builder",
+    review_input_hash: value.review_input_hash,
+    artifact_hash: textHash
+  };
+}
+function recordFor(text, pluginRoot2, provenance = null) {
   const artifact2 = parsedArtifact(text, pluginRoot2);
   const fields = artifact2.fields;
+  const textHash = sha2562(text);
   return {
     handoff_record_schema: HANDOFF_RECORD_SCHEMA,
     artifact_schema: ARTIFACT_SCHEMA,
@@ -31534,14 +31568,19 @@ function recordFor(text, pluginRoot2) {
     artifact_id: fields.id,
     artifact_type: fields.artifact,
     root_plan_id: fields.artifact === "work-plan" ? fields.id : fields.root_plan_id,
-    text_hash: sha2562(text),
+    text_hash: textHash,
     recorded_at: (/* @__PURE__ */ new Date()).toISOString(),
+    ...provenance ? { builder_provenance: normalizedBuilderProvenance(provenance, fields, textHash) } : {},
     text
   };
 }
-function validateRecord(record2) {
+function validateRecord(record2, pluginRoot2) {
   if (record2?.handoff_record_schema !== HANDOFF_RECORD_SCHEMA || record2?.artifact_schema !== ARTIFACT_SCHEMA || record2?.controller_protocol !== CONTROLLER_PROTOCOL || !/^(?:wp|de|wr)-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(record2?.artifact_id ?? "")) || record2?.text_hash !== sha2562(record2?.text ?? "")) {
     throw new Error(`incompatible or corrupt handoff record ${record2?.artifact_id ?? "unknown"}`);
+  }
+  if (record2.builder_provenance != null) {
+    const fields = parsedArtifact(record2.text, pluginRoot2).fields;
+    normalizedBuilderProvenance(record2.builder_provenance, fields, record2.text_hash);
   }
   return record2;
 }
@@ -31607,7 +31646,7 @@ var ArtifactHandoffStore = class {
   records(ids2 = null) {
     if (!existsSync4(this.directory)) return [];
     const files = ids2 ? [...new Set(ids2)].map((id) => this.artifactPath(id)).filter(existsSync4) : readdirSync(this.directory, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".json")).map((entry) => join5(this.directory, entry.name));
-    return files.map((path) => validateRecord(JSON.parse(readFileSync4(path, "utf8")))).sort((left, right) => left.artifact_id.localeCompare(right.artifact_id));
+    return files.map((path) => validateRecord(JSON.parse(readFileSync4(path, "utf8")), this.pluginRoot)).sort((left, right) => left.artifact_id.localeCompare(right.artifact_id));
   }
   record(artifacts) {
     if (!Array.isArray(artifacts) || artifacts.length < 1 || artifacts.length > 32) throw new Error("handoff record requires 1..32 artifacts");
@@ -31615,7 +31654,7 @@ var ArtifactHandoffStore = class {
       if (!entry || typeof entry.label !== "string" || !entry.label.trim() || typeof entry.text !== "string" || !entry.text.trim()) {
         throw new Error(`handoff artifact ${index + 1} requires non-empty label and text`);
       }
-      return { label: entry.label, record: recordFor(entry.text, this.pluginRoot) };
+      return { label: entry.label, record: recordFor(entry.text, this.pluginRoot, entry.provenance ?? null) };
     });
     const candidateIds = new Set(candidates.map(({ record: record2 }) => record2.artifact_id));
     if (candidateIds.size !== candidates.length) throw new Error("handoff record contains duplicate artifact IDs");
@@ -31744,7 +31783,13 @@ var ArtifactHandoffStore = class {
       artifact_set_hash: stableArtifactSetHash(ordered),
       evidence_tip: tips.evidence_tips[rootPlanId] ?? null,
       review_tip: tips.review_tips[rootPlanId] ?? null,
-      artifacts: ordered.map((record2) => ({ label: record2.artifact_id, text: record2.text, text_hash: record2.text_hash }))
+      artifacts: ordered.map((record2) => ({
+        label: record2.artifact_id,
+        text: record2.text,
+        text_hash: record2.text_hash,
+        ...record2.builder_provenance ? { builder_provenance: record2.builder_provenance } : {},
+        ...record2.artifact_type === "work-review" && !record2.builder_provenance ? { legacy_review_recorded: true } : {}
+      }))
     };
   }
   quarantineArtifact(artifactId, { expectedTextHash, apply = false, now = () => /* @__PURE__ */ new Date() } = {}) {
@@ -32152,11 +32197,11 @@ function manualConstraintProjection({ checks = [], evidence = [], pending = fals
   const humanReview = ids2((check) => check["Evidence Class"] === "human-review-required");
   const humanApproval = ids2((check) => check["Evidence Class"] === "human-approval-required");
   const reasons = pending ? [] : [
-    ...failed.map((checkId) => ({ code: "check-failed", check_id: checkId, message: `${checkId} failed and blocks delivery.`, recovery: `Repair the cause, rerun ${checkId}, then retry closeout.` })),
-    ...unattestedVerified.map((checkId) => ({ code: "legacy-receipt-gap", check_id: checkId, message: `${checkId} is marked verified without a valid host receipt.`, recovery: `Run a fresh review for ${checkId}; use its bounded correction route to refresh Evidence with current host receipts.` })),
-    ...ordinaryGaps.map((checkId) => ({ code: "evidence-gap", check_id: checkId, message: `${checkId} is not fully verified.`, recovery: `Follow the Check limitation, rerun ${checkId}, then retry closeout.` })),
-    ...humanReview.map((checkId) => ({ code: "human-review-required", check_id: checkId, message: `${checkId} requires human review.`, recovery: `Complete the stated review for ${checkId} and record the bounded observation.` })),
-    ...humanApproval.map((checkId) => ({ code: "human-approval-required", check_id: checkId, message: `${checkId} requires explicit human approval.`, recovery: `Request the named approval before continuing.` }))
+    ...failed.map((checkId2) => ({ code: "check-failed", check_id: checkId2, message: `${checkId2} failed and blocks delivery.`, recovery: `Repair the cause, rerun ${checkId2}, then retry closeout.` })),
+    ...unattestedVerified.map((checkId2) => ({ code: "legacy-receipt-gap", check_id: checkId2, message: `${checkId2} is marked verified without a valid host receipt.`, recovery: `Run a fresh review for ${checkId2}; use its bounded correction route to refresh Evidence with current host receipts.` })),
+    ...ordinaryGaps.map((checkId2) => ({ code: "evidence-gap", check_id: checkId2, message: `${checkId2} is not fully verified.`, recovery: `Follow the Check limitation, rerun ${checkId2}, then retry closeout.` })),
+    ...humanReview.map((checkId2) => ({ code: "human-review-required", check_id: checkId2, message: `${checkId2} requires human review.`, recovery: `Complete the stated review for ${checkId2} and record the bounded observation.` })),
+    ...humanApproval.map((checkId2) => ({ code: "human-approval-required", check_id: checkId2, message: `${checkId2} requires explicit human approval.`, recovery: `Request the named approval before continuing.` }))
   ];
   return {
     constraint_summary: {
@@ -32554,7 +32599,7 @@ function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot: plugi
       root_content_hash: createHash6("sha256").update(root.text).digest("hex"),
       evidence_hash: evidence ? createHash6("sha256").update(evidence.text).digest("hex") : null,
       review_hash: review ? createHash6("sha256").update(review.text).digest("hex") : null,
-      finding_ids: (review?.findings ?? []).map((finding) => finding["Finding key"]).filter(Boolean),
+      finding_ids: (review?.findings ?? []).map((finding2) => finding2["Finding key"]).filter(Boolean),
       receipt_ids: [...new Set((evidence?.fields.check_evidence ?? []).flatMap((check) => check.artifact_hashes ?? []))]
     }),
     diagnostics: unique3([...chain.normalizations, ...chain.diagnostics]),
@@ -32948,7 +32993,7 @@ function modelInheritanceSummary(stateRoot) {
 }
 
 // src/mcp/artifact-handlers.mjs
-import { createHash as createHash8 } from "node:crypto";
+import { createHash as createHash9 } from "node:crypto";
 
 // src/controller/delivery-closeout.mjs
 var import_yaml4 = __toESM(require_dist2(), 1);
@@ -33015,8 +33060,8 @@ function normalizeArtifacts(rootPlanText, artifacts, pluginRoot2) {
   }
   return { rootId, entries: [...byId.values()] };
 }
-function expectedCheckMap(contract, correction, unresolvedRootChecks = /* @__PURE__ */ new Map()) {
-  const checks = correction?.checks?.filter((check) => check.Required === "yes") ?? contract.checks.filter((check) => check.Required === "yes");
+function expectedCheckMap(contract, correction2, unresolvedRootChecks = /* @__PURE__ */ new Map()) {
+  const checks = correction2?.checks?.filter((check) => check.Required === "yes") ?? contract.checks.filter((check) => check.Required === "yes");
   return new Map([
     ...checks.map((check) => [check["Check ID"], check]),
     ...unresolvedRootChecks
@@ -33025,9 +33070,67 @@ function expectedCheckMap(contract, correction, unresolvedRootChecks = /* @__PUR
 function rootCheckMap(contract) {
   return new Map(contract.checks.filter((check) => check.Required === "yes").map((check) => [check["Check ID"], check]));
 }
-function unresolvedRootCheckMap(contract, predecessorEvidence) {
+function correctionRootChecks(correction2) {
+  return new Set((correction2?.fixes ?? []).flatMap((fix) => String(fix["Root Checks"] ?? "").match(/CHECK-[1-9][0-9]*/g) ?? []));
+}
+function repositoryPaths(value) {
+  return unique4(String(value ?? "").split(/(?:,|<br>)/i).map((entry) => entry.trim().replace(/^\.\//, "").replace(/\/$/, "")).filter((entry) => entry && !/^(?:none|n\/a|repository root)$/i.test(entry) && !/^(?:CHECK|OBJ|FIX|STEP)-[1-9][0-9]*$/i.test(entry) && /^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/.test(entry)));
+}
+function pathsOverlap(left, right) {
+  return left === right || left.startsWith(`${right}/`) || right.startsWith(`${left}/`);
+}
+function fingerprintMap2(value) {
+  const result2 = /* @__PURE__ */ new Map();
+  for (const entry of String(value ?? "").split(/;\s*/)) {
+    const equals = entry.indexOf("=");
+    if (equals <= 0) continue;
+    const path = entry.slice(0, equals).trim().replace(/^`|`$/g, "").replace(/^\.\//, "");
+    if (!path || ["index", "status"].includes(path)) continue;
+    result2.set(path, entry.slice(equals + 1));
+  }
+  return result2;
+}
+function correctionTargets(correction2) {
+  return unique4((correction2?.steps ?? []).flatMap((step) => repositoryPaths(step.Targets)));
+}
+function rootChecksToRefresh(contract, correction2, predecessorEvidence, repositorySnapshot, changedPaths = []) {
   const effectiveChecks = predecessorEvidence?.effective?.checks;
-  return new Map([...rootCheckMap(contract)].filter(([checkId]) => effectiveChecks?.get(checkId)?.status !== "passed"));
+  const explicitlyAffected = correctionRootChecks(correction2);
+  const affectedObjectives = new Set(correctionObjectives(correction2));
+  const affectedPaths = unique4([
+    ...changedPaths.flatMap(repositoryPaths),
+    ...correctionTargets(correction2)
+  ]);
+  const previousFingerprints = predecessorEvidence?.effective?.snapshot?.["Relevant fingerprints"] ?? null;
+  const currentFingerprints = repositorySnapshot?.relevant_fingerprints ?? null;
+  const previousByPath = fingerprintMap2(previousFingerprints);
+  const currentByPath = fingerprintMap2(currentFingerprints);
+  const stalePaths = unique4([...previousByPath.keys(), ...currentByPath.keys()]).filter((path) => previousByPath.get(path) !== currentByPath.get(path));
+  const opaqueFingerprintChange = Boolean(
+    previousFingerprints && currentFingerprints && previousFingerprints !== currentFingerprints && previousByPath.size === 0 && currentByPath.size === 0
+  );
+  return new Map([...rootCheckMap(contract)].filter(([checkId2, check]) => {
+    const prior = effectiveChecks?.get(checkId2);
+    const prerequisites = repositoryPaths(check.Prerequisites);
+    const objectiveAffected = checkObjectives(check).some((objective) => affectedObjectives.has(objective));
+    const pathAffected = prerequisites.some((prerequisite) => affectedPaths.some((path) => pathsOverlap(prerequisite, path)));
+    const fingerprintStale = prerequisites.some((prerequisite) => stalePaths.some((path) => pathsOverlap(prerequisite, path)));
+    const ambiguousImpact = affectedPaths.length > 0 && prerequisites.length === 0;
+    return !prior || ["failed", "blocked"].includes(prior.status) || explicitlyAffected.has(checkId2) || objectiveAffected || pathAffected || fingerprintStale || opaqueFingerprintChange || ambiguousImpact;
+  }));
+}
+function inheritedCheckEvidence(inspection, predecessorEvidence, checkIds) {
+  return checkIds.map((checkId2) => {
+    const effective = predecessorEvidence?.effective?.checks?.get(checkId2);
+    const source = effective?.source ? inspection.effective.get(effective.source) : null;
+    const exact = source?.fields?.check_evidence?.find((entry) => entry.check_id === checkId2);
+    if (exact) return exact;
+    return {
+      check_id: checkId2,
+      grade: effective?.status === "passed" ? "verified" : effective?.status === "failed" ? "failed" : "supported",
+      limitations: effective?.status === "passed" ? [] : ["Reused predecessor proof retains its prior non-verified grade."]
+    };
+  });
 }
 function normalizeCheckEvidence(input, plannedChecks, rootChecks, evidenceMode2, {
   enforceManualCheckReceipts = false,
@@ -33086,8 +33189,8 @@ function artifactStatus(grade) {
   if (grade === "failed") return "blocked";
   return grade === "verified" ? "complete" : "provisional";
 }
-function correctionObjectives(correction) {
-  return unique4((correction?.fixes ?? []).flatMap((fix) => String(fix["Root Objectives"] ?? "").match(/OBJ-[1-9][0-9]*/g) ?? []));
+function correctionObjectives(correction2) {
+  return unique4((correction2?.fixes ?? []).flatMap((fix) => String(fix["Root Objectives"] ?? "").match(/OBJ-[1-9][0-9]*/g) ?? []));
 }
 function checkObjectives(check) {
   return String(check?.Objectives ?? "").match(/OBJ-[1-9][0-9]*/g) ?? [];
@@ -33123,7 +33226,7 @@ function summaryText(summary2, status, grade) {
   if (status === "provisional") return `Delivery is provisional with aggregate evidence grade ${grade}; limitations remain explicit.`;
   return "The authorized repository delivery is complete and every required Check is verified.";
 }
-function fullBody({ fields, contract, entries, changedPaths, correction, repositorySnapshot, summary: summary2 }) {
+function fullBody({ fields, contract, entries, changedPaths, correction: correction2, repositorySnapshot, summary: summary2 }) {
   const aggregate = fields.overall_grade;
   const outcomes = fields.affected_objectives.map((objective) => ({
     "Objective ID": objective,
@@ -33133,11 +33236,11 @@ function fullBody({ fields, contract, entries, changedPaths, correction, reposit
   const sections = [`## Summary
 
 ${summary2}`];
-  if (correction) {
+  if (correction2) {
     const state = fields.status === "complete" ? "achieved" : fields.status === "blocked" ? "blocked" : "partially-achieved";
     sections.push(`## Subject results
 
-${table(["Objective ID", "Result", "Evidence"], correction.fixes.map((fix) => ({
+${table(["Objective ID", "Result", "Evidence"], correction2.fixes.map((fix) => ({
       "Objective ID": fix["FIX ID"],
       Result: state,
       Evidence: entries.map((entry) => `${entry.check_id}:${entry.grade}`).join(", ")
@@ -33146,7 +33249,7 @@ ${table(["Objective ID", "Result", "Evidence"], correction.fixes.map((fix) => ({
   sections.push(`## Objective outcomes
 
 ${table(["Objective ID", "Status", "Evidence"], outcomes)}`);
-  const coverageIds = correction ? unique4((correction.fixes ?? []).map((fix) => fix["FIX ID"]).filter(Boolean)) : fields.affected_objectives;
+  const coverageIds = correction2 ? unique4((correction2.fixes ?? []).map((fix) => fix["FIX ID"]).filter(Boolean)) : fields.affected_objectives;
   sections.push(changedPaths.length > 0 ? `## Changes
 
 ${table(["Path or Symbol", "Change", "Objective Coverage"], changedPaths.map((path) => ({
@@ -33203,7 +33306,7 @@ function buildDeliveryEvidence({
   const evidenceTipId = tips.evidence_tips[normalized.rootId] ?? null;
   const reviewTipId = tips.review_tips[normalized.rootId] ?? null;
   const review = reviewTipId ? priorInspection.effective.get(reviewTipId) : null;
-  let correction = null;
+  let correction2 = null;
   let subjectId = normalized.rootId;
   let sourceReviewId = null;
   let predecessorEvidenceId = null;
@@ -33252,7 +33355,7 @@ function buildDeliveryEvidence({
         ...projection2
       };
     }
-    correction = review.correction;
+    correction2 = review.correction;
     subjectId = review.fields.correction_id;
     sourceReviewId = review.fields.id;
     predecessorEvidenceId = evidenceTipId;
@@ -33262,25 +33365,28 @@ function buildDeliveryEvidence({
     throw new Error("full closeout requires repository snapshot HEAD and relevant fingerprints");
   }
   const roots = rootCheckMap(contract);
-  const unresolvedRootChecks = correction ? unresolvedRootCheckMap(contract, priorInspection.effective.get(evidenceTipId)) : /* @__PURE__ */ new Map();
+  const predecessorEvidence = correction2 ? priorInspection.effective.get(evidenceTipId) : null;
+  const unresolvedRootChecks = correction2 ? rootChecksToRefresh(contract, correction2, predecessorEvidence, repositorySnapshot, changedPaths) : /* @__PURE__ */ new Map();
   const suppliedCheckIds = new Set((checkEvidence2 ?? []).map((entry) => entry?.check_id));
-  const missingRootRefresh = [...unresolvedRootChecks.keys()].filter((checkId) => !suppliedCheckIds.has(checkId));
+  const missingRootRefresh = [...unresolvedRootChecks.keys()].filter((checkId2) => !suppliedCheckIds.has(checkId2));
   if (missingRootRefresh.length > 0) {
-    throw new Error(`correction closeout requires fresh evidence for inherited non-passed Root Checks: ${missingRootRefresh.join(", ")}`);
+    throw new Error(`correction closeout requires fresh evidence for affected, failed, missing, stale, or ambiguous Root Checks: ${missingRootRefresh.join(", ")}`);
   }
-  const plannedChecks = expectedCheckMap(contract, correction, unresolvedRootChecks);
+  const plannedChecks = expectedCheckMap(contract, correction2, unresolvedRootChecks);
   const entries = normalizeCheckEvidence(checkEvidence2, plannedChecks, roots, mode, {
     enforceManualCheckReceipts: requireManualReceipts,
     manualCheckReceipts
   });
-  const grade = overallGrade(entries);
-  const status = artifactStatus(grade);
   const rootObjectives = contract.objectives;
-  const affectedObjectives = correction ? unique4([...correctionObjectives(correction), ...entries.flatMap((entry) => checkObjectives(roots.get(entry.check_id)))]) : [...rootObjectives];
+  const affectedObjectives = correction2 ? unique4([...correctionObjectives(correction2), ...entries.flatMap((entry) => checkObjectives(roots.get(entry.check_id)))]) : [...rootObjectives];
   const affected = affectedObjectives.length > 0 ? affectedObjectives : [...rootObjectives];
   const reusedObjectives = representation === "delta" ? rootObjectives.filter((id2) => !affected.includes(id2)) : [];
   const executedChecks = entries.map((entry) => entry.check_id);
   const reusedChecks = representation === "delta" ? [...roots.keys()].filter((id2) => !executedChecks.includes(id2)) : [];
+  const reusedEvidence = representation === "delta" ? inheritedCheckEvidence(priorInspection, predecessorEvidence, reusedChecks) : [];
+  const effectiveEntries = [...entries, ...reusedEvidence];
+  const grade = overallGrade(effectiveEntries);
+  const status = artifactStatus(grade);
   const paths = unique4(changedPaths.map(String).map((path) => path.trim()).filter(Boolean)).sort();
   const seed = evidenceSeed({
     contract,
@@ -33319,7 +33425,7 @@ function buildDeliveryEvidence({
   const renderedSummary = summaryText(summary2, status, grade);
   const body = mode === "lean" ? `## Summary
 
-${renderedSummary}` : fullBody({ fields, contract, entries, changedPaths: paths, correction, repositorySnapshot, summary: renderedSummary });
+${renderedSummary}` : fullBody({ fields, contract, entries, changedPaths: paths, correction: correction2, repositorySnapshot, summary: renderedSummary });
   const artifact2 = `---
 ${(0, import_yaml4.stringify)(fields, { lineWidth: 0 }).trimEnd()}
 ---
@@ -33329,7 +33435,7 @@ ${body}
   const finalEntries = [...normalized.entries, { label: id, text: artifact2 }];
   const inspection = inspectArtifactSet(finalEntries.map((entry) => [entry.label, entry.text]), pluginRoot2);
   if (inspection.errors.length > 0) throw new Error(`generated delivery evidence is invalid: ${inspection.errors.join("; ")}`);
-  const projection = manualConstraintProjection({ checks: contract.checks, evidence: entries });
+  const projection = manualConstraintProjection({ checks: contract.checks, evidence: effectiveEntries });
   return {
     duplicate: false,
     artifact: artifact2,
@@ -33357,13 +33463,672 @@ function persistCloseout({ handoffStore, rootPlanText, artifacts = [], closeout 
     const persisted = handoffStore.record([...byId].map(([label, text]) => ({ label, text })));
     return { ...closeout, handoff_persisted: true, handoff_authoritative: false, artifact_set_hash: persisted.artifact_set_hash };
   } catch (error2) {
-    if (/concurrent|conflict|invalid|corrupt|incompatible|stale|ambiguous|multiple/i.test(error2.message)) throw error2;
     return {
       ...closeout,
       handoff_persisted: false,
       handoff_authoritative: false,
       handoff_error_code: "handoff-persist-failed",
-      warning: `handoff cache unavailable: ${error2.message}; attach the returned artifact explicitly to the next Workflow command`
+      warning: `optional cross-task handoff unavailable: ${error2.message}; task-local continuation remains valid`
+    };
+  }
+}
+
+// src/controller/work-review-builder.mjs
+var import_yaml5 = __toESM(require_dist2(), 1);
+import { createHash as createHash8 } from "node:crypto";
+var ASSESSMENTS = /* @__PURE__ */ new Set([
+  "achieved",
+  "provisional",
+  "mostly-achieved",
+  "partially-achieved",
+  "not-achieved",
+  "insufficient-evidence"
+]);
+var ASSESSMENT_RANK = Object.freeze({
+  "insufficient-evidence": 0,
+  "not-achieved": 1,
+  "partially-achieved": 2,
+  "mostly-achieved": 3,
+  provisional: 4,
+  achieved: 5
+});
+var ACTIONS = /* @__PURE__ */ new Set(["none", "accept-provisional", "correct", "clarify", "replan", "retry-review"]);
+var SEVERITIES = /* @__PURE__ */ new Set(["low", "medium", "high", "critical"]);
+var RESOLUTIONS = /* @__PURE__ */ new Set(["correct", "clarify", "replan"]);
+var SNAPSHOT_ASSESSMENTS = /* @__PURE__ */ new Set(["consistent", "contradicted", "incomplete"]);
+var AUDITOR_ROLES = /* @__PURE__ */ new Set(["delivery-auditor", "risk-auditor", "work-design-auditor"]);
+var COSTS = /* @__PURE__ */ new Set(["cheap", "standard", "expensive"]);
+var KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+function sha2567(value) {
+  return createHash8("sha256").update(String(value)).digest("hex");
+}
+function compareCanonical(left, right) {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+function codedError(code, message) {
+  const error2 = new Error(message);
+  error2.code = code;
+  return error2;
+}
+function stable3(value) {
+  if (Array.isArray(value)) return value.map(stable3);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.keys(value).sort(compareCanonical).map((key) => [key, stable3(value[key])]));
+}
+function stableJson3(value) {
+  return JSON.stringify(stable3(value));
+}
+function object3(value, label) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} must be an object`);
+  return value;
+}
+function closed(value, allowed, label) {
+  const unknown2 = Object.keys(value).filter((key) => !allowed.includes(key));
+  if (unknown2.length > 0) throw new Error(`${label} contains unsupported field ${unknown2[0]}`);
+}
+function requiredField(value, key, label = "review_input") {
+  if (!Object.prototype.hasOwnProperty.call(value, key)) throw new Error(`${label}.${key} is required`);
+  return value[key];
+}
+function line(value, label, { required: required2 = true, max = 2e3 } = {}) {
+  if (typeof value !== "string") throw new Error(`${label} must be a string`);
+  const normalized = value.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
+  if (required2 && !normalized) throw new Error(`${label} is required`);
+  if (normalized.length > max) throw new Error(`${label} exceeds ${max} characters`);
+  return normalized;
+}
+function enumValue(value, values, label) {
+  const normalized = String(value ?? "").trim();
+  if (!values.has(normalized)) throw new Error(`${label} has invalid value ${normalized || "<missing>"}`);
+  return normalized;
+}
+function list(value, label, { max = 64, required: required2 = false } = {}) {
+  if (!Array.isArray(value)) throw new Error(`${label} must be an array`);
+  if (required2 && value.length === 0) throw new Error(`${label} must not be empty`);
+  if (value.length > max) throw new Error(`${label} exceeds ${max} items`);
+  return value;
+}
+function uniqueSorted(values) {
+  return [...new Set(values)].sort(compareCanonical);
+}
+function normalizeIds(value, pattern, allowed, label) {
+  const normalized = uniqueSorted(list(value, label, { required: true }).map((entry) => line(entry, label, { max: 80 })));
+  for (const id of normalized) {
+    if (!pattern.test(id) || !allowed.has(id)) throw new Error(`${label} contains unknown ${id}`);
+  }
+  return normalized;
+}
+function localKey(value, label) {
+  const normalized = line(value, label, { max: 80 });
+  if (!KEY.test(normalized)) throw new Error(`${label} must be a lowercase semantic key`);
+  return normalized;
+}
+function normalizeFindings(value, contract) {
+  const objectiveIds = new Set(contract.objectives);
+  const checkIds = new Set(contract.checks.filter((check) => check.Required === "yes").map((check) => check["Check ID"]));
+  const findings = list(value, "review_input.findings", { max: 32 }).map((entry, index) => {
+    const item = object3(entry, `review_input.findings[${index}]`);
+    closed(item, ["key", "severity", "objective_ids", "check_ids", "evidence", "reasoning", "resolution"], `review_input.findings[${index}]`);
+    return {
+      key: localKey(item.key, `review_input.findings[${index}].key`),
+      severity: enumValue(item.severity, SEVERITIES, `review_input.findings[${index}].severity`),
+      objective_ids: normalizeIds(item.objective_ids, /^OBJ-[1-9][0-9]*$/, objectiveIds, `review_input.findings[${index}].objective_ids`),
+      check_ids: normalizeIds(item.check_ids, /^CHECK-[1-9][0-9]*$/, checkIds, `review_input.findings[${index}].check_ids`),
+      evidence: line(item.evidence, `review_input.findings[${index}].evidence`, { max: 4e3 }),
+      reasoning: line(item.reasoning, `review_input.findings[${index}].reasoning`, { max: 4e3 }),
+      resolution: enumValue(item.resolution, RESOLUTIONS, `review_input.findings[${index}].resolution`)
+    };
+  }).sort((left, right) => compareCanonical(left.key, right.key));
+  if (new Set(findings.map((finding2) => finding2.key)).size !== findings.length) throw new Error("review_input.findings keys must be unique");
+  return findings;
+}
+function normalizeAuditors(value) {
+  const reports = list(value, "review_input.auditor_reports", { max: 3 }).map((entry, index) => {
+    const item = object3(entry, `review_input.auditor_reports[${index}]`);
+    closed(item, ["role", "assessment", "summary"], `review_input.auditor_reports[${index}]`);
+    return {
+      role: enumValue(item.role, AUDITOR_ROLES, `review_input.auditor_reports[${index}].role`),
+      assessment: enumValue(item.assessment, ASSESSMENTS, `review_input.auditor_reports[${index}].assessment`),
+      summary: line(item.summary, `review_input.auditor_reports[${index}].summary`, { max: 2e3 })
+    };
+  }).sort((left, right) => compareCanonical(left.role, right.role));
+  if (new Set(reports.map((report) => report.role)).size !== reports.length) throw new Error("review_input.auditor_reports roles must be unique");
+  return reports;
+}
+function normalizeCorrection(value, findingKeys) {
+  if (value == null) return null;
+  const correction2 = object3(value, "review_input.correction");
+  closed(correction2, ["fixes", "steps", "checks", "learning_candidates"], "review_input.correction");
+  const fixes = list(correction2.fixes, "review_input.correction.fixes", { max: 32, required: true }).map((entry, index) => {
+    const item = object3(entry, `review_input.correction.fixes[${index}]`);
+    closed(item, ["key", "finding_keys", "required_outcome", "evidence"], `review_input.correction.fixes[${index}]`);
+    const keys = uniqueSorted(list(item.finding_keys, `review_input.correction.fixes[${index}].finding_keys`, { required: true }).map((key) => localKey(key, `review_input.correction.fixes[${index}].finding_keys`)));
+    if (keys.some((key) => !findingKeys.has(key))) throw new Error(`review_input.correction.fixes[${index}] references an unknown finding`);
+    return {
+      key: localKey(item.key, `review_input.correction.fixes[${index}].key`),
+      finding_keys: keys,
+      required_outcome: line(item.required_outcome, `review_input.correction.fixes[${index}].required_outcome`, { max: 2e3 }),
+      evidence: line(item.evidence, `review_input.correction.fixes[${index}].evidence`, { max: 2e3 })
+    };
+  }).sort((left, right) => compareCanonical(left.key, right.key));
+  const fixKeys = new Set(fixes.map((fix) => fix.key));
+  if (fixKeys.size !== fixes.length) throw new Error("review_input.correction.fixes keys must be unique");
+  const checks = list(correction2.checks, "review_input.correction.checks", { max: 32, required: true }).map((entry, index) => {
+    const item = object3(entry, `review_input.correction.checks[${index}]`);
+    closed(item, ["key", "fix_keys", "working_directory", "command_or_inspection", "expected_result", "required", "cost_class", "prerequisites"], `review_input.correction.checks[${index}]`);
+    const referencedFixes = uniqueSorted(list(item.fix_keys, `review_input.correction.checks[${index}].fix_keys`, { required: true }).map((key) => localKey(key, `review_input.correction.checks[${index}].fix_keys`)));
+    if (referencedFixes.some((key) => !fixKeys.has(key))) throw new Error(`review_input.correction.checks[${index}] references an unknown fix`);
+    const prerequisites = uniqueSorted(list(item.prerequisites, `review_input.correction.checks[${index}].prerequisites`, { required: true }).map((entryValue) => line(entryValue, `review_input.correction.checks[${index}].prerequisites`, { max: 1e3 })));
+    if (typeof item.required !== "boolean") throw new Error(`review_input.correction.checks[${index}].required must be a boolean`);
+    return {
+      key: localKey(item.key, `review_input.correction.checks[${index}].key`),
+      fix_keys: referencedFixes,
+      working_directory: line(item.working_directory, `review_input.correction.checks[${index}].working_directory`, { max: 1e3 }),
+      command_or_inspection: line(item.command_or_inspection, `review_input.correction.checks[${index}].command_or_inspection`, { max: 2e3 }),
+      expected_result: line(item.expected_result, `review_input.correction.checks[${index}].expected_result`, { max: 2e3 }),
+      required: item.required,
+      cost_class: enumValue(item.cost_class, COSTS, `review_input.correction.checks[${index}].cost_class`),
+      prerequisites
+    };
+  }).sort((left, right) => ({ cheap: 0, standard: 1, expensive: 2 })[left.cost_class] - { cheap: 0, standard: 1, expensive: 2 }[right.cost_class] || compareCanonical(left.key, right.key));
+  const checkKeys = new Set(checks.map((check) => check.key));
+  if (checkKeys.size !== checks.length) throw new Error("review_input.correction.checks keys must be unique");
+  const steps = list(correction2.steps, "review_input.correction.steps", { max: 32, required: true }).map((entry, index) => {
+    const item = object3(entry, `review_input.correction.steps[${index}]`);
+    closed(item, ["key", "fix_keys", "targets", "required_outcome", "implementation_latitude", "completion_probe", "check_keys", "deviation_action"], `review_input.correction.steps[${index}]`);
+    const referencedFixes = uniqueSorted(list(item.fix_keys, `review_input.correction.steps[${index}].fix_keys`, { required: true }).map((key) => localKey(key, `review_input.correction.steps[${index}].fix_keys`)));
+    const referencedChecks = uniqueSorted(list(item.check_keys, `review_input.correction.steps[${index}].check_keys`, { required: true }).map((key) => localKey(key, `review_input.correction.steps[${index}].check_keys`)));
+    if (referencedFixes.some((key) => !fixKeys.has(key))) throw new Error(`review_input.correction.steps[${index}] references an unknown fix`);
+    if (referencedChecks.some((key) => !checkKeys.has(key))) throw new Error(`review_input.correction.steps[${index}] references an unknown check`);
+    return {
+      key: localKey(item.key, `review_input.correction.steps[${index}].key`),
+      fix_keys: referencedFixes,
+      targets: uniqueSorted(list(item.targets, `review_input.correction.steps[${index}].targets`, { required: true }).map((target) => line(target, `review_input.correction.steps[${index}].targets`, { max: 1e3 }))),
+      required_outcome: line(item.required_outcome, `review_input.correction.steps[${index}].required_outcome`, { max: 2e3 }),
+      implementation_latitude: line(item.implementation_latitude, `review_input.correction.steps[${index}].implementation_latitude`, { max: 2e3 }),
+      completion_probe: line(item.completion_probe, `review_input.correction.steps[${index}].completion_probe`, { max: 2e3 }),
+      check_keys: referencedChecks,
+      deviation_action: line(item.deviation_action, `review_input.correction.steps[${index}].deviation_action`, { max: 2e3 })
+    };
+  }).sort((left, right) => compareCanonical(left.key, right.key));
+  const stepKeys = new Set(steps.map((step) => step.key));
+  if (stepKeys.size !== steps.length) throw new Error("review_input.correction.steps keys must be unique");
+  for (const fix of fixKeys) if (!steps.some((step) => step.fix_keys.includes(fix))) throw new Error(`review_input.correction.steps do not cover ${fix}`);
+  const learningCandidates = list(correction2.learning_candidates, "review_input.correction.learning_candidates", { max: 32, required: true }).map((entry, index) => {
+    const item = object3(entry, `review_input.correction.learning_candidates[${index}]`);
+    closed(item, ["key", "finding_keys", "reusable_guidance", "candidate_targets", "confirmation_evidence"], `review_input.correction.learning_candidates[${index}]`);
+    const keys = uniqueSorted(list(item.finding_keys, `review_input.correction.learning_candidates[${index}].finding_keys`, { required: true }).map((key) => localKey(key, `review_input.correction.learning_candidates[${index}].finding_keys`)));
+    if (keys.some((key) => !findingKeys.has(key))) throw new Error(`review_input.correction.learning_candidates[${index}] references an unknown finding`);
+    return {
+      key: localKey(item.key, `review_input.correction.learning_candidates[${index}].key`),
+      finding_keys: keys,
+      reusable_guidance: line(item.reusable_guidance, `review_input.correction.learning_candidates[${index}].reusable_guidance`, { max: 2e3 }),
+      candidate_targets: uniqueSorted(list(item.candidate_targets, `review_input.correction.learning_candidates[${index}].candidate_targets`, { required: true }).map((target) => line(target, `review_input.correction.learning_candidates[${index}].candidate_targets`, { max: 1e3 }))),
+      confirmation_evidence: line(item.confirmation_evidence, `review_input.correction.learning_candidates[${index}].confirmation_evidence`, { max: 2e3 })
+    };
+  }).sort((left, right) => compareCanonical(left.key, right.key));
+  if (new Set(learningCandidates.map((candidate) => candidate.key)).size !== learningCandidates.length) throw new Error("review_input.correction.learning_candidates keys must be unique");
+  return { fixes, checks, steps, learning_candidates: learningCandidates };
+}
+function normalizeReviewInput(input, contract) {
+  const value = object3(input, "review_input");
+  closed(value, ["schema", "kind", "assessment", "recommended_action", "assessment_summary", "snapshot_assessment", "snapshot_summary", "findings", "missing_evidence", "auditor_reports", "correction"], "review_input");
+  if (value.schema !== 1) throw new Error("review_input.schema must be 1");
+  if (value.kind !== "review-input") throw new Error("review_input.kind must be review-input");
+  const findings = normalizeFindings(requiredField(value, "findings"), contract);
+  const findingKeys = new Set(findings.map((finding2) => finding2.key));
+  const normalized = {
+    schema: 1,
+    kind: "review-input",
+    assessment: enumValue(requiredField(value, "assessment"), ASSESSMENTS, "review_input.assessment"),
+    recommended_action: enumValue(requiredField(value, "recommended_action"), ACTIONS, "review_input.recommended_action"),
+    assessment_summary: line(requiredField(value, "assessment_summary"), "review_input.assessment_summary", { max: 2e3 }),
+    snapshot_assessment: enumValue(requiredField(value, "snapshot_assessment"), SNAPSHOT_ASSESSMENTS, "review_input.snapshot_assessment"),
+    snapshot_summary: line(requiredField(value, "snapshot_summary"), "review_input.snapshot_summary", { max: 2e3 }),
+    findings,
+    missing_evidence: uniqueSorted(list(requiredField(value, "missing_evidence"), "review_input.missing_evidence", { max: 32 }).map((entry) => line(entry, "review_input.missing_evidence", { max: 2e3 }))),
+    auditor_reports: normalizeAuditors(requiredField(value, "auditor_reports")),
+    correction: normalizeCorrection(value.correction, findingKeys)
+  };
+  if (normalized.recommended_action === "correct") {
+    if (normalized.findings.length === 0) throw new Error("review_input correct requires at least one finding");
+    if (!normalized.correction) throw new Error("review_input correct requires a correction proposal");
+  } else if (normalized.correction) {
+    throw new Error("review_input.correction is allowed only for recommended_action correct");
+  }
+  return normalized;
+}
+function mergeChain(rootPlanText, artifacts, pluginRoot2) {
+  const rootInspection = inspectArtifactText(rootPlanText, pluginRoot2);
+  if (rootInspection.errors.length > 0 || rootInspection.artifact?.fields?.artifact !== "work-plan" || rootInspection.artifact.fields.schema !== 5) {
+    throw new Error(`review builder requires an exact valid Schema-5 Root: ${rootInspection.errors.join("; ") || "not a work-plan"}`);
+  }
+  const byId = /* @__PURE__ */ new Map([[rootInspection.artifact.fields.id, { label: rootInspection.artifact.fields.id, text: rootPlanText }]]);
+  for (const [index, entry] of (artifacts ?? []).entries()) {
+    if (!entry || typeof entry.text !== "string" || !entry.text.trim()) throw new Error(`review builder artifact ${index + 1} requires exact text`);
+    const inspected = inspectArtifactText(entry.text, pluginRoot2);
+    if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) throw new Error(`review builder artifact ${entry.label ?? index + 1} is invalid: ${inspected.errors.join("; ")}`);
+    const id = inspected.artifact.fields.id;
+    const builderProvenance = entry.builder_provenance ?? entry.provenance ?? null;
+    const protectedLegacyReview = entry.legacy_review_recorded === true;
+    if (inspected.artifact.fields.artifact === "work-review") {
+      const validBuilderProvenance = builderProvenance?.schema === 1 && builderProvenance?.kind === "host-work-review-builder" && /^[a-f0-9]{64}$/.test(String(builderProvenance?.review_input_hash ?? "")) && builderProvenance?.artifact_hash === sha2567(entry.text) && Object.keys(builderProvenance).every((key) => ["schema", "kind", "review_input_hash", "artifact_hash"].includes(key));
+      if (builderProvenance && !validBuilderProvenance) {
+        throw codedError("review-artifact-rejected", `review builder artifact ${id} has invalid host builder provenance`);
+      }
+      if (!validBuilderProvenance && !protectedLegacyReview) {
+        throw codedError("review-artifact-rejected", `review builder rejects newly imported work-review ${id} without protected builder provenance; Root, Evidence, and repository work remain unchanged, so repeat Review from the exact Root/Evidence chain in this task`);
+      }
+    }
+    const prior = byId.get(id);
+    if (prior && prior.text !== entry.text) throw new Error(`review builder artifact ${id} has conflicting immutable bytes`);
+    byId.set(id, {
+      label: id,
+      text: entry.text,
+      ...builderProvenance ? { builder_provenance: builderProvenance } : {},
+      ...protectedLegacyReview ? { legacy_review_recorded: true } : {}
+    });
+  }
+  return { rootFields: rootInspection.artifact.fields, entries: [...byId.values()] };
+}
+function knownFailure(evidence) {
+  return evidence?.fields?.status === "blocked" || (evidence?.fields?.check_evidence ?? []).some((entry) => entry.grade === "failed");
+}
+function decision(input, evidence) {
+  for (const report of input.auditor_reports) {
+    if (ASSESSMENT_RANK[report.assessment] < ASSESSMENT_RANK[input.assessment]) {
+      throw new Error(`review_input.assessment ${input.assessment} is more positive than review_input.auditor_reports ${report.role} assessment ${report.assessment}`);
+    }
+  }
+  const failed = knownFailure(evidence);
+  const reviewReady = evidence?.effective?.reviewReady === true && evidence?.fields?.status === "complete";
+  const hasFindings = input.findings.length > 0;
+  const missing = input.missing_evidence.length > 0 || input.snapshot_assessment !== "consistent";
+  let assessment = input.assessment;
+  let nextAction = input.recommended_action;
+  let deliveryStatus = "blocked";
+  if (failed) {
+    if (nextAction === "replan" || nextAction === "clarify") {
+      assessment = ["achieved", "provisional"].includes(assessment) ? "not-achieved" : assessment;
+    } else if (hasFindings && input.correction) {
+      nextAction = "correct";
+      assessment = ["achieved", "provisional"].includes(assessment) ? "not-achieved" : assessment;
+    } else {
+      nextAction = "retry-review";
+      assessment = "insufficient-evidence";
+    }
+    return { assessment, delivery_status: "blocked", next_action: nextAction, review_ready: reviewReady, known_failure: true };
+  }
+  if (nextAction === "replan" || nextAction === "clarify") {
+    assessment = ["achieved", "provisional"].includes(assessment) ? "partially-achieved" : assessment;
+    return { assessment, delivery_status: "blocked", next_action: nextAction, review_ready: reviewReady, known_failure: false };
+  }
+  if (nextAction === "correct" || hasFindings) {
+    if (!input.correction || !hasFindings) throw new Error("review findings requiring correction need one complete correction proposal");
+    assessment = ["achieved", "provisional"].includes(assessment) ? "mostly-achieved" : assessment;
+    return { assessment, delivery_status: "blocked", next_action: "correct", review_ready: reviewReady, known_failure: false };
+  }
+  if (missing || nextAction === "retry-review" || assessment === "insufficient-evidence") {
+    return { assessment: "insufficient-evidence", delivery_status: "blocked", next_action: "retry-review", review_ready: reviewReady, known_failure: false };
+  }
+  if (reviewReady && assessment === "achieved" && nextAction === "none") {
+    return { assessment: "achieved", delivery_status: "verified", next_action: "none", review_ready: true, known_failure: false };
+  }
+  if (!["none", "accept-provisional"].includes(nextAction)) throw new Error(`review_input recommended_action ${nextAction} is inconsistent with an evidence-only provisional result`);
+  if (!["achieved", "provisional"].includes(assessment)) {
+    throw new Error(`review_input.assessment ${assessment} is inconsistent with review_input.recommended_action ${nextAction}; provide the missing Evidence or choose correct, clarify, replan, or retry-review`);
+  }
+  return { assessment: "provisional", delivery_status: "provisional", next_action: "accept-provisional", review_ready: reviewReady, known_failure: false };
+}
+function routeFor(rootFields, input, outcome) {
+  const roles = new Set(input.auditor_reports.map((report) => report.role));
+  const deterministicBlocked = outcome.delivery_status === "blocked" && (outcome.next_action === "replan" || outcome.next_action === "correct" && outcome.known_failure);
+  const fullRequired = rootFields.contract_level === "certified" || rootFields.risk === "high" || (rootFields.hard_triggers ?? []).length > 0;
+  if (roles.has("risk-auditor")) {
+    if (!roles.has("delivery-auditor")) throw new Error("risk-auditor review input also requires delivery-auditor input");
+    return { review_route: "full", auditors_run: ["inline", "delivery-auditor", "risk-auditor", ...roles.has("work-design-auditor") ? ["work-design-auditor"] : []] };
+  }
+  if (fullRequired && !deterministicBlocked) throw new Error("certified, high-risk, or hard-trigger review requires delivery-auditor and risk-auditor reports");
+  if (roles.has("delivery-auditor")) return { review_route: "targeted", auditors_run: ["inline", "delivery-auditor"] };
+  if (roles.has("work-design-auditor")) return { review_route: "targeted", auditors_run: ["inline", "work-design-auditor"] };
+  return { review_route: "inline", auditors_run: ["inline"] };
+}
+function cell2(value) {
+  const text = String(value ?? "").replace(/\r?\n/g, "<br>").replace(/\|/g, "\\|").trim();
+  return text || "none";
+}
+function table2(headers, rows) {
+  return [
+    `| ${headers.join(" | ")} |`,
+    `|${headers.map(() => "---").join("|")}|`,
+    ...rows.map((row) => `| ${headers.map((header) => cell2(row[header])).join(" | ")} |`)
+  ].join("\n");
+}
+function nextCheckNumber(entries, pluginRoot2) {
+  let maximum = 0;
+  for (const entry of entries) {
+    const inspected = inspectArtifactText(entry.text, pluginRoot2);
+    const matches = entry.text.match(/\bCHECK-([1-9][0-9]*)\b/g) ?? [];
+    for (const match of matches) maximum = Math.max(maximum, Number(match.slice(6)));
+    if (inspected.errors.length > 0) continue;
+  }
+  return maximum + 1;
+}
+function correctionProjection({ normalized, findings, seed, rootFields, evidenceId, reviewId, predecessorReview, entries, pluginRoot: pluginRoot2 }) {
+  if (!normalized.correction) return null;
+  const correctionId = `cp-${rootFields.id.replace(/^wp-/, "")}-${seed.slice(0, 12)}`;
+  const fixIds = new Map(normalized.correction.fixes.map((fix, index) => [fix.key, `FIX-${index + 1}`]));
+  const stepIds = new Map(normalized.correction.steps.map((step, index) => [step.key, `STEP-${index + 1}`]));
+  const checkStart = nextCheckNumber(entries, pluginRoot2);
+  const checkIds = new Map(normalized.correction.checks.map((check, index) => [check.key, `CHECK-${checkStart + index}`]));
+  const learningIds = new Map(normalized.correction.learning_candidates.map((candidate, index) => [candidate.key, `LRN-${seed.slice(0, 8)}-${index + 1}`]));
+  const findingsByKey = new Map(findings.map((finding2) => [finding2.key, finding2]));
+  const fixes = normalized.correction.fixes.map((fix) => {
+    const mapped = fix.finding_keys.map((key) => findingsByKey.get(key));
+    return {
+      "FIX ID": fixIds.get(fix.key),
+      "Finding keys": fix.finding_keys.join(", "),
+      "Root Objectives": uniqueSorted(mapped.flatMap((finding2) => finding2.objective_ids)).join(", "),
+      "Root Checks": uniqueSorted(mapped.flatMap((finding2) => finding2.check_ids)).join(", "),
+      "Required outcome": fix.required_outcome,
+      Evidence: fix.evidence
+    };
+  });
+  const steps = normalized.correction.steps.map((step, index) => ({
+    "Step ID": stepIds.get(step.key),
+    "FIX IDs": step.fix_keys.map((key) => fixIds.get(key)).join(", "),
+    Targets: step.targets.join(", "),
+    "Required outcome": step.required_outcome,
+    "Implementation latitude": step.implementation_latitude,
+    "Completion probe": `PROBE-${index + 1}: ${step.completion_probe}`,
+    "Check IDs": step.check_keys.map((key) => checkIds.get(key)).join(", "),
+    "Deviation action": step.deviation_action
+  }));
+  const checks = normalized.correction.checks.map((check) => ({
+    "Check ID": checkIds.get(check.key),
+    "FIX IDs": check.fix_keys.map((key) => fixIds.get(key)).join(", "),
+    "Working Directory": check.working_directory,
+    "Command or Inspection": check.command_or_inspection,
+    "Expected Result": check.expected_result,
+    Required: check.required ? "yes" : "no",
+    "Cost Class": check.cost_class,
+    Prerequisites: check.prerequisites.join(", ")
+  }));
+  const learnings = normalized.correction.learning_candidates.map((candidate) => ({
+    "Learning ID": learningIds.get(candidate.key),
+    "Finding keys": candidate.finding_keys.join(", "),
+    "Reusable guidance": candidate.reusable_guidance,
+    "Candidate targets": candidate.candidate_targets.join(", "),
+    "Confirmation evidence": candidate.confirmation_evidence
+  }));
+  const predecessorCorrection = predecessorReview?.fields?.correction_id ?? "None.";
+  const body = [
+    `## Correction plan
+
+### ${correctionId}`,
+    table2(["Correction ID", "Root Plan", "Source Review", "Base Evidence", "Predecessor Correction", "Risk"], [{
+      "Correction ID": correctionId,
+      "Root Plan": rootFields.id,
+      "Source Review": reviewId,
+      "Base Evidence": evidenceId,
+      "Predecessor Correction": predecessorCorrection,
+      Risk: rootFields.risk
+    }]),
+    table2(["FIX ID", "Finding keys", "Root Objectives", "Root Checks", "Required outcome", "Evidence"], fixes),
+    table2(["Step ID", "FIX IDs", "Targets", "Required outcome", "Implementation latitude", "Completion probe", "Check IDs", "Deviation action"], steps),
+    table2(["Check ID", "FIX IDs", "Working Directory", "Command or Inspection", "Expected Result", "Required", "Cost Class", "Prerequisites"], checks),
+    table2(["Learning ID", "Finding keys", "Reusable guidance", "Candidate targets", "Confirmation evidence"], learnings)
+  ].join("\n\n");
+  return { correction_id: correctionId, learning_ids: [...learningIds.values()], body };
+}
+function reviewBody({ normalized, outcome, route, coverage, evidenceId, correction: correction2 }) {
+  const sections = [
+    `## Assessment
+
+${outcome.assessment}: ${normalized.assessment_summary}`,
+    `## Evidence coverage
+
+${table2(["Kind", "Inspected", "Reused", "Result", "Evidence"], [
+      { Kind: "Objectives", Inspected: coverage.inspectedObjectives.join(", ") || "none", Reused: coverage.reusedObjectives.join(", ") || "none", Result: outcome.assessment, Evidence: `exact Evidence ${evidenceId}` },
+      { Kind: "Checks", Inspected: coverage.inspectedChecks.join(", ") || "none", Reused: coverage.reusedChecks.join(", ") || "none", Result: outcome.delivery_status === "verified" ? "passed" : outcome.delivery_status, Evidence: `exact Evidence ${evidenceId}` },
+      { Kind: "Auditors", Inspected: route.auditors_run.join(", "), Reused: "none", Result: "complete", Evidence: "validated review input" },
+      { Kind: "Snapshot", Inspected: evidenceId, Reused: "none", Result: normalized.snapshot_assessment, Evidence: normalized.snapshot_summary }
+    ])}`,
+    normalized.findings.length === 0 ? "## Findings\n\nNone." : `## Findings
+
+${table2(["Finding key", "Severity", "Objectives", "Checks", "Evidence", "Reasoning"], normalized.findings.map((finding2) => ({
+      "Finding key": finding2.key,
+      Severity: finding2.severity,
+      Objectives: finding2.objective_ids.join(", "),
+      Checks: finding2.check_ids.join(", "),
+      Evidence: finding2.evidence,
+      Reasoning: finding2.reasoning
+    })))}`,
+    `## Next action
+
+${outcome.next_action}: ${outcome.next_action === "none" ? "No further Workflow action is required." : `Continue through the bounded ${outcome.next_action} route in this task.`}`
+  ];
+  if (correction2) sections.push(correction2.body);
+  return sections.join("\n\n");
+}
+function boundaryBody(receipt) {
+  return [
+    "## Assessment\n\ninsufficient-evidence: deterministic Evidence recovery is unavailable for the exact current boundary.",
+    `## Evidence coverage
+
+${table2(["Kind", "Inspected", "Reused", "Result", "Evidence"], [
+      { Kind: "Objectives", Inspected: "none", Reused: "none", Result: "blocked", Evidence: "protected root-boundary receipt" },
+      { Kind: "Checks", Inspected: "none", Reused: "none", Result: "blocked", Evidence: "protected root-boundary receipt" },
+      { Kind: "Auditors", Inspected: "inline", Reused: "none", Result: "complete", Evidence: "host boundary validation" },
+      { Kind: "Snapshot", Inspected: receipt.repository_snapshot_hash, Reused: "none", Result: "incomplete", Evidence: receipt.recovery_error_code }
+    ])}`,
+    "## Findings\n\nNone.",
+    "## Next action\n\nreplan: create a fresh Root through separate human approval."
+  ].join("\n\n");
+}
+function buildWorkReview({
+  rootPlanText,
+  artifacts = [],
+  reviewInput = null,
+  boundaryReceipt = null,
+  boundaryReceiptVerifier: boundaryReceiptVerifier2 = null,
+  pluginRoot: pluginRoot2
+}) {
+  const merged = mergeChain(rootPlanText, artifacts, pluginRoot2);
+  const contract = executionContractFromArtifactText(rootPlanText, pluginRoot2);
+  if (contract.errors.length > 0 || contract.fields.schema !== 5) throw new Error(`review builder Root is invalid: ${contract.errors.join("; ")}`);
+  const inspectionOptions = boundaryReceipt && typeof boundaryReceiptVerifier2 === "function" ? { boundaryReceiptVerifier: boundaryReceiptVerifier2 } : {};
+  const prior = inspectArtifactSet(merged.entries.map((entry) => [entry.label, entry.text]), pluginRoot2, inspectionOptions);
+  if (prior.errors.length > 0) throw new Error(`review builder input chain is invalid: ${prior.errors.join("; ")}`);
+  const tips = effectiveCliSummary(prior);
+  const predecessorReviewId = tips.review_tips[merged.rootFields.id] ?? null;
+  const predecessorReview = predecessorReviewId ? prior.effective.get(predecessorReviewId) : null;
+  const predecessorReviewText = predecessorReviewId ? merged.entries.find((entry) => entry.label === predecessorReviewId)?.text ?? "" : "";
+  if (boundaryReceipt) {
+    if (typeof boundaryReceiptVerifier2 !== "function") throw new Error("root-boundary review requires a protected host verifier");
+    const trusted = boundaryReceiptVerifier2({ receipt: boundaryReceipt, rootPlanText, reviewFields: null });
+    if (trusted?.ok !== true) throw new Error(`root-boundary receipt is not trusted: ${trusted?.reason ?? "host verification failed"}`);
+    const seedInput2 = {
+      schema: 1,
+      root_content_hash: rootContentHash(rootPlanText),
+      root_projection_hash: contract.authoritative_projection_hash,
+      predecessor_review_id: predecessorReviewId,
+      predecessor_review_hash: predecessorReviewText ? sha2567(predecessorReviewText) : null,
+      boundary_receipt: boundaryReceipt
+    };
+    const reviewInputHash2 = sha2567(stableJson3(seedInput2));
+    const id2 = `wr-${merged.rootFields.id.replace(/^wp-/, "")}-${reviewInputHash2.slice(0, 12)}`;
+    const fields2 = {
+      artifact: "work-review",
+      schema: 5,
+      id: id2,
+      status: "complete",
+      root_plan_id: merged.rootFields.id,
+      latest_evidence_id: null,
+      review_basis: "root-boundary",
+      boundary_receipt: boundaryReceipt,
+      assessment: "insufficient-evidence",
+      delivery_status: "blocked",
+      review_route: "inline",
+      next_action: "replan",
+      correction_id: null,
+      predecessor_review_id: predecessorReviewId,
+      inspected_objectives: [],
+      reused_objectives: [],
+      inspected_checks: [],
+      reused_checks: [],
+      auditors_run: ["inline"]
+    };
+    const artifact3 = `---
+${(0, import_yaml5.stringify)(fields2, { lineWidth: 0 }).trimEnd()}
+---
+
+${boundaryBody(boundaryReceipt)}
+`;
+    const duplicate2 = merged.entries.find((entry) => entry.label === id2);
+    if (duplicate2 && duplicate2.text !== artifact3) throw new Error(`review builder generated conflicting immutable bytes for ${id2}`);
+    const finalEntries2 = duplicate2 ? merged.entries : [...merged.entries, { label: id2, text: artifact3 }];
+    const validated2 = inspectArtifactSet(finalEntries2.map((entry) => [entry.label, entry.text]), pluginRoot2, { boundaryReceiptVerifier: boundaryReceiptVerifier2 });
+    if (validated2.errors.length > 0) throw new Error(`generated work-review is invalid: ${validated2.errors.join("; ")}`);
+    const artifactHash2 = sha2567(artifact3);
+    return { duplicate: Boolean(duplicate2), artifact: artifact3, artifact_hash: artifactHash2, review_input_hash: reviewInputHash2, fields: fields2, provenance: { schema: 1, kind: "host-work-review-builder", review_input_hash: reviewInputHash2, artifact_hash: artifactHash2 } };
+  }
+  const evidenceId = tips.evidence_tips[merged.rootFields.id] ?? null;
+  if (!evidenceId) throw new Error("review builder requires the exact current Evidence tip");
+  const evidence = prior.effective.get(evidenceId);
+  const evidenceText = merged.entries.find((entry) => entry.label === evidenceId)?.text;
+  if (!evidence || !evidenceText) throw new Error(`review builder cannot resolve exact Evidence ${evidenceId}`);
+  let normalized;
+  let outcome;
+  let route;
+  try {
+    normalized = normalizeReviewInput(reviewInput, contract);
+    outcome = decision(normalized, evidence);
+    route = routeFor(merged.rootFields, normalized, outcome);
+  } catch (error2) {
+    if (error2?.code) throw error2;
+    throw codedError("review-input-invalid", error2?.message ?? "review_input is invalid");
+  }
+  const currentReviewEntry = predecessorReviewId ? merged.entries.find((entry) => entry.label === predecessorReviewId) : null;
+  const currentProvenance = currentReviewEntry?.builder_provenance;
+  if (currentProvenance?.schema === 1 && currentProvenance?.kind === "host-work-review-builder" && currentProvenance?.artifact_hash === sha2567(currentReviewEntry.text) && predecessorReview?.fields?.latest_evidence_id === evidenceId) {
+    const priorPredecessorId = predecessorReview.fields.predecessor_review_id ?? null;
+    const priorPredecessorText = priorPredecessorId ? merged.entries.find((entry) => entry.label === priorPredecessorId)?.text ?? "" : "";
+    const retrySeed = {
+      schema: 1,
+      root_content_hash: rootContentHash(rootPlanText),
+      root_projection_hash: contract.authoritative_projection_hash,
+      evidence_id: evidenceId,
+      evidence_hash: sha2567(evidenceText),
+      predecessor_review_id: priorPredecessorId,
+      predecessor_review_hash: priorPredecessorText ? sha2567(priorPredecessorText) : null,
+      auditors_run: route.auditors_run,
+      review_input: normalized
+    };
+    const retryInputHash = sha2567(stableJson3(retrySeed));
+    if (retryInputHash === currentProvenance.review_input_hash && predecessorReviewId === `wr-${merged.rootFields.id.replace(/^wp-/, "")}-${retryInputHash.slice(0, 12)}`) {
+      return {
+        duplicate: true,
+        artifact: currentReviewEntry.text,
+        artifact_hash: currentProvenance.artifact_hash,
+        review_input_hash: retryInputHash,
+        fields: predecessorReview.fields,
+        normalized_review_input: normalized,
+        outcome,
+        provenance: currentProvenance
+      };
+    }
+  }
+  const rootChecks = contract.checks.filter((check) => check.Required === "yes").map((check) => check["Check ID"]);
+  const reusedObjectives = predecessorReviewId ? (evidence.fields.reused_objectives ?? []).filter((id2) => contract.objectives.includes(id2)).sort(compareCanonical) : [];
+  const reusedChecks = predecessorReviewId ? (evidence.fields.reused_checks ?? []).filter((id2) => rootChecks.includes(id2)).sort(compareCanonical) : [];
+  const coverage = {
+    reusedObjectives,
+    inspectedObjectives: contract.objectives.filter((id2) => !reusedObjectives.includes(id2)),
+    reusedChecks,
+    inspectedChecks: rootChecks.filter((id2) => !reusedChecks.includes(id2))
+  };
+  const seedInput = {
+    schema: 1,
+    root_content_hash: rootContentHash(rootPlanText),
+    root_projection_hash: contract.authoritative_projection_hash,
+    evidence_id: evidenceId,
+    evidence_hash: sha2567(evidenceText),
+    predecessor_review_id: predecessorReviewId,
+    predecessor_review_hash: predecessorReviewText ? sha2567(predecessorReviewText) : null,
+    auditors_run: route.auditors_run,
+    review_input: normalized
+  };
+  const reviewInputHash = sha2567(stableJson3(seedInput));
+  const id = `wr-${merged.rootFields.id.replace(/^wp-/, "")}-${reviewInputHash.slice(0, 12)}`;
+  const correction2 = correctionProjection({ normalized, findings: normalized.findings, seed: reviewInputHash, rootFields: merged.rootFields, evidenceId, reviewId: id, predecessorReview, entries: merged.entries, pluginRoot: pluginRoot2 });
+  const fields = {
+    artifact: "work-review",
+    schema: 5,
+    id,
+    status: "complete",
+    root_plan_id: merged.rootFields.id,
+    latest_evidence_id: evidenceId,
+    assessment: outcome.assessment,
+    delivery_status: outcome.delivery_status,
+    review_route: route.review_route,
+    next_action: outcome.next_action,
+    correction_id: correction2?.correction_id ?? null,
+    predecessor_review_id: predecessorReviewId,
+    auditors_run: route.auditors_run,
+    inspected_objectives: coverage.inspectedObjectives,
+    reused_objectives: coverage.reusedObjectives,
+    inspected_checks: coverage.inspectedChecks,
+    reused_checks: coverage.reusedChecks,
+    ...correction2 ? { learning_candidates: correction2.learning_ids } : {}
+  };
+  const artifact2 = `---
+${(0, import_yaml5.stringify)(fields, { lineWidth: 0 }).trimEnd()}
+---
+
+${reviewBody({ normalized, outcome, route, coverage, evidenceId, correction: correction2 })}
+`;
+  const duplicate = merged.entries.find((entry) => entry.label === id);
+  if (duplicate && duplicate.text !== artifact2) throw new Error(`review builder generated conflicting immutable bytes for ${id}`);
+  const finalEntries = duplicate ? merged.entries : [...merged.entries, { label: id, text: artifact2 }];
+  const validated = inspectArtifactSet(finalEntries.map((entry) => [entry.label, entry.text]), pluginRoot2);
+  if (validated.errors.length > 0) throw new Error(`generated work-review is invalid: ${validated.errors.join("; ")}`);
+  const artifactHash = sha2567(artifact2);
+  return {
+    duplicate: Boolean(duplicate),
+    artifact: artifact2,
+    artifact_hash: artifactHash,
+    review_input_hash: reviewInputHash,
+    fields,
+    normalized_review_input: normalized,
+    outcome,
+    provenance: { schema: 1, kind: "host-work-review-builder", review_input_hash: reviewInputHash, artifact_hash: artifactHash }
+  };
+}
+function persistWorkReview({ handoffStore, rootPlanText, artifacts = [], review }) {
+  if (!review?.artifact || !review?.fields?.id || !review?.provenance) throw new Error("persistWorkReview requires one generated work-review");
+  try {
+    const byId = /* @__PURE__ */ new Map();
+    for (const entry of [{ label: review.fields.root_plan_id, text: rootPlanText }, ...artifacts, { label: review.fields.id, text: review.artifact, provenance: review.provenance }]) {
+      const inspected = inspectArtifactText(entry.text, handoffStore.pluginRoot);
+      const id = inspected.artifact?.fields?.id ?? entry.label;
+      const prior = byId.get(id);
+      if (prior && prior.text !== entry.text) throw new Error(`work-review persistence found conflicting immutable bytes for ${id}`);
+      byId.set(id, {
+        label: id,
+        text: entry.text,
+        ...entry.provenance || entry.builder_provenance ? { provenance: entry.provenance ?? entry.builder_provenance } : prior?.provenance ? { provenance: prior.provenance } : {}
+      });
+    }
+    const persisted = handoffStore.record([...byId.values()]);
+    return { ...review, handoff_persisted: true, handoff_authoritative: false, artifact_set_hash: persisted.artifact_set_hash };
+  } catch (error2) {
+    return {
+      ...review,
+      handoff_persisted: false,
+      handoff_authoritative: false,
+      handoff_error_code: "handoff-persist-failed",
+      warning: `optional cross-task review handoff unavailable: ${error2.message}; task-local Review remains valid`
     };
   }
 }
@@ -33545,14 +34310,24 @@ function createArtifactHandlers({
   };
   const failure2 = (toolName) => (error2) => toolResult(toolName, {
     error: error2.message,
-    ...error2 instanceof WorkspaceRootError ? { error_code: error2.code } : {}
+    ...error2?.code ? { error_code: error2.code } : {}
   }, true);
+  const codedError2 = (code, message) => {
+    const error2 = new Error(message);
+    error2.code = code;
+    return error2;
+  };
   const mergeArtifacts = (entries) => {
     const merged = /* @__PURE__ */ new Map();
     for (const entry of entries) {
       const prior = merged.get(entry.label);
-      if (prior && prior !== entry.text) throw new Error(`closeout artifact label ${entry.label} has conflicting text`);
-      merged.set(entry.label, entry.text);
+      if (prior && prior.text !== entry.text) throw new Error(`closeout artifact label ${entry.label} has conflicting text`);
+      merged.set(entry.label, {
+        label: entry.label,
+        text: entry.text,
+        ...entry.builder_provenance ? { builder_provenance: entry.builder_provenance } : prior?.builder_provenance ? { builder_provenance: prior.builder_provenance } : {},
+        ...entry.legacy_review_recorded === true || prior?.legacy_review_recorded === true ? { legacy_review_recorded: true } : {}
+      });
     }
     return merged;
   };
@@ -33568,6 +34343,12 @@ function createArtifactHandlers({
     }
     return null;
   };
+  const containsRootEvidence = (artifacts = [], rootPlanId = null) => artifacts.some((entry) => {
+    if (typeof entry?.text !== "string") return false;
+    const inspected = inspectArtifactText(entry.text, pluginRoot2);
+    const fields = inspected.artifact?.fields;
+    return inspected.errors.length === 0 && fields?.artifact === "delivery-evidence" && (!rootPlanId || fields.root_plan_id === rootPlanId);
+  });
   const assertConsistentArtifactTexts = (artifacts = [], { rootPlan = null } = {}) => {
     const byId = /* @__PURE__ */ new Map();
     const consider = (text, label = "artifact") => {
@@ -33647,15 +34428,29 @@ function createArtifactHandlers({
     handoffStore.artifactSetOptions = workspace ? { boundaryReceiptVerifier: boundaryReceiptVerifier({ pluginRoot: pluginRoot2, workspaceRoot: workspace, options: receiptOptions }) } : {};
   };
   const buildCloseout = (input, merged, workspace = null) => {
-    const rootPlan = input.root_plan ?? [...merged.values()].find((text) => {
-      const inspected = inspectArtifactText(text, pluginRoot2);
+    const rootPlan = input.root_plan ?? [...merged.values()].find((entry) => {
+      const inspected = inspectArtifactText(entry.text, pluginRoot2);
       return inspected.artifact?.fields?.artifact === "work-plan" && inspected.artifact.fields.id === input.root_plan_id;
-    });
+    })?.text;
     if (!rootPlan) throw new Error("workflow_closeout requires the active Root text or a cached Root");
+    if ((input.artifact_kind ?? "delivery-evidence") === "work-review") {
+      if (!input.review_input) {
+        throw codedError2("review-input-invalid", "workflow_closeout work-review mode requires review_input schema 1; Root, Evidence, and repository work remain unchanged, so correct the named review_input field and repeat Review in this task");
+      }
+      const reviewResult = buildWorkReview({
+        rootPlanText: rootPlan,
+        artifacts: [...merged.values()],
+        reviewInput: input.review_input,
+        pluginRoot: pluginRoot2
+      });
+      if (reviewResult.fields.root_plan_id !== input.root_plan_id) throw new Error(`workflow_closeout Root ID mismatch: expected ${input.root_plan_id}, received ${reviewResult.fields.root_plan_id}`);
+      return { rootPlan, closeoutResult: reviewResult, artifactKind: "work-review" };
+    }
+    if (input.review_input) throw new Error("workflow_closeout review_input is allowed only when artifact_kind is work-review");
     const manualCheckReceipts = workspace ? loadManualCheckReceipts({ rootPlanText: rootPlan, pluginRoot: pluginRoot2, workspaceRoot: workspace, options: receiptOptions }) : [];
     const closeoutResult = buildDeliveryEvidence({
       rootPlanText: rootPlan,
-      artifacts: [...merged].map(([label, text]) => ({ label, text })),
+      artifacts: [...merged.values()],
       checkEvidence: input.check_evidence,
       changedPaths: input.changed_paths,
       strategyRevision: input.strategy_revision,
@@ -33668,7 +34463,7 @@ function createArtifactHandlers({
     });
     if (closeoutResult.fields.root_plan_id !== input.root_plan_id) throw new Error(`workflow_closeout Root ID mismatch: expected ${input.root_plan_id}, received ${closeoutResult.fields.root_plan_id}`);
     if (!closeoutResult.artifact) throw new Error("closeout resolved an evidence tip without its exact artifact text");
-    return { rootPlan, closeoutResult };
+    return { rootPlan, closeoutResult, artifactKind: "delivery-evidence" };
   };
   const closeoutPayload = ({
     input,
@@ -33687,7 +34482,7 @@ function createArtifactHandlers({
     root_plan_id: input.root_plan_id,
     delivery_evidence_id: closeoutResult.fields.id,
     artifact: persisted.artifact,
-    artifact_hash: persisted.artifact_hash ?? createHash8("sha256").update(persisted.artifact).digest("hex"),
+    artifact_hash: persisted.artifact_hash ?? createHash9("sha256").update(persisted.artifact).digest("hex"),
     evidence_mode: persisted.fields.evidence_mode,
     overall_grade: persisted.fields.overall_grade,
     status: persisted.fields.status,
@@ -33708,13 +34503,54 @@ function createArtifactHandlers({
     ...warning ? { warning } : {},
     ...handoffErrorCode || persisted.handoff_error_code ? { handoff_error_code: handoffErrorCode ?? persisted.handoff_error_code } : {}
   });
+  const reviewPayload = ({
+    input,
+    workspace,
+    workspaceBinding,
+    reviewResult,
+    persisted,
+    warning,
+    handoffErrorCode,
+    rootContentHashValue,
+    handoffMode
+  }) => ({
+    ...workspace ? { workspace_root: workspace } : {},
+    workspace_binding: workspaceBinding ?? (workspace ? "trusted-root" : "not-established"),
+    workspace_root_used: Boolean(workspace),
+    artifact_kind: "work-review",
+    root_plan_id: input.root_plan_id,
+    work_review_id: reviewResult.fields.id,
+    artifact: persisted.artifact,
+    artifact_hash: persisted.artifact_hash ?? createHash9("sha256").update(persisted.artifact).digest("hex"),
+    review_input_hash: persisted.review_input_hash,
+    authoritative_fields: persisted.fields,
+    assessment: persisted.fields.assessment,
+    delivery_status: persisted.fields.delivery_status,
+    next_action: persisted.fields.next_action,
+    review_route: persisted.fields.review_route,
+    latest_evidence_id: persisted.fields.latest_evidence_id ?? null,
+    predecessor_review_id: persisted.fields.predecessor_review_id ?? null,
+    correction_id: persisted.fields.correction_id ?? null,
+    duplicate: persisted.duplicate,
+    task_local_valid: true,
+    handoff_persisted: persisted.handoff_persisted,
+    handoff_authoritative: false,
+    handoff_mode: handoffMode ?? (persisted.handoff_persisted ? "root-content-cache" : "stateless"),
+    ...rootContentHashValue ? { root_content_hash: rootContentHashValue } : {},
+    ...persisted.artifact_set_hash ? { artifact_set_hash: persisted.artifact_set_hash } : {},
+    ...warning ? { warning } : {},
+    ...handoffErrorCode || persisted.handoff_error_code ? { handoff_error_code: handoffErrorCode ?? persisted.handoff_error_code } : {}
+  });
   const record2 = async (input) => {
     try {
       if (bundleSize(input.artifacts) > 1e6) throw new Error("handoff artifact bundle exceeds 1000000 characters");
       for (const entry of input.artifacts) {
         const inspected = inspectArtifactText(entry.text, pluginRoot2);
-        if (inspected.errors.length > 0 || inspected.artifact?.fields?.schema !== 5 || !["work-plan", "work-review"].includes(inspected.artifact?.fields?.artifact)) {
-          throw new Error("workflow_artifact_record accepts only valid Schema-5 work-plan and work-review artifacts");
+        if (inspected.errors.length > 0 || inspected.artifact?.fields?.schema !== 5 || inspected.artifact?.fields?.artifact !== "work-plan") {
+          if (inspected.artifact?.fields?.artifact === "work-review") {
+            throw codedError2("review-artifact-rejected", "new full model-authored work-review artifacts cannot establish authority; pass review_input schema 1 to workflow_closeout with artifact_kind work-review and repeat Review in this task");
+          }
+          throw new Error("workflow_artifact_record accepts only valid Schema-5 work-plan artifacts");
         }
       }
       let rootPlanText;
@@ -33849,14 +34685,15 @@ function createArtifactHandlers({
         if (!handoff) {
           if (!input.root_plan) throw error2;
           const merged2 = mergeArtifacts(input.artifacts ?? []);
-          const { closeoutResult: closeoutResult2 } = buildCloseout(input, merged2, operational.workspace);
-          return toolResult("workflow_closeout", closeoutPayload({
+          const { closeoutResult: closeoutResult2, artifactKind: artifactKind2 } = buildCloseout(input, merged2, operational.workspace);
+          const payload2 = artifactKind2 === "work-review" ? reviewPayload : closeoutPayload;
+          return toolResult("workflow_closeout", payload2({
             input,
             workspace: operational.workspace,
             workspaceBinding: operational.workspace_binding,
-            closeoutResult: closeoutResult2,
+            ...artifactKind2 === "work-review" ? { reviewResult: closeoutResult2 } : { closeoutResult: closeoutResult2 },
             persisted: { ...closeoutResult2, handoff_persisted: false },
-            warning: `handoff cache unavailable: ${error2.message}; attach the returned artifact explicitly to the next Workflow command`,
+            warning: `optional cross-task handoff unavailable: ${error2.message}; task-local ${artifactKind2 === "work-review" ? "Review" : "continuation"} remains valid`,
             handoffErrorCode: "handoff-persist-failed",
             handoffMode: "stateless"
           }));
@@ -33864,29 +34701,47 @@ function createArtifactHandlers({
       }
       const { rootPlanText, root_content_hash, handoffStore } = handoff;
       let cached2 = [];
-      try {
-        cached2 = handoffStore.context(input.root_plan_id, rootPlanText).artifacts.map(({ label, text }) => ({ label, text }));
-      } catch {
+      const taskLocalReviewChain = (input.artifact_kind ?? "delivery-evidence") === "work-review" && containsRootEvidence(input.artifacts ?? [], input.root_plan_id);
+      if (!taskLocalReviewChain) {
+        try {
+          cached2 = handoffStore.context(input.root_plan_id, rootPlanText).artifacts.map(({ label, text, builder_provenance, legacy_review_recorded }) => ({ label, text, ...builder_provenance ? { builder_provenance } : {}, ...legacy_review_recorded === true ? { legacy_review_recorded: true } : {} }));
+        } catch {
+        }
       }
       const merged = mergeArtifacts([...cached2, ...input.artifacts ?? [], { label: "root", text: rootPlanText }]);
-      const { rootPlan, closeoutResult } = buildCloseout({ ...input, root_plan: rootPlanText }, merged, operational.workspace);
-      const persisted = persistCloseout({
+      let { rootPlan, closeoutResult, artifactKind } = buildCloseout({ ...input, root_plan: rootPlanText }, merged, operational.workspace);
+      if (artifactKind === "work-review" && taskLocalReviewChain && !closeoutResult.duplicate) {
+        try {
+          const cachedReview = handoffStore.context(input.root_plan_id, rootPlanText).artifacts.find((entry) => entry.label === closeoutResult.fields.id);
+          if (cachedReview?.text === closeoutResult.artifact && cachedReview.builder_provenance?.kind === "host-work-review-builder" && cachedReview.builder_provenance.review_input_hash === closeoutResult.review_input_hash && cachedReview.builder_provenance.artifact_hash === closeoutResult.artifact_hash) {
+            closeoutResult = { ...closeoutResult, duplicate: true };
+          }
+        } catch {
+        }
+      }
+      const persisted = artifactKind === "work-review" ? persistWorkReview({
         handoffStore,
         rootPlanText: rootPlan,
-        artifacts: [...merged].map(([label, text]) => ({ label, text })),
+        artifacts: [...merged.values()],
+        review: closeoutResult
+      }) : persistCloseout({
+        handoffStore,
+        rootPlanText: rootPlan,
+        artifacts: [...merged.values()],
         closeout: closeoutResult
       });
       if (persisted.handoff_persisted) rememberContentAddressedRoot(rootPlan, pluginRoot2);
-      if (persisted.handoff_persisted && operational.workspace) {
+      if (artifactKind === "delivery-evidence" && persisted.handoff_persisted && operational.workspace) {
         invalidateManualCheckReceipts({ rootPlanText: rootPlan, workspaceRoot: operational.workspace, options: receiptOptions });
       }
       const selectorNotice = !operational.workspace && input.workspace_root ? `; the supplied workspace_root was not used (${operational.workspace_error?.code ?? "workspace-binding-not-established"})` : "";
       const warning = persisted.warning ?? (selectorNotice ? `workspace binding unavailable${selectorNotice}` : void 0);
-      return toolResult("workflow_closeout", closeoutPayload({
+      const payload = artifactKind === "work-review" ? reviewPayload : closeoutPayload;
+      return toolResult("workflow_closeout", payload({
         input,
         workspace: operational.workspace,
         workspaceBinding: operational.workspace_binding,
-        closeoutResult,
+        ...artifactKind === "work-review" ? { reviewResult: closeoutResult } : { closeoutResult },
         persisted,
         warning,
         rootContentHashValue: root_content_hash ?? rootContentHash(rootPlan),
@@ -33917,8 +34772,8 @@ var MANUAL_JOURNEY_STATE_LABELS = Object.freeze({
 var MANUAL_PRIMARY_ACTIONS = Object.freeze({
   "repair-root": Object.freeze({ label: "Repair the Root", command: "plan-work" }),
   "implement-plan": Object.freeze({ label: "Implement the Plan", command: "Implement Plan" }),
-  "attach-artifact": Object.freeze({ label: "Attach the exact artifact", command: "attach-artifact" }),
-  "review-root": Object.freeze({ label: "Fresh review", command: "review-work" }),
+  "attach-artifact": Object.freeze({ label: "Export the exact artifact", command: "attach-artifact" }),
+  "review-root": Object.freeze({ label: "Review delivery", command: "review-work" }),
   "accept-provisional": Object.freeze({ label: "Accept provisional delivery", command: "accept-work" }),
   closeout: Object.freeze({ label: "Deterministic closeout", command: "close-work" }),
   correct: Object.freeze({ label: "Fix failing Checks", command: "correct-work" }),
@@ -34139,18 +34994,18 @@ var NEXT_STEP_CATALOG = {
     recovery: "Finish Plan presentation and human approval first."
   },
   "attach-artifact": {
-    label: "Attach the exact artifact",
-    invoke: "Agent: attach exact Root/Evidence text to the next Workflow command",
-    benefit: "Preserves the chain when handoff transport is unavailable.",
-    blocked_when: "Handoff cache did not persist the exact artifact.",
-    recovery: "Paste the exact artifact bytes, then continue review or status."
+    label: "Export the exact artifact",
+    invoke: "Agent: attach exact Root/Evidence text only when intentionally continuing in another task or host",
+    benefit: "Exports the chain when optional cross-task transport is unavailable.",
+    blocked_when: "A deliberate cross-task continuation cannot load the exact artifact.",
+    recovery: "Stay in the current task, or paste the exact artifact bytes into the chosen new task."
   },
   "review-root": {
-    label: "Fresh review",
-    invoke: "Ask: run a fresh /review-work or $review-work against the exact Root/Evidence chain",
-    benefit: "Produces a fresh verdict without Writer assumptions.",
-    blocked_when: "Evidence is missing or the chain is incomplete.",
-    recovery: "Run /close-work [wp-id] or $close-work first, then review."
+    label: "Review delivery",
+    invoke: "Current task, read-only phase: run /review-work or $review-work against the exact task-local chain",
+    benefit: "Produces a fresh read-only verdict without requiring a new task or chat.",
+    blocked_when: "The current task cannot resolve one exact Root/Evidence chain.",
+    recovery: "Run Review in the current task; it attempts one internal missing-Evidence recovery before asking for another action."
   },
   "accept-provisional": {
     label: "Accept provisional delivery",
@@ -34196,10 +35051,10 @@ var NEXT_STEP_CATALOG = {
   },
   "retry-review": {
     label: "Retry review",
-    invoke: "Ask: fresh /review-work or $review-work with complete evidence",
+    invoke: "Current task, read-only phase: rerun /review-work or $review-work with the updated evidence",
     benefit: "Reassesses once Evidence or context is complete.",
     blocked_when: "Evidence is still missing or incomplete.",
-    recovery: "Close out or attach Evidence, then retry review."
+    recovery: "Keep the exact chain in this task, resolve the named evidence gap, then rerun Review."
   },
   answer: {
     label: "Answer clarification",
@@ -34249,6 +35104,42 @@ function firstLine(text, fallback = "No summary.") {
   const value = String(text ?? "").replace(/\s+/g, " ").trim();
   return value || fallback;
 }
+function humanBlocker(value, fallbackRecovery = "Follow the single next action, then retry the same Workflow phase.") {
+  const technical = firstLine(value, "Workflow could not complete this phase.");
+  if (/handoff|cache/i.test(technical)) return {
+    reason: "Optional cross-task handoff is unavailable; the exact task-local chain is still usable in the current task.",
+    recovery: "Continue in the current task. Export the exact artifact only if you intentionally switch tasks or hosts."
+  };
+  if (/roots-request-failed|roots-empty|workspace roots|workspace binding/i.test(technical)) return {
+    reason: "Workflow cannot establish an optional workspace handoff context.",
+    recovery: "Continue with the exact artifacts already held in this task; otherwise select the current Root explicitly."
+  };
+  if (/baseline/i.test(technical)) return {
+    reason: "Workflow cannot prove which repository changes belong to this delivery because the pre-change baseline is unavailable.",
+    recovery: "Use the named replan action to create a new clean approval and baseline boundary."
+  };
+  if (/authority|outside (?:the )?(?:root|scope)|protected path|approval-required/i.test(technical)) return {
+    reason: "The requested or observed change is outside the approved plan boundary.",
+    recovery: "Keep the change inside the approved Root, or run plan-work replan and approve the expanded boundary."
+  };
+  if (/required .*check.*failed|failed .*required .*check|check .*failed/i.test(technical)) return {
+    reason: "A required verification Check failed, so Workflow cannot call the delivery successful.",
+    recovery: "Run Review in this task, then apply its bounded correction or replan action."
+  };
+  if (/missing .*evidence|evidence .*missing|no evidence tip/i.test(technical)) return {
+    reason: "Delivery Evidence is not available yet for the approved Root.",
+    recovery: fallbackRecovery
+  };
+  if (/missing .*root|no .*root|exact root .*unavailable|root .*required/i.test(technical)) return {
+    reason: "The approved Intent Root is not available in this task.",
+    recovery: "Select or approve the exact current Root, then retry the same Workflow phase."
+  };
+  if (/ambiguous|multiple|conflict|mismatch|different immutable/i.test(technical)) return {
+    reason: "Workflow found conflicting or ambiguous versions and cannot determine one safe current chain.",
+    recovery: "Select the exact current wp-* Root in this task and retry without reconstructing artifact text."
+  };
+  return { reason: technical, recovery: fallbackRecovery };
+}
 function resolveNextStep(action, overrides = {}) {
   const entry = NEXT_STEP_CATALOG[action];
   const shared = MANUAL_PRIMARY_ACTIONS[action];
@@ -34281,10 +35172,11 @@ function journeyStateFor(presentation, action) {
 }
 function firstProblem(presentation) {
   return [
-    ...asList(presentation.errors),
+    ...asList(presentation.blocker ? [presentation.blocker] : []),
     ...asList(presentation.gaps),
     ...asList(presentation.human_attention),
-    ...asList(presentation.problems)
+    ...asList(presentation.problems),
+    ...asList(presentation.errors)
   ][0] ?? null;
 }
 function defaultTechnicalTraceability(presentation) {
@@ -34313,10 +35205,11 @@ function withNextStepFields(presentation, action, overrides = {}) {
   const technicalTraceability = presentation.technical_traceability ?? defaultTechnicalTraceability(presentation);
   const journeyState = presentation.journey_state ?? journeyStateFor(presentation, normalizedAction);
   const enforcementLevel = normalizedEnforcementLevel(presentation.enforcement_level);
-  const problem = firstProblem(presentation);
+  const problem = firstProblem(presentation) ?? step.blocked_reason ?? null;
   const primaryInvoke = taskBoundManualInvoke(normalizedAction, technicalTraceability);
   return {
     ...presentation,
+    ...problem ? { blocker: problem } : {},
     journey_state: journeyState,
     enforcement_level: enforcementLevel,
     primary_action: normalizedAction === "none" ? null : { id: normalizedAction, label: step.label, invoke: primaryInvoke, why: step.benefit },
@@ -34388,6 +35281,49 @@ function statusPresentationOutcome(snapshot2) {
   return "partial";
 }
 function closeoutPresentation(value) {
+  if (value.artifact_kind === "work-review") {
+    const blocked2 = value.delivery_status === "blocked";
+    const provisional = value.delivery_status === "provisional";
+    const outcome2 = blocked2 ? "blocked" : provisional ? "partial" : "ready";
+    const nextAction2 = value.next_action ?? "retry-review";
+    const recovery = nextAction2 === "retry-review" ? "Correct the named review_input field and repeat Review in this task; no repository work or new task is required." : `Continue with ${nextAction2} in this task.`;
+    return withNextStepFields({
+      schema: 1,
+      tool: "workflow_closeout",
+      phase: "review",
+      outcome: outcome2,
+      summary: blocked2 ? `The host built a valid task-local Review and selected ${nextAction2}.` : provisional ? "The host built a valid task-local provisional Review." : "The host built a valid task-local verified Review.",
+      check_summary: `Review input and exact Root/Evidence chain produced ${value.work_review_id ?? "one work-review"}.`,
+      enforcement_level: "host-native",
+      technical_traceability: {
+        root_plan_id: value.root_plan_id ?? null,
+        root_content_hash: value.root_content_hash ?? null,
+        evidence_id: value.latest_evidence_id ?? null,
+        review_id: value.work_review_id ?? null,
+        review_hash: value.artifact_hash ?? null,
+        correction_id: value.correction_id ?? null,
+        artifact_set_hash: value.artifact_set_hash ?? null,
+        check_ids: value.authoritative_fields?.inspected_checks ?? [],
+        finding_ids: [],
+        changed_paths: [],
+        handoff_persisted: value.handoff_persisted !== false
+      },
+      checks: [
+        `assessment: ${value.assessment ?? "unknown"}`,
+        `delivery status: ${value.delivery_status ?? "unknown"}`,
+        `review route: ${value.review_route ?? "unknown"}`,
+        `task-local valid: ${value.task_local_valid === true ? "yes" : "unknown"}`,
+        `handoff persisted: ${value.handoff_persisted === true ? "yes" : "no"}`
+      ],
+      gaps: blocked2 ? [`Review selected ${nextAction2}; only the Review/delivery route is blocked.`] : [],
+      advisories: [
+        "The exact task-local artifact is authoritative; optional handoff persistence is resilience only.",
+        ...value.handoff_persisted === false ? ["Handoff failure did not invalidate this Review."] : []
+      ],
+      warnings: asList(value.warning ? [value.warning] : []),
+      errors: []
+    }, nextAction2, blocked2 ? { blocked_reason: `Review selected ${nextAction2}.`, recovery } : {});
+  }
   const persisted = value.handoff_persisted !== false;
   const status = value.status ?? "unknown";
   const grade = value.overall_grade ?? "ungraded";
@@ -34399,7 +35335,7 @@ function closeoutPresentation(value) {
   let outcome = "ready";
   if (blocked) outcome = "blocked";
   else if (provisionalEvidence) outcome = "partial";
-  const summary2 = blocked ? "Delivery is blocked because required evidence contains a known failure." : outcome === "partial" ? "Implementation closeout is incomplete; at least one required proof remains limited." : persisted ? "Implementation closeout is complete and ready for an independent review." : "Implementation closeout is complete, but the exact artifact must be attached because handoff storage is unavailable.";
+  const summary2 = blocked ? "Delivery is blocked because required evidence contains a known failure." : outcome === "partial" ? "Implementation closeout is incomplete; at least one required proof remains limited." : "Implementation closeout is complete and ready for task-local read-only review.";
   let nextAction = "review-root";
   let overrides = {};
   if (blocked) {
@@ -34408,24 +35344,16 @@ function closeoutPresentation(value) {
       blocked_reason: `Evidence status ${status} with grade ${grade} blocks delivery acceptance.`,
       recovery: "Run one fresh independent review and follow only the single action it selects."
     };
-  } else if (!persisted) {
-    nextAction = "attach-artifact";
-    overrides = {
-      blocked_reason: "Handoff cache unavailable; exact Evidence must travel with the next command.",
-      recovery: "Attach the returned Evidence artifact, then Ask: /review-work or $review-work."
-    };
   } else if (legacyReceiptGaps.length > 0) {
     overrides = {
       blocked_reason: `Legacy verified claims lack current host receipts: ${legacyReceiptGaps.join(", ")}.`,
       recovery: "Ask: run a fresh /review-work or $review-work and follow its bounded correction route."
     };
   } else if (outcome === "partial" && evidenceGaps.length > 0) {
-    nextAction = "closeout";
     overrides = {
-      invoke: "Agent: follow each Evidence-gap problem's exact Check rerun, then retry closeout",
-      benefit: "Obtains the missing host receipts before the independent review.",
+      benefit: "Lets the fresh read-only review decide whether to rerun proof, correct, or accept a provisional limit.",
       blocked_reason: `Evidence is ${grade} / ${status}; verified acceptance is not available yet.`,
-      recovery: "Run the exact Check reruns listed under Problems, then retry closeout."
+      recovery: "Run Review in this task and follow its one bounded next action."
     };
   } else if (outcome === "partial") {
     overrides = {
@@ -34467,35 +35395,59 @@ function closeoutPresentation(value) {
     ].filter(Boolean),
     gaps: [
       ...blocked ? [`Evidence status ${status} with grade ${grade} blocks delivery acceptance.`] : [],
-      ...persisted ? [] : ["Attach the returned Evidence artifact explicitly."],
       ...(value.constraint_summary?.evidence_gap_checks ?? []).length > 0 ? [`Evidence gaps: ${value.constraint_summary.evidence_gap_checks.join(", ")}.`] : []
     ],
     human_attention: humanAttentionLines(value.human_attention),
     problems: problemLines(value.problem_details),
-    advisories: persisted ? [] : ["Handoff is transport only and never grants authority."],
+    advisories: persisted ? [] : ["Task-local Evidence remains valid; optional cross-task handoff is unavailable."],
     warnings,
     errors: []
   }, nextAction, overrides), help);
 }
 function errorPresentation(toolName, value) {
-  const summary2 = firstLine(value?.error, "Workflow tool failed.");
+  const technical = firstLine(value?.error, "Workflow tool failed.");
+  const reviewErrorCode = value?.error_code ?? (/review_input|workflow-review-input/i.test(technical) ? "review-input-invalid" : /model-authored work-review|newly imported work-review|host builder provenance/i.test(technical) ? "review-artifact-rejected" : null);
+  if (["review-input-invalid", "review-artifact-rejected"].includes(reviewErrorCode)) {
+    const rejectedArtifact = reviewErrorCode === "review-artifact-rejected";
+    const reason = rejectedArtifact ? "Workflow rejected a supplied Review artifact because it cannot establish host-owned Review authority." : "The reviewer response could not be converted into a valid host-owned Review.";
+    const recovery = rejectedArtifact ? "Remove the supplied work-review artifact, pass only review_input schema 1, and repeat Review in this task. Root, Evidence, Checks, and repository work remain unchanged; no new task, Root repair, or replan is required." : "Correct the named review_input field and repeat Review in this task. Root, Evidence, Checks, and repository work remain unchanged; no new task, Root repair, or replan is required.";
+    return withHelpFields(withNextStepFields({
+      schema: 1,
+      tool: toolName,
+      phase: "review",
+      outcome: "blocked",
+      summary: reason,
+      blocker: reason,
+      checks: [],
+      gaps: [reason],
+      advisories: [],
+      warnings: [],
+      errors: [technical]
+    }, "retry-review", {
+      blocked_reason: reason,
+      recovery,
+      invoke: "Current task, read-only phase: correct the named Review input and rerun /review-work or $review-work"
+    }), MANUAL_HELP_TOPICS["recovery-and-troubleshooting"]);
+  }
   const closeoutFailed = toolName === "workflow_closeout";
   const nextAction = toolName === "workflow_plan_preflight" ? "repair-root" : closeoutFailed ? "review-root" : "provide-artifacts";
-  const recovery = toolName === "workflow_plan_preflight" ? "Repair the Root blockers, then retry validation or /plan-work." : closeoutFailed ? "Repair the exact Root/chain and Check observations, then retry closeout or Ask: /review-work." : "Supply the exact current Schema-5 artifacts, then retry the failed Workflow command.";
+  const fallbackRecovery = toolName === "workflow_plan_preflight" ? "Repair the Root blockers, then retry validation or /plan-work." : closeoutFailed ? "Repair the exact Root/chain and Check observations, then retry closeout or Ask: /review-work." : "Supply the exact current Schema-5 artifacts, then retry the failed Workflow command.";
+  const guidance = humanBlocker(technical, fallbackRecovery);
   return withHelpFields(withNextStepFields({
     schema: 1,
     tool: toolName,
     phase: toolName.replace(/^workflow_/, "").replaceAll("_", "-"),
     outcome: closeoutFailed ? "blocked" : "failed",
-    summary: summary2,
+    summary: guidance.reason,
+    blocker: guidance.reason,
     checks: [],
-    gaps: [summary2],
+    gaps: [guidance.reason],
     advisories: [],
     warnings: [],
-    errors: [summary2]
+    errors: [technical]
   }, nextAction, {
-    blocked_reason: summary2,
-    recovery
+    blocked_reason: guidance.reason,
+    recovery: guidance.recovery
   }), MANUAL_HELP_TOPICS["recovery-and-troubleshooting"]);
 }
 function buildPresentation(toolName, value, { isError = false } = {}) {
@@ -34507,15 +35459,17 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
     const advisories = asList(value.advisories);
     const feasible = value.feasible === true && blockers.length === 0;
     const nextAction = feasible ? "implement-plan" : "repair-root";
+    const blockerGuidance = feasible ? null : humanBlocker(blockers[0] ?? "Root cannot be presented yet.", "Repair the Root blockers, then retry /plan-work.");
     const overrides = feasible ? {} : {
-      blocked_reason: blockers[0] ?? "Root cannot be presented yet.",
-      recovery: "Repair the Root blockers, then retry validation or /plan-work."
+      blocked_reason: blockerGuidance.reason,
+      recovery: blockerGuidance.recovery
     };
     const presentation = withNextStepFields({
       schema: 1,
       tool: toolName,
       phase: "plan-preflight",
       outcome: feasible ? "ready" : "blocked",
+      ...blockerGuidance ? { blocker: blockerGuidance.reason } : {},
       summary: feasible ? "The Intent Root is valid and ready for human implementation approval." : "The Intent Root is not ready for implementation approval.",
       check_summary: feasible ? "Root structure and required Checks are feasible." : "Root validation has blocking issues.",
       technical_traceability: {
@@ -34569,17 +35523,17 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
   }
   if (toolName === "workflow_artifact_context") {
     const count = Array.isArray(value.artifacts) ? value.artifacts.length : 0;
-    const nextAction = value.evidence_tip ? "review-root" : "closeout";
+    const nextAction = "review-root";
     const overrides = value.evidence_tip ? {} : {
       blocked_reason: "No Evidence tip is loaded for this Root.",
-      recovery: "Run /close-work [wp-id] or finish Implement Plan closeout, then review."
+      recovery: "Run Review in this task; it attempts one internal idempotent closeout before asking for another action."
     };
     const presentation = withNextStepFields({
       schema: 1,
       tool: toolName,
       phase: "artifact-context",
       outcome: value.evidence_tip ? "ready" : "partial",
-      summary: value.evidence_tip ? "The exact current artifact chain is ready for fresh review." : "The current artifact chain is loaded, but Delivery Evidence is still missing.",
+      summary: value.evidence_tip ? "The exact current artifact chain is ready for task-local read-only review." : "The current Root is loaded; task-local Review will attempt one internal Evidence recovery.",
       check_summary: value.evidence_tip ? "Delivery Evidence is available." : "Delivery Evidence is missing.",
       technical_traceability: {
         root_plan_id: value.root_plan_id ?? null,
@@ -34596,7 +35550,7 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
         `evidence tip: ${value.evidence_tip ?? "none"}`,
         `review tip: ${value.review_tip ?? "none"}`
       ],
-      gaps: value.evidence_tip ? [] : ["Evidence tip missing; closeout before review."],
+      gaps: value.evidence_tip ? [] : ["Evidence tip missing; Review will attempt one internal recovery."],
       advisories: ["Task artifacts remain authoritative; context is enrichment only."],
       warnings: asList(value.warning ? [value.warning] : []),
       errors: []
@@ -34617,12 +35571,12 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
     const downgradeReason = snapshot2.downgrade_reason ?? null;
     const outcome = statusPresentationOutcome(snapshot2);
     const safeAction = normalizeManualPrimaryAction({ outcome }, action);
-    const overrides = (outcome === "blocked" || outcome === "partial") && action !== "none" ? {
-      blocked_reason: blockers[0] ?? `Manual state is ${state}.`,
-      recovery: resolveNextStep(safeAction).invoke
+    const overrides = blockers.length > 0 && (outcome === "blocked" || outcome === "partial") && action !== "none" ? {
+      blocked_reason: humanBlocker(blockers[0] ?? `Manual state is ${state}.`, resolveNextStep(safeAction).recovery).reason,
+      recovery: humanBlocker(blockers[0] ?? `Manual state is ${state}.`, resolveNextStep(safeAction).recovery).recovery
     } : outcome === "blocked" && blockers.length > 0 ? {
-      blocked_reason: blockers[0],
-      recovery: "Clear blockers with the listed Workflow command, then re-check /work-status."
+      blocked_reason: humanBlocker(blockers[0]).reason,
+      recovery: humanBlocker(blockers[0], "Clear the named issue, then re-check /work-status.").recovery
     } : {};
     const presentation = withNextStepFields({
       schema: 1,
@@ -34755,7 +35709,7 @@ function formatTechnicalTraceability(presentation, { disclosure = true } = {}) {
     presentation.next_action_blocked_reason ? `Action blocker: ${presentation.next_action_blocked_reason}` : null,
     presentation.next_action_recovery ? `Recovery detail: ${presentation.next_action_recovery}` : null,
     formatHelp(presentation.help)
-  ].filter((line) => line !== null && line !== void 0).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  ].filter((line3) => line3 !== null && line3 !== void 0).join("\n").replace(/\n{3,}/g, "\n\n").trim();
   return disclosure ? `<details><summary>Technical traceability</summary>
 
 ${body}
@@ -34774,9 +35728,10 @@ function formatManualToolContent(presentation, { technicalDisclosure = true } = 
     `What happened: ${presentation.summary}`,
     `Checks: ${presentation.check_summary ?? "See technical traceability for exact evidence."}`,
     blocker ? `Blocker: ${blocker}` : null,
+    blocker && presentation.next_action_recovery ? `Resolution: ${presentation.next_action_recovery}` : null,
     formatNextStepFooter(presentation),
     formatTechnicalTraceability(presentation, { disclosure: technicalDisclosure })
-  ].filter((line) => line !== null && line !== void 0);
+  ].filter((line3) => line3 !== null && line3 !== void 0);
   return `${lines.join("\n").replace(/\n{3,}/g, "\n\n").trim()}
 `;
 }
@@ -34870,6 +35825,78 @@ function manualToolAnnotations(name) {
   return value;
 }
 
+// src/mcp/review-input-contract.mjs
+var semanticKey = string2().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(80);
+var objectiveId = string2().regex(/^OBJ-[1-9][0-9]*$/);
+var checkId = string2().regex(/^CHECK-[1-9][0-9]*$/);
+var line2 = (max = 2e3) => string2().min(1).max(max);
+var finding = strictObject({
+  key: semanticKey,
+  severity: _enum(["low", "medium", "high", "critical"]),
+  objective_ids: array(objectiveId).min(1).max(64),
+  check_ids: array(checkId).min(1).max(128),
+  evidence: line2(4e3),
+  reasoning: line2(4e3),
+  resolution: _enum(["correct", "clarify", "replan"])
+});
+var correction = strictObject({
+  fixes: array(strictObject({
+    key: semanticKey,
+    finding_keys: array(semanticKey).min(1).max(32),
+    required_outcome: line2(),
+    evidence: line2()
+  })).min(1).max(32),
+  checks: array(strictObject({
+    key: semanticKey,
+    fix_keys: array(semanticKey).min(1).max(32),
+    working_directory: line2(1e3),
+    command_or_inspection: line2(),
+    expected_result: line2(),
+    required: boolean2(),
+    cost_class: _enum(["cheap", "standard", "expensive"]),
+    prerequisites: array(line2(1e3)).min(1).max(64)
+  })).min(1).max(32),
+  steps: array(strictObject({
+    key: semanticKey,
+    fix_keys: array(semanticKey).min(1).max(32),
+    targets: array(line2(1e3)).min(1).max(64),
+    required_outcome: line2(),
+    implementation_latitude: line2(),
+    completion_probe: line2(),
+    check_keys: array(semanticKey).min(1).max(32),
+    deviation_action: line2()
+  })).min(1).max(32),
+  learning_candidates: array(strictObject({
+    key: semanticKey,
+    finding_keys: array(semanticKey).min(1).max(32),
+    reusable_guidance: line2(),
+    candidate_targets: array(line2(1e3)).min(1).max(64),
+    confirmation_evidence: line2()
+  })).min(1).max(32)
+});
+var reviewInputSchema = strictObject({
+  schema: literal(1),
+  kind: literal("review-input"),
+  assessment: _enum(["achieved", "provisional", "mostly-achieved", "partially-achieved", "not-achieved", "insufficient-evidence"]),
+  recommended_action: _enum(["none", "accept-provisional", "correct", "clarify", "replan", "retry-review"]),
+  assessment_summary: line2(),
+  snapshot_assessment: _enum(["consistent", "contradicted", "incomplete"]),
+  snapshot_summary: line2(),
+  findings: array(finding).max(32),
+  missing_evidence: array(line2()).max(32),
+  auditor_reports: array(strictObject({
+    role: _enum(["delivery-auditor", "risk-auditor", "work-design-auditor"]),
+    assessment: _enum(["achieved", "provisional", "mostly-achieved", "partially-achieved", "not-achieved", "insufficient-evidence"]),
+    summary: line2()
+  })).max(3),
+  correction: correction.optional()
+});
+var malformedReviewInputCandidate = record(string2().max(200), unknown()).refine((value) => Object.keys(value).length <= 32, "review_input recovery candidate exceeds 32 fields").describe("Recovery-only malformed review_input object. The host-owned builder still requires the closed Schema-1 branch and never infers missing judgments.");
+var reviewInputTransportSchema = union([
+  reviewInputSchema,
+  malformedReviewInputCandidate
+]);
+
 // src/mcp/manual-tool-contracts.mjs
 var workspaceRoot = string2().min(1).optional();
 var artifact = object2({
@@ -34894,7 +35921,7 @@ var contracts = Object.freeze({
     inputSchema: { root_plan: string2().min(1).max(25e4) }
   },
   workflow_artifact_record: {
-    description: "Best-effort transport: validate and atomically cache exact Schema-5 work-plan or work-review artifacts in the non-authoritative root-content handoff store. Task artifacts remain authoritative; ordinary cache IO failure returns attach instructions without invalidating the artifact.",
+    description: "Best-effort transport for exact Schema-5 work-plan artifacts. New work-review authority is created only by workflow_closeout work-review mode; historical cached reviews remain readable.",
     inputSchema: { workspace_root: workspaceRoot, artifacts: array(artifact).min(1).max(32) }
   },
   workflow_artifact_context: {
@@ -34906,12 +35933,14 @@ var contracts = Object.freeze({
     }
   },
   workflow_closeout: {
-    description: "Deterministically build and validate one Schema-5 delivery-evidence artifact from observed Checks and best-effort cache it in the root-content handoff store.",
+    description: "Deterministically build one host-owned Schema-5 delivery-evidence or work-review artifact and best-effort cache it. delivery-evidence remains the default.",
     inputSchema: {
       workspace_root: workspaceRoot,
       root_plan_id: string2().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
       root_plan: string2().min(1).max(25e4).optional(),
       artifacts: array(artifact).min(1).max(32).optional(),
+      artifact_kind: _enum(["delivery-evidence", "work-review"]).default("delivery-evidence"),
+      review_input: reviewInputTransportSchema.optional(),
       effective_profile: literal("manual").default("manual"),
       strategy_revision: number2().int().min(0).default(0),
       changed_paths: array(string2().min(1).max(1e3)).max(1e3).default([]),

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
-import { executionContractFromArtifactText } from "../../scripts/validate-artifact.source.mjs";
+import { executionContractFromArtifactText, inspectArtifactText } from "../../scripts/validate-artifact.source.mjs";
 import { deriveWorkflowState } from "../../scripts/derive-workflow-state.mjs";
 import { evaluateAuthorization, evaluateEligibility, qualificationKey, selectWriterRoute } from "./policy.mjs";
 import { resolveCapabilities } from "./capabilities.mjs";
@@ -14,6 +14,7 @@ import { auditVerificationProfile } from "./verification-profile.mjs";
 import { assertContainedPath, changedPaths, changedPathsBetween, checkpoint, createComparisonBaselineWorktree, createRunWorktree, detectDependencyChanges, parseHostCommand, repositoryBaseline, rollbackToCheckpoint, runHostCheck } from "./worktree.mjs";
 import { ArtifactHandoffStore, createContentAddressedHandoffStore, rememberContentAddressedRoot } from "./artifact-handoff.mjs";
 import { buildDeliveryEvidence } from "./delivery-closeout.mjs";
+import { buildWorkReview } from "./work-review-builder.mjs";
 import {
   controllerLearningCandidateSemanticHash,
   controllerLearningDecisionHash,
@@ -64,6 +65,113 @@ function jsonDecision(text) {
     }
   }
   return value;
+}
+
+function reviewerSummary(decision) {
+  if (typeof decision?.assessment_summary !== "string") throw new Error("review decision requires assessment_summary as a string");
+  const value = decision.assessment_summary.trim();
+  if (!value) throw new Error("review decision requires assessment_summary");
+  return value;
+}
+
+function reviewerSnapshot(decision) {
+  if (!["consistent", "contradicted", "incomplete"].includes(decision?.snapshot_assessment)) throw new Error("review decision requires a valid snapshot_assessment");
+  if (typeof decision?.snapshot_summary !== "string") throw new Error("review decision requires snapshot_summary as a string");
+  const summary = decision.snapshot_summary.trim();
+  if (!summary) throw new Error("review decision requires snapshot_summary");
+  return { assessment: decision.snapshot_assessment, summary };
+}
+
+function controllerReviewInput(run, decision, auditorReports = []) {
+  if (!Array.isArray(decision?.findings)) throw new Error("review decision requires findings as an array");
+  if (!Array.isArray(decision?.missing_evidence)) throw new Error("review decision requires missing_evidence as an array");
+  const findingByKey = new Map();
+  for (const item of decision.findings) {
+    const rawKey = item?.key ?? item?.finding_key;
+    if (typeof rawKey !== "string") throw new Error("review finding requires key as a string");
+    const key = rawKey.trim();
+    if (!key || findingByKey.has(key)) continue;
+    if (typeof item?.summary !== "string" || typeof item?.evidence !== "string" || typeof item?.reasoning !== "string") {
+      throw new Error(`review finding ${key || "<missing>"} requires string summary, evidence, and reasoning`);
+    }
+    const summary = item.summary.trim();
+    const evidence = item.evidence.trim();
+    const reasoning = item.reasoning.trim();
+    if (!summary || !evidence || !reasoning) throw new Error(`review finding ${key || "<missing>"} requires summary, evidence, and reasoning`);
+    if (!["low", "medium", "high", "critical"].includes(item.severity)) throw new Error(`review finding ${key} requires a typed severity`);
+    if (!Array.isArray(item.objective_ids) || item.objective_ids.length === 0) throw new Error(`review finding ${key} requires objective_ids`);
+    if (!Array.isArray(item.check_ids) || item.check_ids.length === 0) throw new Error(`review finding ${key} requires check_ids`);
+    if (!["correct", "clarify", "replan"].includes(item.resolution)) throw new Error(`review finding ${key} requires a typed resolution`);
+    findingByKey.set(key, {
+      key,
+      severity: item.severity,
+      objective_ids: item.objective_ids,
+      check_ids: item.check_ids,
+      evidence,
+      reasoning,
+      resolution: item.resolution,
+      summary,
+    });
+  }
+  const keys = [...new Set(decision?.finding_keys ?? [])].sort();
+  if (keys.some((key) => !findingByKey.has(key))) throw new Error("review decision finding_keys must each have one complete typed finding");
+  const findings = keys.map((key) => findingByKey.get(key));
+  const snapshot = reviewerSnapshot(decision);
+  const input = {
+    schema: 1,
+    kind: "review-input",
+    assessment: decision.assessment,
+    recommended_action: decision.next_action,
+    assessment_summary: reviewerSummary(decision),
+    snapshot_assessment: snapshot.assessment,
+    snapshot_summary: snapshot.summary,
+    findings: findings.map(({ summary: _summary, ...finding }) => finding),
+    missing_evidence: decision.missing_evidence,
+    auditor_reports: auditorReports,
+  };
+  if (decision.next_action !== "correct") return input;
+  const learning = decision.learning_candidates ?? [];
+  if (learning.length === 0) throw new Error("correct review decision requires one typed learning candidate for Schema-5 correction lineage");
+  const fixKeys = findings.map((finding) => `fix-${finding.key}`);
+  const requiredChecks = (run.strategy?.checks ?? []).filter((check) => check.Required === "yes");
+  if (requiredChecks.length === 0) throw new Error("correct review decision requires at least one Root Check");
+  const checkKeys = requiredChecks.map((check) => `check-${String(check["Check ID"]).toLowerCase()}`);
+  input.correction = {
+    fixes: findings.map((finding) => ({
+      key: `fix-${finding.key}`,
+      finding_keys: [finding.key],
+      required_outcome: finding.summary,
+      evidence: finding.evidence,
+    })),
+    checks: requiredChecks.map((check) => ({
+      key: `check-${String(check["Check ID"]).toLowerCase()}`,
+      fix_keys: fixKeys,
+      working_directory: check["Working Directory"] ?? "repository root",
+      command_or_inspection: check["Command or Inspection"],
+      expected_result: check["Expected Result"],
+      required: true,
+      cost_class: check["Cost Class"] ?? "standard",
+      prerequisites: String(check.Prerequisites ?? "Root-authorized correction").split(",").map((item) => item.trim()).filter(Boolean),
+    })),
+    steps: findings.map((finding) => ({
+      key: `step-${finding.key}`,
+      fix_keys: [`fix-${finding.key}`],
+      targets: run.strategy?.primary_targets ?? run.plan.fields.authority.allowed_roots,
+      required_outcome: finding.summary,
+      implementation_latitude: "Use the smallest strategy-compatible correction inside the approved Root authority.",
+      completion_probe: `The mapped finding ${finding.key} is absent and all correction Checks pass.`,
+      check_keys: checkKeys,
+      deviation_action: "Stop and replan if the immutable Root boundary or risk must change.",
+    })),
+    learning_candidates: learning.map((candidate) => ({
+      key: `learning-${controllerLearningCandidateSemanticHash(candidate).slice(0, 12)}`,
+      finding_keys: candidate.finding_keys,
+      reusable_guidance: candidate.reusable_guidance,
+      candidate_targets: candidate.candidate_targets,
+      confirmation_evidence: candidate.confirmation_evidence,
+    })),
+  };
+  return input;
 }
 
 function routeSelection(validation, role) {
@@ -366,6 +474,7 @@ export class WorkflowEngine {
         `CURRENT STRATEGY\n${JSON.stringify(run.strategy, null, 2)}`,
         `SLICE\n${JSON.stringify(slice, null, 2)}`,
         correctionCycle > 0 ? `REVIEW\n${JSON.stringify(run.review, null, 2)}` : "",
+        correctionCycle > 0 && run.work_review_artifact ? `AUTHORITATIVE WORK REVIEW\n${run.work_review_artifact}` : "",
       ].filter(Boolean).join("\n\n");
       const roots = run.plan.fields.authority.allowed_roots;
       const writablePaths = roots.filter((target) => pathInside(target, run.project_policy.allowed_write_roots)).map((target) => assertContainedPath(run.worktree.path, target));
@@ -429,26 +538,51 @@ export class WorkflowEngine {
       }
 
       const checkIds = String(slice["Check IDs"] ?? "").split(",").map((item) => item.trim()).filter(Boolean);
-      const checks = run.strategy.checks.filter((check) => checkIds.length === 0 || checkIds.includes(check["Check ID"]));
+      const checks = run.strategy.checks.filter((check) => correctionCycle > 0 || checkIds.length === 0 || checkIds.includes(check["Check ID"]));
       const hostReceipts = checks.map((check) => {
         if (check["Evidence Class"] !== "machine-verifiable" || check["Command or Inspection"] === "verification-profile") return { check_id: check["Check ID"], unavailable: true, reason: "verification-profile-required" };
         try { return { check_id: check["Check ID"], ...runHostCheck(run.worktree.path, parseHostCommand(check["Command or Inspection"])) }; }
         catch (error) { return { check_id: check["Check ID"], unavailable: true, reason: error.message }; }
       });
-      const verifier = this.verify(run, slice, "patched", adapter, hostReceipts);
+      const verificationSlice = correctionCycle > 0
+        ? { ...slice, "Check IDs": checks.map((check) => check["Check ID"]).join(", ") }
+        : slice;
+      const verifier = this.verify(run, verificationSlice, "patched", adapter, hostReceipts);
       if (verifier.hard_error) return { completed: false, run: this.block(run, verifier.blockers) };
       const byCheck = new Map(verifier.entries.map((entry) => [entry.check_id, entry]));
       const entries = checks.map((check) => byCheck.get(check["Check ID"]) ?? checkEvidence(check, hostReceipts.find((receipt) => receipt.check_id === check["Check ID"]), "patched"));
       run = this.update(run.run_id, (draft) => ({ ...draft, phase: "slice-review", check_receipts: [...(draft.check_receipts ?? []), ...hostReceipts], evidence_entries: [...(draft.evidence_entries ?? []).filter((entry) => !(entry.baseline_or_patched === "patched" && entries.some((candidate) => candidate.check_id === entry.check_id))), ...entries], receipts: [...draft.receipts, ...(verifier.receipt ? [verifier.receipt] : [])] }), "verification-finished");
       let budgetBlockers = budgetBoundaryBlockers(run);
       if (budgetBlockers.length > 0) return { completed: false, run: this.block(run, budgetBlockers) };
-      const review = this.review(run, slice, entries, adapter);
+      let review = this.review(run, slice, entries, adapter);
       if (review.hard_error) return { completed: false, run: this.block(run, review.blockers) };
       run = this.update(run.run_id, (draft) => ({ ...draft, review: review.decision, receipts: [...draft.receipts, review.receipt] }), "slice-reviewed");
       budgetBlockers = budgetBoundaryBlockers(run);
       if (budgetBlockers.length > 0) return { completed: false, run: this.block(run, budgetBlockers) };
       if (!review.decision) return { completed: false, run: this.wait(run, review.blockers) };
       const aggregate = aggregateEvidence(run.evidence_entries.filter((entry) => entry.baseline_or_patched === "patched"));
+      if (review.decision.next_action !== "none") {
+        const patchedEvidence = run.evidence_entries.filter((entry) => entry.baseline_or_patched === "patched");
+        let candidate;
+        try { candidate = this.deliveryEvidenceCandidate(run, patchedEvidence); }
+        catch (error) { return { completed: false, run: this.block(run, [`delivery-closeout-invalid:${error.message}`]) }; }
+        let built;
+        try { built = this.controllerWorkReview(run, candidate, review); }
+        catch (firstError) {
+          const repaired = this.review(run, slice, entries, adapter, candidate.artifact, firstError.message);
+          run = this.update(run.run_id, (draft) => ({ ...draft, receipts: [...draft.receipts, ...(repaired.receipt ? [repaired.receipt] : [])] }), "review-input-repair-attempted");
+          try {
+            if (!repaired.decision || repaired.hard_error) throw new Error("repair reviewer did not return a valid decision");
+            built = this.controllerWorkReview(run, candidate, repaired);
+            review = repaired;
+          } catch (secondError) {
+            return { completed: false, run: this.wait(run, [`review-input-invalid-after-one-repair:${secondError.message}; repeat Review in this Run`]) };
+          }
+        }
+        review = { ...review, decision: built.controller_decision };
+        run = this.update(run.run_id, (draft) => ({ ...draft, review: built.controller_decision }), "slice-review-authority-built");
+        run = this.materializeControllerReview(run, candidate, built);
+      }
       if (aggregate.delivery === "blocked") {
         const patchedEvidence = run.evidence_entries.filter((entry) => entry.baseline_or_patched === "patched");
         let candidate;
@@ -481,8 +615,8 @@ export class WorkflowEngine {
       const learningCandidateIds = learning.candidates.map((candidate) => candidate.learning_id);
       const correctionDecision = {
         ...review.decision,
-        correction_id: learning.correction_id,
-        learning_candidate_ids: learningCandidateIds,
+        controller_learning_correction_id: learning.correction_id,
+        controller_learning_candidate_ids: learningCandidateIds,
       };
       const deviation = {
         id: `DEV-${run.strategy.revision + 1}`,
@@ -492,7 +626,15 @@ export class WorkflowEngine {
         learning_candidate_ids: learningCandidateIds,
         at: new Date().toISOString(),
       };
-      const strategy = reviseStrategy(run.strategy, { deviations: [deviation] }, { reason: `review correction ${correctionCycle}`, createdBy: role, authority: run.plan.fields.authority });
+      const parsedCorrection = inspectArtifactText(run.work_review_artifact, this.pluginRoot).artifact?.correction;
+      if (!parsedCorrection?.id || parsedCorrection.id !== review.decision.correction_id) return { completed: false, run: this.wait(run, ["host-built-correction-plan-unavailable"]) };
+      const correctionChecks = parsedCorrection.checks.map((check) => ({
+        ...check,
+        Objectives: parsedCorrection.fixes.filter((fix) => String(check["FIX IDs"]).split(",").map((item) => item.trim()).includes(fix["FIX ID"])).flatMap((fix) => String(fix["Root Objectives"]).split(",").map((item) => item.trim())).filter(Boolean).join(", "),
+        "Evidence Class": "machine-verifiable",
+      }));
+      const checksById = new Map([...run.strategy.checks, ...correctionChecks].map((check) => [check["Check ID"], check]));
+      const strategy = reviseStrategy(run.strategy, { deviations: [deviation], checks: [...checksById.values()] }, { reason: `review correction ${correctionCycle}`, createdBy: role, authority: run.plan.fields.authority });
       run = this.update(run.run_id, (draft) => ({
         ...draft,
         strategy,
@@ -584,40 +726,50 @@ export class WorkflowEngine {
     }
   }
 
-  review(run, slice, evidenceEntries, adapter, candidateEvidence = null) {
+  review(run, slice, evidenceEntries, adapter, candidateEvidence = null, repairIssue = null) {
     const selected = routeSelection(run.route_validation, "reviewer");
     const diff = this.gitDiff(run.worktree.path, run.strategy.task_class === "verify-existing" ? run.worktree.baseline.head : run.worktree.human_baseline);
     const prompt = [
       "Independently review the current strategy state. You are read-only and have no writer conversation.",
       "Judge the immutable intent, current strategy, repository diff and evidence entries. Reviewer opinion must not upgrade evidence.",
-      "Return JSON with assessment, delivery_status, next_action, finding_keys, findings, and learning_candidates. learning_candidates is optional and allowed only for next_action correct; each item contains finding_keys, reusable_guidance, candidate_targets, and confirmation_evidence. Do not assign Learning IDs. Known failed evidence can never be provisional or verified.",
+      "Return semantic JSON only: assessment, next_action, assessment_summary, snapshot_assessment, snapshot_summary, finding_keys, findings, missing_evidence, and learning_candidates. Each finding requires key, summary, severity, objective_ids, check_ids, evidence, reasoning, and resolution. For correct, learning_candidates is required and each item contains finding_keys, reusable_guidance, candidate_targets, and confirmation_evidence. Do not assign artifact, Correction, Check, Step, Finding, or Learning IDs. Known failed evidence can never be provisional or verified.",
       `INTENT\n${run.plan.authoritative_projection_text}`,
       `STRATEGY\n${JSON.stringify(run.strategy, null, 2)}`,
       `SLICE\n${JSON.stringify(slice, null, 2)}`,
       `DIFF\n${diff}`,
       `CANDIDATE DELIVERY EVIDENCE\n${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`,
-    ].join("\n\n");
+      repairIssue ? `ONE REVIEW-INPUT REPAIR\nThe prior semantic response could not be normalized: ${repairIssue}. Root, Evidence, and repository work are preserved. Correct only the named semantic field and return the complete JSON again in this Run.` : "",
+    ].filter(Boolean).join("\n\n");
     const guarded = guardReadOnlyRepository(run.worktree.path, () => adapter.runPhase({ role: "reviewer", ...selected, prompt, cwd: run.worktree.path, configurationHash: run.route_hash, artifactProjectionHash: run.intent_hash }));
     const phase = guarded.value;
     if (!guarded.unchanged) return { decision: null, receipt: { ...phase.receipt, reader_repository_unchanged: false }, blockers: ["reader-repository-mutation:reviewer"], hard_error: true };
     const blockers = phaseReceiptBlockers(phase.receipt, "reviewer", run.intent_hash);
     if (!phase.response.ok) blockers.push(phase.response.error?.message ?? "reviewer-failed");
     if (blockers.length > 0) return { decision: null, receipt: phase.receipt, blockers: [...new Set(blockers)] };
-    try { return { decision: jsonDecision(phase.response.result), receipt: phase.receipt, blockers: [] }; }
+    try {
+      const decision = jsonDecision(phase.response.result);
+      return {
+        decision,
+        receipt: phase.receipt,
+        auditor_reports: [{ role: "delivery-auditor", assessment: decision.assessment, summary: decision.assessment_summary }],
+        blockers: [],
+      };
+    }
     catch (error) { return { decision: null, receipt: phase.receipt, blockers: [`reviewer-invalid-decision:${error.message}`] }; }
   }
 
-  reviewFanout(run, evidenceEntries, adapter, candidateEvidence = null) {
+  reviewFanout(run, evidenceEntries, adapter, candidateEvidence = null, repairIssue = null) {
     if (typeof adapter.runReadOnlyFanout !== "function") return this.review(run, { "Slice ID": "ROOT" }, evidenceEntries, adapter, candidateEvidence);
     const diff = this.gitDiff(run.worktree.path, run.strategy.task_class === "verify-existing" ? run.worktree.baseline.head : run.worktree.human_baseline);
     const prompt = [
       "Independently judge the immutable intent, current strategy, diff and evidence. You are read-only.",
-      "Return JSON with assessment, delivery_status, next_action, finding_keys, findings, and learning_candidates. learning_candidates is optional and allowed only for next_action correct; each item contains finding_keys, reusable_guidance, candidate_targets, and confirmation_evidence. Do not assign Learning IDs. Do not upgrade evidence and never treat a known failure as provisional.",
+      "Return semantic JSON only: assessment, next_action, assessment_summary, snapshot_assessment, snapshot_summary, finding_keys, findings, missing_evidence, and learning_candidates. Each finding requires key, summary, severity, objective_ids, check_ids, evidence, reasoning, and resolution. For correct, learning_candidates is required and each item contains finding_keys, reusable_guidance, candidate_targets, and confirmation_evidence. Do not assign artifact, Correction, Check, Step, Finding, or Learning IDs. Do not upgrade evidence and never treat a known failure as provisional.",
       `INTENT\n${run.plan.authoritative_projection_text}`,
       `STRATEGY\n${JSON.stringify(run.strategy, null, 2)}`,
       `DIFF\n${diff}`,
       `CANDIDATE DELIVERY EVIDENCE\n${candidateEvidence ?? JSON.stringify(evidenceEntries, null, 2)}`,
-    ].join("\n\n");
+      repairIssue ? `ONE REVIEW-INPUT REPAIR\nThe prior semantic response could not be normalized: ${repairIssue}. Root, Evidence, and repository work are preserved. Correct only the named semantic field and return the complete JSON again in this Run.` : "",
+    ].filter(Boolean).join("\n\n");
     const phases = ["reviewer", "investigator"].map((role) => ({
       role, ...routeSelection(run.route_validation, role), prompt, cwd: run.worktree.path,
       configurationHash: run.route_hash, artifactProjectionHash: run.intent_hash,
@@ -636,7 +788,7 @@ export class WorkflowEngine {
       const receiptErrors = phaseReceiptBlockers(result.receipt, role, run.intent_hash);
       if (!result.response.ok) receiptErrors.push(result.response.error?.message ?? `${role}-failed`);
       if (receiptErrors.length > 0) { blockers.push(...receiptErrors); continue; }
-      try { decisionRecords.push({ decision: jsonDecision(result.response.result), receipt: result.receipt }); }
+      try { decisionRecords.push({ role, decision: jsonDecision(result.response.result), receipt: result.receipt }); }
       catch (error) { blockers.push(`${role}-invalid-decision:${error.message}`); }
     }
     if (decisionRecords.length === 0) return { decision: null, receipts: results.map((result) => result.receipt), blockers: [...new Set(blockers)] };
@@ -673,7 +825,16 @@ export class WorkflowEngine {
       learning_candidates: learningCandidates,
       agreement: bothAchieved ? "consensus" : decisionRecords.length === 2 ? "contested" : "single-valid-review",
     };
-    return { decision, receipts: results.map((result) => result.receipt), blockers };
+    return {
+      decision,
+      receipts: results.map((result) => result.receipt),
+      auditor_reports: decisionRecords.map(({ role, decision: sourceDecision }) => ({
+        role: role === "investigator" ? "risk-auditor" : "delivery-auditor",
+        assessment: sourceDecision.assessment,
+        summary: sourceDecision.assessment_summary,
+      })),
+      blockers,
+    };
   }
 
   finalReview(runId) {
@@ -690,21 +851,41 @@ export class WorkflowEngine {
     let candidate;
     try { candidate = this.deliveryEvidenceCandidate(run, evidence); }
     catch (error) { return this.block(run, [`delivery-closeout-invalid:${error.message}`]); }
-    const review = this.reviewFanout(run, evidence, adapter, candidate.artifact);
-    const reviewReceipts = review.receipts ?? (review.receipt ? [review.receipt] : []);
-    const rootLearning = materializeControllerLearningCandidates({
+    let review = this.reviewFanout(run, evidence, adapter, candidate.artifact);
+    let reviewReceipts = review.receipts ?? (review.receipt ? [review.receipt] : []);
+    let rootLearning = materializeControllerLearningCandidates({
       run,
       decision: review.decision,
       correctionCycle: (run.correction_cycles ?? 0) + 1,
       receiptIds: reviewReceipts.map((receipt) => receipt?.request_id).filter(Boolean),
     });
-    const rootDecision = review.decision ? {
-      ...review.decision,
-      ...(review.decision.next_action === "correct" ? {
-        correction_id: rootLearning.correction_id,
-        learning_candidate_ids: rootLearning.candidates.map((item) => item.learning_id),
-      } : {}),
-    } : null;
+    let builtReview = null;
+    if (review.decision && !review.hard_error) {
+      try { builtReview = this.controllerWorkReview(run, candidate, review); }
+      catch (firstError) {
+        const repaired = this.reviewFanout(run, evidence, adapter, candidate.artifact, firstError.message);
+        reviewReceipts = [...reviewReceipts, ...(repaired.receipts ?? (repaired.receipt ? [repaired.receipt] : []))];
+        review = { ...repaired, blockers: [...new Set([...(review.blockers ?? []), ...(repaired.blockers ?? [])])] };
+        try {
+          rootLearning = materializeControllerLearningCandidates({
+            run,
+            decision: review.decision,
+            correctionCycle: (run.correction_cycles ?? 0) + 1,
+            receiptIds: (repaired.receipts ?? (repaired.receipt ? [repaired.receipt] : [])).map((receipt) => receipt?.request_id).filter(Boolean),
+          });
+          if (review.decision && !review.hard_error) builtReview = this.controllerWorkReview(run, candidate, review);
+          else throw new Error("repair reviewer did not return a valid decision");
+        } catch (secondError) {
+          review = {
+            ...review,
+            decision: null,
+            blockers: [...new Set([...(review.blockers ?? []), `review-input-invalid-after-one-repair:${secondError.message}; repeat Review in this Run`])],
+          };
+          rootLearning = { correction_id: null, candidates: [] };
+        }
+      }
+    }
+    const rootDecision = builtReview?.controller_decision ?? null;
     const sourceBaselineAtDelivery = repositoryBaseline(this.workspaceRoot);
     const sourceDriftAtDelivery = currentBaselineDiffers(run.source_baseline_at_start ?? run.baseline, sourceBaselineAtDelivery);
     run = this.update(runId, (draft) => ({
@@ -719,6 +900,7 @@ export class WorkflowEngine {
       source_drift_at_delivery: sourceDriftAtDelivery,
       integration_warnings: sourceDriftAtDelivery ? ["source-worktree-drift-may-conflict-with-human-integration"] : [],
     }), "root-reviewed");
+    if (builtReview) run = this.materializeControllerReview(run, candidate, builtReview);
     if (rootDecision?.next_action === "correct") {
       const actorReceipts = learningSourceReceiptIds(rootLearning.candidates);
       this.store.appendDecision(runId, {
@@ -796,7 +978,7 @@ export class WorkflowEngine {
       ? changedPathsBetween(run.worktree.path, run.worktree.human_baseline, snapshot.head)
       : changedPaths(this.workspaceRoot);
     const supplied = new Map(evidence.map((entry) => [entry.check_id, entry]));
-    const completeEvidence = run.plan.checks.filter((check) => check.Required === "yes").map((check) => supplied.get(check["Check ID"]) ?? {
+    const completeEvidence = run.strategy.checks.filter((check) => check.Required === "yes").map((check) => supplied.get(check["Check ID"]) ?? {
       check_id: check["Check ID"],
       grade: "unavailable",
       surface: "controller",
@@ -809,6 +991,7 @@ export class WorkflowEngine {
     });
     const candidate = buildDeliveryEvidence({
       rootPlanText: run.root_plan_text,
+      artifacts: run.workflow_artifacts ?? [],
       checkEvidence: completeEvidence,
       changedPaths: paths,
       strategyRevision: run.strategy?.revision ?? 0,
@@ -824,7 +1007,83 @@ export class WorkflowEngine {
     return { ...candidate, delivery_commit: snapshot.head, delivered_paths: paths };
   }
 
+  controllerWorkReview(run, candidate, review) {
+    if (!review?.decision) throw new Error("controller work-review requires one valid semantic reviewer decision");
+    const reviewInput = controllerReviewInput(run, review.decision, review.auditor_reports ?? []);
+    const built = buildWorkReview({
+      rootPlanText: run.root_plan_text,
+      artifacts: [...(run.workflow_artifacts ?? []), { label: candidate.fields.id, text: candidate.artifact }],
+      reviewInput,
+      pluginRoot: this.pluginRoot,
+    });
+    return {
+      ...built,
+      controller_decision: {
+        ...review.decision,
+        assessment: built.fields.assessment,
+        delivery_status: built.fields.delivery_status,
+        next_action: built.fields.next_action,
+        review_route: built.fields.review_route,
+        correction_id: built.fields.correction_id ?? null,
+        learning_candidate_ids: built.fields.learning_candidates ?? [],
+      },
+    };
+  }
+
+  materializeControllerReview(run, candidate, review) {
+    const artifactMap = new Map();
+    for (const entry of [
+      ...(run.workflow_artifacts ?? []),
+      { label: candidate.fields.id, text: candidate.artifact },
+      { label: review.fields.id, text: review.artifact, builder_provenance: review.provenance },
+    ]) {
+      const artifact = entry.text.match(/^id:\s*([^\s]+)$/m)?.[1] ?? entry.label;
+      const prior = artifactMap.get(artifact);
+      if (prior && prior.text !== entry.text) throw new Error(`controller task-local artifact ${artifact} conflicts with immutable bytes`);
+      artifactMap.set(artifact, { label: artifact, text: entry.text, ...(entry.builder_provenance ? { builder_provenance: entry.builder_provenance } : prior?.builder_provenance ? { builder_provenance: prior.builder_provenance } : {}) });
+    }
+    const workflowArtifacts = [...artifactMap.values()];
+    const handoffEntries = [
+      { label: run.plan.fields.id, text: run.root_plan_text },
+      ...workflowArtifacts.map((entry) => ({ label: entry.label, text: entry.text, ...(entry.builder_provenance ? { provenance: entry.builder_provenance } : {}) })),
+    ];
+    let handoffPersisted = true;
+    let handoffWarning = null;
+    try { this.handoffStore.record(handoffEntries); }
+    catch (error) {
+      handoffPersisted = false;
+      handoffWarning = `optional controller review handoff unavailable: ${error.message}; task-local Review remains valid`;
+    }
+    try {
+      createContentAddressedHandoffStore(run.root_plan_text, this.pluginRoot).record(handoffEntries);
+      rememberContentAddressedRoot(run.root_plan_text, this.pluginRoot);
+      handoffPersisted = true;
+      handoffWarning = null;
+    } catch {
+      // Controller Run state retains the complete exact chain; cross-task cache is resilience only.
+    }
+    return this.update(run.run_id, (draft) => ({
+      ...draft,
+      workflow_artifacts: workflowArtifacts,
+      delivery_evidence_id: candidate.fields.id,
+      delivery_evidence_hash: candidate.artifact_hash,
+      delivery_evidence_artifact: candidate.artifact,
+      delivery_commit: candidate.delivery_commit,
+      delivered_paths: candidate.delivered_paths,
+      work_review_id: review.fields.id,
+      work_review_hash: review.artifact_hash,
+      work_review_artifact: review.artifact,
+      review_input_hash: review.review_input_hash,
+      work_review_builder_provenance: review.provenance,
+      handoff_persisted: handoffPersisted,
+      integration_warnings: [...new Set([...(draft.integration_warnings ?? []), ...(handoffWarning ? [handoffWarning] : [])])],
+    }), "work-review-materialized");
+  }
+
   materializeDeliveryEvidence(run, candidate) {
+    if (run.delivery_evidence_id === candidate.fields.id && run.delivery_evidence_hash === candidate.artifact_hash && run.delivery_evidence_artifact === candidate.artifact) {
+      return { run, blocker: null };
+    }
     let handoffPersisted = true;
     let handoffWarning = null;
     let blocker = null;

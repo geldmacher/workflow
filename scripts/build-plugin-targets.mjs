@@ -56,6 +56,7 @@ const sharedReferences = [
   "manual-mcp-output-contract.md",
   "plan-container-contract.md",
   "review-contract.md",
+  "work-review-input-contract.md",
   "state-contract.md",
 ];
 const portableSkillReferences = Object.freeze({
@@ -66,7 +67,7 @@ const portableSkillReferences = Object.freeze({
   "implement-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "executable-contract.md", "delivery-evidence-contract.md", "closeout-contract.md"],
   "learn-from-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "learning-contract.md"],
   "plan-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "executable-contract.md", "design-contract.md", "closeout-contract.md"],
-  "review-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "delivery-evidence-contract.md", "review-contract.md", "explanation-contract.md"],
+  "review-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "delivery-evidence-contract.md", "review-contract.md", "work-review-input-contract.md", "explanation-contract.md"],
   "work-status": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "state-contract.md"],
 });
 

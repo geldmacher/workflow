@@ -1,9 +1,11 @@
 # Adaptive authorization contract
 
-The approved Schema-5 Intent Root is immutable. Goal, acceptance, non-goals, constraints, public contract, risk, dependency authority, external effects, delivery boundary, budgets, protected paths, and approval-required paths may change only through a new human boundary decision.
+The approved Schema-5 Intent Root is immutable. Goal, acceptance, constraints, public contract, risk, dependencies, effects, delivery boundary, budgets, and protected paths change only through a new human decision.
 
-The external `execution-strategy` is versioned and hash chained. The controller may revise targets, steps, equivalent checks, tools, and approved model candidates inside `authority.allowed_roots`; every deviation and reason enters the Decision Ledger. Exactly one canonical Writer owns the isolated worktree. Up to two investigators, Verifiers, or Reviewers may run concurrently read-only; their only writable location is an external proof directory.
+The hash-chained `execution-strategy` may revise targets, steps, equivalent Checks, tools, and approved models inside `authority.allowed_roots`; deviations enter the Ledger. One Writer owns the worktree. Up to two readers may run concurrently, writing only external proof.
 
-`supervised` allows Dirty Baseline capture and strategy adaptation, but every delivery needs human acceptance. `autonomous` additionally requires an exact Qualification Key: task class, Verification Profile hash, Route Pool hash, and certified repository region. A non-safety deficit downgrades visibly to `supervised` and continues. Intent, risk, scope, dependency, external-effect, secret, protected-path, or budget violations stop.
+`supervised` allows Dirty Baseline and Strategy adaptation but needs human acceptance. `autonomous` also needs an exact Qualification Key: task class, Verification Profile hash, Route Pool hash, and certified region. A non-safety deficit visibly downgrades to `supervised`; authority, secret, or budget violations stop.
 
-Repository delivery is outer effect. Reviewers may propose correction Learning; controller records only. Applying needs human `/learn-from-work` after integration. Push, PR, merge, deploy, production access, automatic integration, and automatic learning are forbidden.
+Repository delivery is outer effect. Reviewers may propose Learning; only human `/learn-from-work` applies it after integration. Push, PR, merge, deploy, production access, automatic integration, and learning are forbidden.
+
+Keep the user journey task-local; persisted Runs provide resilience, not a chat gate. Blockers state one plain reason and recovery.

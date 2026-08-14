@@ -18,6 +18,26 @@ const leanRoot = controlledRoot
   .replace("profile_max: supervised", "profile_max: manual")
   .replace("contract_level: controlled", "contract_level: lean");
 
+function rootWithIndependentDocumentationCheck(root = leanRoot) {
+  return root
+    .replace(
+      "  - Retry handling passes its repository verification path twice.",
+      "  - Retry handling passes its repository verification path twice.\n  - Retry documentation remains inspectable.",
+    )
+    .replace(
+      "| CHECK-1 | OBJ-1 | repository root | npm test | Retry verification passes twice | yes | machine-verifiable | standard | src, tests |",
+      "| CHECK-1 | OBJ-1 | repository root | npm test | Retry verification passes twice | yes | machine-verifiable | standard | src, tests |\n| CHECK-2 | OBJ-2 | repository root | inspect retry documentation | Retry documentation is current | yes | human-review-required | cheap | tests/docs |",
+    );
+}
+
+function reviewCoveringTwoChecks(evidenceId) {
+  return correctionReview(evidenceId)
+    .replace("inspected_objectives: [OBJ-1]", "inspected_objectives: [OBJ-1, OBJ-2]")
+    .replace("inspected_checks: [CHECK-1]", "inspected_checks: [CHECK-1, CHECK-2]")
+    .replace("| Objectives | OBJ-1 | none | gap |", "| Objectives | OBJ-1, OBJ-2 | none | gap |")
+    .replace("| Checks | CHECK-1 | none | passed |", "| Checks | CHECK-1, CHECK-2 | none | partial | ");
+}
+
 const verified = [{
   check_id: "CHECK-1",
   grade: "verified",
@@ -399,7 +419,10 @@ test("separated contexts preserve Root, initial Evidence, review, correction Evi
     const correction = buildDeliveryEvidence({
       rootPlanText: leanRoot,
       artifacts: new ArtifactHandoffStore(directory, defaultRoot).context("wp-adaptive-retry").artifacts,
-      checkEvidence: [{ ...verified[0], check_id: "CHECK-101", observed: "Focused assertion and suite passed" }],
+      checkEvidence: [
+        { ...verified[0], check_id: "CHECK-101", observed: "Focused assertion and suite passed" },
+        { ...verified[0], observed: "The affected Root Check passed on the corrected state" },
+      ],
       changedPaths: ["tests/retry.test.mjs"],
       effectiveProfile: "manual",
       manualCheckReceipts: [manualReceipt("e".repeat(64))],
@@ -408,8 +431,8 @@ test("separated contexts preserve Root, initial Evidence, review, correction Evi
     assert.equal(correction.fields.representation, "delta");
     assert.equal(correction.fields.source_review_id, "wr-closeout-correction");
     assert.equal(correction.fields.predecessor_evidence_id, initial.fields.id);
-    assert.deepEqual(correction.fields.executed_checks, ["CHECK-101"]);
-    assert.deepEqual(correction.fields.reused_checks, ["CHECK-1"]);
+    assert.deepEqual(correction.fields.executed_checks, ["CHECK-101", "CHECK-1"]);
+    assert.deepEqual(correction.fields.reused_checks, []);
     new ArtifactHandoffStore(directory, defaultRoot).record([{ label: correction.fields.id, text: correction.artifact }]);
 
     const followup = followupReview(correction.fields.id);
@@ -465,7 +488,7 @@ test("correction closeout refreshes inherited non-passed Root Checks without dup
     changedPaths: ["tests/retry.test.mjs"],
     effectiveProfile: "manual",
     pluginRoot: defaultRoot,
-  }), /fresh evidence for inherited non-passed Root Checks: CHECK-1/);
+  }), /fresh evidence for affected, failed, missing, stale, or ambiguous Root Checks: CHECK-1/);
 
   const correction = buildDeliveryEvidence({
     rootPlanText: leanRoot,
@@ -493,6 +516,135 @@ test("correction closeout refreshes inherited non-passed Root Checks without dup
     ["followup", followupReview(correction.fields.id)],
   ];
   assert.deepEqual(inspectArtifactSet(chain, defaultRoot).errors, []);
+});
+
+test("correction reuses an unaffected supported Root Check without upgrading its grade", () => {
+  const twoCheckRoot = rootWithIndependentDocumentationCheck();
+  const initial = buildDeliveryEvidence({
+    rootPlanText: twoCheckRoot,
+    checkEvidence: [verified[0], {
+      ...verified[0],
+      check_id: "CHECK-2",
+      grade: "supported",
+      method: "inspect retry documentation",
+      observed: "Documentation was inspected but not independently verified.",
+      repetitions: 0,
+      artifact_hashes: [],
+      limitations: ["Inspection-backed proof remains supported."],
+    }],
+    changedPaths: ["src/retry.mjs"],
+    effectiveProfile: "manual",
+    enforceManualCheckReceipts: false,
+    pluginRoot: defaultRoot,
+  });
+  const review = reviewCoveringTwoChecks(initial.fields.id);
+  assert.deepEqual(inspectArtifactSet([["root", twoCheckRoot], ["initial", initial.artifact], ["review", review]], defaultRoot).errors, []);
+
+  const correction = buildDeliveryEvidence({
+    rootPlanText: twoCheckRoot,
+    artifacts: [
+      { label: initial.fields.id, text: initial.artifact },
+      { label: "review", text: review },
+    ],
+    checkEvidence: [
+      { ...verified[0], check_id: "CHECK-101", observed: "Focused assertion and suite passed" },
+      { ...verified[0], observed: "The affected Root Check passed on the corrected state" },
+    ],
+    changedPaths: ["tests/retry.test.mjs"],
+    effectiveProfile: "manual",
+    enforceManualCheckReceipts: false,
+    pluginRoot: defaultRoot,
+  });
+  assert.equal(correction.fields.status, "provisional");
+  assert.equal(correction.fields.overall_grade, "supported");
+  assert.deepEqual(correction.fields.executed_checks, ["CHECK-101", "CHECK-1"]);
+  assert.deepEqual(correction.fields.reused_checks, ["CHECK-2"]);
+  assert.deepEqual(inspectArtifactSet([
+    ["root", twoCheckRoot],
+    ["initial", initial.artifact],
+    ["review", review],
+    ["correction", correction.artifact],
+  ], defaultRoot).errors, []);
+});
+
+test("correction invalidates Root Checks through objective and path dependencies", () => {
+  const twoCheckRoot = rootWithIndependentDocumentationCheck();
+  const initial = buildDeliveryEvidence({
+    rootPlanText: twoCheckRoot,
+    checkEvidence: [verified[0], { ...verified[0], check_id: "CHECK-2", observed: "Documentation proof passed." }],
+    changedPaths: ["src/retry.mjs"],
+    effectiveProfile: "manual",
+    enforceManualCheckReceipts: false,
+    pluginRoot: defaultRoot,
+  });
+  const baseReview = reviewCoveringTwoChecks(initial.fields.id);
+  const correctionChecks = [
+    { ...verified[0], check_id: "CHECK-101", observed: "Focused correction passed." },
+    { ...verified[0], observed: "CHECK-1 passed on the corrected state." },
+  ];
+  const common = {
+    rootPlanText: twoCheckRoot,
+    checkEvidence: correctionChecks,
+    changedPaths: ["tests/retry.test.mjs"],
+    effectiveProfile: "manual",
+    enforceManualCheckReceipts: false,
+    pluginRoot: defaultRoot,
+  };
+
+  const objectiveReview = baseReview.replace("| FIX-1 | missing-regression-case | OBJ-1 | CHECK-1 |", "| FIX-1 | missing-regression-case | OBJ-1, OBJ-2 | CHECK-1 |");
+  assert.throws(() => buildDeliveryEvidence({
+    ...common,
+    artifacts: [{ label: initial.fields.id, text: initial.artifact }, { label: "review", text: objectiveReview }],
+  }), /Root Checks: CHECK-2/);
+
+  const pathReview = baseReview.replace("| STEP-1 | FIX-1 | tests/retry.test.mjs |", "| STEP-1 | FIX-1 | tests/retry.test.mjs, tests\/docs | ");
+  assert.throws(() => buildDeliveryEvidence({
+    ...common,
+    artifacts: [{ label: initial.fields.id, text: initial.artifact }, { label: "review", text: pathReview }],
+  }), /Root Checks: CHECK-2/);
+});
+
+test("full correction reuses a stable independent Check when only another fingerprint changed", () => {
+  const twoCheckRoot = rootWithIndependentDocumentationCheck(controlledRoot);
+  const oldSource = "1".repeat(64);
+  const newSource = "2".repeat(64);
+  const stableDocs = "3".repeat(64);
+  const initial = buildDeliveryEvidence({
+    rootPlanText: twoCheckRoot,
+    checkEvidence: [verified[0], { ...verified[0], check_id: "CHECK-2", observed: "Documentation verification passed." }],
+    changedPaths: ["src/retry.mjs"],
+    effectiveProfile: "supervised",
+    enforceManualCheckReceipts: false,
+    repositorySnapshot: {
+      head: "abc123",
+      working_tree: "modified",
+      relevant_fingerprints: `\`src/retry.mjs\`=${oldSource}; \`tests/retry.test.mjs\`=${oldSource}; \`tests/docs\`=${stableDocs}`,
+      known_failures: "none",
+    },
+    pluginRoot: defaultRoot,
+  });
+  const review = reviewCoveringTwoChecks(initial.fields.id);
+  const correction = buildDeliveryEvidence({
+    rootPlanText: twoCheckRoot,
+    artifacts: [{ label: initial.fields.id, text: initial.artifact }, { label: "review", text: review }],
+    checkEvidence: [
+      { ...verified[0], check_id: "CHECK-101", observed: "Focused correction passed." },
+      { ...verified[0], observed: "CHECK-1 passed on the corrected state." },
+    ],
+    changedPaths: ["tests/retry.test.mjs"],
+    effectiveProfile: "supervised",
+    enforceManualCheckReceipts: false,
+    repositorySnapshot: {
+      head: "abc123",
+      working_tree: "modified",
+      relevant_fingerprints: `\`src/retry.mjs\`=${newSource}; \`tests/retry.test.mjs\`=${newSource}; \`tests/docs\`=${stableDocs}`,
+      known_failures: "none",
+    },
+    pluginRoot: defaultRoot,
+  });
+  assert.deepEqual(correction.fields.executed_checks, ["CHECK-101", "CHECK-1"]);
+  assert.deepEqual(correction.fields.reused_checks, ["CHECK-2"]);
+  assert.equal(correction.fields.overall_grade, "verified");
 });
 
 test("correction Root refresh preserves unavailable and failed proof instead of fabricating completion", () => {
@@ -565,7 +717,7 @@ test("current tips are idempotent but changed closeout inputs are stale", () => 
   }), /stale or competing closeout/);
 });
 
-test("cache-only failure returns valid Evidence while semantic conflicts remain fatal", () => {
+test("all cache-only failures return valid task-local Evidence", () => {
   const closeout = buildDeliveryEvidence({
     rootPlanText: leanRoot,
     checkEvidence: verified,
@@ -577,9 +729,11 @@ test("cache-only failure returns valid Evidence while semantic conflicts remain 
   const fallback = persistCloseout({ handoffStore: unavailableStore, rootPlanText: leanRoot, closeout });
   assert.equal(fallback.handoff_persisted, false);
   assert.equal(fallback.artifact, closeout.artifact);
-  assert.match(fallback.warning, /attach the returned artifact explicitly/);
+  assert.match(fallback.warning, /task-local continuation remains valid/);
   const conflictStore = { pluginRoot: defaultRoot, record: () => { throw new Error("handoff artifact conflicts with immutable text"); } };
-  assert.throws(() => persistCloseout({ handoffStore: conflictStore, rootPlanText: leanRoot, closeout }), /conflicts/);
+  const conflictFallback = persistCloseout({ handoffStore: conflictStore, rootPlanText: leanRoot, closeout });
+  assert.equal(conflictFallback.handoff_persisted, false);
+  assert.match(conflictFallback.warning, /task-local continuation remains valid/);
 });
 
 test("handoff isolates multiple Roots and rejects legacy Schema-3/4 artifacts", () => {

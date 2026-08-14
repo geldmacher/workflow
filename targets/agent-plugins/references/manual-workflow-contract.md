@@ -16,7 +16,7 @@ This contract preserves Workflow's Schema-5 Manual semantics on Agent Plugins cl
 2. The human separately invokes `implement-work` with that approved Root available.
 3. Implementation re-runs exact preflight, captures the pre-mutation baseline, stays inside authority, observes every required Check, and calls `workflow_closeout`.
 4. The returned exact Schema-5 `delivery-evidence` artifact is the portable closeout result.
-5. A fresh `review-work` invocation compares the exact Root/Evidence chain with the repository read-only and emits one Schema-5 `work-review`.
+5. In the same task by default, `review-work` compares the exact chain read-only and passes closed Schema-1 input to `workflow_closeout` in `work-review` mode; the host builds the authoritative Review.
 6. `work-status` derives state from the exact chain. Provisional acceptance, correction, and learning remain separate invocations.
 
 Required machine claims are verified only by fresh protected host receipts bound to the exact Root, command, directory, and repository snapshot. Agent Plugins clients without compatible lifecycle hooks receive an honest MCP downgrade; they never simulate receipts. Closeout, status, and review expose current-delivery coverage, actionable human attention, Problems with cause and recovery, and one next action.

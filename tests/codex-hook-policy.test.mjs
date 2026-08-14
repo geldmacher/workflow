@@ -15,7 +15,7 @@ import {
   rootContentHash,
   rootPlanFingerprint,
 } from "../src/core/root-plan-attestation.mjs";
-import { defaultRoot } from "../scripts/validate-artifact.source.mjs";
+import { defaultRoot, executionContractFromArtifactText, inspectArtifactText } from "../scripts/validate-artifact.source.mjs";
 import {
   TEST_ROOT_CONTENT_HASH,
   TEST_ROOT_CONTENT_HASH_CRLF,
@@ -24,12 +24,52 @@ import {
   leanRoot,
   leanRootCrlf,
   leanRootWithoutCloseout,
+  makeEvidence,
   planCloseoutFence,
   sharedLifecycleCasesFor,
 } from "./support/manual-attestation-fixtures.mjs";
 
 function step(state, input, options = {}) {
   return evaluateCodexHook({ session_id: "session", turn_id: "turn", model: "gpt-parent", ...input }, state, options);
+}
+
+function reviewInputMessage(overrides = {}) {
+  return `\`\`\`json workflow-review-input\n${JSON.stringify({
+    schema: 1,
+    kind: "review-input",
+    assessment: "provisional",
+    recommended_action: "accept-provisional",
+    assessment_summary: "The exact task-local Evidence remains explicitly provisional.",
+    snapshot_assessment: "consistent",
+    snapshot_summary: "The reviewed snapshot matches the exact Evidence tip.",
+    findings: [],
+    missing_evidence: [],
+    auditor_reports: [],
+    ...overrides,
+  })}\n\`\`\``;
+}
+
+function correctionReviewInputMessage() {
+  return reviewInputMessage({
+    assessment: "mostly-achieved",
+    recommended_action: "correct",
+    assessment_summary: "One bounded retry correction remains.",
+    findings: [{
+      key: "retry-boundary-gap",
+      severity: "medium",
+      objective_ids: ["OBJ-1"],
+      check_ids: ["CHECK-1"],
+      evidence: "The exact task-local implementation omits the bounded retry behavior.",
+      reasoning: "The Root outcome remains incomplete until this in-scope gap is corrected.",
+      resolution: "correct",
+    }],
+    correction: {
+      fixes: [{ key: "complete-retry-boundary", finding_keys: ["retry-boundary-gap"], required_outcome: "Complete the bounded retry behavior.", evidence: "The finding identifies the exact in-scope gap." }],
+      checks: [{ key: "verify-retry-correction", fix_keys: ["complete-retry-boundary"], working_directory: "repository root", command_or_inspection: "node --test tests/codex-hook-policy.test.mjs", expected_result: "Focused tests pass.", required: true, cost_class: "standard", prerequisites: ["src", "tests"] }],
+      steps: [{ key: "apply-retry-correction", fix_keys: ["complete-retry-boundary"], targets: ["src/retry.mjs"], required_outcome: "Apply only the bounded retry correction.", implementation_latitude: "Use the smallest Root-authorized change.", completion_probe: "The correction behavior is present and its Check passes.", check_keys: ["verify-retry-correction"], deviation_action: "Stop and replan if the Root boundary must change." }],
+      learning_candidates: [{ key: "retry-boundary-guidance", finding_keys: ["retry-boundary-gap"], reusable_guidance: "Keep bounded retry behavior covered by focused tests.", candidate_targets: ["tests"], confirmation_evidence: "The correction Check passes." }],
+    },
+  });
 }
 
 const invalidLeanRoot = `---
@@ -698,8 +738,43 @@ test("Codex review allows inspections and artifact recording but blocks mutation
   assert.equal(value.output.hookSpecificOutput.permissionDecision, "deny");
   value = step(value.state, { hook_event_name: "PreToolUse", tool_name: "spawn_agent", tool_input: { message: "edit the repository" } });
   assert.equal(value.output.hookSpecificOutput.permissionDecision, "deny");
+  const auditorInput = {
+    readonly: true,
+    agent_type: "delivery-auditor",
+    prompt: "[workflow-readonly-review-v1] Inspect the exact Root and Evidence read-only.",
+  };
+  value = step(value.state, { hook_event_name: "PreToolUse", tool_name: "Agent", tool_input: auditorInput });
+  assert.deepEqual(value.output, {});
+  value = step(value.state, { hook_event_name: "SubagentStart", agent_id: "delivery-auditor-1", agent_type: "delivery-auditor" });
+  assert.deepEqual(value.output, {});
+  value = step(value.state, { hook_event_name: "PostToolUse", tool_name: "Agent", tool_input: auditorInput, tool_response: { status: "completed", result: "No remaining gap." } });
+  assert.deepEqual(value.state.turn.observed_review_auditors, ["delivery-auditor"]);
   value = step(value.state, { hook_event_name: "PreToolUse", tool_name: "mcp__geldmacher_workflow__workflow_artifact_record", tool_input: {} });
   assert.deepEqual(value.output, {});
+});
+
+test("Codex gives malformed Review input one repair and then blocks only Review", () => {
+  let value = step({ active_root_plan_id: "wp-retry", active_root_content_hash: TEST_ROOT_CONTENT_HASH, active_root_plan_text: leanRoot }, {
+    hook_event_name: "UserPromptSubmit",
+    permission_mode: "default",
+    prompt: "$review-work wp-retry",
+  }, { pluginRoot: defaultRoot });
+  const evidence = makeEvidence({ id: "de-codex-review-input" })
+    .replace(/^intent_hash: .*$/m, `intent_hash: ${executionContractFromArtifactText(leanRoot, defaultRoot).authoritative_projection_hash}`);
+  value = step(value.state, {
+    hook_event_name: "PostToolUse",
+    tool_name: "mcp__geldmacher_workflow__workflow_artifact_context",
+    tool_input: { root_plan_id: "wp-retry", root_plan: leanRoot },
+    tool_response: { structuredContent: { root_plan_id: "wp-retry", root_content_hash: TEST_ROOT_CONTENT_HASH, artifacts: [{ label: "wp-retry", text: leanRoot }, { label: "de-codex-review-input", text: evidence }] } },
+  }, { pluginRoot: defaultRoot });
+  value = step(value.state, { hook_event_name: "Stop", last_assistant_message: "```json workflow-review-input\n{bad}\n```" }, { pluginRoot: defaultRoot });
+  assert.equal(value.output.decision, "block");
+  assert.match(value.output.reason, /Root, Evidence, and repository work are preserved/);
+  assert.match(value.output.reason, /same task/);
+  value = step(value.state, { hook_event_name: "Stop", stop_hook_active: true, last_assistant_message: "```json workflow-review-input\n{still-bad}\n```" }, { pluginRoot: defaultRoot });
+  assert.equal(value.output.continue, false);
+  assert.match(value.output.systemMessage, /Review input could not be read/);
+  assert.equal(value.state.turn, null);
 });
 
 test("Codex review recovers missing Evidence once without mutation and preserves provisional status", () => {
@@ -757,7 +832,7 @@ test("Codex review recovers missing Evidence once without mutation and preserves
     assert.match(value.state.turn.delivery_evidence_artifact, /changed_paths:\n\s+- src\/retry\.mjs\n\s+- tests\/preexisting-dirty\.test\.mjs/);
     value = step(value.state, {
       hook_event_name: "Stop",
-      last_assistant_message: "Review complete with the recovered provisional Evidence; no grade was raised.",
+      last_assistant_message: reviewInputMessage(),
       cwd: repository,
     }, options);
     assert.deepEqual(value.output, {});
@@ -846,17 +921,19 @@ test("Codex task-local Root, Evidence, and exact Review close a correction witho
       prompt: "$review-work wp-retry",
       cwd: repository,
     }, options);
-    const exactReview = correctionReviewArtifact({ latestEvidenceId: initialEntry.label });
     value = step(value.state, {
       hook_event_name: "Stop",
-      last_assistant_message: exactReview,
+      last_assistant_message: correctionReviewInputMessage(),
       cwd: repository,
     }, options);
     assert.deepEqual(value.output, {});
     taskBucket = value.state.task_artifacts_by_root[value.state.active_root_content_hash];
-    assert.equal(taskBucket.artifacts.find((entry) => entry.label === "wr-retry")?.text, exactReview);
+    const builtReview = taskBucket.artifacts.find((entry) => entry.artifact_type === "work-review");
+    assert.ok(builtReview);
+    assert.match(builtReview.label, /^wr-retry-[a-f0-9]{12}$/);
+    assert.equal(builtReview.builder_provenance?.kind, "host-work-review-builder");
     const handoffStore = createContentAddressedHandoffStore(leanRoot, defaultRoot, options.handoffOptions);
-    assert.equal(handoffStore.context("wp-retry", leanRoot).review_tip, null);
+    assert.equal(handoffStore.context("wp-retry", leanRoot).review_tip, builtReview.label);
 
     value = step(value.state, {
       hook_event_name: "UserPromptSubmit",
@@ -878,7 +955,23 @@ test("Codex task-local Root, Evidence, and exact Review close a correction witho
       grade: "supported",
       observed: "Correction behavior is supported by repository inspection.",
       summary: "Applied the authorized correction and retained explicit proof limits.",
-    }).replace("check_id: CHECK-1", "check_id: CHECK-101");
+    })
+      .replace("check_id: CHECK-1", "check_id: CHECK-2")
+      .replace(
+        "summary: Applied the authorized correction and retained explicit proof limits.",
+        [
+          "  - check_id: CHECK-1",
+          "    grade: supported",
+          "    surface: repository",
+          "    method: node --test tests/codex-hook-policy.test.mjs",
+          "    expected: Focused tests pass.",
+          "    observed: The affected Root Check is supported by repository inspection.",
+          "    repetitions: 0",
+          "    limitations:",
+          "      - A fresh host receipt was not available after correction.",
+          "summary: Applied the authorized correction and retained explicit proof limits.",
+        ].join("\n"),
+      );
     value = step(value.state, {
       hook_event_name: "Stop",
       last_assistant_message: correctionCloseout,
@@ -888,10 +981,11 @@ test("Codex task-local Root, Evidence, and exact Review close a correction witho
     taskBucket = value.state.task_artifacts_by_root[value.state.active_root_content_hash];
     const delta = taskBucket.artifacts.find((entry) => entry.artifact_type === "delivery-evidence" && /representation: delta/.test(entry.text));
     assert.ok(delta);
-    assert.match(delta.text, /subject_id: cp-retry/);
-    assert.match(delta.text, /source_review_id: wr-retry/);
+    const builtFields = inspectArtifactText(builtReview.text, defaultRoot).artifact.fields;
+    assert.match(delta.text, new RegExp(`subject_id: ${builtFields.correction_id}`));
+    assert.match(delta.text, new RegExp(`source_review_id: ${builtReview.label}`));
     assert.match(delta.text, new RegExp(`predecessor_evidence_id: ${initialEntry.label}`));
-    assert.deepEqual(JSON.parse(JSON.stringify(handoffStore.context("wp-retry", leanRoot))).review_tip, "wr-retry");
+    assert.deepEqual(JSON.parse(JSON.stringify(handoffStore.context("wp-retry", leanRoot))).review_tip, builtReview.label);
   } finally {
     rmSync(temporary, { recursive: true, force: true });
   }
@@ -926,7 +1020,7 @@ test("Codex surfaces a classified native closeout failure in the Stop response",
   assert.equal(value.state.turn.native_closeout_error_code, "missing-source-review");
 });
 
-test("Codex exact task-local Reviews with the same ID remain byte-conflict fail-closed", () => {
+test("Codex rejects a new full model-authored Review before it can become authority", () => {
   let value = step({}, { hook_event_name: "UserPromptSubmit", permission_mode: "plan", prompt: "$plan-work add retries" });
   value = step(value.state, {
     hook_event_name: "Stop",
@@ -950,8 +1044,8 @@ test("Codex exact task-local Reviews with the same ID remain byte-conflict fail-
     last_assistant_message: authoritativeReview,
   });
   assert.equal(value.output.decision, "block");
-  assert.match(value.output.reason, /exact review capture failed closed/i);
-  assert.match(value.output.reason, /conflicts with different immutable bytes/);
+  assert.match(value.output.reason, /full model-authored work-review envelope/i);
+  assert.match(value.output.reason, /same task/i);
 });
 
 const validFullTemplate = readFileSync(join(defaultRoot, "tests/fixtures/artifacts/delivery-evidence.valid.md"), "utf8");
@@ -1468,8 +1562,7 @@ test("Codex closeout Stop binds persistence, chain Root, and raw-byte Evidence i
     handoffPersisted: false,
   });
   value = step(value.state, { hook_event_name: "Stop", last_assistant_message: report("de-current") });
-  assert.equal(value.output.decision, "block");
-  assert.match(value.output.reason, /unpersisted|attach|exact/i);
+  assert.deepEqual(value.output, {});
 
   value = beginImplementationWithEvidence("de-current", {
     artifact: exactDeltaEvidence,

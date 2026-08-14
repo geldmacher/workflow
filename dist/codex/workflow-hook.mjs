@@ -300,13 +300,13 @@ var require_directives = __commonJS({
        * @param onError - May be called even if the action was successful
        * @returns `true` on success
        */
-      add(line, onError) {
+      add(line2, onError) {
         if (this.atNextDocument) {
           this.yaml = { explicit: _Directives.defaultYaml.explicit, version: "1.1" };
           this.tags = Object.assign({}, _Directives.defaultTags);
           this.atNextDocument = false;
         }
-        const parts = line.trim().split(/[ \t]+/);
+        const parts = line2.trim().split(/[ \t]+/);
         const name = parts.shift();
         switch (name) {
           case "%TAG": {
@@ -1501,7 +1501,7 @@ var require_stringify = __commonJS({
         props.push(doc.directives.tagString(tag));
       return props.join(" ");
     }
-    function stringify2(item, ctx, onComment, onChompKeep) {
+    function stringify3(item, ctx, onComment, onChompKeep) {
       if (identity.isPair(item))
         return item.toString(ctx, onComment, onChompKeep);
       if (identity.isAlias(item)) {
@@ -1530,7 +1530,7 @@ var require_stringify = __commonJS({
 ${ctx.indent}${str}`;
     }
     exports.createStringifyContext = createStringifyContext;
-    exports.stringify = stringify2;
+    exports.stringify = stringify3;
   }
 });
 
@@ -1540,7 +1540,7 @@ var require_stringifyPair = __commonJS({
     "use strict";
     var identity = require_identity();
     var Scalar = require_Scalar();
-    var stringify2 = require_stringify();
+    var stringify3 = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyPair({ key, value }, ctx, onComment, onChompKeep) {
       const { allNullValues, doc, indent, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx;
@@ -1562,7 +1562,7 @@ var require_stringifyPair = __commonJS({
       });
       let keyCommentDone = false;
       let chompKeep = false;
-      let str = stringify2.stringify(key, ctx, () => keyCommentDone = true, () => chompKeep = true);
+      let str = stringify3.stringify(key, ctx, () => keyCommentDone = true, () => chompKeep = true);
       if (!explicitKey && !ctx.inFlow && str.length > 1024) {
         if (simpleKeys)
           throw new Error("With simple keys, single line scalar must not span more than 1024 characters");
@@ -1614,7 +1614,7 @@ ${indent}:`;
         ctx.indent = ctx.indent.substring(2);
       }
       let valueCommentDone = false;
-      const valueStr = stringify2.stringify(value, ctx, () => valueCommentDone = true, () => chompKeep = true);
+      const valueStr = stringify3.stringify(value, ctx, () => valueCommentDone = true, () => chompKeep = true);
       let ws = " ";
       if (keyComment || vsb || vcb) {
         ws = vsb ? "\n" : "";
@@ -1755,7 +1755,7 @@ var require_addPairToJSMap = __commonJS({
     "use strict";
     var log = require_log();
     var merge = require_merge();
-    var stringify2 = require_stringify();
+    var stringify3 = require_stringify();
     var identity = require_identity();
     var toJS = require_toJS();
     function addPairToJSMap(ctx, map, { key, value }) {
@@ -1791,7 +1791,7 @@ var require_addPairToJSMap = __commonJS({
       if (typeof jsKey !== "object")
         return String(jsKey);
       if (identity.isNode(key) && ctx?.doc) {
-        const strCtx = stringify2.createStringifyContext(ctx.doc, {});
+        const strCtx = stringify3.createStringifyContext(ctx.doc, {});
         strCtx.anchors = /* @__PURE__ */ new Set();
         for (const node of ctx.anchors.keys())
           strCtx.anchors.add(node.anchor);
@@ -1858,12 +1858,12 @@ var require_stringifyCollection = __commonJS({
   "node_modules/yaml/dist/stringify/stringifyCollection.js"(exports) {
     "use strict";
     var identity = require_identity();
-    var stringify2 = require_stringify();
+    var stringify3 = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyCollection(collection, ctx, options) {
       const flow = ctx.inFlow ?? collection.flow;
-      const stringify3 = flow ? stringifyFlowCollection : stringifyBlockCollection;
-      return stringify3(collection, ctx, options);
+      const stringify4 = flow ? stringifyFlowCollection : stringifyBlockCollection;
+      return stringify4(collection, ctx, options);
     }
     function stringifyBlockCollection({ comment, items }, ctx, { blockItemPrefix, flowChars, itemIndent, onChompKeep, onComment }) {
       const { indent, options: { commentString } } = ctx;
@@ -1888,7 +1888,7 @@ var require_stringifyCollection = __commonJS({
           }
         }
         chompKeep = false;
-        let str2 = stringify2.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = true);
+        let str2 = stringify3.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = true);
         if (comment2)
           str2 += stringifyComment.lineComment(str2, itemIndent, commentString(comment2));
         if (chompKeep && comment2)
@@ -1901,9 +1901,9 @@ var require_stringifyCollection = __commonJS({
       } else {
         str = lines[0];
         for (let i = 1; i < lines.length; ++i) {
-          const line = lines[i];
-          str += line ? `
-${indent}${line}` : "\n";
+          const line2 = lines[i];
+          str += line2 ? `
+${indent}${line2}` : "\n";
         }
       }
       if (comment) {
@@ -1955,13 +1955,13 @@ ${indent}${line}` : "\n";
         }
         if (comment)
           reqNewline = true;
-        let str = stringify2.stringify(item, itemCtx, () => comment = null);
+        let str = stringify3.stringify(item, itemCtx, () => comment = null);
         reqNewline || (reqNewline = lines.length > linesAtValue || str.includes("\n"));
         if (i < items.length - 1) {
           str += ",";
         } else if (ctx.options.trailingComma) {
           if (ctx.options.lineWidth > 0) {
-            reqNewline || (reqNewline = lines.reduce((sum, line) => sum + line.length + 2, 2) + (str.length + 2) > ctx.options.lineWidth);
+            reqNewline || (reqNewline = lines.reduce((sum, line2) => sum + line2.length + 2, 2) + (str.length + 2) > ctx.options.lineWidth);
           }
           if (reqNewline) {
             str += ",";
@@ -1977,14 +1977,14 @@ ${indent}${line}` : "\n";
         return start + end;
       } else {
         if (!reqNewline) {
-          const len = lines.reduce((sum, line) => sum + line.length + 2, 2);
+          const len = lines.reduce((sum, line2) => sum + line2.length + 2, 2);
           reqNewline = ctx.options.lineWidth > 0 && len > ctx.options.lineWidth;
         }
         if (reqNewline) {
           let str = start;
-          for (const line of lines)
-            str += line ? `
-${indentStep}${indent}${line}` : "\n";
+          for (const line2 of lines)
+            str += line2 ? `
+${indentStep}${indent}${line2}` : "\n";
           return `${str}
 ${indent}${end}`;
         } else {
@@ -3316,7 +3316,7 @@ var require_stringifyDocument = __commonJS({
   "node_modules/yaml/dist/stringify/stringifyDocument.js"(exports) {
     "use strict";
     var identity = require_identity();
-    var stringify2 = require_stringify();
+    var stringify3 = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyDocument(doc, options) {
       const lines = [];
@@ -3331,7 +3331,7 @@ var require_stringifyDocument = __commonJS({
       }
       if (hasDirectives)
         lines.push("---");
-      const ctx = stringify2.createStringifyContext(doc, options);
+      const ctx = stringify3.createStringifyContext(doc, options);
       const { commentString } = ctx.options;
       if (doc.commentBefore) {
         if (lines.length !== 1)
@@ -3353,7 +3353,7 @@ var require_stringifyDocument = __commonJS({
           contentComment = doc.contents.comment;
         }
         const onChompKeep = contentComment ? void 0 : () => chompKeep = true;
-        let body = stringify2.stringify(doc.contents, ctx, () => contentComment = null, onChompKeep);
+        let body = stringify3.stringify(doc.contents, ctx, () => contentComment = null, onChompKeep);
         if (contentComment)
           body += stringifyComment.lineComment(body, "", commentString(contentComment));
         if ((body[0] === "|" || body[0] === ">") && lines[lines.length - 1] === "---") {
@@ -3361,7 +3361,7 @@ var require_stringifyDocument = __commonJS({
         } else
           lines.push(body);
       } else {
-        lines.push(stringify2.stringify(doc.contents, ctx));
+        lines.push(stringify3.stringify(doc.contents, ctx));
       }
       if (doc.directives?.docEnd) {
         if (doc.comment) {
@@ -3727,10 +3727,10 @@ var require_errors = __commonJS({
       if (error.pos[0] === -1)
         return;
       error.linePos = error.pos.map((pos) => lc.linePos(pos));
-      const { line, col } = error.linePos[0];
-      error.message += ` at line ${line}, column ${col}`;
+      const { line: line2, col } = error.linePos[0];
+      error.message += ` at line ${line2}, column ${col}`;
       let ci = col - 1;
-      let lineStr = src.substring(lc.lineStarts[line - 1], lc.lineStarts[line]).replace(/[\n\r]+$/, "");
+      let lineStr = src.substring(lc.lineStarts[line2 - 1], lc.lineStarts[line2]).replace(/[\n\r]+$/, "");
       if (ci >= 60 && lineStr.length > 80) {
         const trimStart = Math.min(ci - 39, lineStr.length - 79);
         lineStr = "\u2026" + lineStr.substring(trimStart);
@@ -3738,8 +3738,8 @@ var require_errors = __commonJS({
       }
       if (lineStr.length > 80)
         lineStr = lineStr.substring(0, 79) + "\u2026";
-      if (line > 1 && /^ *$/.test(lineStr.substring(0, ci))) {
-        let prev = src.substring(lc.lineStarts[line - 2], lc.lineStarts[line - 1]);
+      if (line2 > 1 && /^ *$/.test(lineStr.substring(0, ci))) {
+        let prev = src.substring(lc.lineStarts[line2 - 2], lc.lineStarts[line2 - 1]);
         if (prev.length > 80)
           prev = prev.substring(0, 79) + "\u2026\n";
         lineStr = prev + lineStr;
@@ -3747,7 +3747,7 @@ var require_errors = __commonJS({
       if (/[^ ]/.test(lineStr)) {
         let count = 1;
         const end = error.linePos[1];
-        if (end?.line === line && end.col > col) {
+        if (end?.line === line2 && end.col > col) {
           count = Math.max(1, Math.min(end.col - col, 80 - ci));
         }
         const pointer = " ".repeat(ci) + "^".repeat(count);
@@ -4696,13 +4696,13 @@ var require_resolve_flow_scalar = __commonJS({
       return foldLines(source.slice(1, -1)).replace(/''/g, "'");
     }
     function foldLines(source) {
-      let first, line;
+      let first, line2;
       try {
         first = new RegExp("(.*?)(?<![ 	])[ 	]*\r?\n", "sy");
-        line = new RegExp("[ 	]*(.*?)(?:(?<![ 	])[ 	]*)?\r?\n", "sy");
+        line2 = new RegExp("[ 	]*(.*?)(?:(?<![ 	])[ 	]*)?\r?\n", "sy");
       } catch {
         first = /(.*?)[ \t]*\r?\n/sy;
-        line = /[ \t]*(.*?)[ \t]*\r?\n/sy;
+        line2 = /[ \t]*(.*?)[ \t]*\r?\n/sy;
       }
       let match = first.exec(source);
       if (!match)
@@ -4710,8 +4710,8 @@ var require_resolve_flow_scalar = __commonJS({
       let res = match[1];
       let sep3 = " ";
       let pos = first.lastIndex;
-      line.lastIndex = pos;
-      while (match = line.exec(source)) {
+      line2.lastIndex = pos;
+      while (match = line2.exec(source)) {
         if (match[1] === "") {
           if (sep3 === "\n")
             res += sep3;
@@ -4721,7 +4721,7 @@ var require_resolve_flow_scalar = __commonJS({
           res += sep3 + match[1];
           sep3 = " ";
         }
-        pos = line.lastIndex;
+        pos = line2.lastIndex;
       }
       const last = /[ \t]*(.*)/sy;
       last.lastIndex = pos;
@@ -5496,7 +5496,7 @@ var require_cst_scalar = __commonJS({
 var require_cst_stringify = __commonJS({
   "node_modules/yaml/dist/parse/cst-stringify.js"(exports) {
     "use strict";
-    var stringify2 = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
+    var stringify3 = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
     function stringifyToken(token) {
       switch (token.type) {
         case "block-scalar": {
@@ -5549,7 +5549,7 @@ var require_cst_stringify = __commonJS({
         res += stringifyToken(value);
       return res;
     }
-    exports.stringify = stringify2;
+    exports.stringify = stringify3;
   }
 });
 
@@ -5851,40 +5851,40 @@ var require_lexer = __commonJS({
         }
       }
       *parseStream() {
-        let line = this.getLine();
-        if (line === null)
+        let line2 = this.getLine();
+        if (line2 === null)
           return this.setNext("stream");
-        if (line[0] === cst.BOM) {
+        if (line2[0] === cst.BOM) {
           yield* this.pushCount(1);
-          line = line.substring(1);
+          line2 = line2.substring(1);
         }
-        if (line[0] === "%") {
-          let dirEnd = line.length;
-          let cs = line.indexOf("#");
+        if (line2[0] === "%") {
+          let dirEnd = line2.length;
+          let cs = line2.indexOf("#");
           while (cs !== -1) {
-            const ch = line[cs - 1];
+            const ch = line2[cs - 1];
             if (ch === " " || ch === "	") {
               dirEnd = cs - 1;
               break;
             } else {
-              cs = line.indexOf("#", cs + 1);
+              cs = line2.indexOf("#", cs + 1);
             }
           }
           while (true) {
-            const ch = line[dirEnd - 1];
+            const ch = line2[dirEnd - 1];
             if (ch === " " || ch === "	")
               dirEnd -= 1;
             else
               break;
           }
           const n = (yield* this.pushCount(dirEnd)) + (yield* this.pushSpaces(true));
-          yield* this.pushCount(line.length - n);
+          yield* this.pushCount(line2.length - n);
           this.pushNewline();
           return "stream";
         }
         if (this.atLineEnd()) {
           const sp = yield* this.pushSpaces(true);
-          yield* this.pushCount(line.length - sp);
+          yield* this.pushCount(line2.length - sp);
           yield* this.pushNewline();
           return "stream";
         }
@@ -5925,13 +5925,13 @@ var require_lexer = __commonJS({
       }
       *parseDocument() {
         yield* this.pushSpaces(true);
-        const line = this.getLine();
-        if (line === null)
+        const line2 = this.getLine();
+        if (line2 === null)
           return this.setNext("doc");
         let n = yield* this.pushIndicators();
-        switch (line[n]) {
+        switch (line2[n]) {
           case "#":
-            yield* this.pushCount(line.length - n);
+            yield* this.pushCount(line2.length - n);
           // fallthrough
           case void 0:
             yield* this.pushNewline();
@@ -5956,7 +5956,7 @@ var require_lexer = __commonJS({
           case ">":
             n += yield* this.parseBlockScalarHeader();
             n += yield* this.pushSpaces(true);
-            yield* this.pushCount(line.length - n);
+            yield* this.pushCount(line2.length - n);
             yield* this.pushNewline();
             return yield* this.parseBlockScalar();
           default:
@@ -5976,11 +5976,11 @@ var require_lexer = __commonJS({
           }
           sp += yield* this.pushSpaces(true);
         } while (nl + sp > 0);
-        const line = this.getLine();
-        if (line === null)
+        const line2 = this.getLine();
+        if (line2 === null)
           return this.setNext("flow");
-        if (indent !== -1 && indent < this.indentNext && line[0] !== "#" || indent === 0 && (line.startsWith("---") || line.startsWith("...")) && isEmpty(line[3])) {
-          const atFlowEndMarker = indent === this.indentNext - 1 && this.flowLevel === 1 && (line[0] === "]" || line[0] === "}");
+        if (indent !== -1 && indent < this.indentNext && line2[0] !== "#" || indent === 0 && (line2.startsWith("---") || line2.startsWith("...")) && isEmpty(line2[3])) {
+          const atFlowEndMarker = indent === this.indentNext - 1 && this.flowLevel === 1 && (line2[0] === "]" || line2[0] === "}");
           if (!atFlowEndMarker) {
             this.flowLevel = 0;
             yield cst.FLOW_END;
@@ -5988,17 +5988,17 @@ var require_lexer = __commonJS({
           }
         }
         let n = 0;
-        while (line[n] === ",") {
+        while (line2[n] === ",") {
           n += yield* this.pushCount(1);
           n += yield* this.pushSpaces(true);
           this.flowKey = false;
         }
         n += yield* this.pushIndicators();
-        switch (line[n]) {
+        switch (line2[n]) {
           case void 0:
             return "flow";
           case "#":
-            yield* this.pushCount(line.length - n);
+            yield* this.pushCount(line2.length - n);
             return "flow";
           case "{":
           case "[":
@@ -6344,15 +6344,15 @@ var require_parser = __commonJS({
     var node_process = __require("process");
     var cst = require_cst();
     var lexer = require_lexer();
-    function includesToken(list, type) {
-      for (let i = 0; i < list.length; ++i)
-        if (list[i].type === type)
+    function includesToken(list2, type) {
+      for (let i = 0; i < list2.length; ++i)
+        if (list2[i].type === type)
           return true;
       return false;
     }
-    function findNonEmptyIndex(list) {
-      for (let i = 0; i < list.length; ++i) {
-        switch (list[i].type) {
+    function findNonEmptyIndex(list2) {
+      for (let i = 0; i < list2.length; ++i) {
+        switch (list2[i].type) {
           case "space":
           case "comment":
           case "newline":
@@ -7279,7 +7279,7 @@ var require_public_api = __commonJS({
       }
       return doc.toJS(Object.assign({ reviver: _reviver }, options));
     }
-    function stringify2(value, replacer, options) {
+    function stringify3(value, replacer, options) {
       let _replacer = null;
       if (typeof replacer === "function" || Array.isArray(replacer)) {
         _replacer = replacer;
@@ -7304,7 +7304,7 @@ var require_public_api = __commonJS({
     exports.parse = parse3;
     exports.parseAllDocuments = parseAllDocuments;
     exports.parseDocument = parseDocument2;
-    exports.stringify = stringify2;
+    exports.stringify = stringify3;
   }
 });
 
@@ -7488,10 +7488,10 @@ var require_code = __commonJS({
     function interpolate(x) {
       return typeof x == "number" || typeof x == "boolean" || x === null ? x : safeStringify(Array.isArray(x) ? x.join(",") : x);
     }
-    function stringify2(x) {
+    function stringify3(x) {
       return new _Code(safeStringify(x));
     }
-    exports.stringify = stringify2;
+    exports.stringify = stringify3;
     function safeStringify(x) {
       return JSON.stringify(x).replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
     }
@@ -7573,13 +7573,13 @@ var require_scope = __commonJS({
       }
     };
     exports.ValueScopeName = ValueScopeName;
-    var line = (0, code_1._)`\n`;
+    var line2 = (0, code_1._)`\n`;
     var ValueScope = class extends Scope {
       constructor(opts) {
         super(opts);
         this._values = {};
         this._scope = opts.scope;
-        this.opts = { ...opts, _n: opts.lines ? line : code_1.nil };
+        this.opts = { ...opts, _n: opts.lines ? line2 : code_1.nil };
       }
       get() {
         return this._scope;
@@ -14196,8 +14196,8 @@ var require_dist2 = __commonJS({
         return ajv;
       }
       const [formats, exportName] = opts.mode === "fast" ? [formats_1.fastFormats, fastName] : [formats_1.fullFormats, fullName];
-      const list = opts.formats || formats_1.formatNames;
-      addFormats2(ajv, list, formats, exportName);
+      const list2 = opts.formats || formats_1.formatNames;
+      addFormats2(ajv, list2, formats, exportName);
       if (opts.keywords)
         (0, limit_1.default)(ajv);
       return ajv;
@@ -14209,11 +14209,11 @@ var require_dist2 = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats2(ajv, list, fs, exportName) {
+    function addFormats2(ajv, list2, fs, exportName) {
       var _a;
       var _b;
       (_a = (_b = ajv.opts.code).formats) !== null && _a !== void 0 ? _a : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
-      for (const f of list)
+      for (const f of list2)
         ajv.addFormat(f, fs[f]);
     }
     module.exports = exports = formatsPlugin;
@@ -14223,7 +14223,7 @@ var require_dist2 = __commonJS({
 });
 
 // src/hosts/codex/workflow-hook.mjs
-import { createHash as createHash10, randomUUID as randomUUID3 } from "node:crypto";
+import { createHash as createHash11, randomUUID as randomUUID3 } from "node:crypto";
 import { existsSync as existsSync7, mkdirSync as mkdirSync3, readFileSync as readFileSync7, renameSync as renameSync3, writeFileSync as writeFileSync3 } from "node:fs";
 import { homedir as homedir2 } from "node:os";
 import { dirname as dirname5, join as join8, resolve as resolve10 } from "node:path";
@@ -14275,11 +14275,11 @@ function linearChain(items, predecessorField, label, failures) {
     const predecessor = item.fields[predecessorField];
     if (!predecessor) continue;
     if (!byId.has(predecessor)) failures.push(`${item.label}: missing predecessor ${predecessor}`);
-    const list = successors.get(predecessor) ?? [];
-    list.push(item);
-    successors.set(predecessor, list);
+    const list2 = successors.get(predecessor) ?? [];
+    list2.push(item);
+    successors.set(predecessor, list2);
   }
-  for (const [id, list] of successors) if (list.length > 1) failures.push(`${label}: chain branches after ${id}`);
+  for (const [id, list2] of successors) if (list2.length > 1) failures.push(`${label}: chain branches after ${id}`);
   const ordered = [];
   const seen = /* @__PURE__ */ new Set();
   let cursor = starts[0];
@@ -14437,9 +14437,9 @@ function sha256RawUtf8(value) {
   return createHash("sha256").update(String(value ?? ""), "utf8").digest("hex");
 }
 function isPlanCloseoutAttestation(value) {
-  const object = asObject(value);
-  if (!object) return false;
-  return object.schema === PLAN_CLOSEOUT_ATTESTATION.schema && object.kind === PLAN_CLOSEOUT_ATTESTATION.kind && [PLAN_CLOSEOUT_ATTESTATION.action, LEGACY_PLAN_CLOSEOUT_ATTESTATION.action].includes(object.action) && Object.keys(object).length === 3;
+  const object2 = asObject(value);
+  if (!object2) return false;
+  return object2.schema === PLAN_CLOSEOUT_ATTESTATION.schema && object2.kind === PLAN_CLOSEOUT_ATTESTATION.kind && [PLAN_CLOSEOUT_ATTESTATION.action, LEGACY_PLAN_CLOSEOUT_ATTESTATION.action].includes(object2.action) && Object.keys(object2).length === 3;
 }
 var CLOSEOUT_INPUT_FIELDS = Object.freeze([
   "schema",
@@ -14481,47 +14481,47 @@ function validateCloseoutCheckEvidence(entries, issues) {
   if (entries.length > 128) issues.push("closeout-input check_evidence must contain at most 128 entries");
   const ids2 = /* @__PURE__ */ new Set();
   for (const [index, entry] of entries.entries()) {
-    const object = asObject(entry);
-    if (!object) {
+    const object2 = asObject(entry);
+    if (!object2) {
       issues.push(`closeout-input check_evidence[${index}] must be an object`);
       continue;
     }
-    const unknown = exactKeys(object, CHECK_EVIDENCE_FIELDS);
+    const unknown = exactKeys(object2, CHECK_EVIDENCE_FIELDS);
     if (unknown.length > 0) issues.push(`closeout-input check_evidence[${index}] has unknown fields: ${unknown.join(", ")}`);
-    if (!CHECK_ID.test(String(object.check_id ?? ""))) {
+    if (!CHECK_ID.test(String(object2.check_id ?? ""))) {
       issues.push(`closeout-input check_evidence[${index}] requires a valid CHECK-* check_id`);
-    } else if (ids2.has(object.check_id)) {
-      issues.push(`closeout-input check_evidence contains duplicate ${object.check_id}`);
+    } else if (ids2.has(object2.check_id)) {
+      issues.push(`closeout-input check_evidence contains duplicate ${object2.check_id}`);
     } else {
-      ids2.add(object.check_id);
+      ids2.add(object2.check_id);
     }
-    if (!EVIDENCE_GRADES.has(object.grade)) {
-      issues.push(`closeout-input ${object.check_id ?? `check_evidence[${index}]`} has an invalid grade`);
+    if (!EVIDENCE_GRADES.has(object2.grade)) {
+      issues.push(`closeout-input ${object2.check_id ?? `check_evidence[${index}]`} has an invalid grade`);
     }
-    if (typeof object.observed !== "string" || object.observed.trim().length === 0 || object.observed.length > 1e4) {
-      issues.push(`closeout-input ${object.check_id ?? `check_evidence[${index}]`} requires a non-empty observed result`);
+    if (typeof object2.observed !== "string" || object2.observed.trim().length === 0 || object2.observed.length > 1e4) {
+      issues.push(`closeout-input ${object2.check_id ?? `check_evidence[${index}]`} requires a non-empty observed result`);
     }
-    if (!Number.isInteger(object.repetitions) || object.repetitions < 0) {
-      issues.push(`closeout-input ${object.check_id ?? `check_evidence[${index}]`} requires non-negative integer repetitions`);
+    if (!Number.isInteger(object2.repetitions) || object2.repetitions < 0) {
+      issues.push(`closeout-input ${object2.check_id ?? `check_evidence[${index}]`} requires non-negative integer repetitions`);
     }
     for (const field of ["feature_id", "surface", "method", "expected"]) {
-      if (Object.prototype.hasOwnProperty.call(object, field) && object[field] !== null && typeof object[field] !== "string") {
-        issues.push(`closeout-input ${object.check_id ?? `check_evidence[${index}]`} ${field} must be a string or null`);
+      if (Object.prototype.hasOwnProperty.call(object2, field) && object2[field] !== null && typeof object2[field] !== "string") {
+        issues.push(`closeout-input ${object2.check_id ?? `check_evidence[${index}]`} ${field} must be a string or null`);
       }
     }
-    if (["feature_id", "surface", "method", "expected"].some((field) => typeof object[field] === "string" && object[field].length > 1e4)) {
-      issues.push(`closeout-input ${object.check_id ?? `check_evidence[${index}]`} string fields must not exceed 10000 characters`);
+    if (["feature_id", "surface", "method", "expected"].some((field) => typeof object2[field] === "string" && object2[field].length > 1e4)) {
+      issues.push(`closeout-input ${object2.check_id ?? `check_evidence[${index}]`} string fields must not exceed 10000 characters`);
     }
     for (const field of ["limitations"]) {
-      if (Object.prototype.hasOwnProperty.call(object, field) && !Array.isArray(object[field])) {
-        issues.push(`closeout-input ${object.check_id ?? `check_evidence[${index}]`} ${field} must be an array`);
+      if (Object.prototype.hasOwnProperty.call(object2, field) && !Array.isArray(object2[field])) {
+        issues.push(`closeout-input ${object2.check_id ?? `check_evidence[${index}]`} ${field} must be an array`);
       }
     }
-    if (Array.isArray(object.limitations) && object.limitations.some((item) => typeof item !== "string" || !item.trim())) {
-      issues.push(`closeout-input ${object.check_id ?? `check_evidence[${index}]`} limitations must contain non-empty strings`);
+    if (Array.isArray(object2.limitations) && object2.limitations.some((item) => typeof item !== "string" || !item.trim())) {
+      issues.push(`closeout-input ${object2.check_id ?? `check_evidence[${index}]`} limitations must contain non-empty strings`);
     }
-    if (Array.isArray(object.limitations) && (object.limitations.length > 64 || object.limitations.some((item) => item.length > 2e3))) {
-      issues.push(`closeout-input ${object.check_id ?? `check_evidence[${index}]`} limitations exceed the bounded report size`);
+    if (Array.isArray(object2.limitations) && (object2.limitations.length > 64 || object2.limitations.some((item) => item.length > 2e3))) {
+      issues.push(`closeout-input ${object2.check_id ?? `check_evidence[${index}]`} limitations exceed the bounded report size`);
     }
   }
 }
@@ -14604,28 +14604,28 @@ function extractWorkflowAttestations(text) {
   const attestations = [];
   let inForeignFence = false;
   for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
+    const line2 = lines[index];
     if (inForeignFence) {
-      if (ATTESTATION_FENCE_CLOSE.test(line)) inForeignFence = false;
+      if (ATTESTATION_FENCE_CLOSE.test(line2)) inForeignFence = false;
       continue;
     }
-    if (/^```(?!yaml workflow-attestation\s*$)/.test(line)) {
+    if (/^```(?!yaml workflow-attestation\s*$)/.test(line2)) {
       inForeignFence = true;
       continue;
     }
-    if (!ATTESTATION_FENCE_OPEN.test(line)) continue;
+    if (!ATTESTATION_FENCE_OPEN.test(line2)) continue;
     const body = [];
     let cursor = index + 1;
-    let closed = false;
+    let closed2 = false;
     while (cursor < lines.length) {
       if (ATTESTATION_FENCE_CLOSE.test(lines[cursor])) {
-        closed = true;
+        closed2 = true;
         break;
       }
       body.push(lines[cursor]);
       cursor += 1;
     }
-    if (!closed) continue;
+    if (!closed2) continue;
     try {
       const parsed = (0, import_yaml2.parse)(body.join("\n"));
       if (asObject(parsed)) {
@@ -14891,16 +14891,16 @@ function boundedEvidenceAttachmentCount(message, expectedArtifact) {
     if (!BACKTICK_FENCE_OPEN.test(lines[index])) continue;
     const body = [];
     let cursor = index + 1;
-    let closed = false;
+    let closed2 = false;
     while (cursor < lines.length) {
       if (/^```\s*$/.test(lines[cursor])) {
-        closed = true;
+        closed2 = true;
         break;
       }
       body.push(lines[cursor]);
       cursor += 1;
     }
-    if (!closed) continue;
+    if (!closed2) continue;
     const joiner = exact.includes("\r\n") ? "\r\n" : "\n";
     const inner = `${body.join(joiner)}${body.length > 0 ? joiner : ""}`;
     if (inner === exact || inner === exact.replace(/\r?\n$/, "") || `${inner}${joiner}` === exact || `${inner}
@@ -14955,8 +14955,9 @@ function evaluateDeliveryCompletion(message, turn) {
   const attachmentCount = boundedEvidenceAttachmentCount(message, turn.delivery_evidence_artifact);
   const occurrenceCount = rawArtifactOccurrenceCount(message, turn.delivery_evidence_artifact);
   if (turn.handoff_persisted === false) {
-    if (attachmentCount !== 1 || occurrenceCount !== 1) {
-      return { ok: false, reason: "unpersisted-attachment-required" };
+    const containsDifferentEvidence = attachmentCount === 0 && /\bartifact\s*:\s*delivery-evidence\b/i.test(String(message ?? ""));
+    if (attachmentCount > 1 || occurrenceCount !== attachmentCount || containsDifferentEvidence) {
+      return { ok: false, reason: "unpersisted-attachment-invalid" };
     }
   } else if (attachmentCount !== 0 || occurrenceCount !== 0) {
     return { ok: false, reason: "persisted-attachment-invalid" };
@@ -15178,15 +15179,15 @@ function sha256(value) {
 }
 function maskFences(text) {
   let fence = null;
-  return String(text).split(/(?<=\n)/).map((line) => {
+  return String(text).split(/(?<=\n)/).map((line2) => {
     if (!fence) {
-      const marker = line.match(/^[ \t]*(`{3,}|~{3,})/);
-      if (!marker) return line;
+      const marker = line2.match(/^[ \t]*(`{3,}|~{3,})/);
+      if (!marker) return line2;
       fence = { char: marker[1][0], size: marker[1].length };
-      return line.replace(/[^\r\n]/g, " ");
+      return line2.replace(/[^\r\n]/g, " ");
     }
-    const masked = line.replace(/[^\r\n]/g, " ");
-    if (new RegExp(`^[ \\t]*${fence.char}{${fence.size},}[ \\t]*(?:\\r?\\n)?$`).test(line)) fence = null;
+    const masked = line2.replace(/[^\r\n]/g, " ");
+    if (new RegExp(`^[ \\t]*${fence.char}{${fence.size},}[ \\t]*(?:\\r?\\n)?$`).test(line2)) fence = null;
     return masked;
   }).join("");
 }
@@ -15226,11 +15227,11 @@ function trimTrailingNotes(body, required, normalizations) {
   }
   return body;
 }
-function cells(line) {
+function cells(line2) {
   const parsed = [];
   let current = "";
   let escaped = false;
-  for (const char of String(line).trim()) {
+  for (const char of String(line2).trim()) {
     if (escaped) {
       current += char;
       escaped = false;
@@ -15258,7 +15259,7 @@ function markdownTables(content) {
   for (let index = 0; index < lines.length - 1; index += 1) {
     const headers = cells(lines[index]);
     const separator = cells(lines[index + 1]);
-    if (headers.length < 2 || separator.length !== headers.length || !separator.every((cell2) => /^:?-{3,}:?$/.test(cell2))) continue;
+    if (headers.length < 2 || separator.length !== headers.length || !separator.every((cell3) => /^:?-{3,}:?$/.test(cell3))) continue;
     const rows = [];
     index += 2;
     while (index < lines.length && lines[index].includes("|")) {
@@ -15323,7 +15324,7 @@ function noneLike(value) {
   return /^(?:none\.?|no (?:findings|changes|deviations|candidates|correction|open decisions)\.?)$/i.test(String(value).trim());
 }
 function hasStandaloneNone(content) {
-  return String(content).split(/\r?\n/).some((line) => /^(?:\*\*[^*\r\n]+:\*\*\s*)?None\.?$/i.test(line.trim()));
+  return String(content).split(/\r?\n/).some((line2) => /^(?:\*\*[^*\r\n]+:\*\*\s*)?None\.?$/i.test(line2.trim()));
 }
 function requireTable(sections, sectionName, headers, failures, { allowNone = false, optional = false, normalizations = [] } = {}) {
   const content = sections.get(sectionName) ?? "";
@@ -15400,8 +15401,14 @@ function issue(code, message, details = {}) {
   return { code, message, ...details };
 }
 function fingerprintMap(value) {
-  const entries = [...String(value ?? "").matchAll(/`([^`]+)`=([a-f0-9]{64})/g)];
-  return new Map(entries.map((match) => [match[1].replace(/^\.\//, ""), match[2]]));
+  const entries = String(value ?? "").split(/;\s*/).flatMap((entry) => {
+    const match = entry.match(/^`?([^=`]+?)`?=(.+)$/);
+    if (!match) return [];
+    const path = match[1].trim().replace(/^\.\//, "");
+    if (!path || ["index", "status"].includes(path)) return [];
+    return [[path, match[2].trim()]];
+  });
+  return new Map(entries);
 }
 function validateCostOrder(rows, column, label, parsed) {
   let previous = 0;
@@ -15442,6 +15449,12 @@ function planData(artifact) {
     }));
     const evidenceClasses = declaredWithClass.length > 0 ? new Map(declaredWithClass.map((row) => [row["Check ID"], row["Evidence Class"]])) : new Map(checks2.map((row) => [row["Check ID"], "human-review-required"]));
     const objectiveIds = objectives2.map((row) => row["Objective ID"]);
+    const objectiveDependencies2 = new Map(objectiveIds.map((id) => [id, /* @__PURE__ */ new Set()]));
+    for (const check of checks2) {
+      for (const objective of ids(check.Objectives, objectivePattern)) {
+        for (const target of targetTokens(check.Prerequisites)) objectiveDependencies2.get(objective)?.add(target);
+      }
+    }
     return {
       objectives: new Set(objectiveIds),
       checks: new Set(checks2.map((row) => row["Check ID"])),
@@ -15460,7 +15473,7 @@ function planData(artifact) {
       requiredChecks: new Set(checks2.filter((row) => row.Required === "yes").map((row) => row["Check ID"])),
       allowedTargets: [...artifact.fields.authority.allowed_roots],
       prohibitedTargets: [...artifact.fields.authority.protected_paths, ...artifact.fields.authority.approval_required_paths],
-      objectiveDependencies: new Map(objectiveIds.map((id) => [id, new Set(artifact.fields.authority.allowed_roots)]))
+      objectiveDependencies: objectiveDependencies2
     };
   }
   const objectives = tableRows(artifact.sections.get("Objectives") ?? "", tables.objectives);
@@ -15680,8 +15693,8 @@ function validatePlan(parsed, sections, failures) {
   if (parsed.fields.assurance_override === "lowered") {
     if (triggers.length > 0) failures.push("hard-trigger assurance cannot be lowered");
     if (selectedRank >= derivedRank) failures.push("lowered assurance override must select a lower profile than derived");
-    const decision = decisions.rows.find((row) => row["Decision ID"] === parsed.fields.assurance_override_decision_id);
-    if (!decisionIds.has(parsed.fields.assurance_override_decision_id) || !/\bHuman (?:decision|approval)\b/i.test(decision?.Source ?? "")) failures.push("lowered assurance requires a human-sourced decision");
+    const decision2 = decisions.rows.find((row) => row["Decision ID"] === parsed.fields.assurance_override_decision_id);
+    if (!decisionIds.has(parsed.fields.assurance_override_decision_id) || !/\bHuman (?:decision|approval)\b/i.test(decision2?.Source ?? "")) failures.push("lowered assurance requires a human-sourced decision");
   }
   const controls = requireTable(sections, "Risk and closeout", tables.controls, failures, { allowNone: true, normalizations: parsed.normalizations });
   exactIdSet(controls.rows, "Control ID", /CTRL-[1-9][0-9]*/, "Pareto controls", failures);
@@ -15921,7 +15934,7 @@ function validateCompactReview(parsed, sections, failures) {
   const visibleAuditors = new Set(String(auditorRow?.Inspected ?? "").split(",").map((value) => value.trim()).filter((value) => value && !noneLike(value)));
   if (coverage.rows.length > 0 && !sameSet(visibleAuditors, actualAuditors)) parsed.normalizations.push("Evidence coverage: auditor summary derived from frontmatter");
   const routeRank = { inline: 1, targeted: 2, full: 3 };
-  const decisiveBoundary = ["replan", "clarify"].includes(parsed.fields.next_action);
+  const decisiveBoundary = ["correct", "replan", "clarify"].includes(parsed.fields.next_action);
   const unresolvedHighFinding = findings.rows.some((row) => /^(?:high|critical)$/.test(row.Severity)) && !decisiveBoundary;
   let minimumRoute = actualAuditors.has("risk-auditor") || unresolvedHighFinding ? "full" : actualAuditors.has("delivery-auditor") || actualAuditors.has("work-design-auditor") ? "targeted" : "inline";
   if (routeRank[parsed.fields.review_route] < routeRank[minimumRoute]) failures.push(`review_route must be at least computed minimum ${minimumRoute}`);
@@ -16396,11 +16409,11 @@ function validatePlanLineage(artifacts, failures) {
       const reviewTips = predecessorReviews.filter((review) => !referencedReviews.has(review.fields.id));
       if (reviewTips.length !== 1 || reviewTips[0].fields.id !== sourceReviewId) failures.push(`${plan.label}: replan source review must be the unique current predecessor review tip`);
     }
-    const list = successors.get(predecessorId) ?? [];
-    list.push(plan);
-    successors.set(predecessorId, list);
+    const list2 = successors.get(predecessorId) ?? [];
+    list2.push(plan);
+    successors.set(predecessorId, list2);
   }
-  for (const [predecessorId, list] of successors) if (list.length > 1) failures.push(`work-plan lineage branches after ${predecessorId}`);
+  for (const [predecessorId, list2] of successors) if (list2.length > 1) failures.push(`work-plan lineage branches after ${predecessorId}`);
   const visiting = /* @__PURE__ */ new Set();
   const visited = /* @__PURE__ */ new Set();
   const visit = (plan) => {
@@ -16449,14 +16462,14 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
   for (const artifact of artifacts.values()) {
     if (artifact.fields.artifact === "delivery-evidence") {
       materializeEvidence(artifact, artifacts, evidenceCache, errors, root);
-      const list = evidenceByRoot.get(artifact.fields.root_plan_id) ?? [];
-      list.push(artifact);
-      evidenceByRoot.set(artifact.fields.root_plan_id, list);
+      const list2 = evidenceByRoot.get(artifact.fields.root_plan_id) ?? [];
+      list2.push(artifact);
+      evidenceByRoot.set(artifact.fields.root_plan_id, list2);
     }
     if (artifact.fields.artifact === "work-review") {
-      const list = reviewsByRoot.get(artifact.fields.root_plan_id) ?? [];
-      list.push(artifact);
-      reviewsByRoot.set(artifact.fields.root_plan_id, list);
+      const list2 = reviewsByRoot.get(artifact.fields.root_plan_id) ?? [];
+      list2.push(artifact);
+      reviewsByRoot.set(artifact.fields.root_plan_id, list2);
     }
   }
   for (const [rootId, evidence] of evidenceByRoot) {
@@ -16534,9 +16547,10 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
       disjointCoverage(review.fields.inspected_objectives, review.fields.reused_objectives, plan.objectives, `${review.label}: objective review`, errors);
       disjointCoverage(review.fields.inspected_checks, review.fields.reused_checks, plan.requiredChecks, `${review.label}: Check review`, errors);
       if (index === 0 && ((review.fields.reused_objectives ?? []).length > 0 || (review.fields.reused_checks ?? []).length > 0)) errors.push(`${review.label}: first review must inspect all root evidence`);
-      const fullReviewRequired = rootPlan.fields.schema >= 4 ? rootPlan.fields.contract_level === "certified" || (rootPlan.fields.hard_triggers ?? []).length > 0 : rootPlan.fields.assurance_profile === "deep" || (rootPlan.fields.hard_triggers ?? []).length > 0;
-      if (fullReviewRequired && review.fields.review_route !== "full") {
-        errors.push(`${review.label}: certified or hard-trigger root requires review_route full`);
+      const fullReviewRequired = rootPlan.fields.schema >= 4 ? rootPlan.fields.contract_level === "certified" || rootPlan.fields.risk === "high" || (rootPlan.fields.hard_triggers ?? []).length > 0 : rootPlan.fields.assurance_profile === "deep" || (rootPlan.fields.hard_triggers ?? []).length > 0;
+      const deterministicBlockedRoute = review.fields.delivery_status === "blocked" && review.fields.review_route === "inline" && (review.fields.next_action === "replan" || review.fields.next_action === "correct" && knownFailedEvidence);
+      if (fullReviewRequired && review.fields.review_route !== "full" && !deterministicBlockedRoute) {
+        errors.push(`${review.label}: certified, high-risk, or hard-trigger root requires review_route full`);
       }
       for (const objective of review.fields.reused_objectives ?? []) {
         if (!evidence.fields.reused_objectives.includes(objective)) errors.push(`${review.label}: reused review objective ${objective} lacks delta-evidence reuse`);
@@ -17755,7 +17769,7 @@ import { createHash as createHash6, randomUUID as randomUUID2 } from "node:crypt
 import { dirname as dirname4, join as join7, resolve as resolve9 } from "node:path";
 
 // src/controller/protocol.mjs
-var PLUGIN_VERSION = "5.3.0";
+var PLUGIN_VERSION = "5.4.0";
 var ARTIFACT_SCHEMA = 5;
 var CONTROLLER_PROTOCOL = 5;
 var LEGACY_WORKFLOW_3 = Object.freeze({
@@ -17871,9 +17885,22 @@ function parsedArtifact(text, pluginRoot) {
   }
   return inspected.artifact;
 }
-function recordFor(text, pluginRoot) {
+function normalizedBuilderProvenance(value, fields, textHash) {
+  if (value == null) return null;
+  if (fields.artifact !== "work-review" || value?.schema !== 1 || value?.kind !== "host-work-review-builder" || !/^[a-f0-9]{64}$/.test(String(value?.review_input_hash ?? "")) || value?.artifact_hash !== textHash || Object.keys(value).some((key) => !["schema", "kind", "review_input_hash", "artifact_hash"].includes(key))) {
+    throw new Error("handoff builder provenance is incompatible with the exact work-review text");
+  }
+  return {
+    schema: 1,
+    kind: "host-work-review-builder",
+    review_input_hash: value.review_input_hash,
+    artifact_hash: textHash
+  };
+}
+function recordFor(text, pluginRoot, provenance = null) {
   const artifact = parsedArtifact(text, pluginRoot);
   const fields = artifact.fields;
+  const textHash = sha2565(text);
   return {
     handoff_record_schema: HANDOFF_RECORD_SCHEMA,
     artifact_schema: ARTIFACT_SCHEMA,
@@ -17882,14 +17909,19 @@ function recordFor(text, pluginRoot) {
     artifact_id: fields.id,
     artifact_type: fields.artifact,
     root_plan_id: fields.artifact === "work-plan" ? fields.id : fields.root_plan_id,
-    text_hash: sha2565(text),
+    text_hash: textHash,
     recorded_at: (/* @__PURE__ */ new Date()).toISOString(),
+    ...provenance ? { builder_provenance: normalizedBuilderProvenance(provenance, fields, textHash) } : {},
     text
   };
 }
-function validateRecord(record) {
+function validateRecord(record, pluginRoot) {
   if (record?.handoff_record_schema !== HANDOFF_RECORD_SCHEMA || record?.artifact_schema !== ARTIFACT_SCHEMA || record?.controller_protocol !== CONTROLLER_PROTOCOL || !/^(?:wp|de|wr)-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(record?.artifact_id ?? "")) || record?.text_hash !== sha2565(record?.text ?? "")) {
     throw new Error(`incompatible or corrupt handoff record ${record?.artifact_id ?? "unknown"}`);
+  }
+  if (record.builder_provenance != null) {
+    const fields = parsedArtifact(record.text, pluginRoot).fields;
+    normalizedBuilderProvenance(record.builder_provenance, fields, record.text_hash);
   }
   return record;
 }
@@ -17955,7 +17987,7 @@ var ArtifactHandoffStore = class {
   records(ids2 = null) {
     if (!existsSync6(this.directory)) return [];
     const files = ids2 ? [...new Set(ids2)].map((id) => this.artifactPath(id)).filter(existsSync6) : readdirSync2(this.directory, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".json")).map((entry) => join7(this.directory, entry.name));
-    return files.map((path) => validateRecord(JSON.parse(readFileSync6(path, "utf8")))).sort((left, right) => left.artifact_id.localeCompare(right.artifact_id));
+    return files.map((path) => validateRecord(JSON.parse(readFileSync6(path, "utf8")), this.pluginRoot)).sort((left, right) => left.artifact_id.localeCompare(right.artifact_id));
   }
   record(artifacts) {
     if (!Array.isArray(artifacts) || artifacts.length < 1 || artifacts.length > 32) throw new Error("handoff record requires 1..32 artifacts");
@@ -17963,7 +17995,7 @@ var ArtifactHandoffStore = class {
       if (!entry || typeof entry.label !== "string" || !entry.label.trim() || typeof entry.text !== "string" || !entry.text.trim()) {
         throw new Error(`handoff artifact ${index + 1} requires non-empty label and text`);
       }
-      return { label: entry.label, record: recordFor(entry.text, this.pluginRoot) };
+      return { label: entry.label, record: recordFor(entry.text, this.pluginRoot, entry.provenance ?? null) };
     });
     const candidateIds = new Set(candidates.map(({ record }) => record.artifact_id));
     if (candidateIds.size !== candidates.length) throw new Error("handoff record contains duplicate artifact IDs");
@@ -18092,7 +18124,13 @@ var ArtifactHandoffStore = class {
       artifact_set_hash: stableArtifactSetHash(ordered),
       evidence_tip: tips.evidence_tips[rootPlanId] ?? null,
       review_tip: tips.review_tips[rootPlanId] ?? null,
-      artifacts: ordered.map((record) => ({ label: record.artifact_id, text: record.text, text_hash: record.text_hash }))
+      artifacts: ordered.map((record) => ({
+        label: record.artifact_id,
+        text: record.text,
+        text_hash: record.text_hash,
+        ...record.builder_provenance ? { builder_provenance: record.builder_provenance } : {},
+        ...record.artifact_type === "work-review" && !record.builder_provenance ? { legacy_review_recorded: true } : {}
+      }))
     };
   }
   quarantineArtifact(artifactId, { expectedTextHash, apply = false, now = () => /* @__PURE__ */ new Date() } = {}) {
@@ -18253,9 +18291,67 @@ function expectedCheckMap(contract, correction, unresolvedRootChecks = /* @__PUR
 function rootCheckMap(contract) {
   return new Map(contract.checks.filter((check) => check.Required === "yes").map((check) => [check["Check ID"], check]));
 }
-function unresolvedRootCheckMap(contract, predecessorEvidence) {
+function correctionRootChecks(correction) {
+  return new Set((correction?.fixes ?? []).flatMap((fix) => String(fix["Root Checks"] ?? "").match(/CHECK-[1-9][0-9]*/g) ?? []));
+}
+function repositoryPaths(value) {
+  return unique3(String(value ?? "").split(/(?:,|<br>)/i).map((entry) => entry.trim().replace(/^\.\//, "").replace(/\/$/, "")).filter((entry) => entry && !/^(?:none|n\/a|repository root)$/i.test(entry) && !/^(?:CHECK|OBJ|FIX|STEP)-[1-9][0-9]*$/i.test(entry) && /^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/.test(entry)));
+}
+function pathsOverlap(left, right) {
+  return left === right || left.startsWith(`${right}/`) || right.startsWith(`${left}/`);
+}
+function fingerprintMap2(value) {
+  const result = /* @__PURE__ */ new Map();
+  for (const entry of String(value ?? "").split(/;\s*/)) {
+    const equals = entry.indexOf("=");
+    if (equals <= 0) continue;
+    const path = entry.slice(0, equals).trim().replace(/^`|`$/g, "").replace(/^\.\//, "");
+    if (!path || ["index", "status"].includes(path)) continue;
+    result.set(path, entry.slice(equals + 1));
+  }
+  return result;
+}
+function correctionTargets(correction) {
+  return unique3((correction?.steps ?? []).flatMap((step) => repositoryPaths(step.Targets)));
+}
+function rootChecksToRefresh(contract, correction, predecessorEvidence, repositorySnapshot, changedPaths = []) {
   const effectiveChecks = predecessorEvidence?.effective?.checks;
-  return new Map([...rootCheckMap(contract)].filter(([checkId]) => effectiveChecks?.get(checkId)?.status !== "passed"));
+  const explicitlyAffected = correctionRootChecks(correction);
+  const affectedObjectives = new Set(correctionObjectives(correction));
+  const affectedPaths = unique3([
+    ...changedPaths.flatMap(repositoryPaths),
+    ...correctionTargets(correction)
+  ]);
+  const previousFingerprints = predecessorEvidence?.effective?.snapshot?.["Relevant fingerprints"] ?? null;
+  const currentFingerprints = repositorySnapshot?.relevant_fingerprints ?? null;
+  const previousByPath = fingerprintMap2(previousFingerprints);
+  const currentByPath = fingerprintMap2(currentFingerprints);
+  const stalePaths = unique3([...previousByPath.keys(), ...currentByPath.keys()]).filter((path) => previousByPath.get(path) !== currentByPath.get(path));
+  const opaqueFingerprintChange = Boolean(
+    previousFingerprints && currentFingerprints && previousFingerprints !== currentFingerprints && previousByPath.size === 0 && currentByPath.size === 0
+  );
+  return new Map([...rootCheckMap(contract)].filter(([checkId, check]) => {
+    const prior = effectiveChecks?.get(checkId);
+    const prerequisites = repositoryPaths(check.Prerequisites);
+    const objectiveAffected = checkObjectives(check).some((objective) => affectedObjectives.has(objective));
+    const pathAffected = prerequisites.some((prerequisite) => affectedPaths.some((path) => pathsOverlap(prerequisite, path)));
+    const fingerprintStale = prerequisites.some((prerequisite) => stalePaths.some((path) => pathsOverlap(prerequisite, path)));
+    const ambiguousImpact = affectedPaths.length > 0 && prerequisites.length === 0;
+    return !prior || ["failed", "blocked"].includes(prior.status) || explicitlyAffected.has(checkId) || objectiveAffected || pathAffected || fingerprintStale || opaqueFingerprintChange || ambiguousImpact;
+  }));
+}
+function inheritedCheckEvidence(inspection, predecessorEvidence, checkIds) {
+  return checkIds.map((checkId) => {
+    const effective = predecessorEvidence?.effective?.checks?.get(checkId);
+    const source = effective?.source ? inspection.effective.get(effective.source) : null;
+    const exact = source?.fields?.check_evidence?.find((entry) => entry.check_id === checkId);
+    if (exact) return exact;
+    return {
+      check_id: checkId,
+      grade: effective?.status === "passed" ? "verified" : effective?.status === "failed" ? "failed" : "supported",
+      limitations: effective?.status === "passed" ? [] : ["Reused predecessor proof retains its prior non-verified grade."]
+    };
+  });
 }
 function normalizeCheckEvidence(input, plannedChecks, rootChecks, evidenceMode2, {
   enforceManualCheckReceipts = false,
@@ -18490,25 +18586,28 @@ function buildDeliveryEvidence({
     throw new Error("full closeout requires repository snapshot HEAD and relevant fingerprints");
   }
   const roots = rootCheckMap(contract);
-  const unresolvedRootChecks = correction ? unresolvedRootCheckMap(contract, priorInspection.effective.get(evidenceTipId)) : /* @__PURE__ */ new Map();
+  const predecessorEvidence = correction ? priorInspection.effective.get(evidenceTipId) : null;
+  const unresolvedRootChecks = correction ? rootChecksToRefresh(contract, correction, predecessorEvidence, repositorySnapshot, changedPaths) : /* @__PURE__ */ new Map();
   const suppliedCheckIds = new Set((checkEvidence ?? []).map((entry) => entry?.check_id));
   const missingRootRefresh = [...unresolvedRootChecks.keys()].filter((checkId) => !suppliedCheckIds.has(checkId));
   if (missingRootRefresh.length > 0) {
-    throw new Error(`correction closeout requires fresh evidence for inherited non-passed Root Checks: ${missingRootRefresh.join(", ")}`);
+    throw new Error(`correction closeout requires fresh evidence for affected, failed, missing, stale, or ambiguous Root Checks: ${missingRootRefresh.join(", ")}`);
   }
   const plannedChecks = expectedCheckMap(contract, correction, unresolvedRootChecks);
   const entries = normalizeCheckEvidence(checkEvidence, plannedChecks, roots, mode, {
     enforceManualCheckReceipts: requireManualReceipts,
     manualCheckReceipts
   });
-  const grade = overallGrade(entries);
-  const status = artifactStatus(grade);
   const rootObjectives = contract.objectives;
   const affectedObjectives = correction ? unique3([...correctionObjectives(correction), ...entries.flatMap((entry) => checkObjectives(roots.get(entry.check_id)))]) : [...rootObjectives];
   const affected = affectedObjectives.length > 0 ? affectedObjectives : [...rootObjectives];
   const reusedObjectives = representation === "delta" ? rootObjectives.filter((id2) => !affected.includes(id2)) : [];
   const executedChecks = entries.map((entry) => entry.check_id);
   const reusedChecks = representation === "delta" ? [...roots.keys()].filter((id2) => !executedChecks.includes(id2)) : [];
+  const reusedEvidence = representation === "delta" ? inheritedCheckEvidence(priorInspection, predecessorEvidence, reusedChecks) : [];
+  const effectiveEntries = [...entries, ...reusedEvidence];
+  const grade = overallGrade(effectiveEntries);
+  const status = artifactStatus(grade);
   const paths = unique3(changedPaths.map(String).map((path) => path.trim()).filter(Boolean)).sort();
   const seed = evidenceSeed({
     contract,
@@ -18557,7 +18656,7 @@ ${body}
   const finalEntries = [...normalized.entries, { label: id, text: artifact }];
   const inspection = inspectArtifactSet(finalEntries.map((entry) => [entry.label, entry.text]), pluginRoot);
   if (inspection.errors.length > 0) throw new Error(`generated delivery evidence is invalid: ${inspection.errors.join("; ")}`);
-  const projection = manualConstraintProjection({ checks: contract.checks, evidence: entries });
+  const projection = manualConstraintProjection({ checks: contract.checks, evidence: effectiveEntries });
   return {
     duplicate: false,
     artifact,
@@ -18585,13 +18684,12 @@ function persistCloseout({ handoffStore, rootPlanText, artifacts = [], closeout 
     const persisted = handoffStore.record([...byId].map(([label, text]) => ({ label, text })));
     return { ...closeout, handoff_persisted: true, handoff_authoritative: false, artifact_set_hash: persisted.artifact_set_hash };
   } catch (error) {
-    if (/concurrent|conflict|invalid|corrupt|incompatible|stale|ambiguous|multiple/i.test(error.message)) throw error;
     return {
       ...closeout,
       handoff_persisted: false,
       handoff_authoritative: false,
       handoff_error_code: "handoff-persist-failed",
-      warning: `handoff cache unavailable: ${error.message}; attach the returned artifact explicitly to the next Workflow command`
+      warning: `optional cross-task handoff unavailable: ${error.message}; task-local continuation remains valid`
     };
   }
 }
@@ -18663,7 +18761,9 @@ function nativeCloseoutStructuredContent(closeout, rootPlanText, repositoryDelta
     ...closeout.constraint_summary ? { constraint_summary: closeout.constraint_summary } : {},
     ...closeout.human_attention ? { human_attention: closeout.human_attention } : {},
     ...closeout.problem_details ? { problem_details: closeout.problem_details } : {},
-    ...closeout.artifact_set_hash ? { artifact_set_hash: closeout.artifact_set_hash } : {}
+    ...closeout.artifact_set_hash ? { artifact_set_hash: closeout.artifact_set_hash } : {},
+    ...closeout.warning ? { warning: closeout.warning } : {},
+    ...closeout.handoff_error_code ? { handoff_error_code: closeout.handoff_error_code } : {}
   };
 }
 function performNativeCloseout({
@@ -18675,7 +18775,8 @@ function performNativeCloseout({
   repositoryDelta,
   pluginRoot,
   handoffOptions = {},
-  receiptOptions = {}
+  receiptOptions = {},
+  invalidatedEvidence = null
 }) {
   const parsed = attestation ? validateCloseoutInput(attestation) : parseCloseoutInput(message, { expectedPhase });
   if (!parsed.ok) throw new Error(`native closeout attestation is invalid: ${parsed.issues.join("; ")}`);
@@ -18698,9 +18799,26 @@ function performNativeCloseout({
     throw new Error("native implementation and correction closeout require a pre-mutation repository baseline");
   }
   const handoffStore = createContentAddressedHandoffStore(rootPlanText, pluginRoot, handoffOptions);
-  const context = handoffStore.context(rootFields.id, rootPlanText);
-  const cached = context.artifacts;
-  const cachedEvidenceTip = context.evidence_tip;
+  if (invalidatedEvidence?.id && invalidatedEvidence?.hash) {
+    try {
+      const cachedInvalidated = handoffStore.records([invalidatedEvidence.id])[0] ?? null;
+      if (cachedInvalidated) {
+        handoffStore.quarantineArtifact(invalidatedEvidence.id, {
+          expectedTextHash: invalidatedEvidence.hash,
+          apply: true
+        });
+      }
+    } catch {
+    }
+  }
+  let cached = [];
+  let cachedEvidenceTip = null;
+  try {
+    const context = handoffStore.context(rootFields.id, rootPlanText);
+    cached = context.artifacts;
+    cachedEvidenceTip = context.evidence_tip;
+  } catch {
+  }
   const effectiveReport = repositoryDelta.baseline_available || cachedEvidenceTip ? report : provisionalWithoutBaseline(report);
   const chain = mergeArtifacts([
     ...cached,
@@ -18741,16 +18859,798 @@ function performNativeCloseout({
     artifacts: chain,
     closeout
   });
-  if (!persisted.handoff_persisted) {
-    throw new Error(`native closeout handoff failed: ${persisted.warning ?? "artifact was not persisted"}`);
-  }
   invalidateManualCheckReceipts({ rootPlanText, workspaceRoot: repositoryRoot, options: receiptOptions });
-  rememberContentAddressedRoot(rootPlanText, pluginRoot, handoffOptions);
+  if (persisted.handoff_persisted) {
+    try {
+      rememberContentAddressedRoot(rootPlanText, pluginRoot, handoffOptions);
+    } catch {
+    }
+  }
   return {
     ...persisted,
     report: effectiveReport,
     structuredContent: nativeCloseoutStructuredContent(persisted, rootPlanText, repositoryDelta)
   };
+}
+
+// src/controller/work-review-builder.mjs
+var import_yaml5 = __toESM(require_dist(), 1);
+import { createHash as createHash9 } from "node:crypto";
+var ASSESSMENTS = /* @__PURE__ */ new Set([
+  "achieved",
+  "provisional",
+  "mostly-achieved",
+  "partially-achieved",
+  "not-achieved",
+  "insufficient-evidence"
+]);
+var ASSESSMENT_RANK = Object.freeze({
+  "insufficient-evidence": 0,
+  "not-achieved": 1,
+  "partially-achieved": 2,
+  "mostly-achieved": 3,
+  provisional: 4,
+  achieved: 5
+});
+var ACTIONS = /* @__PURE__ */ new Set(["none", "accept-provisional", "correct", "clarify", "replan", "retry-review"]);
+var SEVERITIES = /* @__PURE__ */ new Set(["low", "medium", "high", "critical"]);
+var RESOLUTIONS = /* @__PURE__ */ new Set(["correct", "clarify", "replan"]);
+var SNAPSHOT_ASSESSMENTS = /* @__PURE__ */ new Set(["consistent", "contradicted", "incomplete"]);
+var AUDITOR_ROLES = /* @__PURE__ */ new Set(["delivery-auditor", "risk-auditor", "work-design-auditor"]);
+var COSTS = /* @__PURE__ */ new Set(["cheap", "standard", "expensive"]);
+var KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+function sha2567(value) {
+  return createHash9("sha256").update(String(value)).digest("hex");
+}
+function compareCanonical(left, right) {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+function codedError(code, message) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+function stable3(value) {
+  if (Array.isArray(value)) return value.map(stable3);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.keys(value).sort(compareCanonical).map((key) => [key, stable3(value[key])]));
+}
+function stableJson3(value) {
+  return JSON.stringify(stable3(value));
+}
+function object(value, label) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} must be an object`);
+  return value;
+}
+function closed(value, allowed, label) {
+  const unknown = Object.keys(value).filter((key) => !allowed.includes(key));
+  if (unknown.length > 0) throw new Error(`${label} contains unsupported field ${unknown[0]}`);
+}
+function requiredField(value, key, label = "review_input") {
+  if (!Object.prototype.hasOwnProperty.call(value, key)) throw new Error(`${label}.${key} is required`);
+  return value[key];
+}
+function line(value, label, { required = true, max = 2e3 } = {}) {
+  if (typeof value !== "string") throw new Error(`${label} must be a string`);
+  const normalized = value.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
+  if (required && !normalized) throw new Error(`${label} is required`);
+  if (normalized.length > max) throw new Error(`${label} exceeds ${max} characters`);
+  return normalized;
+}
+function enumValue(value, values, label) {
+  const normalized = String(value ?? "").trim();
+  if (!values.has(normalized)) throw new Error(`${label} has invalid value ${normalized || "<missing>"}`);
+  return normalized;
+}
+function list(value, label, { max = 64, required = false } = {}) {
+  if (!Array.isArray(value)) throw new Error(`${label} must be an array`);
+  if (required && value.length === 0) throw new Error(`${label} must not be empty`);
+  if (value.length > max) throw new Error(`${label} exceeds ${max} items`);
+  return value;
+}
+function uniqueSorted2(values) {
+  return [...new Set(values)].sort(compareCanonical);
+}
+function normalizeIds(value, pattern, allowed, label) {
+  const normalized = uniqueSorted2(list(value, label, { required: true }).map((entry) => line(entry, label, { max: 80 })));
+  for (const id of normalized) {
+    if (!pattern.test(id) || !allowed.has(id)) throw new Error(`${label} contains unknown ${id}`);
+  }
+  return normalized;
+}
+function localKey(value, label) {
+  const normalized = line(value, label, { max: 80 });
+  if (!KEY.test(normalized)) throw new Error(`${label} must be a lowercase semantic key`);
+  return normalized;
+}
+function normalizeFindings(value, contract) {
+  const objectiveIds = new Set(contract.objectives);
+  const checkIds = new Set(contract.checks.filter((check) => check.Required === "yes").map((check) => check["Check ID"]));
+  const findings = list(value, "review_input.findings", { max: 32 }).map((entry, index) => {
+    const item = object(entry, `review_input.findings[${index}]`);
+    closed(item, ["key", "severity", "objective_ids", "check_ids", "evidence", "reasoning", "resolution"], `review_input.findings[${index}]`);
+    return {
+      key: localKey(item.key, `review_input.findings[${index}].key`),
+      severity: enumValue(item.severity, SEVERITIES, `review_input.findings[${index}].severity`),
+      objective_ids: normalizeIds(item.objective_ids, /^OBJ-[1-9][0-9]*$/, objectiveIds, `review_input.findings[${index}].objective_ids`),
+      check_ids: normalizeIds(item.check_ids, /^CHECK-[1-9][0-9]*$/, checkIds, `review_input.findings[${index}].check_ids`),
+      evidence: line(item.evidence, `review_input.findings[${index}].evidence`, { max: 4e3 }),
+      reasoning: line(item.reasoning, `review_input.findings[${index}].reasoning`, { max: 4e3 }),
+      resolution: enumValue(item.resolution, RESOLUTIONS, `review_input.findings[${index}].resolution`)
+    };
+  }).sort((left, right) => compareCanonical(left.key, right.key));
+  if (new Set(findings.map((finding) => finding.key)).size !== findings.length) throw new Error("review_input.findings keys must be unique");
+  return findings;
+}
+function normalizeAuditors(value) {
+  const reports = list(value, "review_input.auditor_reports", { max: 3 }).map((entry, index) => {
+    const item = object(entry, `review_input.auditor_reports[${index}]`);
+    closed(item, ["role", "assessment", "summary"], `review_input.auditor_reports[${index}]`);
+    return {
+      role: enumValue(item.role, AUDITOR_ROLES, `review_input.auditor_reports[${index}].role`),
+      assessment: enumValue(item.assessment, ASSESSMENTS, `review_input.auditor_reports[${index}].assessment`),
+      summary: line(item.summary, `review_input.auditor_reports[${index}].summary`, { max: 2e3 })
+    };
+  }).sort((left, right) => compareCanonical(left.role, right.role));
+  if (new Set(reports.map((report) => report.role)).size !== reports.length) throw new Error("review_input.auditor_reports roles must be unique");
+  return reports;
+}
+function normalizeCorrection(value, findingKeys) {
+  if (value == null) return null;
+  const correction = object(value, "review_input.correction");
+  closed(correction, ["fixes", "steps", "checks", "learning_candidates"], "review_input.correction");
+  const fixes = list(correction.fixes, "review_input.correction.fixes", { max: 32, required: true }).map((entry, index) => {
+    const item = object(entry, `review_input.correction.fixes[${index}]`);
+    closed(item, ["key", "finding_keys", "required_outcome", "evidence"], `review_input.correction.fixes[${index}]`);
+    const keys = uniqueSorted2(list(item.finding_keys, `review_input.correction.fixes[${index}].finding_keys`, { required: true }).map((key) => localKey(key, `review_input.correction.fixes[${index}].finding_keys`)));
+    if (keys.some((key) => !findingKeys.has(key))) throw new Error(`review_input.correction.fixes[${index}] references an unknown finding`);
+    return {
+      key: localKey(item.key, `review_input.correction.fixes[${index}].key`),
+      finding_keys: keys,
+      required_outcome: line(item.required_outcome, `review_input.correction.fixes[${index}].required_outcome`, { max: 2e3 }),
+      evidence: line(item.evidence, `review_input.correction.fixes[${index}].evidence`, { max: 2e3 })
+    };
+  }).sort((left, right) => compareCanonical(left.key, right.key));
+  const fixKeys = new Set(fixes.map((fix) => fix.key));
+  if (fixKeys.size !== fixes.length) throw new Error("review_input.correction.fixes keys must be unique");
+  const checks = list(correction.checks, "review_input.correction.checks", { max: 32, required: true }).map((entry, index) => {
+    const item = object(entry, `review_input.correction.checks[${index}]`);
+    closed(item, ["key", "fix_keys", "working_directory", "command_or_inspection", "expected_result", "required", "cost_class", "prerequisites"], `review_input.correction.checks[${index}]`);
+    const referencedFixes = uniqueSorted2(list(item.fix_keys, `review_input.correction.checks[${index}].fix_keys`, { required: true }).map((key) => localKey(key, `review_input.correction.checks[${index}].fix_keys`)));
+    if (referencedFixes.some((key) => !fixKeys.has(key))) throw new Error(`review_input.correction.checks[${index}] references an unknown fix`);
+    const prerequisites = uniqueSorted2(list(item.prerequisites, `review_input.correction.checks[${index}].prerequisites`, { required: true }).map((entryValue) => line(entryValue, `review_input.correction.checks[${index}].prerequisites`, { max: 1e3 })));
+    if (typeof item.required !== "boolean") throw new Error(`review_input.correction.checks[${index}].required must be a boolean`);
+    return {
+      key: localKey(item.key, `review_input.correction.checks[${index}].key`),
+      fix_keys: referencedFixes,
+      working_directory: line(item.working_directory, `review_input.correction.checks[${index}].working_directory`, { max: 1e3 }),
+      command_or_inspection: line(item.command_or_inspection, `review_input.correction.checks[${index}].command_or_inspection`, { max: 2e3 }),
+      expected_result: line(item.expected_result, `review_input.correction.checks[${index}].expected_result`, { max: 2e3 }),
+      required: item.required,
+      cost_class: enumValue(item.cost_class, COSTS, `review_input.correction.checks[${index}].cost_class`),
+      prerequisites
+    };
+  }).sort((left, right) => ({ cheap: 0, standard: 1, expensive: 2 })[left.cost_class] - { cheap: 0, standard: 1, expensive: 2 }[right.cost_class] || compareCanonical(left.key, right.key));
+  const checkKeys = new Set(checks.map((check) => check.key));
+  if (checkKeys.size !== checks.length) throw new Error("review_input.correction.checks keys must be unique");
+  const steps = list(correction.steps, "review_input.correction.steps", { max: 32, required: true }).map((entry, index) => {
+    const item = object(entry, `review_input.correction.steps[${index}]`);
+    closed(item, ["key", "fix_keys", "targets", "required_outcome", "implementation_latitude", "completion_probe", "check_keys", "deviation_action"], `review_input.correction.steps[${index}]`);
+    const referencedFixes = uniqueSorted2(list(item.fix_keys, `review_input.correction.steps[${index}].fix_keys`, { required: true }).map((key) => localKey(key, `review_input.correction.steps[${index}].fix_keys`)));
+    const referencedChecks = uniqueSorted2(list(item.check_keys, `review_input.correction.steps[${index}].check_keys`, { required: true }).map((key) => localKey(key, `review_input.correction.steps[${index}].check_keys`)));
+    if (referencedFixes.some((key) => !fixKeys.has(key))) throw new Error(`review_input.correction.steps[${index}] references an unknown fix`);
+    if (referencedChecks.some((key) => !checkKeys.has(key))) throw new Error(`review_input.correction.steps[${index}] references an unknown check`);
+    return {
+      key: localKey(item.key, `review_input.correction.steps[${index}].key`),
+      fix_keys: referencedFixes,
+      targets: uniqueSorted2(list(item.targets, `review_input.correction.steps[${index}].targets`, { required: true }).map((target) => line(target, `review_input.correction.steps[${index}].targets`, { max: 1e3 }))),
+      required_outcome: line(item.required_outcome, `review_input.correction.steps[${index}].required_outcome`, { max: 2e3 }),
+      implementation_latitude: line(item.implementation_latitude, `review_input.correction.steps[${index}].implementation_latitude`, { max: 2e3 }),
+      completion_probe: line(item.completion_probe, `review_input.correction.steps[${index}].completion_probe`, { max: 2e3 }),
+      check_keys: referencedChecks,
+      deviation_action: line(item.deviation_action, `review_input.correction.steps[${index}].deviation_action`, { max: 2e3 })
+    };
+  }).sort((left, right) => compareCanonical(left.key, right.key));
+  const stepKeys = new Set(steps.map((step) => step.key));
+  if (stepKeys.size !== steps.length) throw new Error("review_input.correction.steps keys must be unique");
+  for (const fix of fixKeys) if (!steps.some((step) => step.fix_keys.includes(fix))) throw new Error(`review_input.correction.steps do not cover ${fix}`);
+  const learningCandidates = list(correction.learning_candidates, "review_input.correction.learning_candidates", { max: 32, required: true }).map((entry, index) => {
+    const item = object(entry, `review_input.correction.learning_candidates[${index}]`);
+    closed(item, ["key", "finding_keys", "reusable_guidance", "candidate_targets", "confirmation_evidence"], `review_input.correction.learning_candidates[${index}]`);
+    const keys = uniqueSorted2(list(item.finding_keys, `review_input.correction.learning_candidates[${index}].finding_keys`, { required: true }).map((key) => localKey(key, `review_input.correction.learning_candidates[${index}].finding_keys`)));
+    if (keys.some((key) => !findingKeys.has(key))) throw new Error(`review_input.correction.learning_candidates[${index}] references an unknown finding`);
+    return {
+      key: localKey(item.key, `review_input.correction.learning_candidates[${index}].key`),
+      finding_keys: keys,
+      reusable_guidance: line(item.reusable_guidance, `review_input.correction.learning_candidates[${index}].reusable_guidance`, { max: 2e3 }),
+      candidate_targets: uniqueSorted2(list(item.candidate_targets, `review_input.correction.learning_candidates[${index}].candidate_targets`, { required: true }).map((target) => line(target, `review_input.correction.learning_candidates[${index}].candidate_targets`, { max: 1e3 }))),
+      confirmation_evidence: line(item.confirmation_evidence, `review_input.correction.learning_candidates[${index}].confirmation_evidence`, { max: 2e3 })
+    };
+  }).sort((left, right) => compareCanonical(left.key, right.key));
+  if (new Set(learningCandidates.map((candidate) => candidate.key)).size !== learningCandidates.length) throw new Error("review_input.correction.learning_candidates keys must be unique");
+  return { fixes, checks, steps, learning_candidates: learningCandidates };
+}
+function normalizeReviewInput(input, contract) {
+  const value = object(input, "review_input");
+  closed(value, ["schema", "kind", "assessment", "recommended_action", "assessment_summary", "snapshot_assessment", "snapshot_summary", "findings", "missing_evidence", "auditor_reports", "correction"], "review_input");
+  if (value.schema !== 1) throw new Error("review_input.schema must be 1");
+  if (value.kind !== "review-input") throw new Error("review_input.kind must be review-input");
+  const findings = normalizeFindings(requiredField(value, "findings"), contract);
+  const findingKeys = new Set(findings.map((finding) => finding.key));
+  const normalized = {
+    schema: 1,
+    kind: "review-input",
+    assessment: enumValue(requiredField(value, "assessment"), ASSESSMENTS, "review_input.assessment"),
+    recommended_action: enumValue(requiredField(value, "recommended_action"), ACTIONS, "review_input.recommended_action"),
+    assessment_summary: line(requiredField(value, "assessment_summary"), "review_input.assessment_summary", { max: 2e3 }),
+    snapshot_assessment: enumValue(requiredField(value, "snapshot_assessment"), SNAPSHOT_ASSESSMENTS, "review_input.snapshot_assessment"),
+    snapshot_summary: line(requiredField(value, "snapshot_summary"), "review_input.snapshot_summary", { max: 2e3 }),
+    findings,
+    missing_evidence: uniqueSorted2(list(requiredField(value, "missing_evidence"), "review_input.missing_evidence", { max: 32 }).map((entry) => line(entry, "review_input.missing_evidence", { max: 2e3 }))),
+    auditor_reports: normalizeAuditors(requiredField(value, "auditor_reports")),
+    correction: normalizeCorrection(value.correction, findingKeys)
+  };
+  if (normalized.recommended_action === "correct") {
+    if (normalized.findings.length === 0) throw new Error("review_input correct requires at least one finding");
+    if (!normalized.correction) throw new Error("review_input correct requires a correction proposal");
+  } else if (normalized.correction) {
+    throw new Error("review_input.correction is allowed only for recommended_action correct");
+  }
+  return normalized;
+}
+function parseReviewInputFromText(source) {
+  const matches = [...String(source ?? "").matchAll(/```json[ \t]+workflow-review-input[ \t]*\r?\n([\s\S]*?)```/gi)];
+  if (matches.length !== 1) return { ok: false, input: null, issues: [matches.length === 0 ? "exactly one json workflow-review-input block is required" : "multiple workflow-review-input blocks are not allowed"] };
+  try {
+    return { ok: true, input: JSON.parse(matches[0][1]), issues: [] };
+  } catch (error) {
+    return { ok: false, input: null, issues: [`workflow-review-input JSON is invalid: ${error.message}`] };
+  }
+}
+function mergeChain(rootPlanText, artifacts, pluginRoot) {
+  const rootInspection = inspectArtifactText(rootPlanText, pluginRoot);
+  if (rootInspection.errors.length > 0 || rootInspection.artifact?.fields?.artifact !== "work-plan" || rootInspection.artifact.fields.schema !== 5) {
+    throw new Error(`review builder requires an exact valid Schema-5 Root: ${rootInspection.errors.join("; ") || "not a work-plan"}`);
+  }
+  const byId = /* @__PURE__ */ new Map([[rootInspection.artifact.fields.id, { label: rootInspection.artifact.fields.id, text: rootPlanText }]]);
+  for (const [index, entry] of (artifacts ?? []).entries()) {
+    if (!entry || typeof entry.text !== "string" || !entry.text.trim()) throw new Error(`review builder artifact ${index + 1} requires exact text`);
+    const inspected = inspectArtifactText(entry.text, pluginRoot);
+    if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) throw new Error(`review builder artifact ${entry.label ?? index + 1} is invalid: ${inspected.errors.join("; ")}`);
+    const id = inspected.artifact.fields.id;
+    const builderProvenance = entry.builder_provenance ?? entry.provenance ?? null;
+    const protectedLegacyReview = entry.legacy_review_recorded === true;
+    if (inspected.artifact.fields.artifact === "work-review") {
+      const validBuilderProvenance = builderProvenance?.schema === 1 && builderProvenance?.kind === "host-work-review-builder" && /^[a-f0-9]{64}$/.test(String(builderProvenance?.review_input_hash ?? "")) && builderProvenance?.artifact_hash === sha2567(entry.text) && Object.keys(builderProvenance).every((key) => ["schema", "kind", "review_input_hash", "artifact_hash"].includes(key));
+      if (builderProvenance && !validBuilderProvenance) {
+        throw codedError("review-artifact-rejected", `review builder artifact ${id} has invalid host builder provenance`);
+      }
+      if (!validBuilderProvenance && !protectedLegacyReview) {
+        throw codedError("review-artifact-rejected", `review builder rejects newly imported work-review ${id} without protected builder provenance; Root, Evidence, and repository work remain unchanged, so repeat Review from the exact Root/Evidence chain in this task`);
+      }
+    }
+    const prior = byId.get(id);
+    if (prior && prior.text !== entry.text) throw new Error(`review builder artifact ${id} has conflicting immutable bytes`);
+    byId.set(id, {
+      label: id,
+      text: entry.text,
+      ...builderProvenance ? { builder_provenance: builderProvenance } : {},
+      ...protectedLegacyReview ? { legacy_review_recorded: true } : {}
+    });
+  }
+  return { rootFields: rootInspection.artifact.fields, entries: [...byId.values()] };
+}
+function knownFailure(evidence) {
+  return evidence?.fields?.status === "blocked" || (evidence?.fields?.check_evidence ?? []).some((entry) => entry.grade === "failed");
+}
+function decision(input, evidence) {
+  for (const report of input.auditor_reports) {
+    if (ASSESSMENT_RANK[report.assessment] < ASSESSMENT_RANK[input.assessment]) {
+      throw new Error(`review_input.assessment ${input.assessment} is more positive than review_input.auditor_reports ${report.role} assessment ${report.assessment}`);
+    }
+  }
+  const failed = knownFailure(evidence);
+  const reviewReady = evidence?.effective?.reviewReady === true && evidence?.fields?.status === "complete";
+  const hasFindings = input.findings.length > 0;
+  const missing = input.missing_evidence.length > 0 || input.snapshot_assessment !== "consistent";
+  let assessment = input.assessment;
+  let nextAction = input.recommended_action;
+  let deliveryStatus = "blocked";
+  if (failed) {
+    if (nextAction === "replan" || nextAction === "clarify") {
+      assessment = ["achieved", "provisional"].includes(assessment) ? "not-achieved" : assessment;
+    } else if (hasFindings && input.correction) {
+      nextAction = "correct";
+      assessment = ["achieved", "provisional"].includes(assessment) ? "not-achieved" : assessment;
+    } else {
+      nextAction = "retry-review";
+      assessment = "insufficient-evidence";
+    }
+    return { assessment, delivery_status: "blocked", next_action: nextAction, review_ready: reviewReady, known_failure: true };
+  }
+  if (nextAction === "replan" || nextAction === "clarify") {
+    assessment = ["achieved", "provisional"].includes(assessment) ? "partially-achieved" : assessment;
+    return { assessment, delivery_status: "blocked", next_action: nextAction, review_ready: reviewReady, known_failure: false };
+  }
+  if (nextAction === "correct" || hasFindings) {
+    if (!input.correction || !hasFindings) throw new Error("review findings requiring correction need one complete correction proposal");
+    assessment = ["achieved", "provisional"].includes(assessment) ? "mostly-achieved" : assessment;
+    return { assessment, delivery_status: "blocked", next_action: "correct", review_ready: reviewReady, known_failure: false };
+  }
+  if (missing || nextAction === "retry-review" || assessment === "insufficient-evidence") {
+    return { assessment: "insufficient-evidence", delivery_status: "blocked", next_action: "retry-review", review_ready: reviewReady, known_failure: false };
+  }
+  if (reviewReady && assessment === "achieved" && nextAction === "none") {
+    return { assessment: "achieved", delivery_status: "verified", next_action: "none", review_ready: true, known_failure: false };
+  }
+  if (!["none", "accept-provisional"].includes(nextAction)) throw new Error(`review_input recommended_action ${nextAction} is inconsistent with an evidence-only provisional result`);
+  if (!["achieved", "provisional"].includes(assessment)) {
+    throw new Error(`review_input.assessment ${assessment} is inconsistent with review_input.recommended_action ${nextAction}; provide the missing Evidence or choose correct, clarify, replan, or retry-review`);
+  }
+  return { assessment: "provisional", delivery_status: "provisional", next_action: "accept-provisional", review_ready: reviewReady, known_failure: false };
+}
+function routeFor(rootFields, input, outcome) {
+  const roles = new Set(input.auditor_reports.map((report) => report.role));
+  const deterministicBlocked = outcome.delivery_status === "blocked" && (outcome.next_action === "replan" || outcome.next_action === "correct" && outcome.known_failure);
+  const fullRequired = rootFields.contract_level === "certified" || rootFields.risk === "high" || (rootFields.hard_triggers ?? []).length > 0;
+  if (roles.has("risk-auditor")) {
+    if (!roles.has("delivery-auditor")) throw new Error("risk-auditor review input also requires delivery-auditor input");
+    return { review_route: "full", auditors_run: ["inline", "delivery-auditor", "risk-auditor", ...roles.has("work-design-auditor") ? ["work-design-auditor"] : []] };
+  }
+  if (fullRequired && !deterministicBlocked) throw new Error("certified, high-risk, or hard-trigger review requires delivery-auditor and risk-auditor reports");
+  if (roles.has("delivery-auditor")) return { review_route: "targeted", auditors_run: ["inline", "delivery-auditor"] };
+  if (roles.has("work-design-auditor")) return { review_route: "targeted", auditors_run: ["inline", "work-design-auditor"] };
+  return { review_route: "inline", auditors_run: ["inline"] };
+}
+function cell2(value) {
+  const text = String(value ?? "").replace(/\r?\n/g, "<br>").replace(/\|/g, "\\|").trim();
+  return text || "none";
+}
+function table2(headers, rows) {
+  return [
+    `| ${headers.join(" | ")} |`,
+    `|${headers.map(() => "---").join("|")}|`,
+    ...rows.map((row) => `| ${headers.map((header) => cell2(row[header])).join(" | ")} |`)
+  ].join("\n");
+}
+function nextCheckNumber(entries, pluginRoot) {
+  let maximum = 0;
+  for (const entry of entries) {
+    const inspected = inspectArtifactText(entry.text, pluginRoot);
+    const matches = entry.text.match(/\bCHECK-([1-9][0-9]*)\b/g) ?? [];
+    for (const match of matches) maximum = Math.max(maximum, Number(match.slice(6)));
+    if (inspected.errors.length > 0) continue;
+  }
+  return maximum + 1;
+}
+function correctionProjection({ normalized, findings, seed, rootFields, evidenceId, reviewId, predecessorReview, entries, pluginRoot }) {
+  if (!normalized.correction) return null;
+  const correctionId = `cp-${rootFields.id.replace(/^wp-/, "")}-${seed.slice(0, 12)}`;
+  const fixIds = new Map(normalized.correction.fixes.map((fix, index) => [fix.key, `FIX-${index + 1}`]));
+  const stepIds = new Map(normalized.correction.steps.map((step, index) => [step.key, `STEP-${index + 1}`]));
+  const checkStart = nextCheckNumber(entries, pluginRoot);
+  const checkIds = new Map(normalized.correction.checks.map((check, index) => [check.key, `CHECK-${checkStart + index}`]));
+  const learningIds = new Map(normalized.correction.learning_candidates.map((candidate, index) => [candidate.key, `LRN-${seed.slice(0, 8)}-${index + 1}`]));
+  const findingsByKey = new Map(findings.map((finding) => [finding.key, finding]));
+  const fixes = normalized.correction.fixes.map((fix) => {
+    const mapped = fix.finding_keys.map((key) => findingsByKey.get(key));
+    return {
+      "FIX ID": fixIds.get(fix.key),
+      "Finding keys": fix.finding_keys.join(", "),
+      "Root Objectives": uniqueSorted2(mapped.flatMap((finding) => finding.objective_ids)).join(", "),
+      "Root Checks": uniqueSorted2(mapped.flatMap((finding) => finding.check_ids)).join(", "),
+      "Required outcome": fix.required_outcome,
+      Evidence: fix.evidence
+    };
+  });
+  const steps = normalized.correction.steps.map((step, index) => ({
+    "Step ID": stepIds.get(step.key),
+    "FIX IDs": step.fix_keys.map((key) => fixIds.get(key)).join(", "),
+    Targets: step.targets.join(", "),
+    "Required outcome": step.required_outcome,
+    "Implementation latitude": step.implementation_latitude,
+    "Completion probe": `PROBE-${index + 1}: ${step.completion_probe}`,
+    "Check IDs": step.check_keys.map((key) => checkIds.get(key)).join(", "),
+    "Deviation action": step.deviation_action
+  }));
+  const checks = normalized.correction.checks.map((check) => ({
+    "Check ID": checkIds.get(check.key),
+    "FIX IDs": check.fix_keys.map((key) => fixIds.get(key)).join(", "),
+    "Working Directory": check.working_directory,
+    "Command or Inspection": check.command_or_inspection,
+    "Expected Result": check.expected_result,
+    Required: check.required ? "yes" : "no",
+    "Cost Class": check.cost_class,
+    Prerequisites: check.prerequisites.join(", ")
+  }));
+  const learnings = normalized.correction.learning_candidates.map((candidate) => ({
+    "Learning ID": learningIds.get(candidate.key),
+    "Finding keys": candidate.finding_keys.join(", "),
+    "Reusable guidance": candidate.reusable_guidance,
+    "Candidate targets": candidate.candidate_targets.join(", "),
+    "Confirmation evidence": candidate.confirmation_evidence
+  }));
+  const predecessorCorrection = predecessorReview?.fields?.correction_id ?? "None.";
+  const body = [
+    `## Correction plan
+
+### ${correctionId}`,
+    table2(["Correction ID", "Root Plan", "Source Review", "Base Evidence", "Predecessor Correction", "Risk"], [{
+      "Correction ID": correctionId,
+      "Root Plan": rootFields.id,
+      "Source Review": reviewId,
+      "Base Evidence": evidenceId,
+      "Predecessor Correction": predecessorCorrection,
+      Risk: rootFields.risk
+    }]),
+    table2(["FIX ID", "Finding keys", "Root Objectives", "Root Checks", "Required outcome", "Evidence"], fixes),
+    table2(["Step ID", "FIX IDs", "Targets", "Required outcome", "Implementation latitude", "Completion probe", "Check IDs", "Deviation action"], steps),
+    table2(["Check ID", "FIX IDs", "Working Directory", "Command or Inspection", "Expected Result", "Required", "Cost Class", "Prerequisites"], checks),
+    table2(["Learning ID", "Finding keys", "Reusable guidance", "Candidate targets", "Confirmation evidence"], learnings)
+  ].join("\n\n");
+  return { correction_id: correctionId, learning_ids: [...learningIds.values()], body };
+}
+function reviewBody({ normalized, outcome, route, coverage, evidenceId, correction }) {
+  const sections = [
+    `## Assessment
+
+${outcome.assessment}: ${normalized.assessment_summary}`,
+    `## Evidence coverage
+
+${table2(["Kind", "Inspected", "Reused", "Result", "Evidence"], [
+      { Kind: "Objectives", Inspected: coverage.inspectedObjectives.join(", ") || "none", Reused: coverage.reusedObjectives.join(", ") || "none", Result: outcome.assessment, Evidence: `exact Evidence ${evidenceId}` },
+      { Kind: "Checks", Inspected: coverage.inspectedChecks.join(", ") || "none", Reused: coverage.reusedChecks.join(", ") || "none", Result: outcome.delivery_status === "verified" ? "passed" : outcome.delivery_status, Evidence: `exact Evidence ${evidenceId}` },
+      { Kind: "Auditors", Inspected: route.auditors_run.join(", "), Reused: "none", Result: "complete", Evidence: "validated review input" },
+      { Kind: "Snapshot", Inspected: evidenceId, Reused: "none", Result: normalized.snapshot_assessment, Evidence: normalized.snapshot_summary }
+    ])}`,
+    normalized.findings.length === 0 ? "## Findings\n\nNone." : `## Findings
+
+${table2(["Finding key", "Severity", "Objectives", "Checks", "Evidence", "Reasoning"], normalized.findings.map((finding) => ({
+      "Finding key": finding.key,
+      Severity: finding.severity,
+      Objectives: finding.objective_ids.join(", "),
+      Checks: finding.check_ids.join(", "),
+      Evidence: finding.evidence,
+      Reasoning: finding.reasoning
+    })))}`,
+    `## Next action
+
+${outcome.next_action}: ${outcome.next_action === "none" ? "No further Workflow action is required." : `Continue through the bounded ${outcome.next_action} route in this task.`}`
+  ];
+  if (correction) sections.push(correction.body);
+  return sections.join("\n\n");
+}
+function boundaryBody(receipt) {
+  return [
+    "## Assessment\n\ninsufficient-evidence: deterministic Evidence recovery is unavailable for the exact current boundary.",
+    `## Evidence coverage
+
+${table2(["Kind", "Inspected", "Reused", "Result", "Evidence"], [
+      { Kind: "Objectives", Inspected: "none", Reused: "none", Result: "blocked", Evidence: "protected root-boundary receipt" },
+      { Kind: "Checks", Inspected: "none", Reused: "none", Result: "blocked", Evidence: "protected root-boundary receipt" },
+      { Kind: "Auditors", Inspected: "inline", Reused: "none", Result: "complete", Evidence: "host boundary validation" },
+      { Kind: "Snapshot", Inspected: receipt.repository_snapshot_hash, Reused: "none", Result: "incomplete", Evidence: receipt.recovery_error_code }
+    ])}`,
+    "## Findings\n\nNone.",
+    "## Next action\n\nreplan: create a fresh Root through separate human approval."
+  ].join("\n\n");
+}
+function buildWorkReview({
+  rootPlanText,
+  artifacts = [],
+  reviewInput = null,
+  boundaryReceipt = null,
+  boundaryReceiptVerifier = null,
+  pluginRoot
+}) {
+  const merged = mergeChain(rootPlanText, artifacts, pluginRoot);
+  const contract = executionContractFromArtifactText(rootPlanText, pluginRoot);
+  if (contract.errors.length > 0 || contract.fields.schema !== 5) throw new Error(`review builder Root is invalid: ${contract.errors.join("; ")}`);
+  const inspectionOptions = boundaryReceipt && typeof boundaryReceiptVerifier === "function" ? { boundaryReceiptVerifier } : {};
+  const prior = inspectArtifactSet(merged.entries.map((entry) => [entry.label, entry.text]), pluginRoot, inspectionOptions);
+  if (prior.errors.length > 0) throw new Error(`review builder input chain is invalid: ${prior.errors.join("; ")}`);
+  const tips = effectiveCliSummary(prior);
+  const predecessorReviewId = tips.review_tips[merged.rootFields.id] ?? null;
+  const predecessorReview = predecessorReviewId ? prior.effective.get(predecessorReviewId) : null;
+  const predecessorReviewText = predecessorReviewId ? merged.entries.find((entry) => entry.label === predecessorReviewId)?.text ?? "" : "";
+  if (boundaryReceipt) {
+    if (typeof boundaryReceiptVerifier !== "function") throw new Error("root-boundary review requires a protected host verifier");
+    const trusted = boundaryReceiptVerifier({ receipt: boundaryReceipt, rootPlanText, reviewFields: null });
+    if (trusted?.ok !== true) throw new Error(`root-boundary receipt is not trusted: ${trusted?.reason ?? "host verification failed"}`);
+    const seedInput2 = {
+      schema: 1,
+      root_content_hash: rootContentHash(rootPlanText),
+      root_projection_hash: contract.authoritative_projection_hash,
+      predecessor_review_id: predecessorReviewId,
+      predecessor_review_hash: predecessorReviewText ? sha2567(predecessorReviewText) : null,
+      boundary_receipt: boundaryReceipt
+    };
+    const reviewInputHash2 = sha2567(stableJson3(seedInput2));
+    const id2 = `wr-${merged.rootFields.id.replace(/^wp-/, "")}-${reviewInputHash2.slice(0, 12)}`;
+    const fields2 = {
+      artifact: "work-review",
+      schema: 5,
+      id: id2,
+      status: "complete",
+      root_plan_id: merged.rootFields.id,
+      latest_evidence_id: null,
+      review_basis: "root-boundary",
+      boundary_receipt: boundaryReceipt,
+      assessment: "insufficient-evidence",
+      delivery_status: "blocked",
+      review_route: "inline",
+      next_action: "replan",
+      correction_id: null,
+      predecessor_review_id: predecessorReviewId,
+      inspected_objectives: [],
+      reused_objectives: [],
+      inspected_checks: [],
+      reused_checks: [],
+      auditors_run: ["inline"]
+    };
+    const artifact2 = `---
+${(0, import_yaml5.stringify)(fields2, { lineWidth: 0 }).trimEnd()}
+---
+
+${boundaryBody(boundaryReceipt)}
+`;
+    const duplicate2 = merged.entries.find((entry) => entry.label === id2);
+    if (duplicate2 && duplicate2.text !== artifact2) throw new Error(`review builder generated conflicting immutable bytes for ${id2}`);
+    const finalEntries2 = duplicate2 ? merged.entries : [...merged.entries, { label: id2, text: artifact2 }];
+    const validated2 = inspectArtifactSet(finalEntries2.map((entry) => [entry.label, entry.text]), pluginRoot, { boundaryReceiptVerifier });
+    if (validated2.errors.length > 0) throw new Error(`generated work-review is invalid: ${validated2.errors.join("; ")}`);
+    const artifactHash2 = sha2567(artifact2);
+    return { duplicate: Boolean(duplicate2), artifact: artifact2, artifact_hash: artifactHash2, review_input_hash: reviewInputHash2, fields: fields2, provenance: { schema: 1, kind: "host-work-review-builder", review_input_hash: reviewInputHash2, artifact_hash: artifactHash2 } };
+  }
+  const evidenceId = tips.evidence_tips[merged.rootFields.id] ?? null;
+  if (!evidenceId) throw new Error("review builder requires the exact current Evidence tip");
+  const evidence = prior.effective.get(evidenceId);
+  const evidenceText = merged.entries.find((entry) => entry.label === evidenceId)?.text;
+  if (!evidence || !evidenceText) throw new Error(`review builder cannot resolve exact Evidence ${evidenceId}`);
+  let normalized;
+  let outcome;
+  let route;
+  try {
+    normalized = normalizeReviewInput(reviewInput, contract);
+    outcome = decision(normalized, evidence);
+    route = routeFor(merged.rootFields, normalized, outcome);
+  } catch (error) {
+    if (error?.code) throw error;
+    throw codedError("review-input-invalid", error?.message ?? "review_input is invalid");
+  }
+  const currentReviewEntry = predecessorReviewId ? merged.entries.find((entry) => entry.label === predecessorReviewId) : null;
+  const currentProvenance = currentReviewEntry?.builder_provenance;
+  if (currentProvenance?.schema === 1 && currentProvenance?.kind === "host-work-review-builder" && currentProvenance?.artifact_hash === sha2567(currentReviewEntry.text) && predecessorReview?.fields?.latest_evidence_id === evidenceId) {
+    const priorPredecessorId = predecessorReview.fields.predecessor_review_id ?? null;
+    const priorPredecessorText = priorPredecessorId ? merged.entries.find((entry) => entry.label === priorPredecessorId)?.text ?? "" : "";
+    const retrySeed = {
+      schema: 1,
+      root_content_hash: rootContentHash(rootPlanText),
+      root_projection_hash: contract.authoritative_projection_hash,
+      evidence_id: evidenceId,
+      evidence_hash: sha2567(evidenceText),
+      predecessor_review_id: priorPredecessorId,
+      predecessor_review_hash: priorPredecessorText ? sha2567(priorPredecessorText) : null,
+      auditors_run: route.auditors_run,
+      review_input: normalized
+    };
+    const retryInputHash = sha2567(stableJson3(retrySeed));
+    if (retryInputHash === currentProvenance.review_input_hash && predecessorReviewId === `wr-${merged.rootFields.id.replace(/^wp-/, "")}-${retryInputHash.slice(0, 12)}`) {
+      return {
+        duplicate: true,
+        artifact: currentReviewEntry.text,
+        artifact_hash: currentProvenance.artifact_hash,
+        review_input_hash: retryInputHash,
+        fields: predecessorReview.fields,
+        normalized_review_input: normalized,
+        outcome,
+        provenance: currentProvenance
+      };
+    }
+  }
+  const rootChecks = contract.checks.filter((check) => check.Required === "yes").map((check) => check["Check ID"]);
+  const reusedObjectives = predecessorReviewId ? (evidence.fields.reused_objectives ?? []).filter((id2) => contract.objectives.includes(id2)).sort(compareCanonical) : [];
+  const reusedChecks = predecessorReviewId ? (evidence.fields.reused_checks ?? []).filter((id2) => rootChecks.includes(id2)).sort(compareCanonical) : [];
+  const coverage = {
+    reusedObjectives,
+    inspectedObjectives: contract.objectives.filter((id2) => !reusedObjectives.includes(id2)),
+    reusedChecks,
+    inspectedChecks: rootChecks.filter((id2) => !reusedChecks.includes(id2))
+  };
+  const seedInput = {
+    schema: 1,
+    root_content_hash: rootContentHash(rootPlanText),
+    root_projection_hash: contract.authoritative_projection_hash,
+    evidence_id: evidenceId,
+    evidence_hash: sha2567(evidenceText),
+    predecessor_review_id: predecessorReviewId,
+    predecessor_review_hash: predecessorReviewText ? sha2567(predecessorReviewText) : null,
+    auditors_run: route.auditors_run,
+    review_input: normalized
+  };
+  const reviewInputHash = sha2567(stableJson3(seedInput));
+  const id = `wr-${merged.rootFields.id.replace(/^wp-/, "")}-${reviewInputHash.slice(0, 12)}`;
+  const correction = correctionProjection({ normalized, findings: normalized.findings, seed: reviewInputHash, rootFields: merged.rootFields, evidenceId, reviewId: id, predecessorReview, entries: merged.entries, pluginRoot });
+  const fields = {
+    artifact: "work-review",
+    schema: 5,
+    id,
+    status: "complete",
+    root_plan_id: merged.rootFields.id,
+    latest_evidence_id: evidenceId,
+    assessment: outcome.assessment,
+    delivery_status: outcome.delivery_status,
+    review_route: route.review_route,
+    next_action: outcome.next_action,
+    correction_id: correction?.correction_id ?? null,
+    predecessor_review_id: predecessorReviewId,
+    auditors_run: route.auditors_run,
+    inspected_objectives: coverage.inspectedObjectives,
+    reused_objectives: coverage.reusedObjectives,
+    inspected_checks: coverage.inspectedChecks,
+    reused_checks: coverage.reusedChecks,
+    ...correction ? { learning_candidates: correction.learning_ids } : {}
+  };
+  const artifact = `---
+${(0, import_yaml5.stringify)(fields, { lineWidth: 0 }).trimEnd()}
+---
+
+${reviewBody({ normalized, outcome, route, coverage, evidenceId, correction })}
+`;
+  const duplicate = merged.entries.find((entry) => entry.label === id);
+  if (duplicate && duplicate.text !== artifact) throw new Error(`review builder generated conflicting immutable bytes for ${id}`);
+  const finalEntries = duplicate ? merged.entries : [...merged.entries, { label: id, text: artifact }];
+  const validated = inspectArtifactSet(finalEntries.map((entry) => [entry.label, entry.text]), pluginRoot);
+  if (validated.errors.length > 0) throw new Error(`generated work-review is invalid: ${validated.errors.join("; ")}`);
+  const artifactHash = sha2567(artifact);
+  return {
+    duplicate: Boolean(duplicate),
+    artifact,
+    artifact_hash: artifactHash,
+    review_input_hash: reviewInputHash,
+    fields,
+    normalized_review_input: normalized,
+    outcome,
+    provenance: { schema: 1, kind: "host-work-review-builder", review_input_hash: reviewInputHash, artifact_hash: artifactHash }
+  };
+}
+function persistWorkReview({ handoffStore, rootPlanText, artifacts = [], review }) {
+  if (!review?.artifact || !review?.fields?.id || !review?.provenance) throw new Error("persistWorkReview requires one generated work-review");
+  try {
+    const byId = /* @__PURE__ */ new Map();
+    for (const entry of [{ label: review.fields.root_plan_id, text: rootPlanText }, ...artifacts, { label: review.fields.id, text: review.artifact, provenance: review.provenance }]) {
+      const inspected = inspectArtifactText(entry.text, handoffStore.pluginRoot);
+      const id = inspected.artifact?.fields?.id ?? entry.label;
+      const prior = byId.get(id);
+      if (prior && prior.text !== entry.text) throw new Error(`work-review persistence found conflicting immutable bytes for ${id}`);
+      byId.set(id, {
+        label: id,
+        text: entry.text,
+        ...entry.provenance || entry.builder_provenance ? { provenance: entry.provenance ?? entry.builder_provenance } : prior?.provenance ? { provenance: prior.provenance } : {}
+      });
+    }
+    const persisted = handoffStore.record([...byId.values()]);
+    return { ...review, handoff_persisted: true, handoff_authoritative: false, artifact_set_hash: persisted.artifact_set_hash };
+  } catch (error) {
+    return {
+      ...review,
+      handoff_persisted: false,
+      handoff_authoritative: false,
+      handoff_error_code: "handoff-persist-failed",
+      warning: `optional cross-task review handoff unavailable: ${error.message}; task-local Review remains valid`
+    };
+  }
+}
+
+// src/controller/native-review.mjs
+var NATIVE_AUDITOR_ROLES = /* @__PURE__ */ new Set(["delivery-auditor", "risk-auditor", "work-design-auditor"]);
+function exactById(entries, pluginRoot) {
+  const byId = /* @__PURE__ */ new Map();
+  for (const [index, entry] of (entries ?? []).entries()) {
+    if (!entry || typeof entry.text !== "string" || !entry.text.trim()) throw new Error(`native Review artifact ${index + 1} requires exact text`);
+    const inspected = inspectArtifactText(entry.text, pluginRoot);
+    if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) throw new Error(`native Review artifact ${index + 1} is invalid: ${inspected.errors.join("; ")}`);
+    const id = inspected.artifact.fields.id;
+    const prior = byId.get(id);
+    if (prior && prior.text !== entry.text) throw new Error(`native Review artifact ${id} conflicts with different immutable bytes`);
+    byId.set(id, {
+      label: id,
+      text: entry.text,
+      ...entry.builder_provenance || entry.provenance ? { builder_provenance: entry.builder_provenance ?? entry.provenance } : prior?.builder_provenance ? { builder_provenance: prior.builder_provenance } : {},
+      ...entry.legacy_review_recorded === true || prior?.legacy_review_recorded === true ? { legacy_review_recorded: true } : {}
+    });
+  }
+  return byId;
+}
+function containsRootEvidence(entries, rootPlanId, pluginRoot) {
+  return [...entries.values()].some((entry) => {
+    const fields = inspectArtifactText(entry.text, pluginRoot).artifact?.fields;
+    return fields?.artifact === "delivery-evidence" && fields.root_plan_id === rootPlanId;
+  });
+}
+function nativeReviewInput(reviewInput, hostObservedAuditorRoles) {
+  if (reviewInput == null) return null;
+  const observed = new Set(hostObservedAuditorRoles ?? []);
+  for (const role of observed) {
+    if (!NATIVE_AUDITOR_ROLES.has(role)) throw new Error(`native Review received unsupported host-observed auditor role ${role}`);
+  }
+  if (Array.isArray(reviewInput.auditor_reports)) {
+    for (const report of reviewInput.auditor_reports) {
+      if (NATIVE_AUDITOR_ROLES.has(report?.role) && !observed.has(report.role)) {
+        throw new Error(`review_input.auditor_reports role ${report.role} has no host-observed native auditor completion`);
+      }
+    }
+  }
+  return reviewInput;
+}
+function performNativeReview({
+  rootPlanText,
+  artifacts = [],
+  reviewInput = null,
+  boundaryReceipt = null,
+  boundaryReceiptVerifier = null,
+  hostObservedAuditorRoles = [],
+  pluginRoot,
+  handoffOptions = {}
+}) {
+  const root = inspectArtifactText(rootPlanText, pluginRoot);
+  if (root.errors.length > 0 || root.artifact?.fields?.artifact !== "work-plan" || root.artifact.fields.schema !== 5) {
+    throw new Error(`native Review requires the exact valid Schema-5 Root: ${root.errors.join("; ") || "not a work-plan"}`);
+  }
+  const supplied = exactById([{ label: root.artifact.fields.id, text: rootPlanText }, ...artifacts], pluginRoot);
+  const taskHasEvidence = containsRootEvidence(supplied, root.artifact.fields.id, pluginRoot);
+  let handoffStore = null;
+  let cacheWarning = null;
+  try {
+    handoffStore = createContentAddressedHandoffStore(rootPlanText, pluginRoot, {
+      ...handoffOptions,
+      artifactSetOptions: boundaryReceiptVerifier ? { boundaryReceiptVerifier } : {}
+    });
+    if (!taskHasEvidence) {
+      try {
+        const context = handoffStore.context(root.artifact.fields.id, rootPlanText);
+        const cached = exactById(context.artifacts, pluginRoot);
+        for (const [id, entry] of cached) {
+          const taskEntry = supplied.get(id);
+          if (taskEntry && taskEntry.text !== entry.text) throw new Error(`cached artifact ${id} conflicts with task-local immutable bytes`);
+          if (!taskEntry) supplied.set(id, entry);
+        }
+      } catch (error) {
+        cacheWarning = `optional review cache was ignored: ${error.message}`;
+      }
+    }
+  } catch (error) {
+    cacheWarning = `optional review cache is unavailable: ${error.message}`;
+  }
+  let review = buildWorkReview({
+    rootPlanText,
+    artifacts: [...supplied.values()],
+    reviewInput: nativeReviewInput(reviewInput, hostObservedAuditorRoles),
+    boundaryReceipt,
+    boundaryReceiptVerifier,
+    pluginRoot
+  });
+  if (taskHasEvidence && handoffStore && !review.duplicate) {
+    try {
+      const cachedReview = handoffStore.context(root.artifact.fields.id, rootPlanText).artifacts.find((entry) => entry.label === review.fields.id);
+      if (cachedReview?.text === review.artifact && cachedReview.builder_provenance?.kind === "host-work-review-builder" && cachedReview.builder_provenance.review_input_hash === review.review_input_hash && cachedReview.builder_provenance.artifact_hash === review.artifact_hash) {
+        review = { ...review, duplicate: true };
+      }
+    } catch (error) {
+      cacheWarning = `optional review cache identity check was ignored: ${error.message}`;
+    }
+  }
+  if (!handoffStore) {
+    return {
+      ...review,
+      handoff_persisted: false,
+      handoff_authoritative: false,
+      handoff_error_code: "handoff-persist-failed",
+      warning: `${cacheWarning}; task-local Review remains valid`
+    };
+  }
+  const persisted = persistWorkReview({ handoffStore, rootPlanText, artifacts: [...supplied.values()], review });
+  return cacheWarning ? { ...persisted, warning: [cacheWarning, persisted.warning].filter(Boolean).join("; ") } : persisted;
 }
 
 // src/core/manual-journey.mjs
@@ -18770,8 +19670,8 @@ var MANUAL_JOURNEY_STATE_LABELS = Object.freeze({
 var MANUAL_PRIMARY_ACTIONS = Object.freeze({
   "repair-root": Object.freeze({ label: "Repair the Root", command: "plan-work" }),
   "implement-plan": Object.freeze({ label: "Implement the Plan", command: "Implement Plan" }),
-  "attach-artifact": Object.freeze({ label: "Attach the exact artifact", command: "attach-artifact" }),
-  "review-root": Object.freeze({ label: "Fresh review", command: "review-work" }),
+  "attach-artifact": Object.freeze({ label: "Export the exact artifact", command: "attach-artifact" }),
+  "review-root": Object.freeze({ label: "Review delivery", command: "review-work" }),
   "accept-provisional": Object.freeze({ label: "Accept provisional delivery", command: "accept-work" }),
   closeout: Object.freeze({ label: "Deterministic closeout", command: "close-work" }),
   correct: Object.freeze({ label: "Fix failing Checks", command: "correct-work" }),
@@ -18819,12 +19719,12 @@ function manualJourneyDecision({ state = "blocked", blocker, action, trace = {} 
   const normalizedAction = normalizeManualPrimaryAction({ outcome: state === "blocked" ? "blocked" : "partial" }, action);
   const label = MANUAL_JOURNEY_STATE_LABELS[state] ?? state;
   const catalog = MANUAL_PRIMARY_ACTIONS[normalizedAction] ?? { label: normalizedAction };
-  return `Workflow \xB7 ${label}. ${blocker} Next: ${catalog.label} \u2014 ${taskBoundManualInvoke(normalizedAction, trace)}.`;
+  return `Workflow \xB7 ${label}. Reason: ${blocker} Resolution: ${catalog.label} \u2014 ${taskBoundManualInvoke(normalizedAction, trace)}.`;
 }
 
 // src/core/root-plan-attestation.mjs
-var import_yaml5 = __toESM(require_dist(), 1);
-import { createHash as createHash9 } from "node:crypto";
+var import_yaml6 = __toESM(require_dist(), 1);
+import { createHash as createHash10 } from "node:crypto";
 var ROOT_ID2 = /\bwp-[A-Za-z0-9][A-Za-z0-9-]*\b/;
 function asObject2(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : null;
@@ -18855,7 +19755,7 @@ function normalizeRootPlanText(rootPlanText) {
 `;
 }
 function rootPlanFingerprint(rootPlanText) {
-  return createHash9("sha256").update(normalizeRootPlanText(rootPlanText)).digest("hex");
+  return createHash10("sha256").update(normalizeRootPlanText(rootPlanText)).digest("hex");
 }
 function unwrapProposedPlanInterior(interior) {
   let body = String(interior ?? "");
@@ -18890,7 +19790,7 @@ function parseRootPlanFields(rootPlanText) {
   if (!match) return { ok: false, reason: "missing-frontmatter", fields: null, fingerprint: null, content_hash: null };
   let fields;
   try {
-    fields = (0, import_yaml5.parse)(match[1]);
+    fields = (0, import_yaml6.parse)(match[1]);
   } catch {
     return { ok: false, reason: "invalid-frontmatter", fields: null, fingerprint: null, content_hash: null };
   }
@@ -18994,6 +19894,7 @@ var WORKFLOW_TOKEN = new RegExp(`(?:^|[\\s('"\\x60])\\$(?:geldmacher-workflow:)?
 var WORKFLOW_MARKDOWN_LINK = new RegExp(`\\[\\$(?:geldmacher-workflow:)?(${WORKFLOW_SKILL_NAMES})\\]\\(([^)\\r\\n]+)\\)`, "gi");
 var ROOT_ID3 = /\bwp-[A-Za-z0-9][A-Za-z0-9-]*\b/;
 var UNAVAILABLE_MODEL = /(?:unknown|unavailable|not\s+found|unsupported).{0,80}model|model.{0,80}(?:unknown|unavailable|not\s+found|unsupported)/i;
+var NATIVE_AUDITOR_ROLES2 = /* @__PURE__ */ new Set(["delivery-auditor", "risk-auditor", "work-design-auditor"]);
 var denyTool = (reason) => ({
   hookSpecificOutput: {
     hookEventName: "PreToolUse",
@@ -19113,7 +20014,7 @@ function taskArtifactBucket(state, rootHash, rootPlanId) {
   }
   return state.task_artifacts_by_root[rootHash] ??= { root_plan_id: rootPlanId, artifacts: [] };
 }
-function rememberTaskArtifact(state, text, options = {}, { rootHash = null } = {}) {
+function rememberTaskArtifact(state, text, options = {}, { rootHash = null, builderProvenance = null } = {}) {
   const inspected = inspectArtifactText(text, options.pluginRoot);
   const fields = inspected.artifact?.fields;
   if (inspected.errors.length > 0 || fields?.schema !== 5 || !["work-plan", "delivery-evidence", "work-review"].includes(fields?.artifact)) {
@@ -19147,6 +20048,9 @@ function rememberTaskArtifact(state, text, options = {}, { rootHash = null } = {
   const bucket = taskArtifactBucket(state, boundHash, rootPlanId);
   const prior = bucket.artifacts.find((entry) => entry.label === fields.id);
   const textHash = sha256RawUtf8(text);
+  if (builderProvenance != null && (fields.artifact !== "work-review" || builderProvenance?.schema !== 1 || builderProvenance?.kind !== "host-work-review-builder" || !/^[a-f0-9]{64}$/.test(String(builderProvenance?.review_input_hash ?? "")) || builderProvenance?.artifact_hash !== textHash)) {
+    throw new Error(`task-local builder provenance for ${fields.id} is invalid`);
+  }
   if (prior && prior.text_hash !== textHash) {
     throw new Error(`task-local artifact ${fields.id} conflicts with different immutable bytes`);
   }
@@ -19154,18 +20058,26 @@ function rememberTaskArtifact(state, text, options = {}, { rootHash = null } = {
     if (bucket.artifacts.length >= 32) throw new Error("task-local artifact chain exceeds 32 exact artifacts");
     const totalBytes = bucket.artifacts.reduce((sum, entry) => sum + Buffer.byteLength(entry.text), 0) + Buffer.byteLength(text);
     if (totalBytes > 1024 * 1024) throw new Error("task-local artifact chain exceeds 1 MiB");
-    bucket.artifacts.push({ label: fields.id, text, text_hash: textHash, artifact_type: fields.artifact });
+    bucket.artifacts.push({
+      label: fields.id,
+      text,
+      text_hash: textHash,
+      artifact_type: fields.artifact,
+      ...builderProvenance ? { builder_provenance: builderProvenance } : {}
+    });
+  } else if (builderProvenance && !prior.builder_provenance) {
+    prior.builder_provenance = builderProvenance;
   }
   return { fields, root_content_hash: boundHash, text_hash: textHash };
 }
 function taskArtifactsForActiveRoot(state) {
   const bucket = state.task_artifacts_by_root?.[state.active_root_content_hash];
-  return (bucket?.artifacts ?? []).map(({ label, text }) => ({ label, text }));
+  return (bucket?.artifacts ?? []).map(({ label, text, builder_provenance }) => ({ label, text, ...builder_provenance ? { builder_provenance } : {} }));
 }
 function captureToolTaskArtifacts(state, input, options = {}) {
   const entries = [];
   if (isWorkflowTool(input.tool_name, "workflow_artifact_record") || isWorkflowTool(input.tool_name, "workflow_closeout")) {
-    entries.push(...Array.isArray(input.tool_input?.artifacts) ? input.tool_input.artifacts : []);
+    entries.push(...Array.isArray(input.tool_input?.artifacts) ? input.tool_input.artifacts.filter((entry) => !isWorkflowTool(input.tool_name, "workflow_artifact_record") || /\bartifact:\s*work-plan\b/.test(String(entry?.text ?? ""))) : []);
     if (typeof input.tool_input?.root_plan === "string") entries.push({ text: input.tool_input.root_plan });
   }
   const structured = input.tool_response?.structuredContent;
@@ -19173,13 +20085,17 @@ function captureToolTaskArtifacts(state, input, options = {}) {
     entries.push(...structured.artifacts.map((entry) => ({ ...entry, rootHash: structured.root_content_hash })));
   }
   if (isWorkflowTool(input.tool_name, "workflow_closeout") && typeof structured?.artifact === "string") {
-    entries.push({ text: structured.artifact, rootHash: structured.root_content_hash });
+    const builderProvenance = structured.artifact_kind === "work-review" ? { schema: 1, kind: "host-work-review-builder", review_input_hash: structured.review_input_hash, artifact_hash: structured.artifact_hash } : null;
+    entries.push({ text: structured.artifact, rootHash: structured.root_content_hash, builderProvenance });
   }
   for (const entry of entries) {
     if (typeof entry?.text === "string" && entry.text.trim()) {
-      rememberTaskArtifact(state, entry.text, options, { rootHash: entry.rootHash ?? null });
+      rememberTaskArtifact(state, entry.text, options, { rootHash: entry.rootHash ?? null, builderProvenance: entry.builderProvenance ?? entry.builder_provenance ?? null });
     }
   }
+}
+function reviewInputFailure(reason) {
+  return `Workflow Review input could not be read: ${reason}. The exact Root, Evidence, and repository work are preserved. Correct the named workflow-review-input field and repeat Review in this same task; no new task or chat is required.`;
 }
 function nativeCloseoutErrorCode(error) {
   const message = String(error?.message ?? error);
@@ -19239,6 +20155,13 @@ function idsFrom(value, pattern) {
 }
 function agentToolName(name) {
   return /^(?:Agent|spawn_agent)$/i.test(String(name ?? ""));
+}
+function hostEnforcedReadOnlyReviewAgentRole(input) {
+  if (!agentToolName(input.tool_name)) return null;
+  const source = input.tool_input && typeof input.tool_input === "object" && !Array.isArray(input.tool_input) ? input.tool_input : {};
+  const role = String(source.agent_type ?? source.subagent_type ?? "");
+  const prompt = String(source.prompt ?? source.task ?? "");
+  return source.readonly === true && prompt.includes("[workflow-readonly-review-v1]") && NATIVE_AUDITOR_ROLES2.has(role) ? role : null;
 }
 function requestedModel(toolInput) {
   if (!toolInput || typeof toolInput !== "object" || Array.isArray(toolInput)) return null;
@@ -19461,6 +20384,8 @@ function evaluateCodexHook(input, priorState = {}, options = {}) {
       review_recovery_count: 0,
       pending_agents: [],
       invalid_agents: {},
+      started_review_auditors: [],
+      observed_review_auditors: [],
       routing: {
         mode: policy.mode,
         unavailable: [],
@@ -19566,7 +20491,7 @@ function evaluateCodexHook(input, priorState = {}, options = {}) {
     if (Object.keys(turn.invalid_agents ?? {}).length > 0) {
       return { output: denyTool("Workflow blocked this tool because a subagent model could not be attested. Its result is invalid evidence."), state };
     }
-    if (turn.phase === "review" && mutatingReviewTool(input)) {
+    if (turn.phase === "review" && mutatingReviewTool(input) && !hostEnforcedReadOnlyReviewAgentRole(input)) {
       return {
         output: denyTool(manualJourneyDecision({
           state: "blocked",
@@ -19606,6 +20531,7 @@ function evaluateCodexHook(input, priorState = {}, options = {}) {
         turn.pending_agents.push({
           tool_use_id: input.tool_use_id ?? null,
           agent_type: input.tool_input?.agent_type ?? input.tool_input?.subagent_type ?? null,
+          review_auditor_role: hostEnforcedReadOnlyReviewAgentRole(input),
           selected_kind: "parent",
           selected_model: turn.parent_model ?? state.parent_model ?? null
         });
@@ -19625,6 +20551,7 @@ function evaluateCodexHook(input, priorState = {}, options = {}) {
       turn.pending_agents.push({
         tool_use_id: input.tool_use_id ?? null,
         agent_type: input.tool_input?.agent_type ?? input.tool_input?.subagent_type ?? null,
+        review_auditor_role: hostEnforcedReadOnlyReviewAgentRole(input),
         selected_kind: selected.kind,
         selected_model: selected.model_id,
         selected_reasoning_effort: selected.reasoning_effort
@@ -19645,6 +20572,10 @@ function evaluateCodexHook(input, priorState = {}, options = {}) {
   if (event === "PostToolUse") {
     const completedReceipt = completeTurnCheckCandidate(turn, state, input, options);
     bindActiveRootFromContext(turn, state, input, options);
+    const observedAuditor = hostEnforcedReadOnlyReviewAgentRole(input);
+    if (observedAuditor && toolSucceeded(input.tool_response) && (turn.started_review_auditors ?? []).includes(observedAuditor)) {
+      turn.observed_review_auditors = [.../* @__PURE__ */ new Set([...turn.observed_review_auditors ?? [], observedAuditor])].sort();
+    }
     if (agentToolName(input.tool_name) && !toolSucceeded(input.tool_response) && modelUnavailable(input.tool_response)) {
       const failedModel = requestedModel(input.tool_input) ?? routing.selected?.model_id;
       if (failedModel && !routing.unavailable.includes(failedModel)) routing.unavailable.push(failedModel);
@@ -19699,6 +20630,25 @@ function evaluateCodexHook(input, priorState = {}, options = {}) {
         }
       }
       if (isWorkflowTool(input.tool_name, "workflow_closeout")) {
+        const structured = input.tool_response?.structuredContent;
+        if (input.tool_input?.artifact_kind === "work-review" || structured?.artifact_kind === "work-review") {
+          if (structured?.artifact_kind === "work-review" && typeof structured.artifact === "string" && structured.root_plan_id === (state.active_root_plan_id ?? turn.root_plan_id) && structured.artifact_hash === sha256RawUtf8(structured.artifact) && /^[a-f0-9]{64}$/.test(String(structured.review_input_hash ?? ""))) {
+            const inspected = inspectArtifactText(structured.artifact, options.pluginRoot);
+            if (inspected.errors.length === 0 && inspected.artifact?.fields?.artifact === "work-review" && inspected.artifact.fields.id === structured.work_review_id) {
+              turn.review_complete = true;
+              turn.review_artifact_id = structured.work_review_id;
+              turn.review_builder_provenance = {
+                schema: 1,
+                kind: "host-work-review-builder",
+                review_input_hash: structured.review_input_hash,
+                artifact_hash: structured.artifact_hash
+              };
+              return { output: {}, state };
+            }
+          }
+          turn.task_artifact_error = reviewInputFailure("the workflow_closeout host response omitted valid builder identity or exact Review bytes");
+          return { output: {}, state };
+        }
         const closeoutRootPlanId = typeof input.tool_input?.root_plan_id === "string" ? input.tool_input.root_plan_id : idsFrom(input.tool_input?.root_plan, ROOT_ID3)[0] ?? null;
         const activeRootPlanId = state.active_root_plan_id ?? turn.root_plan_id ?? null;
         const activeRootContentHash = typeof state.active_root_content_hash === "string" ? state.active_root_content_hash : null;
@@ -19782,6 +20732,9 @@ function evaluateCodexHook(input, priorState = {}, options = {}) {
       match_mode: selectedMatch ? pending?.selected_kind === "parent" ? "exact-parent" : "selected-candidate" : allowance.match_mode,
       reasoning_effort_attested: false
     };
+    if (pending?.review_auditor_role) {
+      turn.started_review_auditors = [.../* @__PURE__ */ new Set([...turn.started_review_auditors ?? [], pending.review_auditor_role])].sort();
+    }
     return { output: {}, state };
   }
   if (event === "SubagentStop" && turn.invalid_agents?.[input.agent_id]) {
@@ -19922,12 +20875,49 @@ ${formatPlanCloseoutAttestationFence()}`,
     if (turn.phase === "review") {
       const exactReview = exactArtifactFromMessage(message, options);
       if (exactReview) {
+        const inspected = inspectArtifactText(exactReview, options.pluginRoot);
+        if (inspected.artifact?.fields?.artifact === "work-review") {
+          return stopDecision(state, turn, input, reviewInputFailure("a full model-authored work-review envelope was returned instead of semantic input"), "model-authored-review-rejected");
+        }
+      }
+      if (!turn.review_complete) {
         try {
-          const captured = rememberTaskArtifact(state, exactReview, options);
-          if (captured.fields.artifact !== "work-review") throw new Error(`review response produced ${captured.fields.artifact}, not work-review`);
+          const rootPlanText = state.active_root_plan_text;
+          if (typeof rootPlanText !== "string" || !rootPlanText.trim()) throw new Error("the exact task-local Root is unavailable");
+          const boundaryReceipt = turn.boundary_receipt ?? null;
+          const parsed = boundaryReceipt ? { ok: true, input: null, issues: [] } : parseReviewInputFromText(message);
+          if (!parsed.ok) throw new Error(parsed.issues.join("; "));
+          const boundaryVerifier = boundaryReceipt ? ({ receipt, rootPlanText: candidateRoot }) => {
+            if (receipt?.receipt_id !== boundaryReceipt.receipt_id) return { ok: false, reason: "no matching task-bound protected host receipt" };
+            return (options.verifyManualBoundaryReceipt ?? verifyManualBoundaryReceipt)({
+              receipt,
+              rootPlanText: candidateRoot,
+              pluginRoot: options.pluginRoot,
+              workspaceRoot: turn.boundary_receipt_workspace_root,
+              captureSnapshot: options.captureRepositorySnapshot ?? captureRepositorySnapshot,
+              now: options.now,
+              options: options.receiptOptions ?? {}
+            });
+          } : null;
+          const review = (options.performNativeReview ?? performNativeReview)({
+            rootPlanText,
+            artifacts: [...taskArtifactsForActiveRoot(state), ...options.artifacts ?? []],
+            reviewInput: parsed.input,
+            boundaryReceipt,
+            boundaryReceiptVerifier: boundaryVerifier,
+            hostObservedAuditorRoles: turn.observed_review_auditors ?? [],
+            pluginRoot: options.pluginRoot,
+            handoffOptions: options.handoffOptions ?? {}
+          });
+          rememberTaskArtifact(state, review.artifact, options, {
+            rootHash: state.active_root_content_hash,
+            builderProvenance: review.provenance
+          });
+          turn.review_complete = true;
+          turn.review_artifact_id = review.fields.id;
+          turn.review_builder_provenance = review.provenance;
         } catch (error) {
-          turn.task_artifact_error = String(error?.message ?? error);
-          return stopDecision(state, turn, input, `Workflow exact review capture failed closed: ${turn.task_artifact_error}. Keep the authoritative review bytes in this task and resolve any immutable ID conflict before correction.`, "review-artifact-conflict");
+          return stopDecision(state, turn, input, reviewInputFailure(String(error?.message ?? error)), "review-input-invalid");
         }
       }
     }
@@ -19941,7 +20931,7 @@ ${formatPlanCloseoutAttestationFence()}`,
         delivery_evidence_root_plan_id: turn.delivery_evidence_root_plan_id
       });
       if (!completion.ok) {
-        return stopDecision(state, turn, input, "Finish Manual Workflow with one typed closeout-input for native lifecycle closeout, or use optional workflow_closeout and then report its exact delivery-report (attach the exact artifact only when handoff_persisted is false).", "delivery-closeout-missing");
+        return stopDecision(state, turn, input, "Finish Manual Workflow with one typed closeout-input for native lifecycle closeout, or use optional workflow_closeout and report its exact delivery-report. The current task retains valid Evidence even when optional cross-task handoff is unavailable.", "delivery-closeout-missing");
       }
     }
     if (Object.keys(turn.invalid_agents ?? {}).length > 0) {
@@ -19955,7 +20945,7 @@ ${formatPlanCloseoutAttestationFence()}`,
 
 // src/hosts/codex/workflow-hook.mjs
 var MAX_INPUT_BYTES = 1024 * 1024;
-var digest = (value) => createHash10("sha256").update(String(value)).digest("hex");
+var digest = (value) => createHash11("sha256").update(String(value)).digest("hex");
 function resolveCodexPluginRoot(here = dirname5(fileURLToPath2(import.meta.url))) {
   let current = resolve10(here);
   for (let i = 0; i < 8; i += 1) {

@@ -6,6 +6,7 @@ import {
   rootContentHash,
 } from "../controller/artifact-handoff.mjs";
 import { buildDeliveryEvidence, persistCloseout } from "../controller/delivery-closeout.mjs";
+import { buildWorkReview, persistWorkReview } from "../controller/work-review-builder.mjs";
 import {
   invalidateManualCheckReceipts,
   loadManualCheckReceipts,
@@ -13,7 +14,7 @@ import {
 import { boundaryReceiptVerifier } from "../core/manual-boundary-receipts.mjs";
 import { inspectArtifactText } from "../../scripts/validate-artifact.source.mjs";
 import { modelInheritanceSummary } from "../../hooks/model-inheritance-state.mjs";
-import { isWorkspaceRootsUnavailable, WorkspaceRootError } from "./workspace-roots.mjs";
+import { isWorkspaceRootsUnavailable } from "./workspace-roots.mjs";
 
 const bundleSize = (artifacts = []) => artifacts.reduce((total, artifact) => total + artifact.text.length, 0);
 
@@ -30,15 +31,26 @@ export function createArtifactHandlers({
   };
   const failure = (toolName) => (error) => toolResult(toolName, {
     error: error.message,
-    ...(error instanceof WorkspaceRootError ? { error_code: error.code } : {}),
+    ...(error?.code ? { error_code: error.code } : {}),
   }, true);
+
+  const codedError = (code, message) => {
+    const error = new Error(message);
+    error.code = code;
+    return error;
+  };
 
   const mergeArtifacts = (entries) => {
     const merged = new Map();
     for (const entry of entries) {
       const prior = merged.get(entry.label);
-      if (prior && prior !== entry.text) throw new Error(`closeout artifact label ${entry.label} has conflicting text`);
-      merged.set(entry.label, entry.text);
+      if (prior && prior.text !== entry.text) throw new Error(`closeout artifact label ${entry.label} has conflicting text`);
+      merged.set(entry.label, {
+        label: entry.label,
+        text: entry.text,
+        ...(entry.builder_provenance ? { builder_provenance: entry.builder_provenance } : prior?.builder_provenance ? { builder_provenance: prior.builder_provenance } : {}),
+        ...(entry.legacy_review_recorded === true || prior?.legacy_review_recorded === true ? { legacy_review_recorded: true } : {}),
+      });
     }
     return merged;
   };
@@ -55,6 +67,15 @@ export function createArtifactHandlers({
     }
     return null;
   };
+
+  const containsRootEvidence = (artifacts = [], rootPlanId = null) => artifacts.some((entry) => {
+    if (typeof entry?.text !== "string") return false;
+    const inspected = inspectArtifactText(entry.text, pluginRoot);
+    const fields = inspected.artifact?.fields;
+    return inspected.errors.length === 0
+      && fields?.artifact === "delivery-evidence"
+      && (!rootPlanId || fields.root_plan_id === rootPlanId);
+  });
 
   const assertConsistentArtifactTexts = (artifacts = [], { rootPlan = null } = {}) => {
     const byId = new Map();
@@ -136,17 +157,31 @@ export function createArtifactHandlers({
   };
 
   const buildCloseout = (input, merged, workspace = null) => {
-    const rootPlan = input.root_plan ?? [...merged.values()].find((text) => {
-      const inspected = inspectArtifactText(text, pluginRoot);
+    const rootPlan = input.root_plan ?? [...merged.values()].find((entry) => {
+      const inspected = inspectArtifactText(entry.text, pluginRoot);
       return inspected.artifact?.fields?.artifact === "work-plan" && inspected.artifact.fields.id === input.root_plan_id;
-    });
+    })?.text;
     if (!rootPlan) throw new Error("workflow_closeout requires the active Root text or a cached Root");
+    if ((input.artifact_kind ?? "delivery-evidence") === "work-review") {
+      if (!input.review_input) {
+        throw codedError("review-input-invalid", "workflow_closeout work-review mode requires review_input schema 1; Root, Evidence, and repository work remain unchanged, so correct the named review_input field and repeat Review in this task");
+      }
+      const reviewResult = buildWorkReview({
+        rootPlanText: rootPlan,
+        artifacts: [...merged.values()],
+        reviewInput: input.review_input,
+        pluginRoot,
+      });
+      if (reviewResult.fields.root_plan_id !== input.root_plan_id) throw new Error(`workflow_closeout Root ID mismatch: expected ${input.root_plan_id}, received ${reviewResult.fields.root_plan_id}`);
+      return { rootPlan, closeoutResult: reviewResult, artifactKind: "work-review" };
+    }
+    if (input.review_input) throw new Error("workflow_closeout review_input is allowed only when artifact_kind is work-review");
     const manualCheckReceipts = workspace
       ? loadManualCheckReceipts({ rootPlanText: rootPlan, pluginRoot, workspaceRoot: workspace, options: receiptOptions })
       : [];
     const closeoutResult = buildDeliveryEvidence({
       rootPlanText: rootPlan,
-      artifacts: [...merged].map(([label, text]) => ({ label, text })),
+      artifacts: [...merged.values()],
       checkEvidence: input.check_evidence,
       changedPaths: input.changed_paths,
       strategyRevision: input.strategy_revision,
@@ -159,7 +194,7 @@ export function createArtifactHandlers({
     });
     if (closeoutResult.fields.root_plan_id !== input.root_plan_id) throw new Error(`workflow_closeout Root ID mismatch: expected ${input.root_plan_id}, received ${closeoutResult.fields.root_plan_id}`);
     if (!closeoutResult.artifact) throw new Error("closeout resolved an evidence tip without its exact artifact text");
-    return { rootPlan, closeoutResult };
+    return { rootPlan, closeoutResult, artifactKind: "delivery-evidence" };
   };
 
   const closeoutPayload = ({
@@ -201,13 +236,55 @@ export function createArtifactHandlers({
     ...(handoffErrorCode || persisted.handoff_error_code ? { handoff_error_code: handoffErrorCode ?? persisted.handoff_error_code } : {}),
   });
 
+  const reviewPayload = ({
+    input,
+    workspace,
+    workspaceBinding,
+    reviewResult,
+    persisted,
+    warning,
+    handoffErrorCode,
+    rootContentHashValue,
+    handoffMode,
+  }) => ({
+    ...(workspace ? { workspace_root: workspace } : {}),
+    workspace_binding: workspaceBinding ?? (workspace ? "trusted-root" : "not-established"),
+    workspace_root_used: Boolean(workspace),
+    artifact_kind: "work-review",
+    root_plan_id: input.root_plan_id,
+    work_review_id: reviewResult.fields.id,
+    artifact: persisted.artifact,
+    artifact_hash: persisted.artifact_hash ?? createHash("sha256").update(persisted.artifact).digest("hex"),
+    review_input_hash: persisted.review_input_hash,
+    authoritative_fields: persisted.fields,
+    assessment: persisted.fields.assessment,
+    delivery_status: persisted.fields.delivery_status,
+    next_action: persisted.fields.next_action,
+    review_route: persisted.fields.review_route,
+    latest_evidence_id: persisted.fields.latest_evidence_id ?? null,
+    predecessor_review_id: persisted.fields.predecessor_review_id ?? null,
+    correction_id: persisted.fields.correction_id ?? null,
+    duplicate: persisted.duplicate,
+    task_local_valid: true,
+    handoff_persisted: persisted.handoff_persisted,
+    handoff_authoritative: false,
+    handoff_mode: handoffMode ?? (persisted.handoff_persisted ? "root-content-cache" : "stateless"),
+    ...(rootContentHashValue ? { root_content_hash: rootContentHashValue } : {}),
+    ...(persisted.artifact_set_hash ? { artifact_set_hash: persisted.artifact_set_hash } : {}),
+    ...(warning ? { warning } : {}),
+    ...(handoffErrorCode || persisted.handoff_error_code ? { handoff_error_code: handoffErrorCode ?? persisted.handoff_error_code } : {}),
+  });
+
   const record = async (input) => {
     try {
       if (bundleSize(input.artifacts) > 1_000_000) throw new Error("handoff artifact bundle exceeds 1000000 characters");
       for (const entry of input.artifacts) {
         const inspected = inspectArtifactText(entry.text, pluginRoot);
-        if (inspected.errors.length > 0 || inspected.artifact?.fields?.schema !== 5 || !["work-plan", "work-review"].includes(inspected.artifact?.fields?.artifact)) {
-          throw new Error("workflow_artifact_record accepts only valid Schema-5 work-plan and work-review artifacts");
+        if (inspected.errors.length > 0 || inspected.artifact?.fields?.schema !== 5 || inspected.artifact?.fields?.artifact !== "work-plan") {
+          if (inspected.artifact?.fields?.artifact === "work-review") {
+            throw codedError("review-artifact-rejected", "new full model-authored work-review artifacts cannot establish authority; pass review_input schema 1 to workflow_closeout with artifact_kind work-review and repeat Review in this task");
+          }
+          throw new Error("workflow_artifact_record accepts only valid Schema-5 work-plan artifacts");
         }
       }
       let rootPlanText;
@@ -344,14 +421,15 @@ export function createArtifactHandlers({
         if (!handoff) {
           if (!input.root_plan) throw error;
           const merged = mergeArtifacts(input.artifacts ?? []);
-          const { closeoutResult } = buildCloseout(input, merged, operational.workspace);
-          return toolResult("workflow_closeout", closeoutPayload({
+          const { closeoutResult, artifactKind } = buildCloseout(input, merged, operational.workspace);
+          const payload = artifactKind === "work-review" ? reviewPayload : closeoutPayload;
+          return toolResult("workflow_closeout", payload({
             input,
             workspace: operational.workspace,
             workspaceBinding: operational.workspace_binding,
-            closeoutResult,
+            ...(artifactKind === "work-review" ? { reviewResult: closeoutResult } : { closeoutResult }),
             persisted: { ...closeoutResult, handoff_persisted: false },
-            warning: `handoff cache unavailable: ${error.message}; attach the returned artifact explicitly to the next Workflow command`,
+            warning: `optional cross-task handoff unavailable: ${error.message}; task-local ${artifactKind === "work-review" ? "Review" : "continuation"} remains valid`,
             handoffErrorCode: "handoff-persist-failed",
             handoffMode: "stateless",
           }));
@@ -360,18 +438,39 @@ export function createArtifactHandlers({
 
       const { rootPlanText, root_content_hash, handoffStore } = handoff;
       let cached = [];
-      try { cached = handoffStore.context(input.root_plan_id, rootPlanText).artifacts.map(({ label, text }) => ({ label, text })); }
-      catch { /* exact Root still allows closeout */ }
+      const taskLocalReviewChain = (input.artifact_kind ?? "delivery-evidence") === "work-review"
+        && containsRootEvidence(input.artifacts ?? [], input.root_plan_id);
+      if (!taskLocalReviewChain) {
+        try { cached = handoffStore.context(input.root_plan_id, rootPlanText).artifacts.map(({ label, text, builder_provenance, legacy_review_recorded }) => ({ label, text, ...(builder_provenance ? { builder_provenance } : {}), ...(legacy_review_recorded === true ? { legacy_review_recorded: true } : {}) })); }
+        catch { /* exact Root still allows closeout */ }
+      }
       const merged = mergeArtifacts([...cached, ...(input.artifacts ?? []), { label: "root", text: rootPlanText }]);
-      const { rootPlan, closeoutResult } = buildCloseout({ ...input, root_plan: rootPlanText }, merged, operational.workspace);
-      const persisted = persistCloseout({
+      let { rootPlan, closeoutResult, artifactKind } = buildCloseout({ ...input, root_plan: rootPlanText }, merged, operational.workspace);
+      if (artifactKind === "work-review" && taskLocalReviewChain && !closeoutResult.duplicate) {
+        try {
+          const cachedReview = handoffStore.context(input.root_plan_id, rootPlanText).artifacts
+            .find((entry) => entry.label === closeoutResult.fields.id);
+          if (cachedReview?.text === closeoutResult.artifact
+            && cachedReview.builder_provenance?.kind === "host-work-review-builder"
+            && cachedReview.builder_provenance.review_input_hash === closeoutResult.review_input_hash
+            && cachedReview.builder_provenance.artifact_hash === closeoutResult.artifact_hash) {
+            closeoutResult = { ...closeoutResult, duplicate: true };
+          }
+        } catch { /* optional cache identity does not affect the task-local Review */ }
+      }
+      const persisted = artifactKind === "work-review" ? persistWorkReview({
         handoffStore,
         rootPlanText: rootPlan,
-        artifacts: [...merged].map(([label, text]) => ({ label, text })),
+        artifacts: [...merged.values()],
+        review: closeoutResult,
+      }) : persistCloseout({
+        handoffStore,
+        rootPlanText: rootPlan,
+        artifacts: [...merged.values()],
         closeout: closeoutResult,
       });
       if (persisted.handoff_persisted) rememberContentAddressedRoot(rootPlan, pluginRoot);
-      if (persisted.handoff_persisted && operational.workspace) {
+      if (artifactKind === "delivery-evidence" && persisted.handoff_persisted && operational.workspace) {
         invalidateManualCheckReceipts({ rootPlanText: rootPlan, workspaceRoot: operational.workspace, options: receiptOptions });
       }
       const selectorNotice = !operational.workspace && input.workspace_root
@@ -379,11 +478,12 @@ export function createArtifactHandlers({
         : "";
       const warning = persisted.warning
         ?? (selectorNotice ? `workspace binding unavailable${selectorNotice}` : undefined);
-      return toolResult("workflow_closeout", closeoutPayload({
+      const payload = artifactKind === "work-review" ? reviewPayload : closeoutPayload;
+      return toolResult("workflow_closeout", payload({
         input,
         workspace: operational.workspace,
         workspaceBinding: operational.workspace_binding,
-        closeoutResult,
+        ...(artifactKind === "work-review" ? { reviewResult: closeoutResult } : { closeoutResult }),
         persisted,
         warning,
         rootContentHashValue: root_content_hash ?? rootContentHash(rootPlan),
