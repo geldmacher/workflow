@@ -115,14 +115,14 @@ Inspect a dirty status before pulling; commit or stash intentional local changes
 |---|---|---|---|
 | Create the Plan | `/plan-work` | `$plan-work` in Plan mode | `plan-work` with mandatory MCP preflight |
 | Implement | **Implement Plan** | **Implement Plan** | Separate `implement-work` invocation |
-| Build delivery evidence | Automatic native lifecycle closeout; `/close-work` is recovery only | Automatic native lifecycle closeout; `$close-work` is recovery only | Mandatory `workflow_closeout`; `close-work` is recovery |
-| Review | `/review-work` in the current task; host builds `wr-*` | `$review-work` in the current task; host builds `wr-*` | `review-work` calls `workflow_closeout` in `work-review` mode |
+| Finish implementation | Ends normally; no lifecycle closeout | Ends normally; no lifecycle closeout | Mandatory `workflow_closeout` delivery-evidence mode |
+| Review and build evidence | `/review-work` atomically builds `de-*` + `wr-*` | `$review-work` atomically builds `de-*` + `wr-*` | `review-work` calls `workflow_closeout` in `work-review` mode |
 | Check status | `/work-status` | `$work-status` | `work-status` |
 | Refresh the explanation | `/explain-work` | `$explain-work` | `explain-work` |
 
 Use `/correct-work` or `$correct-work` only after separately authorizing a correction. Reviews explain automatically; refreshing that explanation, provisional acceptance, and confirmed learning remain explicit actions—not background automation.
 
-Cursor additionally exposes the gated supervised and autonomous controller commands. Codex intentionally provides the native Manual path with eight skills and five compatible Manual MCP tools. The Agent Plugins target provides nine portable Manual skills—including explicit `implement-work`—and requires MCP preflight/closeout where native hooks are unavailable. Neither Manual-only target contains the Cursor controller runtime, hidden model routing, background Runs, worktree manager, or publication automation.
+Cursor additionally exposes the gated supervised and autonomous controller commands. Codex intentionally provides the native Manual path with seven skills and five compatible Manual MCP tools. The Agent Plugins target provides nine portable Manual skills—including explicit `implement-work` and compatibility closeout—and requires MCP preflight/closeout where native hooks are unavailable. Neither Manual-only target contains the Cursor controller runtime, hidden model routing, background Runs, worktree manager, or publication automation.
 
 Optional Manual preferences live in `~/.geldmacher/workflow/preferences.yaml`. They can describe expected host approvals and bounded subagent candidates, but they never grant permissions or change host settings. See [configuration](docs/configuration.md), [host approval](references/host-approval-contract.md), and [Manual subagent policy](references/manual-subagent-policy.md).
 
@@ -136,7 +136,7 @@ Task artifacts remain authoritative. A content-addressed Handoff Store can optio
 
 - `commands/` and `skills/` provide the user-facing Workflow actions.
 - `agents/` provides fresh read-only audit and explanation roles.
-- `hooks/` enforces marked Plan, closeout, review, and model-inheritance boundaries.
+- `hooks/` validates native Plans, enforces read-only Review, and preserves model-inheritance boundaries.
 - `src/core/` contains host-neutral contracts; `src/hosts/` contains host adapters.
 - `src/controller/` and `src/mcp/` implement the Cursor controller and public MCP surface.
 - `targets/` defines the separate Cursor, Codex, and Agent Plugins packages.
@@ -144,7 +144,7 @@ Task artifacts remain authoritative. A content-addressed Handoff Store can optio
 
 ### Versions
 
-- Plugin 5.4.0
+- Plugin 5.5.0
 - Artifact Schema 5
 - Controller Protocol 5
 - Capability Receipt Schema 4

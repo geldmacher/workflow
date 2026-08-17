@@ -7,7 +7,7 @@ Use Agent Mode. Read [protocol](../../references/artifact-protocol.md) and [lear
 
 Invocation separately authorizes bounded project-guidance edits. Trailing text is Learning, never a selector; do not accept, integrate, publish, or mutate Runs.
 
-Resolve one current-task source: active native Cursor Plan with achieved Schema-5 chain, else a returned controller Run with ephemeral `learning_source_receipt` from start/control/answer. Missing/expired, ambiguity, Workflow-3/4, or history/store lookup stops; status/watch never issue receipts.
+Resolve one current-task source: exact native Cursor Plan bytes with achieved Schema-5 Evidence/Review bytes, else an explicitly returned controller Run with ephemeral `learning_source_receipt`. Legacy Manual state, cache/history lookup, missing/expired proof, ambiguity, or Workflow-3/4 stops.
 
 Refresh `workflow_status`, passing the receipt, and require `learning.eligible: true` plus confirmed source binding. Apply mode, acceptance, integration, legacy, and fail-closed gates; never synthesize history.
 

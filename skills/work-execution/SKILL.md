@@ -1,18 +1,18 @@
 ---
 name: work-execution
-description: Apply one approved correction and return evidence.
+description: Apply one approved correction inside its native Plan authority.
 ---
 
-Read [protocol](../../references/artifact-protocol.md), [correction](../../references/correction-contract.md), and [closeout](../../references/closeout-contract.md) completely.
+Read [protocol](../../references/artifact-protocol.md) and [correction](../../references/correction-contract.md) completely.
 
-`[workflow-model-inherit-v1]` The primary owns execution, integration, and closeout. It may delegate bounded work when Task calls omit Task model overrides or use `inherit`; children match the parent or approved Manual candidate.
+`[workflow-model-inherit-v1]` The primary owns execution and integration. It may delegate bounded work when Task calls omit Task model overrides or use `inherit`; children match the parent or approved Manual candidate.
 
-Resolve the active native Cursor Plan Root from task artifacts; handoff only enriches. Select its latest actionable correction/Evidence tip. Before mutation reject conflicting hashes or stale chain/Workflow-3/4; validate root, Strategy revision when required, chain, scope, reuse, risk, and approval.
+Resolve the exact native Cursor Plan Root and any actionable correction/Evidence/Review tip from this task only. Before mutation reject conflicting hashes or stale chain/Workflow-3/4; validate root, Strategy revision when required, chain, scope, reuse, risk, and approval.
 
-Re-bind the task Root and baseline before mutation. Reject protected, approval-required, or out-of-authority targets. Failure blocks.
+Respect the Root authority and normal host sandbox/approval prompts. If implementation discovers changed intent, scope, risk, or protected paths, stop and request a replan or the required human approval.
 
-Classify FIXes `satisfied|pending|partial|conflicted`; execute pending/partial; verification-only avoids edits. Closeout adds correction Checks plus failed, missing, affected, stale, or ambiguous Root Checks. Reuse unaffected proof at its existing grade. Equivalent Checks run once on stable state with honest Evidence per ID. Conflict, drift, or changed intent/scope/risk stops; unavailable or failed proof stays exact.
+Classify FIXes `satisfied|pending|partial|conflicted`; execute pending/partial; verification-only avoids edits. Run correction Checks plus failed, missing, affected, stale, or ambiguous Root Checks. Conflict, drift, or changed intent/scope/risk stops; unavailable or failed results stay explicit for the next Review.
 
-On Cursor invoke `workflow_closeout` internally with exact chain/observations, consume `structuredContent`, and print no attestation or artifact. If unavailable, use one native `closeout-input` fallback; the hook derives paths/snapshot. Codex keeps its typed path. Task-local Evidence proceeds to Review despite optional handoff failure; attach only to switch task/host. Report result, Checks, one plain blocker with resolution, and one action; trace raw details. Never invent Evidence or materialize Learning candidates.
+Finish normally after implementation. Do not call closeout, emit `closeout-input`, create Evidence, persist chain state, or synthesize another turn. Report changed behavior, Checks run, failures or uncertainty, and that a fresh `/review-work` is the next evidence boundary. Never invent Evidence or materialize Learning candidates.
 
-Run each machine Check as its exact standalone planned command/directory; one leading `rtk` is allowed. Receipts downgrade unattested/stale/rootless proof, preserve failure, and give the rerun.
+Run each machine Check as its exact standalone planned command/directory; one leading `rtk` is allowed. Repository checks are implementation observations, not Review-owned Evidence.

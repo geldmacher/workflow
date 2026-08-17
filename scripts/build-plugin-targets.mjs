@@ -24,7 +24,7 @@ const cursorExcludedPaths = new Set([
   "schemas/agent-plugins/1.0.0/mcp.schema.json",
   "schemas/agent-plugins/1.0.0/plugin.schema.json",
 ]);
-const expectedCodexSkills = ["accept-work", "close-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-status"];
+const expectedCodexSkills = ["accept-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-status"];
 const expectedAgentPluginSkills = ["accept-work", "close-work", "correct-work", "explain-work", "implement-work", "learn-from-work", "plan-work", "review-work", "work-status"];
 const manualTools = ["workflow_artifact_context", "workflow_artifact_record", "workflow_closeout", "workflow_plan_preflight", "workflow_status"];
 const forbiddenCodexText = [

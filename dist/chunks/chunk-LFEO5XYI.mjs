@@ -3,7 +3,7 @@ import { createRequire as __workflowCreateRequire } from 'node:module';
 const require = __workflowCreateRequire(import.meta.url);
 
 // src/controller/protocol.mjs
-var PLUGIN_VERSION = "5.4.0";
+var PLUGIN_VERSION = "5.5.0";
 var ARTIFACT_SCHEMA = 5;
 var RUN_RECORD_SCHEMA = 2;
 var PREPARATION_RECORD_SCHEMA = 2;

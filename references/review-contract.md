@@ -1,11 +1,13 @@
 # Review Schema 5
 
-Fresh read-only Review stays task-local, binds Root/Evidence, separates executor claims from independently inspected evidence, and never upgrades proof. [Schema-1 input](work-review-input-contract.md) requires explicit assessment/action, summaries, Findings/gaps/auditors arrays, and optional correction parts. Never default a missing judgment.
+Fresh read-only Review stays in the current task, separates executor claims from independently inspected evidence, and never upgrades proof. Resolve the exact Schema-5 Root only from the host-native Plan context; current-task predecessor Evidence/Review bytes may extend it. Legacy state, caches, handoff tips, IDs without bytes, and another task grant no authority.
 
-The host owns chain, identity, status, lineage, bytes, and validation. Equal normalized input/chain yields equal `wr-*`; any change yields another Review. Model envelopes grant no authority; history remains readable; persistence is optional.
+Missing or ambiguous native Root blocks before substantive Review. Report the native sources inspected and one remedy: restore the Plan in this task or create and approve a new native Plan.
 
-Resolve explicit Root, active Plan, then unique Run. Task Evidence excludes cache tips; cache only recovers absent Evidence. Invalid/ambiguous/Workflow-3/4 context grants nothing. Inspect Authority, paths, failures, Checks. In-Root failures correct; boundary/risk growth replans; proof gaps retry. Hard-Trigger/high needs host-observed delivery+risk.
+The reviewer directly executes or inspects planned Checks and supplies closed [Schema-1 input](work-review-input-contract.md). Manual `verified` requires matching method or inspection, directory, expectation, observed result, and repetition. Hard-Trigger or high-risk Roots require delivery and risk auditor reports, plus design review when material.
 
-Root-boundary accepts no reviewer input. Host proof fixes `latest_evidence_id:null`, `insufficient-evidence/blocked/replan`, empty coverage, and no Finding/correction/Learning.
+`workflow_closeout` work-review mode owns chain validation, repository observation, Evidence and Review identity, status, lineage, hashes, bytes, and rendering. If current Evidence is absent or a reviewed correction needs delta proof, it builds Evidence and Review atomically. Both exact artifacts are returned or neither is emitted. Equal exact inputs yield equal bytes; a semantic or repository observation change yields another artifact.
 
-Verified completes; provisional needs acceptance; failure blocks. Malformed input gets one same-task repair, then only Review blocks. Present outcome, meaning, limits, then technical traceability; the first three stand alone without implementation history or code knowledge. Final only when achieved; else preliminary plus the [guide](https://github.com/geldmacher/workflow/blob/main/docs/manual-workflow.md#review-results-and-next-actions).
+Caller paths and snapshots are non-authoritative. Repository ambiguity or out-of-authority work becomes a limitation or Finding. A failed required Check yields a completed blocked Review with a correction, clarification, retry, or replan action; it never becomes achieved.
+
+Verified completes; provisional needs separate acceptance; failure blocks. Malformed input gets one same-task field repair, then only Review blocks. Present outcome, meaning, limits, then technical traceability; the first three stand alone without implementation history or code knowledge. Final only when achieved; otherwise use a preliminary explanation plus the [guide](https://github.com/geldmacher/workflow/blob/main/docs/manual-workflow.md#review-results-and-next-actions).

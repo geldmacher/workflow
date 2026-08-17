@@ -21,9 +21,9 @@ const namePattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const semverPattern = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 const globPattern = /[*?[{]/;
 const expected = Object.freeze({
-  commands: ["accept-work", "auto-work", "close-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-control", "work-models", "work-status", "work-verification", "work-watch"],
+  commands: ["accept-work", "auto-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-control", "work-models", "work-status", "work-verification", "work-watch"],
   agents: ["delivery-auditor", "risk-auditor", "work-design-auditor", "work-explainer", "work-plan-auditor"],
-  skills: ["work-automation", "work-closeout", "work-execution", "work-explanation", "work-learning", "work-planning", "work-review"],
+  skills: ["work-automation", "work-execution", "work-explanation", "work-learning", "work-planning", "work-review"],
   rules: [],
   artifacts: ["delivery-evidence", "work-plan", "work-review"],
   references: ["artifact-protocol", "automation-contract", "automation-preparation-contract", "closeout-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "host-approval-contract", "learning-contract", "manual-attestation-contract", "manual-subagent-policy", "manual-workflow-contract", "model-routing-contract", "plan-container-contract", "review-contract", "state-contract", "verification-profile-contract", "work-review-input-contract"],
@@ -221,22 +221,16 @@ function validateHookSurface(root, manifest, failures) {
       "subagentStart",
       "subagentStop",
       "postToolUse",
-      "postToolUseFailure",
-      "afterAgentResponse",
-      "stop",
     ];
     const eventNames = Object.keys(config.hooks ?? {});
     if (eventNames.join("\n") !== expectedEvents.join("\n")) failures.push(`hooks/hooks.json must declare ${expectedEvents.join(", ")} in order`);
     const expectedByEvent = {
       sessionStart: [{ command: expectedCommand, failClosed: false }],
       beforeSubmitPrompt: [{ command: expectedCommand, failClosed: true }],
-      preToolUse: [{ command: expectedCommand, matcher: "CreatePlan|TodoWrite|Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook", failClosed: true }],
+      preToolUse: [{ command: expectedCommand, matcher: "CreatePlan|Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook", failClosed: true }],
       subagentStart: [{ command: expectedCommand, failClosed: true }],
       subagentStop: [{ command: expectedCommand, failClosed: false }],
-      postToolUse: [{ command: expectedCommand, matcher: "CreatePlan|MCP:workflow_closeout|Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook", failClosed: true }],
-      postToolUseFailure: [{ command: expectedCommand, matcher: "CreatePlan|Shell", failClosed: true }],
-      afterAgentResponse: [{ command: expectedCommand, failClosed: true }],
-      stop: [{ command: expectedCommand, failClosed: true, loop_limit: 1 }],
+      postToolUse: [{ command: expectedCommand, matcher: "Task", failClosed: false }],
     };
     for (const eventName of expectedEvents) {
       const entries = config.hooks?.[eventName];

@@ -1,6 +1,6 @@
 # Codex Manual Facade
 
-Workflow on Codex implements only the Manual profile. It uses Codex Plan mode and `<proposed_plan>` for planning, installable `$skill-name` invocations, built-in subagents under Manual subagent policy or parent inheritance, and Codex lifecycle hooks. Native lifecycle closeout is the default; the bundled five-tool Manual MCP remains optional and wire-compatible.
+Workflow on Codex implements only the Manual profile. It uses Codex Plan mode and `<proposed_plan>` as the sole plan authority, installable `$skill-name` invocations, built-in subagents under Manual subagent policy or parent inheritance, and validation/read-only lifecycle hooks. The native path is Plan → implementation → fresh same-task Review. Implementation and correction finish normally without Evidence, Stop continuation, or lifecycle closeout; the bundled five-tool Manual MCP remains optional and wire-compatible.
 
 The host sandbox and human approvals remain authoritative. There is no Controller preparation, adaptive Run, route pool, background watcher, verification profile, credential bridge, automatic merge, push, publication, or deployment.
 
@@ -29,6 +29,8 @@ Optional `manual_subagent_policy` may configure ordered concrete Codex candidate
 
 Every skill must read the shared [Manual Workflow contract](./manual-workflow-contract.md) and the task-specific Schema-5 references it names before acting.
 
-Codex lifecycle state retains exact Root, generated Evidence, and emitted Review bytes under the exact Root-content hash. Native correction closeout therefore does not depend on MCP Roots/workspace binding or a successful prior `workflow_artifact_record`. Caller `changed_paths` are omitted or ignored as non-authoritative hints; the Hook owns the complete repository inventory and surfaces classified failures such as missing Source Review, immutable text conflict, Authority violation, repository observation conflict, or Evidence-lineage conflict directly in the Stop response.
+Manual authority is task-local. The Review resolves the exact Root bytes from the current Plan-mode `<proposed_plan>` context and may extend only exact predecessor Evidence/Review bytes already present in this task. Hook state, handoff/cache, `workflow_artifact_record`, IDs without bytes, and another task cannot restore authority. Pre-5.5 Manual state is inert.
 
-Required machine Checks are attested behind their existing Codex tool calls. Receipts bind the exact Root, command, directory, and current repository snapshot without raw output, expire after 24 hours, and are purged after persisted closeout. Missing or invalid proof becomes a current-delivery Problem with one rerun; it never adds a human setup step.
+Fresh `$review-work` directly runs or inspects the planned Checks, then invokes `workflow_closeout` once in `work-review` mode. The stateless builder observes the repository and returns Delivery Evidence plus Work Review atomically. Caller `changed_paths` and snapshots are non-authoritative; ambiguity becomes a limitation or Finding. Manual verification is based on the current reviewer's direct observation. Optional receipts enrich that evidence but add no human setup step and are not required for Manual verification.
+
+If no exact native Root is available, only Review blocks. Report the Plan-mode and current-task sources inspected, then give one remedy: restore the Plan in this task or create and approve a new native Plan. Never reconstruct the Root from legacy state or recommend a closeout recovery command.

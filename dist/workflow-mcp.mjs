@@ -9,7 +9,9 @@ import {
   captureRepositorySnapshot,
   deriveControllerLearningContext,
   derivePreparationLearningContext,
+  deriveRepositoryDelta,
   deriveWorkflowState,
+  evidenceRepositorySnapshot,
   invalidateManualCheckReceipts,
   loadManualCheckReceipts,
   manualConstraintProjection,
@@ -19,7 +21,7 @@ import {
   readManualReceiptRecord,
   repositorySnapshotFingerprint,
   stableManualReceiptJson
-} from "./chunks/chunk-YPPFNCNR.mjs";
+} from "./chunks/chunk-AZ66PJEX.mjs";
 import {
   AjvJsonSchemaValidator,
   CallToolRequestSchema,
@@ -80,7 +82,7 @@ import {
   union,
   unknown,
   writeWorkerControl
-} from "./chunks/chunk-TQ35CSHE.mjs";
+} from "./chunks/chunk-LQ5E6D5U.mjs";
 import {
   PlanningEngine,
   approveVerificationProfile,
@@ -89,28 +91,28 @@ import {
   inspectVerificationProfile,
   recordVerificationProof,
   resolveCapabilities
-} from "./chunks/chunk-I6YVFW7V.mjs";
+} from "./chunks/chunk-VSOEKQMF.mjs";
 import {
   loadWorkflowConfig,
   resolveRouteProfile
-} from "./chunks/chunk-4R2RYEAH.mjs";
+} from "./chunks/chunk-JXD44M5H.mjs";
 import {
   CursorWorkerAdapter
-} from "./chunks/chunk-DBXU2LFJ.mjs";
+} from "./chunks/chunk-2YTKS64M.mjs";
 import "./chunks/chunk-PKEO6PA3.mjs";
 import {
   ArtifactHandoffStore,
   createContentAddressedHandoffStore,
   rememberContentAddressedRoot,
   resolveRootPlanText
-} from "./chunks/chunk-RKPP3PNR.mjs";
+} from "./chunks/chunk-G5KT3VHO.mjs";
 import {
   effectiveCliSummary,
   executionContractFromArtifactText,
   inspectArtifactSet,
   inspectArtifactText,
   preflightRootPlan
-} from "./chunks/chunk-JTPOR5B6.mjs";
+} from "./chunks/chunk-4WJTGI5A.mjs";
 import {
   PreparationStore,
   RunStore,
@@ -120,20 +122,20 @@ import {
   resolveHostToolApproval,
   rootContentHash,
   sharedArtifactStateRoot
-} from "./chunks/chunk-LX4EPHHS.mjs";
+} from "./chunks/chunk-QOWQ6ETR.mjs";
 import {
   PLUGIN_VERSION,
   assertCompatibleRun,
   preparationView,
   runView
-} from "./chunks/chunk-H6YRBJ7B.mjs";
+} from "./chunks/chunk-LFEO5XYI.mjs";
 import "./chunks/chunk-IQRLCJ3K.mjs";
 
 // src/mcp/workflow-mcp.mjs
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdirSync as mkdirSync2, rmSync as rmSync2 } from "node:fs";
-import { dirname as dirname2, join as join4, resolve as resolve4 } from "node:path";
+import { dirname as dirname3, join as join4, resolve as resolve5 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/server.js
@@ -1031,7 +1033,7 @@ var McpServer = class {
     let task = createTaskResult.task;
     const pollInterval = task.pollInterval ?? 5e3;
     while (task.status !== "completed" && task.status !== "failed" && task.status !== "cancelled") {
-      await new Promise((resolve5) => setTimeout(resolve5, pollInterval));
+      await new Promise((resolve6) => setTimeout(resolve6, pollInterval));
       const updatedTask = await extra.taskStore.getTask(taskId);
       if (!updatedTask) {
         throw new McpError(ErrorCode.InternalError, `Task ${taskId} not found during polling`);
@@ -1656,12 +1658,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve5) => {
+    return new Promise((resolve6) => {
       const json = serializeMessage(message);
       if (this._stdout.write(json)) {
-        resolve5();
+        resolve6();
       } else {
-        this._stdout.once("drain", resolve5);
+        this._stdout.once("drain", resolve6);
       }
     });
   }
@@ -2359,11 +2361,252 @@ function modelInheritanceSummary(stateRoot) {
 }
 
 // src/mcp/artifact-handlers.mjs
+import { createHash as createHash4 } from "node:crypto";
+
+// src/controller/manual-review-lifecycle.mjs
 import { createHash as createHash2 } from "node:crypto";
 
+// src/core/manual-path-authority.mjs
+import { existsSync as existsSync3, realpathSync } from "node:fs";
+import { dirname as dirname2, isAbsolute, relative as relative2, resolve as resolve3, sep } from "node:path";
+function uniqueSorted(values) {
+  return [...new Set((values ?? []).map(String).map((value) => value.trim()).filter(Boolean))].sort();
+}
+function pathMatchesRoot(path, root) {
+  return path === root || path.startsWith(`${root}/`);
+}
+function repositoryAuthorityPaths(repositoryRoot, repositoryPath) {
+  const root = realpathSync(repositoryRoot);
+  const lexical = resolve3(root, repositoryPath);
+  if (lexical !== root && !lexical.startsWith(`${root}${sep}`)) {
+    throw new Error(`native closeout path escapes the repository: ${repositoryPath}`);
+  }
+  let existing = lexical;
+  while (!existsSync3(existing) && existing !== root) existing = dirname2(existing);
+  const resolvedExisting = realpathSync(existing);
+  if (resolvedExisting !== root && !resolvedExisting.startsWith(`${root}${sep}`)) {
+    throw new Error(`native closeout path resolves outside the repository: ${repositoryPath}`);
+  }
+  const unresolved = relative2(existing, lexical);
+  const resolved = resolve3(resolvedExisting, unresolved);
+  if (resolved !== root && !resolved.startsWith(`${root}${sep}`)) {
+    throw new Error(`native closeout path resolves outside the repository: ${repositoryPath}`);
+  }
+  const normalizeRelative = (value) => relative2(root, value).replaceAll("\\", "/") || ".";
+  return {
+    lexical: normalizeRelative(lexical),
+    resolved: normalizeRelative(resolved)
+  };
+}
+function authorityViolation(authorityPath, { allowed, protectedPaths, approvalRequired }) {
+  if (protectedPaths.some((entry) => pathMatchesRoot(authorityPath, entry))) {
+    return `native closeout path is protected by the Root: ${authorityPath}`;
+  }
+  if (approvalRequired.some((entry) => pathMatchesRoot(authorityPath, entry))) {
+    return `native closeout path requires separate human approval that the closeout report cannot grant: ${authorityPath}`;
+  }
+  if (!allowed.some((entry) => pathMatchesRoot(authorityPath, entry))) {
+    return `native closeout path is outside Root authority: ${authorityPath}`;
+  }
+  return null;
+}
+function assertChangedPathAuthority(rootFields, changedPaths, repositoryRoot) {
+  const authority = rootFields?.authority ?? {};
+  const allowed = uniqueSorted(authority.allowed_roots);
+  const protectedPaths = uniqueSorted(authority.protected_paths);
+  const approvalRequired = uniqueSorted(authority.approval_required_paths);
+  if (allowed.length === 0) throw new Error("native closeout Root has no allowed path authority");
+  for (const path of uniqueSorted(changedPaths)) {
+    if (isAbsolute(path) || path.includes("\\") || path.includes("\0")) {
+      throw new Error(`native closeout path is not repository-relative: ${path}`);
+    }
+    const candidates = repositoryAuthorityPaths(repositoryRoot, path);
+    for (const candidate of uniqueSorted([candidates.lexical, candidates.resolved])) {
+      const violation = authorityViolation(candidate, { allowed, protectedPaths, approvalRequired });
+      if (violation) throw new Error(violation);
+    }
+  }
+}
+
+// src/controller/manual-review-lifecycle.mjs
+function exactEntries(rootPlanText, artifacts, pluginRoot2) {
+  const root = inspectArtifactText(rootPlanText, pluginRoot2);
+  if (root.errors.length > 0 || root.artifact?.fields?.artifact !== "work-plan" || root.artifact.fields.schema !== 5) {
+    throw new Error(`manual Review requires the exact native Schema-5 Root: ${root.errors.join("; ") || "not a work-plan"}`);
+  }
+  const byId = /* @__PURE__ */ new Map([[root.artifact.fields.id, { label: root.artifact.fields.id, text: rootPlanText }]]);
+  for (const entry of artifacts ?? []) {
+    if (!entry || typeof entry.text !== "string" || !entry.text.trim()) continue;
+    const inspected = inspectArtifactText(entry.text, pluginRoot2);
+    if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) {
+      throw new Error(`manual Review artifact ${entry.label ?? "unknown"} is invalid: ${inspected.errors.join("; ")}`);
+    }
+    const id = inspected.artifact.fields.id;
+    const prior = byId.get(id);
+    if (prior && prior.text !== entry.text) throw new Error(`manual Review artifact ${id} has conflicting immutable bytes`);
+    byId.set(id, {
+      label: id,
+      text: entry.text,
+      ...entry.builder_provenance ? { builder_provenance: entry.builder_provenance } : {},
+      ...entry.legacy_review_recorded === true ? { legacy_review_recorded: true } : {}
+    });
+  }
+  return { rootFields: root.artifact.fields, entries: [...byId.values()] };
+}
+function currentTips(entries, pluginRoot2) {
+  const inspected = inspectArtifactSet(entries.map((entry) => [entry.label, entry.text]), pluginRoot2);
+  if (inspected.errors.length > 0) throw new Error(`manual Review chain is invalid: ${inspected.errors.join("; ")}`);
+  const tips = effectiveCliSummary(inspected);
+  return { inspected, tips };
+}
+function repositoryLimitation(reviewInput, message) {
+  return {
+    ...reviewInput,
+    assessment: ["achieved", "provisional"].includes(reviewInput.assessment) ? "partially-achieved" : reviewInput.assessment,
+    recommended_action: "clarify",
+    snapshot_assessment: "incomplete",
+    snapshot_summary: `${reviewInput.snapshot_summary} ${message}`.trim(),
+    missing_evidence: [.../* @__PURE__ */ new Set([...reviewInput.missing_evidence ?? [], message])],
+    correction: void 0
+  };
+}
+function supportedOnBoundary(checkEvidence3, message) {
+  return (checkEvidence3 ?? []).map((entry) => ({
+    ...entry,
+    grade: entry.grade === "verified" ? "supported" : entry.grade,
+    limitations: [.../* @__PURE__ */ new Set([...entry.limitations ?? [], message])]
+  }));
+}
+function buildManualReviewLifecycle({
+  rootPlanText,
+  artifacts = [],
+  reviewInput,
+  checkEvidence: checkEvidence3 = [],
+  strategyRevision = 0,
+  summary: summary2 = null,
+  workspaceRoot: workspaceRoot3,
+  pluginRoot: pluginRoot2,
+  captureSnapshot = captureRepositorySnapshot
+}) {
+  if (!reviewInput) throw new Error("manual Review requires review_input schema 1");
+  if (!workspaceRoot3) throw new Error("manual Review could not resolve the current repository root");
+  const exact = exactEntries(rootPlanText, artifacts, pluginRoot2);
+  const initial = currentTips(exact.entries, pluginRoot2);
+  const evidenceTipId = initial.tips.evidence_tips[exact.rootFields.id] ?? null;
+  const reviewTipId = initial.tips.review_tips[exact.rootFields.id] ?? null;
+  const reviewTip = reviewTipId ? initial.inspected.effective.get(reviewTipId) : null;
+  const correctionPending = Boolean(
+    evidenceTipId && reviewTip?.fields?.latest_evidence_id === evidenceTipId && reviewTip?.fields?.next_action === "correct" && reviewTip?.fields?.correction_id
+  );
+  const current = captureSnapshot(workspaceRoot3);
+  const repositoryDelta = deriveRepositoryDelta(null, current);
+  let evidenceChangedPaths = repositoryDelta.changed_paths;
+  let evidenceSnapshot = repositoryDelta.repository_snapshot;
+  let effectiveReviewInput = reviewInput;
+  let effectiveCheckEvidence = checkEvidence3;
+  try {
+    assertChangedPathAuthority(exact.rootFields, repositoryDelta.changed_paths, current.repository_root);
+  } catch (error) {
+    const message = `Current repository changes do not fit the native Plan authority: ${String(error?.message ?? error)}`;
+    effectiveReviewInput = repositoryLimitation(reviewInput, message);
+    effectiveCheckEvidence = supportedOnBoundary(checkEvidence3, message);
+    evidenceChangedPaths = repositoryDelta.changed_paths.filter((path) => {
+      try {
+        assertChangedPathAuthority(exact.rootFields, [path], current.repository_root);
+        return true;
+      } catch {
+        return false;
+      }
+    });
+    evidenceSnapshot = evidenceRepositorySnapshot(current, evidenceChangedPaths, { baselineAvailable: false });
+  }
+  let evidence = null;
+  let reviewArtifacts = exact.entries;
+  if (!evidenceTipId || correctionPending) {
+    evidence = buildDeliveryEvidence({
+      rootPlanText,
+      artifacts: exact.entries,
+      checkEvidence: effectiveCheckEvidence,
+      changedPaths: evidenceChangedPaths,
+      strategyRevision,
+      effectiveProfile: "manual",
+      repositorySnapshot: evidenceSnapshot,
+      summary: summary2,
+      manualCheckReceipts: [],
+      // Manual verification is the fresh reviewer observation. Certified
+      // controller profiles keep their independent receipt requirements.
+      enforceManualCheckReceipts: false,
+      pluginRoot: pluginRoot2
+    });
+    reviewArtifacts = [...exact.entries, { label: evidence.fields.id, text: evidence.artifact }];
+  }
+  const review = buildWorkReview({
+    rootPlanText,
+    artifacts: reviewArtifacts,
+    reviewInput: effectiveReviewInput,
+    pluginRoot: pluginRoot2
+  });
+  const effectiveEvidenceId = evidence?.fields?.id ?? review.fields.latest_evidence_id;
+  const effectiveEvidence = evidence ?? reviewArtifacts.map((entry) => ({ entry, fields: inspectArtifactText(entry.text, pluginRoot2).artifact?.fields })).find(({ fields }) => fields?.artifact === "delivery-evidence" && fields.id === effectiveEvidenceId)?.entry;
+  return {
+    artifact_kind: "work-review",
+    root_plan_id: exact.rootFields.id,
+    repository_snapshot: evidenceSnapshot,
+    changed_paths: evidenceChangedPaths,
+    observed_dirty_paths: repositoryDelta.changed_paths,
+    delivery_evidence: evidence ?? {
+      duplicate: true,
+      artifact: effectiveEvidence?.text ?? null,
+      artifact_hash: effectiveEvidence?.text ? createHash2("sha256").update(effectiveEvidence.text, "utf8").digest("hex") : null,
+      fields: initial.inspected.effective.get(effectiveEvidenceId)?.fields ?? null
+    },
+    review
+  };
+}
+
+// src/core/native-plan-resolution.mjs
+import { createHash as createHash3 } from "node:crypto";
+var sha2562 = (text) => createHash3("sha256").update(text, "utf8").digest("hex");
+function resolveNativePlan({ candidates = [], attemptedSources = [], pluginRoot: pluginRoot2 } = {}) {
+  const attempted = [.../* @__PURE__ */ new Set([
+    ...attemptedSources,
+    ...candidates.map((entry) => entry?.source).filter(Boolean)
+  ])];
+  const valid = [];
+  for (const candidate of candidates) {
+    if (typeof candidate?.root_text !== "string" || !candidate.root_text.trim()) continue;
+    const inspected = inspectArtifactText(candidate.root_text, pluginRoot2);
+    const fields = inspected.artifact?.fields;
+    if (inspected.errors.length > 0 || fields?.artifact !== "work-plan" || fields?.schema !== 5) continue;
+    valid.push({
+      root_text: candidate.root_text,
+      root_id: fields.id,
+      root_hash: sha2562(candidate.root_text),
+      source: candidate.source ?? "native-task-plan"
+    });
+  }
+  const unique2 = [...new Map(valid.map((entry) => [entry.root_hash, entry])).values()];
+  if (unique2.length === 0) {
+    return {
+      status: "unavailable",
+      attempted_sources: attempted,
+      resolution: "Restore the Schema-5 native Plan in this same task or create and approve a new native Plan, then repeat Review."
+    };
+  }
+  if (unique2.length > 1) {
+    return {
+      status: "ambiguous",
+      candidate_ids: [...new Set(unique2.map((entry) => entry.root_id))].sort(),
+      attempted_sources: attempted,
+      resolution: "Keep exactly one Schema-5 native Plan in the current task context, then repeat Review."
+    };
+  }
+  return { status: "resolved", ...unique2[0] };
+}
+
 // src/mcp/workspace-roots.mjs
-import { lstatSync, realpathSync, statSync as statSync2 } from "node:fs";
-import { resolve as resolve3 } from "node:path";
+import { lstatSync, realpathSync as realpathSync2, statSync as statSync2 } from "node:fs";
+import { resolve as resolve4 } from "node:path";
 import { fileURLToPath } from "node:url";
 var HOST_WORKSPACE_ENV = "GELDMACHER_WORKFLOW_WORKSPACE_ROOT";
 var WorkspaceRootError = class extends Error {
@@ -2395,7 +2638,7 @@ function validateDirectoryRoot(advertised, {
   if (stat.isSymbolicLink()) throw new WorkspaceRootError(symlinkCode, `${label} may not be symlink redirected: ${advertised}`);
   let canonical;
   try {
-    canonical = realpathSync(advertised);
+    canonical = realpathSync2(advertised);
   } catch (error) {
     throw new WorkspaceRootError(unavailableCode, `${label} is unavailable: ${advertised}`, { cause: error });
   }
@@ -2419,7 +2662,7 @@ function rootPath(root) {
   if (url.protocol !== "file:") throw new WorkspaceRootError("root-non-file", `Workflow supports only file workspace roots: ${root.uri}`);
   let advertised;
   try {
-    advertised = resolve3(fileURLToPath(url));
+    advertised = resolve4(fileURLToPath(url));
   } catch (error) {
     throw new WorkspaceRootError("root-invalid", `MCP client returned an invalid file workspace root: ${root.uri}`, { cause: error });
   }
@@ -2430,7 +2673,7 @@ function hostConfiguredRoot(env = process.env) {
   if (raw === void 0 || raw === null || String(raw).trim() === "") return null;
   const value = String(raw).trim();
   if (/\$\{[^}]+\}/.test(value)) return null;
-  const advertised = resolve3(value);
+  const advertised = resolve4(value);
   return {
     ...validateDirectoryRoot(advertised, {
       unavailableCode: "host-workspace-unavailable",
@@ -2497,7 +2740,7 @@ var WorkspaceRootAuthority = class {
         }
       }
       if (selector !== void 0 && selector !== null && selector !== "") {
-        const requested = resolve3(selector);
+        const requested = resolve4(selector);
         if (requested !== host.advertised && requested !== host.canonical) {
           throw new WorkspaceRootError("root-foreign", `workspace_root does not match host-configured workspace: ${requested}`);
         }
@@ -2509,12 +2752,12 @@ var WorkspaceRootAuthority = class {
       if (roots.length !== 1) throw new WorkspaceRootError("roots-multiple", "multiple MCP workspace roots require workspace_root");
       return roots[0].canonical;
     }
-    const advertised = resolve3(selector);
+    const advertised = resolve4(selector);
     const allowed = roots.find((entry) => entry.advertised === advertised);
     if (!allowed) throw new WorkspaceRootError("root-foreign", `workspace_root is not an advertised MCP root: ${advertised}`);
     let canonical;
     try {
-      canonical = realpathSync(advertised);
+      canonical = realpathSync2(advertised);
     } catch (error) {
       throw new WorkspaceRootError("root-unavailable", `workspace_root is unavailable: ${advertised}`, { cause: error });
     }
@@ -2538,11 +2781,15 @@ function createArtifactHandlers({
   };
   const failure2 = (toolName) => (error) => toolResult(toolName, {
     error: error.message,
-    ...error?.code ? { error_code: error.code } : {}
+    ...error?.code ? { error_code: error.code } : {},
+    ...Array.isArray(error?.attempted_sources) ? { attempted_sources: error.attempted_sources } : {},
+    ...Array.isArray(error?.candidate_ids) ? { candidate_ids: error.candidate_ids } : {},
+    ...typeof error?.resolution === "string" ? { resolution: error.resolution } : {}
   }, true);
-  const codedError = (code, message) => {
+  const codedError = (code, message, details = {}) => {
     const error = new Error(message);
     error.code = code;
+    Object.assign(error, details);
     return error;
   };
   const mergeArtifacts = (entries) => {
@@ -2710,7 +2957,7 @@ function createArtifactHandlers({
     root_plan_id: input.root_plan_id,
     delivery_evidence_id: closeoutResult.fields.id,
     artifact: persisted.artifact,
-    artifact_hash: persisted.artifact_hash ?? createHash2("sha256").update(persisted.artifact).digest("hex"),
+    artifact_hash: persisted.artifact_hash ?? createHash4("sha256").update(persisted.artifact).digest("hex"),
     evidence_mode: persisted.fields.evidence_mode,
     overall_grade: persisted.fields.overall_grade,
     status: persisted.fields.status,
@@ -2749,7 +2996,7 @@ function createArtifactHandlers({
     root_plan_id: input.root_plan_id,
     work_review_id: reviewResult.fields.id,
     artifact: persisted.artifact,
-    artifact_hash: persisted.artifact_hash ?? createHash2("sha256").update(persisted.artifact).digest("hex"),
+    artifact_hash: persisted.artifact_hash ?? createHash4("sha256").update(persisted.artifact).digest("hex"),
     review_input_hash: persisted.review_input_hash,
     authoritative_fields: persisted.fields,
     assessment: persisted.fields.assessment,
@@ -2768,6 +3015,37 @@ function createArtifactHandlers({
     ...persisted.artifact_set_hash ? { artifact_set_hash: persisted.artifact_set_hash } : {},
     ...warning ? { warning } : {},
     ...handoffErrorCode || persisted.handoff_error_code ? { handoff_error_code: handoffErrorCode ?? persisted.handoff_error_code } : {}
+  });
+  const reviewBundlePayload = ({ input, workspace, bundle, rootContentHashValue }) => ({
+    ...workspace ? { workspace_root: workspace } : {},
+    workspace_binding: workspace ? "trusted-root" : "not-established",
+    workspace_root_used: Boolean(workspace),
+    artifact_kind: "work-review",
+    root_plan_id: input.root_plan_id,
+    root_content_hash: rootContentHashValue,
+    delivery_evidence_id: bundle.delivery_evidence.fields.id,
+    delivery_evidence_artifact: bundle.delivery_evidence.artifact,
+    delivery_evidence_hash: bundle.delivery_evidence.artifact_hash,
+    work_review_id: bundle.review.fields.id,
+    artifact: bundle.review.artifact,
+    artifact_hash: bundle.review.artifact_hash,
+    review_input_hash: bundle.review.review_input_hash,
+    authoritative_fields: bundle.review.fields,
+    assessment: bundle.review.fields.assessment,
+    delivery_status: bundle.review.fields.delivery_status,
+    next_action: bundle.review.fields.next_action,
+    review_route: bundle.review.fields.review_route,
+    latest_evidence_id: bundle.review.fields.latest_evidence_id,
+    predecessor_review_id: bundle.review.fields.predecessor_review_id ?? null,
+    correction_id: bundle.review.fields.correction_id ?? null,
+    changed_paths: bundle.changed_paths,
+    observed_dirty_paths: bundle.observed_dirty_paths,
+    repository_snapshot: bundle.repository_snapshot,
+    duplicate: bundle.review.duplicate && bundle.delivery_evidence.duplicate,
+    task_local_valid: true,
+    handoff_persisted: false,
+    handoff_authoritative: false,
+    handoff_mode: "task-local"
   });
   const record2 = async (input) => {
     try {
@@ -2886,6 +3164,45 @@ function createArtifactHandlers({
     try {
       if (bundleSize(input.artifacts) > 1e6) throw new Error("closeout artifact bundle exceeds 1000000 characters");
       const operational = await optionalOperational(input.workspace_root);
+      if ((input.artifact_kind ?? "delivery-evidence") === "work-review") {
+        const nativePlan = resolveNativePlan({
+          candidates: input.root_plan ? [{ source: "workflow_closeout.root_plan from current Review task", root_text: input.root_plan }] : [],
+          attemptedSources: ["workflow_closeout.root_plan from current Review task"],
+          pluginRoot: pluginRoot2
+        });
+        if (nativePlan.status !== "resolved") {
+          throw codedError(
+            `native-plan-${nativePlan.status}`,
+            `workflow_closeout work-review native Root is ${nativePlan.status}. Inspected: ${nativePlan.attempted_sources.join(", ") || "no native source was supplied"}. ${nativePlan.resolution}`,
+            nativePlan
+          );
+        }
+        if (!operational.workspace) {
+          throw codedError(
+            "review-workspace-unavailable",
+            `workflow_closeout could not inspect the current repository${operational.workspace_error?.message ? `: ${operational.workspace_error.message}` : ""}`
+          );
+        }
+        const bundle = buildManualReviewLifecycle({
+          rootPlanText: nativePlan.root_text,
+          artifacts: input.artifacts ?? [],
+          reviewInput: input.review_input,
+          checkEvidence: input.check_evidence ?? [],
+          strategyRevision: input.strategy_revision ?? 0,
+          summary: input.summary ?? null,
+          workspaceRoot: operational.workspace,
+          pluginRoot: pluginRoot2
+        });
+        if (nativePlan.root_id !== input.root_plan_id || bundle.root_plan_id !== input.root_plan_id) {
+          throw new Error(`workflow_closeout Root ID mismatch: expected ${input.root_plan_id}, received ${bundle.root_plan_id}`);
+        }
+        return toolResult("workflow_closeout", reviewBundlePayload({
+          input,
+          workspace: operational.workspace,
+          bundle,
+          rootContentHashValue: nativePlan.root_hash
+        }));
+      }
       let handoff;
       try {
         handoff = contentHandoff({
@@ -3003,7 +3320,7 @@ var MANUAL_PRIMARY_ACTIONS = Object.freeze({
   "attach-artifact": Object.freeze({ label: "Export the exact artifact", command: "attach-artifact" }),
   "review-root": Object.freeze({ label: "Review delivery", command: "review-work" }),
   "accept-provisional": Object.freeze({ label: "Accept provisional delivery", command: "accept-work" }),
-  closeout: Object.freeze({ label: "Deterministic closeout", command: "close-work" }),
+  closeout: Object.freeze({ label: "Portable Evidence build", command: "workflow_closeout" }),
   correct: Object.freeze({ label: "Fix failing Checks", command: "correct-work" }),
   "approve-correction": Object.freeze({ label: "Apply bounded correction", command: "correct-work" }),
   "provide-artifacts": Object.freeze({ label: "Supply artifact chain", command: "work-status" }),
@@ -3097,7 +3414,7 @@ var MANUAL_HELP_TOPICS = Object.freeze({
   "artifacts-tips-and-handoff": helpEntry(
     "artifacts-tips-and-handoff",
     "artifacts-tips-and-handoff",
-    "Handoff only transports exact artifact bytes; missing cache context requires explicit artifacts and grants no authority."
+    "Cursor and Codex trust exact current-task artifact bytes; handoff remains portable transport and never restores native task authority."
   ),
   "recovery-and-troubleshooting": helpEntry(
     "recovery-and-troubleshooting",
@@ -3108,84 +3425,84 @@ var MANUAL_HELP_TOPICS = Object.freeze({
 var MANUAL_STATE_HELP = Object.freeze({
   "intent-clarification": helpEntry(
     "manual-state-intent-clarification",
-    "intent-clarification",
+    "manual-states",
     "The Root is not intent-ready because a material goal, acceptance, authority, or risk decision still needs a human answer."
   ),
   "root-plan-review": helpEntry(
     "manual-state-root-plan-review",
-    "root-plan-review",
-    "A ready Intent Root exists and waits for human Implement Plan approval before Delivery Evidence can be created."
+    "manual-states",
+    "A ready native Intent Root exists and waits for human Implement Plan approval before repository implementation."
   ),
   "root-review": helpEntry(
     "manual-state-root-review",
-    "root-review",
-    "Delivery Evidence exists and now needs a fresh read-only review against the approved Root."
+    "manual-states",
+    "Implementation finished and now needs fresh read-only Review to create Evidence and the delivery verdict atomically."
   ),
   "waiting-human": helpEntry(
     "manual-state-waiting-human",
-    "waiting-human",
+    "manual-states",
     "Workflow needs the human to resolve the listed clarification, correction approval, or missing exact context."
   ),
   replan: helpEntry(
     "manual-state-replan",
-    "replan",
+    "manual-states",
     "The current Root or chain cannot safely authorize the required work and must be replaced through a newly approved plan."
   ),
   "delivery-ready-provisional": helpEntry(
     "manual-state-delivery-ready-provisional",
-    "delivery-ready-provisional",
+    "manual-states",
     "No known failed required Check blocks delivery, but proof remains incomplete or unavailable and needs an explicit human decision."
   ),
   "accepted-provisional": helpEntry(
     "manual-state-accepted-provisional",
-    "accepted-provisional",
+    "manual-states",
     "The human accepted this evidence gap once; the delivery is still not verified and the acceptance is not persisted."
   ),
   achieved: helpEntry(
     "manual-state-achieved",
-    "achieved",
+    "manual-states",
     "A fresh review verified the required Checks for this repository-only Root, so no further Workflow action is required."
   ),
   blocked: helpEntry(
     "manual-state-blocked",
-    "blocked",
+    "manual-states",
     "A known failure or safety boundary prevents delivery and cannot be overridden by provisional acceptance."
   ),
   failed: helpEntry(
     "manual-state-failed",
-    "failed",
+    "manual-states",
     "Workflow could not produce a valid result; repair the reported failure before retrying."
   ),
   stopped: helpEntry(
     "manual-state-stopped",
-    "stopped",
+    "manual-states",
     "This subject is intentionally non-actionable, commonly because it is read-only Workflow-3 or Workflow-4 history."
   )
 });
 var MANUAL_EVIDENCE_HELP = Object.freeze({
   verified: helpEntry(
     "manual-evidence-verified",
-    "verified",
+    "evidence-grades",
     "The required Check was directly observed with the method and repetition needed for verified Evidence."
   ),
   supported: helpEntry(
     "manual-evidence-supported",
-    "supported",
+    "evidence-grades",
     "Meaningful inspection supports the claim, but the proof is not strong enough for verified delivery."
   ),
   partial: helpEntry(
     "manual-evidence-partial",
-    "partial",
+    "evidence-grades",
     "Some relevant proof exists, but it does not fully cover the required Check or expected result."
   ),
   unavailable: helpEntry(
     "manual-evidence-unavailable",
-    "unavailable",
+    "evidence-grades",
     "The required proof surface could not be used; the named limitation is missing proof, not success or failure."
   ),
   failed: helpEntry(
     "manual-evidence-failed",
-    "failed-evidence",
+    "evidence-grades",
     "The observed result contradicted a required Check, so delivery is blocked and cannot be accepted provisionally."
   )
 });
@@ -3217,7 +3534,7 @@ var NEXT_STEP_CATALOG = {
   "implement-plan": {
     label: "Implement the Plan",
     invoke: "Human: native Implement Plan (approves the presented Root)",
-    benefit: "Delivers inside the approved Root and runs deterministic closeout.",
+    benefit: "Delivers inside the approved Root and finishes normally.",
     blocked_when: "No approved Root is ready for implementation.",
     recovery: "Finish Plan presentation and human approval first."
   },
@@ -3233,7 +3550,7 @@ var NEXT_STEP_CATALOG = {
     invoke: "Current task, read-only phase: run /review-work or $review-work against the exact task-local chain",
     benefit: "Produces a fresh read-only verdict without requiring a new task or chat.",
     blocked_when: "The current task cannot resolve one exact Root/Evidence chain.",
-    recovery: "Run Review in the current task; it attempts one internal missing-Evidence recovery before asking for another action."
+    recovery: "Run Review in the current task; its atomic builder creates any missing Evidence together with the Review."
   },
   "accept-provisional": {
     label: "Accept provisional delivery",
@@ -3243,15 +3560,15 @@ var NEXT_STEP_CATALOG = {
     recovery: "Run a fresh review before accepting."
   },
   closeout: {
-    label: "Deterministic closeout",
-    invoke: "Agent: /close-work [wp-id] or $close-work, or finish Implement Plan closeout",
-    benefit: "Builds validated Evidence from observed Checks.",
+    label: "Portable Evidence build",
+    invoke: "Compatible portable client: call workflow_closeout delivery-evidence mode",
+    benefit: "Preserves portable transport; Cursor and Codex use fresh Review instead.",
     blocked_when: "Exact Root/chain or Check observations are missing.",
-    recovery: "Supply exact artifacts and required Check observations, then retry."
+    recovery: "On Cursor or Codex start fresh Review; portable clients supply exact artifacts and observations."
   },
   correct: {
     label: "Fix failing Checks",
-    invoke: "Agent: repair failing required Checks, then closeout again",
+    invoke: "Agent: repair failing required Checks, then run fresh Review",
     benefit: "Restores a deliverable Evidence grade.",
     blocked_when: "Intent, scope, or risk must change.",
     recovery: "Use /plan-work replan or $plan-work replan instead."
@@ -3563,7 +3880,7 @@ function closeoutPresentation(value) {
   let outcome = "ready";
   if (blocked) outcome = "blocked";
   else if (provisionalEvidence) outcome = "partial";
-  const summary2 = blocked ? "Delivery is blocked because required evidence contains a known failure." : outcome === "partial" ? "Implementation closeout is incomplete; at least one required proof remains limited." : "Implementation closeout is complete and ready for task-local read-only review.";
+  const summary2 = blocked ? "Portable delivery Evidence is blocked because a required Check has a known failure." : outcome === "partial" ? "Portable delivery Evidence has at least one limited required proof." : "Portable delivery Evidence is complete and ready for task-local read-only Review.";
   let nextAction = "review-root";
   let overrides = {};
   if (blocked) {
@@ -3596,7 +3913,7 @@ function closeoutPresentation(value) {
     phase: "closeout",
     outcome,
     summary: summary2,
-    check_summary: blocked ? "Required delivery evidence contains a known failure." : outcome === "partial" ? `${evidenceGaps.length || 1} required proof gap${evidenceGaps.length === 1 ? "" : "s"} remain.` : "Required closeout evidence is ready for fresh review.",
+    check_summary: blocked ? "Required delivery evidence contains a known failure." : outcome === "partial" ? `${evidenceGaps.length || 1} required proof gap${evidenceGaps.length === 1 ? "" : "s"} remain.` : "Required portable Evidence is ready for fresh Review.",
     enforcement_level: value.enforcement_level ?? ((value.constraint_summary?.receipt_coverage?.eligible ?? 0) > 0 && value.constraint_summary.receipt_coverage.attested === value.constraint_summary.receipt_coverage.eligible ? "host-native" : "explicit"),
     technical_traceability: {
       root_plan_id: value.root_plan_id ?? null,
@@ -4335,7 +4652,7 @@ function registerManualWorkflowTools({
 }
 
 // src/mcp/proof-artifacts.mjs
-import { createHash as createHash3 } from "node:crypto";
+import { createHash as createHash5 } from "node:crypto";
 import { lstatSync as lstatSync2, readFileSync as readFileSync3, readdirSync as readdirSync2 } from "node:fs";
 import { join as join3 } from "node:path";
 var PROOF_LIMITS = Object.freeze({ files: 128, file_bytes: 10 * 1024 * 1024, total_bytes: 32 * 1024 * 1024, depth: 8 });
@@ -4344,7 +4661,7 @@ function hashStableProofFile(path, stat = lstatSync2, read = readFileSync3, befo
   const content = read(path);
   const after = stat(path);
   if (before.ino !== after.ino || before.size !== after.size || before.mtimeMs !== after.mtimeMs) throw new Error(`verification proof artifact changed while hashing: ${path}`);
-  return { size: before.size, hash: createHash3("sha256").update(content).digest("hex") };
+  return { size: before.size, hash: createHash5("sha256").update(content).digest("hex") };
 }
 function proofArtifacts(root) {
   const files = [];
@@ -4497,7 +4814,7 @@ var WORKFLOW_TOOL_CONTRACTS = Object.freeze({
     }
   },
   workflow_closeout: {
-    description: "Deterministically build one host-owned Schema-5 delivery-evidence or work-review artifact and cache it; delivery-evidence remains the default.",
+    description: "For native Manual Review, atomically build paired Schema-5 delivery-evidence and work-review artifacts from the exact task Root and fresh observations; portable delivery-evidence mode remains the default compatibility path.",
     inputSchema: {
       workspace_root: workspaceRoot2,
       root_plan_id: string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
@@ -4582,7 +4899,7 @@ function toolContract(name) {
 }
 
 // src/mcp/workflow-mcp.mjs
-var pluginRoot = resolve4(process.env.CURSOR_PLUGIN_ROOT ?? dirname2(dirname2(fileURLToPath2(import.meta.url))));
+var pluginRoot = resolve5(process.env.CURSOR_PLUGIN_ROOT ?? dirname3(dirname3(fileURLToPath2(import.meta.url))));
 var server = new McpServer({ name: "workflow", version: PLUGIN_VERSION });
 var workspaceAuthority = new WorkspaceRootAuthority(() => server.server.listRoots());
 var learningSourceReceipts = createLearningSourceReceiptAuthority();
@@ -4624,7 +4941,7 @@ var manualTools = registerManualWorkflowTools({
   contract: toolContract
 });
 function runnerPath() {
-  return resolve4(process.env.GELDMACHER_WORKFLOW_RUNNER ?? fileURLToPath2(new URL("./workflow-runner.mjs", import.meta.url)));
+  return resolve5(process.env.GELDMACHER_WORKFLOW_RUNNER ?? fileURLToPath2(new URL("./workflow-runner.mjs", import.meta.url)));
 }
 function launchRunner({ action, workspace, stateRoot, runId = null, preparationId = null }) {
   const subjectArgs = runId ? ["--run-id", runId] : ["--preparation-id", preparationId];
@@ -4856,7 +5173,7 @@ server.registerTool("workflow_validate_models", toolContract("workflow_validate_
     const config = loadWorkflowConfig(workspace);
     if (config.errors.length > 0) return result({ verified: false, errors: config.errors, capabilities: resolveCapabilities(stateRoot, {}, { pluginRoot }) });
     const profile = resolveRouteProfile(config, route_profile);
-    const validation = new CursorWorkerAdapter({ runDirectory: resolve4(stateRoot, "model-validation"), pluginRoot }).validateProfile(profile);
+    const validation = new CursorWorkerAdapter({ runDirectory: resolve5(stateRoot, "model-validation"), pluginRoot }).validateProfile(profile);
     return result({ ...validation, capabilities: resolveCapabilities(stateRoot, { model_catalog_verified: validation.verified }, { pluginRoot }) });
   } catch (error) {
     return result({

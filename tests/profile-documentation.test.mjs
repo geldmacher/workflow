@@ -18,7 +18,8 @@ test("profile guide explains the shared core, differences, and prerequisites", (
   assert.match(guide, /Removes execution babysitting.*human accountability/is);
   assert.match(guide, /repeatability.*supervised proof.*earned/is);
   assert.match(guide, /Cursor exposes all three profiles.*Codex exposes the complete Manual path only/is);
-  assert.match(guide, /Codex can hard-stop.*Cursor issues one bounded recovery follow-up/is);
+  assert.match(guide, /native Plans as the sole Manual plan authority.*implementation finish normally.*Evidence plus Review atomically/is);
+  assert.match(guide, /Pre-5\.5 Manual host state is ignored/is);
   assert.match(guide, /Capability Receipt/i);
   assert.match(guide, /Verification Profile/i);
   assert.match(guide, /fully verified, human-accepted supervised Runs/i);

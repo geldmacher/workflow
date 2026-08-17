@@ -4,7 +4,6 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { PLAN_CLOSEOUT_ATTESTATION } from "../src/core/manual-attestation.mjs";
 import { createManualBoundaryReceipt, verifyManualBoundaryReceipt } from "../src/core/manual-boundary-receipts.mjs";
 import {
   authoritativeArtifactProjectionFromText,
@@ -25,7 +24,6 @@ const evidence = read("delivery-evidence.valid.md");
 const review = read("work-review.valid.md");
 const manualPlan = plan.replace("profile_max: supervised", "profile_max: manual").replace("contract_level: controlled", "contract_level: lean");
 const manualIntentHash = authoritativeArtifactProjectionFromText(manualPlan).projection_hash;
-const modelInheritMarker = "[workflow-model-inherit-v1]";
 
 function nativePlan(todos) {
   const match = plan.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
@@ -186,81 +184,13 @@ test("lean, controlled, and certified roots accept their matching semantic contr
   assert.deepEqual(validateArtifactText(autonomousRoot()), []);
 });
 
-test("native Schema-5 plans require the parent-model inheritance marker and typed plan-closeout attestation", () => {
+test("native Schema-5 plans require implementation work but no closeout ceremony", () => {
   const valid = nativePlan([
-    { id: "step-1", content: "STEP-1 implement deterministic retry handling" },
-    {
-      id: "closeout",
-      content: `${modelInheritMarker} Run CHECK-1 and close out delivery.`,
-      workflow_attestation: { ...PLAN_CLOSEOUT_ATTESTATION },
-    },
+    { id: "step-1", content: "STEP-1 implement deterministic retry handling and verify CHECK-1" },
   ]);
   assert.deepEqual(validateArtifactText(valid), []);
-  assert.match(
-    validateArtifactText(nativePlan([
-      { id: "step-1", content: "STEP-1 implement deterministic retry handling" },
-      {
-        id: "closeout",
-        content: `Run CHECK-1 and close out delivery.`,
-        workflow_attestation: { ...PLAN_CLOSEOUT_ATTESTATION },
-      },
-    ])).join("\n"),
-    /final native todo must start with \[workflow-model-inherit-v1\]/,
-  );
-  assert.match(
-    validateArtifactText(nativePlan([
-      { id: "step-1", content: "STEP-1 implement deterministic retry handling" },
-      {
-        id: "closeout",
-        content: `${modelInheritMarker} Run CHECK-1 and close out delivery.`,
-      },
-    ])).join("\n"),
-    /workflow_attestation|plan-closeout/,
-  );
-  const freeform = nativePlan([
-    { id: "step-1", content: "STEP-1 implement deterministic retry handling" },
-    {
-      id: "closeout",
-      content: `${modelInheritMarker} Run CHECK-1; call workflow_closeout with the exact Root/chain; retain the exact returned Evidence from structuredContent.`,
-      workflow_attestation: { ...PLAN_CLOSEOUT_ATTESTATION },
-    },
-  ]);
-  assert.match(validateArtifactText(freeform).join("\n"), /workflow_attestation metadata|workflow_closeout prose|plan-closeout/);
-  const unrelatedNegation = nativePlan([
-    { id: "step-1", content: "STEP-1 implement deterministic retry handling" },
-    {
-      id: "closeout",
-      content: `${modelInheritMarker} Do not deploy. Verify CHECK-1 and close out delivery.`,
-      workflow_attestation: { ...PLAN_CLOSEOUT_ATTESTATION },
-    },
-  ]);
-  assert.deepEqual(validateArtifactText(unrelatedNegation), []);
-  for (const todo of [
-    {
-      id: "closeout",
-      content: `${modelInheritMarker} Verify CHECK-1.`,
-      workflow_attestation: { schema: 1, kind: "plan-closeout", action: "other" },
-    },
-    {
-      id: "closeout",
-      content: `${modelInheritMarker} Don't call workflow_closeout.`,
-      workflow_attestation: { ...PLAN_CLOSEOUT_ATTESTATION },
-    },
-    {
-      id: "closeout",
-      content: `${modelInheritMarker} Call workflow_closeout with the exact Root/chain.`,
-    },
-  ]) {
-    const negatedOutput = nativePlan([
-      { id: "step-1", content: "STEP-1 implement deterministic retry handling" },
-      todo,
-    ]);
-    assert.match(
-      validateArtifactText(negatedOutput).join("\n"),
-      /workflow_attestation|plan-closeout|workflow_closeout/,
-      JSON.stringify(todo),
-    );
-  }
+  assert.match(validateArtifactText(nativePlan([])).join("\n"), /at least one implementation todo/);
+  assert.doesNotMatch(JSON.stringify(valid), /workflow_attestation|plan-closeout|workflow_closeout/);
   assert.deepEqual(validateArtifactText(plan), []);
 });
 

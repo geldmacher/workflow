@@ -11,7 +11,7 @@ import {
   planningUsage,
   resolveCapabilities,
   validateRootPlanLineage
-} from "./chunk-I6YVFW7V.mjs";
+} from "./chunk-VSOEKQMF.mjs";
 import {
   assertContainedPath,
   changedPaths,
@@ -25,31 +25,31 @@ import {
   rollbackToCheckpoint,
   runHostCheck,
   workspaceDeliveryMatch
-} from "./chunk-4R2RYEAH.mjs";
+} from "./chunk-JXD44M5H.mjs";
 import {
   CursorWorkerAdapter,
   evaluateAuthorization,
   evaluateEligibility,
   qualificationKey,
   selectWriterRoute
-} from "./chunk-DBXU2LFJ.mjs";
+} from "./chunk-2YTKS64M.mjs";
 import {
   ArtifactHandoffStore,
   createContentAddressedHandoffStore,
   rememberContentAddressedRoot
-} from "./chunk-RKPP3PNR.mjs";
+} from "./chunk-G5KT3VHO.mjs";
 import {
   effectiveCliSummary,
   executionContractFromArtifactText,
   inspectArtifactSet,
   inspectArtifactText
-} from "./chunk-JTPOR5B6.mjs";
+} from "./chunk-4WJTGI5A.mjs";
 import {
   repositoryKey,
   require_dist,
   rootContentHash,
   sharedArtifactStateRoot
-} from "./chunk-LX4EPHHS.mjs";
+} from "./chunk-QOWQ6ETR.mjs";
 import {
   ARTIFACT_SCHEMA,
   RUN_EVENT_SUBJECT_SCHEMA,
@@ -57,7 +57,7 @@ import {
   classifyPreparationCompatibility,
   classifyRunCompatibility,
   runEventSubject
-} from "./chunk-H6YRBJ7B.mjs";
+} from "./chunk-LFEO5XYI.mjs";
 import {
   __toESM
 } from "./chunk-IQRLCJ3K.mjs";
@@ -811,6 +811,57 @@ function captureRepositorySnapshot(workspaceRoot, options = {}) {
     status_fingerprint: sha256(Buffer.isBuffer(status) ? status : Buffer.from(String(status))),
     working_tree: dirtyPaths.length > 0 ? "modified" : "unchanged",
     captured_at: (/* @__PURE__ */ new Date()).toISOString()
+  };
+}
+function validSnapshot(value) {
+  return Boolean(
+    value && value.schema === 1 && typeof value.repository_root === "string" && typeof value.head === "string" && Array.isArray(value.dirty_paths) && value.fingerprints && typeof value.fingerprints === "object" && !Array.isArray(value.fingerprints)
+  );
+}
+function deriveRepositoryDelta(baseline, current) {
+  if (!validSnapshot(current)) throw new Error("current repository snapshot is invalid");
+  if (!baseline) {
+    return {
+      baseline_available: false,
+      changed_paths: [...current.dirty_paths],
+      repository_snapshot: evidenceRepositorySnapshot(current, current.dirty_paths, {
+        baselineAvailable: false
+      })
+    };
+  }
+  if (!validSnapshot(baseline)) throw new Error("repository baseline is invalid");
+  if (resolve(baseline.repository_root) !== resolve(current.repository_root)) {
+    throw new Error("repository root changed after the native closeout baseline");
+  }
+  if (baseline.head !== current.head) {
+    throw new Error("repository HEAD changed after the native closeout baseline");
+  }
+  const candidates = [.../* @__PURE__ */ new Set([...baseline.dirty_paths, ...current.dirty_paths])].sort();
+  const changedPaths2 = candidates.filter((path) => {
+    const before = Object.prototype.hasOwnProperty.call(baseline.fingerprints, path) ? baseline.fingerprints[path] : "clean";
+    const after = Object.prototype.hasOwnProperty.call(current.fingerprints, path) ? current.fingerprints[path] : "clean";
+    return before !== after;
+  });
+  return {
+    baseline_available: true,
+    changed_paths: changedPaths2,
+    repository_snapshot: evidenceRepositorySnapshot(current, changedPaths2, {
+      baselineAvailable: true
+    })
+  };
+}
+function evidenceRepositorySnapshot(snapshot2, relevantPaths, { baselineAvailable = true } = {}) {
+  if (!validSnapshot(snapshot2)) throw new Error("repository snapshot is invalid");
+  const entries = [...new Set(relevantPaths ?? [])].sort().map((path) => `${path}=${snapshot2.fingerprints[path] ?? repositoryPathFingerprint(snapshot2.repository_root, path)}`);
+  entries.push(`index=${snapshot2.index_fingerprint ?? "unavailable"}`);
+  entries.push(`status=${snapshot2.status_fingerprint ?? "unavailable"}`);
+  return {
+    repository_root: snapshot2.repository_root,
+    head: snapshot2.head,
+    working_tree: snapshot2.working_tree,
+    relevant_fingerprints: entries.length > 0 ? entries.join("; ") : "none",
+    known_failures: "none observed by the repository snapshot adapter",
+    baseline_available: baselineAvailable
   };
 }
 
@@ -3387,6 +3438,8 @@ The prior semantic response could not be normalized: ${repairIssue}. Root, Evide
 export {
   deriveWorkflowState,
   captureRepositorySnapshot,
+  deriveRepositoryDelta,
+  evidenceRepositorySnapshot,
   manualReceiptHash,
   stableManualReceiptJson,
   repositorySnapshotFingerprint,

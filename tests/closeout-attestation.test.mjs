@@ -77,6 +77,10 @@ test("typed plan-closeout accepts the shared fence and rejects adversarial final
 
 test("native todo plan-closeout requires typed metadata without ceremony prose", () => {
   assert.deepEqual(todoPlanCloseoutIssues(finalCloseoutTodo), []);
+  assert.match(todoPlanCloseoutIssues(null).join("\n"), /structured native todo/);
+  assert.match(todoPlanCloseoutIssues([]).join("\n"), /structured native todo/);
+  assert.match(todoPlanCloseoutIssues({}).join("\n"), /must start.*must verify.*requires workflow_attestation/is);
+  assert.deepEqual(planCloseoutAttestationIssues(finalCloseoutTodo), []);
   assert.match(
     todoPlanCloseoutIssues({
       ...finalCloseoutTodo,

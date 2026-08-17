@@ -300,13 +300,13 @@ var require_directives = __commonJS({
        * @param onError - May be called even if the action was successful
        * @returns `true` on success
        */
-      add(line2, onError) {
+      add(line, onError) {
         if (this.atNextDocument) {
           this.yaml = { explicit: _Directives.defaultYaml.explicit, version: "1.1" };
           this.tags = Object.assign({}, _Directives.defaultTags);
           this.atNextDocument = false;
         }
-        const parts = line2.trim().split(/[ \t]+/);
+        const parts = line.trim().split(/[ \t]+/);
         const name = parts.shift();
         switch (name) {
           case "%TAG": {
@@ -1501,7 +1501,7 @@ var require_stringify = __commonJS({
         props.push(doc.directives.tagString(tag));
       return props.join(" ");
     }
-    function stringify3(item, ctx, onComment, onChompKeep) {
+    function stringify(item, ctx, onComment, onChompKeep) {
       if (identity.isPair(item))
         return item.toString(ctx, onComment, onChompKeep);
       if (identity.isAlias(item)) {
@@ -1530,7 +1530,7 @@ var require_stringify = __commonJS({
 ${ctx.indent}${str}`;
     }
     exports.createStringifyContext = createStringifyContext;
-    exports.stringify = stringify3;
+    exports.stringify = stringify;
   }
 });
 
@@ -1540,7 +1540,7 @@ var require_stringifyPair = __commonJS({
     "use strict";
     var identity = require_identity();
     var Scalar = require_Scalar();
-    var stringify3 = require_stringify();
+    var stringify = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyPair({ key, value }, ctx, onComment, onChompKeep) {
       const { allNullValues, doc, indent, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx;
@@ -1562,7 +1562,7 @@ var require_stringifyPair = __commonJS({
       });
       let keyCommentDone = false;
       let chompKeep = false;
-      let str = stringify3.stringify(key, ctx, () => keyCommentDone = true, () => chompKeep = true);
+      let str = stringify.stringify(key, ctx, () => keyCommentDone = true, () => chompKeep = true);
       if (!explicitKey && !ctx.inFlow && str.length > 1024) {
         if (simpleKeys)
           throw new Error("With simple keys, single line scalar must not span more than 1024 characters");
@@ -1614,7 +1614,7 @@ ${indent}:`;
         ctx.indent = ctx.indent.substring(2);
       }
       let valueCommentDone = false;
-      const valueStr = stringify3.stringify(value, ctx, () => valueCommentDone = true, () => chompKeep = true);
+      const valueStr = stringify.stringify(value, ctx, () => valueCommentDone = true, () => chompKeep = true);
       let ws = " ";
       if (keyComment || vsb || vcb) {
         ws = vsb ? "\n" : "";
@@ -1755,7 +1755,7 @@ var require_addPairToJSMap = __commonJS({
     "use strict";
     var log = require_log();
     var merge = require_merge();
-    var stringify3 = require_stringify();
+    var stringify = require_stringify();
     var identity = require_identity();
     var toJS = require_toJS();
     function addPairToJSMap(ctx, map, { key, value }) {
@@ -1791,7 +1791,7 @@ var require_addPairToJSMap = __commonJS({
       if (typeof jsKey !== "object")
         return String(jsKey);
       if (identity.isNode(key) && ctx?.doc) {
-        const strCtx = stringify3.createStringifyContext(ctx.doc, {});
+        const strCtx = stringify.createStringifyContext(ctx.doc, {});
         strCtx.anchors = /* @__PURE__ */ new Set();
         for (const node of ctx.anchors.keys())
           strCtx.anchors.add(node.anchor);
@@ -1858,12 +1858,12 @@ var require_stringifyCollection = __commonJS({
   "node_modules/yaml/dist/stringify/stringifyCollection.js"(exports) {
     "use strict";
     var identity = require_identity();
-    var stringify3 = require_stringify();
+    var stringify = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyCollection(collection, ctx, options) {
       const flow = ctx.inFlow ?? collection.flow;
-      const stringify4 = flow ? stringifyFlowCollection : stringifyBlockCollection;
-      return stringify4(collection, ctx, options);
+      const stringify2 = flow ? stringifyFlowCollection : stringifyBlockCollection;
+      return stringify2(collection, ctx, options);
     }
     function stringifyBlockCollection({ comment, items }, ctx, { blockItemPrefix, flowChars, itemIndent, onChompKeep, onComment }) {
       const { indent, options: { commentString } } = ctx;
@@ -1888,7 +1888,7 @@ var require_stringifyCollection = __commonJS({
           }
         }
         chompKeep = false;
-        let str2 = stringify3.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = true);
+        let str2 = stringify.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = true);
         if (comment2)
           str2 += stringifyComment.lineComment(str2, itemIndent, commentString(comment2));
         if (chompKeep && comment2)
@@ -1901,9 +1901,9 @@ var require_stringifyCollection = __commonJS({
       } else {
         str = lines[0];
         for (let i = 1; i < lines.length; ++i) {
-          const line2 = lines[i];
-          str += line2 ? `
-${indent}${line2}` : "\n";
+          const line = lines[i];
+          str += line ? `
+${indent}${line}` : "\n";
         }
       }
       if (comment) {
@@ -1955,13 +1955,13 @@ ${indent}${line2}` : "\n";
         }
         if (comment)
           reqNewline = true;
-        let str = stringify3.stringify(item, itemCtx, () => comment = null);
+        let str = stringify.stringify(item, itemCtx, () => comment = null);
         reqNewline || (reqNewline = lines.length > linesAtValue || str.includes("\n"));
         if (i < items.length - 1) {
           str += ",";
         } else if (ctx.options.trailingComma) {
           if (ctx.options.lineWidth > 0) {
-            reqNewline || (reqNewline = lines.reduce((sum, line2) => sum + line2.length + 2, 2) + (str.length + 2) > ctx.options.lineWidth);
+            reqNewline || (reqNewline = lines.reduce((sum, line) => sum + line.length + 2, 2) + (str.length + 2) > ctx.options.lineWidth);
           }
           if (reqNewline) {
             str += ",";
@@ -1977,14 +1977,14 @@ ${indent}${line2}` : "\n";
         return start + end;
       } else {
         if (!reqNewline) {
-          const len = lines.reduce((sum, line2) => sum + line2.length + 2, 2);
+          const len = lines.reduce((sum, line) => sum + line.length + 2, 2);
           reqNewline = ctx.options.lineWidth > 0 && len > ctx.options.lineWidth;
         }
         if (reqNewline) {
           let str = start;
-          for (const line2 of lines)
-            str += line2 ? `
-${indentStep}${indent}${line2}` : "\n";
+          for (const line of lines)
+            str += line ? `
+${indentStep}${indent}${line}` : "\n";
           return `${str}
 ${indent}${end}`;
         } else {
@@ -3316,7 +3316,7 @@ var require_stringifyDocument = __commonJS({
   "node_modules/yaml/dist/stringify/stringifyDocument.js"(exports) {
     "use strict";
     var identity = require_identity();
-    var stringify3 = require_stringify();
+    var stringify = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyDocument(doc, options) {
       const lines = [];
@@ -3331,7 +3331,7 @@ var require_stringifyDocument = __commonJS({
       }
       if (hasDirectives)
         lines.push("---");
-      const ctx = stringify3.createStringifyContext(doc, options);
+      const ctx = stringify.createStringifyContext(doc, options);
       const { commentString } = ctx.options;
       if (doc.commentBefore) {
         if (lines.length !== 1)
@@ -3353,7 +3353,7 @@ var require_stringifyDocument = __commonJS({
           contentComment = doc.contents.comment;
         }
         const onChompKeep = contentComment ? void 0 : () => chompKeep = true;
-        let body = stringify3.stringify(doc.contents, ctx, () => contentComment = null, onChompKeep);
+        let body = stringify.stringify(doc.contents, ctx, () => contentComment = null, onChompKeep);
         if (contentComment)
           body += stringifyComment.lineComment(body, "", commentString(contentComment));
         if ((body[0] === "|" || body[0] === ">") && lines[lines.length - 1] === "---") {
@@ -3361,7 +3361,7 @@ var require_stringifyDocument = __commonJS({
         } else
           lines.push(body);
       } else {
-        lines.push(stringify3.stringify(doc.contents, ctx));
+        lines.push(stringify.stringify(doc.contents, ctx));
       }
       if (doc.directives?.docEnd) {
         if (doc.comment) {
@@ -3727,10 +3727,10 @@ var require_errors = __commonJS({
       if (error.pos[0] === -1)
         return;
       error.linePos = error.pos.map((pos) => lc.linePos(pos));
-      const { line: line2, col } = error.linePos[0];
-      error.message += ` at line ${line2}, column ${col}`;
+      const { line, col } = error.linePos[0];
+      error.message += ` at line ${line}, column ${col}`;
       let ci = col - 1;
-      let lineStr = src.substring(lc.lineStarts[line2 - 1], lc.lineStarts[line2]).replace(/[\n\r]+$/, "");
+      let lineStr = src.substring(lc.lineStarts[line - 1], lc.lineStarts[line]).replace(/[\n\r]+$/, "");
       if (ci >= 60 && lineStr.length > 80) {
         const trimStart = Math.min(ci - 39, lineStr.length - 79);
         lineStr = "\u2026" + lineStr.substring(trimStart);
@@ -3738,8 +3738,8 @@ var require_errors = __commonJS({
       }
       if (lineStr.length > 80)
         lineStr = lineStr.substring(0, 79) + "\u2026";
-      if (line2 > 1 && /^ *$/.test(lineStr.substring(0, ci))) {
-        let prev = src.substring(lc.lineStarts[line2 - 2], lc.lineStarts[line2 - 1]);
+      if (line > 1 && /^ *$/.test(lineStr.substring(0, ci))) {
+        let prev = src.substring(lc.lineStarts[line - 2], lc.lineStarts[line - 1]);
         if (prev.length > 80)
           prev = prev.substring(0, 79) + "\u2026\n";
         lineStr = prev + lineStr;
@@ -3747,7 +3747,7 @@ var require_errors = __commonJS({
       if (/[^ ]/.test(lineStr)) {
         let count = 1;
         const end = error.linePos[1];
-        if (end?.line === line2 && end.col > col) {
+        if (end?.line === line && end.col > col) {
           count = Math.max(1, Math.min(end.col - col, 80 - ci));
         }
         const pointer = " ".repeat(ci) + "^".repeat(count);
@@ -3994,10 +3994,10 @@ var require_resolve_block_map = __commonJS({
       let offset = bm.offset;
       let commentEnd = null;
       for (const collItem of bm.items) {
-        const { start, key, sep: sep3, value } = collItem;
+        const { start, key, sep, value } = collItem;
         const keyProps = resolveProps.resolveProps(start, {
           indicator: "explicit-key-ind",
-          next: key ?? sep3?.[0],
+          next: key ?? sep?.[0],
           offset,
           onError,
           parentIndent: bm.indent,
@@ -4011,7 +4011,7 @@ var require_resolve_block_map = __commonJS({
             else if ("indent" in key && key.indent !== bm.indent)
               onError(offset, "BAD_INDENT", startColMsg);
           }
-          if (!keyProps.anchor && !keyProps.tag && !sep3) {
+          if (!keyProps.anchor && !keyProps.tag && !sep) {
             commentEnd = keyProps.end;
             if (keyProps.comment) {
               if (map.comment)
@@ -4035,7 +4035,7 @@ var require_resolve_block_map = __commonJS({
         ctx.atKey = false;
         if (utilMapIncludes.mapIncludes(ctx, map.items, keyNode))
           onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
-        const valueProps = resolveProps.resolveProps(sep3 ?? [], {
+        const valueProps = resolveProps.resolveProps(sep ?? [], {
           indicator: "map-value-ind",
           next: value,
           offset: keyNode.range[2],
@@ -4051,7 +4051,7 @@ var require_resolve_block_map = __commonJS({
             if (ctx.options.strict && keyProps.start < valueProps.found.offset - 1024)
               onError(keyNode.range, "KEY_OVER_1024_CHARS", "The : indicator must be at most 1024 chars after the start of an implicit block mapping key");
           }
-          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep3, null, valueProps, onError);
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep, null, valueProps, onError);
           if (ctx.schema.compat)
             utilFlowIndentCheck.flowIndentCheck(bm.indent, value, onError);
           offset = valueNode.range[2];
@@ -4142,7 +4142,7 @@ var require_resolve_end = __commonJS({
       let comment = "";
       if (end) {
         let hasSpace = false;
-        let sep3 = "";
+        let sep = "";
         for (const token of end) {
           const { source, type } = token;
           switch (type) {
@@ -4156,13 +4156,13 @@ var require_resolve_end = __commonJS({
               if (!comment)
                 comment = cb;
               else
-                comment += sep3 + cb;
-              sep3 = "";
+                comment += sep + cb;
+              sep = "";
               break;
             }
             case "newline":
               if (comment)
-                sep3 += source;
+                sep += source;
               hasSpace = true;
               break;
             default:
@@ -4205,18 +4205,18 @@ var require_resolve_flow_collection = __commonJS({
       let offset = fc.offset + fc.start.source.length;
       for (let i = 0; i < fc.items.length; ++i) {
         const collItem = fc.items[i];
-        const { start, key, sep: sep3, value } = collItem;
+        const { start, key, sep, value } = collItem;
         const props = resolveProps.resolveProps(start, {
           flow: fcName,
           indicator: "explicit-key-ind",
-          next: key ?? sep3?.[0],
+          next: key ?? sep?.[0],
           offset,
           onError,
           parentIndent: fc.indent,
           startOnNewline: false
         });
         if (!props.found) {
-          if (!props.anchor && !props.tag && !sep3 && !value) {
+          if (!props.anchor && !props.tag && !sep && !value) {
             if (i === 0 && props.comma)
               onError(props.comma, "UNEXPECTED_TOKEN", `Unexpected , in ${fcName}`);
             else if (i < fc.items.length - 1)
@@ -4270,8 +4270,8 @@ var require_resolve_flow_collection = __commonJS({
             }
           }
         }
-        if (!isMap && !sep3 && !props.found) {
-          const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep3, null, props, onError);
+        if (!isMap && !sep && !props.found) {
+          const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep, null, props, onError);
           coll.items.push(valueNode);
           offset = valueNode.range[2];
           if (isBlock(value))
@@ -4283,7 +4283,7 @@ var require_resolve_flow_collection = __commonJS({
           if (isBlock(key))
             onError(keyNode.range, "BLOCK_IN_FLOW", blockMsg);
           ctx.atKey = false;
-          const valueProps = resolveProps.resolveProps(sep3 ?? [], {
+          const valueProps = resolveProps.resolveProps(sep ?? [], {
             flow: fcName,
             indicator: "map-value-ind",
             next: value,
@@ -4294,8 +4294,8 @@ var require_resolve_flow_collection = __commonJS({
           });
           if (valueProps.found) {
             if (!isMap && !props.found && ctx.options.strict) {
-              if (sep3)
-                for (const st of sep3) {
+              if (sep)
+                for (const st of sep) {
                   if (st === valueProps.found)
                     break;
                   if (st.type === "newline") {
@@ -4312,7 +4312,7 @@ var require_resolve_flow_collection = __commonJS({
             else
               onError(valueProps.start, "MISSING_CHAR", `Missing , or : between ${fcName} items`);
           }
-          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep3, null, valueProps, onError) : null;
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep, null, valueProps, onError) : null;
           if (valueNode) {
             if (isBlock(value))
               onError(valueNode.range, "BLOCK_IN_FLOW", blockMsg);
@@ -4492,7 +4492,7 @@ var require_resolve_block_scalar = __commonJS({
           chompStart = i + 1;
       }
       let value = "";
-      let sep3 = "";
+      let sep = "";
       let prevMoreIndented = false;
       for (let i = 0; i < contentStart; ++i)
         value += lines[i][0].slice(trimIndent) + "\n";
@@ -4509,24 +4509,24 @@ var require_resolve_block_scalar = __commonJS({
           indent = "";
         }
         if (type === Scalar.Scalar.BLOCK_LITERAL) {
-          value += sep3 + indent.slice(trimIndent) + content;
-          sep3 = "\n";
+          value += sep + indent.slice(trimIndent) + content;
+          sep = "\n";
         } else if (indent.length > trimIndent || content[0] === "	") {
-          if (sep3 === " ")
-            sep3 = "\n";
-          else if (!prevMoreIndented && sep3 === "\n")
-            sep3 = "\n\n";
-          value += sep3 + indent.slice(trimIndent) + content;
-          sep3 = "\n";
+          if (sep === " ")
+            sep = "\n";
+          else if (!prevMoreIndented && sep === "\n")
+            sep = "\n\n";
+          value += sep + indent.slice(trimIndent) + content;
+          sep = "\n";
           prevMoreIndented = true;
         } else if (content === "") {
-          if (sep3 === "\n")
+          if (sep === "\n")
             value += "\n";
           else
-            sep3 = "\n";
+            sep = "\n";
         } else {
-          value += sep3 + content;
-          sep3 = " ";
+          value += sep + content;
+          sep = " ";
           prevMoreIndented = false;
         }
       }
@@ -4696,37 +4696,37 @@ var require_resolve_flow_scalar = __commonJS({
       return foldLines(source.slice(1, -1)).replace(/''/g, "'");
     }
     function foldLines(source) {
-      let first, line2;
+      let first, line;
       try {
         first = new RegExp("(.*?)(?<![ 	])[ 	]*\r?\n", "sy");
-        line2 = new RegExp("[ 	]*(.*?)(?:(?<![ 	])[ 	]*)?\r?\n", "sy");
+        line = new RegExp("[ 	]*(.*?)(?:(?<![ 	])[ 	]*)?\r?\n", "sy");
       } catch {
         first = /(.*?)[ \t]*\r?\n/sy;
-        line2 = /[ \t]*(.*?)[ \t]*\r?\n/sy;
+        line = /[ \t]*(.*?)[ \t]*\r?\n/sy;
       }
       let match = first.exec(source);
       if (!match)
         return source;
       let res = match[1];
-      let sep3 = " ";
+      let sep = " ";
       let pos = first.lastIndex;
-      line2.lastIndex = pos;
-      while (match = line2.exec(source)) {
+      line.lastIndex = pos;
+      while (match = line.exec(source)) {
         if (match[1] === "") {
-          if (sep3 === "\n")
-            res += sep3;
+          if (sep === "\n")
+            res += sep;
           else
-            sep3 = "\n";
+            sep = "\n";
         } else {
-          res += sep3 + match[1];
-          sep3 = " ";
+          res += sep + match[1];
+          sep = " ";
         }
-        pos = line2.lastIndex;
+        pos = line.lastIndex;
       }
       const last = /[ \t]*(.*)/sy;
       last.lastIndex = pos;
       match = last.exec(source);
-      return res + sep3 + (match?.[1] ?? "");
+      return res + sep + (match?.[1] ?? "");
     }
     function doubleQuotedValue(source, onError) {
       let res = "";
@@ -5496,7 +5496,7 @@ var require_cst_scalar = __commonJS({
 var require_cst_stringify = __commonJS({
   "node_modules/yaml/dist/parse/cst-stringify.js"(exports) {
     "use strict";
-    var stringify3 = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
+    var stringify = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
     function stringifyToken(token) {
       switch (token.type) {
         case "block-scalar": {
@@ -5536,20 +5536,20 @@ var require_cst_stringify = __commonJS({
         }
       }
     }
-    function stringifyItem({ start, key, sep: sep3, value }) {
+    function stringifyItem({ start, key, sep, value }) {
       let res = "";
       for (const st of start)
         res += st.source;
       if (key)
         res += stringifyToken(key);
-      if (sep3)
-        for (const st of sep3)
+      if (sep)
+        for (const st of sep)
           res += st.source;
       if (value)
         res += stringifyToken(value);
       return res;
     }
-    exports.stringify = stringify3;
+    exports.stringify = stringify;
   }
 });
 
@@ -5851,40 +5851,40 @@ var require_lexer = __commonJS({
         }
       }
       *parseStream() {
-        let line2 = this.getLine();
-        if (line2 === null)
+        let line = this.getLine();
+        if (line === null)
           return this.setNext("stream");
-        if (line2[0] === cst.BOM) {
+        if (line[0] === cst.BOM) {
           yield* this.pushCount(1);
-          line2 = line2.substring(1);
+          line = line.substring(1);
         }
-        if (line2[0] === "%") {
-          let dirEnd = line2.length;
-          let cs = line2.indexOf("#");
+        if (line[0] === "%") {
+          let dirEnd = line.length;
+          let cs = line.indexOf("#");
           while (cs !== -1) {
-            const ch = line2[cs - 1];
+            const ch = line[cs - 1];
             if (ch === " " || ch === "	") {
               dirEnd = cs - 1;
               break;
             } else {
-              cs = line2.indexOf("#", cs + 1);
+              cs = line.indexOf("#", cs + 1);
             }
           }
           while (true) {
-            const ch = line2[dirEnd - 1];
+            const ch = line[dirEnd - 1];
             if (ch === " " || ch === "	")
               dirEnd -= 1;
             else
               break;
           }
           const n = (yield* this.pushCount(dirEnd)) + (yield* this.pushSpaces(true));
-          yield* this.pushCount(line2.length - n);
+          yield* this.pushCount(line.length - n);
           this.pushNewline();
           return "stream";
         }
         if (this.atLineEnd()) {
           const sp = yield* this.pushSpaces(true);
-          yield* this.pushCount(line2.length - sp);
+          yield* this.pushCount(line.length - sp);
           yield* this.pushNewline();
           return "stream";
         }
@@ -5925,13 +5925,13 @@ var require_lexer = __commonJS({
       }
       *parseDocument() {
         yield* this.pushSpaces(true);
-        const line2 = this.getLine();
-        if (line2 === null)
+        const line = this.getLine();
+        if (line === null)
           return this.setNext("doc");
         let n = yield* this.pushIndicators();
-        switch (line2[n]) {
+        switch (line[n]) {
           case "#":
-            yield* this.pushCount(line2.length - n);
+            yield* this.pushCount(line.length - n);
           // fallthrough
           case void 0:
             yield* this.pushNewline();
@@ -5956,7 +5956,7 @@ var require_lexer = __commonJS({
           case ">":
             n += yield* this.parseBlockScalarHeader();
             n += yield* this.pushSpaces(true);
-            yield* this.pushCount(line2.length - n);
+            yield* this.pushCount(line.length - n);
             yield* this.pushNewline();
             return yield* this.parseBlockScalar();
           default:
@@ -5976,11 +5976,11 @@ var require_lexer = __commonJS({
           }
           sp += yield* this.pushSpaces(true);
         } while (nl + sp > 0);
-        const line2 = this.getLine();
-        if (line2 === null)
+        const line = this.getLine();
+        if (line === null)
           return this.setNext("flow");
-        if (indent !== -1 && indent < this.indentNext && line2[0] !== "#" || indent === 0 && (line2.startsWith("---") || line2.startsWith("...")) && isEmpty(line2[3])) {
-          const atFlowEndMarker = indent === this.indentNext - 1 && this.flowLevel === 1 && (line2[0] === "]" || line2[0] === "}");
+        if (indent !== -1 && indent < this.indentNext && line[0] !== "#" || indent === 0 && (line.startsWith("---") || line.startsWith("...")) && isEmpty(line[3])) {
+          const atFlowEndMarker = indent === this.indentNext - 1 && this.flowLevel === 1 && (line[0] === "]" || line[0] === "}");
           if (!atFlowEndMarker) {
             this.flowLevel = 0;
             yield cst.FLOW_END;
@@ -5988,17 +5988,17 @@ var require_lexer = __commonJS({
           }
         }
         let n = 0;
-        while (line2[n] === ",") {
+        while (line[n] === ",") {
           n += yield* this.pushCount(1);
           n += yield* this.pushSpaces(true);
           this.flowKey = false;
         }
         n += yield* this.pushIndicators();
-        switch (line2[n]) {
+        switch (line[n]) {
           case void 0:
             return "flow";
           case "#":
-            yield* this.pushCount(line2.length - n);
+            yield* this.pushCount(line.length - n);
             return "flow";
           case "{":
           case "[":
@@ -6344,15 +6344,15 @@ var require_parser = __commonJS({
     var node_process = __require("process");
     var cst = require_cst();
     var lexer = require_lexer();
-    function includesToken(list2, type) {
-      for (let i = 0; i < list2.length; ++i)
-        if (list2[i].type === type)
+    function includesToken(list, type) {
+      for (let i = 0; i < list.length; ++i)
+        if (list[i].type === type)
           return true;
       return false;
     }
-    function findNonEmptyIndex(list2) {
-      for (let i = 0; i < list2.length; ++i) {
-        switch (list2[i].type) {
+    function findNonEmptyIndex(list) {
+      for (let i = 0; i < list.length; ++i) {
+        switch (list[i].type) {
           case "space":
           case "comment":
           case "newline":
@@ -6710,18 +6710,18 @@ var require_parser = __commonJS({
         if (this.type === "map-value-ind") {
           const prev = getPrevProps(this.peek(2));
           const start = getFirstKeyStartProps(prev);
-          let sep3;
+          let sep;
           if (scalar.end) {
-            sep3 = scalar.end;
-            sep3.push(this.sourceToken);
+            sep = scalar.end;
+            sep.push(this.sourceToken);
             delete scalar.end;
           } else
-            sep3 = [this.sourceToken];
+            sep = [this.sourceToken];
           const map = {
             type: "block-map",
             offset: scalar.offset,
             indent: scalar.indent,
-            items: [{ start, key: scalar, sep: sep3 }]
+            items: [{ start, key: scalar, sep }]
           };
           this.onKeyLine = true;
           this.stack[this.stack.length - 1] = map;
@@ -6874,15 +6874,15 @@ var require_parser = __commonJS({
                 } else if (isFlowToken(it.key) && !includesToken(it.sep, "newline")) {
                   const start2 = getFirstKeyStartProps(it.start);
                   const key = it.key;
-                  const sep3 = it.sep;
-                  sep3.push(this.sourceToken);
+                  const sep = it.sep;
+                  sep.push(this.sourceToken);
                   delete it.key;
                   delete it.sep;
                   this.stack.push({
                     type: "block-map",
                     offset: this.offset,
                     indent: this.indent,
-                    items: [{ start: start2, key, sep: sep3 }]
+                    items: [{ start: start2, key, sep }]
                   });
                 } else if (start.length > 0) {
                   it.sep = it.sep.concat(start, this.sourceToken);
@@ -7076,13 +7076,13 @@ var require_parser = __commonJS({
             const prev = getPrevProps(parent);
             const start = getFirstKeyStartProps(prev);
             fixFlowSeqItems(fc);
-            const sep3 = fc.end.splice(1, fc.end.length);
-            sep3.push(this.sourceToken);
+            const sep = fc.end.splice(1, fc.end.length);
+            sep.push(this.sourceToken);
             const map = {
               type: "block-map",
               offset: fc.offset,
               indent: fc.indent,
-              items: [{ start, key: fc, sep: sep3 }]
+              items: [{ start, key: fc, sep }]
             };
             this.onKeyLine = true;
             this.stack[this.stack.length - 1] = map;
@@ -7279,7 +7279,7 @@ var require_public_api = __commonJS({
       }
       return doc.toJS(Object.assign({ reviver: _reviver }, options));
     }
-    function stringify3(value, replacer, options) {
+    function stringify(value, replacer, options) {
       let _replacer = null;
       if (typeof replacer === "function" || Array.isArray(replacer)) {
         _replacer = replacer;
@@ -7304,7 +7304,7 @@ var require_public_api = __commonJS({
     exports.parse = parse3;
     exports.parseAllDocuments = parseAllDocuments;
     exports.parseDocument = parseDocument2;
-    exports.stringify = stringify3;
+    exports.stringify = stringify;
   }
 });
 
@@ -7488,10 +7488,10 @@ var require_code = __commonJS({
     function interpolate(x) {
       return typeof x == "number" || typeof x == "boolean" || x === null ? x : safeStringify(Array.isArray(x) ? x.join(",") : x);
     }
-    function stringify3(x) {
+    function stringify(x) {
       return new _Code(safeStringify(x));
     }
-    exports.stringify = stringify3;
+    exports.stringify = stringify;
     function safeStringify(x) {
       return JSON.stringify(x).replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
     }
@@ -7573,13 +7573,13 @@ var require_scope = __commonJS({
       }
     };
     exports.ValueScopeName = ValueScopeName;
-    var line2 = (0, code_1._)`\n`;
+    var line = (0, code_1._)`\n`;
     var ValueScope = class extends Scope {
       constructor(opts) {
         super(opts);
         this._values = {};
         this._scope = opts.scope;
-        this.opts = { ...opts, _n: opts.lines ? line2 : code_1.nil };
+        this.opts = { ...opts, _n: opts.lines ? line : code_1.nil };
       }
       get() {
         return this._scope;
@@ -10311,7 +10311,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve11.call(this, root, ref);
+      let _sch = resolve5.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a = root.localRefs) === null || _a === void 0 ? void 0 : _a[ref];
         const { schemaId } = this.opts;
@@ -10338,7 +10338,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve11(root, ref) {
+    function resolve5(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -10969,55 +10969,55 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve11(baseURI, relativeURI, options) {
+    function resolve5(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const resolved = resolveComponent(parse3(baseURI, schemelessOptions), parse3(relativeURI, schemelessOptions), schemelessOptions, true);
       schemelessOptions.skipEscape = true;
       return serialize(resolved, schemelessOptions);
     }
-    function resolveComponent(base, relative4, options, skipNormalization) {
+    function resolveComponent(base, relative, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
         base = parse3(serialize(base, options), options);
-        relative4 = parse3(serialize(relative4, options), options);
+        relative = parse3(serialize(relative, options), options);
       }
       options = options || {};
-      if (!options.tolerant && relative4.scheme) {
-        target.scheme = relative4.scheme;
-        target.userinfo = relative4.userinfo;
-        target.host = relative4.host;
-        target.port = relative4.port;
-        target.path = removeDotSegments(relative4.path || "");
-        target.query = relative4.query;
+      if (!options.tolerant && relative.scheme) {
+        target.scheme = relative.scheme;
+        target.userinfo = relative.userinfo;
+        target.host = relative.host;
+        target.port = relative.port;
+        target.path = removeDotSegments(relative.path || "");
+        target.query = relative.query;
       } else {
-        if (relative4.userinfo !== void 0 || relative4.host !== void 0 || relative4.port !== void 0) {
-          target.userinfo = relative4.userinfo;
-          target.host = relative4.host;
-          target.port = relative4.port;
-          target.path = removeDotSegments(relative4.path || "");
-          target.query = relative4.query;
+        if (relative.userinfo !== void 0 || relative.host !== void 0 || relative.port !== void 0) {
+          target.userinfo = relative.userinfo;
+          target.host = relative.host;
+          target.port = relative.port;
+          target.path = removeDotSegments(relative.path || "");
+          target.query = relative.query;
         } else {
-          if (!relative4.path) {
+          if (!relative.path) {
             target.path = base.path;
-            if (relative4.query !== void 0) {
-              target.query = relative4.query;
+            if (relative.query !== void 0) {
+              target.query = relative.query;
             } else {
               target.query = base.query;
             }
           } else {
-            if (relative4.path[0] === "/") {
-              target.path = removeDotSegments(relative4.path);
+            if (relative.path[0] === "/") {
+              target.path = removeDotSegments(relative.path);
             } else {
               if ((base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0) && !base.path) {
-                target.path = "/" + relative4.path;
+                target.path = "/" + relative.path;
               } else if (!base.path) {
-                target.path = relative4.path;
+                target.path = relative.path;
               } else {
-                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative4.path;
+                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative.path;
               }
               target.path = removeDotSegments(target.path);
             }
-            target.query = relative4.query;
+            target.query = relative.query;
           }
           target.userinfo = base.userinfo;
           target.host = base.host;
@@ -11025,7 +11025,7 @@ var require_fast_uri = __commonJS({
         }
         target.scheme = base.scheme;
       }
-      target.fragment = relative4.fragment;
+      target.fragment = relative.fragment;
       return target;
     }
     function equal(uriA, uriB, options) {
@@ -11233,7 +11233,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve11,
+      resolve: resolve5,
       resolveComponent,
       equal,
       serialize,
@@ -14196,8 +14196,8 @@ var require_dist2 = __commonJS({
         return ajv;
       }
       const [formats, exportName] = opts.mode === "fast" ? [formats_1.fastFormats, fastName] : [formats_1.fullFormats, fullName];
-      const list2 = opts.formats || formats_1.formatNames;
-      addFormats2(ajv, list2, formats, exportName);
+      const list = opts.formats || formats_1.formatNames;
+      addFormats2(ajv, list, formats, exportName);
       if (opts.keywords)
         (0, limit_1.default)(ajv);
       return ajv;
@@ -14209,11 +14209,11 @@ var require_dist2 = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats2(ajv, list2, fs, exportName) {
+    function addFormats2(ajv, list, fs, exportName) {
       var _a;
       var _b;
       (_a = (_b = ajv.opts.code).formats) !== null && _a !== void 0 ? _a : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
-      for (const f of list2)
+      for (const f of list)
         ajv.addFormat(f, fs[f]);
     }
     module.exports = exports = formatsPlugin;
@@ -14223,16 +14223,233 @@ var require_dist2 = __commonJS({
 });
 
 // src/hosts/codex/workflow-hook.mjs
-import { createHash as createHash11, randomUUID as randomUUID3 } from "node:crypto";
-import { existsSync as existsSync7, mkdirSync as mkdirSync3, readFileSync as readFileSync7, renameSync as renameSync3, writeFileSync as writeFileSync3 } from "node:fs";
+import { createHash as createHash4, randomUUID } from "node:crypto";
+import { existsSync as existsSync4, mkdirSync, readFileSync as readFileSync4, renameSync, writeFileSync } from "node:fs";
 import { homedir as homedir2 } from "node:os";
-import { dirname as dirname5, join as join8, resolve as resolve10 } from "node:path";
+import { dirname as dirname2, join as join4, resolve as resolve4 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 
+// src/core/manual-subagent-policy.mjs
+import { existsSync, readFileSync } from "node:fs";
+
+// src/core/host-preferences.mjs
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
+
+// src/core/preference-yaml.mjs
+var import_yaml = __toESM(require_dist(), 1);
+function parsePreferenceYaml(source) {
+  return (0, import_yaml.parse)(String(source));
+}
+
+// src/core/host-preferences.mjs
+var TOOL_APPROVAL_MODES = Object.freeze(["strict", "allowlisted"]);
+var preferenceKeys = Object.freeze(["schema", "tool_approval", "manual_subagent_policy", "extensions"]);
+function sharedWorkflowHome(options = {}) {
+  return resolve(options.homeRoot ?? process.env.GELDMACHER_WORKFLOW_HOME ?? join(homedir(), ".geldmacher", "workflow"));
+}
+function defaultHostPreferencesPath(options = {}) {
+  return options.preferencesPath ?? process.env.GELDMACHER_WORKFLOW_PREFERENCES ?? join(sharedWorkflowHome(options), "preferences.yaml");
+}
+
+// src/core/manual-subagent-policy.mjs
+var MANUAL_SUBAGENT_POLICY_SCHEMA = 1;
+var MANUAL_SUBAGENT_MODES = Object.freeze(["parent-only", "parent-or-approved"]);
+var MANUAL_SUBAGENT_HOSTS = Object.freeze(["cursor", "codex"]);
+var MANUAL_SUBAGENT_PRESETS = Object.freeze({
+  "cursor-composer-grok-v1": Object.freeze({
+    host: "cursor",
+    version: 1,
+    parent_fallback: true,
+    candidates: Object.freeze([
+      Object.freeze({ model_id: "composer-2.5-fast" }),
+      Object.freeze({ model_id: "cursor-grok-4.5-high-fast" })
+    ])
+  }),
+  "codex-efficient-gpt-v1": Object.freeze({
+    host: "codex",
+    version: 1,
+    parent_fallback: true,
+    candidates: Object.freeze([
+      Object.freeze({ model_id: "gpt-5.6-luna-max", reasoning_effort: "low" }),
+      Object.freeze({ model_id: "gpt-5.6-terra-xhigh", reasoning_effort: "medium" })
+    ])
+  })
+});
+var objectLike = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
+var cleanId = (value) => typeof value === "string" && value.trim() !== "" ? value.trim().replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 256) : null;
+function parentOnlyResolution(source, path, issues = []) {
+  return Object.freeze({
+    schema: MANUAL_SUBAGENT_POLICY_SCHEMA,
+    mode: "parent-only",
+    source,
+    path,
+    authoritative: false,
+    hosts: Object.freeze({
+      cursor: Object.freeze({ host: "cursor", parent_fallback: true, candidates: Object.freeze([]), preset: null }),
+      codex: Object.freeze({ host: "codex", parent_fallback: true, candidates: Object.freeze([]), preset: null })
+    }),
+    ...issues.length > 0 ? { issues: Object.freeze([...issues]) } : {}
+  });
+}
+function validateCandidate(candidate, label, errors) {
+  if (!objectLike(candidate)) {
+    errors.push(`${label} must be an object`);
+    return null;
+  }
+  for (const key of Object.keys(candidate)) {
+    if (!["model_id", "reasoning_effort"].includes(key)) errors.push(`${label} has unknown field ${key}`);
+  }
+  const modelId = cleanId(candidate.model_id);
+  if (!modelId) errors.push(`${label}.model_id is required`);
+  let reasoning = null;
+  if (candidate.reasoning_effort !== void 0) {
+    reasoning = cleanId(candidate.reasoning_effort);
+    if (!reasoning) errors.push(`${label}.reasoning_effort must be a non-empty string when set`);
+  }
+  return modelId ? Object.freeze({ model_id: modelId, ...reasoning ? { reasoning_effort: reasoning } : {} }) : null;
+}
+function resolveHostPolicy(raw, host, label, errors) {
+  if (raw === void 0) {
+    return Object.freeze({ host, parent_fallback: true, candidates: Object.freeze([]), preset: null });
+  }
+  if (!objectLike(raw)) {
+    errors.push(`${label} must be an object`);
+    return Object.freeze({ host, parent_fallback: true, candidates: Object.freeze([]), preset: null });
+  }
+  for (const key of Object.keys(raw)) {
+    if (!["preset", "candidates", "parent_fallback"].includes(key)) errors.push(`${label} has unknown field ${key}`);
+  }
+  if (raw.preset !== void 0 && raw.candidates !== void 0) {
+    errors.push(`${label} may set preset or candidates, not both`);
+  }
+  let preset = null;
+  let candidates = [];
+  if (raw.preset !== void 0) {
+    preset = cleanId(raw.preset);
+    if (!preset) errors.push(`${label}.preset must be a non-empty string`);
+    else {
+      const definition = MANUAL_SUBAGENT_PRESETS[preset];
+      if (!definition) errors.push(`${label}.preset is unknown: ${preset}`);
+      else if (definition.host !== host) errors.push(`${label}.preset ${preset} is not valid for ${host}`);
+      else candidates = definition.candidates.map((entry) => Object.freeze({ ...entry }));
+    }
+  }
+  if (Array.isArray(raw.candidates)) {
+    if (raw.candidates.length === 0) errors.push(`${label}.candidates must not be empty`);
+    candidates = raw.candidates.map((entry, index) => validateCandidate(entry, `${label}.candidates[${index}]`, errors)).filter(Boolean);
+  } else if (raw.candidates !== void 0) {
+    errors.push(`${label}.candidates must be an array`);
+  }
+  const parentFallback = raw.parent_fallback === void 0 ? true : raw.parent_fallback === true ? true : raw.parent_fallback === false ? false : (errors.push(`${label}.parent_fallback must be a boolean`), true);
+  if (host === "cursor") {
+    for (const [index, candidate] of candidates.entries()) {
+      if (candidate.reasoning_effort) errors.push(`${label}.candidates[${index}] must not set reasoning_effort on Cursor`);
+    }
+  }
+  return Object.freeze({
+    host,
+    parent_fallback: parentFallback,
+    candidates: Object.freeze(candidates),
+    preset
+  });
+}
+function validateManualSubagentPolicy(value, label = "manual_subagent_policy") {
+  const errors = [];
+  if (!objectLike(value)) {
+    errors.push(`${label} must be an object`);
+    return errors;
+  }
+  for (const key of Object.keys(value)) {
+    if (!["schema", "mode", "hosts"].includes(key)) errors.push(`${label} has unknown field ${key}`);
+  }
+  if (value.schema !== MANUAL_SUBAGENT_POLICY_SCHEMA) errors.push(`${label}.schema must be ${MANUAL_SUBAGENT_POLICY_SCHEMA}`);
+  if (!MANUAL_SUBAGENT_MODES.includes(value.mode)) errors.push(`${label}.mode must be parent-only or parent-or-approved`);
+  if (value.hosts !== void 0) {
+    if (!objectLike(value.hosts)) errors.push(`${label}.hosts must be an object`);
+    else {
+      for (const key of Object.keys(value.hosts)) {
+        if (!MANUAL_SUBAGENT_HOSTS.includes(key)) errors.push(`${label}.hosts has unknown host ${key}`);
+      }
+      for (const host of MANUAL_SUBAGENT_HOSTS) {
+        resolveHostPolicy(value.hosts[host], host, `${label}.hosts.${host}`, errors);
+      }
+    }
+  }
+  return errors;
+}
+function resolveManualSubagentPolicy(options = {}) {
+  const path = options.preferencesPath ?? defaultHostPreferencesPath(options);
+  if (!existsSync(path)) return parentOnlyResolution("default", path);
+  let parsed;
+  try {
+    parsed = parsePreferenceYaml(readFileSync(path, "utf8"));
+  } catch (error) {
+    return parentOnlyResolution("invalid-fallback", path, [`preferences file is unreadable: ${error.message}`]);
+  }
+  if (!objectLike(parsed)) return parentOnlyResolution("invalid-fallback", path, ["preferences must be an object"]);
+  if (parsed.manual_subagent_policy === void 0) return parentOnlyResolution("default", path);
+  const errors = validateManualSubagentPolicy(parsed.manual_subagent_policy);
+  if (errors.length > 0) return parentOnlyResolution("invalid-fallback", path, errors);
+  const policy = parsed.manual_subagent_policy;
+  if (policy.mode === "parent-only") {
+    return Object.freeze({
+      ...parentOnlyResolution("file", path),
+      mode: "parent-only"
+    });
+  }
+  const hostErrors = [];
+  const hosts = Object.freeze({
+    cursor: resolveHostPolicy(policy.hosts?.cursor, "cursor", "manual_subagent_policy.hosts.cursor", hostErrors),
+    codex: resolveHostPolicy(policy.hosts?.codex, "codex", "manual_subagent_policy.hosts.codex", hostErrors)
+  });
+  if (hostErrors.length > 0) return parentOnlyResolution("invalid-fallback", path, hostErrors);
+  return Object.freeze({
+    schema: MANUAL_SUBAGENT_POLICY_SCHEMA,
+    mode: "parent-or-approved",
+    source: "file",
+    path,
+    authoritative: false,
+    hosts
+  });
+}
+function approvedModelIds(hostPolicy) {
+  return new Set((hostPolicy?.candidates ?? []).map((entry) => entry.model_id));
+}
+function childAllowedByPolicy({ parentModel, observedChild, hostPolicy, mode }) {
+  const parent = cleanId(parentModel);
+  const child = cleanId(observedChild);
+  if (!parent || !child) return { allowed: false, match_mode: null };
+  if (child === parent) return { allowed: true, match_mode: "exact-parent" };
+  if (mode !== "parent-or-approved") return { allowed: false, match_mode: null };
+  if (approvedModelIds(hostPolicy).has(child)) return { allowed: true, match_mode: "approved-candidate" };
+  return { allowed: false, match_mode: null };
+}
+function selectCodexCandidate({ hostPolicy, mode, unavailable = [], parentModel = null }) {
+  if (mode !== "parent-or-approved") {
+    return Object.freeze({ kind: "parent", model_id: cleanId(parentModel), reasoning_effort: null, index: -1 });
+  }
+  const blocked = new Set((unavailable ?? []).map(cleanId).filter(Boolean));
+  const candidates = hostPolicy?.candidates ?? [];
+  for (const [index, candidate] of candidates.entries()) {
+    if (blocked.has(candidate.model_id)) continue;
+    return Object.freeze({
+      kind: "candidate",
+      model_id: candidate.model_id,
+      reasoning_effort: candidate.reasoning_effort ?? null,
+      index
+    });
+  }
+  if (hostPolicy?.parent_fallback !== false) {
+    return Object.freeze({ kind: "parent", model_id: cleanId(parentModel), reasoning_effort: null, index: -1 });
+  }
+  return null;
+}
+
 // scripts/validate-artifact.source.mjs
-import { existsSync as existsSync2, readFileSync as readFileSync2, realpathSync } from "node:fs";
-import { createHash as createHash3 } from "node:crypto";
-import { basename, dirname, join as join4, resolve as resolve4 } from "node:path";
+import { existsSync as existsSync3, readFileSync as readFileSync3, realpathSync } from "node:fs";
+import { createHash as createHash2 } from "node:crypto";
+import { basename, dirname, join as join3, resolve as resolve3 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // scripts/artifact-validator/evidence.mjs
@@ -14275,11 +14492,11 @@ function linearChain(items, predecessorField, label, failures) {
     const predecessor = item.fields[predecessorField];
     if (!predecessor) continue;
     if (!byId.has(predecessor)) failures.push(`${item.label}: missing predecessor ${predecessor}`);
-    const list2 = successors.get(predecessor) ?? [];
-    list2.push(item);
-    successors.set(predecessor, list2);
+    const list = successors.get(predecessor) ?? [];
+    list.push(item);
+    successors.set(predecessor, list);
   }
-  for (const [id, list2] of successors) if (list2.length > 1) failures.push(`${label}: chain branches after ${id}`);
+  for (const [id, list] of successors) if (list.length > 1) failures.push(`${label}: chain branches after ${id}`);
   const ordered = [];
   const seen = /* @__PURE__ */ new Set();
   let cursor = starts[0];
@@ -14297,9 +14514,9 @@ function lineageTips(items, predecessorField) {
 }
 
 // scripts/artifact-validator/parser.mjs
-var import_yaml = __toESM(require_dist(), 1);
+var import_yaml2 = __toESM(require_dist(), 1);
 function yamlObject(source, label, failures) {
-  const document = (0, import_yaml.parseDocument)(source, { prettyErrors: false, uniqueKeys: true });
+  const document = (0, import_yaml2.parseDocument)(source, { prettyErrors: false, uniqueKeys: true });
   for (const error of document.errors) failures.push(`${label}: invalid YAML: ${error.message}`);
   if (document.errors.length > 0) return null;
   const value = document.toJS();
@@ -14373,37 +14590,36 @@ function parseArtifact(text, failures = [], normalizations = []) {
 // scripts/artifact-validator/schema.mjs
 var import_ajv = __toESM(require_ajv(), 1);
 var import_ajv_formats = __toESM(require_dist2(), 1);
-import { existsSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { existsSync as existsSync2, readFileSync as readFileSync2 } from "node:fs";
+import { join as join2, resolve as resolve2 } from "node:path";
 function formatAjv(error) {
   const location = error.instancePath || "/";
   return error.keyword === "additionalProperties" ? `${location}: additional property ${error.params.additionalProperty}` : `${location}: ${error.message}`;
 }
 function schemaFor(root, artifact) {
-  return join(resolve(root), "schemas", "artifacts", `${artifact}.schema.json`);
+  return join2(resolve2(root), "schemas", "artifacts", `${artifact}.schema.json`);
 }
 function validateArtifactSchema(root, parsed, failures) {
   const path = schemaFor(root, parsed.fields.artifact);
-  if (!existsSync(path)) {
+  if (!existsSync2(path)) {
     failures.push(`unsupported artifact type: ${parsed.fields.artifact}`);
     return null;
   }
   const ajv = new import_ajv.default({ allErrors: true, strict: false });
   (0, import_ajv_formats.default)(ajv);
   if (parsed.wrapper) {
-    const wrapperSchema = JSON.parse(readFileSync(join(resolve(root), "schemas", "cursor-plan-wrapper.schema.json"), "utf8"));
+    const wrapperSchema = JSON.parse(readFileSync2(join2(resolve2(root), "schemas", "cursor-plan-wrapper.schema.json"), "utf8"));
     const validateWrapper = ajv.compile(wrapperSchema);
     if (!validateWrapper(parsed.wrapper)) failures.push(...validateWrapper.errors.map((error) => `Cursor wrapper ${formatAjv(error)}`));
   }
-  const schema = JSON.parse(readFileSync(path, "utf8"));
+  const schema = JSON.parse(readFileSync2(path, "utf8"));
   const validate = ajv.compile(schema);
   if (!validate(parsed.fields)) failures.push(...validate.errors.map(formatAjv));
   return schema;
 }
 
 // src/core/manual-attestation.mjs
-var import_yaml2 = __toESM(require_dist(), 1);
-import { createHash } from "node:crypto";
+var import_yaml3 = __toESM(require_dist(), 1);
 var PLAN_CLOSEOUT_ATTESTATION = Object.freeze({
   schema: 1,
   kind: "plan-closeout",
@@ -14414,33 +14630,11 @@ var LEGACY_PLAN_CLOSEOUT_ATTESTATION = Object.freeze({
   kind: "plan-closeout",
   action: "workflow_closeout"
 });
-var CLOSEOUT_INPUT_KIND = "closeout-input";
 var CLOSEOUT_INPUT_PHASES = Object.freeze([
   "implementation",
   "correction",
   "review-recovery"
 ]);
-var DELIVERY_REPORT_KIND = "delivery-report";
-var EVIDENCE_ID = /^de-[A-Za-z0-9][A-Za-z0-9-]*$/;
-var ROOT_ID = /^wp-[A-Za-z0-9][A-Za-z0-9-]*$/;
-var FINAL_STEP_HEADING = /^##\s+Final implementation step\s*$/im;
-var ATTESTATION_FENCE_OPEN = /^```yaml workflow-attestation\s*$/;
-var ATTESTATION_FENCE_CLOSE = /^```\s*$/;
-var BACKTICK_FENCE_OPEN = /^```(?:ya?ml|markdown|md)?\s*$/i;
-function asObject(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-}
-function normalizeNewlines(text) {
-  return String(text ?? "").replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-}
-function sha256RawUtf8(value) {
-  return createHash("sha256").update(String(value ?? ""), "utf8").digest("hex");
-}
-function isPlanCloseoutAttestation(value) {
-  const object2 = asObject(value);
-  if (!object2) return false;
-  return object2.schema === PLAN_CLOSEOUT_ATTESTATION.schema && object2.kind === PLAN_CLOSEOUT_ATTESTATION.kind && [PLAN_CLOSEOUT_ATTESTATION.action, LEGACY_PLAN_CLOSEOUT_ATTESTATION.action].includes(object2.action) && Object.keys(object2).length === 3;
-}
 var CLOSEOUT_INPUT_FIELDS = Object.freeze([
   "schema",
   "kind",
@@ -14462,575 +14656,14 @@ var CHECK_EVIDENCE_FIELDS = Object.freeze([
   "repetitions",
   "limitations"
 ]);
-var CHECK_ID = /^CHECK-[1-9][0-9]*$/;
-var EVIDENCE_GRADES = /* @__PURE__ */ new Set(["verified", "supported", "partial", "unavailable", "failed"]);
-function exactKeys(value, allowed) {
-  return Object.keys(value).filter((key) => !allowed.includes(key));
-}
-function isSafeRepositoryPath(value) {
-  if (typeof value !== "string" || value.length === 0 || value !== value.trim()) return false;
-  if (value.startsWith("/") || value.includes("\\") || value.includes("\0")) return false;
-  const segments = value.split("/");
-  return segments.every((segment) => segment !== "" && segment !== "." && segment !== "..");
-}
-function validateCloseoutCheckEvidence(entries, issues) {
-  if (!Array.isArray(entries) || entries.length === 0) {
-    issues.push("closeout-input check_evidence must be a non-empty array");
-    return;
-  }
-  if (entries.length > 128) issues.push("closeout-input check_evidence must contain at most 128 entries");
-  const ids2 = /* @__PURE__ */ new Set();
-  for (const [index, entry] of entries.entries()) {
-    const object2 = asObject(entry);
-    if (!object2) {
-      issues.push(`closeout-input check_evidence[${index}] must be an object`);
-      continue;
-    }
-    const unknown = exactKeys(object2, CHECK_EVIDENCE_FIELDS);
-    if (unknown.length > 0) issues.push(`closeout-input check_evidence[${index}] has unknown fields: ${unknown.join(", ")}`);
-    if (!CHECK_ID.test(String(object2.check_id ?? ""))) {
-      issues.push(`closeout-input check_evidence[${index}] requires a valid CHECK-* check_id`);
-    } else if (ids2.has(object2.check_id)) {
-      issues.push(`closeout-input check_evidence contains duplicate ${object2.check_id}`);
-    } else {
-      ids2.add(object2.check_id);
-    }
-    if (!EVIDENCE_GRADES.has(object2.grade)) {
-      issues.push(`closeout-input ${object2.check_id ?? `check_evidence[${index}]`} has an invalid grade`);
-    }
-    if (typeof object2.observed !== "string" || object2.observed.trim().length === 0 || object2.observed.length > 1e4) {
-      issues.push(`closeout-input ${object2.check_id ?? `check_evidence[${index}]`} requires a non-empty observed result`);
-    }
-    if (!Number.isInteger(object2.repetitions) || object2.repetitions < 0) {
-      issues.push(`closeout-input ${object2.check_id ?? `check_evidence[${index}]`} requires non-negative integer repetitions`);
-    }
-    for (const field of ["feature_id", "surface", "method", "expected"]) {
-      if (Object.prototype.hasOwnProperty.call(object2, field) && object2[field] !== null && typeof object2[field] !== "string") {
-        issues.push(`closeout-input ${object2.check_id ?? `check_evidence[${index}]`} ${field} must be a string or null`);
-      }
-    }
-    if (["feature_id", "surface", "method", "expected"].some((field) => typeof object2[field] === "string" && object2[field].length > 1e4)) {
-      issues.push(`closeout-input ${object2.check_id ?? `check_evidence[${index}]`} string fields must not exceed 10000 characters`);
-    }
-    for (const field of ["limitations"]) {
-      if (Object.prototype.hasOwnProperty.call(object2, field) && !Array.isArray(object2[field])) {
-        issues.push(`closeout-input ${object2.check_id ?? `check_evidence[${index}]`} ${field} must be an array`);
-      }
-    }
-    if (Array.isArray(object2.limitations) && object2.limitations.some((item) => typeof item !== "string" || !item.trim())) {
-      issues.push(`closeout-input ${object2.check_id ?? `check_evidence[${index}]`} limitations must contain non-empty strings`);
-    }
-    if (Array.isArray(object2.limitations) && (object2.limitations.length > 64 || object2.limitations.some((item) => item.length > 2e3))) {
-      issues.push(`closeout-input ${object2.check_id ?? `check_evidence[${index}]`} limitations exceed the bounded report size`);
-    }
-  }
-}
-function validateCloseoutInput(value) {
-  const report = asObject(value);
-  const issues = [];
-  if (!report) return { ok: false, issues: ["closeout-input must be an object"], report: null };
-  const unknown = exactKeys(report, CLOSEOUT_INPUT_FIELDS);
-  if (unknown.length > 0) issues.push(`closeout-input has unknown fields: ${unknown.join(", ")}`);
-  if (report.schema !== 1) issues.push("closeout-input schema must be 1");
-  if (report.kind !== CLOSEOUT_INPUT_KIND) issues.push("closeout-input kind must be closeout-input");
-  if (!CLOSEOUT_INPUT_PHASES.includes(report.phase)) issues.push("closeout-input phase must be implementation, correction, or review-recovery");
-  if (!ROOT_ID.test(String(report.root_plan_id ?? ""))) issues.push("closeout-input root_plan_id must be a valid wp-* ID");
-  if (!Number.isInteger(report.strategy_revision) || report.strategy_revision < 0) {
-    issues.push("closeout-input strategy_revision must be a non-negative integer");
-  }
-  if (Object.prototype.hasOwnProperty.call(report, "changed_paths") && !Array.isArray(report.changed_paths)) {
-    issues.push("closeout-input changed_paths must be an array when supplied as a non-authoritative hint");
-  } else if (Array.isArray(report.changed_paths)) {
-    if (report.changed_paths.length > 1e3) issues.push("closeout-input changed_paths must contain at most 1000 entries");
-    if (new Set(report.changed_paths).size !== report.changed_paths.length) issues.push("closeout-input changed_paths must be unique");
-    if (report.changed_paths.some((path) => !isSafeRepositoryPath(path) || path.length > 1e3)) {
-      issues.push("closeout-input changed_paths must contain normalized repository-relative paths");
-    }
-    if ([...report.changed_paths].sort().some((path, index) => path !== report.changed_paths[index])) {
-      issues.push("closeout-input changed_paths must be sorted exactly");
-    }
-  }
-  validateCloseoutCheckEvidence(report.check_evidence, issues);
-  if (typeof report.summary !== "string" || report.summary.trim().length === 0 || report.summary.length > 2e3) {
-    issues.push("closeout-input summary must be a concise non-empty string of at most 2000 characters");
-  }
-  if (issues.length > 0) return { ok: false, issues, report: null };
-  return { ok: true, issues: [], report: structuredClone(report) };
-}
-function parseCloseoutInput(text, { expectedPhase = null } = {}) {
-  const source = normalizeNewlines(text);
-  const attestations = extractWorkflowAttestations(source);
-  const candidates = attestations.filter((entry) => entry.value?.kind === CLOSEOUT_INPUT_KIND);
-  const issues = [];
-  if (candidates.length !== 1) {
-    issues.push("response must contain exactly one unindented yaml workflow-attestation closeout-input block");
-  }
-  const allOperative = attestations.filter((entry) => entry.value?.schema === 1);
-  if (allOperative.length !== 1) {
-    issues.push("response must not contain another operative Schema-1 workflow-attestation block");
-  }
-  let remainder = source;
-  for (const entry of [...attestations].reverse()) {
-    const lines = remainder.split("\n");
-    remainder = [...lines.slice(0, entry.startLine), ...lines.slice(entry.endLine + 1)].join("\n");
-  }
-  if (/\b(?:do\s+not|don't|ignore|negate|skip)\b[\s\S]{0,120}\b(?:closeout-input|workflow-attestation)\b/i.test(remainder) || /\b(?:closeout-input|workflow-attestation)\b[\s\S]{0,120}\b(?:do\s+not|don't|ignore|negate|skip)\b/i.test(remainder) || /<!--[\s\S]*(?:closeout-input|workflow-attestation)[\s\S]*-->/i.test(source) || /~~[\s\S]*(?:closeout-input|workflow-attestation)[\s\S]*~~/i.test(source)) {
-    issues.push("response must not negate, comment out, or strike through the closeout-input attestation");
-  }
-  if (candidates.length === 1) {
-    const validated = validateCloseoutInput(candidates[0].value);
-    issues.push(...validated.issues);
-    if (validated.ok && expectedPhase && validated.report.phase !== expectedPhase) {
-      issues.push(`closeout-input phase must be ${expectedPhase}`);
-    }
-    if (issues.length === 0) return { ok: true, issues: [], report: validated.report };
-  }
-  return { ok: false, issues: [...new Set(issues)], report: null };
-}
-function extractFinalImplementationStep(text) {
-  const value = normalizeNewlines(text);
-  const match = value.match(FINAL_STEP_HEADING);
-  if (!match || match.index == null) return null;
-  const start = match.index + match[0].length;
-  const rest = value.slice(start);
-  const nextHeading = rest.search(/^##\s+/m);
-  return (nextHeading >= 0 ? rest.slice(0, nextHeading) : rest).replace(/^\n+/, "").replace(/\n+$/, "");
-}
-function countFinalImplementationSections(text) {
-  return [...normalizeNewlines(text).matchAll(/^##\s+Final implementation step\s*$/gim)].length;
-}
-function extractWorkflowAttestations(text) {
-  const lines = normalizeNewlines(text).split("\n");
-  const attestations = [];
-  let inForeignFence = false;
-  for (let index = 0; index < lines.length; index += 1) {
-    const line2 = lines[index];
-    if (inForeignFence) {
-      if (ATTESTATION_FENCE_CLOSE.test(line2)) inForeignFence = false;
-      continue;
-    }
-    if (/^```(?!yaml workflow-attestation\s*$)/.test(line2)) {
-      inForeignFence = true;
-      continue;
-    }
-    if (!ATTESTATION_FENCE_OPEN.test(line2)) continue;
-    const body = [];
-    let cursor = index + 1;
-    let closed2 = false;
-    while (cursor < lines.length) {
-      if (ATTESTATION_FENCE_CLOSE.test(lines[cursor])) {
-        closed2 = true;
-        break;
-      }
-      body.push(lines[cursor]);
-      cursor += 1;
-    }
-    if (!closed2) continue;
-    try {
-      const parsed = (0, import_yaml2.parse)(body.join("\n"));
-      if (asObject(parsed)) {
-        attestations.push({
-          value: parsed,
-          startLine: index,
-          endLine: cursor,
-          raw: `${lines[index]}
-${body.join("\n")}
-${lines[cursor]}`
-        });
-      }
-    } catch {
-    }
-    index = cursor;
-  }
-  return attestations;
-}
-function parsePlanCloseoutAttestationFromText(text, { requireFinalStepSection = false, role = "instruction" } = {}) {
-  let value = normalizeNewlines(text);
-  if (requireFinalStepSection) {
-    const sectionCount = countFinalImplementationSections(value);
-    if (sectionCount === 0) {
-      return { ok: false, issues: [`${role} must appear as an explicit ## Final implementation step section`] };
-    }
-    if (sectionCount > 1) {
-      return { ok: false, issues: [`${role} must include exactly one ## Final implementation step section`] };
-    }
-    value = extractFinalImplementationStep(value) ?? "";
-  }
-  const attestations = extractWorkflowAttestations(value);
-  const planCloseouts = attestations.filter((entry) => isPlanCloseoutAttestation(entry.value));
-  const issues = [];
-  if (planCloseouts.length === 0) {
-    issues.push(`${role} must include exactly one unindented \`\`\`yaml workflow-attestation plan-closeout block`);
-  } else if (planCloseouts.length > 1) {
-    issues.push(`${role} must include exactly one plan-closeout attestation`);
-  }
-  let remainder = value;
-  for (const entry of [...attestations].reverse()) {
-    const lines = remainder.split("\n");
-    remainder = [...lines.slice(0, entry.startLine), ...lines.slice(entry.endLine + 1)].join("\n");
-  }
-  if (/\[workflow-closeout-v\d+\]/i.test(remainder) || /\bworkflow_closeout\b/.test(remainder) || /\bexact Root\/chain\b/i.test(remainder)) {
-    issues.push(`${role} must not include free-form closeout marker or workflow_closeout prose outside typed attestation`);
-  }
-  if (/\b(?:do\s+not|don't|does\s+not|shouldn'?t|ignore)\b[\s\S]{0,120}\b(?:attestation|closeout|workflow_closeout)\b/i.test(remainder) || /\b(?:attestation|closeout|workflow_closeout)\b[\s\S]{0,120}\b(?:do\s+not|don't|ignore)\b/i.test(remainder) || /<!--[\s\S]*workflow-attestation[\s\S]*-->/i.test(value) || /~~[\s\S]*workflow-attestation[\s\S]*~~/i.test(value)) {
-    issues.push(`${role} must not negate or comment out the typed plan-closeout attestation`);
-  }
-  if (issues.length > 0) return { ok: false, issues };
-  return { ok: true, issues: [], attestation: planCloseouts[0]?.value ?? null };
-}
-function todoPlanCloseoutIssues(todo, { role = "final native todo" } = {}) {
-  const issues = [];
-  if (!todo || typeof todo !== "object" || Array.isArray(todo)) {
-    return [`${role} must be a structured native todo with typed workflow_attestation`];
-  }
-  const content = String(todo.content ?? "");
-  if (!content.startsWith("[workflow-model-inherit-v1]")) {
-    issues.push(`${role} must start with [workflow-model-inherit-v1]`);
-  }
-  if (!/verify|check|evidence|snapshot|close\s*out/i.test(content)) {
-    issues.push(`${role} must verify or evidence the implemented result`);
-  }
-  if (/\[workflow-closeout-v\d+\]/i.test(content) || /\bworkflow_closeout\b/.test(content)) {
-    issues.push(`${role} must keep closeout ceremony in workflow_attestation metadata, not todo prose`);
-  }
-  if (!isPlanCloseoutAttestation(todo.workflow_attestation)) {
-    issues.push(`${role} requires workflow_attestation: { schema: 1, kind: plan-closeout, action: delivery-closeout }; legacy workflow_closeout remains accepted`);
-  }
-  return issues;
-}
-function planCloseoutAttestationIssues(source, options = {}) {
-  const { role = "instruction", requireFinalStepSection = false } = options;
-  if (asObject(source) && Object.prototype.hasOwnProperty.call(source, "workflow_attestation")) {
-    return todoPlanCloseoutIssues(source, { role });
-  }
-  return parsePlanCloseoutAttestationFromText(String(source ?? ""), { role, requireFinalStepSection }).issues;
-}
-function collectCloseoutStructuredCandidates(response) {
-  const candidates = [];
-  if (asObject(response?.structuredContent)) candidates.push(response.structuredContent);
-  if (Array.isArray(response?.content)) {
-    for (const entry of response.content) {
-      if (asObject(entry?.structuredContent)) candidates.push(entry.structuredContent);
-    }
-  }
-  return candidates;
-}
-function expectedLineageFromArtifacts(artifacts = [], rootPlanId = null, options = {}) {
-  const inspect = options.inspectArtifactText;
-  if (typeof inspect !== "function") {
-    throw new Error("expectedLineageFromArtifacts requires options.inspectArtifactText");
-  }
-  let expectedSubject = rootPlanId;
-  let sourceReviewId = null;
-  let predecessorEvidenceId = null;
-  const entries = Array.isArray(artifacts) ? artifacts : [];
-  for (const entry of entries) {
-    const text = typeof entry === "string" ? entry : entry?.text;
-    if (typeof text !== "string") continue;
-    const inspected = inspect(text, options.pluginRoot);
-    const fields = inspected.artifact?.fields;
-    if (!fields) continue;
-    if (fields.artifact === "work-review" && fields.next_action === "correct" && typeof fields.correction_id === "string") {
-      expectedSubject = fields.correction_id;
-      sourceReviewId = fields.id;
-      if (typeof fields.latest_evidence_id === "string") predecessorEvidenceId = fields.latest_evidence_id;
-    }
-    if (fields.artifact === "delivery-evidence" && typeof fields.id === "string") {
-      predecessorEvidenceId = fields.id;
-    }
-  }
-  if (!sourceReviewId) {
-    return {
-      root_plan_id: rootPlanId,
-      subject_id: rootPlanId,
-      source_review_id: null,
-      predecessor_evidence_id: null
-    };
-  }
-  return {
-    root_plan_id: rootPlanId,
-    subject_id: expectedSubject,
-    source_review_id: sourceReviewId,
-    predecessor_evidence_id: predecessorEvidenceId
-  };
-}
-function readCloseoutRecord(response, options = {}) {
-  const candidates = collectCloseoutStructuredCandidates(response);
-  if (candidates.length === 0) return { ok: false, reason: "missing-structured-content", record: null };
-  const first = JSON.stringify(candidates[0]);
-  if (candidates.some((entry) => JSON.stringify(entry) !== first)) {
-    return { ok: false, reason: "conflicting-structured-content", record: null };
-  }
-  const structured = candidates[0];
-  const id = typeof structured.delivery_evidence_id === "string" ? structured.delivery_evidence_id : "";
-  if (!EVIDENCE_ID.test(id)) return { ok: false, reason: "invalid-delivery-evidence-id", record: null };
-  const rawArtifact = typeof structured.artifact === "string" && structured.artifact.length > 0 ? structured.artifact : null;
-  if (!rawArtifact) return { ok: false, reason: "missing-artifact", record: null };
-  if (typeof structured.artifact_hash !== "string" || !/^[a-f0-9]{64}$/.test(structured.artifact_hash)) {
-    return { ok: false, reason: "missing-artifact-hash", record: null };
-  }
-  if (typeof structured.root_plan_id !== "string" || !ROOT_ID.test(structured.root_plan_id)) {
-    return { ok: false, reason: "missing-root-plan-id", record: null };
-  }
-  if (typeof structured.status !== "string") {
-    return { ok: false, reason: "missing-status", record: null };
-  }
-  if (typeof structured.handoff_persisted !== "boolean") {
-    return { ok: false, reason: "missing-handoff-persisted", record: null };
-  }
-  const inspect = options.inspectArtifactText;
-  if (typeof inspect !== "function") {
-    return { ok: false, reason: "inspect-unavailable", record: null };
-  }
-  const inspected = inspect(rawArtifact, options.pluginRoot);
-  const fields = inspected.artifact?.fields;
-  if (inspected.errors.length > 0 || !fields) return { ok: false, reason: "invalid-artifact", record: null };
-  if ((inspected.normalizations ?? []).length > 0) return { ok: false, reason: "normalized-artifact", record: null };
-  if (fields.artifact !== "delivery-evidence" || fields.schema !== 5) {
-    return { ok: false, reason: "not-schema5-delivery-evidence", record: null };
-  }
-  if (fields.id !== id) return { ok: false, reason: "artifact-id-mismatch", record: null };
-  if (!["complete", "provisional", "blocked"].includes(fields.status)) {
-    return { ok: false, reason: "invalid-status", record: null };
-  }
-  if (fields.status !== structured.status) return { ok: false, reason: "status-mismatch", record: null };
-  if (fields.root_plan_id !== structured.root_plan_id) {
-    return { ok: false, reason: "root-plan-id-mismatch", record: null };
-  }
-  if ((fields.subject_id ?? null) !== (structured.subject_id ?? null)) {
-    return { ok: false, reason: "structured-subject-mismatch", record: null };
-  }
-  if ((fields.source_review_id ?? null) !== (structured.source_review_id ?? null)) {
-    return { ok: false, reason: "structured-source-review-mismatch", record: null };
-  }
-  if ((fields.predecessor_evidence_id ?? null) !== (structured.predecessor_evidence_id ?? null)) {
-    return { ok: false, reason: "structured-predecessor-mismatch", record: null };
-  }
-  const activeRoot = options.activeRootPlanId ?? null;
-  const closeoutRoot = options.closeoutRootPlanId ?? null;
-  if (activeRoot && fields.root_plan_id !== activeRoot) {
-    return { ok: false, reason: "active-root-mismatch", record: null };
-  }
-  if (closeoutRoot && fields.root_plan_id !== closeoutRoot) {
-    return { ok: false, reason: "closeout-root-mismatch", record: null };
-  }
-  const derivedHash = sha256RawUtf8(rawArtifact);
-  if (structured.artifact_hash !== derivedHash) {
-    return { ok: false, reason: "artifact-hash-mismatch", record: null };
-  }
-  const expected = options.expectedLineage;
-  if (expected == null || typeof expected !== "object" || Array.isArray(expected)) {
-    return { ok: false, reason: "missing-expected-lineage", record: null };
-  }
-  if (expected.root_plan_id && fields.root_plan_id !== expected.root_plan_id) {
-    return { ok: false, reason: "lineage-root-mismatch", record: null };
-  }
-  if ((fields.subject_id ?? null) !== (expected.subject_id ?? null)) {
-    return { ok: false, reason: "lineage-subject-mismatch", record: null };
-  }
-  if ((fields.source_review_id ?? null) !== (expected.source_review_id ?? null)) {
-    return { ok: false, reason: "lineage-source-review-mismatch", record: null };
-  }
-  if (Object.prototype.hasOwnProperty.call(expected, "predecessor_evidence_id") && (fields.predecessor_evidence_id ?? null) !== (expected.predecessor_evidence_id ?? null)) {
-    return { ok: false, reason: "lineage-predecessor-mismatch", record: null };
-  }
-  const structuredRootHash = typeof structured.root_content_hash === "string" ? structured.root_content_hash : null;
-  if (!structuredRootHash || !/^[a-f0-9]{64}$/.test(structuredRootHash)) {
-    return { ok: false, reason: "missing-root-content-hash", record: null };
-  }
-  const activeRootHash = typeof options.activeRootContentHash === "string" ? options.activeRootContentHash : null;
-  if (!activeRootHash || !/^[a-f0-9]{64}$/.test(activeRootHash)) {
-    return { ok: false, reason: "missing-active-root-content-hash", record: null };
-  }
-  if (structuredRootHash !== activeRootHash) {
-    return { ok: false, reason: "root-content-hash-mismatch", record: null };
-  }
-  return {
-    ok: true,
-    reason: null,
-    record: {
-      id,
-      artifact: rawArtifact,
-      hash: derivedHash,
-      handoff_persisted: structured.handoff_persisted,
-      root_plan_id: fields.root_plan_id,
-      subject_id: fields.subject_id ?? null,
-      source_review_id: fields.source_review_id ?? null,
-      predecessor_evidence_id: fields.predecessor_evidence_id ?? null,
-      status: fields.status,
-      root_content_hash: structuredRootHash,
-      artifact_set_hash: typeof structured.artifact_set_hash === "string" ? structured.artifact_set_hash : null
-    }
-  };
-}
-function lineBoundedArtifactIndexes(message, exactArtifact) {
-  const prose = String(message ?? "");
-  const exact = String(exactArtifact ?? "");
-  if (!exact) return [];
-  const indexes = [];
-  let searchFrom = 0;
-  while (searchFrom <= prose.length) {
-    const index = prose.indexOf(exact, searchFrom);
-    if (index < 0) break;
-    const beforeOk = index === 0 || prose[index - 1] === "\n";
-    const afterIndex = index + exact.length;
-    const afterOk = afterIndex === prose.length || prose[afterIndex] === "\n";
-    if (beforeOk && afterOk) indexes.push(index);
-    searchFrom = index + 1;
-  }
-  return indexes;
-}
-function boundedEvidenceAttachmentCount(message, expectedArtifact) {
-  if (!expectedArtifact) return 0;
-  const exact = String(expectedArtifact);
-  if (!exact) return 0;
-  const raw = String(message ?? "");
-  const lines = raw.split(/\r?\n/);
-  let count = 0;
-  for (let index = 0; index < lines.length; index += 1) {
-    if (!BACKTICK_FENCE_OPEN.test(lines[index])) continue;
-    const body = [];
-    let cursor = index + 1;
-    let closed2 = false;
-    while (cursor < lines.length) {
-      if (/^```\s*$/.test(lines[cursor])) {
-        closed2 = true;
-        break;
-      }
-      body.push(lines[cursor]);
-      cursor += 1;
-    }
-    if (!closed2) continue;
-    const joiner = exact.includes("\r\n") ? "\r\n" : "\n";
-    const inner = `${body.join(joiner)}${body.length > 0 ? joiner : ""}`;
-    if (inner === exact || inner === exact.replace(/\r?\n$/, "") || `${inner}${joiner}` === exact || `${inner}
-` === exact) {
-      count += 1;
-    }
-    index = cursor;
-  }
-  return count + lineBoundedArtifactIndexes(raw, exact).length;
-}
-function parseDeliveryReport(text) {
-  const attestations = extractWorkflowAttestations(text).map((entry) => entry.value).filter((value) => asObject(value) && value.schema === 1 && value.kind === DELIVERY_REPORT_KIND);
-  if (attestations.length !== 1) {
-    return { ok: false, reason: "delivery-report-count", report: null };
-  }
-  const report = attestations[0];
-  const id = typeof report.delivery_evidence_id === "string" ? report.delivery_evidence_id : "";
-  if (!EVIDENCE_ID.test(id)) return { ok: false, reason: "invalid-delivery-evidence-id", report: null };
-  const keys = Object.keys(report).sort();
-  const allowed = ["delivery_evidence_id", "kind", "schema"];
-  if (keys.some((key) => !allowed.includes(key))) {
-    return { ok: false, reason: "unexpected-delivery-report-fields", report: null };
-  }
-  return { ok: true, reason: null, report: { delivery_evidence_id: id } };
-}
-function rawArtifactOccurrenceCount(message, expectedArtifact) {
-  const prose = String(message ?? "");
-  const exact = String(expectedArtifact ?? "");
-  if (!exact) return 0;
-  let count = 0;
-  let searchFrom = 0;
-  while (searchFrom <= prose.length) {
-    const index = prose.indexOf(exact, searchFrom);
-    if (index < 0) break;
-    count += 1;
-    searchFrom = index + exact.length;
-  }
-  return count;
-}
-function evaluateDeliveryCompletion(message, turn) {
-  if (!turn?.closeout_recorded || !turn.delivery_evidence_id || !turn.delivery_evidence_artifact || typeof turn.handoff_persisted !== "boolean") {
-    return { ok: false, reason: "closeout-not-recorded" };
-  }
-  if (turn.active_root_plan_id && turn.delivery_evidence_root_plan_id && turn.active_root_plan_id !== turn.delivery_evidence_root_plan_id) {
-    return { ok: false, reason: "active-root-mismatch" };
-  }
-  const report = parseDeliveryReport(message);
-  if (!report.ok) return { ok: false, reason: report.reason };
-  if (report.report.delivery_evidence_id !== turn.delivery_evidence_id) {
-    return { ok: false, reason: "delivery-report-id-mismatch" };
-  }
-  const attachmentCount = boundedEvidenceAttachmentCount(message, turn.delivery_evidence_artifact);
-  const occurrenceCount = rawArtifactOccurrenceCount(message, turn.delivery_evidence_artifact);
-  if (turn.handoff_persisted === false) {
-    const containsDifferentEvidence = attachmentCount === 0 && /\bartifact\s*:\s*delivery-evidence\b/i.test(String(message ?? ""));
-    if (attachmentCount > 1 || occurrenceCount !== attachmentCount || containsDifferentEvidence) {
-      return { ok: false, reason: "unpersisted-attachment-invalid" };
-    }
-  } else if (attachmentCount !== 0 || occurrenceCount !== 0) {
-    return { ok: false, reason: "persisted-attachment-invalid" };
-  }
-  return { ok: true, reason: null, delivery_evidence_id: turn.delivery_evidence_id };
-}
-function formatPlanCloseoutAttestationFence() {
-  return [
-    "```yaml workflow-attestation",
-    "schema: 1",
-    "kind: plan-closeout",
-    "action: delivery-closeout",
-    "```"
-  ].join("\n");
-}
 
 // src/core/state-paths.mjs
-import { createHash as createHash2 } from "node:crypto";
-import { join as join3, resolve as resolve3 } from "node:path";
-
-// src/core/host-preferences.mjs
-import { homedir } from "node:os";
-import { join as join2, resolve as resolve2 } from "node:path";
-
-// src/core/preference-yaml.mjs
-var import_yaml3 = __toESM(require_dist(), 1);
-function parsePreferenceYaml(source) {
-  return (0, import_yaml3.parse)(String(source));
-}
-
-// src/core/host-preferences.mjs
-var TOOL_APPROVAL_MODES = Object.freeze(["strict", "allowlisted"]);
-var preferenceKeys = Object.freeze(["schema", "tool_approval", "manual_subagent_policy", "extensions"]);
-function sharedWorkflowHome(options = {}) {
-  return resolve2(options.homeRoot ?? process.env.GELDMACHER_WORKFLOW_HOME ?? join2(homedir(), ".geldmacher", "workflow"));
-}
-function defaultHostPreferencesPath(options = {}) {
-  return options.preferencesPath ?? process.env.GELDMACHER_WORKFLOW_PREFERENCES ?? join2(sharedWorkflowHome(options), "preferences.yaml");
-}
-
-// src/core/state-paths.mjs
-function repositoryKey(workspaceRoot) {
-  return createHash2("sha256").update(resolve3(workspaceRoot)).digest("hex").slice(0, 20);
-}
+import { createHash } from "node:crypto";
 function rootContentHash(rootPlanText) {
   if (typeof rootPlanText !== "string" || !rootPlanText.trim()) {
     throw new Error("root content hash requires exact non-empty Root text");
   }
-  return createHash2("sha256").update(rootPlanText).digest("hex");
-}
-function sharedHandoffBase(options = {}) {
-  return options.baseRoot ?? process.env.GELDMACHER_WORKFLOW_SHARED_ROOT ?? join3(sharedWorkflowHome(options), "handoff");
-}
-function contentAddressedHandoffRoot(rootPlanText, options = {}) {
-  return join3(resolve3(sharedHandoffBase(options)), "by-root", rootContentHash(rootPlanText));
-}
-function handoffTipDirectory(rootPlanId, options = {}) {
-  if (!/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(rootPlanId ?? ""))) throw new Error("handoff tip requires a valid wp-* root_plan_id");
-  return join3(resolve3(sharedHandoffBase(options)), "tips", rootPlanId);
-}
-function handoffTipPath(rootPlanId, rootContentHashValue = null, options = {}) {
-  if (!/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(rootPlanId ?? ""))) throw new Error("handoff tip requires a valid wp-* root_plan_id");
-  if (rootContentHashValue === null || rootContentHashValue === void 0 || rootContentHashValue === "") {
-    return join3(resolve3(sharedHandoffBase(options)), "tips", `${rootPlanId}.json`);
-  }
-  if (!/^[a-f0-9]{64}$/.test(String(rootContentHashValue))) {
-    throw new Error("content-addressed handoff tip requires a full SHA-256 root content hash");
-  }
-  return join3(handoffTipDirectory(rootPlanId, options), `${rootContentHashValue}.json`);
-}
-function sharedArtifactStateRoot(workspaceRoot, options = {}) {
-  const base = options.baseRoot ?? process.env.GELDMACHER_WORKFLOW_SHARED_ROOT ?? join3(sharedWorkflowHome(options), "state");
-  return join3(resolve3(base), repositoryKey(workspaceRoot));
+  return createHash("sha256").update(rootPlanText).digest("hex");
 }
 
 // scripts/validate-artifact.source.mjs
@@ -15058,7 +14691,6 @@ var fixPattern = /\bFIX-[1-9][0-9]*\b/g;
 var checkPattern = /\bCHECK-[1-9][0-9]*\b/g;
 var slicePattern = /\bSLICE-[1-9][0-9]*\b/g;
 var learningPattern = /\bLRN-[A-Za-z0-9][A-Za-z0-9-]*\b/g;
-var modelInheritMarker = "[workflow-model-inherit-v1]";
 var requiredScopeCategories = ["required", "permitted", "prohibited"];
 var baselineKinds = ["repository", "head", "dirty-files", "known-failures", "targets-and-prerequisites"];
 var sectionAliases = Object.freeze({
@@ -15175,19 +14807,19 @@ function stableValue(value) {
   return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stableValue(value[key])]));
 }
 function sha256(value) {
-  return createHash3("sha256").update(String(value)).digest("hex");
+  return createHash2("sha256").update(String(value)).digest("hex");
 }
 function maskFences(text) {
   let fence = null;
-  return String(text).split(/(?<=\n)/).map((line2) => {
+  return String(text).split(/(?<=\n)/).map((line) => {
     if (!fence) {
-      const marker = line2.match(/^[ \t]*(`{3,}|~{3,})/);
-      if (!marker) return line2;
+      const marker = line.match(/^[ \t]*(`{3,}|~{3,})/);
+      if (!marker) return line;
       fence = { char: marker[1][0], size: marker[1].length };
-      return line2.replace(/[^\r\n]/g, " ");
+      return line.replace(/[^\r\n]/g, " ");
     }
-    const masked = line2.replace(/[^\r\n]/g, " ");
-    if (new RegExp(`^[ \\t]*${fence.char}{${fence.size},}[ \\t]*(?:\\r?\\n)?$`).test(line2)) fence = null;
+    const masked = line.replace(/[^\r\n]/g, " ");
+    if (new RegExp(`^[ \\t]*${fence.char}{${fence.size},}[ \\t]*(?:\\r?\\n)?$`).test(line)) fence = null;
     return masked;
   }).join("");
 }
@@ -15227,11 +14859,11 @@ function trimTrailingNotes(body, required, normalizations) {
   }
   return body;
 }
-function cells(line2) {
+function cells(line) {
   const parsed = [];
   let current = "";
   let escaped = false;
-  for (const char of String(line2).trim()) {
+  for (const char of String(line).trim()) {
     if (escaped) {
       current += char;
       escaped = false;
@@ -15259,7 +14891,7 @@ function markdownTables(content) {
   for (let index = 0; index < lines.length - 1; index += 1) {
     const headers = cells(lines[index]);
     const separator = cells(lines[index + 1]);
-    if (headers.length < 2 || separator.length !== headers.length || !separator.every((cell3) => /^:?-{3,}:?$/.test(cell3))) continue;
+    if (headers.length < 2 || separator.length !== headers.length || !separator.every((cell) => /^:?-{3,}:?$/.test(cell))) continue;
     const rows = [];
     index += 2;
     while (index < lines.length && lines[index].includes("|")) {
@@ -15324,7 +14956,7 @@ function noneLike(value) {
   return /^(?:none\.?|no (?:findings|changes|deviations|candidates|correction|open decisions)\.?)$/i.test(String(value).trim());
 }
 function hasStandaloneNone(content) {
-  return String(content).split(/\r?\n/).some((line2) => /^(?:\*\*[^*\r\n]+:\*\*\s*)?None\.?$/i.test(line2.trim()));
+  return String(content).split(/\r?\n/).some((line) => /^(?:\*\*[^*\r\n]+:\*\*\s*)?None\.?$/i.test(line.trim()));
 }
 function requireTable(sections, sectionName, headers, failures, { allowNone = false, optional = false, normalizations = [] } = {}) {
   const content = sections.get(sectionName) ?? "";
@@ -15524,24 +15156,7 @@ function validatePlanV4(parsed, sections, failures) {
   if (data.objectives.size !== parsed.fields.acceptance.length) failures.push("acceptance outcomes must map one-to-one to objectives");
   if (parsed.wrapper) {
     const todos = parsed.wrapper.todos ?? [];
-    const finalTodo = todos.at(-1) ?? null;
-    const final = String(finalTodo?.content ?? "");
-    const marked = todos.some((todo) => String(todo.content ?? "").includes(modelInheritMarker)) || String(parsed.wrapper.overview ?? "").includes(modelInheritMarker) || String(parsed.wrapper.name ?? "").includes(modelInheritMarker);
-    if (!marked && !final.startsWith(modelInheritMarker)) {
-      failures.push(`native Plan must include ${modelInheritMarker} on the final closeout todo or plan overview`);
-    }
-    if (todos.length > 0 && !final.startsWith(modelInheritMarker) && !todos.some((todo) => String(todo.content ?? "").startsWith(modelInheritMarker))) {
-      failures.push(`final native todo must start with ${modelInheritMarker} when no other todo carries it`);
-    }
-    if (!/verify|check|evidence|snapshot|close\s*out/i.test(final)) {
-      failures.push("final native todo must verify or evidence the implemented result");
-    }
-    if (parsed.fields.schema === 5) {
-      if (!final.startsWith(modelInheritMarker)) failures.push(`final native todo must start with ${modelInheritMarker}`);
-      for (const issue2 of planCloseoutAttestationIssues(finalTodo ?? final, { role: "final native todo" })) {
-        failures.push(issue2);
-      }
-    }
+    if (todos.length === 0) failures.push("native Plan must include at least one implementation todo");
   }
 }
 function evidenceData(artifact) {
@@ -15693,8 +15308,8 @@ function validatePlan(parsed, sections, failures) {
   if (parsed.fields.assurance_override === "lowered") {
     if (triggers.length > 0) failures.push("hard-trigger assurance cannot be lowered");
     if (selectedRank >= derivedRank) failures.push("lowered assurance override must select a lower profile than derived");
-    const decision2 = decisions.rows.find((row) => row["Decision ID"] === parsed.fields.assurance_override_decision_id);
-    if (!decisionIds.has(parsed.fields.assurance_override_decision_id) || !/\bHuman (?:decision|approval)\b/i.test(decision2?.Source ?? "")) failures.push("lowered assurance requires a human-sourced decision");
+    const decision = decisions.rows.find((row) => row["Decision ID"] === parsed.fields.assurance_override_decision_id);
+    if (!decisionIds.has(parsed.fields.assurance_override_decision_id) || !/\bHuman (?:decision|approval)\b/i.test(decision?.Source ?? "")) failures.push("lowered assurance requires a human-sourced decision");
   }
   const controls = requireTable(sections, "Risk and closeout", tables.controls, failures, { allowNone: true, normalizations: parsed.normalizations });
   exactIdSet(controls.rows, "Control ID", /CTRL-[1-9][0-9]*/, "Pareto controls", failures);
@@ -16143,7 +15758,7 @@ function preflightRootPlan(text, root = defaultRoot) {
   };
 }
 function authoritativeArtifactProjection(artifact, root) {
-  const schema = JSON.parse(readFileSync2(schemaFor(root, artifact.fields.artifact), "utf8"));
+  const schema = JSON.parse(readFileSync3(schemaFor(root, artifact.fields.artifact), "utf8"));
   const fields = Object.fromEntries(Object.keys(schema.properties ?? {}).filter((key) => key !== "extensions" && Object.hasOwn(artifact.fields, key)).map((key) => [key, structuredClone(artifact.fields[key])]));
   const sections = (schema["x-required-sections"] ?? schema["x-markdown-sections"] ?? []).map((name) => ({ name, content: artifact.sections.get(name) ?? "" }));
   const projection = stableValue({ fields, sections });
@@ -16161,42 +15776,6 @@ function authoritativeArtifactProjectionFromText(text, root = defaultRoot) {
     return { errors: inspected.errors.length > 0 ? inspected.errors : ["input is not a Workflow artifact"] };
   }
   return authoritativeArtifactProjection(inspected.artifact, root);
-}
-function executionContractFromArtifactText(text, root = defaultRoot) {
-  const inspected = inspectArtifactText(text, root);
-  if (inspected.errors.length > 0 || inspected.artifact?.fields.artifact !== "work-plan") {
-    return { errors: inspected.errors.length > 0 ? inspected.errors : ["input is not a work-plan"] };
-  }
-  const artifact = inspected.artifact;
-  const data = planData(artifact);
-  const authoritative = authoritativeArtifactProjectionFromText(text, root);
-  return {
-    errors: [],
-    fields: structuredClone(authoritative.projection.fields),
-    objectives: [...data.objectives],
-    checks: [...data.checkRows.values()].map((row) => ({ ...row, "Evidence Class": data.evidenceClasses.get(row["Check ID"]) })),
-    slices: data.slices.map((row) => ({ ...row })),
-    allowedTargets: [...data.allowedTargets],
-    prohibitedTargets: [...data.prohibitedTargets],
-    strategy: artifact.fields.schema >= 4 ? {
-      strategy_id: `strategy-${artifact.fields.id.slice(3)}`,
-      revision: 0,
-      parent_hash: null,
-      root_projection_hash: authoritative.projection_hash,
-      task_class: artifact.fields.certification?.task_recipe ?? null,
-      recipe_version: "workflow-recipe-1",
-      primary_targets: [...data.allowedTargets],
-      steps: data.slices.map((row) => ({ ...row })),
-      checks: [...data.checkRows.values()].map((row) => ({ ...row, "Evidence Class": data.evidenceClasses.get(row["Check ID"]) })),
-      evidence_requirements: artifact.fields.profile_max === "autonomous" ? "verified" : "provisional-allowed",
-      deviations: [],
-      rationale: "initial strategy derived from the approved intent root",
-      created_by: "planner"
-    } : null,
-    authoritative_projection: authoritative.projection,
-    authoritative_projection_text: authoritative.projection_text,
-    authoritative_projection_hash: authoritative.projection_hash
-  };
 }
 function setUnion(left, right) {
   return /* @__PURE__ */ new Set([...left ?? [], ...right ?? []]);
@@ -16409,11 +15988,11 @@ function validatePlanLineage(artifacts, failures) {
       const reviewTips = predecessorReviews.filter((review) => !referencedReviews.has(review.fields.id));
       if (reviewTips.length !== 1 || reviewTips[0].fields.id !== sourceReviewId) failures.push(`${plan.label}: replan source review must be the unique current predecessor review tip`);
     }
-    const list2 = successors.get(predecessorId) ?? [];
-    list2.push(plan);
-    successors.set(predecessorId, list2);
+    const list = successors.get(predecessorId) ?? [];
+    list.push(plan);
+    successors.set(predecessorId, list);
   }
-  for (const [predecessorId, list2] of successors) if (list2.length > 1) failures.push(`work-plan lineage branches after ${predecessorId}`);
+  for (const [predecessorId, list] of successors) if (list.length > 1) failures.push(`work-plan lineage branches after ${predecessorId}`);
   const visiting = /* @__PURE__ */ new Set();
   const visited = /* @__PURE__ */ new Set();
   const visit = (plan) => {
@@ -16441,7 +16020,7 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
     const probeErrors = [];
     const probe = parseArtifact(text, probeErrors, []);
     const type = probe?.fields.artifact;
-    if (type && !knownArtifacts.has(type) && !existsSync2(schemaFor(root, type))) {
+    if (type && !knownArtifacts.has(type) && !existsSync3(schemaFor(root, type))) {
       const workflowShaped = /^(?:work|delivery)-/.test(type) || /^(?:wp|de|wr|cp|rs)-/.test(String(probe?.fields.id ?? ""));
       if (workflowShaped) errors.push(`${label}: unsupported workflow artifact type`);
       continue;
@@ -16462,14 +16041,14 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
   for (const artifact of artifacts.values()) {
     if (artifact.fields.artifact === "delivery-evidence") {
       materializeEvidence(artifact, artifacts, evidenceCache, errors, root);
-      const list2 = evidenceByRoot.get(artifact.fields.root_plan_id) ?? [];
-      list2.push(artifact);
-      evidenceByRoot.set(artifact.fields.root_plan_id, list2);
+      const list = evidenceByRoot.get(artifact.fields.root_plan_id) ?? [];
+      list.push(artifact);
+      evidenceByRoot.set(artifact.fields.root_plan_id, list);
     }
     if (artifact.fields.artifact === "work-review") {
-      const list2 = reviewsByRoot.get(artifact.fields.root_plan_id) ?? [];
-      list2.push(artifact);
-      reviewsByRoot.set(artifact.fields.root_plan_id, list2);
+      const list = reviewsByRoot.get(artifact.fields.root_plan_id) ?? [];
+      list.push(artifact);
+      reviewsByRoot.set(artifact.fields.root_plan_id, list);
     }
   }
   for (const [rootId, evidence] of evidenceByRoot) {
@@ -16655,7 +16234,7 @@ function runCli() {
     process.exitCode = 2;
     return;
   }
-  const entries = paths.map((path) => [path, readFileSync2(resolve4(path), "utf8")]);
+  const entries = paths.map((path) => [path, readFileSync3(resolve3(path), "utf8")]);
   const inspection = entries.length === 1 ? inspectArtifactText(entries[0][1]) : inspectArtifactSet(entries);
   if (inspection.errors.length > 0) {
     console.error("Artifact validation failed:");
@@ -16673,356 +16252,10 @@ function runCli() {
     inspection.diagnostics.forEach((item) => console.log(`DIAGNOSTIC: ${item}`));
   }
 }
-if (process.argv[1] && ["validate-artifact.source.mjs", "validate-artifact.mjs"].includes(basename(process.argv[1])) && realpathSync(resolve4(process.argv[1])) === realpathSync(fileURLToPath(import.meta.url))) runCli();
-
-// src/core/manual-subagent-policy.mjs
-import { existsSync as existsSync3, readFileSync as readFileSync3 } from "node:fs";
-var MANUAL_SUBAGENT_POLICY_SCHEMA = 1;
-var MANUAL_SUBAGENT_MODES = Object.freeze(["parent-only", "parent-or-approved"]);
-var MANUAL_SUBAGENT_HOSTS = Object.freeze(["cursor", "codex"]);
-var MANUAL_SUBAGENT_PRESETS = Object.freeze({
-  "cursor-composer-grok-v1": Object.freeze({
-    host: "cursor",
-    version: 1,
-    parent_fallback: true,
-    candidates: Object.freeze([
-      Object.freeze({ model_id: "composer-2.5-fast" }),
-      Object.freeze({ model_id: "cursor-grok-4.5-high-fast" })
-    ])
-  }),
-  "codex-efficient-gpt-v1": Object.freeze({
-    host: "codex",
-    version: 1,
-    parent_fallback: true,
-    candidates: Object.freeze([
-      Object.freeze({ model_id: "gpt-5.6-luna-max", reasoning_effort: "low" }),
-      Object.freeze({ model_id: "gpt-5.6-terra-xhigh", reasoning_effort: "medium" })
-    ])
-  })
-});
-var objectLike = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
-var cleanId = (value) => typeof value === "string" && value.trim() !== "" ? value.trim().replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 256) : null;
-function parentOnlyResolution(source, path, issues = []) {
-  return Object.freeze({
-    schema: MANUAL_SUBAGENT_POLICY_SCHEMA,
-    mode: "parent-only",
-    source,
-    path,
-    authoritative: false,
-    hosts: Object.freeze({
-      cursor: Object.freeze({ host: "cursor", parent_fallback: true, candidates: Object.freeze([]), preset: null }),
-      codex: Object.freeze({ host: "codex", parent_fallback: true, candidates: Object.freeze([]), preset: null })
-    }),
-    ...issues.length > 0 ? { issues: Object.freeze([...issues]) } : {}
-  });
-}
-function validateCandidate(candidate, label, errors) {
-  if (!objectLike(candidate)) {
-    errors.push(`${label} must be an object`);
-    return null;
-  }
-  for (const key of Object.keys(candidate)) {
-    if (!["model_id", "reasoning_effort"].includes(key)) errors.push(`${label} has unknown field ${key}`);
-  }
-  const modelId = cleanId(candidate.model_id);
-  if (!modelId) errors.push(`${label}.model_id is required`);
-  let reasoning = null;
-  if (candidate.reasoning_effort !== void 0) {
-    reasoning = cleanId(candidate.reasoning_effort);
-    if (!reasoning) errors.push(`${label}.reasoning_effort must be a non-empty string when set`);
-  }
-  return modelId ? Object.freeze({ model_id: modelId, ...reasoning ? { reasoning_effort: reasoning } : {} }) : null;
-}
-function resolveHostPolicy(raw, host, label, errors) {
-  if (raw === void 0) {
-    return Object.freeze({ host, parent_fallback: true, candidates: Object.freeze([]), preset: null });
-  }
-  if (!objectLike(raw)) {
-    errors.push(`${label} must be an object`);
-    return Object.freeze({ host, parent_fallback: true, candidates: Object.freeze([]), preset: null });
-  }
-  for (const key of Object.keys(raw)) {
-    if (!["preset", "candidates", "parent_fallback"].includes(key)) errors.push(`${label} has unknown field ${key}`);
-  }
-  if (raw.preset !== void 0 && raw.candidates !== void 0) {
-    errors.push(`${label} may set preset or candidates, not both`);
-  }
-  let preset = null;
-  let candidates = [];
-  if (raw.preset !== void 0) {
-    preset = cleanId(raw.preset);
-    if (!preset) errors.push(`${label}.preset must be a non-empty string`);
-    else {
-      const definition = MANUAL_SUBAGENT_PRESETS[preset];
-      if (!definition) errors.push(`${label}.preset is unknown: ${preset}`);
-      else if (definition.host !== host) errors.push(`${label}.preset ${preset} is not valid for ${host}`);
-      else candidates = definition.candidates.map((entry) => Object.freeze({ ...entry }));
-    }
-  }
-  if (Array.isArray(raw.candidates)) {
-    if (raw.candidates.length === 0) errors.push(`${label}.candidates must not be empty`);
-    candidates = raw.candidates.map((entry, index) => validateCandidate(entry, `${label}.candidates[${index}]`, errors)).filter(Boolean);
-  } else if (raw.candidates !== void 0) {
-    errors.push(`${label}.candidates must be an array`);
-  }
-  const parentFallback = raw.parent_fallback === void 0 ? true : raw.parent_fallback === true ? true : raw.parent_fallback === false ? false : (errors.push(`${label}.parent_fallback must be a boolean`), true);
-  if (host === "cursor") {
-    for (const [index, candidate] of candidates.entries()) {
-      if (candidate.reasoning_effort) errors.push(`${label}.candidates[${index}] must not set reasoning_effort on Cursor`);
-    }
-  }
-  return Object.freeze({
-    host,
-    parent_fallback: parentFallback,
-    candidates: Object.freeze(candidates),
-    preset
-  });
-}
-function validateManualSubagentPolicy(value, label = "manual_subagent_policy") {
-  const errors = [];
-  if (!objectLike(value)) {
-    errors.push(`${label} must be an object`);
-    return errors;
-  }
-  for (const key of Object.keys(value)) {
-    if (!["schema", "mode", "hosts"].includes(key)) errors.push(`${label} has unknown field ${key}`);
-  }
-  if (value.schema !== MANUAL_SUBAGENT_POLICY_SCHEMA) errors.push(`${label}.schema must be ${MANUAL_SUBAGENT_POLICY_SCHEMA}`);
-  if (!MANUAL_SUBAGENT_MODES.includes(value.mode)) errors.push(`${label}.mode must be parent-only or parent-or-approved`);
-  if (value.hosts !== void 0) {
-    if (!objectLike(value.hosts)) errors.push(`${label}.hosts must be an object`);
-    else {
-      for (const key of Object.keys(value.hosts)) {
-        if (!MANUAL_SUBAGENT_HOSTS.includes(key)) errors.push(`${label}.hosts has unknown host ${key}`);
-      }
-      for (const host of MANUAL_SUBAGENT_HOSTS) {
-        resolveHostPolicy(value.hosts[host], host, `${label}.hosts.${host}`, errors);
-      }
-    }
-  }
-  return errors;
-}
-function resolveManualSubagentPolicy(options = {}) {
-  const path = options.preferencesPath ?? defaultHostPreferencesPath(options);
-  if (!existsSync3(path)) return parentOnlyResolution("default", path);
-  let parsed;
-  try {
-    parsed = parsePreferenceYaml(readFileSync3(path, "utf8"));
-  } catch (error) {
-    return parentOnlyResolution("invalid-fallback", path, [`preferences file is unreadable: ${error.message}`]);
-  }
-  if (!objectLike(parsed)) return parentOnlyResolution("invalid-fallback", path, ["preferences must be an object"]);
-  if (parsed.manual_subagent_policy === void 0) return parentOnlyResolution("default", path);
-  const errors = validateManualSubagentPolicy(parsed.manual_subagent_policy);
-  if (errors.length > 0) return parentOnlyResolution("invalid-fallback", path, errors);
-  const policy = parsed.manual_subagent_policy;
-  if (policy.mode === "parent-only") {
-    return Object.freeze({
-      ...parentOnlyResolution("file", path),
-      mode: "parent-only"
-    });
-  }
-  const hostErrors = [];
-  const hosts = Object.freeze({
-    cursor: resolveHostPolicy(policy.hosts?.cursor, "cursor", "manual_subagent_policy.hosts.cursor", hostErrors),
-    codex: resolveHostPolicy(policy.hosts?.codex, "codex", "manual_subagent_policy.hosts.codex", hostErrors)
-  });
-  if (hostErrors.length > 0) return parentOnlyResolution("invalid-fallback", path, hostErrors);
-  return Object.freeze({
-    schema: MANUAL_SUBAGENT_POLICY_SCHEMA,
-    mode: "parent-or-approved",
-    source: "file",
-    path,
-    authoritative: false,
-    hosts
-  });
-}
-function approvedModelIds(hostPolicy) {
-  return new Set((hostPolicy?.candidates ?? []).map((entry) => entry.model_id));
-}
-function childAllowedByPolicy({ parentModel, observedChild, hostPolicy, mode }) {
-  const parent = cleanId(parentModel);
-  const child = cleanId(observedChild);
-  if (!parent || !child) return { allowed: false, match_mode: null };
-  if (child === parent) return { allowed: true, match_mode: "exact-parent" };
-  if (mode !== "parent-or-approved") return { allowed: false, match_mode: null };
-  if (approvedModelIds(hostPolicy).has(child)) return { allowed: true, match_mode: "approved-candidate" };
-  return { allowed: false, match_mode: null };
-}
-function selectCodexCandidate({ hostPolicy, mode, unavailable = [], parentModel = null }) {
-  if (mode !== "parent-or-approved") {
-    return Object.freeze({ kind: "parent", model_id: cleanId(parentModel), reasoning_effort: null, index: -1 });
-  }
-  const blocked = new Set((unavailable ?? []).map(cleanId).filter(Boolean));
-  const candidates = hostPolicy?.candidates ?? [];
-  for (const [index, candidate] of candidates.entries()) {
-    if (blocked.has(candidate.model_id)) continue;
-    return Object.freeze({
-      kind: "candidate",
-      model_id: candidate.model_id,
-      reasoning_effort: candidate.reasoning_effort ?? null,
-      index
-    });
-  }
-  if (hostPolicy?.parent_fallback !== false) {
-    return Object.freeze({ kind: "parent", model_id: cleanId(parentModel), reasoning_effort: null, index: -1 });
-  }
-  return null;
-}
-
-// src/core/manual-repository-snapshot.mjs
-import { createHash as createHash4 } from "node:crypto";
-import { spawnSync } from "node:child_process";
-import {
-  lstatSync,
-  readFileSync as readFileSync4,
-  readlinkSync
-} from "node:fs";
-import { resolve as resolve5 } from "node:path";
-function git(workspaceRoot, args, options = {}) {
-  const runner = options.spawnSync ?? spawnSync;
-  const result = runner("git", ["-C", workspaceRoot, ...args], {
-    encoding: args.includes("-z") ? "buffer" : "utf8",
-    maxBuffer: 16 * 1024 * 1024,
-    windowsHide: true
-  });
-  if (result.error) throw result.error;
-  if (result.status !== 0) {
-    const stderr = Buffer.isBuffer(result.stderr) ? result.stderr.toString("utf8") : String(result.stderr ?? "");
-    throw new Error(`repository snapshot failed: git ${args.join(" ")} (${stderr.trim() || `exit ${result.status}`})`);
-  }
-  return result.stdout;
-}
-function nulPaths(value) {
-  const buffer = Buffer.isBuffer(value) ? value : Buffer.from(String(value ?? ""));
-  return buffer.toString("utf8").split("\0").filter(Boolean);
-}
-function sha2562(value) {
-  return createHash4("sha256").update(value).digest("hex");
-}
-function repositoryPathFingerprint(workspaceRoot, repositoryPath) {
-  const absolute = resolve5(workspaceRoot, repositoryPath);
-  try {
-    const stat = lstatSync(absolute);
-    if (stat.isSymbolicLink()) return `symlink:${sha2562(Buffer.from(readlinkSync(absolute), "utf8"))}`;
-    if (stat.isFile()) return `file:${stat.mode.toString(8)}:${sha2562(readFileSync4(absolute))}`;
-    if (stat.isDirectory()) return `directory:${stat.mode.toString(8)}`;
-    return `other:${stat.mode.toString(8)}:${stat.size}`;
-  } catch (error) {
-    if (error?.code === "ENOENT") return "missing";
-    throw error;
-  }
-}
-function captureRepositorySnapshot(workspaceRoot, options = {}) {
-  const root = String(git(workspaceRoot, ["rev-parse", "--show-toplevel"], options)).trim();
-  const head = String(git(root, ["rev-parse", "HEAD"], options)).trim();
-  const index = git(root, ["ls-files", "--stage", "-z", "--"], options);
-  const status = git(root, ["status", "--porcelain=v2", "--untracked-files=all", "-z", "--"], options);
-  const tracked = nulPaths(git(root, ["diff", "--name-only", "-z", "HEAD", "--"], options));
-  const untracked = nulPaths(git(root, ["ls-files", "--others", "--exclude-standard", "-z", "--"], options));
-  const dirtyPaths = [.../* @__PURE__ */ new Set([...tracked, ...untracked])].sort();
-  const fingerprints = Object.fromEntries(dirtyPaths.map((path) => [path, repositoryPathFingerprint(root, path)]));
-  return {
-    schema: 1,
-    repository_root: root,
-    head,
-    dirty_paths: dirtyPaths,
-    fingerprints,
-    index_fingerprint: sha2562(Buffer.isBuffer(index) ? index : Buffer.from(String(index))),
-    status_fingerprint: sha2562(Buffer.isBuffer(status) ? status : Buffer.from(String(status))),
-    working_tree: dirtyPaths.length > 0 ? "modified" : "unchanged",
-    captured_at: (/* @__PURE__ */ new Date()).toISOString()
-  };
-}
-function validSnapshot(value) {
-  return Boolean(
-    value && value.schema === 1 && typeof value.repository_root === "string" && typeof value.head === "string" && Array.isArray(value.dirty_paths) && value.fingerprints && typeof value.fingerprints === "object" && !Array.isArray(value.fingerprints)
-  );
-}
-function deriveRepositoryDelta(baseline, current) {
-  if (!validSnapshot(current)) throw new Error("current repository snapshot is invalid");
-  if (!baseline) {
-    return {
-      baseline_available: false,
-      changed_paths: [...current.dirty_paths],
-      repository_snapshot: evidenceRepositorySnapshot(current, current.dirty_paths, {
-        baselineAvailable: false
-      })
-    };
-  }
-  if (!validSnapshot(baseline)) throw new Error("repository baseline is invalid");
-  if (resolve5(baseline.repository_root) !== resolve5(current.repository_root)) {
-    throw new Error("repository root changed after the native closeout baseline");
-  }
-  if (baseline.head !== current.head) {
-    throw new Error("repository HEAD changed after the native closeout baseline");
-  }
-  const candidates = [.../* @__PURE__ */ new Set([...baseline.dirty_paths, ...current.dirty_paths])].sort();
-  const changedPaths = candidates.filter((path) => {
-    const before = Object.prototype.hasOwnProperty.call(baseline.fingerprints, path) ? baseline.fingerprints[path] : "clean";
-    const after = Object.prototype.hasOwnProperty.call(current.fingerprints, path) ? current.fingerprints[path] : "clean";
-    return before !== after;
-  });
-  return {
-    baseline_available: true,
-    changed_paths: changedPaths,
-    repository_snapshot: evidenceRepositorySnapshot(current, changedPaths, {
-      baselineAvailable: true
-    })
-  };
-}
-function evidenceRepositorySnapshot(snapshot, relevantPaths, { baselineAvailable = true } = {}) {
-  if (!validSnapshot(snapshot)) throw new Error("repository snapshot is invalid");
-  const entries = [...new Set(relevantPaths ?? [])].sort().map((path) => `${path}=${snapshot.fingerprints[path] ?? repositoryPathFingerprint(snapshot.repository_root, path)}`);
-  entries.push(`index=${snapshot.index_fingerprint ?? "unavailable"}`);
-  entries.push(`status=${snapshot.status_fingerprint ?? "unavailable"}`);
-  return {
-    repository_root: snapshot.repository_root,
-    head: snapshot.head,
-    working_tree: snapshot.working_tree,
-    relevant_fingerprints: entries.length > 0 ? entries.join("; ") : "none",
-    known_failures: "none observed by the repository snapshot adapter",
-    baseline_available: baselineAvailable
-  };
-}
+if (process.argv[1] && ["validate-artifact.source.mjs", "validate-artifact.mjs"].includes(basename(process.argv[1])) && realpathSync(resolve3(process.argv[1])) === realpathSync(fileURLToPath(import.meta.url))) runCli();
 
 // src/core/manual-check-receipts.mjs
-import { createHash as createHash5, randomUUID } from "node:crypto";
-import {
-  chmodSync,
-  existsSync as existsSync4,
-  lstatSync as lstatSync2,
-  mkdirSync,
-  readdirSync,
-  readFileSync as readFileSync5,
-  realpathSync as realpathSync2,
-  renameSync,
-  rmSync,
-  writeFileSync
-} from "node:fs";
-import { dirname as dirname2, join as join5, relative, resolve as resolve6, sep } from "node:path";
 var MANUAL_CHECK_RECEIPT_TTL_MS = 24 * 60 * 60 * 1e3;
-var MANUAL_CHECK_RECEIPT_SURFACE = "host-tool-receipt";
-function manualReceiptHash(value) {
-  return createHash5("sha256").update(String(value)).digest("hex");
-}
-function stable(value) {
-  if (Array.isArray(value)) return value.map(stable);
-  if (!value || typeof value !== "object") return value;
-  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])]));
-}
-function stableManualReceiptJson(value) {
-  return JSON.stringify(stable(value));
-}
-var sha2563 = manualReceiptHash;
-var stableJson = stableManualReceiptJson;
-function unique2(values) {
-  return [...new Set((values ?? []).filter(Boolean).map(String))];
-}
-function normalizeManualCheckCommand(value) {
-  const trimmed = String(value ?? "").trim();
-  return trimmed.startsWith("rtk ") ? trimmed.slice(4) : trimmed;
-}
 function readOnlyShellSegment(segment) {
   const cleaned = String(segment ?? "").trim().replace(/^(?:[A-Za-z_][A-Za-z0-9_]*=[^\s]+\s+)*/, "").replace(/^rtk\s+/, "");
   return /^(?:pwd|ls|rg|grep|head|tail|wc|stat|find|readlink|which|type|file|test)(?:\s|$)/.test(cleaned) || /^sed\s+-n(?:\s|$)/.test(cleaned) || /^git\s+(?:status|diff|show|log|rev-parse|ls-files|check-ignore)(?:\s|$)/.test(cleaned) || /^node\s+--test(?:\s|$)/.test(cleaned) || /^node\s+[^\s]*(?:validate|check|inspect)[^\s]*\.mjs(?:\s|$)/.test(cleaned) || /^npm\s+(?:test|run\s+(?:test|check|validate|release-check))(?:\s|$)/.test(cleaned);
@@ -17031,2626 +16264,6 @@ function isReadOnlyShell(command) {
   const source = String(command ?? "");
   if (!source.trim() || /[\r\n`]|\$\(|<|(?:^|[^<])>(?:>|&)?|(?:^|[^&])&(?!&)|\btee\b|\bsed\s+-i\b|\bperl\s+-i\b/.test(source)) return false;
   return source.split(/\s*(?:&&|\|\||;|\|)\s*/).filter(Boolean).every(readOnlyShellSegment);
-}
-function normalizedWorkingDirectory(workspaceRoot, value) {
-  const root = resolve6(workspaceRoot);
-  const source = value === void 0 || value === null || String(value).trim() === "" ? root : resolve6(root, String(value));
-  const rel = relative(root, source).replaceAll("\\", "/");
-  if (rel === "") return ".";
-  if (rel === ".." || rel.startsWith("../")) return null;
-  return rel;
-}
-function plannedWorkingDirectory(value) {
-  const source = String(value ?? "").trim();
-  if (!source || /^repository root$/i.test(source) || source === ".") return ".";
-  const normalized = source.replaceAll("\\", "/").replace(/^\.\//, "").replace(/\/$/, "");
-  if (!normalized || normalized === ".." || normalized.startsWith("../") || normalized.startsWith("/")) return null;
-  return normalized;
-}
-function manualMachineChecks(rootPlanText, pluginRoot) {
-  const contract = executionContractFromArtifactText(rootPlanText, pluginRoot);
-  if (contract.errors.length > 0 || contract.fields?.schema !== 5) {
-    throw new Error(`manual Check receipts require a valid Schema-5 Root: ${contract.errors.join("; ")}`);
-  }
-  return {
-    root_plan_id: contract.fields.id,
-    root_hash: rootContentHash(rootPlanText),
-    checks: contract.checks.filter((check) => check.Required === "yes" && check["Evidence Class"] === "machine-verifiable").map((check) => ({
-      check_id: check["Check ID"],
-      command: normalizeManualCheckCommand(check["Command or Inspection"]),
-      command_hash: sha2563(normalizeManualCheckCommand(check["Command or Inspection"])),
-      working_directory: plannedWorkingDirectory(check["Working Directory"]),
-      expected: check["Expected Result"],
-      required_repetitions: 1
-    })),
-    all_checks: contract.checks.filter((check) => check.Required === "yes")
-  };
-}
-function shellToolInput(toolName, toolInput, workspaceRoot) {
-  if (!/^(?:Shell|Bash)$/i.test(String(toolName ?? ""))) return null;
-  const source = toolInput && typeof toolInput === "object" && !Array.isArray(toolInput) ? toolInput : {};
-  const command = source.command ?? source.cmd;
-  if (typeof command !== "string" || !command.trim()) return null;
-  const workingDirectory = normalizedWorkingDirectory(workspaceRoot, source.workdir ?? source.cwd);
-  if (workingDirectory === null) return null;
-  return {
-    command: normalizeManualCheckCommand(command),
-    working_directory: workingDirectory
-  };
-}
-function repositorySnapshotFingerprint(snapshot) {
-  if (!snapshot || typeof snapshot !== "object") throw new Error("manual Check receipt requires a repository snapshot");
-  return sha2563(stableJson({
-    repository_root: resolve6(snapshot.repository_root),
-    head: snapshot.head,
-    dirty_paths: snapshot.dirty_paths,
-    fingerprints: snapshot.fingerprints,
-    index_fingerprint: snapshot.index_fingerprint ?? null,
-    status_fingerprint: snapshot.status_fingerprint ?? null
-  }));
-}
-function beginManualCheckReceipt({
-  rootPlanText,
-  pluginRoot,
-  workspaceRoot,
-  toolName,
-  toolInput,
-  captureSnapshot = captureRepositorySnapshot,
-  now = () => /* @__PURE__ */ new Date()
-}) {
-  if (typeof rootPlanText !== "string" || !rootPlanText.trim()) return null;
-  const invocation = shellToolInput(toolName, toolInput, workspaceRoot);
-  if (!invocation) return null;
-  const plan = manualMachineChecks(rootPlanText, pluginRoot);
-  const matches = plan.checks.filter((check) => check.command === invocation.command && check.working_directory !== null && check.working_directory === invocation.working_directory);
-  if (matches.length !== 1) return null;
-  const snapshot = captureSnapshot(workspaceRoot);
-  const startedAt = now().toISOString();
-  return {
-    schema: 1,
-    kind: "manual-check-receipt-candidate",
-    candidate_id: sha2563(stableJson({
-      root_hash: plan.root_hash,
-      check_id: matches[0].check_id,
-      command_hash: matches[0].command_hash,
-      working_directory: matches[0].working_directory,
-      snapshot_fingerprint: repositorySnapshotFingerprint(snapshot),
-      started_at: startedAt
-    })),
-    root_plan_id: plan.root_plan_id,
-    root_hash: plan.root_hash,
-    check_id: matches[0].check_id,
-    command_hash: matches[0].command_hash,
-    working_directory: matches[0].working_directory,
-    required_repetitions: matches[0].required_repetitions,
-    repository_root: resolve6(snapshot.repository_root),
-    repository_key: repositoryKey(snapshot.repository_root),
-    snapshot_fingerprint: repositorySnapshotFingerprint(snapshot),
-    started_at: startedAt
-  };
-}
-function explicitExitCode(value, seen = /* @__PURE__ */ new Set()) {
-  if (!value || typeof value !== "object" || seen.has(value)) return null;
-  seen.add(value);
-  for (const key of ["exit_code", "exitCode", "code"]) {
-    if (Number.isInteger(value[key])) return value[key];
-  }
-  for (const child of Object.values(value)) {
-    const found = explicitExitCode(child, seen);
-    if (found !== null) return found;
-  }
-  return null;
-}
-function responseText(value, seen = /* @__PURE__ */ new Set()) {
-  if (typeof value === "string") return value.replace(/\r\n/g, "\n");
-  if (!value || typeof value !== "object" || seen.has(value)) return null;
-  seen.add(value);
-  for (const key of ["stdout", "output", "text"]) {
-    if (typeof value[key] === "string") return value[key].replace(/\r\n/g, "\n");
-  }
-  if (Array.isArray(value.content)) {
-    const text = value.content.filter((entry) => entry?.type === "text" && typeof entry.text === "string").map((entry) => entry.text).join("\n");
-    if (text) return text.replace(/\r\n/g, "\n");
-  }
-  for (const child of Object.values(value)) {
-    const found = responseText(child, seen);
-    if (found !== null) return found;
-  }
-  return null;
-}
-function explicitHostSignal(value, seen = /* @__PURE__ */ new Set()) {
-  if (!value || typeof value !== "object" || seen.has(value)) return null;
-  seen.add(value);
-  if (value.isError === true) return "failed";
-  if (Object.hasOwn(value, "error") && value.error !== null && value.error !== false && value.error !== "") return "failed";
-  for (const key of ["status", "result_status", "outcome"]) {
-    const signal = String(value[key] ?? "").trim().toLowerCase();
-    if (["failed", "failure", "error", "cancelled", "canceled", "timed-out", "timeout"].includes(signal)) return "failed";
-  }
-  for (const key of ["ok", "success"]) if (value[key] === false) return "failed";
-  let success = false;
-  for (const key of ["status", "result_status", "outcome"]) {
-    const signal = String(value[key] ?? "").trim().toLowerCase();
-    if (["passed", "success", "succeeded", "completed", "ok"].includes(signal)) success = true;
-  }
-  for (const key of ["ok", "success"]) if (value[key] === true) success = true;
-  for (const child of Object.values(value)) {
-    const nested = explicitHostSignal(child, seen);
-    if (nested === "failed") return "failed";
-    if (nested === "passed") success = true;
-  }
-  return success ? "passed" : null;
-}
-function manualToolResultStatus(response) {
-  if (response === void 0 || response === null) return { status: "missing", exit_code: null };
-  const signal = explicitHostSignal(response);
-  const text = responseText(response);
-  const textualExit = text?.match(/\b(?:process\s+)?(?:exited?|exit)\s+(?:with\s+)?(?:code|status)\s*[:=]?\s*(-?\d+)\b/i);
-  const exitCode = explicitExitCode(response) ?? (textualExit ? Number(textualExit[1]) : null);
-  if (signal === "failed" || exitCode !== null && exitCode !== 0) return { status: "failed", exit_code: exitCode };
-  if (exitCode === 0 || signal === "passed") return { status: "passed", exit_code: exitCode };
-  return { status: "missing", exit_code: null };
-}
-function canonicalResponseHash(response, result) {
-  const text = responseText(response);
-  return sha2563(stableJson({
-    status: result.status,
-    exit_code: result.exit_code ?? (result.status === "passed" ? 0 : null),
-    output_hash: text === null ? null : sha2563(text)
-  }));
-}
-function proofBase(workspaceRoot, rootHash, options = {}) {
-  return join5(sharedArtifactStateRoot(canonicalWorkspaceRoot(workspaceRoot), options), "manual-check-receipts", rootHash);
-}
-function canonicalManualWorkspaceRoot(workspaceRoot) {
-  try {
-    return realpathSync2(workspaceRoot);
-  } catch {
-    return resolve6(workspaceRoot);
-  }
-}
-var canonicalWorkspaceRoot = canonicalManualWorkspaceRoot;
-function assertManualReceiptPath(path, base) {
-  const resolvedBase = resolve6(base);
-  const resolvedPath = resolve6(path);
-  if (resolvedPath !== resolvedBase && !resolvedPath.startsWith(`${resolvedBase}${sep}`)) {
-    throw new Error("manual Check receipt path escapes its protected state root");
-  }
-  let current = resolvedPath;
-  while (current !== resolvedBase && !existsSync4(current)) current = dirname2(current);
-  if (existsSync4(current) && lstatSync2(current).isSymbolicLink()) {
-    throw new Error("manual Check receipt state may not be symlink redirected");
-  }
-}
-var assertSafeDirectory = assertManualReceiptPath;
-function ensureDirectory(path, base) {
-  assertSafeDirectory(path, base);
-  mkdirSync(path, { recursive: true, mode: 448 });
-  let current = resolve6(path);
-  const stop = resolve6(base);
-  while (current.startsWith(stop)) {
-    if (lstatSync2(current).isSymbolicLink()) throw new Error("manual Check receipt state may not contain symlink directories");
-    try {
-      chmodSync(current, 448);
-    } catch {
-    }
-    if (current === stop) break;
-    current = dirname2(current);
-  }
-}
-function writeManualReceiptRecord(path, value, base) {
-  ensureDirectory(dirname2(path), base);
-  const temporary = `${path}.${process.pid}.${randomUUID()}.tmp`;
-  writeFileSync(temporary, `${JSON.stringify(value, null, 2)}
-`, { encoding: "utf8", mode: 384 });
-  renameSync(temporary, path);
-  try {
-    chmodSync(path, 384);
-  } catch {
-  }
-}
-var writeReceiptRecord = writeManualReceiptRecord;
-function readManualReceiptRecord(path, base) {
-  assertSafeDirectory(path, base);
-  const stat = lstatSync2(path);
-  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 64 * 1024) return null;
-  const value = JSON.parse(readFileSync5(path, "utf8"));
-  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-}
-var readReceiptRecord = readManualReceiptRecord;
-function existingRecords(directory, base) {
-  if (!existsSync4(directory)) return [];
-  assertSafeDirectory(directory, base);
-  if (lstatSync2(directory).isSymbolicLink()) return [];
-  return readdirSync(directory).filter((name) => /^[a-f0-9]{64}\.json$/.test(name)).flatMap((name) => {
-    try {
-      const record = readReceiptRecord(join5(directory, name), base);
-      return record ? [record] : [];
-    } catch {
-      return [];
-    }
-  });
-}
-function invalidateManualCheckReceipts({ rootPlanText, workspaceRoot, options = {} }) {
-  if (typeof rootPlanText !== "string" || !rootPlanText.trim()) return false;
-  const rootHash = rootContentHash(rootPlanText);
-  const canonicalRoot = canonicalWorkspaceRoot(workspaceRoot);
-  const base = proofBase(canonicalRoot, rootHash, options);
-  if (!existsSync4(base)) return false;
-  const stateRoot = sharedArtifactStateRoot(canonicalRoot, options);
-  assertSafeDirectory(base, stateRoot);
-  if (lstatSync2(base).isSymbolicLink()) throw new Error("manual Check receipt state may not be symlink redirected");
-  rmSync(base, { recursive: true, force: true });
-  return true;
-}
-function completeManualCheckReceipt({
-  candidate,
-  rootPlanText,
-  workspaceRoot,
-  toolResponse,
-  captureSnapshot = captureRepositorySnapshot,
-  now = () => /* @__PURE__ */ new Date(),
-  options = {}
-}) {
-  if (!candidate || candidate.kind !== "manual-check-receipt-candidate") return { status: "unmatched", receipt: null };
-  if (candidate.root_hash !== rootContentHash(rootPlanText)) return { status: "root-mismatch", receipt: null };
-  const current = captureSnapshot(workspaceRoot);
-  const currentFingerprint = repositorySnapshotFingerprint(current);
-  if (resolve6(current.repository_root) !== resolve6(candidate.repository_root) || currentFingerprint !== candidate.snapshot_fingerprint) {
-    invalidateManualCheckReceipts({ rootPlanText, workspaceRoot, options });
-    return { status: "repository-mutated", receipt: null };
-  }
-  const result = manualToolResultStatus(toolResponse);
-  if (result.status === "missing") return { status: "missing-result", receipt: null };
-  const canonicalRoot = current.repository_root;
-  const base = proofBase(canonicalRoot, candidate.root_hash, options);
-  const directory = join5(base, candidate.check_id);
-  const prior = existingRecords(directory, sharedArtifactStateRoot(canonicalRoot, options)).filter((record2) => record2?.receipt?.snapshot_fingerprint === candidate.snapshot_fingerprint);
-  const ordinal = prior.length + 1;
-  const receipt = {
-    schema: 1,
-    kind: "manual-check-receipt",
-    root_hash: candidate.root_hash,
-    check_id: candidate.check_id,
-    command_hash: candidate.command_hash,
-    working_directory: candidate.working_directory,
-    repository_key: candidate.repository_key,
-    snapshot_fingerprint: candidate.snapshot_fingerprint,
-    result_status: result.status,
-    tool_response_hash: canonicalResponseHash(toolResponse, result),
-    repetition_ordinal: ordinal
-  };
-  const receiptHash = sha2563(stableJson(receipt));
-  const recordedAt = now();
-  const record = {
-    schema: 1,
-    kind: "manual-check-receipt-record",
-    recorded_at: recordedAt.toISOString(),
-    expires_at: new Date(recordedAt.getTime() + MANUAL_CHECK_RECEIPT_TTL_MS).toISOString(),
-    receipt_hash: receiptHash,
-    receipt
-  };
-  writeReceiptRecord(join5(directory, `${receiptHash}.json`), record, sharedArtifactStateRoot(canonicalRoot, options));
-  return { status: result.status === "passed" ? "recorded" : "failed", receipt, receipt_hash: receiptHash };
-}
-function validStoredReceipt(record, { plan, repositoryRoot, currentFingerprint, now }) {
-  if (!record || record.schema !== 1 || record.kind !== "manual-check-receipt-record") return false;
-  const receipt = record.receipt;
-  if (!receipt || receipt.schema !== 1 || receipt.kind !== "manual-check-receipt") return false;
-  if (!/^[a-f0-9]{64}$/.test(String(record.receipt_hash ?? ""))) return false;
-  if (sha2563(stableJson(receipt)) !== record.receipt_hash) return false;
-  if (receipt.root_hash !== plan.root_hash || receipt.repository_key !== repositoryKey(repositoryRoot)) return false;
-  if (receipt.snapshot_fingerprint !== currentFingerprint) return false;
-  const expires = Date.parse(record.expires_at);
-  if (!Number.isFinite(expires) || expires <= now.getTime()) return false;
-  const check = plan.checks.find((entry) => entry.check_id === receipt.check_id);
-  if (!check || check.command_hash !== receipt.command_hash || check.working_directory !== receipt.working_directory) return false;
-  return ["passed", "failed"].includes(receipt.result_status) && Number.isInteger(receipt.repetition_ordinal) && receipt.repetition_ordinal >= 1;
-}
-function loadManualCheckReceipts({
-  rootPlanText,
-  pluginRoot,
-  workspaceRoot,
-  captureSnapshot = captureRepositorySnapshot,
-  now = () => /* @__PURE__ */ new Date(),
-  options = {}
-}) {
-  if (typeof rootPlanText !== "string" || !rootPlanText.trim() || !workspaceRoot) return [];
-  const plan = manualMachineChecks(rootPlanText, pluginRoot);
-  const current = captureSnapshot(workspaceRoot);
-  const currentFingerprint = repositorySnapshotFingerprint(current);
-  const canonicalRoot = current.repository_root;
-  const base = proofBase(canonicalRoot, plan.root_hash, options);
-  const stateRoot = sharedArtifactStateRoot(canonicalRoot, options);
-  if (!existsSync4(base)) return [];
-  try {
-    assertSafeDirectory(base, stateRoot);
-    if (lstatSync2(base).isSymbolicLink()) return [];
-    return readdirSync(base, { withFileTypes: true }).filter((entry) => entry.isDirectory() && /^CHECK-[1-9][0-9]*$/.test(entry.name)).flatMap((entry) => existingRecords(join5(base, entry.name), stateRoot)).filter((record) => validStoredReceipt(record, {
-      plan,
-      repositoryRoot: current.repository_root,
-      currentFingerprint,
-      now: now()
-    })).map((record) => ({ ...record.receipt, receipt_hash: record.receipt_hash })).sort((left, right) => left.check_id.localeCompare(right.check_id) || left.repetition_ordinal - right.repetition_ordinal);
-  } catch {
-    return [];
-  }
-}
-function limitationFor(check) {
-  const command = normalizeManualCheckCommand(check["Command or Inspection"]);
-  const workingDirectory = String(check["Working Directory"] ?? "repository root");
-  return `HOST-RECEIPT-MISSING: ${check["Check ID"]} was not host-attested for the current repository snapshot. Re-run exactly \`${command}\` from ${workingDirectory}, then retry closeout.`;
-}
-function sameCallerObservation(entry, existing) {
-  return Boolean(existing && entry?.grade === existing.grade && String(entry?.observed ?? "not fully observed") === String(existing.observed ?? "not fully observed") && String(entry?.expected ?? existing.expected ?? "") === String(existing.expected ?? ""));
-}
-function calibrateManualCheckEvidence({ entries, plannedChecks, receipts = [], existingCheckEvidence = [] }) {
-  const existingByCheck = new Map((existingCheckEvidence ?? []).map((entry) => [entry.check_id, entry]));
-  return entries.map((entry) => {
-    const check = plannedChecks.get(entry.check_id);
-    if (!check || check["Evidence Class"] !== "machine-verifiable") return entry;
-    const commandHash = sha2563(normalizeManualCheckCommand(check["Command or Inspection"]));
-    const workingDirectory = plannedWorkingDirectory(check["Working Directory"]);
-    const checkReceipts = receipts.filter((receipt) => receipt.command_hash === commandHash && receipt.working_directory === workingDirectory);
-    const failures = checkReceipts.filter((receipt) => receipt.result_status === "failed");
-    const successes = checkReceipts.filter((receipt) => receipt.result_status === "passed");
-    if (failures.length > 0) {
-      return {
-        ...entry,
-        grade: "failed",
-        surface: MANUAL_CHECK_RECEIPT_SURFACE,
-        method: normalizeManualCheckCommand(check["Command or Inspection"]),
-        repetitions: failures.length + successes.length,
-        artifact_hashes: unique2([...failures, ...successes].map((receipt) => receipt.receipt_hash)),
-        limitations: unique2([...entry.limitations ?? [], `HOST-RECEIPT-FAILED: ${entry.check_id} returned a host-observed failure for the current repository snapshot.`])
-      };
-    }
-    if (entry.grade !== "verified") return entry;
-    if (successes.length >= 1) {
-      return {
-        ...entry,
-        grade: "verified",
-        surface: MANUAL_CHECK_RECEIPT_SURFACE,
-        method: normalizeManualCheckCommand(check["Command or Inspection"]),
-        repetitions: successes.length,
-        artifact_hashes: unique2(successes.map((receipt) => receipt.receipt_hash))
-      };
-    }
-    const existing = existingByCheck.get(entry.check_id);
-    if (existing?.grade === "verified" && existing.surface === MANUAL_CHECK_RECEIPT_SURFACE && Array.isArray(existing.artifact_hashes) && existing.artifact_hashes.length > 0 && sameCallerObservation(entry, existing)) {
-      return { ...existing };
-    }
-    const meaningful = String(entry.observed ?? "").trim() && !/^not (?:fully )?observed$/i.test(String(entry.observed).trim());
-    return {
-      ...entry,
-      grade: meaningful ? "supported" : "unavailable",
-      surface: "repository",
-      method: normalizeManualCheckCommand(check["Command or Inspection"]),
-      repetitions: 0,
-      artifact_hashes: [],
-      limitations: unique2([...entry.limitations ?? [], limitationFor(check)])
-    };
-  });
-}
-function manualConstraintProjection({ checks = [], evidence = [], pending = false }) {
-  const required = checks.filter((check) => check.Required === "yes");
-  const byId = new Map((evidence ?? []).map((entry) => [entry.check_id, entry]));
-  const ids2 = (predicate) => required.filter(predicate).map((check) => check["Check ID"]);
-  const hostAttested = ids2((check) => {
-    const entry = byId.get(check["Check ID"]);
-    return entry?.grade === "verified" && entry.surface === MANUAL_CHECK_RECEIPT_SURFACE && (entry.artifact_hashes?.length ?? 0) > 0;
-  });
-  const machine = ids2((check) => check["Evidence Class"] === "machine-verifiable");
-  const failed = ids2((check) => byId.get(check["Check ID"])?.grade === "failed");
-  const unattestedVerified = pending ? [] : ids2((check) => {
-    const entry = byId.get(check["Check ID"]);
-    return check["Evidence Class"] === "machine-verifiable" && entry?.grade === "verified" && !(entry.surface === MANUAL_CHECK_RECEIPT_SURFACE && (entry.artifact_hashes?.length ?? 0) > 0);
-  });
-  const ordinaryGaps = pending ? [] : ids2((check) => {
-    const entry = byId.get(check["Check ID"]);
-    return !entry || ["supported", "partial", "unavailable"].includes(entry.grade);
-  });
-  const gaps = unique2([...unattestedVerified, ...ordinaryGaps]);
-  const humanReview = ids2((check) => check["Evidence Class"] === "human-review-required");
-  const humanApproval = ids2((check) => check["Evidence Class"] === "human-approval-required");
-  const reasons = pending ? [] : [
-    ...failed.map((checkId) => ({ code: "check-failed", check_id: checkId, message: `${checkId} failed and blocks delivery.`, recovery: `Repair the cause, rerun ${checkId}, then retry closeout.` })),
-    ...unattestedVerified.map((checkId) => ({ code: "legacy-receipt-gap", check_id: checkId, message: `${checkId} is marked verified without a valid host receipt.`, recovery: `Run a fresh review for ${checkId}; use its bounded correction route to refresh Evidence with current host receipts.` })),
-    ...ordinaryGaps.map((checkId) => ({ code: "evidence-gap", check_id: checkId, message: `${checkId} is not fully verified.`, recovery: `Follow the Check limitation, rerun ${checkId}, then retry closeout.` })),
-    ...humanReview.map((checkId) => ({ code: "human-review-required", check_id: checkId, message: `${checkId} requires human review.`, recovery: `Complete the stated review for ${checkId} and record the bounded observation.` })),
-    ...humanApproval.map((checkId) => ({ code: "human-approval-required", check_id: checkId, message: `${checkId} requires explicit human approval.`, recovery: `Request the named approval before continuing.` }))
-  ];
-  return {
-    constraint_summary: {
-      schema: 1,
-      scope: "current-delivery",
-      required_checks: required.map((check) => check["Check ID"]),
-      host_attested_checks: hostAttested,
-      human_review_checks: humanReview,
-      human_approval_checks: humanApproval,
-      failed_checks: failed,
-      evidence_gap_checks: gaps,
-      legacy_unattested_verified_checks: unattestedVerified,
-      receipt_coverage: {
-        attested: hostAttested.length,
-        eligible: machine.length
-      }
-    },
-    human_attention: {
-      required: reasons.length > 0,
-      reasons
-    },
-    problem_details: reasons.map((reason) => ({
-      problem: reason.message,
-      why: reason.code === "check-failed" ? "A required failed Check blocks delivery acceptance." : ["evidence-gap", "legacy-receipt-gap"].includes(reason.code) ? "The current evidence cannot support a verified delivery claim." : "This Check is intentionally reserved for human judgment or authority.",
-      resolution: reason.recovery,
-      blocking: ["check-failed", "human-approval-required"].includes(reason.code),
-      check_id: reason.check_id
-    }))
-  };
-}
-
-// src/core/manual-boundary-receipts.mjs
-import { join as join6, relative as relative2, resolve as resolve7 } from "node:path";
-var MANUAL_BOUNDARY_RECEIPT_TTL_MS = 15 * 60 * 1e3;
-var MANUAL_BOUNDARY_RECOVERY_REASONS = Object.freeze({
-  "baseline-unavailable-after-mutation": "baseline-unavailable-after-mutation",
-  "authority-violation": "out-of-authority-changes",
-  "repository-observation-conflict": "workspace-ambiguous-after-mutation",
-  "artifact-text-conflict": "root-binding-lost-after-mutation"
-});
-var sha2564 = manualReceiptHash;
-var stableJson2 = stableManualReceiptJson;
-var canonicalWorkspaceRoot2 = canonicalManualWorkspaceRoot;
-function normalizedObservedPaths(paths, repositoryRoot) {
-  const root = resolve7(repositoryRoot);
-  return [...new Set((paths ?? []).map((value) => {
-    const source = String(value ?? "").trim();
-    if (!source || source.includes("\\") || source.includes("\0")) throw new Error("boundary receipt observed paths must be normalized repository-relative paths");
-    const candidate = resolve7(root, source);
-    const rel = relative2(root, candidate).replaceAll("\\", "/");
-    if (!rel || rel === ".." || rel.startsWith("../") || rel.startsWith("/")) {
-      throw new Error(`boundary receipt path escapes the repository: ${source}`);
-    }
-    return rel;
-  }))].sort();
-}
-function receiptBase(workspaceRoot, rootHash, options = {}) {
-  return join6(sharedArtifactStateRoot(workspaceRoot, options), "manual-boundary-receipts", rootHash);
-}
-function exactRoot(rootPlanText, pluginRoot) {
-  const inspected = inspectArtifactText(rootPlanText, pluginRoot);
-  if (inspected.errors.length > 0 || inspected.artifact?.fields?.artifact !== "work-plan" || inspected.artifact?.fields?.schema !== 5) {
-    throw new Error(`boundary receipt requires an exact valid Schema-5 Root: ${inspected.errors.join("; ") || "not a work-plan"}`);
-  }
-  return inspected.artifact.fields;
-}
-function receiptIdentity(receipt) {
-  return `br-${sha2564(stableJson2({ ...receipt, receipt_id: void 0 }))}`;
-}
-function createManualBoundaryReceipt({
-  rootPlanText,
-  pluginRoot,
-  workspaceRoot,
-  recoveryErrorCode,
-  observedPaths = null,
-  captureSnapshot = captureRepositorySnapshot,
-  now = () => /* @__PURE__ */ new Date(),
-  options = {}
-}) {
-  const reason = MANUAL_BOUNDARY_RECOVERY_REASONS[recoveryErrorCode];
-  if (!reason) throw new Error(`boundary receipt rejects recoverable or unknown error ${recoveryErrorCode}`);
-  exactRoot(rootPlanText, pluginRoot);
-  const snapshot = captureSnapshot(workspaceRoot);
-  const repositoryRoot = canonicalWorkspaceRoot2(snapshot.repository_root);
-  if (repositoryRoot !== canonicalWorkspaceRoot2(workspaceRoot)) throw new Error("boundary receipt workspace does not match the observed repository root");
-  const paths = normalizedObservedPaths(observedPaths ?? snapshot.dirty_paths, repositoryRoot);
-  const currentPaths = normalizedObservedPaths(snapshot.dirty_paths, repositoryRoot);
-  if (stableJson2(paths) !== stableJson2(currentPaths)) {
-    throw new Error("boundary receipt observed paths must equal the complete current dirty-path set");
-  }
-  if (reason === "out-of-authority-changes" && paths.length === 0) {
-    throw new Error("out-of-authority boundary receipt requires at least one observed path");
-  }
-  const observedAt = now();
-  const receipt = {
-    receipt_id: null,
-    observed_at: observedAt.toISOString(),
-    recovery_error_code: recoveryErrorCode,
-    reason_codes: [reason],
-    root_content_hash: rootContentHash(rootPlanText),
-    repository_snapshot_hash: repositorySnapshotFingerprint(snapshot),
-    observed_paths: paths
-  };
-  receipt.receipt_id = receiptIdentity(receipt);
-  const record = {
-    schema: 1,
-    kind: "manual-boundary-receipt-record",
-    recorded_at: observedAt.toISOString(),
-    expires_at: new Date(observedAt.getTime() + MANUAL_BOUNDARY_RECEIPT_TTL_MS).toISOString(),
-    repository_root: repositoryRoot,
-    receipt_hash: sha2564(stableJson2(receipt)),
-    receipt
-  };
-  const stateRoot = sharedArtifactStateRoot(repositoryRoot, options);
-  const path = join6(receiptBase(repositoryRoot, receipt.root_content_hash, options), `${receipt.receipt_id}.json`);
-  writeManualReceiptRecord(path, record, stateRoot);
-  return Object.freeze({ ...receipt, reason_codes: Object.freeze([...receipt.reason_codes]), observed_paths: Object.freeze([...receipt.observed_paths]) });
-}
-function verifyManualBoundaryReceipt({
-  receipt,
-  rootPlanText,
-  pluginRoot,
-  workspaceRoot,
-  captureSnapshot = captureRepositorySnapshot,
-  now = () => /* @__PURE__ */ new Date(),
-  options = {}
-}) {
-  try {
-    exactRoot(rootPlanText, pluginRoot);
-    if (!receipt || typeof receipt !== "object" || Array.isArray(receipt)) throw new Error("boundary receipt is missing");
-    if (!/^br-[a-f0-9]{64}$/.test(String(receipt.receipt_id ?? "")) || receiptIdentity(receipt) !== receipt.receipt_id) {
-      throw new Error("boundary receipt identity is invalid");
-    }
-    const expectedReason = MANUAL_BOUNDARY_RECOVERY_REASONS[receipt.recovery_error_code];
-    if (!expectedReason || receipt.reason_codes?.length !== 1 || receipt.reason_codes[0] !== expectedReason) {
-      throw new Error("boundary receipt recovery proof is invalid");
-    }
-    if (receipt.root_content_hash !== rootContentHash(rootPlanText)) throw new Error("boundary receipt Root binding is stale");
-    const snapshot = captureSnapshot(workspaceRoot);
-    const repositoryRoot = canonicalWorkspaceRoot2(snapshot.repository_root);
-    if (repositoryRoot !== canonicalWorkspaceRoot2(workspaceRoot)) throw new Error("boundary receipt repository binding is invalid");
-    if (receipt.repository_snapshot_hash !== repositorySnapshotFingerprint(snapshot)) throw new Error("boundary receipt repository snapshot is stale");
-    const paths = normalizedObservedPaths(receipt.observed_paths, repositoryRoot);
-    if (stableJson2(paths) !== stableJson2(receipt.observed_paths)) throw new Error("boundary receipt observed paths are not canonical");
-    if (stableJson2(paths) !== stableJson2(normalizedObservedPaths(snapshot.dirty_paths, repositoryRoot))) {
-      throw new Error("boundary receipt observed paths no longer equal the complete current dirty-path set");
-    }
-    if (expectedReason === "out-of-authority-changes" && paths.length === 0) throw new Error("boundary receipt omits the out-of-authority path");
-    const stateRoot = sharedArtifactStateRoot(repositoryRoot, options);
-    const path = join6(receiptBase(repositoryRoot, receipt.root_content_hash, options), `${receipt.receipt_id}.json`);
-    const record = readManualReceiptRecord(path, stateRoot);
-    if (!record) throw new Error("boundary receipt has no safe protected host record");
-    if (record?.schema !== 1 || record?.kind !== "manual-boundary-receipt-record") throw new Error("boundary receipt host record is incompatible");
-    if (record.repository_root !== repositoryRoot || record.receipt_hash !== sha2564(stableJson2(receipt)) || stableJson2(record.receipt) !== stableJson2(receipt)) {
-      throw new Error("boundary receipt host record does not match the artifact");
-    }
-    const observed = Date.parse(receipt.observed_at);
-    const expires = Date.parse(record.expires_at);
-    const currentTime = now().getTime();
-    if (!Number.isFinite(observed) || !Number.isFinite(expires) || observed > currentTime || expires <= currentTime) {
-      throw new Error("boundary receipt is expired or not fresh");
-    }
-    return { ok: true, receipt_id: receipt.receipt_id, repository_snapshot_hash: receipt.repository_snapshot_hash };
-  } catch (error) {
-    return { ok: false, reason: String(error?.message ?? error) };
-  }
-}
-
-// src/controller/native-closeout.mjs
-import { createHash as createHash8 } from "node:crypto";
-
-// src/core/manual-path-authority.mjs
-import { existsSync as existsSync5, realpathSync as realpathSync3 } from "node:fs";
-import { dirname as dirname3, isAbsolute, relative as relative3, resolve as resolve8, sep as sep2 } from "node:path";
-function uniqueSorted(values) {
-  return [...new Set((values ?? []).map(String).map((value) => value.trim()).filter(Boolean))].sort();
-}
-function pathMatchesRoot(path, root) {
-  return path === root || path.startsWith(`${root}/`);
-}
-function repositoryAuthorityPaths(repositoryRoot, repositoryPath) {
-  const root = realpathSync3(repositoryRoot);
-  const lexical = resolve8(root, repositoryPath);
-  if (lexical !== root && !lexical.startsWith(`${root}${sep2}`)) {
-    throw new Error(`native closeout path escapes the repository: ${repositoryPath}`);
-  }
-  let existing = lexical;
-  while (!existsSync5(existing) && existing !== root) existing = dirname3(existing);
-  const resolvedExisting = realpathSync3(existing);
-  if (resolvedExisting !== root && !resolvedExisting.startsWith(`${root}${sep2}`)) {
-    throw new Error(`native closeout path resolves outside the repository: ${repositoryPath}`);
-  }
-  const unresolved = relative3(existing, lexical);
-  const resolved = resolve8(resolvedExisting, unresolved);
-  if (resolved !== root && !resolved.startsWith(`${root}${sep2}`)) {
-    throw new Error(`native closeout path resolves outside the repository: ${repositoryPath}`);
-  }
-  const normalizeRelative = (value) => relative3(root, value).replaceAll("\\", "/") || ".";
-  return {
-    lexical: normalizeRelative(lexical),
-    resolved: normalizeRelative(resolved)
-  };
-}
-function authorityViolation(authorityPath, { allowed, protectedPaths, approvalRequired }) {
-  if (protectedPaths.some((entry) => pathMatchesRoot(authorityPath, entry))) {
-    return `native closeout path is protected by the Root: ${authorityPath}`;
-  }
-  if (approvalRequired.some((entry) => pathMatchesRoot(authorityPath, entry))) {
-    return `native closeout path requires separate human approval that the closeout report cannot grant: ${authorityPath}`;
-  }
-  if (!allowed.some((entry) => pathMatchesRoot(authorityPath, entry))) {
-    return `native closeout path is outside Root authority: ${authorityPath}`;
-  }
-  return null;
-}
-function assertChangedPathAuthority(rootFields, changedPaths, repositoryRoot) {
-  const authority = rootFields?.authority ?? {};
-  const allowed = uniqueSorted(authority.allowed_roots);
-  const protectedPaths = uniqueSorted(authority.protected_paths);
-  const approvalRequired = uniqueSorted(authority.approval_required_paths);
-  if (allowed.length === 0) throw new Error("native closeout Root has no allowed path authority");
-  for (const path of uniqueSorted(changedPaths)) {
-    if (isAbsolute(path) || path.includes("\\") || path.includes("\0")) {
-      throw new Error(`native closeout path is not repository-relative: ${path}`);
-    }
-    const candidates = repositoryAuthorityPaths(repositoryRoot, path);
-    for (const candidate of uniqueSorted([candidates.lexical, candidates.resolved])) {
-      const violation = authorityViolation(candidate, { allowed, protectedPaths, approvalRequired });
-      if (violation) throw new Error(violation);
-    }
-  }
-}
-function patchTargets(value) {
-  const source = String(value ?? "");
-  const paths = [];
-  for (const match of source.matchAll(/^\*\*\* (?:Update|Add|Delete) File:\s*(.+?)\s*$/gm)) paths.push(match[1]);
-  for (const match of source.matchAll(/^\*\*\* Move to:\s*(.+?)\s*$/gm)) paths.push(match[1]);
-  for (const match of source.matchAll(/^(?:\+\+\+|---)\s+(?:[ab]\/)?(.+?)\s*$/gm)) {
-    if (match[1] !== "/dev/null") paths.push(match[1]);
-  }
-  for (const match of source.matchAll(/^(?:rename|copy) (?:from|to)\s+(.+?)\s*$/gm)) paths.push(match[1]);
-  return paths;
-}
-function directInputPaths(value, key = null) {
-  if (typeof value === "string") {
-    return [
-      "path",
-      "paths",
-      "file",
-      "files",
-      "file_path",
-      "old_path",
-      "new_path",
-      "target",
-      "targets",
-      "source",
-      "destination",
-      "destination_path",
-      "notebook_path"
-    ].includes(key) ? [value] : [];
-  }
-  if (Array.isArray(value)) return value.flatMap((entry) => directInputPaths(entry, key));
-  if (!value || typeof value !== "object") return [];
-  return Object.entries(value).flatMap(([entryKey, entry]) => directInputPaths(entry, entryKey));
-}
-function repositoryRelativeTarget(target, repositoryRoot) {
-  const raw = String(target).trim();
-  if (!raw) return null;
-  if (raw.includes("\\") || raw.includes("\0")) return raw;
-  const candidate = relative3(resolve8(repositoryRoot), resolve8(repositoryRoot, raw));
-  return candidate.replace(/\/$/, "");
-}
-function directMutationTargets({ toolName, toolInput, repositoryRoot }) {
-  const name = String(toolName ?? "");
-  if (/^(?:Shell|Bash|Task|Agent|spawn_agent)$/i.test(name)) return [];
-  let input = toolInput && typeof toolInput === "object" && !Array.isArray(toolInput) ? toolInput : {};
-  if (typeof toolInput === "string") {
-    try {
-      const parsed = JSON.parse(toolInput);
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) input = parsed;
-    } catch {
-    }
-  }
-  const patch = typeof toolInput === "string" ? toolInput : input.patch ?? input.diff ?? input.input ?? "";
-  const targets = uniqueSorted([
-    ...directInputPaths(input),
-    ...patchTargets(patch)
-  ].map((target) => repositoryRelativeTarget(target, repositoryRoot)).filter(Boolean));
-  if (/^(?:apply_patch|ApplyPatch|Edit|Write|Delete|DeleteFile|StrReplace|EditNotebook)$/i.test(name) && targets.length === 0) {
-    throw new Error(`native closeout could not resolve a concrete mutation target for ${name}`);
-  }
-  return targets;
-}
-
-// src/controller/artifact-handoff.mjs
-import {
-  closeSync,
-  existsSync as existsSync6,
-  mkdirSync as mkdirSync2,
-  openSync,
-  readFileSync as readFileSync6,
-  readdirSync as readdirSync2,
-  renameSync as renameSync2,
-  unlinkSync,
-  writeFileSync as writeFileSync2
-} from "node:fs";
-import { createHash as createHash6, randomUUID as randomUUID2 } from "node:crypto";
-import { dirname as dirname4, join as join7, resolve as resolve9 } from "node:path";
-
-// src/controller/protocol.mjs
-var PLUGIN_VERSION = "5.4.0";
-var ARTIFACT_SCHEMA = 5;
-var CONTROLLER_PROTOCOL = 5;
-var LEGACY_WORKFLOW_3 = Object.freeze({
-  plugin_version: "3.0.0",
-  artifact_schema: 3,
-  run_record_schema: 1,
-  preparation_record_schema: 1,
-  controller_protocol: 3
-});
-var LEGACY_WORKFLOW_4 = Object.freeze({
-  plugin_version: "4.0.0",
-  artifact_schema: 4,
-  run_record_schema: 2,
-  preparation_record_schema: 2,
-  controller_protocol: 4
-});
-
-// src/controller/artifact-handoff.mjs
-var HANDOFF_RECORD_SCHEMA = 1;
-var HANDOFF_TIP_SCHEMA = 1;
-function createContentAddressedHandoffStore(rootPlanText, pluginRoot, options = {}) {
-  return new ArtifactHandoffStore(contentAddressedHandoffRoot(rootPlanText, options), pluginRoot, options.artifactSetOptions);
-}
-function validateTip(tip, rootPlanId) {
-  if (tip?.handoff_tip_schema !== HANDOFF_TIP_SCHEMA || tip.root_plan_id !== rootPlanId || !/^[a-f0-9]{64}$/.test(String(tip.root_content_hash ?? "")) || !/^[a-f0-9]{64}$/.test(String(tip.text_hash ?? ""))) {
-    throw new Error(`incompatible or corrupt handoff tip ${rootPlanId}`);
-  }
-  return tip;
-}
-function readTipFile(path, rootPlanId) {
-  if (!existsSync6(path)) return null;
-  return validateTip(JSON.parse(readFileSync6(path, "utf8")), rootPlanId);
-}
-function writeHandoffTip(rootPlanText, options = {}) {
-  const inspected = inspectArtifactText(rootPlanText, options.pluginRoot);
-  if (inspected.errors.length > 0 || inspected.artifact?.fields?.artifact !== "work-plan") {
-    throw new Error(`handoff tip requires a valid work-plan Root: ${(inspected.errors.length > 0 ? inspected.errors : ["not a work-plan"]).join("; ")}`);
-  }
-  const tip = {
-    handoff_tip_schema: HANDOFF_TIP_SCHEMA,
-    root_plan_id: inspected.artifact.fields.id,
-    root_content_hash: rootContentHash(rootPlanText),
-    text_hash: sha2565(rootPlanText),
-    updated_at: (/* @__PURE__ */ new Date()).toISOString()
-  };
-  const path = handoffTipPath(tip.root_plan_id, tip.root_content_hash, options);
-  if (existsSync6(path)) {
-    const prior = readTipFile(path, tip.root_plan_id);
-    if (prior.root_content_hash === tip.root_content_hash && prior.text_hash === tip.text_hash) return tip;
-    throw new Error(`handoff tip for ${tip.root_plan_id} conflicts with a different Root text hash`);
-  }
-  atomicJson(path, tip);
-  return tip;
-}
-function rememberContentAddressedRoot(rootPlanText, pluginRoot, options = {}) {
-  const store = createContentAddressedHandoffStore(rootPlanText, pluginRoot, options);
-  const tip = writeHandoffTip(rootPlanText, { ...options, pluginRoot });
-  return { store, tip, root_content_hash: tip.root_content_hash };
-}
-function sha2565(value) {
-  return createHash6("sha256").update(String(value)).digest("hex");
-}
-function stableArtifactSetHash(records) {
-  const projection = records.map((record) => ({ artifact_id: record.artifact_id, text_hash: record.text_hash })).sort((left, right) => left.artifact_id.localeCompare(right.artifact_id));
-  return sha2565(JSON.stringify(projection));
-}
-function atomicJson(path, value) {
-  mkdirSync2(dirname4(path), { recursive: true, mode: 448 });
-  const temporary = `${path}.${process.pid}.${randomUUID2()}.tmp`;
-  writeFileSync2(temporary, `${JSON.stringify(value, null, 2)}
-`, { mode: 384 });
-  renameSync2(temporary, path);
-}
-function processAlive(pid) {
-  if (!Number.isInteger(pid) || pid < 1) return false;
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return error.code === "EPERM";
-  }
-}
-function acquireLock(path) {
-  mkdirSync2(dirname4(path), { recursive: true, mode: 448 });
-  try {
-    const descriptor = openSync(path, "wx", 384);
-    writeFileSync2(descriptor, `${JSON.stringify({ pid: process.pid, at: (/* @__PURE__ */ new Date()).toISOString() })}
-`);
-    return descriptor;
-  } catch (error) {
-    if (error.code !== "EEXIST") throw error;
-    let stale = false;
-    try {
-      stale = !processAlive(JSON.parse(readFileSync6(path, "utf8")).pid);
-    } catch {
-      stale = true;
-    }
-    if (!stale) throw new Error("concurrent handoff closeout is already in progress");
-    unlinkSync(path);
-    const descriptor = openSync(path, "wx", 384);
-    writeFileSync2(descriptor, `${JSON.stringify({ pid: process.pid, at: (/* @__PURE__ */ new Date()).toISOString() })}
-`);
-    return descriptor;
-  }
-}
-function parsedArtifact(text, pluginRoot) {
-  const inspected = inspectArtifactText(text, pluginRoot);
-  if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) {
-    throw new Error(`handoff artifact is invalid: ${(inspected.errors.length > 0 ? inspected.errors : ["missing artifact identity"]).join("; ")}`);
-  }
-  if (inspected.artifact.fields.schema !== ARTIFACT_SCHEMA) {
-    throw new Error(`handoff accepts only Schema ${ARTIFACT_SCHEMA} artifacts`);
-  }
-  return inspected.artifact;
-}
-function normalizedBuilderProvenance(value, fields, textHash) {
-  if (value == null) return null;
-  if (fields.artifact !== "work-review" || value?.schema !== 1 || value?.kind !== "host-work-review-builder" || !/^[a-f0-9]{64}$/.test(String(value?.review_input_hash ?? "")) || value?.artifact_hash !== textHash || Object.keys(value).some((key) => !["schema", "kind", "review_input_hash", "artifact_hash"].includes(key))) {
-    throw new Error("handoff builder provenance is incompatible with the exact work-review text");
-  }
-  return {
-    schema: 1,
-    kind: "host-work-review-builder",
-    review_input_hash: value.review_input_hash,
-    artifact_hash: textHash
-  };
-}
-function recordFor(text, pluginRoot, provenance = null) {
-  const artifact = parsedArtifact(text, pluginRoot);
-  const fields = artifact.fields;
-  const textHash = sha2565(text);
-  return {
-    handoff_record_schema: HANDOFF_RECORD_SCHEMA,
-    artifact_schema: ARTIFACT_SCHEMA,
-    controller_protocol: CONTROLLER_PROTOCOL,
-    plugin_version: PLUGIN_VERSION,
-    artifact_id: fields.id,
-    artifact_type: fields.artifact,
-    root_plan_id: fields.artifact === "work-plan" ? fields.id : fields.root_plan_id,
-    text_hash: textHash,
-    recorded_at: (/* @__PURE__ */ new Date()).toISOString(),
-    ...provenance ? { builder_provenance: normalizedBuilderProvenance(provenance, fields, textHash) } : {},
-    text
-  };
-}
-function validateRecord(record, pluginRoot) {
-  if (record?.handoff_record_schema !== HANDOFF_RECORD_SCHEMA || record?.artifact_schema !== ARTIFACT_SCHEMA || record?.controller_protocol !== CONTROLLER_PROTOCOL || !/^(?:wp|de|wr)-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(record?.artifact_id ?? "")) || record?.text_hash !== sha2565(record?.text ?? "")) {
-    throw new Error(`incompatible or corrupt handoff record ${record?.artifact_id ?? "unknown"}`);
-  }
-  if (record.builder_provenance != null) {
-    const fields = parsedArtifact(record.text, pluginRoot).fields;
-    normalizedBuilderProvenance(record.builder_provenance, fields, record.text_hash);
-  }
-  return record;
-}
-function referencedIds(fields) {
-  if (fields.artifact === "work-plan") return [fields.predecessor_plan_id, fields.replan_source_review_id].filter(Boolean);
-  if (fields.artifact === "delivery-evidence") return [fields.predecessor_evidence_id, fields.source_review_id].filter(Boolean);
-  if (fields.artifact === "work-review") return [fields.latest_evidence_id, fields.predecessor_review_id].filter(Boolean);
-  return [];
-}
-var ArtifactHandoffStore = class {
-  constructor(root, pluginRoot, artifactSetOptions = {}) {
-    this.root = resolve9(root);
-    this.pluginRoot = resolve9(pluginRoot);
-    this.artifactSetOptions = artifactSetOptions ?? {};
-    this.directory = join7(this.root, "handoff", "artifacts");
-  }
-  artifactPath(artifactId) {
-    if (!/^(?:wp|de|wr)-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(artifactId))) throw new Error(`invalid handoff artifact ID ${artifactId}`);
-    return join7(this.directory, `${artifactId}.json`);
-  }
-  indexPath() {
-    return join7(this.root, "handoff", "index.json");
-  }
-  metadata(record) {
-    const fields = parsedArtifact(record.text, this.pluginRoot).fields;
-    return {
-      artifact_id: record.artifact_id,
-      artifact_type: record.artifact_type,
-      root_plan_id: record.root_plan_id,
-      predecessor_plan_id: fields.predecessor_plan_id ?? null,
-      references: referencedIds(fields),
-      text_hash: record.text_hash
-    };
-  }
-  buildIndexInMemory() {
-    const entries = this.records().map((record) => this.metadata(record));
-    return { schema: 1, entries };
-  }
-  rebuildIndex() {
-    const index = this.buildIndexInMemory();
-    atomicJson(this.indexPath(), index);
-    return index;
-  }
-  loadIndex({ repair = false } = {}) {
-    try {
-      const index = JSON.parse(readFileSync6(this.indexPath(), "utf8"));
-      const actual = existsSync6(this.directory) ? readdirSync2(this.directory, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".json")).map((entry) => entry.name.slice(0, -5)).sort() : [];
-      const recorded = (index.entries ?? []).map((entry) => entry.artifact_id).sort();
-      if (index.schema !== 1 || actual.join("\n") !== recorded.join("\n")) throw new Error("handoff index mismatch");
-      return index;
-    } catch {
-      return repair ? this.rebuildIndex() : this.buildIndexInMemory();
-    }
-  }
-  index() {
-    return this.loadIndex({ repair: true });
-  }
-  writeIndex(records, priorIndex = this.loadIndex({ repair: true })) {
-    const entries = new Map(priorIndex.entries.map((entry) => [entry.artifact_id, entry]));
-    for (const record of records) entries.set(record.artifact_id, this.metadata(record));
-    atomicJson(this.indexPath(), { schema: 1, entries: [...entries.values()].sort((left, right) => left.artifact_id.localeCompare(right.artifact_id)) });
-  }
-  records(ids2 = null) {
-    if (!existsSync6(this.directory)) return [];
-    const files = ids2 ? [...new Set(ids2)].map((id) => this.artifactPath(id)).filter(existsSync6) : readdirSync2(this.directory, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".json")).map((entry) => join7(this.directory, entry.name));
-    return files.map((path) => validateRecord(JSON.parse(readFileSync6(path, "utf8")), this.pluginRoot)).sort((left, right) => left.artifact_id.localeCompare(right.artifact_id));
-  }
-  record(artifacts) {
-    if (!Array.isArray(artifacts) || artifacts.length < 1 || artifacts.length > 32) throw new Error("handoff record requires 1..32 artifacts");
-    const candidates = artifacts.map((entry, index) => {
-      if (!entry || typeof entry.label !== "string" || !entry.label.trim() || typeof entry.text !== "string" || !entry.text.trim()) {
-        throw new Error(`handoff artifact ${index + 1} requires non-empty label and text`);
-      }
-      return { label: entry.label, record: recordFor(entry.text, this.pluginRoot, entry.provenance ?? null) };
-    });
-    const candidateIds = new Set(candidates.map(({ record }) => record.artifact_id));
-    if (candidateIds.size !== candidates.length) throw new Error("handoff record contains duplicate artifact IDs");
-    const lockPath = join7(this.root, "handoff", ".lock");
-    let descriptor;
-    try {
-      descriptor = acquireLock(lockPath);
-      const index = this.index();
-      const byMetadata = new Map(index.entries.map((entry) => [entry.artifact_id, entry]));
-      const candidateMetadata = candidates.map(({ record }) => this.metadata(record));
-      const selectedIds = /* @__PURE__ */ new Set();
-      const pending = [];
-      for (const metadata of candidateMetadata) {
-        selectedIds.add(metadata.artifact_id);
-        pending.push(...metadata.references);
-        for (const entry of index.entries) if (entry.root_plan_id === metadata.root_plan_id || entry.artifact_id === metadata.root_plan_id) selectedIds.add(entry.artifact_id);
-      }
-      while (pending.length > 0) {
-        const id = pending.pop();
-        if (!id || selectedIds.has(id)) continue;
-        selectedIds.add(id);
-        pending.push(...byMetadata.get(id)?.references ?? []);
-      }
-      for (const id of [...selectedIds]) pending.push(...byMetadata.get(id)?.references ?? []);
-      while (pending.length > 0) {
-        const id = pending.pop();
-        if (!id || selectedIds.has(id)) continue;
-        selectedIds.add(id);
-        pending.push(...byMetadata.get(id)?.references ?? []);
-      }
-      const existing = this.records([...selectedIds]);
-      const merged = new Map(existing.map((record) => [record.artifact_id, record]));
-      const recorded = [];
-      const duplicates = [];
-      for (const { record } of candidates) {
-        const prior = merged.get(record.artifact_id);
-        if (prior && prior.text_hash !== record.text_hash) throw new Error(`handoff artifact ${record.artifact_id} conflicts with the immutable cached text`);
-        if (prior) duplicates.push(record.artifact_id);
-        else {
-          merged.set(record.artifact_id, record);
-          recorded.push(record.artifact_id);
-        }
-      }
-      const inspection = inspectArtifactSet([...merged.values()].map((record) => [record.artifact_id, record.text]), this.pluginRoot, this.artifactSetOptions);
-      if (inspection.errors.length > 0) throw new Error(`handoff chain is invalid: ${inspection.errors.join("; ")}`);
-      for (const id of recorded) atomicJson(this.artifactPath(id), merged.get(id));
-      if (recorded.length > 0) this.writeIndex(recorded.map((id) => merged.get(id)), index);
-      return {
-        handoff_record_schema: HANDOFF_RECORD_SCHEMA,
-        recorded,
-        duplicates,
-        artifact_set_hash: stableArtifactSetHash([...merged.values()])
-      };
-    } finally {
-      if (descriptor !== void 0) {
-        closeSync(descriptor);
-        try {
-          unlinkSync(lockPath);
-        } catch (error) {
-          if (error.code !== "ENOENT") throw error;
-        }
-      }
-    }
-  }
-  context(rootPlanId, rootPlanText = null) {
-    if (!/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(rootPlanId))) throw new Error("handoff context requires a valid wp-* root_plan_id");
-    const index = this.loadIndex({ repair: false });
-    const metadata = new Map(index.entries.map((entry) => [entry.artifact_id, entry]));
-    const lineage = /* @__PURE__ */ new Set();
-    let planCursor = rootPlanId;
-    while (planCursor && !lineage.has(planCursor)) {
-      lineage.add(planCursor);
-      planCursor = metadata.get(planCursor)?.predecessor_plan_id ?? null;
-    }
-    const selectedIds = new Set(index.entries.filter((entry) => lineage.has(entry.artifact_id) || lineage.has(entry.root_plan_id)).map((entry) => entry.artifact_id));
-    const pendingReferences = [...selectedIds].flatMap((id) => metadata.get(id)?.references ?? []);
-    while (pendingReferences.length > 0) {
-      const id = pendingReferences.pop();
-      if (!id || selectedIds.has(id) || !metadata.has(id)) continue;
-      selectedIds.add(id);
-      pendingReferences.push(...metadata.get(id).references);
-    }
-    const records = this.records([...selectedIds]);
-    const byId = new Map(records.map((record) => [record.artifact_id, record]));
-    if (rootPlanText) {
-      const supplied = recordFor(rootPlanText, this.pluginRoot);
-      if (supplied.artifact_id !== rootPlanId || supplied.artifact_type !== "work-plan") throw new Error("supplied active Plan does not match root_plan_id");
-      const cached = byId.get(rootPlanId);
-      if (cached && cached.text_hash !== supplied.text_hash) throw new Error("active Plan conflicts with the immutable handoff Root");
-      byId.set(rootPlanId, cached ?? supplied);
-    }
-    const root = byId.get(rootPlanId);
-    if (!root) throw new Error(`no handoff Root ${rootPlanId}`);
-    const parsed = new Map([...byId.values()].map((record) => [record.artifact_id, parsedArtifact(record.text, this.pluginRoot)]));
-    lineage.clear();
-    let cursor = rootPlanId;
-    while (cursor && !lineage.has(cursor)) {
-      lineage.add(cursor);
-      cursor = parsed.get(cursor)?.fields.predecessor_plan_id ?? null;
-    }
-    const selected = /* @__PURE__ */ new Map();
-    for (const [id, artifact] of parsed) {
-      const fields = artifact.fields;
-      const belongs = fields.artifact === "work-plan" ? lineage.has(fields.id) : lineage.has(fields.root_plan_id);
-      if (belongs) selected.set(id, byId.get(id));
-    }
-    const pending = [...selected.keys()];
-    while (pending.length > 0) {
-      const id = pending.pop();
-      for (const reference of referencedIds(parsed.get(id)?.fields ?? {})) {
-        if (selected.has(reference) || !byId.has(reference)) continue;
-        selected.set(reference, byId.get(reference));
-        pending.push(reference);
-      }
-    }
-    const ordered = [...selected.values()].sort((left, right) => {
-      const rank = { "work-plan": 0, "delivery-evidence": 1, "work-review": 2 };
-      return rank[left.artifact_type] - rank[right.artifact_type] || left.recorded_at.localeCompare(right.recorded_at) || left.artifact_id.localeCompare(right.artifact_id);
-    });
-    const inspection = inspectArtifactSet(ordered.map((record) => [record.artifact_id, record.text]), this.pluginRoot, this.artifactSetOptions);
-    if (inspection.errors.length > 0) throw new Error(`cached handoff chain is invalid: ${inspection.errors.join("; ")}`);
-    const tips = effectiveCliSummary(inspection);
-    return {
-      handoff_record_schema: HANDOFF_RECORD_SCHEMA,
-      root_plan_id: rootPlanId,
-      artifact_set_hash: stableArtifactSetHash(ordered),
-      evidence_tip: tips.evidence_tips[rootPlanId] ?? null,
-      review_tip: tips.review_tips[rootPlanId] ?? null,
-      artifacts: ordered.map((record) => ({
-        label: record.artifact_id,
-        text: record.text,
-        text_hash: record.text_hash,
-        ...record.builder_provenance ? { builder_provenance: record.builder_provenance } : {},
-        ...record.artifact_type === "work-review" && !record.builder_provenance ? { legacy_review_recorded: true } : {}
-      }))
-    };
-  }
-  quarantineArtifact(artifactId, { expectedTextHash, apply = false, now = () => /* @__PURE__ */ new Date() } = {}) {
-    if (!/^(?:wr|de)-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(artifactId ?? ""))) {
-      throw new Error("handoff quarantine accepts only an exactly identified wr-* or de-* transport record");
-    }
-    if (!/^[a-f0-9]{64}$/.test(String(expectedTextHash ?? ""))) {
-      throw new Error("handoff quarantine requires --expected-text-hash with the exact cached artifact hash");
-    }
-    const record = this.records([artifactId])[0];
-    if (!record) throw new Error(`handoff quarantine cannot find ${artifactId}`);
-    if (!["work-review", "delivery-evidence"].includes(record.artifact_type)) {
-      throw new Error(`handoff quarantine refuses unsupported artifact ${artifactId}`);
-    }
-    if (record.text_hash !== expectedTextHash) {
-      throw new Error(`handoff quarantine expected ${expectedTextHash} but ${artifactId} has ${record.text_hash}`);
-    }
-    const index = this.loadIndex({ repair: false });
-    const dependents = index.entries.filter((entry) => (entry.references ?? []).includes(artifactId)).map((entry) => entry.artifact_id).sort();
-    const timestamp = now().toISOString().replace(/[:.]/g, "-");
-    const quarantineDirectory = join7(this.root, "handoff", "quarantine", `${timestamp}-${artifactId}-${expectedTextHash.slice(0, 12)}`);
-    const source = this.artifactPath(artifactId);
-    const target = join7(quarantineDirectory, "artifact-record.json");
-    const report = {
-      command: "quarantine-handoff",
-      namespace_root: this.root,
-      artifact_id: artifactId,
-      artifact_type: record.artifact_type,
-      text_hash: record.text_hash,
-      record_hash: createHash6("sha256").update(readFileSync6(source)).digest("hex"),
-      source,
-      quarantine_directory: quarantineDirectory,
-      target,
-      dependents,
-      applicable: dependents.length === 0,
-      applied: false
-    };
-    if (!apply) return report;
-    if (dependents.length > 0) {
-      throw new Error(`handoff quarantine refuses ${artifactId} because active artifacts depend on it: ${dependents.join(", ")}`);
-    }
-    if (existsSync6(quarantineDirectory)) throw new Error(`handoff quarantine target already exists: ${quarantineDirectory}`);
-    const lockPath = join7(this.root, "handoff", ".lock");
-    let descriptor;
-    try {
-      descriptor = acquireLock(lockPath);
-      const current = this.records([artifactId])[0];
-      if (!current || current.text_hash !== expectedTextHash) throw new Error(`handoff quarantine target ${artifactId} changed before apply`);
-      const currentIndex = this.loadIndex({ repair: false });
-      const currentDependents = currentIndex.entries.filter((entry) => (entry.references ?? []).includes(artifactId)).map((entry) => entry.artifact_id).sort();
-      if (currentDependents.length > 0) {
-        throw new Error(`handoff quarantine refuses ${artifactId} because active artifacts depend on it: ${currentDependents.join(", ")}`);
-      }
-      mkdirSync2(quarantineDirectory, { recursive: true, mode: 448 });
-      const indexPath = this.indexPath();
-      if (existsSync6(indexPath)) writeFileSync2(join7(quarantineDirectory, "index-before.json"), readFileSync6(indexPath), { mode: 384, flag: "wx" });
-      renameSync2(source, target);
-      try {
-        const rebuilt = this.rebuildIndex();
-        atomicJson(join7(quarantineDirectory, "quarantine-manifest.json"), {
-          quarantine_manifest_schema: 1,
-          ...report,
-          applied: true,
-          quarantined_at: now().toISOString(),
-          rebuilt_index_entries: rebuilt.entries.length
-        });
-      } catch (error) {
-        renameSync2(target, source);
-        atomicJson(this.indexPath(), currentIndex);
-        throw error;
-      }
-      return { ...report, applied: true };
-    } finally {
-      if (descriptor !== void 0) {
-        closeSync(descriptor);
-        try {
-          unlinkSync(lockPath);
-        } catch (error) {
-          if (error.code !== "ENOENT") throw error;
-        }
-      }
-    }
-  }
-};
-
-// src/controller/delivery-closeout.mjs
-var import_yaml4 = __toESM(require_dist(), 1);
-import { createHash as createHash7 } from "node:crypto";
-
-// src/controller/strategy.mjs
-var TASK_RECIPES = Object.freeze({
-  bugfix: Object.freeze({ version: "recipe-1", baseline_repetitions: 2, patched_repetitions: 2, writer_allowed: true, comparison: "same-surface" }),
-  refactor: Object.freeze({ version: "recipe-1", baseline_repetitions: 1, patched_repetitions: 1, writer_allowed: true, comparison: "characterization-or-equivalence" }),
-  performance: Object.freeze({ version: "recipe-1", baseline_repetitions: 1, patched_repetitions: 1, writer_allowed: true, comparison: "baseline-and-post-trace" }),
-  feature: Object.freeze({ version: "recipe-1", baseline_repetitions: 1, patched_repetitions: 1, writer_allowed: true, comparison: "acceptance-and-regression" }),
-  investigation: Object.freeze({ version: "recipe-1", baseline_repetitions: 1, patched_repetitions: 0, writer_allowed: false, comparison: "read-only-findings" }),
-  "verify-existing": Object.freeze({ version: "recipe-1", baseline_repetitions: 2, patched_repetitions: 2, writer_allowed: false, comparison: "same-input-candidate-comparison" })
-});
-function aggregateEvidence(entries) {
-  const grades = entries.map((entry) => entry.grade);
-  if (grades.includes("failed")) return { grade: "failed", delivery: "blocked" };
-  if (entries.length > 0 && grades.every((grade) => grade === "verified")) return { grade: "verified", delivery: "verified" };
-  if (grades.includes("unavailable")) return { grade: "unavailable", delivery: "provisional" };
-  if (grades.includes("partial")) return { grade: "partial", delivery: "provisional" };
-  return { grade: "supported", delivery: "provisional" };
-}
-
-// src/controller/delivery-closeout.mjs
-function sha2566(value) {
-  return createHash7("sha256").update(String(value)).digest("hex");
-}
-function stable2(value) {
-  if (Array.isArray(value)) return value.map(stable2);
-  if (!value || typeof value !== "object") return value;
-  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable2(value[key])]));
-}
-function unique3(values) {
-  return [...new Set(values)];
-}
-function cell(value) {
-  const text = String(value ?? "").replace(/\r?\n/g, "<br>").replace(/\|/g, "\\|").trim();
-  return text || "none";
-}
-function table(headers, rows) {
-  return [
-    `| ${headers.join(" | ")} |`,
-    `|${headers.map(() => "---").join("|")}|`,
-    ...rows.map((row) => `| ${headers.map((header) => cell(row[header])).join(" | ")} |`)
-  ].join("\n");
-}
-function normalizeArtifacts(rootPlanText, artifacts, pluginRoot) {
-  const rootInspection = inspectArtifactText(rootPlanText, pluginRoot);
-  if (rootInspection.errors.length > 0 || rootInspection.artifact?.fields?.artifact !== "work-plan") {
-    throw new Error(`closeout Root is invalid: ${(rootInspection.errors.length > 0 ? rootInspection.errors : ["input is not a work-plan"]).join("; ")}`);
-  }
-  const rootId = rootInspection.artifact.fields.id;
-  const byId = /* @__PURE__ */ new Map([[rootId, { label: rootId, text: rootPlanText }]]);
-  for (const [index, entry] of (artifacts ?? []).entries()) {
-    if (!entry || typeof entry.label !== "string" || !entry.label.trim() || typeof entry.text !== "string" || !entry.text.trim()) {
-      throw new Error(`closeout artifact ${index + 1} requires non-empty label and text`);
-    }
-    const inspected = inspectArtifactText(entry.text, pluginRoot);
-    if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) throw new Error(`closeout artifact ${entry.label} is invalid: ${inspected.errors.join("; ")}`);
-    const id = inspected.artifact.fields.id;
-    const prior = byId.get(id);
-    if (prior && prior.text !== entry.text) throw new Error(`closeout artifact ${id} has conflicting text`);
-    byId.set(id, { label: id, text: entry.text });
-  }
-  return { rootId, entries: [...byId.values()] };
-}
-function expectedCheckMap(contract, correction, unresolvedRootChecks = /* @__PURE__ */ new Map()) {
-  const checks = correction?.checks?.filter((check) => check.Required === "yes") ?? contract.checks.filter((check) => check.Required === "yes");
-  return new Map([
-    ...checks.map((check) => [check["Check ID"], check]),
-    ...unresolvedRootChecks
-  ]);
-}
-function rootCheckMap(contract) {
-  return new Map(contract.checks.filter((check) => check.Required === "yes").map((check) => [check["Check ID"], check]));
-}
-function correctionRootChecks(correction) {
-  return new Set((correction?.fixes ?? []).flatMap((fix) => String(fix["Root Checks"] ?? "").match(/CHECK-[1-9][0-9]*/g) ?? []));
-}
-function repositoryPaths(value) {
-  return unique3(String(value ?? "").split(/(?:,|<br>)/i).map((entry) => entry.trim().replace(/^\.\//, "").replace(/\/$/, "")).filter((entry) => entry && !/^(?:none|n\/a|repository root)$/i.test(entry) && !/^(?:CHECK|OBJ|FIX|STEP)-[1-9][0-9]*$/i.test(entry) && /^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/.test(entry)));
-}
-function pathsOverlap(left, right) {
-  return left === right || left.startsWith(`${right}/`) || right.startsWith(`${left}/`);
-}
-function fingerprintMap2(value) {
-  const result = /* @__PURE__ */ new Map();
-  for (const entry of String(value ?? "").split(/;\s*/)) {
-    const equals = entry.indexOf("=");
-    if (equals <= 0) continue;
-    const path = entry.slice(0, equals).trim().replace(/^`|`$/g, "").replace(/^\.\//, "");
-    if (!path || ["index", "status"].includes(path)) continue;
-    result.set(path, entry.slice(equals + 1));
-  }
-  return result;
-}
-function correctionTargets(correction) {
-  return unique3((correction?.steps ?? []).flatMap((step) => repositoryPaths(step.Targets)));
-}
-function rootChecksToRefresh(contract, correction, predecessorEvidence, repositorySnapshot, changedPaths = []) {
-  const effectiveChecks = predecessorEvidence?.effective?.checks;
-  const explicitlyAffected = correctionRootChecks(correction);
-  const affectedObjectives = new Set(correctionObjectives(correction));
-  const affectedPaths = unique3([
-    ...changedPaths.flatMap(repositoryPaths),
-    ...correctionTargets(correction)
-  ]);
-  const previousFingerprints = predecessorEvidence?.effective?.snapshot?.["Relevant fingerprints"] ?? null;
-  const currentFingerprints = repositorySnapshot?.relevant_fingerprints ?? null;
-  const previousByPath = fingerprintMap2(previousFingerprints);
-  const currentByPath = fingerprintMap2(currentFingerprints);
-  const stalePaths = unique3([...previousByPath.keys(), ...currentByPath.keys()]).filter((path) => previousByPath.get(path) !== currentByPath.get(path));
-  const opaqueFingerprintChange = Boolean(
-    previousFingerprints && currentFingerprints && previousFingerprints !== currentFingerprints && previousByPath.size === 0 && currentByPath.size === 0
-  );
-  return new Map([...rootCheckMap(contract)].filter(([checkId, check]) => {
-    const prior = effectiveChecks?.get(checkId);
-    const prerequisites = repositoryPaths(check.Prerequisites);
-    const objectiveAffected = checkObjectives(check).some((objective) => affectedObjectives.has(objective));
-    const pathAffected = prerequisites.some((prerequisite) => affectedPaths.some((path) => pathsOverlap(prerequisite, path)));
-    const fingerprintStale = prerequisites.some((prerequisite) => stalePaths.some((path) => pathsOverlap(prerequisite, path)));
-    const ambiguousImpact = affectedPaths.length > 0 && prerequisites.length === 0;
-    return !prior || ["failed", "blocked"].includes(prior.status) || explicitlyAffected.has(checkId) || objectiveAffected || pathAffected || fingerprintStale || opaqueFingerprintChange || ambiguousImpact;
-  }));
-}
-function inheritedCheckEvidence(inspection, predecessorEvidence, checkIds) {
-  return checkIds.map((checkId) => {
-    const effective = predecessorEvidence?.effective?.checks?.get(checkId);
-    const source = effective?.source ? inspection.effective.get(effective.source) : null;
-    const exact = source?.fields?.check_evidence?.find((entry) => entry.check_id === checkId);
-    if (exact) return exact;
-    return {
-      check_id: checkId,
-      grade: effective?.status === "passed" ? "verified" : effective?.status === "failed" ? "failed" : "supported",
-      limitations: effective?.status === "passed" ? [] : ["Reused predecessor proof retains its prior non-verified grade."]
-    };
-  });
-}
-function normalizeCheckEvidence(input, plannedChecks, rootChecks, evidenceMode2, {
-  enforceManualCheckReceipts = false,
-  manualCheckReceipts = [],
-  existingCheckEvidence = []
-} = {}) {
-  if (!Array.isArray(input) || input.length === 0) throw new Error("closeout requires structured Check evidence");
-  const ids2 = input.map((entry) => entry?.check_id);
-  if (new Set(ids2).size !== ids2.length) throw new Error("closeout Check evidence IDs must be unique");
-  for (const id of plannedChecks.keys()) if (!ids2.includes(id)) throw new Error(`closeout is missing required Check ${id}`);
-  const known = new Map([...rootChecks, ...plannedChecks]);
-  const normalized = input.map((entry) => {
-    const planned = known.get(entry?.check_id);
-    if (!planned) throw new Error(`closeout received unknown Check ${entry?.check_id}`);
-    if (!(/* @__PURE__ */ new Set(["verified", "supported", "partial", "unavailable", "failed"])).has(entry.grade)) throw new Error(`closeout Check ${entry.check_id} has invalid grade`);
-    const limitations = unique3(Array.isArray(entry.limitations) ? entry.limitations.map(String).filter(Boolean) : []);
-    const repetitions = Number.isInteger(entry.repetitions) && entry.repetitions >= 0 ? entry.repetitions : 0;
-    if (entry.grade === "verified" && repetitions < 1) throw new Error(`verified Check ${entry.check_id} requires at least one repetition`);
-    if (entry.grade === "unavailable" && limitations.length === 0) throw new Error(`unavailable Check ${entry.check_id} requires a concrete limitation`);
-    const normalized2 = {
-      check_id: entry.check_id,
-      feature_id: entry.feature_id ?? null,
-      grade: entry.grade,
-      surface: entry.surface ?? "repository",
-      method: entry.method ?? planned["Command or Inspection"] ?? "inspection",
-      baseline_or_patched: "patched",
-      expected: entry.expected ?? planned["Expected Result"] ?? "required Check succeeds",
-      observed: String(entry.observed ?? "not fully observed"),
-      repetitions,
-      artifact_hashes: unique3((entry.artifact_hashes ?? []).filter((value) => /^[a-f0-9]{64}$/.test(String(value)))),
-      limitations
-    };
-    return normalized2;
-  });
-  const calibrated = enforceManualCheckReceipts ? calibrateManualCheckEvidence({
-    entries: normalized,
-    plannedChecks: known,
-    receipts: manualCheckReceipts,
-    existingCheckEvidence
-  }) : normalized;
-  return calibrated.map((entry) => {
-    const value = { ...entry };
-    if (evidenceMode2 === "lean") {
-      if (!value.surface && value.grade === "verified") throw new Error(`verified Check ${entry.check_id} requires a surface`);
-      delete value.baseline_or_patched;
-      if ((value.artifact_hashes ?? []).length === 0) delete value.artifact_hashes;
-      if (!value.feature_id) delete value.feature_id;
-    }
-    return value;
-  });
-}
-function overallGrade(entries) {
-  return aggregateEvidence(entries).grade;
-}
-function artifactStatus(grade) {
-  if (grade === "failed") return "blocked";
-  return grade === "verified" ? "complete" : "provisional";
-}
-function correctionObjectives(correction) {
-  return unique3((correction?.fixes ?? []).flatMap((fix) => String(fix["Root Objectives"] ?? "").match(/OBJ-[1-9][0-9]*/g) ?? []));
-}
-function checkObjectives(check) {
-  return String(check?.Objectives ?? "").match(/OBJ-[1-9][0-9]*/g) ?? [];
-}
-function objectiveState(objective, entries, rootChecks, aggregate) {
-  const related = entries.filter((entry) => checkObjectives(rootChecks.get(entry.check_id)).includes(objective));
-  const grades = (related.length > 0 ? related : entries).map((entry) => entry.grade);
-  if (grades.includes("failed")) return "blocked";
-  if (grades.length > 0 && grades.every((grade) => grade === "verified")) return "achieved";
-  return aggregate === "failed" ? "blocked" : "partially-achieved";
-}
-function evidenceMode(fields, effectiveProfile) {
-  return effectiveProfile === "manual" && fields.profile_max === "manual" && fields.risk !== "high" && (fields.hard_triggers ?? []).length === 0 ? "lean" : "full";
-}
-function evidenceSeed({ contract, subjectId, sourceReviewId, predecessorEvidenceId, strategyRevision, mode, paths, entries, repositorySnapshot, summary }) {
-  return sha2566(JSON.stringify(stable2({
-    root: contract.authoritative_projection_hash,
-    subjectId,
-    sourceReviewId,
-    predecessorEvidenceId,
-    strategyRevision,
-    mode,
-    paths,
-    entries,
-    repositorySnapshot: repositorySnapshot ?? null,
-    summary: summary ?? null
-  })));
-}
-function summaryText(summary, status, grade) {
-  const supplied = String(summary ?? "").trim();
-  if (supplied) return supplied;
-  if (status === "blocked") return `BLOCKER: required delivery verification failed; aggregate evidence grade is ${grade}.`;
-  if (status === "provisional") return `Delivery is provisional with aggregate evidence grade ${grade}; limitations remain explicit.`;
-  return "The authorized repository delivery is complete and every required Check is verified.";
-}
-function fullBody({ fields, contract, entries, changedPaths, correction, repositorySnapshot, summary }) {
-  const aggregate = fields.overall_grade;
-  const outcomes = fields.affected_objectives.map((objective) => ({
-    "Objective ID": objective,
-    Status: objectiveState(objective, entries, rootCheckMap(contract), aggregate),
-    Evidence: entries.map((entry) => `${entry.check_id}:${entry.grade}`).join(", ")
-  }));
-  const sections = [`## Summary
-
-${summary}`];
-  if (correction) {
-    const state = fields.status === "complete" ? "achieved" : fields.status === "blocked" ? "blocked" : "partially-achieved";
-    sections.push(`## Subject results
-
-${table(["Objective ID", "Result", "Evidence"], correction.fixes.map((fix) => ({
-      "Objective ID": fix["FIX ID"],
-      Result: state,
-      Evidence: entries.map((entry) => `${entry.check_id}:${entry.grade}`).join(", ")
-    })))}`);
-  }
-  sections.push(`## Objective outcomes
-
-${table(["Objective ID", "Status", "Evidence"], outcomes)}`);
-  const coverageIds = correction ? unique3((correction.fixes ?? []).map((fix) => fix["FIX ID"]).filter(Boolean)) : fields.affected_objectives;
-  sections.push(changedPaths.length > 0 ? `## Changes
-
-${table(["Path or Symbol", "Change", "Objective Coverage"], changedPaths.map((path) => ({
-    "Path or Symbol": path,
-    Change: "Declared by deterministic closeout",
-    "Objective Coverage": coverageIds.join(", ")
-  })))}` : "## Changes\n\nNone.");
-  const snapshot = repositorySnapshot ?? {};
-  sections.push(`## Repository snapshot
-
-${table(["Snapshot ID", "HEAD", "Working tree", "Changed paths", "Relevant fingerprints", "Known failures"], [{
-    "Snapshot ID": `SNAP-${fields.id.slice(3)}`,
-    HEAD: snapshot.head ?? "unknown",
-    "Working tree": snapshot.working_tree ?? (changedPaths.length > 0 ? "modified" : "unchanged"),
-    "Changed paths": changedPaths.join(", ") || "none",
-    "Relevant fingerprints": snapshot.relevant_fingerprints ?? "none",
-    "Known failures": snapshot.known_failures ?? (fields.status === "blocked" ? "required Check failed" : "none")
-  }])}`);
-  sections.push(`## Checks
-
-${table(["Check ID", "Observed Result", "Status", "Prerequisite fingerprints"], entries.map((entry) => ({
-    "Check ID": entry.check_id,
-    "Observed Result": entry.observed,
-    Status: entry.grade === "verified" ? "passed" : entry.grade === "failed" ? "failed" : "skipped",
-    "Prerequisite fingerprints": snapshot.relevant_fingerprints ?? "none"
-  })))}`);
-  sections.push("## Deviations\n\nNone.");
-  sections.push("## Operational evidence\n\nNot applicable.");
-  const limitations = unique3(entries.flatMap((entry) => entry.limitations ?? []));
-  sections.push(`## Limitations
-
-${limitations.length > 0 ? limitations.map((item) => `- ${item}`).join("\n") : "None."}`);
-  return sections.join("\n\n");
-}
-function buildDeliveryEvidence({
-  rootPlanText,
-  artifacts = [],
-  checkEvidence,
-  changedPaths = [],
-  strategyRevision = 0,
-  effectiveProfile = null,
-  repositorySnapshot = null,
-  summary = null,
-  manualCheckReceipts = [],
-  enforceManualCheckReceipts = null,
-  pluginRoot
-}) {
-  const normalized = normalizeArtifacts(rootPlanText, artifacts, pluginRoot);
-  const contract = executionContractFromArtifactText(rootPlanText, pluginRoot);
-  if (contract.errors.length > 0 || contract.fields.schema !== 5) throw new Error(`closeout requires a valid Schema-5 Root: ${contract.errors.join("; ")}`);
-  const priorInspection = inspectArtifactSet(normalized.entries.map((entry) => [entry.label, entry.text]), pluginRoot);
-  if (priorInspection.errors.length > 0) throw new Error(`closeout input chain is invalid: ${priorInspection.errors.join("; ")}`);
-  const tips = effectiveCliSummary(priorInspection);
-  const evidenceTipId = tips.evidence_tips[normalized.rootId] ?? null;
-  const reviewTipId = tips.review_tips[normalized.rootId] ?? null;
-  const review = reviewTipId ? priorInspection.effective.get(reviewTipId) : null;
-  let correction = null;
-  let subjectId = normalized.rootId;
-  let sourceReviewId = null;
-  let predecessorEvidenceId = null;
-  let representation = "full";
-  const mode = evidenceMode(contract.fields, effectiveProfile ?? contract.fields.profile_max);
-  const requireManualReceipts = enforceManualCheckReceipts ?? (effectiveProfile ?? contract.fields.profile_max) === "manual";
-  const effectiveStrategyRevision = mode === "full" ? strategyRevision : 0;
-  const effectiveRepositorySnapshot = mode === "full" ? repositorySnapshot : null;
-  if (evidenceTipId) {
-    if (!review || review.fields.latest_evidence_id !== evidenceTipId || review.fields.next_action !== "correct" || !review.fields.correction_id || !review.correction) {
-      const existing = normalized.entries.find((entry) => inspectArtifactText(entry.text, pluginRoot).artifact?.fields?.id === evidenceTipId);
-      const existingFields = priorInspection.effective.get(evidenceTipId)?.fields ?? null;
-      if ((checkEvidence ?? []).length > 0 || changedPaths.length > 0) {
-        const entries2 = normalizeCheckEvidence(checkEvidence, expectedCheckMap(contract, null), rootCheckMap(contract), mode, {
-          enforceManualCheckReceipts: requireManualReceipts,
-          manualCheckReceipts,
-          existingCheckEvidence: existingFields?.check_evidence ?? []
-        });
-        const suppliedPaths = unique3(changedPaths.map(String).map((path) => path.trim()).filter(Boolean)).sort();
-        const expectedSeed = evidenceSeed({
-          contract,
-          subjectId: normalized.rootId,
-          sourceReviewId: null,
-          predecessorEvidenceId: null,
-          strategyRevision: effectiveStrategyRevision,
-          mode,
-          paths: suppliedPaths,
-          entries: entries2,
-          repositorySnapshot: effectiveRepositorySnapshot,
-          summary
-        });
-        const expectedId = `de-${normalized.rootId.replace(/^wp-/, "")}-${expectedSeed.slice(0, 12)}`;
-        const sameInputs = JSON.stringify(stable2(entries2)) === JSON.stringify(stable2(existingFields?.check_evidence ?? [])) && JSON.stringify(suppliedPaths) === JSON.stringify(existingFields?.changed_paths ?? []) && (mode === "lean" || (existingFields?.strategy_revision ?? 0) === effectiveStrategyRevision) && expectedId === evidenceTipId;
-        if (!sameInputs) throw new Error(`stale or competing closeout conflicts with current Evidence tip ${evidenceTipId}`);
-      }
-      const projection2 = manualConstraintProjection({ checks: contract.checks, evidence: existingFields?.check_evidence ?? [] });
-      const unattested = projection2.constraint_summary.legacy_unattested_verified_checks ?? [];
-      if (unattested.length > 0) {
-        throw new Error(`existing Evidence tip ${evidenceTipId} has receiptless verified machine Checks (${unattested.join(", ")}); run a fresh review and refresh them through its bounded correction route`);
-      }
-      return {
-        duplicate: true,
-        artifact: existing?.text ?? null,
-        artifact_hash: existing ? sha2566(existing.text) : null,
-        fields: existingFields,
-        ...projection2
-      };
-    }
-    correction = review.correction;
-    subjectId = review.fields.correction_id;
-    sourceReviewId = review.fields.id;
-    predecessorEvidenceId = evidenceTipId;
-    representation = "delta";
-  }
-  if (mode === "full" && (!repositorySnapshot?.head || !repositorySnapshot?.relevant_fingerprints)) {
-    throw new Error("full closeout requires repository snapshot HEAD and relevant fingerprints");
-  }
-  const roots = rootCheckMap(contract);
-  const predecessorEvidence = correction ? priorInspection.effective.get(evidenceTipId) : null;
-  const unresolvedRootChecks = correction ? rootChecksToRefresh(contract, correction, predecessorEvidence, repositorySnapshot, changedPaths) : /* @__PURE__ */ new Map();
-  const suppliedCheckIds = new Set((checkEvidence ?? []).map((entry) => entry?.check_id));
-  const missingRootRefresh = [...unresolvedRootChecks.keys()].filter((checkId) => !suppliedCheckIds.has(checkId));
-  if (missingRootRefresh.length > 0) {
-    throw new Error(`correction closeout requires fresh evidence for affected, failed, missing, stale, or ambiguous Root Checks: ${missingRootRefresh.join(", ")}`);
-  }
-  const plannedChecks = expectedCheckMap(contract, correction, unresolvedRootChecks);
-  const entries = normalizeCheckEvidence(checkEvidence, plannedChecks, roots, mode, {
-    enforceManualCheckReceipts: requireManualReceipts,
-    manualCheckReceipts
-  });
-  const rootObjectives = contract.objectives;
-  const affectedObjectives = correction ? unique3([...correctionObjectives(correction), ...entries.flatMap((entry) => checkObjectives(roots.get(entry.check_id)))]) : [...rootObjectives];
-  const affected = affectedObjectives.length > 0 ? affectedObjectives : [...rootObjectives];
-  const reusedObjectives = representation === "delta" ? rootObjectives.filter((id2) => !affected.includes(id2)) : [];
-  const executedChecks = entries.map((entry) => entry.check_id);
-  const reusedChecks = representation === "delta" ? [...roots.keys()].filter((id2) => !executedChecks.includes(id2)) : [];
-  const reusedEvidence = representation === "delta" ? inheritedCheckEvidence(priorInspection, predecessorEvidence, reusedChecks) : [];
-  const effectiveEntries = [...entries, ...reusedEvidence];
-  const grade = overallGrade(effectiveEntries);
-  const status = artifactStatus(grade);
-  const paths = unique3(changedPaths.map(String).map((path) => path.trim()).filter(Boolean)).sort();
-  const seed = evidenceSeed({
-    contract,
-    subjectId,
-    sourceReviewId,
-    predecessorEvidenceId,
-    strategyRevision: effectiveStrategyRevision,
-    mode,
-    paths,
-    entries,
-    repositorySnapshot: effectiveRepositorySnapshot,
-    summary
-  });
-  const id = `de-${subjectId.replace(/^(?:wp|cp)-/, "")}-${seed.slice(0, 12)}`;
-  const fields = {
-    artifact: "delivery-evidence",
-    schema: 5,
-    id,
-    status,
-    root_plan_id: normalized.rootId,
-    subject_id: subjectId,
-    source_review_id: sourceReviewId,
-    predecessor_evidence_id: predecessorEvidenceId,
-    representation,
-    intent_hash: contract.authoritative_projection_hash,
-    ...mode === "full" ? { strategy_revision: effectiveStrategyRevision } : {},
-    evidence_mode: mode,
-    overall_grade: grade,
-    changed_paths: paths,
-    affected_objectives: affected,
-    reused_objectives: reusedObjectives,
-    executed_checks: executedChecks,
-    reused_checks: reusedChecks,
-    check_evidence: entries
-  };
-  const renderedSummary = summaryText(summary, status, grade);
-  const body = mode === "lean" ? `## Summary
-
-${renderedSummary}` : fullBody({ fields, contract, entries, changedPaths: paths, correction, repositorySnapshot, summary: renderedSummary });
-  const artifact = `---
-${(0, import_yaml4.stringify)(fields, { lineWidth: 0 }).trimEnd()}
----
-
-${body}
-`;
-  const finalEntries = [...normalized.entries, { label: id, text: artifact }];
-  const inspection = inspectArtifactSet(finalEntries.map((entry) => [entry.label, entry.text]), pluginRoot);
-  if (inspection.errors.length > 0) throw new Error(`generated delivery evidence is invalid: ${inspection.errors.join("; ")}`);
-  const projection = manualConstraintProjection({ checks: contract.checks, evidence: effectiveEntries });
-  return {
-    duplicate: false,
-    artifact,
-    artifact_hash: sha2566(artifact),
-    fields,
-    evidence_mode: mode,
-    overall_grade: grade,
-    status,
-    ...projection
-  };
-}
-function persistCloseout({ handoffStore, rootPlanText, artifacts = [], closeout }) {
-  if (!closeout?.artifact || !closeout?.fields?.id) throw new Error("persistCloseout requires a generated delivery artifact");
-  const entries = [{ label: "root", text: rootPlanText }, ...artifacts, { label: closeout.fields.id, text: closeout.artifact }];
-  const byId = /* @__PURE__ */ new Map();
-  for (const entry of entries) {
-    const inspected = inspectArtifactText(entry.text, handoffStore.pluginRoot);
-    if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) throw new Error(`closeout persistence input is invalid: ${inspected.errors.join("; ")}`);
-    const id = inspected.artifact.fields.id;
-    const prior = byId.get(id);
-    if (prior && prior !== entry.text) throw new Error(`closeout persistence artifact ${id} has conflicting text`);
-    byId.set(id, entry.text);
-  }
-  try {
-    const persisted = handoffStore.record([...byId].map(([label, text]) => ({ label, text })));
-    return { ...closeout, handoff_persisted: true, handoff_authoritative: false, artifact_set_hash: persisted.artifact_set_hash };
-  } catch (error) {
-    return {
-      ...closeout,
-      handoff_persisted: false,
-      handoff_authoritative: false,
-      handoff_error_code: "handoff-persist-failed",
-      warning: `optional cross-task handoff unavailable: ${error.message}; task-local continuation remains valid`
-    };
-  }
-}
-
-// src/controller/native-closeout.mjs
-function mergeArtifacts(entries, pluginRoot) {
-  const byId = /* @__PURE__ */ new Map();
-  for (const entry of entries ?? []) {
-    if (!entry || typeof entry.text !== "string" || !entry.text.trim()) continue;
-    const inspected = inspectArtifactText(entry.text, pluginRoot);
-    if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) {
-      throw new Error(`native closeout artifact ${entry.label ?? "unknown"} is invalid: ${inspected.errors.join("; ")}`);
-    }
-    const id = inspected.artifact.fields.id;
-    const prior = byId.get(id);
-    if (prior && prior.text !== entry.text) throw new Error(`native closeout artifact ${id} has conflicting text`);
-    byId.set(id, { label: id, text: entry.text });
-  }
-  return [...byId.values()];
-}
-function provisionalWithoutBaseline(report) {
-  const limitation = "No pre-mutation repository baseline was available; changed paths are the unambiguous current dirty set and otherwise verified observations are capped at supported.";
-  return {
-    ...report,
-    summary: `PROVISIONAL: ${limitation} ${report.summary}`,
-    check_evidence: report.check_evidence.map((entry) => ({
-      ...entry,
-      grade: entry.grade === "verified" ? "supported" : entry.grade,
-      limitations: [.../* @__PURE__ */ new Set([...entry.limitations ?? [], limitation])]
-    }))
-  };
-}
-function assertCorrectionSourceReview(rootPlanText, rootFields, chain, pluginRoot) {
-  const entries = [{ label: rootFields.id, text: rootPlanText }, ...chain];
-  const inspected = inspectArtifactSet(entries.map((entry) => [entry.label, entry.text]), pluginRoot);
-  if (inspected.errors.length > 0) {
-    throw new Error(`native correction closeout chain is invalid: ${inspected.errors.join("; ")}`);
-  }
-  const tips = effectiveCliSummary(inspected);
-  const evidenceTip = tips.evidence_tips[rootFields.id] ?? null;
-  if (!evidenceTip) throw new Error("native correction closeout is missing exact predecessor Evidence");
-  const reviewTip = tips.review_tips[rootFields.id] ?? null;
-  const review = reviewTip ? inspected.effective.get(reviewTip) : null;
-  if (!review || review.fields.latest_evidence_id !== evidenceTip || review.fields.next_action !== "correct" || !review.fields.correction_id) {
-    throw new Error(`native correction closeout is missing exact Source Review for predecessor Evidence ${evidenceTip}`);
-  }
-}
-function nativeCloseoutStructuredContent(closeout, rootPlanText, repositoryDelta = null) {
-  if (!closeout?.artifact || !closeout?.fields?.id) throw new Error("native closeout result is incomplete");
-  return {
-    root_plan_id: closeout.fields.root_plan_id,
-    delivery_evidence_id: closeout.fields.id,
-    artifact: closeout.artifact,
-    artifact_hash: closeout.artifact_hash ?? createHash8("sha256").update(closeout.artifact).digest("hex"),
-    evidence_mode: closeout.fields.evidence_mode,
-    overall_grade: closeout.fields.overall_grade,
-    status: closeout.fields.status,
-    subject_id: closeout.fields.subject_id,
-    source_review_id: closeout.fields.source_review_id ?? null,
-    predecessor_evidence_id: closeout.fields.predecessor_evidence_id ?? null,
-    changed_paths: closeout.fields.changed_paths ?? [],
-    check_evidence: closeout.fields.check_evidence ?? [],
-    duplicate: Boolean(closeout.duplicate),
-    handoff_persisted: closeout.handoff_persisted,
-    handoff_authoritative: false,
-    handoff_mode: closeout.handoff_persisted ? "root-content-cache" : "stateless",
-    root_content_hash: rootContentHash(rootPlanText),
-    ...repositoryDelta?.repository_snapshot ? { repository_snapshot_hash: repositorySnapshotFingerprint(repositoryDelta.repository_snapshot) } : {},
-    ...closeout.constraint_summary ? { constraint_summary: closeout.constraint_summary } : {},
-    ...closeout.human_attention ? { human_attention: closeout.human_attention } : {},
-    ...closeout.problem_details ? { problem_details: closeout.problem_details } : {},
-    ...closeout.artifact_set_hash ? { artifact_set_hash: closeout.artifact_set_hash } : {},
-    ...closeout.warning ? { warning: closeout.warning } : {},
-    ...closeout.handoff_error_code ? { handoff_error_code: closeout.handoff_error_code } : {}
-  };
-}
-function performNativeCloseout({
-  attestation,
-  message = null,
-  expectedPhase = null,
-  rootPlanText,
-  artifacts = [],
-  repositoryDelta,
-  pluginRoot,
-  handoffOptions = {},
-  receiptOptions = {},
-  invalidatedEvidence = null
-}) {
-  const parsed = attestation ? validateCloseoutInput(attestation) : parseCloseoutInput(message, { expectedPhase });
-  if (!parsed.ok) throw new Error(`native closeout attestation is invalid: ${parsed.issues.join("; ")}`);
-  const report = parsed.report;
-  if (expectedPhase && report.phase !== expectedPhase) throw new Error(`native closeout phase must be ${expectedPhase}`);
-  if (typeof rootPlanText !== "string" || !rootPlanText.trim()) throw new Error("native closeout requires independently captured exact Root text");
-  const inspectedRoot = inspectArtifactText(rootPlanText, pluginRoot);
-  if (inspectedRoot.errors.length > 0 || inspectedRoot.artifact?.fields?.artifact !== "work-plan") {
-    throw new Error(`native closeout active Root is invalid: ${inspectedRoot.errors.join("; ")}`);
-  }
-  const rootFields = inspectedRoot.artifact.fields;
-  if (rootFields.id !== report.root_plan_id) {
-    throw new Error(`native closeout Root mismatch: active ${rootFields.id}, report ${report.root_plan_id}`);
-  }
-  if (!repositoryDelta || !Array.isArray(repositoryDelta.changed_paths) || !repositoryDelta.repository_snapshot) {
-    throw new Error("native closeout requires a host-derived repository delta");
-  }
-  assertChangedPathAuthority(rootFields, repositoryDelta.changed_paths, repositoryDelta.repository_snapshot.repository_root ?? repositoryDelta.repository_root);
-  if (!repositoryDelta.baseline_available && report.phase !== "review-recovery") {
-    throw new Error("native implementation and correction closeout require a pre-mutation repository baseline");
-  }
-  const handoffStore = createContentAddressedHandoffStore(rootPlanText, pluginRoot, handoffOptions);
-  if (invalidatedEvidence?.id && invalidatedEvidence?.hash) {
-    try {
-      const cachedInvalidated = handoffStore.records([invalidatedEvidence.id])[0] ?? null;
-      if (cachedInvalidated) {
-        handoffStore.quarantineArtifact(invalidatedEvidence.id, {
-          expectedTextHash: invalidatedEvidence.hash,
-          apply: true
-        });
-      }
-    } catch {
-    }
-  }
-  let cached = [];
-  let cachedEvidenceTip = null;
-  try {
-    const context = handoffStore.context(rootFields.id, rootPlanText);
-    cached = context.artifacts;
-    cachedEvidenceTip = context.evidence_tip;
-  } catch {
-  }
-  const effectiveReport = repositoryDelta.baseline_available || cachedEvidenceTip ? report : provisionalWithoutBaseline(report);
-  const chain = mergeArtifacts([
-    ...cached,
-    ...artifacts
-  ], pluginRoot).filter((entry) => entry.label !== rootFields.id);
-  if (effectiveReport.phase === "correction") {
-    assertCorrectionSourceReview(rootPlanText, rootFields, chain, pluginRoot);
-  }
-  const repositoryRoot = repositoryDelta.repository_snapshot.repository_root ?? repositoryDelta.repository_root;
-  const manualCheckReceipts = loadManualCheckReceipts({
-    rootPlanText,
-    pluginRoot,
-    workspaceRoot: repositoryRoot,
-    options: receiptOptions
-  });
-  const closeout = buildDeliveryEvidence({
-    rootPlanText,
-    artifacts: chain,
-    checkEvidence: effectiveReport.check_evidence,
-    changedPaths: repositoryDelta.changed_paths,
-    strategyRevision: effectiveReport.strategy_revision,
-    effectiveProfile: "manual",
-    repositorySnapshot: repositoryDelta.repository_snapshot,
-    summary: effectiveReport.summary,
-    manualCheckReceipts,
-    enforceManualCheckReceipts: true,
-    pluginRoot
-  });
-  if (effectiveReport.phase === "implementation" && closeout.fields.subject_id !== rootFields.id) {
-    throw new Error("native implementation closeout conflicts with an existing correction lineage");
-  }
-  if (effectiveReport.phase === "correction" && !String(closeout.fields.subject_id).startsWith("cp-")) {
-    throw new Error("native correction closeout requires the current correction lineage tip");
-  }
-  const persisted = persistCloseout({
-    handoffStore,
-    rootPlanText,
-    artifacts: chain,
-    closeout
-  });
-  invalidateManualCheckReceipts({ rootPlanText, workspaceRoot: repositoryRoot, options: receiptOptions });
-  if (persisted.handoff_persisted) {
-    try {
-      rememberContentAddressedRoot(rootPlanText, pluginRoot, handoffOptions);
-    } catch {
-    }
-  }
-  return {
-    ...persisted,
-    report: effectiveReport,
-    structuredContent: nativeCloseoutStructuredContent(persisted, rootPlanText, repositoryDelta)
-  };
-}
-
-// src/controller/work-review-builder.mjs
-var import_yaml5 = __toESM(require_dist(), 1);
-import { createHash as createHash9 } from "node:crypto";
-var ASSESSMENTS = /* @__PURE__ */ new Set([
-  "achieved",
-  "provisional",
-  "mostly-achieved",
-  "partially-achieved",
-  "not-achieved",
-  "insufficient-evidence"
-]);
-var ASSESSMENT_RANK = Object.freeze({
-  "insufficient-evidence": 0,
-  "not-achieved": 1,
-  "partially-achieved": 2,
-  "mostly-achieved": 3,
-  provisional: 4,
-  achieved: 5
-});
-var ACTIONS = /* @__PURE__ */ new Set(["none", "accept-provisional", "correct", "clarify", "replan", "retry-review"]);
-var SEVERITIES = /* @__PURE__ */ new Set(["low", "medium", "high", "critical"]);
-var RESOLUTIONS = /* @__PURE__ */ new Set(["correct", "clarify", "replan"]);
-var SNAPSHOT_ASSESSMENTS = /* @__PURE__ */ new Set(["consistent", "contradicted", "incomplete"]);
-var AUDITOR_ROLES = /* @__PURE__ */ new Set(["delivery-auditor", "risk-auditor", "work-design-auditor"]);
-var COSTS = /* @__PURE__ */ new Set(["cheap", "standard", "expensive"]);
-var KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-function sha2567(value) {
-  return createHash9("sha256").update(String(value)).digest("hex");
-}
-function compareCanonical(left, right) {
-  return left < right ? -1 : left > right ? 1 : 0;
-}
-function codedError(code, message) {
-  const error = new Error(message);
-  error.code = code;
-  return error;
-}
-function stable3(value) {
-  if (Array.isArray(value)) return value.map(stable3);
-  if (!value || typeof value !== "object") return value;
-  return Object.fromEntries(Object.keys(value).sort(compareCanonical).map((key) => [key, stable3(value[key])]));
-}
-function stableJson3(value) {
-  return JSON.stringify(stable3(value));
-}
-function object(value, label) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} must be an object`);
-  return value;
-}
-function closed(value, allowed, label) {
-  const unknown = Object.keys(value).filter((key) => !allowed.includes(key));
-  if (unknown.length > 0) throw new Error(`${label} contains unsupported field ${unknown[0]}`);
-}
-function requiredField(value, key, label = "review_input") {
-  if (!Object.prototype.hasOwnProperty.call(value, key)) throw new Error(`${label}.${key} is required`);
-  return value[key];
-}
-function line(value, label, { required = true, max = 2e3 } = {}) {
-  if (typeof value !== "string") throw new Error(`${label} must be a string`);
-  const normalized = value.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
-  if (required && !normalized) throw new Error(`${label} is required`);
-  if (normalized.length > max) throw new Error(`${label} exceeds ${max} characters`);
-  return normalized;
-}
-function enumValue(value, values, label) {
-  const normalized = String(value ?? "").trim();
-  if (!values.has(normalized)) throw new Error(`${label} has invalid value ${normalized || "<missing>"}`);
-  return normalized;
-}
-function list(value, label, { max = 64, required = false } = {}) {
-  if (!Array.isArray(value)) throw new Error(`${label} must be an array`);
-  if (required && value.length === 0) throw new Error(`${label} must not be empty`);
-  if (value.length > max) throw new Error(`${label} exceeds ${max} items`);
-  return value;
-}
-function uniqueSorted2(values) {
-  return [...new Set(values)].sort(compareCanonical);
-}
-function normalizeIds(value, pattern, allowed, label) {
-  const normalized = uniqueSorted2(list(value, label, { required: true }).map((entry) => line(entry, label, { max: 80 })));
-  for (const id of normalized) {
-    if (!pattern.test(id) || !allowed.has(id)) throw new Error(`${label} contains unknown ${id}`);
-  }
-  return normalized;
-}
-function localKey(value, label) {
-  const normalized = line(value, label, { max: 80 });
-  if (!KEY.test(normalized)) throw new Error(`${label} must be a lowercase semantic key`);
-  return normalized;
-}
-function normalizeFindings(value, contract) {
-  const objectiveIds = new Set(contract.objectives);
-  const checkIds = new Set(contract.checks.filter((check) => check.Required === "yes").map((check) => check["Check ID"]));
-  const findings = list(value, "review_input.findings", { max: 32 }).map((entry, index) => {
-    const item = object(entry, `review_input.findings[${index}]`);
-    closed(item, ["key", "severity", "objective_ids", "check_ids", "evidence", "reasoning", "resolution"], `review_input.findings[${index}]`);
-    return {
-      key: localKey(item.key, `review_input.findings[${index}].key`),
-      severity: enumValue(item.severity, SEVERITIES, `review_input.findings[${index}].severity`),
-      objective_ids: normalizeIds(item.objective_ids, /^OBJ-[1-9][0-9]*$/, objectiveIds, `review_input.findings[${index}].objective_ids`),
-      check_ids: normalizeIds(item.check_ids, /^CHECK-[1-9][0-9]*$/, checkIds, `review_input.findings[${index}].check_ids`),
-      evidence: line(item.evidence, `review_input.findings[${index}].evidence`, { max: 4e3 }),
-      reasoning: line(item.reasoning, `review_input.findings[${index}].reasoning`, { max: 4e3 }),
-      resolution: enumValue(item.resolution, RESOLUTIONS, `review_input.findings[${index}].resolution`)
-    };
-  }).sort((left, right) => compareCanonical(left.key, right.key));
-  if (new Set(findings.map((finding) => finding.key)).size !== findings.length) throw new Error("review_input.findings keys must be unique");
-  return findings;
-}
-function normalizeAuditors(value) {
-  const reports = list(value, "review_input.auditor_reports", { max: 3 }).map((entry, index) => {
-    const item = object(entry, `review_input.auditor_reports[${index}]`);
-    closed(item, ["role", "assessment", "summary"], `review_input.auditor_reports[${index}]`);
-    return {
-      role: enumValue(item.role, AUDITOR_ROLES, `review_input.auditor_reports[${index}].role`),
-      assessment: enumValue(item.assessment, ASSESSMENTS, `review_input.auditor_reports[${index}].assessment`),
-      summary: line(item.summary, `review_input.auditor_reports[${index}].summary`, { max: 2e3 })
-    };
-  }).sort((left, right) => compareCanonical(left.role, right.role));
-  if (new Set(reports.map((report) => report.role)).size !== reports.length) throw new Error("review_input.auditor_reports roles must be unique");
-  return reports;
-}
-function normalizeCorrection(value, findingKeys) {
-  if (value == null) return null;
-  const correction = object(value, "review_input.correction");
-  closed(correction, ["fixes", "steps", "checks", "learning_candidates"], "review_input.correction");
-  const fixes = list(correction.fixes, "review_input.correction.fixes", { max: 32, required: true }).map((entry, index) => {
-    const item = object(entry, `review_input.correction.fixes[${index}]`);
-    closed(item, ["key", "finding_keys", "required_outcome", "evidence"], `review_input.correction.fixes[${index}]`);
-    const keys = uniqueSorted2(list(item.finding_keys, `review_input.correction.fixes[${index}].finding_keys`, { required: true }).map((key) => localKey(key, `review_input.correction.fixes[${index}].finding_keys`)));
-    if (keys.some((key) => !findingKeys.has(key))) throw new Error(`review_input.correction.fixes[${index}] references an unknown finding`);
-    return {
-      key: localKey(item.key, `review_input.correction.fixes[${index}].key`),
-      finding_keys: keys,
-      required_outcome: line(item.required_outcome, `review_input.correction.fixes[${index}].required_outcome`, { max: 2e3 }),
-      evidence: line(item.evidence, `review_input.correction.fixes[${index}].evidence`, { max: 2e3 })
-    };
-  }).sort((left, right) => compareCanonical(left.key, right.key));
-  const fixKeys = new Set(fixes.map((fix) => fix.key));
-  if (fixKeys.size !== fixes.length) throw new Error("review_input.correction.fixes keys must be unique");
-  const checks = list(correction.checks, "review_input.correction.checks", { max: 32, required: true }).map((entry, index) => {
-    const item = object(entry, `review_input.correction.checks[${index}]`);
-    closed(item, ["key", "fix_keys", "working_directory", "command_or_inspection", "expected_result", "required", "cost_class", "prerequisites"], `review_input.correction.checks[${index}]`);
-    const referencedFixes = uniqueSorted2(list(item.fix_keys, `review_input.correction.checks[${index}].fix_keys`, { required: true }).map((key) => localKey(key, `review_input.correction.checks[${index}].fix_keys`)));
-    if (referencedFixes.some((key) => !fixKeys.has(key))) throw new Error(`review_input.correction.checks[${index}] references an unknown fix`);
-    const prerequisites = uniqueSorted2(list(item.prerequisites, `review_input.correction.checks[${index}].prerequisites`, { required: true }).map((entryValue) => line(entryValue, `review_input.correction.checks[${index}].prerequisites`, { max: 1e3 })));
-    if (typeof item.required !== "boolean") throw new Error(`review_input.correction.checks[${index}].required must be a boolean`);
-    return {
-      key: localKey(item.key, `review_input.correction.checks[${index}].key`),
-      fix_keys: referencedFixes,
-      working_directory: line(item.working_directory, `review_input.correction.checks[${index}].working_directory`, { max: 1e3 }),
-      command_or_inspection: line(item.command_or_inspection, `review_input.correction.checks[${index}].command_or_inspection`, { max: 2e3 }),
-      expected_result: line(item.expected_result, `review_input.correction.checks[${index}].expected_result`, { max: 2e3 }),
-      required: item.required,
-      cost_class: enumValue(item.cost_class, COSTS, `review_input.correction.checks[${index}].cost_class`),
-      prerequisites
-    };
-  }).sort((left, right) => ({ cheap: 0, standard: 1, expensive: 2 })[left.cost_class] - { cheap: 0, standard: 1, expensive: 2 }[right.cost_class] || compareCanonical(left.key, right.key));
-  const checkKeys = new Set(checks.map((check) => check.key));
-  if (checkKeys.size !== checks.length) throw new Error("review_input.correction.checks keys must be unique");
-  const steps = list(correction.steps, "review_input.correction.steps", { max: 32, required: true }).map((entry, index) => {
-    const item = object(entry, `review_input.correction.steps[${index}]`);
-    closed(item, ["key", "fix_keys", "targets", "required_outcome", "implementation_latitude", "completion_probe", "check_keys", "deviation_action"], `review_input.correction.steps[${index}]`);
-    const referencedFixes = uniqueSorted2(list(item.fix_keys, `review_input.correction.steps[${index}].fix_keys`, { required: true }).map((key) => localKey(key, `review_input.correction.steps[${index}].fix_keys`)));
-    const referencedChecks = uniqueSorted2(list(item.check_keys, `review_input.correction.steps[${index}].check_keys`, { required: true }).map((key) => localKey(key, `review_input.correction.steps[${index}].check_keys`)));
-    if (referencedFixes.some((key) => !fixKeys.has(key))) throw new Error(`review_input.correction.steps[${index}] references an unknown fix`);
-    if (referencedChecks.some((key) => !checkKeys.has(key))) throw new Error(`review_input.correction.steps[${index}] references an unknown check`);
-    return {
-      key: localKey(item.key, `review_input.correction.steps[${index}].key`),
-      fix_keys: referencedFixes,
-      targets: uniqueSorted2(list(item.targets, `review_input.correction.steps[${index}].targets`, { required: true }).map((target) => line(target, `review_input.correction.steps[${index}].targets`, { max: 1e3 }))),
-      required_outcome: line(item.required_outcome, `review_input.correction.steps[${index}].required_outcome`, { max: 2e3 }),
-      implementation_latitude: line(item.implementation_latitude, `review_input.correction.steps[${index}].implementation_latitude`, { max: 2e3 }),
-      completion_probe: line(item.completion_probe, `review_input.correction.steps[${index}].completion_probe`, { max: 2e3 }),
-      check_keys: referencedChecks,
-      deviation_action: line(item.deviation_action, `review_input.correction.steps[${index}].deviation_action`, { max: 2e3 })
-    };
-  }).sort((left, right) => compareCanonical(left.key, right.key));
-  const stepKeys = new Set(steps.map((step) => step.key));
-  if (stepKeys.size !== steps.length) throw new Error("review_input.correction.steps keys must be unique");
-  for (const fix of fixKeys) if (!steps.some((step) => step.fix_keys.includes(fix))) throw new Error(`review_input.correction.steps do not cover ${fix}`);
-  const learningCandidates = list(correction.learning_candidates, "review_input.correction.learning_candidates", { max: 32, required: true }).map((entry, index) => {
-    const item = object(entry, `review_input.correction.learning_candidates[${index}]`);
-    closed(item, ["key", "finding_keys", "reusable_guidance", "candidate_targets", "confirmation_evidence"], `review_input.correction.learning_candidates[${index}]`);
-    const keys = uniqueSorted2(list(item.finding_keys, `review_input.correction.learning_candidates[${index}].finding_keys`, { required: true }).map((key) => localKey(key, `review_input.correction.learning_candidates[${index}].finding_keys`)));
-    if (keys.some((key) => !findingKeys.has(key))) throw new Error(`review_input.correction.learning_candidates[${index}] references an unknown finding`);
-    return {
-      key: localKey(item.key, `review_input.correction.learning_candidates[${index}].key`),
-      finding_keys: keys,
-      reusable_guidance: line(item.reusable_guidance, `review_input.correction.learning_candidates[${index}].reusable_guidance`, { max: 2e3 }),
-      candidate_targets: uniqueSorted2(list(item.candidate_targets, `review_input.correction.learning_candidates[${index}].candidate_targets`, { required: true }).map((target) => line(target, `review_input.correction.learning_candidates[${index}].candidate_targets`, { max: 1e3 }))),
-      confirmation_evidence: line(item.confirmation_evidence, `review_input.correction.learning_candidates[${index}].confirmation_evidence`, { max: 2e3 })
-    };
-  }).sort((left, right) => compareCanonical(left.key, right.key));
-  if (new Set(learningCandidates.map((candidate) => candidate.key)).size !== learningCandidates.length) throw new Error("review_input.correction.learning_candidates keys must be unique");
-  return { fixes, checks, steps, learning_candidates: learningCandidates };
-}
-function normalizeReviewInput(input, contract) {
-  const value = object(input, "review_input");
-  closed(value, ["schema", "kind", "assessment", "recommended_action", "assessment_summary", "snapshot_assessment", "snapshot_summary", "findings", "missing_evidence", "auditor_reports", "correction"], "review_input");
-  if (value.schema !== 1) throw new Error("review_input.schema must be 1");
-  if (value.kind !== "review-input") throw new Error("review_input.kind must be review-input");
-  const findings = normalizeFindings(requiredField(value, "findings"), contract);
-  const findingKeys = new Set(findings.map((finding) => finding.key));
-  const normalized = {
-    schema: 1,
-    kind: "review-input",
-    assessment: enumValue(requiredField(value, "assessment"), ASSESSMENTS, "review_input.assessment"),
-    recommended_action: enumValue(requiredField(value, "recommended_action"), ACTIONS, "review_input.recommended_action"),
-    assessment_summary: line(requiredField(value, "assessment_summary"), "review_input.assessment_summary", { max: 2e3 }),
-    snapshot_assessment: enumValue(requiredField(value, "snapshot_assessment"), SNAPSHOT_ASSESSMENTS, "review_input.snapshot_assessment"),
-    snapshot_summary: line(requiredField(value, "snapshot_summary"), "review_input.snapshot_summary", { max: 2e3 }),
-    findings,
-    missing_evidence: uniqueSorted2(list(requiredField(value, "missing_evidence"), "review_input.missing_evidence", { max: 32 }).map((entry) => line(entry, "review_input.missing_evidence", { max: 2e3 }))),
-    auditor_reports: normalizeAuditors(requiredField(value, "auditor_reports")),
-    correction: normalizeCorrection(value.correction, findingKeys)
-  };
-  if (normalized.recommended_action === "correct") {
-    if (normalized.findings.length === 0) throw new Error("review_input correct requires at least one finding");
-    if (!normalized.correction) throw new Error("review_input correct requires a correction proposal");
-  } else if (normalized.correction) {
-    throw new Error("review_input.correction is allowed only for recommended_action correct");
-  }
-  return normalized;
-}
-function parseReviewInputFromText(source) {
-  const matches = [...String(source ?? "").matchAll(/```json[ \t]+workflow-review-input[ \t]*\r?\n([\s\S]*?)```/gi)];
-  if (matches.length !== 1) return { ok: false, input: null, issues: [matches.length === 0 ? "exactly one json workflow-review-input block is required" : "multiple workflow-review-input blocks are not allowed"] };
-  try {
-    return { ok: true, input: JSON.parse(matches[0][1]), issues: [] };
-  } catch (error) {
-    return { ok: false, input: null, issues: [`workflow-review-input JSON is invalid: ${error.message}`] };
-  }
-}
-function mergeChain(rootPlanText, artifacts, pluginRoot) {
-  const rootInspection = inspectArtifactText(rootPlanText, pluginRoot);
-  if (rootInspection.errors.length > 0 || rootInspection.artifact?.fields?.artifact !== "work-plan" || rootInspection.artifact.fields.schema !== 5) {
-    throw new Error(`review builder requires an exact valid Schema-5 Root: ${rootInspection.errors.join("; ") || "not a work-plan"}`);
-  }
-  const byId = /* @__PURE__ */ new Map([[rootInspection.artifact.fields.id, { label: rootInspection.artifact.fields.id, text: rootPlanText }]]);
-  for (const [index, entry] of (artifacts ?? []).entries()) {
-    if (!entry || typeof entry.text !== "string" || !entry.text.trim()) throw new Error(`review builder artifact ${index + 1} requires exact text`);
-    const inspected = inspectArtifactText(entry.text, pluginRoot);
-    if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) throw new Error(`review builder artifact ${entry.label ?? index + 1} is invalid: ${inspected.errors.join("; ")}`);
-    const id = inspected.artifact.fields.id;
-    const builderProvenance = entry.builder_provenance ?? entry.provenance ?? null;
-    const protectedLegacyReview = entry.legacy_review_recorded === true;
-    if (inspected.artifact.fields.artifact === "work-review") {
-      const validBuilderProvenance = builderProvenance?.schema === 1 && builderProvenance?.kind === "host-work-review-builder" && /^[a-f0-9]{64}$/.test(String(builderProvenance?.review_input_hash ?? "")) && builderProvenance?.artifact_hash === sha2567(entry.text) && Object.keys(builderProvenance).every((key) => ["schema", "kind", "review_input_hash", "artifact_hash"].includes(key));
-      if (builderProvenance && !validBuilderProvenance) {
-        throw codedError("review-artifact-rejected", `review builder artifact ${id} has invalid host builder provenance`);
-      }
-      if (!validBuilderProvenance && !protectedLegacyReview) {
-        throw codedError("review-artifact-rejected", `review builder rejects newly imported work-review ${id} without protected builder provenance; Root, Evidence, and repository work remain unchanged, so repeat Review from the exact Root/Evidence chain in this task`);
-      }
-    }
-    const prior = byId.get(id);
-    if (prior && prior.text !== entry.text) throw new Error(`review builder artifact ${id} has conflicting immutable bytes`);
-    byId.set(id, {
-      label: id,
-      text: entry.text,
-      ...builderProvenance ? { builder_provenance: builderProvenance } : {},
-      ...protectedLegacyReview ? { legacy_review_recorded: true } : {}
-    });
-  }
-  return { rootFields: rootInspection.artifact.fields, entries: [...byId.values()] };
-}
-function knownFailure(evidence) {
-  return evidence?.fields?.status === "blocked" || (evidence?.fields?.check_evidence ?? []).some((entry) => entry.grade === "failed");
-}
-function decision(input, evidence) {
-  for (const report of input.auditor_reports) {
-    if (ASSESSMENT_RANK[report.assessment] < ASSESSMENT_RANK[input.assessment]) {
-      throw new Error(`review_input.assessment ${input.assessment} is more positive than review_input.auditor_reports ${report.role} assessment ${report.assessment}`);
-    }
-  }
-  const failed = knownFailure(evidence);
-  const reviewReady = evidence?.effective?.reviewReady === true && evidence?.fields?.status === "complete";
-  const hasFindings = input.findings.length > 0;
-  const missing = input.missing_evidence.length > 0 || input.snapshot_assessment !== "consistent";
-  let assessment = input.assessment;
-  let nextAction = input.recommended_action;
-  let deliveryStatus = "blocked";
-  if (failed) {
-    if (nextAction === "replan" || nextAction === "clarify") {
-      assessment = ["achieved", "provisional"].includes(assessment) ? "not-achieved" : assessment;
-    } else if (hasFindings && input.correction) {
-      nextAction = "correct";
-      assessment = ["achieved", "provisional"].includes(assessment) ? "not-achieved" : assessment;
-    } else {
-      nextAction = "retry-review";
-      assessment = "insufficient-evidence";
-    }
-    return { assessment, delivery_status: "blocked", next_action: nextAction, review_ready: reviewReady, known_failure: true };
-  }
-  if (nextAction === "replan" || nextAction === "clarify") {
-    assessment = ["achieved", "provisional"].includes(assessment) ? "partially-achieved" : assessment;
-    return { assessment, delivery_status: "blocked", next_action: nextAction, review_ready: reviewReady, known_failure: false };
-  }
-  if (nextAction === "correct" || hasFindings) {
-    if (!input.correction || !hasFindings) throw new Error("review findings requiring correction need one complete correction proposal");
-    assessment = ["achieved", "provisional"].includes(assessment) ? "mostly-achieved" : assessment;
-    return { assessment, delivery_status: "blocked", next_action: "correct", review_ready: reviewReady, known_failure: false };
-  }
-  if (missing || nextAction === "retry-review" || assessment === "insufficient-evidence") {
-    return { assessment: "insufficient-evidence", delivery_status: "blocked", next_action: "retry-review", review_ready: reviewReady, known_failure: false };
-  }
-  if (reviewReady && assessment === "achieved" && nextAction === "none") {
-    return { assessment: "achieved", delivery_status: "verified", next_action: "none", review_ready: true, known_failure: false };
-  }
-  if (!["none", "accept-provisional"].includes(nextAction)) throw new Error(`review_input recommended_action ${nextAction} is inconsistent with an evidence-only provisional result`);
-  if (!["achieved", "provisional"].includes(assessment)) {
-    throw new Error(`review_input.assessment ${assessment} is inconsistent with review_input.recommended_action ${nextAction}; provide the missing Evidence or choose correct, clarify, replan, or retry-review`);
-  }
-  return { assessment: "provisional", delivery_status: "provisional", next_action: "accept-provisional", review_ready: reviewReady, known_failure: false };
-}
-function routeFor(rootFields, input, outcome) {
-  const roles = new Set(input.auditor_reports.map((report) => report.role));
-  const deterministicBlocked = outcome.delivery_status === "blocked" && (outcome.next_action === "replan" || outcome.next_action === "correct" && outcome.known_failure);
-  const fullRequired = rootFields.contract_level === "certified" || rootFields.risk === "high" || (rootFields.hard_triggers ?? []).length > 0;
-  if (roles.has("risk-auditor")) {
-    if (!roles.has("delivery-auditor")) throw new Error("risk-auditor review input also requires delivery-auditor input");
-    return { review_route: "full", auditors_run: ["inline", "delivery-auditor", "risk-auditor", ...roles.has("work-design-auditor") ? ["work-design-auditor"] : []] };
-  }
-  if (fullRequired && !deterministicBlocked) throw new Error("certified, high-risk, or hard-trigger review requires delivery-auditor and risk-auditor reports");
-  if (roles.has("delivery-auditor")) return { review_route: "targeted", auditors_run: ["inline", "delivery-auditor"] };
-  if (roles.has("work-design-auditor")) return { review_route: "targeted", auditors_run: ["inline", "work-design-auditor"] };
-  return { review_route: "inline", auditors_run: ["inline"] };
-}
-function cell2(value) {
-  const text = String(value ?? "").replace(/\r?\n/g, "<br>").replace(/\|/g, "\\|").trim();
-  return text || "none";
-}
-function table2(headers, rows) {
-  return [
-    `| ${headers.join(" | ")} |`,
-    `|${headers.map(() => "---").join("|")}|`,
-    ...rows.map((row) => `| ${headers.map((header) => cell2(row[header])).join(" | ")} |`)
-  ].join("\n");
-}
-function nextCheckNumber(entries, pluginRoot) {
-  let maximum = 0;
-  for (const entry of entries) {
-    const inspected = inspectArtifactText(entry.text, pluginRoot);
-    const matches = entry.text.match(/\bCHECK-([1-9][0-9]*)\b/g) ?? [];
-    for (const match of matches) maximum = Math.max(maximum, Number(match.slice(6)));
-    if (inspected.errors.length > 0) continue;
-  }
-  return maximum + 1;
-}
-function correctionProjection({ normalized, findings, seed, rootFields, evidenceId, reviewId, predecessorReview, entries, pluginRoot }) {
-  if (!normalized.correction) return null;
-  const correctionId = `cp-${rootFields.id.replace(/^wp-/, "")}-${seed.slice(0, 12)}`;
-  const fixIds = new Map(normalized.correction.fixes.map((fix, index) => [fix.key, `FIX-${index + 1}`]));
-  const stepIds = new Map(normalized.correction.steps.map((step, index) => [step.key, `STEP-${index + 1}`]));
-  const checkStart = nextCheckNumber(entries, pluginRoot);
-  const checkIds = new Map(normalized.correction.checks.map((check, index) => [check.key, `CHECK-${checkStart + index}`]));
-  const learningIds = new Map(normalized.correction.learning_candidates.map((candidate, index) => [candidate.key, `LRN-${seed.slice(0, 8)}-${index + 1}`]));
-  const findingsByKey = new Map(findings.map((finding) => [finding.key, finding]));
-  const fixes = normalized.correction.fixes.map((fix) => {
-    const mapped = fix.finding_keys.map((key) => findingsByKey.get(key));
-    return {
-      "FIX ID": fixIds.get(fix.key),
-      "Finding keys": fix.finding_keys.join(", "),
-      "Root Objectives": uniqueSorted2(mapped.flatMap((finding) => finding.objective_ids)).join(", "),
-      "Root Checks": uniqueSorted2(mapped.flatMap((finding) => finding.check_ids)).join(", "),
-      "Required outcome": fix.required_outcome,
-      Evidence: fix.evidence
-    };
-  });
-  const steps = normalized.correction.steps.map((step, index) => ({
-    "Step ID": stepIds.get(step.key),
-    "FIX IDs": step.fix_keys.map((key) => fixIds.get(key)).join(", "),
-    Targets: step.targets.join(", "),
-    "Required outcome": step.required_outcome,
-    "Implementation latitude": step.implementation_latitude,
-    "Completion probe": `PROBE-${index + 1}: ${step.completion_probe}`,
-    "Check IDs": step.check_keys.map((key) => checkIds.get(key)).join(", "),
-    "Deviation action": step.deviation_action
-  }));
-  const checks = normalized.correction.checks.map((check) => ({
-    "Check ID": checkIds.get(check.key),
-    "FIX IDs": check.fix_keys.map((key) => fixIds.get(key)).join(", "),
-    "Working Directory": check.working_directory,
-    "Command or Inspection": check.command_or_inspection,
-    "Expected Result": check.expected_result,
-    Required: check.required ? "yes" : "no",
-    "Cost Class": check.cost_class,
-    Prerequisites: check.prerequisites.join(", ")
-  }));
-  const learnings = normalized.correction.learning_candidates.map((candidate) => ({
-    "Learning ID": learningIds.get(candidate.key),
-    "Finding keys": candidate.finding_keys.join(", "),
-    "Reusable guidance": candidate.reusable_guidance,
-    "Candidate targets": candidate.candidate_targets.join(", "),
-    "Confirmation evidence": candidate.confirmation_evidence
-  }));
-  const predecessorCorrection = predecessorReview?.fields?.correction_id ?? "None.";
-  const body = [
-    `## Correction plan
-
-### ${correctionId}`,
-    table2(["Correction ID", "Root Plan", "Source Review", "Base Evidence", "Predecessor Correction", "Risk"], [{
-      "Correction ID": correctionId,
-      "Root Plan": rootFields.id,
-      "Source Review": reviewId,
-      "Base Evidence": evidenceId,
-      "Predecessor Correction": predecessorCorrection,
-      Risk: rootFields.risk
-    }]),
-    table2(["FIX ID", "Finding keys", "Root Objectives", "Root Checks", "Required outcome", "Evidence"], fixes),
-    table2(["Step ID", "FIX IDs", "Targets", "Required outcome", "Implementation latitude", "Completion probe", "Check IDs", "Deviation action"], steps),
-    table2(["Check ID", "FIX IDs", "Working Directory", "Command or Inspection", "Expected Result", "Required", "Cost Class", "Prerequisites"], checks),
-    table2(["Learning ID", "Finding keys", "Reusable guidance", "Candidate targets", "Confirmation evidence"], learnings)
-  ].join("\n\n");
-  return { correction_id: correctionId, learning_ids: [...learningIds.values()], body };
-}
-function reviewBody({ normalized, outcome, route, coverage, evidenceId, correction }) {
-  const sections = [
-    `## Assessment
-
-${outcome.assessment}: ${normalized.assessment_summary}`,
-    `## Evidence coverage
-
-${table2(["Kind", "Inspected", "Reused", "Result", "Evidence"], [
-      { Kind: "Objectives", Inspected: coverage.inspectedObjectives.join(", ") || "none", Reused: coverage.reusedObjectives.join(", ") || "none", Result: outcome.assessment, Evidence: `exact Evidence ${evidenceId}` },
-      { Kind: "Checks", Inspected: coverage.inspectedChecks.join(", ") || "none", Reused: coverage.reusedChecks.join(", ") || "none", Result: outcome.delivery_status === "verified" ? "passed" : outcome.delivery_status, Evidence: `exact Evidence ${evidenceId}` },
-      { Kind: "Auditors", Inspected: route.auditors_run.join(", "), Reused: "none", Result: "complete", Evidence: "validated review input" },
-      { Kind: "Snapshot", Inspected: evidenceId, Reused: "none", Result: normalized.snapshot_assessment, Evidence: normalized.snapshot_summary }
-    ])}`,
-    normalized.findings.length === 0 ? "## Findings\n\nNone." : `## Findings
-
-${table2(["Finding key", "Severity", "Objectives", "Checks", "Evidence", "Reasoning"], normalized.findings.map((finding) => ({
-      "Finding key": finding.key,
-      Severity: finding.severity,
-      Objectives: finding.objective_ids.join(", "),
-      Checks: finding.check_ids.join(", "),
-      Evidence: finding.evidence,
-      Reasoning: finding.reasoning
-    })))}`,
-    `## Next action
-
-${outcome.next_action}: ${outcome.next_action === "none" ? "No further Workflow action is required." : `Continue through the bounded ${outcome.next_action} route in this task.`}`
-  ];
-  if (correction) sections.push(correction.body);
-  return sections.join("\n\n");
-}
-function boundaryBody(receipt) {
-  return [
-    "## Assessment\n\ninsufficient-evidence: deterministic Evidence recovery is unavailable for the exact current boundary.",
-    `## Evidence coverage
-
-${table2(["Kind", "Inspected", "Reused", "Result", "Evidence"], [
-      { Kind: "Objectives", Inspected: "none", Reused: "none", Result: "blocked", Evidence: "protected root-boundary receipt" },
-      { Kind: "Checks", Inspected: "none", Reused: "none", Result: "blocked", Evidence: "protected root-boundary receipt" },
-      { Kind: "Auditors", Inspected: "inline", Reused: "none", Result: "complete", Evidence: "host boundary validation" },
-      { Kind: "Snapshot", Inspected: receipt.repository_snapshot_hash, Reused: "none", Result: "incomplete", Evidence: receipt.recovery_error_code }
-    ])}`,
-    "## Findings\n\nNone.",
-    "## Next action\n\nreplan: create a fresh Root through separate human approval."
-  ].join("\n\n");
-}
-function buildWorkReview({
-  rootPlanText,
-  artifacts = [],
-  reviewInput = null,
-  boundaryReceipt = null,
-  boundaryReceiptVerifier = null,
-  pluginRoot
-}) {
-  const merged = mergeChain(rootPlanText, artifacts, pluginRoot);
-  const contract = executionContractFromArtifactText(rootPlanText, pluginRoot);
-  if (contract.errors.length > 0 || contract.fields.schema !== 5) throw new Error(`review builder Root is invalid: ${contract.errors.join("; ")}`);
-  const inspectionOptions = boundaryReceipt && typeof boundaryReceiptVerifier === "function" ? { boundaryReceiptVerifier } : {};
-  const prior = inspectArtifactSet(merged.entries.map((entry) => [entry.label, entry.text]), pluginRoot, inspectionOptions);
-  if (prior.errors.length > 0) throw new Error(`review builder input chain is invalid: ${prior.errors.join("; ")}`);
-  const tips = effectiveCliSummary(prior);
-  const predecessorReviewId = tips.review_tips[merged.rootFields.id] ?? null;
-  const predecessorReview = predecessorReviewId ? prior.effective.get(predecessorReviewId) : null;
-  const predecessorReviewText = predecessorReviewId ? merged.entries.find((entry) => entry.label === predecessorReviewId)?.text ?? "" : "";
-  if (boundaryReceipt) {
-    if (typeof boundaryReceiptVerifier !== "function") throw new Error("root-boundary review requires a protected host verifier");
-    const trusted = boundaryReceiptVerifier({ receipt: boundaryReceipt, rootPlanText, reviewFields: null });
-    if (trusted?.ok !== true) throw new Error(`root-boundary receipt is not trusted: ${trusted?.reason ?? "host verification failed"}`);
-    const seedInput2 = {
-      schema: 1,
-      root_content_hash: rootContentHash(rootPlanText),
-      root_projection_hash: contract.authoritative_projection_hash,
-      predecessor_review_id: predecessorReviewId,
-      predecessor_review_hash: predecessorReviewText ? sha2567(predecessorReviewText) : null,
-      boundary_receipt: boundaryReceipt
-    };
-    const reviewInputHash2 = sha2567(stableJson3(seedInput2));
-    const id2 = `wr-${merged.rootFields.id.replace(/^wp-/, "")}-${reviewInputHash2.slice(0, 12)}`;
-    const fields2 = {
-      artifact: "work-review",
-      schema: 5,
-      id: id2,
-      status: "complete",
-      root_plan_id: merged.rootFields.id,
-      latest_evidence_id: null,
-      review_basis: "root-boundary",
-      boundary_receipt: boundaryReceipt,
-      assessment: "insufficient-evidence",
-      delivery_status: "blocked",
-      review_route: "inline",
-      next_action: "replan",
-      correction_id: null,
-      predecessor_review_id: predecessorReviewId,
-      inspected_objectives: [],
-      reused_objectives: [],
-      inspected_checks: [],
-      reused_checks: [],
-      auditors_run: ["inline"]
-    };
-    const artifact2 = `---
-${(0, import_yaml5.stringify)(fields2, { lineWidth: 0 }).trimEnd()}
----
-
-${boundaryBody(boundaryReceipt)}
-`;
-    const duplicate2 = merged.entries.find((entry) => entry.label === id2);
-    if (duplicate2 && duplicate2.text !== artifact2) throw new Error(`review builder generated conflicting immutable bytes for ${id2}`);
-    const finalEntries2 = duplicate2 ? merged.entries : [...merged.entries, { label: id2, text: artifact2 }];
-    const validated2 = inspectArtifactSet(finalEntries2.map((entry) => [entry.label, entry.text]), pluginRoot, { boundaryReceiptVerifier });
-    if (validated2.errors.length > 0) throw new Error(`generated work-review is invalid: ${validated2.errors.join("; ")}`);
-    const artifactHash2 = sha2567(artifact2);
-    return { duplicate: Boolean(duplicate2), artifact: artifact2, artifact_hash: artifactHash2, review_input_hash: reviewInputHash2, fields: fields2, provenance: { schema: 1, kind: "host-work-review-builder", review_input_hash: reviewInputHash2, artifact_hash: artifactHash2 } };
-  }
-  const evidenceId = tips.evidence_tips[merged.rootFields.id] ?? null;
-  if (!evidenceId) throw new Error("review builder requires the exact current Evidence tip");
-  const evidence = prior.effective.get(evidenceId);
-  const evidenceText = merged.entries.find((entry) => entry.label === evidenceId)?.text;
-  if (!evidence || !evidenceText) throw new Error(`review builder cannot resolve exact Evidence ${evidenceId}`);
-  let normalized;
-  let outcome;
-  let route;
-  try {
-    normalized = normalizeReviewInput(reviewInput, contract);
-    outcome = decision(normalized, evidence);
-    route = routeFor(merged.rootFields, normalized, outcome);
-  } catch (error) {
-    if (error?.code) throw error;
-    throw codedError("review-input-invalid", error?.message ?? "review_input is invalid");
-  }
-  const currentReviewEntry = predecessorReviewId ? merged.entries.find((entry) => entry.label === predecessorReviewId) : null;
-  const currentProvenance = currentReviewEntry?.builder_provenance;
-  if (currentProvenance?.schema === 1 && currentProvenance?.kind === "host-work-review-builder" && currentProvenance?.artifact_hash === sha2567(currentReviewEntry.text) && predecessorReview?.fields?.latest_evidence_id === evidenceId) {
-    const priorPredecessorId = predecessorReview.fields.predecessor_review_id ?? null;
-    const priorPredecessorText = priorPredecessorId ? merged.entries.find((entry) => entry.label === priorPredecessorId)?.text ?? "" : "";
-    const retrySeed = {
-      schema: 1,
-      root_content_hash: rootContentHash(rootPlanText),
-      root_projection_hash: contract.authoritative_projection_hash,
-      evidence_id: evidenceId,
-      evidence_hash: sha2567(evidenceText),
-      predecessor_review_id: priorPredecessorId,
-      predecessor_review_hash: priorPredecessorText ? sha2567(priorPredecessorText) : null,
-      auditors_run: route.auditors_run,
-      review_input: normalized
-    };
-    const retryInputHash = sha2567(stableJson3(retrySeed));
-    if (retryInputHash === currentProvenance.review_input_hash && predecessorReviewId === `wr-${merged.rootFields.id.replace(/^wp-/, "")}-${retryInputHash.slice(0, 12)}`) {
-      return {
-        duplicate: true,
-        artifact: currentReviewEntry.text,
-        artifact_hash: currentProvenance.artifact_hash,
-        review_input_hash: retryInputHash,
-        fields: predecessorReview.fields,
-        normalized_review_input: normalized,
-        outcome,
-        provenance: currentProvenance
-      };
-    }
-  }
-  const rootChecks = contract.checks.filter((check) => check.Required === "yes").map((check) => check["Check ID"]);
-  const reusedObjectives = predecessorReviewId ? (evidence.fields.reused_objectives ?? []).filter((id2) => contract.objectives.includes(id2)).sort(compareCanonical) : [];
-  const reusedChecks = predecessorReviewId ? (evidence.fields.reused_checks ?? []).filter((id2) => rootChecks.includes(id2)).sort(compareCanonical) : [];
-  const coverage = {
-    reusedObjectives,
-    inspectedObjectives: contract.objectives.filter((id2) => !reusedObjectives.includes(id2)),
-    reusedChecks,
-    inspectedChecks: rootChecks.filter((id2) => !reusedChecks.includes(id2))
-  };
-  const seedInput = {
-    schema: 1,
-    root_content_hash: rootContentHash(rootPlanText),
-    root_projection_hash: contract.authoritative_projection_hash,
-    evidence_id: evidenceId,
-    evidence_hash: sha2567(evidenceText),
-    predecessor_review_id: predecessorReviewId,
-    predecessor_review_hash: predecessorReviewText ? sha2567(predecessorReviewText) : null,
-    auditors_run: route.auditors_run,
-    review_input: normalized
-  };
-  const reviewInputHash = sha2567(stableJson3(seedInput));
-  const id = `wr-${merged.rootFields.id.replace(/^wp-/, "")}-${reviewInputHash.slice(0, 12)}`;
-  const correction = correctionProjection({ normalized, findings: normalized.findings, seed: reviewInputHash, rootFields: merged.rootFields, evidenceId, reviewId: id, predecessorReview, entries: merged.entries, pluginRoot });
-  const fields = {
-    artifact: "work-review",
-    schema: 5,
-    id,
-    status: "complete",
-    root_plan_id: merged.rootFields.id,
-    latest_evidence_id: evidenceId,
-    assessment: outcome.assessment,
-    delivery_status: outcome.delivery_status,
-    review_route: route.review_route,
-    next_action: outcome.next_action,
-    correction_id: correction?.correction_id ?? null,
-    predecessor_review_id: predecessorReviewId,
-    auditors_run: route.auditors_run,
-    inspected_objectives: coverage.inspectedObjectives,
-    reused_objectives: coverage.reusedObjectives,
-    inspected_checks: coverage.inspectedChecks,
-    reused_checks: coverage.reusedChecks,
-    ...correction ? { learning_candidates: correction.learning_ids } : {}
-  };
-  const artifact = `---
-${(0, import_yaml5.stringify)(fields, { lineWidth: 0 }).trimEnd()}
----
-
-${reviewBody({ normalized, outcome, route, coverage, evidenceId, correction })}
-`;
-  const duplicate = merged.entries.find((entry) => entry.label === id);
-  if (duplicate && duplicate.text !== artifact) throw new Error(`review builder generated conflicting immutable bytes for ${id}`);
-  const finalEntries = duplicate ? merged.entries : [...merged.entries, { label: id, text: artifact }];
-  const validated = inspectArtifactSet(finalEntries.map((entry) => [entry.label, entry.text]), pluginRoot);
-  if (validated.errors.length > 0) throw new Error(`generated work-review is invalid: ${validated.errors.join("; ")}`);
-  const artifactHash = sha2567(artifact);
-  return {
-    duplicate: Boolean(duplicate),
-    artifact,
-    artifact_hash: artifactHash,
-    review_input_hash: reviewInputHash,
-    fields,
-    normalized_review_input: normalized,
-    outcome,
-    provenance: { schema: 1, kind: "host-work-review-builder", review_input_hash: reviewInputHash, artifact_hash: artifactHash }
-  };
-}
-function persistWorkReview({ handoffStore, rootPlanText, artifacts = [], review }) {
-  if (!review?.artifact || !review?.fields?.id || !review?.provenance) throw new Error("persistWorkReview requires one generated work-review");
-  try {
-    const byId = /* @__PURE__ */ new Map();
-    for (const entry of [{ label: review.fields.root_plan_id, text: rootPlanText }, ...artifacts, { label: review.fields.id, text: review.artifact, provenance: review.provenance }]) {
-      const inspected = inspectArtifactText(entry.text, handoffStore.pluginRoot);
-      const id = inspected.artifact?.fields?.id ?? entry.label;
-      const prior = byId.get(id);
-      if (prior && prior.text !== entry.text) throw new Error(`work-review persistence found conflicting immutable bytes for ${id}`);
-      byId.set(id, {
-        label: id,
-        text: entry.text,
-        ...entry.provenance || entry.builder_provenance ? { provenance: entry.provenance ?? entry.builder_provenance } : prior?.provenance ? { provenance: prior.provenance } : {}
-      });
-    }
-    const persisted = handoffStore.record([...byId.values()]);
-    return { ...review, handoff_persisted: true, handoff_authoritative: false, artifact_set_hash: persisted.artifact_set_hash };
-  } catch (error) {
-    return {
-      ...review,
-      handoff_persisted: false,
-      handoff_authoritative: false,
-      handoff_error_code: "handoff-persist-failed",
-      warning: `optional cross-task review handoff unavailable: ${error.message}; task-local Review remains valid`
-    };
-  }
-}
-
-// src/controller/native-review.mjs
-var NATIVE_AUDITOR_ROLES = /* @__PURE__ */ new Set(["delivery-auditor", "risk-auditor", "work-design-auditor"]);
-function exactById(entries, pluginRoot) {
-  const byId = /* @__PURE__ */ new Map();
-  for (const [index, entry] of (entries ?? []).entries()) {
-    if (!entry || typeof entry.text !== "string" || !entry.text.trim()) throw new Error(`native Review artifact ${index + 1} requires exact text`);
-    const inspected = inspectArtifactText(entry.text, pluginRoot);
-    if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) throw new Error(`native Review artifact ${index + 1} is invalid: ${inspected.errors.join("; ")}`);
-    const id = inspected.artifact.fields.id;
-    const prior = byId.get(id);
-    if (prior && prior.text !== entry.text) throw new Error(`native Review artifact ${id} conflicts with different immutable bytes`);
-    byId.set(id, {
-      label: id,
-      text: entry.text,
-      ...entry.builder_provenance || entry.provenance ? { builder_provenance: entry.builder_provenance ?? entry.provenance } : prior?.builder_provenance ? { builder_provenance: prior.builder_provenance } : {},
-      ...entry.legacy_review_recorded === true || prior?.legacy_review_recorded === true ? { legacy_review_recorded: true } : {}
-    });
-  }
-  return byId;
-}
-function containsRootEvidence(entries, rootPlanId, pluginRoot) {
-  return [...entries.values()].some((entry) => {
-    const fields = inspectArtifactText(entry.text, pluginRoot).artifact?.fields;
-    return fields?.artifact === "delivery-evidence" && fields.root_plan_id === rootPlanId;
-  });
-}
-function nativeReviewInput(reviewInput, hostObservedAuditorRoles) {
-  if (reviewInput == null) return null;
-  const observed = new Set(hostObservedAuditorRoles ?? []);
-  for (const role of observed) {
-    if (!NATIVE_AUDITOR_ROLES.has(role)) throw new Error(`native Review received unsupported host-observed auditor role ${role}`);
-  }
-  if (Array.isArray(reviewInput.auditor_reports)) {
-    for (const report of reviewInput.auditor_reports) {
-      if (NATIVE_AUDITOR_ROLES.has(report?.role) && !observed.has(report.role)) {
-        throw new Error(`review_input.auditor_reports role ${report.role} has no host-observed native auditor completion`);
-      }
-    }
-  }
-  return reviewInput;
-}
-function performNativeReview({
-  rootPlanText,
-  artifacts = [],
-  reviewInput = null,
-  boundaryReceipt = null,
-  boundaryReceiptVerifier = null,
-  hostObservedAuditorRoles = [],
-  pluginRoot,
-  handoffOptions = {}
-}) {
-  const root = inspectArtifactText(rootPlanText, pluginRoot);
-  if (root.errors.length > 0 || root.artifact?.fields?.artifact !== "work-plan" || root.artifact.fields.schema !== 5) {
-    throw new Error(`native Review requires the exact valid Schema-5 Root: ${root.errors.join("; ") || "not a work-plan"}`);
-  }
-  const supplied = exactById([{ label: root.artifact.fields.id, text: rootPlanText }, ...artifacts], pluginRoot);
-  const taskHasEvidence = containsRootEvidence(supplied, root.artifact.fields.id, pluginRoot);
-  let handoffStore = null;
-  let cacheWarning = null;
-  try {
-    handoffStore = createContentAddressedHandoffStore(rootPlanText, pluginRoot, {
-      ...handoffOptions,
-      artifactSetOptions: boundaryReceiptVerifier ? { boundaryReceiptVerifier } : {}
-    });
-    if (!taskHasEvidence) {
-      try {
-        const context = handoffStore.context(root.artifact.fields.id, rootPlanText);
-        const cached = exactById(context.artifacts, pluginRoot);
-        for (const [id, entry] of cached) {
-          const taskEntry = supplied.get(id);
-          if (taskEntry && taskEntry.text !== entry.text) throw new Error(`cached artifact ${id} conflicts with task-local immutable bytes`);
-          if (!taskEntry) supplied.set(id, entry);
-        }
-      } catch (error) {
-        cacheWarning = `optional review cache was ignored: ${error.message}`;
-      }
-    }
-  } catch (error) {
-    cacheWarning = `optional review cache is unavailable: ${error.message}`;
-  }
-  let review = buildWorkReview({
-    rootPlanText,
-    artifacts: [...supplied.values()],
-    reviewInput: nativeReviewInput(reviewInput, hostObservedAuditorRoles),
-    boundaryReceipt,
-    boundaryReceiptVerifier,
-    pluginRoot
-  });
-  if (taskHasEvidence && handoffStore && !review.duplicate) {
-    try {
-      const cachedReview = handoffStore.context(root.artifact.fields.id, rootPlanText).artifacts.find((entry) => entry.label === review.fields.id);
-      if (cachedReview?.text === review.artifact && cachedReview.builder_provenance?.kind === "host-work-review-builder" && cachedReview.builder_provenance.review_input_hash === review.review_input_hash && cachedReview.builder_provenance.artifact_hash === review.artifact_hash) {
-        review = { ...review, duplicate: true };
-      }
-    } catch (error) {
-      cacheWarning = `optional review cache identity check was ignored: ${error.message}`;
-    }
-  }
-  if (!handoffStore) {
-    return {
-      ...review,
-      handoff_persisted: false,
-      handoff_authoritative: false,
-      handoff_error_code: "handoff-persist-failed",
-      warning: `${cacheWarning}; task-local Review remains valid`
-    };
-  }
-  const persisted = persistWorkReview({ handoffStore, rootPlanText, artifacts: [...supplied.values()], review });
-  return cacheWarning ? { ...persisted, warning: [cacheWarning, persisted.warning].filter(Boolean).join("; ") } : persisted;
 }
 
 // src/core/manual-journey.mjs
@@ -19673,7 +16286,7 @@ var MANUAL_PRIMARY_ACTIONS = Object.freeze({
   "attach-artifact": Object.freeze({ label: "Export the exact artifact", command: "attach-artifact" }),
   "review-root": Object.freeze({ label: "Review delivery", command: "review-work" }),
   "accept-provisional": Object.freeze({ label: "Accept provisional delivery", command: "accept-work" }),
-  closeout: Object.freeze({ label: "Deterministic closeout", command: "close-work" }),
+  closeout: Object.freeze({ label: "Portable Evidence build", command: "workflow_closeout" }),
   correct: Object.freeze({ label: "Fix failing Checks", command: "correct-work" }),
   "approve-correction": Object.freeze({ label: "Apply bounded correction", command: "correct-work" }),
   "provide-artifacts": Object.freeze({ label: "Supply artifact chain", command: "work-status" }),
@@ -19723,29 +16336,11 @@ function manualJourneyDecision({ state = "blocked", blocker, action, trace = {} 
 }
 
 // src/core/root-plan-attestation.mjs
-var import_yaml6 = __toESM(require_dist(), 1);
-import { createHash as createHash10 } from "node:crypto";
-var ROOT_ID2 = /\bwp-[A-Za-z0-9][A-Za-z0-9-]*\b/;
-function asObject2(value) {
+var import_yaml4 = __toESM(require_dist(), 1);
+import { createHash as createHash3 } from "node:crypto";
+var ROOT_ID = /\bwp-[A-Za-z0-9][A-Za-z0-9-]*\b/;
+function asObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-}
-function firstStructured(response) {
-  if (!response || typeof response !== "object") return null;
-  if (asObject2(response.structuredContent)) return response.structuredContent;
-  if (Array.isArray(response.content)) {
-    for (const entry of response.content) {
-      if (asObject2(entry?.structuredContent)) return entry.structuredContent;
-      if (typeof entry?.text === "string") {
-        try {
-          const parsed = JSON.parse(entry.text);
-          if (asObject2(parsed?.structuredContent)) return parsed.structuredContent;
-          if (asObject2(parsed)) return parsed;
-        } catch {
-        }
-      }
-    }
-  }
-  return asObject2(response);
 }
 function normalizeRootPlanText(rootPlanText) {
   if (typeof rootPlanText !== "string" || !rootPlanText.trim()) {
@@ -19755,7 +16350,7 @@ function normalizeRootPlanText(rootPlanText) {
 `;
 }
 function rootPlanFingerprint(rootPlanText) {
-  return createHash10("sha256").update(normalizeRootPlanText(rootPlanText)).digest("hex");
+  return createHash3("sha256").update(normalizeRootPlanText(rootPlanText)).digest("hex");
 }
 function unwrapProposedPlanInterior(interior) {
   let body = String(interior ?? "");
@@ -19790,15 +16385,15 @@ function parseRootPlanFields(rootPlanText) {
   if (!match) return { ok: false, reason: "missing-frontmatter", fields: null, fingerprint: null, content_hash: null };
   let fields;
   try {
-    fields = (0, import_yaml6.parse)(match[1]);
+    fields = (0, import_yaml4.parse)(match[1]);
   } catch {
     return { ok: false, reason: "invalid-frontmatter", fields: null, fingerprint: null, content_hash: null };
   }
-  if (!asObject2(fields)) return { ok: false, reason: "invalid-frontmatter", fields: null, fingerprint: null, content_hash: null };
+  if (!asObject(fields)) return { ok: false, reason: "invalid-frontmatter", fields: null, fingerprint: null, content_hash: null };
   if (fields.artifact !== "work-plan" || fields.schema !== 5) {
     return { ok: false, reason: "not-schema5-work-plan", fields, fingerprint: null, content_hash: null };
   }
-  if (typeof fields.id !== "string" || !ROOT_ID2.test(fields.id)) {
+  if (typeof fields.id !== "string" || !ROOT_ID.test(fields.id)) {
     return { ok: false, reason: "invalid-root-id", fields, fingerprint: null, content_hash: null };
   }
   if (!["low", "medium", "high"].includes(fields.risk)) {
@@ -19819,22 +16414,6 @@ function parseRootPlanFields(rootPlanText) {
     }),
     fingerprint: rootPlanFingerprint(rootPlanText),
     content_hash: rootContentHash(rootPlanText)
-  };
-}
-function readPreflightAttestation(response) {
-  const structured = firstStructured(response);
-  if (!structured) {
-    return { feasible: false, blockers: ["missing-preflight-structured-content"], root_plan_id: null };
-  }
-  const rootPlanId = typeof structured.root_plan_id === "string" ? structured.root_plan_id : null;
-  if (!Array.isArray(structured.blocking_issues)) {
-    return { feasible: false, blockers: ["invalid-blocking-issues"], root_plan_id: rootPlanId };
-  }
-  const blockers = structured.blocking_issues;
-  return {
-    feasible: structured.feasible === true && blockers.length === 0,
-    blockers,
-    root_plan_id: rootPlanId
   };
 }
 function inspectPresentedRootPlan(rootPlanText, options = {}) {
@@ -19884,7 +16463,6 @@ var WORKFLOW_SKILLS = [
   "correct-work",
   "review-work",
   "explain-work",
-  "close-work",
   "learn-from-work",
   "work-status",
   "accept-work"
@@ -19892,9 +16470,8 @@ var WORKFLOW_SKILLS = [
 var WORKFLOW_SKILL_NAMES = WORKFLOW_SKILLS.join("|");
 var WORKFLOW_TOKEN = new RegExp(`(?:^|[\\s('"\\x60])\\$(?:geldmacher-workflow:)?(${WORKFLOW_SKILL_NAMES})(?=$|[\\s.,;!?')"\\x60]|:(?=\\s|$))`, "gi");
 var WORKFLOW_MARKDOWN_LINK = new RegExp(`\\[\\$(?:geldmacher-workflow:)?(${WORKFLOW_SKILL_NAMES})\\]\\(([^)\\r\\n]+)\\)`, "gi");
-var ROOT_ID3 = /\bwp-[A-Za-z0-9][A-Za-z0-9-]*\b/;
 var UNAVAILABLE_MODEL = /(?:unknown|unavailable|not\s+found|unsupported).{0,80}model|model.{0,80}(?:unknown|unavailable|not\s+found|unsupported)/i;
-var NATIVE_AUDITOR_ROLES2 = /* @__PURE__ */ new Set(["delivery-auditor", "risk-auditor", "work-design-auditor"]);
+var NATIVE_AUDITOR_ROLES = /* @__PURE__ */ new Set(["delivery-auditor", "risk-auditor", "work-design-auditor"]);
 var denyTool = (reason) => ({
   hookSpecificOutput: {
     hookEventName: "PreToolUse",
@@ -19902,9 +16479,8 @@ var denyTool = (reason) => ({
     permissionDecisionReason: reason
   }
 });
-function isHookContinuationPrompt(prompt) {
-  const text = String(prompt ?? "");
-  return /^\s*<hook_prompt\b[^>]*\bhook_run_id\s*=\s*["'][^"']+["'][^>]*>[\s\S]*<\/hook_prompt>\s*$/i.test(text);
+function hookContinuation(prompt) {
+  return /^\s*<hook_prompt\b[^>]*\bhook_run_id\s*=\s*["'][^"']+["'][^>]*>[\s\S]*<\/hook_prompt>\s*$/i.test(String(prompt ?? ""));
 }
 function explicitWorkflowCommand(prompt) {
   const text = String(prompt ?? "");
@@ -19912,13 +16488,11 @@ function explicitWorkflowCommand(prompt) {
   for (const match of text.matchAll(WORKFLOW_MARKDOWN_LINK)) {
     const command = match[1].toLowerCase();
     const target = match[2].trim().replace(/^<|>$/g, "");
-    const expectedSuffix = new RegExp(`/skills/${command}/SKILL\\.md(?:[?#].*)?$`, "i");
-    if (/(?:^|\/)geldmacher-workflow(?:\/|$)/i.test(target) && expectedSuffix.test(target)) commands.push(command);
+    if (/(?:^|\/)geldmacher-workflow(?:\/|$)/i.test(target) && new RegExp(`/skills/${command}/SKILL\\.md(?:[?#].*)?$`, "i").test(target)) commands.push(command);
   }
   for (const match of text.matchAll(WORKFLOW_TOKEN)) commands.push(match[1].toLowerCase());
-  if (commands.length === 0) return { command: null, ambiguous: false };
-  if (commands.length > 1) return { command: null, ambiguous: true };
-  return { command: commands[0], ambiguous: false };
+  const unique2 = [...new Set(commands)];
+  return { command: unique2.length === 1 ? unique2[0] : null, ambiguous: unique2.length > 1 };
 }
 function implementationImperative(prompt) {
   const text = String(prompt ?? "");
@@ -19926,268 +16500,53 @@ function implementationImperative(prompt) {
   return /^\s*(?:please\s+|bitte\s+)?(?:implement(?:\s+(?:this|the))?\s+plan|plan\s+implementieren|implementiere\s+(?:(?:diesen|den)\s+)?plan|plan\s+umsetzen|setze\s+(?:den|diesen)\s+plan\s+um)\b/i.test(text);
 }
 function classifyPrompt(prompt) {
-  if (isHookContinuationPrompt(prompt)) return { kind: "hook-continuation", phase: null };
+  if (hookContinuation(prompt)) return { kind: "hook-continuation", phase: null };
   const explicit = explicitWorkflowCommand(prompt);
   if (explicit.ambiguous) return { kind: "ambiguous-workflow-skill", phase: null };
-  const command = explicit.command;
-  if (command === "plan-work") return { kind: "workflow-skill", phase: "planning" };
-  if (command === "correct-work") return { kind: "workflow-skill", phase: "correction" };
-  if (command === "review-work") return { kind: "workflow-skill", phase: "review" };
-  if (command) return { kind: "workflow-skill", phase: command.replace(/-work$/, "") };
+  if (explicit.command === "plan-work") return { kind: "workflow-skill", phase: "planning" };
+  if (explicit.command === "correct-work") return { kind: "workflow-skill", phase: "correction" };
+  if (explicit.command === "review-work") return { kind: "workflow-skill", phase: "review" };
+  if (explicit.command) return { kind: "workflow-skill", phase: explicit.command.replace(/-work$/, "") };
   if (implementationImperative(prompt)) return { kind: "implementation-imperative", phase: "implementation" };
   return { kind: "ordinary", phase: null };
 }
 function isWorkflowTool(name, suffix) {
   return String(name ?? "").toLowerCase().endsWith(suffix.toLowerCase());
 }
-function mutatingReviewTool(input) {
-  const name = String(input.tool_name ?? "");
-  if (/^(?:Task|Agent|spawn_agent)$/i.test(name)) return true;
-  if (/^(?:apply_patch|ApplyPatch|Edit|Write|Delete|DeleteFile|StrReplace|EditNotebook)$/i.test(name)) return true;
-  if (name === "Bash" || name === "Shell") return !isReadOnlyShell(input.tool_input?.command ?? input.tool_input?.cmd);
-  if (isWorkflowTool(name, "workflow_artifact_record")) return false;
-  if (isWorkflowTool(name, "workflow_closeout")) return false;
-  if (isWorkflowTool(name, "workflow_plan_preflight")) return false;
-  if (isWorkflowTool(name, "workflow_artifact_context")) return false;
-  if (isWorkflowTool(name, "workflow_status")) return false;
-  if (/^mcp__/i.test(name)) return !/(?:read|get|list|search|find|inspect|status|context|preflight)/i.test(name);
-  return /(?:write|edit|delete|remove|create|update|publish|send|commit|push|merge|deploy)/i.test(name);
-}
-function clearCloseoutTurn(turn) {
-  turn.closeout_recorded = false;
-  turn.delivery_evidence_id = null;
-  turn.delivery_evidence_artifact = null;
-  turn.delivery_evidence_hash = null;
-  turn.handoff_persisted = null;
-  turn.delivery_evidence_root_plan_id = null;
-  turn.delivery_evidence_subject_id = null;
-  turn.delivery_evidence_source_review_id = null;
-  turn.delivery_evidence_predecessor_evidence_id = null;
-  turn.expected_lineage = null;
-  turn.native_closeout = false;
-  turn.native_closeout_error = null;
-  turn.native_closeout_error_code = null;
-}
-function boundedStopText(value, limit = 400) {
-  const text = String(value ?? "Workflow Manual phase is incomplete.").replace(/\s+/g, " ").trim();
-  return text.length <= limit ? text : `${text.slice(0, limit - 1)}\u2026`;
-}
-function stopDecision(state, turn, input, reason, code = "manual-phase-incomplete") {
-  if (input.stop_hook_active !== true) {
-    return { output: { decision: "block", reason }, state };
-  }
-  const detail = boundedStopText(reason);
-  state.last_terminal_stop_failure = {
-    kind: "manual-stop-failure",
-    authoritative: false,
-    code: boundedStopText(code, 80),
-    phase: turn.phase,
-    root_plan_id: state.active_root_plan_id ?? turn.root_plan_id ?? null,
-    reason: detail
-  };
-  state.turn = null;
-  return {
-    output: {
-      continue: false,
-      stopReason: "Workflow Manual phase ended blocked after one recovery continuation.",
-      systemMessage: `Workflow ended blocked: ${detail} This terminal Stop recorded no Evidence and no delivery success.`
-    },
-    state
-  };
-}
-function exactArtifactFromMessage(message, options = {}) {
-  const source = String(message ?? "");
-  const starts = [...source.matchAll(/^---\r?$/gm)].map((match) => match.index).filter(Number.isInteger);
-  for (const start of starts) {
-    const candidate = source.slice(start);
-    const inspected2 = inspectArtifactText(candidate, options.pluginRoot);
-    if (inspected2.errors.length === 0 && inspected2.artifact?.fields?.schema === 5) return candidate;
-  }
-  const inspected = inspectArtifactText(source, options.pluginRoot);
-  return inspected.errors.length === 0 && inspected.artifact?.fields?.schema === 5 ? source : null;
-}
-function taskArtifactBucket(state, rootHash, rootPlanId) {
-  state.task_artifacts_by_root ??= {};
-  const existing = state.task_artifacts_by_root[rootHash];
-  if (existing && existing.root_plan_id !== rootPlanId) {
-    throw new Error(`task-local Root hash ${rootHash} is already bound to ${existing.root_plan_id}`);
-  }
-  return state.task_artifacts_by_root[rootHash] ??= { root_plan_id: rootPlanId, artifacts: [] };
-}
-function rememberTaskArtifact(state, text, options = {}, { rootHash = null, builderProvenance = null } = {}) {
-  const inspected = inspectArtifactText(text, options.pluginRoot);
-  const fields = inspected.artifact?.fields;
-  if (inspected.errors.length > 0 || fields?.schema !== 5 || !["work-plan", "delivery-evidence", "work-review"].includes(fields?.artifact)) {
-    throw new Error(`task-local artifact is invalid: ${(inspected.errors.length > 0 ? inspected.errors : ["not a transportable Schema-5 artifact"]).join("; ")}`);
-  }
-  const rootPlanId = fields.artifact === "work-plan" ? fields.id : fields.root_plan_id;
-  const boundHash = fields.artifact === "work-plan" ? rootContentHash(text) : rootHash ?? state.active_root_content_hash;
-  if (!/^[a-f0-9]{64}$/.test(String(boundHash ?? ""))) throw new Error(`task-local artifact ${fields.id} has no exact Root-content binding`);
-  if (state.active_root_plan_id && rootPlanId !== state.active_root_plan_id) {
-    throw new Error(`task-local artifact ${fields.id} belongs to ${rootPlanId}, not active Root ${state.active_root_plan_id}`);
-  }
-  if (state.active_root_content_hash && boundHash !== state.active_root_content_hash) {
-    throw new Error(`task-local artifact ${fields.id} has a conflicting exact Root-content hash`);
-  }
-  if (fields.artifact === "work-review" && fields.review_basis === "root-boundary") {
-    const expected = state.turn?.boundary_receipt;
-    if (!expected || expected.receipt_id !== fields.boundary_receipt?.receipt_id) {
-      throw new Error("root-boundary review has no matching task-bound protected host receipt");
-    }
-    const verified = (options.verifyManualBoundaryReceipt ?? verifyManualBoundaryReceipt)({
-      receipt: fields.boundary_receipt,
-      rootPlanText: state.active_root_plan_text,
-      pluginRoot: options.pluginRoot,
-      workspaceRoot: state.turn.boundary_receipt_workspace_root,
-      captureSnapshot: options.captureRepositorySnapshot ?? captureRepositorySnapshot,
-      now: options.now,
-      options: options.receiptOptions ?? {}
-    });
-    if (verified?.ok !== true) throw new Error(`root-boundary review receipt is not trusted: ${verified?.reason ?? "host verification failed"}`);
-  }
-  const bucket = taskArtifactBucket(state, boundHash, rootPlanId);
-  const prior = bucket.artifacts.find((entry) => entry.label === fields.id);
-  const textHash = sha256RawUtf8(text);
-  if (builderProvenance != null && (fields.artifact !== "work-review" || builderProvenance?.schema !== 1 || builderProvenance?.kind !== "host-work-review-builder" || !/^[a-f0-9]{64}$/.test(String(builderProvenance?.review_input_hash ?? "")) || builderProvenance?.artifact_hash !== textHash)) {
-    throw new Error(`task-local builder provenance for ${fields.id} is invalid`);
-  }
-  if (prior && prior.text_hash !== textHash) {
-    throw new Error(`task-local artifact ${fields.id} conflicts with different immutable bytes`);
-  }
-  if (!prior) {
-    if (bucket.artifacts.length >= 32) throw new Error("task-local artifact chain exceeds 32 exact artifacts");
-    const totalBytes = bucket.artifacts.reduce((sum, entry) => sum + Buffer.byteLength(entry.text), 0) + Buffer.byteLength(text);
-    if (totalBytes > 1024 * 1024) throw new Error("task-local artifact chain exceeds 1 MiB");
-    bucket.artifacts.push({
-      label: fields.id,
-      text,
-      text_hash: textHash,
-      artifact_type: fields.artifact,
-      ...builderProvenance ? { builder_provenance: builderProvenance } : {}
-    });
-  } else if (builderProvenance && !prior.builder_provenance) {
-    prior.builder_provenance = builderProvenance;
-  }
-  return { fields, root_content_hash: boundHash, text_hash: textHash };
-}
-function taskArtifactsForActiveRoot(state) {
-  const bucket = state.task_artifacts_by_root?.[state.active_root_content_hash];
-  return (bucket?.artifacts ?? []).map(({ label, text, builder_provenance }) => ({ label, text, ...builder_provenance ? { builder_provenance } : {} }));
-}
-function captureToolTaskArtifacts(state, input, options = {}) {
-  const entries = [];
-  if (isWorkflowTool(input.tool_name, "workflow_artifact_record") || isWorkflowTool(input.tool_name, "workflow_closeout")) {
-    entries.push(...Array.isArray(input.tool_input?.artifacts) ? input.tool_input.artifacts.filter((entry) => !isWorkflowTool(input.tool_name, "workflow_artifact_record") || /\bartifact:\s*work-plan\b/.test(String(entry?.text ?? ""))) : []);
-    if (typeof input.tool_input?.root_plan === "string") entries.push({ text: input.tool_input.root_plan });
-  }
-  const structured = input.tool_response?.structuredContent;
-  if (isWorkflowTool(input.tool_name, "workflow_artifact_context") && Array.isArray(structured?.artifacts)) {
-    entries.push(...structured.artifacts.map((entry) => ({ ...entry, rootHash: structured.root_content_hash })));
-  }
-  if (isWorkflowTool(input.tool_name, "workflow_closeout") && typeof structured?.artifact === "string") {
-    const builderProvenance = structured.artifact_kind === "work-review" ? { schema: 1, kind: "host-work-review-builder", review_input_hash: structured.review_input_hash, artifact_hash: structured.artifact_hash } : null;
-    entries.push({ text: structured.artifact, rootHash: structured.root_content_hash, builderProvenance });
-  }
-  for (const entry of entries) {
-    if (typeof entry?.text === "string" && entry.text.trim()) {
-      rememberTaskArtifact(state, entry.text, options, { rootHash: entry.rootHash ?? null, builderProvenance: entry.builderProvenance ?? entry.builder_provenance ?? null });
-    }
-  }
-}
-function reviewInputFailure(reason) {
-  return `Workflow Review input could not be read: ${reason}. The exact Root, Evidence, and repository work are preserved. Correct the named workflow-review-input field and repeat Review in this same task; no new task or chat is required.`;
-}
-function nativeCloseoutErrorCode(error) {
-  const message = String(error?.message ?? error);
-  if (/different immutable bytes|conflicting text|immutable handoff Root|Root-content hash|Root mismatch|active Root .* does not match/i.test(message)) return "artifact-text-conflict";
-  if (/missing exact Source Review/i.test(message)) return "missing-source-review";
-  if (/predecessor Evidence/i.test(message)) return "missing-predecessor-evidence";
-  if (/outside Root authority|protected by the Root|requires separate human approval|path escapes|resolves outside/i.test(message)) return "authority-violation";
-  if (/pre-mutation repository baseline|baseline unavailable after mutation/i.test(message)) return "baseline-unavailable-after-mutation";
-  if (/stale or competing|lineage|correction/i.test(message)) return "evidence-lineage-conflict";
-  if (/repository baseline|repository delta|repository snapshot|repository root changed|HEAD changed/i.test(message)) return "repository-observation-conflict";
-  if (/attestation|closeout-input|phase must/i.test(message)) return "invalid-closeout-input";
-  return "native-closeout-failed";
-}
-function toolSucceeded(response) {
-  const source = JSON.stringify(response ?? {});
-  return !/"isError"\s*:\s*true|"error"\s*:/i.test(source);
-}
-function structuredResponse(response) {
-  if (!response || typeof response !== "object") return null;
-  if (response.structuredContent && typeof response.structuredContent === "object") return response.structuredContent;
-  for (const entry of response.content ?? []) {
-    if (entry?.structuredContent && typeof entry.structuredContent === "object") return entry.structuredContent;
-    if (typeof entry?.text === "string") {
-      try {
-        const parsed = JSON.parse(entry.text);
-        if (parsed?.structuredContent && typeof parsed.structuredContent === "object") return parsed.structuredContent;
-        if (parsed && typeof parsed === "object") return parsed;
-      } catch {
-      }
-    }
-  }
-  return response;
-}
-function bindActiveRootFromContext(turn, state, input, options = {}) {
-  if (!isWorkflowTool(input.tool_name, "workflow_artifact_context") || !toolSucceeded(input.tool_response)) return;
-  const structured = structuredResponse(input.tool_response);
-  const expectedId = input.tool_input?.root_plan_id ?? turn.root_plan_id ?? null;
-  const candidates = [
-    input.tool_input?.root_plan,
-    ...(structured?.artifacts ?? []).map((entry) => entry?.text)
-  ].filter((value) => typeof value === "string" && value.trim());
-  const valid = candidates.flatMap((text) => {
-    const inspected = inspectArtifactText(text, options.pluginRoot);
-    const fields = inspected.artifact?.fields;
-    return inspected.errors.length === 0 && fields?.artifact === "work-plan" && fields.schema === 5 && (!expectedId || fields.id === expectedId) ? [{ text, fields }] : [];
-  });
-  const byHash = new Map(valid.map((entry) => [rootContentHash(entry.text), entry]));
-  if (byHash.size !== 1) return;
-  const [contentHash, root] = [...byHash.entries()][0];
-  turn.root_plan_id = root.fields.id;
-  state.active_root_plan_id = root.fields.id;
-  state.active_root_content_hash = contentHash;
-  state.active_root_plan_text = root.text;
-}
-function idsFrom(value, pattern) {
-  return [...new Set(String(typeof value === "string" ? value : JSON.stringify(value ?? {})).match(new RegExp(pattern.source, "g")) ?? [])];
-}
 function agentToolName(name) {
   return /^(?:Agent|spawn_agent)$/i.test(String(name ?? ""));
 }
-function hostEnforcedReadOnlyReviewAgentRole(input) {
+function reviewAgentRole(input) {
   if (!agentToolName(input.tool_name)) return null;
   const source = input.tool_input && typeof input.tool_input === "object" && !Array.isArray(input.tool_input) ? input.tool_input : {};
   const role = String(source.agent_type ?? source.subagent_type ?? "");
   const prompt = String(source.prompt ?? source.task ?? "");
-  return source.readonly === true && prompt.includes("[workflow-readonly-review-v1]") && NATIVE_AUDITOR_ROLES2.has(role) ? role : null;
+  return source.readonly === true && prompt.includes("[workflow-readonly-review-v1]") && NATIVE_AUDITOR_ROLES.has(role) ? role : null;
+}
+function mutatingReviewTool(input) {
+  const name = String(input.tool_name ?? "");
+  if (agentToolName(name)) return !reviewAgentRole(input);
+  if (/^(?:apply_patch|ApplyPatch|Edit|Write|Delete|DeleteFile|StrReplace|EditNotebook)$/i.test(name)) return true;
+  if (/^(?:Bash|Shell)$/i.test(name)) return !isReadOnlyShell(input.tool_input?.command ?? input.tool_input?.cmd);
+  if (["workflow_closeout", "workflow_plan_preflight", "workflow_status"].some((suffix) => isWorkflowTool(name, suffix))) return false;
+  if (/^mcp__/i.test(name)) return !/(?:read|get|list|search|find|inspect|status|context|preflight|closeout)/i.test(name);
+  return /(?:write|edit|delete|remove|create|update|publish|send|commit|push|merge|deploy)/i.test(name);
 }
 function requestedModel(toolInput) {
   if (!toolInput || typeof toolInput !== "object" || Array.isArray(toolInput)) return null;
   for (const key of ["model", "model_id"]) {
-    if (Object.prototype.hasOwnProperty.call(toolInput, key) && toolInput[key] !== void 0 && toolInput[key] !== null && toolInput[key] !== "") {
-      return String(toolInput[key]).trim();
-    }
+    if (Object.prototype.hasOwnProperty.call(toolInput, key) && toolInput[key] != null && toolInput[key] !== "") return String(toolInput[key]).trim();
   }
   return null;
+}
+function toolSucceeded(response) {
+  return !/"isError"\s*:\s*true|"error"\s*:/i.test(JSON.stringify(response ?? {}));
 }
 function modelUnavailable(response) {
   return UNAVAILABLE_MODEL.test(JSON.stringify(response ?? {}));
 }
 function routingEnabled(policy) {
   return policy?.mode === "parent-or-approved" && (policy.hosts?.codex?.candidates?.length ?? 0) > 0;
-}
-function ensureTurnRouting(turn, policy) {
-  if (!turn.routing) {
-    turn.routing = {
-      mode: policy.mode,
-      unavailable: [],
-      selected: null,
-      reasoning_effort_attested: false
-    };
-  }
-  return turn.routing;
 }
 function buildAgentInput(toolInput, selected) {
   const next = { ...toolInput && typeof toolInput === "object" && !Array.isArray(toolInput) ? toolInput : {} };
@@ -20206,124 +16565,57 @@ function buildAgentInput(toolInput, selected) {
   next.fork_turns = "none";
   return next;
 }
-function workspaceRootForInput(input, options = {}) {
-  return options.workspaceRoot ?? input.cwd ?? process.cwd();
+function freshState(priorState, input = {}) {
+  if (priorState?.schema === 2 && priorState?.kind === "manual-native-plan-review") return structuredClone(priorState);
+  return { schema: 2, kind: "manual-native-plan-review", parent_model: input.model ?? null, turn: null };
 }
-function captureTurnBoundaryReceipt(turn, state, input, errorCode, options = {}) {
-  if (turn.phase !== "review" || !state.active_root_plan_text) return null;
-  try {
-    const workspaceRoot = workspaceRootForInput(input, options);
-    const receipt = (options.createManualBoundaryReceipt ?? createManualBoundaryReceipt)({
-      rootPlanText: state.active_root_plan_text,
+function beginTurn(phase, input, policy, state) {
+  return {
+    phase,
+    turn_id: input.turn_id ?? null,
+    parent_model: input.model ?? state.parent_model ?? null,
+    pending_agents: [],
+    invalid_agents: {},
+    started_review_auditors: [],
+    observed_review_auditors: [],
+    routing: { mode: policy.mode, unavailable: [], selected: null, reasoning_effort_attested: false }
+  };
+}
+function planningStop(input, state, options = {}) {
+  const message = String(input.last_assistant_message ?? "");
+  const rootText = extractRootPlanText(message);
+  let reason = null;
+  if (!/<proposed_plan>[\s\S]*<\/proposed_plan>/i.test(message) || !rootText) {
+    reason = "Workflow Plan validation failed: return one <proposed_plan> containing the exact Schema-5 Root text and its wp-* ID.";
+  } else {
+    const inspected = inspectPresentedRootPlan(rootText, {
       pluginRoot: options.pluginRoot,
-      workspaceRoot,
-      recoveryErrorCode: errorCode,
-      captureSnapshot: options.captureRepositorySnapshot ?? captureRepositorySnapshot,
-      now: options.now,
-      options: options.receiptOptions ?? {}
+      preflightRootPlan: options.preflightRootPlan
     });
-    turn.boundary_receipt = receipt;
-    turn.boundary_receipt_workspace_root = workspaceRoot;
-    return receipt;
-  } catch {
-    return null;
+    if (!inspected.ok) {
+      const detail = inspected.blockers.slice(0, 4).map((issue2) => String(issue2?.message ?? issue2).replace(/\s+/g, " ").slice(0, 200)).filter(Boolean).join("; ");
+      reason = `Workflow Plan validation failed: the native Plan must contain one valid Schema-5 Root${detail ? `: ${detail}` : "."}`;
+    }
   }
-}
-function inspectActiveStateRoot(state, options = {}) {
-  if (!state.active_root_plan_id || typeof state.active_root_plan_text !== "string") {
-    return { ok: false, reason: "No exact task-bound Schema-5 Root is available." };
+  if (!reason) {
+    state.turn = null;
+    return { output: {}, state };
   }
-  const inspected = inspectArtifactText(state.active_root_plan_text, options.pluginRoot);
-  const fields = inspected.artifact?.fields;
-  if (inspected.errors.length > 0 || fields?.artifact !== "work-plan" || fields?.schema !== 5 || fields.id !== state.active_root_plan_id) {
-    return { ok: false, reason: `The task-bound Root is invalid: ${inspected.errors[0] ?? "Root identity mismatch"}` };
+  if (input.stop_hook_active === true) {
+    state.turn = null;
+    return {
+      output: {
+        continue: false,
+        stopReason: "Workflow native Plan validation failed.",
+        systemMessage: reason
+      },
+      state
+    };
   }
-  if (state.active_root_content_hash !== rootContentHash(state.active_root_plan_text)) {
-    return { ok: false, reason: "The task-bound Root bytes no longer match their recorded hash." };
-  }
-  return { ok: true, fields };
-}
-function captureTurnBaseline(turn, input, options = {}) {
-  if (turn.repository_baseline) return { ok: true };
-  if (turn.repository_baseline_error) return { ok: false, reason: turn.repository_baseline_error };
-  try {
-    const capture = options.captureRepositorySnapshot ?? captureRepositorySnapshot;
-    turn.repository_baseline = capture(workspaceRootForInput(input, options));
-    turn.repository_baseline_error = null;
-    return { ok: true };
-  } catch (error) {
-    turn.repository_baseline_error = String(error?.message ?? error);
-    return { ok: false, reason: turn.repository_baseline_error };
-  }
-}
-function captureTurnCheckCandidate(turn, state, input, options = {}) {
-  const rootPlanText = state.active_root_plan_text;
-  if (!["implementation", "correction", "review"].includes(turn.phase) || typeof rootPlanText !== "string") return;
-  try {
-    turn.pending_check_receipt = beginManualCheckReceipt({
-      rootPlanText,
-      pluginRoot: options.pluginRoot,
-      workspaceRoot: workspaceRootForInput(input, options),
-      toolName: input.tool_name,
-      toolInput: input.tool_input,
-      captureSnapshot: options.captureRepositorySnapshot ?? captureRepositorySnapshot,
-      now: options.now
-    });
-    turn.check_receipt_status = turn.pending_check_receipt ? "pending" : null;
-  } catch (error) {
-    turn.pending_check_receipt = null;
-    turn.check_receipt_status = "unavailable";
-    turn.check_receipt_error = String(error?.message ?? error);
-  }
-}
-function completeTurnCheckCandidate(turn, state, input, options = {}) {
-  if (!turn.pending_check_receipt || typeof state.active_root_plan_text !== "string") return null;
-  try {
-    const completed = completeManualCheckReceipt({
-      candidate: turn.pending_check_receipt,
-      rootPlanText: state.active_root_plan_text,
-      workspaceRoot: workspaceRootForInput(input, options),
-      toolResponse: input.tool_response,
-      captureSnapshot: options.captureRepositorySnapshot ?? captureRepositorySnapshot,
-      now: options.now,
-      options: options.receiptOptions ?? {}
-    });
-    turn.pending_check_receipt = null;
-    turn.check_receipt_status = completed.status;
-    turn.check_receipt_hash = completed.receipt_hash ?? null;
-    turn.check_receipt_error = null;
-    return completed;
-  } catch (error) {
-    turn.pending_check_receipt = null;
-    turn.check_receipt_status = "unavailable";
-    turn.check_receipt_error = String(error?.message ?? error);
-    return null;
-  }
-}
-function invalidateTurnCheckReceipts(state, input, options = {}) {
-  if (typeof state.active_root_plan_text !== "string") return;
-  invalidateManualCheckReceipts({
-    rootPlanText: state.active_root_plan_text,
-    workspaceRoot: workspaceRootForInput(input, options),
-    options: options.receiptOptions ?? {}
-  });
-}
-function applyNativeCloseoutToTurn(turn, closeout, rootPlanId) {
-  turn.closeout_recorded = true;
-  turn.native_closeout = true;
-  turn.native_closeout_error = null;
-  turn.delivery_evidence_id = closeout.fields.id;
-  turn.delivery_evidence_artifact = closeout.artifact;
-  turn.delivery_evidence_hash = closeout.artifact_hash;
-  turn.handoff_persisted = closeout.handoff_persisted;
-  turn.delivery_evidence_root_plan_id = closeout.fields.root_plan_id;
-  turn.delivery_evidence_subject_id = closeout.fields.subject_id;
-  turn.delivery_evidence_source_review_id = closeout.fields.source_review_id ?? null;
-  turn.delivery_evidence_predecessor_evidence_id = closeout.fields.predecessor_evidence_id ?? null;
-  turn.root_plan_id = rootPlanId;
+  return { output: { decision: "block", reason }, state };
 }
 function evaluateCodexHook(input, priorState = {}, options = {}) {
-  const state = structuredClone(priorState ?? {});
+  const state = freshState(priorState, input);
   const event = input.hook_event_name;
   const policy = options.manualSubagentPolicy ?? resolveManualSubagentPolicy(options);
   if (event === "SessionStart") {
@@ -20336,149 +16628,25 @@ function evaluateCodexHook(input, priorState = {}, options = {}) {
     return { output: {}, state };
   }
   if (event === "UserPromptSubmit") {
+    state.turn = null;
     const classification = classifyPrompt(input.prompt);
     if (classification.kind === "hook-continuation") return { output: {}, state };
-    state.turn = null;
     if (classification.kind === "ambiguous-workflow-skill") {
-      return {
-        output: {
-          decision: "block",
-          reason: "Workflow \xB7 Blocked. Use exactly one explicit Workflow skill in this prompt; multiple distinct skill invocations are ambiguous."
-        },
-        state
-      };
+      return { output: { decision: "block", reason: "Workflow \xB7 Blocked. Use exactly one explicit Workflow skill in this prompt." }, state };
     }
     const phase = classification.phase;
     if (!phase) return { output: {}, state };
-    const turn2 = {
-      turn_id: input.turn_id ?? null,
-      phase,
-      parent_model: input.model ?? state.parent_model ?? null,
-      preflight_attempted: false,
-      preflight_passed: false,
-      preflight_fingerprint: null,
-      preflight_root_id: null,
-      root_recorded: false,
-      closeout_recorded: false,
-      delivery_evidence_id: null,
-      delivery_evidence_artifact: null,
-      delivery_evidence_hash: null,
-      handoff_persisted: null,
-      delivery_evidence_root_plan_id: null,
-      delivery_evidence_subject_id: null,
-      delivery_evidence_source_review_id: null,
-      delivery_evidence_predecessor_evidence_id: null,
-      expected_lineage: null,
-      repository_baseline: null,
-      repository_baseline_error: null,
-      pending_check_receipt: null,
-      check_receipt_status: null,
-      check_receipt_hash: null,
-      check_receipt_error: null,
-      native_closeout: false,
-      native_closeout_error: null,
-      native_closeout_error_code: null,
-      task_artifact_error: null,
-      boundary_receipt: null,
-      boundary_receipt_workspace_root: null,
-      review_recovery_count: 0,
-      pending_agents: [],
-      invalid_agents: {},
-      started_review_auditors: [],
-      observed_review_auditors: [],
-      routing: {
-        mode: policy.mode,
-        unavailable: [],
-        selected: null,
-        reasoning_effort_attested: false
-      }
-    };
-    const stagedState = structuredClone(state);
-    const selectedRootId = String(input.prompt ?? "").match(ROOT_ID3)?.[0] ?? null;
-    const previouslyBoundRootId = state.active_root_plan_id ?? null;
-    if (selectedRootId && phase !== "planning") turn2.root_plan_id = selectedRootId;
-    const embeddedRoot = phase !== "planning" ? extractRootPlanText(input.prompt) : null;
-    if (embeddedRoot) {
-      const inspected = inspectArtifactText(embeddedRoot, options.pluginRoot);
-      if (inspected.errors.length > 0 || inspected.artifact?.fields?.artifact !== "work-plan") {
-        return {
-          output: {
-            decision: "block",
-            reason: `Workflow \xB7 Blocked. The supplied Root is not one valid Schema-5 work-plan: ${inspected.errors[0] ?? "artifact type mismatch"}`
-          },
-          state
-        };
-      }
-      const embeddedRootId = inspected.artifact.fields.id;
-      if (["implementation", "correction"].includes(phase) && selectedRootId && selectedRootId !== embeddedRootId) {
-        return {
-          output: {
-            decision: "block",
-            reason: `Workflow \xB7 Blocked. The approved selector ${selectedRootId} does not match the supplied Root ${embeddedRootId}. Use one exact Root only.`
-          },
-          state
-        };
-      }
-      if (phase === "correction" && previouslyBoundRootId && previouslyBoundRootId !== embeddedRootId) {
-        return {
-          output: {
-            decision: "block",
-            reason: `Workflow \xB7 Blocked. Correction cannot replace the task-bound Root ${previouslyBoundRootId} with ${embeddedRootId}. Return to the exact reviewed chain.`
-          },
-          state
-        };
-      }
-      turn2.root_plan_id = embeddedRootId;
-      stagedState.active_root_plan_id = embeddedRootId;
-      stagedState.active_root_content_hash = rootContentHash(embeddedRoot);
-      stagedState.active_root_plan_text = embeddedRoot;
-    }
     if (phase === "planning" && input.permission_mode !== "plan") {
       return { output: { decision: "block", reason: "$plan-work requires Codex Plan mode." }, state };
     }
-    if (["implementation", "correction"].includes(phase)) {
-      const bound = inspectActiveStateRoot(stagedState, options);
-      if (!bound.ok) {
-        return {
-          output: {
-            decision: "block",
-            reason: `Workflow \xB7 Plan required. ${bound.reason} Present and approve one exact Schema-5 Root before implementation or correction.`
-          },
-          state
-        };
-      }
-      if (selectedRootId && selectedRootId !== stagedState.active_root_plan_id) {
-        return {
-          output: {
-            decision: "block",
-            reason: `Workflow \xB7 Blocked. The approved selector ${selectedRootId} does not match the task-bound Root ${stagedState.active_root_plan_id}. Approve the exact current Root only.`
-          },
-          state
-        };
-      }
-      if (phase === "correction" && previouslyBoundRootId && previouslyBoundRootId !== stagedState.active_root_plan_id) {
-        return {
-          output: {
-            decision: "block",
-            reason: `Workflow \xB7 Blocked. Correction cannot replace the task-bound Root ${previouslyBoundRootId} with ${stagedState.active_root_plan_id}. Return to the exact reviewed chain.`
-          },
-          state
-        };
-      }
-      turn2.root_plan_id = stagedState.active_root_plan_id;
-    }
-    state.active_root_plan_id = stagedState.active_root_plan_id;
-    state.active_root_content_hash = stagedState.active_root_content_hash;
-    state.active_root_plan_text = stagedState.active_root_plan_text;
-    state.turn = turn2;
-    state.last_terminal_stop_failure = null;
+    state.turn = beginTurn(phase, input, policy, state);
     const marker = phase === "planning" ? CODEX_PLAN_MARKER : phase === "review" ? CODEX_REVIEW_MARKER : ["implementation", "correction"].includes(phase) ? CODEX_IMPLEMENTATION_MARKER : "[workflow-codex-manual-v1]";
-    const routingNote = routingEnabled(policy) ? "Codex may use the configured ordered Manual subagent candidates with parent fallback." : "Preserve human authorization and do not request a concrete subagent model outside parent inheritance.";
+    const routingNote = routingEnabled(policy) ? "Codex may use configured approved Manual candidates with parent fallback." : "Subagents inherit the parent model; do not request a concrete model.";
     return {
       output: {
         hookSpecificOutput: {
           hookEventName: "UserPromptSubmit",
-          additionalContext: `${marker} ${MODEL_INHERIT_MARKER} Workflow is Manual on Codex. ${routingNote}`
+          additionalContext: `${marker} ${MODEL_INHERIT_MARKER} Native task plans are the only Manual plan authority. Implementation ends normally; fresh Review owns Evidence. ${routingNote}`
         }
       },
       state
@@ -20486,211 +16654,68 @@ function evaluateCodexHook(input, priorState = {}, options = {}) {
   }
   const turn = state.turn;
   if (!turn) return { output: {}, state };
-  const routing = ensureTurnRouting(turn, policy);
+  const routing = turn.routing;
   if (event === "PreToolUse") {
-    if (Object.keys(turn.invalid_agents ?? {}).length > 0) {
-      return { output: denyTool("Workflow blocked this tool because a subagent model could not be attested. Its result is invalid evidence."), state };
+    if (Object.keys(turn.invalid_agents).length > 0) {
+      return { output: denyTool("Workflow blocked this tool because a subagent model could not be attested."), state };
     }
-    if (turn.phase === "review" && mutatingReviewTool(input) && !hostEnforcedReadOnlyReviewAgentRole(input)) {
+    if (turn.phase === "review" && mutatingReviewTool(input)) {
       return {
         output: denyTool(manualJourneyDecision({
           state: "blocked",
           blocker: "$review-work is repository-read-only; mutations require a separate human-authorized correction.",
           action: "retry-review",
-          trace: { root_plan_id: state.active_root_plan_id ?? turn.root_plan_id ?? null }
+          trace: { root_plan_id: null }
         })),
         state
       };
     }
-    if (["implementation", "correction"].includes(turn.phase) && mutatingReviewTool(input)) {
-      const bound = inspectActiveStateRoot(state, options);
-      if (!bound.ok) return { output: denyTool(`Workflow \xB7 Blocked. ${bound.reason} Return to the approved Plan before editing.`), state };
-      const baseline = captureTurnBaseline(turn, input, options);
-      if (!baseline.ok) {
-        return {
-          output: denyTool(`Workflow \xB7 Blocked. The pre-mutation repository baseline could not be captured: ${baseline.reason} Resolve repository observation, then retry the same approved phase.`),
-          state
-        };
-      }
-      try {
-        const repositoryRoot = workspaceRootForInput(input, options);
-        const targets = directMutationTargets({ toolName: input.tool_name, toolInput: input.tool_input, repositoryRoot });
-        assertChangedPathAuthority(bound.fields, targets, repositoryRoot);
-      } catch (error) {
-        return {
-          output: denyTool(`Workflow \xB7 Blocked. ${String(error?.message ?? error)} Use $plan-work replan if the required path is outside the approved Root.`),
-          state
-        };
-      }
-    }
-    captureTurnCheckCandidate(turn, state, input, options);
-    if (agentToolName(input.tool_name)) {
-      if (!routingEnabled(policy)) {
-        const requested = requestedModel(input.tool_input);
-        if (requested) return { output: denyTool("Workflow requires inherited subagent models; remove explicit model."), state };
-        turn.pending_agents.push({
-          tool_use_id: input.tool_use_id ?? null,
-          agent_type: input.tool_input?.agent_type ?? input.tool_input?.subagent_type ?? null,
-          review_auditor_role: hostEnforcedReadOnlyReviewAgentRole(input),
-          selected_kind: "parent",
-          selected_model: turn.parent_model ?? state.parent_model ?? null
-        });
-        return { output: {}, state };
-      }
-      const selected = selectCodexCandidate({
-        hostPolicy: policy.hosts.codex,
-        mode: policy.mode,
-        unavailable: routing.unavailable,
-        parentModel: turn.parent_model ?? state.parent_model
-      });
-      if (!selected) {
-        return { output: denyTool("Workflow Manual subagent pool is exhausted and parent fallback is disabled."), state };
-      }
-      routing.selected = selected;
-      const updatedInput = buildAgentInput(input.tool_input, selected);
+    if (!agentToolName(input.tool_name)) return { output: {}, state };
+    if (!routingEnabled(policy)) {
+      if (requestedModel(input.tool_input)) return { output: denyTool("Workflow requires inherited subagent models; remove explicit model."), state };
       turn.pending_agents.push({
         tool_use_id: input.tool_use_id ?? null,
         agent_type: input.tool_input?.agent_type ?? input.tool_input?.subagent_type ?? null,
-        review_auditor_role: hostEnforcedReadOnlyReviewAgentRole(input),
-        selected_kind: selected.kind,
-        selected_model: selected.model_id,
-        selected_reasoning_effort: selected.reasoning_effort
+        review_auditor_role: reviewAgentRole(input),
+        selected_kind: "parent",
+        selected_model: turn.parent_model ?? state.parent_model ?? null
       });
-      return {
-        output: {
-          hookSpecificOutput: {
-            hookEventName: "PreToolUse",
-            permissionDecision: "allow",
-            updatedInput
-          }
-        },
-        state
-      };
+      return { output: {}, state };
     }
-    return { output: {}, state };
+    const selected = selectCodexCandidate({
+      hostPolicy: policy.hosts.codex,
+      mode: policy.mode,
+      unavailable: routing.unavailable,
+      parentModel: turn.parent_model ?? state.parent_model
+    });
+    if (!selected) return { output: denyTool("Workflow Manual subagent pool is exhausted and parent fallback is disabled."), state };
+    routing.selected = selected;
+    turn.pending_agents.push({
+      tool_use_id: input.tool_use_id ?? null,
+      agent_type: input.tool_input?.agent_type ?? input.tool_input?.subagent_type ?? null,
+      review_auditor_role: reviewAgentRole(input),
+      selected_kind: selected.kind,
+      selected_model: selected.model_id
+    });
+    return {
+      output: {
+        hookSpecificOutput: {
+          hookEventName: "PreToolUse",
+          permissionDecision: "allow",
+          updatedInput: buildAgentInput(input.tool_input, selected)
+        }
+      },
+      state
+    };
   }
   if (event === "PostToolUse") {
-    const completedReceipt = completeTurnCheckCandidate(turn, state, input, options);
-    bindActiveRootFromContext(turn, state, input, options);
-    const observedAuditor = hostEnforcedReadOnlyReviewAgentRole(input);
-    if (observedAuditor && toolSucceeded(input.tool_response) && (turn.started_review_auditors ?? []).includes(observedAuditor)) {
-      turn.observed_review_auditors = [.../* @__PURE__ */ new Set([...turn.observed_review_auditors ?? [], observedAuditor])].sort();
+    const auditor = reviewAgentRole(input);
+    if (auditor && toolSucceeded(input.tool_response) && turn.started_review_auditors.includes(auditor)) {
+      turn.observed_review_auditors = [.../* @__PURE__ */ new Set([...turn.observed_review_auditors, auditor])].sort();
     }
     if (agentToolName(input.tool_name) && !toolSucceeded(input.tool_response) && modelUnavailable(input.tool_response)) {
-      const failedModel = requestedModel(input.tool_input) ?? routing.selected?.model_id;
-      if (failedModel && !routing.unavailable.includes(failedModel)) routing.unavailable.push(failedModel);
-    }
-    if (turn.closeout_recorded && ["implementation", "correction"].includes(turn.phase) && mutatingReviewTool(input) && !isWorkflowTool(input.tool_name, "workflow_closeout")) {
-      clearCloseoutTurn(turn);
-    }
-    if (["implementation", "correction"].includes(turn.phase) && mutatingReviewTool(input) && !isWorkflowTool(input.tool_name, "workflow_closeout") && !["recorded", "failed", "missing-result"].includes(completedReceipt?.status)) {
-      try {
-        invalidateTurnCheckReceipts(state, input, options);
-      } catch {
-      }
-    }
-    if (isWorkflowTool(input.tool_name, "workflow_plan_preflight")) {
-      turn.preflight_attempted = true;
-      turn.preflight_passed = false;
-      turn.preflight_fingerprint = null;
-      const rootText = typeof input.tool_input?.root_plan === "string" ? input.tool_input.root_plan : null;
-      const parsed = rootText ? parseRootPlanFields(rootText) : { ok: false, fingerprint: null, content_hash: null, fields: null };
-      const attestation = toolSucceeded(input.tool_response) ? readPreflightAttestation(input.tool_response) : { feasible: false, blockers: ["preflight-tool-error"], root_plan_id: null };
-      if (parsed.ok && attestation.feasible) {
-        const responseId = attestation.root_plan_id;
-        if (!responseId || responseId === parsed.fields.id) {
-          turn.preflight_passed = true;
-          turn.preflight_fingerprint = parsed.fingerprint;
-          turn.preflight_root_id = parsed.fields.id;
-          turn.root_plan_id = parsed.fields.id;
-          state.active_root_plan_id = parsed.fields.id;
-          state.active_root_content_hash = parsed.content_hash ?? rootContentHash(rootText);
-        }
-      } else if (parsed.ok) {
-        turn.preflight_root_id = parsed.fields.id;
-        turn.root_plan_id = parsed.fields.id;
-      } else {
-        turn.root_plan_id = idsFrom(input.tool_input?.root_plan, ROOT_ID3)[0] ?? turn.root_plan_id ?? null;
-      }
-    }
-    if (!turn.task_artifact_error) {
-      try {
-        captureToolTaskArtifacts(state, input, options);
-      } catch (error) {
-        turn.task_artifact_error = String(error?.message ?? error);
-      }
-    }
-    if (toolSucceeded(input.tool_response)) {
-      if (isWorkflowTool(input.tool_name, "workflow_artifact_record")) {
-        const rootIds = idsFrom(input.tool_input?.artifacts, ROOT_ID3);
-        if (rootIds.length > 0) {
-          turn.root_recorded = true;
-          turn.root_plan_id = turn.root_plan_id ?? rootIds[0];
-          state.active_root_plan_id = turn.root_plan_id;
-        }
-      }
-      if (isWorkflowTool(input.tool_name, "workflow_closeout")) {
-        const structured = input.tool_response?.structuredContent;
-        if (input.tool_input?.artifact_kind === "work-review" || structured?.artifact_kind === "work-review") {
-          if (structured?.artifact_kind === "work-review" && typeof structured.artifact === "string" && structured.root_plan_id === (state.active_root_plan_id ?? turn.root_plan_id) && structured.artifact_hash === sha256RawUtf8(structured.artifact) && /^[a-f0-9]{64}$/.test(String(structured.review_input_hash ?? ""))) {
-            const inspected = inspectArtifactText(structured.artifact, options.pluginRoot);
-            if (inspected.errors.length === 0 && inspected.artifact?.fields?.artifact === "work-review" && inspected.artifact.fields.id === structured.work_review_id) {
-              turn.review_complete = true;
-              turn.review_artifact_id = structured.work_review_id;
-              turn.review_builder_provenance = {
-                schema: 1,
-                kind: "host-work-review-builder",
-                review_input_hash: structured.review_input_hash,
-                artifact_hash: structured.artifact_hash
-              };
-              return { output: {}, state };
-            }
-          }
-          turn.task_artifact_error = reviewInputFailure("the workflow_closeout host response omitted valid builder identity or exact Review bytes");
-          return { output: {}, state };
-        }
-        const closeoutRootPlanId = typeof input.tool_input?.root_plan_id === "string" ? input.tool_input.root_plan_id : idsFrom(input.tool_input?.root_plan, ROOT_ID3)[0] ?? null;
-        const activeRootPlanId = state.active_root_plan_id ?? turn.root_plan_id ?? null;
-        const activeRootContentHash = typeof state.active_root_content_hash === "string" ? state.active_root_content_hash : null;
-        if (!activeRootPlanId || !activeRootContentHash || !/^[a-f0-9]{64}$/.test(activeRootContentHash)) {
-          clearCloseoutTurn(turn);
-          return { output: {}, state };
-        }
-        const expectedLineage = expectedLineageFromArtifacts(
-          input.tool_input?.artifacts,
-          closeoutRootPlanId ?? activeRootPlanId,
-          { inspectArtifactText, pluginRoot: options.pluginRoot }
-        );
-        const recorded = readCloseoutRecord(input.tool_response, {
-          ...options,
-          inspectArtifactText,
-          activeRootPlanId,
-          activeRootContentHash,
-          closeoutRootPlanId,
-          expectedLineage
-        });
-        if (recorded.ok) {
-          turn.closeout_recorded = true;
-          turn.delivery_evidence_id = recorded.record.id;
-          turn.delivery_evidence_artifact = recorded.record.artifact;
-          turn.delivery_evidence_hash = recorded.record.hash;
-          turn.handoff_persisted = recorded.record.handoff_persisted;
-          turn.delivery_evidence_root_plan_id = recorded.record.root_plan_id;
-          turn.delivery_evidence_subject_id = recorded.record.subject_id;
-          turn.delivery_evidence_source_review_id = recorded.record.source_review_id;
-          turn.delivery_evidence_predecessor_evidence_id = recorded.record.predecessor_evidence_id;
-          turn.delivery_evidence_root_content_hash = recorded.record.root_content_hash;
-          turn.expected_lineage = expectedLineage;
-          turn.root_plan_id = turn.root_plan_id ?? recorded.record.root_plan_id;
-          try {
-            rememberTaskArtifact(state, recorded.record.artifact, options, { rootHash: recorded.record.root_content_hash });
-          } catch (error) {
-            turn.task_artifact_error = String(error?.message ?? error);
-          }
-        } else {
-          clearCloseoutTurn(turn);
-        }
-      }
+      const failed = requestedModel(input.tool_input) ?? routing.selected?.model_id;
+      if (failed && !routing.unavailable.includes(failed)) routing.unavailable.push(failed);
     }
     return { output: {}, state };
   }
@@ -20704,40 +16729,26 @@ function evaluateCodexHook(input, priorState = {}, options = {}) {
       hostPolicy: policy.hosts?.codex,
       mode: policy.mode
     });
-    const selectedMatch = expected && observed && expected === observed;
-    const allowed = selectedMatch || allowance.allowed;
-    if (!expected || !observed || !allowed) {
+    if (!expected || !observed || expected !== observed && !allowance.allowed) {
       const agentId = input.agent_id ?? `unattested-${Object.keys(turn.invalid_agents).length + 1}`;
-      turn.invalid_agents[agentId] = {
-        expected,
-        observed,
-        agent_type: input.agent_type ?? pending?.agent_type ?? null,
-        match_mode: allowance.match_mode,
-        policy_mode: policy.mode,
-        reasoning_effort_attested: false
-      };
+      turn.invalid_agents[agentId] = { expected, observed };
       return {
         output: {
-          systemMessage: `Workflow model attestation failed for ${agentId}: expected ${expected ?? "<unavailable>"}, observed ${observed ?? "<unavailable>"}. The result cannot be evidence.`,
+          systemMessage: `Workflow model attestation failed for ${agentId}: expected ${expected ?? "<unavailable>"}, observed ${observed ?? "<unavailable>"}.`,
           hookSpecificOutput: {
             hookEventName: "SubagentStart",
-            additionalContext: "Stop without using tools. Your model did not match the Workflow Manual subagent policy, so your result is invalid evidence."
+            additionalContext: "Stop without using tools. This result cannot be Workflow evidence."
           }
         },
         state
       };
     }
-    routing.last_attested = {
-      observed,
-      match_mode: selectedMatch ? pending?.selected_kind === "parent" ? "exact-parent" : "selected-candidate" : allowance.match_mode,
-      reasoning_effort_attested: false
-    };
     if (pending?.review_auditor_role) {
-      turn.started_review_auditors = [.../* @__PURE__ */ new Set([...turn.started_review_auditors ?? [], pending.review_auditor_role])].sort();
+      turn.started_review_auditors = [.../* @__PURE__ */ new Set([...turn.started_review_auditors, pending.review_auditor_role])].sort();
     }
     return { output: {}, state };
   }
-  if (event === "SubagentStop" && turn.invalid_agents?.[input.agent_id]) {
+  if (event === "SubagentStop" && turn.invalid_agents[input.agent_id]) {
     return {
       output: {
         continue: false,
@@ -20748,195 +16759,7 @@ function evaluateCodexHook(input, priorState = {}, options = {}) {
     };
   }
   if (event === "Stop") {
-    const message = String(input.last_assistant_message ?? "");
-    if (turn.phase === "planning") {
-      const hasNativePlan = /<proposed_plan>[\s\S]*<\/proposed_plan>/i.test(message) && ROOT_ID3.test(message);
-      if (!hasNativePlan) {
-        return stopDecision(state, turn, input, "Finish $plan-work: return one <proposed_plan> containing the exact Schema-5 Root and its wp-* ID. Handoff record is best-effort transport only.", "planning-root-missing");
-      }
-      const presentedText = extractRootPlanText(message);
-      if (!presentedText) {
-        return stopDecision(state, turn, input, "Finish $plan-work: <proposed_plan> must contain the exact Schema-5 Root text, not only a wp-* ID. Prior workflow_plan_preflight success does not authorize an ID-only presentation.", "planning-root-text-missing");
-      }
-      const presented = inspectPresentedRootPlan(presentedText, {
-        pluginRoot: options.pluginRoot,
-        preflightRootPlan: options.preflightRootPlan
-      });
-      if (!presented.ok) {
-        const detail = presented.blockers.slice(0, 4).map((issue2) => String(issue2?.message ?? issue2).replace(/\s+/g, " ").slice(0, 200)).filter(Boolean).join("; ");
-        return stopDecision(
-          state,
-          turn,
-          input,
-          `Finish $plan-work: <proposed_plan> must contain one Schema-5 Root that passes the same native semantic validation Cursor CreatePlan embeds${detail ? `: ${detail}` : "."}`,
-          "planning-root-invalid"
-        );
-      }
-      if (turn.preflight_passed) {
-        const idMatch = !turn.preflight_root_id || turn.preflight_root_id === presented.fields.id;
-        const fingerprintMatch = !turn.preflight_fingerprint || turn.preflight_fingerprint === presented.fingerprint;
-        if (!idMatch || !fingerprintMatch) {
-          return stopDecision(state, turn, input, "Finish $plan-work: the presented Root must exactly match the Root attested by workflow_plan_preflight.", "planning-root-preflight-mismatch");
-        }
-      }
-      turn.local_preflight_passed = true;
-      turn.local_preflight_fingerprint = presented.fingerprint;
-      const proposedInterior = message.match(/<proposed_plan>([\s\S]*?)<\/proposed_plan>/i)?.[1] ?? "";
-      const retentionIssues = planCloseoutAttestationIssues(proposedInterior, {
-        role: "final implementation step",
-        requireFinalStepSection: true
-      });
-      if (retentionIssues.length > 0) {
-        return stopDecision(
-          state,
-          turn,
-          input,
-          `Finish $plan-work: <proposed_plan> must include an explicit ## Final implementation step with one typed plan-closeout attestation:
-${formatPlanCloseoutAttestationFence()}`,
-          "planning-closeout-retention-missing"
-        );
-      }
-      turn.root_plan_id = presented.fields.id;
-      state.active_root_plan_id = presented.fields.id;
-      state.active_root_content_hash = presented.content_hash ?? rootContentHash(presentedText);
-      state.active_root_plan_text = presentedText;
-      rememberTaskArtifact(state, presentedText, options);
-    }
-    if (["implementation", "correction", "review"].includes(turn.phase)) {
-      if (turn.task_artifact_error) {
-        return stopDecision(state, turn, input, `Workflow task-local artifact capture failed closed: ${turn.task_artifact_error}. Preserve the exact Root/chain bytes and resolve the conflict before closeout.`, "task-artifact-conflict");
-      }
-      const native = parseCloseoutInput(message);
-      if (native.ok) {
-        if (turn.phase === "review" && turn.review_recovery_count >= 1) {
-          return stopDecision(state, turn, input, "Workflow review recovery is bounded to one native continuation. Use the exact hydrated chain or report the remaining Evidence uncertainty without another recovery attempt.", "review-recovery-exhausted");
-        }
-        if (turn.phase === "review" && input.stop_hook_active === true) {
-          return stopDecision(state, turn, input, "Workflow review Evidence recovery would require another continuation, so it remains blocked without recording new Evidence.", "review-recovery-terminal");
-        }
-        try {
-          const rootPlanText = state.active_root_plan_text;
-          const activeRootPlanId = state.active_root_plan_id ?? turn.root_plan_id ?? null;
-          if (typeof rootPlanText !== "string" || !rootPlanText.trim() || !activeRootPlanId) {
-            throw new Error("independently captured exact Root text is unavailable");
-          }
-          if (native.report.root_plan_id !== activeRootPlanId) {
-            throw new Error(`active Root ${activeRootPlanId} does not match ${native.report.root_plan_id}`);
-          }
-          const expectedPhase = turn.phase === "review" ? "review-recovery" : turn.phase;
-          if (native.report.phase !== expectedPhase) {
-            throw new Error(`closeout-input phase must be ${expectedPhase}`);
-          }
-          const capture = options.captureRepositorySnapshot ?? captureRepositorySnapshot;
-          const current = capture(workspaceRootForInput(input, options));
-          const derive = options.deriveRepositoryDelta ?? deriveRepositoryDelta;
-          const repositoryDelta = derive(turn.phase === "review" ? null : turn.repository_baseline, current);
-          const closeout = (options.performNativeCloseout ?? performNativeCloseout)({
-            attestation: native.report,
-            expectedPhase,
-            rootPlanText,
-            artifacts: [...taskArtifactsForActiveRoot(state), ...options.artifacts ?? []],
-            repositoryDelta,
-            pluginRoot: options.pluginRoot,
-            handoffOptions: options.handoffOptions ?? {},
-            receiptOptions: options.receiptOptions ?? {}
-          });
-          applyNativeCloseoutToTurn(turn, closeout, activeRootPlanId);
-          rememberTaskArtifact(state, closeout.artifact, options, { rootHash: state.active_root_content_hash });
-          if (turn.phase === "review") {
-            turn.review_recovery_count += 1;
-            return stopDecision(state, turn, input, `Workflow recovered exact Evidence ${closeout.fields.id}. Continue this same read-only review once with the hydrated chain; preserve its ${closeout.fields.status} status and ${closeout.fields.overall_grade} grade.`, "review-recovery-required");
-          }
-        } catch (error) {
-          turn.native_closeout_error = String(error?.message ?? error);
-          turn.native_closeout_error_code = nativeCloseoutErrorCode(error);
-          const errorCode = turn.native_closeout_error_code;
-          const boundaryReceipt = captureTurnBoundaryReceipt(turn, state, input, errorCode, options);
-          clearCloseoutTurn(turn);
-          turn.native_closeout_error = String(error?.message ?? error);
-          turn.native_closeout_error_code = errorCode;
-          if (boundaryReceipt) {
-            turn.boundary_receipt = boundaryReceipt;
-            return stopDecision(
-              state,
-              turn,
-              input,
-              `Workflow Evidence recovery is deterministically unavailable. A fresh protected root-boundary receipt was captured for the exact Root and repository snapshot. Emit only an insufficient-evidence/blocked/replan root-boundary review using this internal receipt: ${JSON.stringify(boundaryReceipt)}`,
-              "review-boundary-recovery"
-            );
-          }
-          return stopDecision(state, turn, input, `Workflow native closeout failed closed [${turn.native_closeout_error_code}]: ${turn.native_closeout_error}. Correct the exact Root/chain or typed observations; do not claim delivery success.`, turn.native_closeout_error_code);
-        }
-      } else if (/\bkind\s*:\s*closeout-input\b|\bcloseout-input\b/i.test(message)) {
-        turn.native_closeout_error = native.issues.join("; ");
-        return stopDecision(state, turn, input, `Workflow native closeout attestation is invalid: ${turn.native_closeout_error}`, "invalid-closeout-input");
-      }
-    }
-    if (turn.phase === "review") {
-      const exactReview = exactArtifactFromMessage(message, options);
-      if (exactReview) {
-        const inspected = inspectArtifactText(exactReview, options.pluginRoot);
-        if (inspected.artifact?.fields?.artifact === "work-review") {
-          return stopDecision(state, turn, input, reviewInputFailure("a full model-authored work-review envelope was returned instead of semantic input"), "model-authored-review-rejected");
-        }
-      }
-      if (!turn.review_complete) {
-        try {
-          const rootPlanText = state.active_root_plan_text;
-          if (typeof rootPlanText !== "string" || !rootPlanText.trim()) throw new Error("the exact task-local Root is unavailable");
-          const boundaryReceipt = turn.boundary_receipt ?? null;
-          const parsed = boundaryReceipt ? { ok: true, input: null, issues: [] } : parseReviewInputFromText(message);
-          if (!parsed.ok) throw new Error(parsed.issues.join("; "));
-          const boundaryVerifier = boundaryReceipt ? ({ receipt, rootPlanText: candidateRoot }) => {
-            if (receipt?.receipt_id !== boundaryReceipt.receipt_id) return { ok: false, reason: "no matching task-bound protected host receipt" };
-            return (options.verifyManualBoundaryReceipt ?? verifyManualBoundaryReceipt)({
-              receipt,
-              rootPlanText: candidateRoot,
-              pluginRoot: options.pluginRoot,
-              workspaceRoot: turn.boundary_receipt_workspace_root,
-              captureSnapshot: options.captureRepositorySnapshot ?? captureRepositorySnapshot,
-              now: options.now,
-              options: options.receiptOptions ?? {}
-            });
-          } : null;
-          const review = (options.performNativeReview ?? performNativeReview)({
-            rootPlanText,
-            artifacts: [...taskArtifactsForActiveRoot(state), ...options.artifacts ?? []],
-            reviewInput: parsed.input,
-            boundaryReceipt,
-            boundaryReceiptVerifier: boundaryVerifier,
-            hostObservedAuditorRoles: turn.observed_review_auditors ?? [],
-            pluginRoot: options.pluginRoot,
-            handoffOptions: options.handoffOptions ?? {}
-          });
-          rememberTaskArtifact(state, review.artifact, options, {
-            rootHash: state.active_root_content_hash,
-            builderProvenance: review.provenance
-          });
-          turn.review_complete = true;
-          turn.review_artifact_id = review.fields.id;
-          turn.review_builder_provenance = review.provenance;
-        } catch (error) {
-          return stopDecision(state, turn, input, reviewInputFailure(String(error?.message ?? error)), "review-input-invalid");
-        }
-      }
-    }
-    if (["implementation", "correction"].includes(turn.phase)) {
-      const completion = turn.native_closeout ? { ok: true } : evaluateDeliveryCompletion(message, {
-        closeout_recorded: turn.closeout_recorded,
-        delivery_evidence_id: turn.delivery_evidence_id,
-        delivery_evidence_artifact: turn.delivery_evidence_artifact,
-        handoff_persisted: turn.handoff_persisted,
-        active_root_plan_id: state.active_root_plan_id ?? turn.root_plan_id ?? null,
-        delivery_evidence_root_plan_id: turn.delivery_evidence_root_plan_id
-      });
-      if (!completion.ok) {
-        return stopDecision(state, turn, input, "Finish Manual Workflow with one typed closeout-input for native lifecycle closeout, or use optional workflow_closeout and report its exact delivery-report. The current task retains valid Evidence even when optional cross-task handoff is unavailable.", "delivery-closeout-missing");
-      }
-    }
-    if (Object.keys(turn.invalid_agents ?? {}).length > 0) {
-      return stopDecision(state, turn, input, "Discard the unattested subagent result and complete the Workflow step without using it as evidence.", "unattested-subagent-result");
-    }
+    if (turn.phase === "planning") return planningStop(input, state, options);
     state.turn = null;
     return { output: {}, state };
   }
@@ -20945,37 +16768,37 @@ ${formatPlanCloseoutAttestationFence()}`,
 
 // src/hosts/codex/workflow-hook.mjs
 var MAX_INPUT_BYTES = 1024 * 1024;
-var digest = (value) => createHash11("sha256").update(String(value)).digest("hex");
-function resolveCodexPluginRoot(here = dirname5(fileURLToPath2(import.meta.url))) {
-  let current = resolve10(here);
+var digest = (value) => createHash4("sha256").update(String(value)).digest("hex");
+function resolveCodexPluginRoot(here = dirname2(fileURLToPath2(import.meta.url))) {
+  let current = resolve4(here);
   for (let i = 0; i < 8; i += 1) {
-    if (existsSync7(join8(current, "references", "artifact-protocol.md")) || existsSync7(join8(current, "scripts", "validate-artifact.mjs")) || existsSync7(join8(current, "scripts", "validate-artifact.source.mjs"))) {
+    if (existsSync4(join4(current, "references", "artifact-protocol.md")) || existsSync4(join4(current, "scripts", "validate-artifact.mjs")) || existsSync4(join4(current, "scripts", "validate-artifact.source.mjs"))) {
       return current;
     }
-    const parent = dirname5(current);
+    const parent = dirname2(current);
     if (parent === current) break;
     current = parent;
   }
-  return resolve10(here, "../..");
+  return resolve4(here, "../..");
 }
 function statePath(input, root = null) {
-  const base = resolve10(root ?? process.env.PLUGIN_DATA ?? join8(homedir2(), ".codex", "geldmacher-workflow"));
-  const repository = digest(resolve10(input.cwd ?? process.cwd())).slice(0, 20);
+  const base = resolve4(root ?? process.env.PLUGIN_DATA ?? join4(homedir2(), ".codex", "geldmacher-workflow"));
+  const repository = digest(resolve4(input.cwd ?? process.cwd())).slice(0, 20);
   const session = digest(input.session_id ?? "missing-session").slice(0, 32);
-  return join8(base, "hooks", repository, "sessions", `${session}.json`);
+  return join4(base, "hooks", repository, "sessions", `${session}.json`);
 }
 function readState(path) {
-  if (!existsSync7(path)) return {};
-  const value = JSON.parse(readFileSync7(path, "utf8"));
+  if (!existsSync4(path)) return {};
+  const value = JSON.parse(readFileSync4(path, "utf8"));
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid Workflow Codex hook state");
-  return value;
+  return value.schema === 2 && value.kind === "manual-native-plan-review" ? value : {};
 }
 function writeState(path, value) {
-  mkdirSync3(dirname5(path), { recursive: true, mode: 448 });
-  const temporary = `${path}.${process.pid}.${randomUUID3()}.tmp`;
-  writeFileSync3(temporary, `${JSON.stringify(value, null, 2)}
+  mkdirSync(dirname2(path), { recursive: true, mode: 448 });
+  const temporary = `${path}.${process.pid}.${randomUUID()}.tmp`;
+  writeFileSync(temporary, `${JSON.stringify(value, null, 2)}
 `, { mode: 384 });
-  renameSync3(temporary, path);
+  renameSync(temporary, path);
 }
 function runCodexHook(input, options = {}) {
   const path = statePath(input, options.stateRoot);
@@ -20992,7 +16815,7 @@ function failureOutput(input, error) {
   if (["UserPromptSubmit", "Stop"].includes(input?.hook_event_name)) return { decision: "block", reason };
   return { systemMessage: reason };
 }
-if (process.argv[1] && resolve10(process.argv[1]) === resolve10(new URL(import.meta.url).pathname)) {
+if (process.argv[1] && resolve4(process.argv[1]) === resolve4(new URL(import.meta.url).pathname)) {
   let source = "";
   for await (const chunk of process.stdin) {
     source += chunk;

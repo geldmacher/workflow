@@ -37,12 +37,10 @@ test("manual phase flows model progressive contract loading", () => {
   assert.deepEqual(Object.keys(measurement.phase_flows), Object.keys(flowMatrix.phase_flows));
   assert.ok(!Object.hasOwn(measurement.flow_breakdown.plan_oneshot, "references/design-contract.md"));
   assert.ok(Object.hasOwn(measurement.flow_breakdown.plan_compact_full, "references/design-contract.md"));
-  assert.ok(!Object.hasOwn(measurement.flow_breakdown.review_base, "references/correction-contract.md"));
   assert.ok(!Object.hasOwn(measurement.flow_breakdown.review_base, "references/learning-contract.md"));
-  assert.ok(Object.hasOwn(measurement.flow_breakdown.review_correction, "references/correction-contract.md"));
-  assert.ok(!Object.hasOwn(measurement.flow_breakdown.review_correction, "references/learning-contract.md"));
-  assert.ok(Object.hasOwn(measurement.flow_breakdown.correction, "references/closeout-contract.md"));
-  assert.ok(Object.hasOwn(measurement.flow_breakdown.closeout, "references/closeout-contract.md"));
+  assert.ok(!Object.hasOwn(measurement.flow_breakdown.plan_compact_full, "references/closeout-contract.md"));
+  assert.ok(!Object.hasOwn(measurement.flow_breakdown.correction, "references/closeout-contract.md"));
+  assert.ok(!Object.hasOwn(measurement.phase_flows, "closeout"));
   assert.ok(Object.hasOwn(measurement.flow_breakdown.learning, "references/learning-contract.md"));
 });
 
@@ -80,7 +78,7 @@ test("manual, expanded, automation, and auditor targets are explicit", () => {
   for (const [name, maximum] of Object.entries(limits.phaseFlows)) assert.ok(measurement.phase_flows[name] <= maximum, name);
   for (const [name, maximum] of Object.entries(limits.automationFlows)) assert.ok(measurement.automationFlows[name] <= maximum, name);
   for (const [name, tokens] of Object.entries(measurement.reviewerTokens)) assert.ok(tokens <= limits.reviewerTokens, name);
-  assert.deepEqual(economicTargets, { plan: 1800, correction: 1800, closeout: 1620, review: 1950, learning: 1800, explanation: 1080, automation: 1350 });
+  assert.deepEqual(economicTargets, { plan: 1800, correction: 1800, review: 1950, learning: 1800, explanation: 1080, automation: 1350 });
   for (const [name, maximum] of Object.entries(headroomTargets.phaseFlows)) assert.ok(measurement.phase_flows[name] <= maximum, `${name} headroom`);
   for (const [name, maximum] of Object.entries(headroomTargets.automationFlows)) assert.ok(measurement.automationFlows[name] <= maximum, `${name} headroom`);
   assert.deepEqual(budgetDiagnostics(measurement), []);

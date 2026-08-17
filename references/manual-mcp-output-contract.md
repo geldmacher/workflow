@@ -53,7 +53,7 @@ Actionable human-facing Manual MCP text and agent chat must end with this recogn
 - Off track: <reason> → <recovery>
 ```
 
-For blocked or partial output, place the plain `Blocker:` and `Resolution:` immediately before this footer. `Off track` remains a compatible optional compact rendering of the same information; do not duplicate it when Blocker/Resolution are already present. Place the footer at the end of the primary human layer. A single `Technical traceability` disclosure may follow; only required typed attestation fences may follow that disclosure.
+For blocked or partial output, place the plain `Blocker:` and `Resolution:` immediately before this footer. `Off track` remains a compatible optional compact rendering of the same information; do not duplicate it when Blocker/Resolution are already present. Place the footer at the end of the primary human layer. A single `Technical traceability` disclosure may follow; portable-client compatibility attestations may follow only when that client contract explicitly requires them. Cursor and Codex Manual add none.
 
 Terminal `workflow_status` is deliberately shorter:
 
@@ -68,11 +68,11 @@ Stable `next_action` ids and their default invoke/benefit/recovery copy:
 | action | Now (label) | How | Why | Default Off track |
 |---|---|---|---|---|
 | `repair-root` | Repair the Root | Plan: fix blockers, then `/plan-work` or `$plan-work` again | Makes the Root feasible before approval | Root infeasible → resolve blocking issues, then re-validate |
-| `implement-plan` | Implement the Plan | Human: native **Implement Plan** (approves the presented Root) | Delivers inside the approved Root and runs deterministic closeout | No approved Root → finish Plan presentation first |
+| `implement-plan` | Implement the Plan | Human: native **Implement Plan** (approves the presented Root) | Delivers inside the approved Root and finishes normally | No approved Root → finish Plan presentation first |
 | `attach-artifact` | Export the exact artifact | Agent: attach exact Root/Evidence text only for intentional continuation in another task/host | Exports the chain when optional handoff is unavailable | Stay in the current task, or paste the exact bytes into the chosen new task |
 | `review-root` | Review delivery | Current task, read-only phase: run `/review-work` or `$review-work` against the exact task-local chain | Produces a fresh verdict without requiring a new task/chat | Missing Evidence → Review attempts one internal recovery first |
 | `accept-provisional` | Accept provisional delivery | Ask/Agent: `/accept-work provisional` or `$accept-work provisional` only for an explicit provisional acceptance | Records a one-time human acceptance of an evidence gap | Not provisional → run fresh review first |
-| `closeout` | Deterministic closeout | Agent: `/close-work [wp-id]` or `$close-work`, or finish Implement Plan closeout | Builds validated Evidence from observed Checks | Missing Root/chain → supply exact artifacts, then retry |
+| `closeout` | Portable Evidence build | Compatible portable client: call `workflow_closeout` delivery-evidence mode | Preserves the legacy portable transport without affecting native Manual lifecycle | Cursor/Codex → use fresh Review instead |
 | `correct` | Fix failing Checks | Agent: repair failing required Checks, then closeout again | Restores a deliverable Evidence grade | Intent/scope change → `/plan-work replan` or `$plan-work replan` instead |
 | `approve-correction` | Apply bounded correction | Agent: `/correct-work` or `$correct-work`, then review again in the same task | Applies only the review-approved in-scope FIX set | No actionable `cp-*` → run `/review-work` first |
 | `provide-artifacts` | Supply artifact chain | Ask/Agent: pass current Schema-5 Root/Evidence/Review to `workflow_status` | Derives status without inventing tips | Ambiguous tips → pass explicit `wp-*` plus exact artifacts |

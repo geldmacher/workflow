@@ -1,17 +1,15 @@
-Cursor owns native Plan UI. Emit one H1, then a `yaml artifact-envelope` containing the Schema-5 `work-plan`, never a generic `text` fence. Intent, Acceptance, Boundaries, and Risks may use prose, lists, or tables rather than fixed tables.
+# Native Plan container
 
-## Parent-model affinity
+Cursor and Codex own their native Plan UI. Workflow contributes one exact immutable Schema-5 `work-plan` Root with a visible `wp-*` ID; it does not create a second authoritative plan container or store an active Manual Root.
 
-The Cursor-selected primary owns **Implement Plan**. Tasks omit model overrides or use `inherit`; subagents inherit its model or a configured Manual approved candidate. Plugin agents use `model: inherit`. The primary integrates results and closeout.
+## Cursor
 
-The final closeout todo starts with `[workflow-model-inherit-v1]` and carries typed `workflow_attestation` metadata. Earlier `STEP-*` todos may omit it. Wrapper metadata never enters the Root or `extensions`.
+Emit one H1, then a `yaml artifact-envelope` containing the exact Root. Native todos describe implementation and planned Checks only. Add no closeout todo, model-inheritance marker requirement, `workflow_attestation`, Evidence step, artifact-record call, or delivery report. The validation-only CreatePlan guard checks the exposed Root but creates no receipt and does not gate later implementation.
 
-For `replan`, preserve decisions not reopened by the source review. Use a fresh Root ID with exact `predecessor_plan_id` and `replan_source_review_id`. Cursor suspends the immutable predecessor, stages the candidate, and activates it only from a successful `CreatePlan` receipt matching `conversation_id`, `generation_id`, `tool_use_id`, Root ID, and exact Root hash. Failure or mismatch leaves both inactive until a valid retry or explicit predecessor re-approval. Cursor exposes no stable internal Plan UI ID.
+## Codex
 
-Put the explicit `### Verification` table directly inside `## Acceptance`, before its next H2. Columns: `Check ID | Objectives | Working Directory | Command or Inspection | Expected Result | Required | Evidence Class | Cost Class | Prerequisites`. Other sections stay semantic; compact/full nests [Design depth](design-contract.md) H3 tables when applicable. Steps may exist only as native `STEP-*` todos.
+Return one native `<proposed_plan>` containing the exact Schema-5 Root text and visible ID. Add no `## Final implementation step` ceremony or attestation fence. Native Stop validation may reject an invalid Root but stores no active Root or cross-task authority.
 
-The host guard validates the exact Root locally; standalone `workflow_plan_preflight` is optional transport. Missing steps or typed closeout fail. End with `[workflow-model-inherit-v1] Verify checks and close out delivery.` and metadata `workflow_attestation: { schema: 1, kind: plan-closeout, action: delivery-closeout }` before human **Implement Plan** approval. Legacy `action: workflow_closeout` remains accepted; visible todo text contains no closeout ceremony.
+For a replan, preserve decisions not reopened by the current task's exact Review. Use a fresh Root ID with exact `predecessor_plan_id` and `replan_source_review_id`, then obtain renewed human approval through native **Implement Plan**.
 
-## Codex proposed_plan
-
-Codex returns `<proposed_plan>` with the exact Schema-5 Root and one typed plan-closeout attestation in `## Final implementation step`; see [closeout](./closeout-contract.md).
+Put the explicit `### Verification` table directly inside `## Acceptance`, before its next H2. Columns: `Check ID | Objectives | Working Directory | Command or Inspection | Expected Result | Required | Evidence Class | Cost Class | Prerequisites`.

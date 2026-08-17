@@ -48,7 +48,6 @@ const checkPattern = /\bCHECK-[1-9][0-9]*\b/g;
 const stepPattern = /\bSTEP-[1-9][0-9]*\b/g;
 const slicePattern = /\bSLICE-[1-9][0-9]*\b/g;
 const learningPattern = /\bLRN-[A-Za-z0-9][A-Za-z0-9-]*\b/g;
-const modelInheritMarker = "[workflow-model-inherit-v1]";
 const requiredScopeCategories = ["required", "permitted", "prohibited"];
 const baselineKinds = ["repository", "head", "dirty-files", "known-failures", "targets-and-prerequisites"];
 
@@ -547,26 +546,7 @@ function validatePlanV4(parsed, sections, failures) {
   if (data.objectives.size !== parsed.fields.acceptance.length) failures.push("acceptance outcomes must map one-to-one to objectives");
   if (parsed.wrapper) {
     const todos = parsed.wrapper.todos ?? [];
-    const finalTodo = todos.at(-1) ?? null;
-    const final = String(finalTodo?.content ?? "");
-    const marked = todos.some((todo) => String(todo.content ?? "").includes(modelInheritMarker))
-      || String(parsed.wrapper.overview ?? "").includes(modelInheritMarker)
-      || String(parsed.wrapper.name ?? "").includes(modelInheritMarker);
-    if (!marked && !final.startsWith(modelInheritMarker)) {
-      failures.push(`native Plan must include ${modelInheritMarker} on the final closeout todo or plan overview`);
-    }
-    if (todos.length > 0 && !final.startsWith(modelInheritMarker) && !todos.some((todo) => String(todo.content ?? "").startsWith(modelInheritMarker))) {
-      failures.push(`final native todo must start with ${modelInheritMarker} when no other todo carries it`);
-    }
-    if (!/verify|check|evidence|snapshot|close\s*out/i.test(final)) {
-      failures.push("final native todo must verify or evidence the implemented result");
-    }
-    if (parsed.fields.schema === 5) {
-      if (!final.startsWith(modelInheritMarker)) failures.push(`final native todo must start with ${modelInheritMarker}`);
-      for (const issue of planCloseoutAttestationIssues(finalTodo ?? final, { role: "final native todo" })) {
-        failures.push(issue);
-      }
-    }
+    if (todos.length === 0) failures.push("native Plan must include at least one implementation todo");
   }
 }
 

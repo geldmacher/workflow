@@ -67,7 +67,7 @@ export const WORKFLOW_TOOL_CONTRACTS = Object.freeze({
     },
   },
   workflow_closeout: {
-    description: "Deterministically build one host-owned Schema-5 delivery-evidence or work-review artifact and cache it; delivery-evidence remains the default.",
+    description: "For native Manual Review, atomically build paired Schema-5 delivery-evidence and work-review artifacts from the exact task Root and fresh observations; portable delivery-evidence mode remains the default compatibility path.",
     inputSchema: {
       workspace_root: workspaceRoot,
       root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),

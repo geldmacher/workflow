@@ -19,7 +19,7 @@
       {
         "type": "command",
         "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"",
-        "matcher": "CreatePlan|TodoWrite|Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook",
+        "matcher": "CreatePlan|Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook",
         "failClosed": true
       }
     ],
@@ -41,31 +41,8 @@
       {
         "type": "command",
         "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"",
-        "matcher": "CreatePlan|MCP:workflow_closeout|Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook",
-        "failClosed": true
-      }
-    ],
-    "postToolUseFailure": [
-      {
-        "type": "command",
-        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"",
-        "matcher": "CreatePlan|Shell",
-        "failClosed": true
-      }
-    ],
-    "afterAgentResponse": [
-      {
-        "type": "command",
-        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"",
-        "failClosed": true
-      }
-    ],
-    "stop": [
-      {
-        "type": "command",
-        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"",
-        "failClosed": true,
-        "loop_limit": 1
+        "matcher": "Task",
+        "failClosed": false
       }
     ]
   }

@@ -4,7 +4,7 @@
 
 Workflow is a controlled delivery system with a full Cursor-native package plus Manual packages for Codex and Agent Plugins v1. It is for teams and developers who want the speed of AI-assisted engineering without surrendering control over intent, scope, quality, or repository boundaries. It connects planning, implementation, evidence, review, correction, and learning into one governed path. The human remains the authority; automation earns more freedom only through exact, inspectable proof.
 
-The plugin works with the way Cursor already feels. For normal Manual work, you approve a plan, use **Implement Plan**, and request a fresh read-only review phase in the same task. Around that familiar interaction, Workflow adds the structure that agentic delivery usually lacks: an immutable Intent Root, adaptive execution inside a closed authority envelope, risk-calibrated evidence, deterministic closeout, explicit provisional acceptance, and an auditable lineage when a plan must change. The [Manual Workflow guide](manual-workflow.md) explains every user-visible state, evidence grade, verdict, and recovery path.
+The plugin works with the way Cursor and Codex already feel. For normal Manual work, you approve a native plan, use **Implement Plan**, and request a fresh read-only review in the same task. Workflow adds an immutable Intent Root, adaptive execution inside a closed authority envelope, review-owned evidence, explicit provisional acceptance, and auditable replan lineage without an implementation closeout ceremony. The [Manual Workflow guide](manual-workflow.md) explains the flow and verdicts.
 
 ## AI coding is easy; trustworthy delivery is the hard part
 
@@ -16,8 +16,8 @@ Workflow closes that gap. It treats delivery as a sequence of accountable transi
 |---|---|
 | Plan | The observable goal, acceptance criteria, constraints, non-goals, risk, and authority boundaries |
 | Implement | Freedom to adapt the Strategy without silently changing the approved Intent |
-| Close out | Repository-grounded evidence tied to the exact Root and changed paths |
-| Review | A fresh verdict plus a plain-language result explanation and technical traceability |
+| Finish implementation | Normal repository result without synthetic lifecycle continuation |
+| Review | Fresh repository observation that atomically creates Evidence and verdict |
 | Correct or replan | A bounded correction path or a new approval-required Root with explicit lineage |
 | Learn | Reusable guidance only after successful delivery, without automatic publication |
 
@@ -51,9 +51,9 @@ Cursor: Implement Plan
 /review-work
 ```
 
-Implementation closes out internally through the host lifecycle. The visible Manual path is Plan, Implement Plan, Review: Workflow binds the exact Root and lineage, retains the pre-mutation baseline across host turns, derives the complete repository snapshot and authoritative changed paths, and persists builder-owned Evidence without showing attestation artifacts. The exact emitted Review is retained under the Root hash, so correction and replan receive their current predecessor tips without reconstruction. Local plan validation runs for every Manual Root; standalone MCP preflight and handoff calls remain compatibility transport. `/close-work [wp-id]` exists only as exceptional read-only recovery. If review finds a bounded defect, `/correct-work` keeps the correction attached to the approved Root; if intent must change, `/plan-work replan` creates a new approval boundary.
+The visible and internal Manual path is Plan, Implement Plan, Review. Native Plan context is the only plan authority; implementation finishes normally. Fresh Review resolves the exact current-task Root, observes Checks, derives the complete repository snapshot and dirty inventory, and atomically returns builder-owned Evidence plus Review. If review finds a bounded defect, `/correct-work` keeps the correction attached to the exact current-task chain; if intent must change, `/plan-work replan` creates a new approval boundary.
 
-For required machine-verifiable Checks, the host also captures a fresh content-addressed receipt for the exact Root, planned command, working directory, and current repository snapshot. This happens behind the existing tool call and adds no Manual step. Missing or stale proof is shown as a concrete evidence gap with the exact rerun path instead of being presented as verified. Status and review summarize receipt coverage and human attention for the current delivery only.
+For required machine-verifiable Checks, the fresh reviewer directly runs or inspects the planned method in its planned directory. Optional host receipts may enrich Manual proof, but missing or stale proof is shown as a concrete gap instead of being presented as verified. High-risk work selects a deeper audit route and keeps unresolved uncertainty visible for the human decision.
 
 The Agent Plugins v1 target preserves the same Manual authority with a different host boundary. Because the standard defines skills and MCP but no lifecycle hooks, portable `plan-work` and `implement-work` require exact MCP preflight, implementation requires a separate human invocation, and delivery requires explicit MCP closeout. Unsupported native safeguards fail closed instead of being simulated. Supervised and autonomous remain Cursor-native. See [Portable Agent Plugins artifact](../README.md#portable-agent-plugins-artifact).
 
@@ -124,7 +124,7 @@ That boundary keeps the system useful in real repositories without coupling impl
 
 ## What using Workflow feels like
 
-You begin with an outcome, not a pile of workflow paperwork. `/plan-work` turns the request into a compact Intent Root that is strict about meaning and tolerant about presentation—prose, lists, or tables are fine when Verification stays explicit. You approve it through Cursor's normal plan interaction. Implementation can adapt inside the agreed boundary, then deterministic closeout binds evidence to the exact plan and repository state without dumping retained artifacts into chat. A fresh `/review-work` evaluates the delivery rather than asking the implementing context to grade itself.
+You begin with an outcome, not a pile of workflow paperwork. `/plan-work` turns the request into a compact Intent Root that is strict about meaning and tolerant about presentation. You approve it through the host's native plan interaction. Implementation adapts inside the agreed boundary and ends normally. A fresh `/review-work` observes the repository and planned Checks, creates Evidence, and evaluates delivery in one read-only boundary.
 
 From there, the result is explicit: every reviewed delivery first explains what was achieved, what it means, and the verification limits, then gives exact technical traceability. A verified Manual review completes the Root; a provisional gap needs conscious one-time acceptance, a bounded issue leads to correction, a material change to replan, and a failed Check to a stop. `/work-status` shows state, effective Profile, actor, downgrade, and Learning eligibility. `/explain-work` refreshes the explanation later. `/learn-from-work` remains separately human-invoked and requires its exact eligible current-task source.
 

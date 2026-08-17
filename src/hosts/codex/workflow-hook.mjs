@@ -36,7 +36,10 @@ function readState(path) {
   if (!existsSync(path)) return {};
   const value = JSON.parse(readFileSync(path, "utf8"));
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid Workflow Codex hook state");
-  return value;
+  // Manual lifecycle schema 2 is intentionally a clean break. Pre-5.5 active
+  // Roots, chains, closeout turns, and handoff tips are inert and never regain
+  // authority in a new native-plan task.
+  return value.schema === 2 && value.kind === "manual-native-plan-review" ? value : {};
 }
 
 function writeState(path, value) {

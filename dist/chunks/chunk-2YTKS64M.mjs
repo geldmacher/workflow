@@ -6,7 +6,7 @@ import {
 } from "./chunk-PKEO6PA3.mjs";
 import {
   PLUGIN_VERSION
-} from "./chunk-H6YRBJ7B.mjs";
+} from "./chunk-LFEO5XYI.mjs";
 
 // src/controller/policy.mjs
 var riskRank = Object.freeze({ low: 1, medium: 2, high: 3 });

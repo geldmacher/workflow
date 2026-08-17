@@ -1,7 +1,7 @@
 {
   "name": "geldmacher-workflow",
-  "version": "5.3.0",
-  "description": "Human-authorized Manual Workflow planning, delivery evidence, review, status, and closeout for Codex.",
+  "version": "5.5.0",
+  "description": "Human-authorized native planning, implementation, atomic evidence review, and status for Codex.",
   "author": {
     "name": "Geldmacher"
   },
@@ -20,14 +20,14 @@
   "interface": {
     "displayName": "Workflow",
     "shortDescription": "Human-authorized delivery workflow",
-    "longDescription": "Workflow brings Schema-5 planning, evidence-calibrated closeout, read-only review, acceptance, and status to Codex without controller automation or hidden model routing.",
+    "longDescription": "Workflow keeps Schema-5 planning native, lets implementation finish normally, and creates evidence plus review atomically in the current Codex task.",
     "developerName": "Geldmacher",
     "category": "Developer Tools",
     "capabilities": ["Interactive", "Read", "Write"],
     "websiteURL": "https://github.com/geldmacher/workflow",
     "defaultPrompt": [
       "Use $plan-work to create a human-authorized implementation plan.",
-      "Use $review-work in a fresh task to review a Workflow delivery.",
+      "Use $review-work in the current task to create evidence and review the delivery.",
       "Use $work-status to derive status from the exact artifact chain."
     ],
     "brandColor": "#111827",

@@ -1,11 +1,9 @@
-# Deterministic Closeout
+# Review-owned Evidence
 
-Lifecycle builds Schema-5 Evidence; MCP closeout is compatibility transport.
+Cursor and Codex Manual do not close out implementation. Native **Implement Plan** and authorized corrections finish normally; no typed attestation, host Stop continuation, baseline gate, Root receipt, delivery report, or recovery command is part of their lifecycle.
 
-Fail closed on invalid authority/chain, drift, conflict, or missing Checks. `representation: full|delta` is topology; `evidence_mode: lean|full` is risk. Correction binds the review tip; refresh failed, missing, affected, stale, or ambiguous Root Checks. Unaffected proof keeps its grade; equivalent Checks share observation, not IDs.
+Fresh same-task Review is the Manual trust boundary. The reviewer supplies the exact native Schema-5 Root, current-task predecessor artifacts, fresh Check observations, and closed review input to `workflow_closeout` with `artifact_kind: work-review`. The server observes the repository, derives full or delta Evidence when required, then creates Evidence and Review atomically. Both artifacts are returned or neither is emitted.
 
-Host derives snapshot/paths and enforces Authority; caller paths are non-authoritative.
+Caller-supplied paths and snapshots are non-authoritative. The complete observable dirty inventory is considered; ambiguity or out-of-authority work becomes a limitation or Finding. A known failed required Check yields a completed blocked Review. Manual `verified` requires a fresh direct reviewer observation; host receipts are optional enrichment. High risk and Hard Triggers require the full auditor route.
 
-Codex binds task-local Root/Evidence/Review by Root hash; Stop exposes identity, lineage, repository, or Authority conflicts.
-
-Root-hash handoff is optional. Builder, authority, repository, or Check failure blocks; persistence failure does not block task-local Evidence. New plans use `action: delivery-closeout`; legacy closeout/report works. Manual `verified` needs fresh host receipt; never upgrade proof, preserve failures, invalidate mutations, or retain unattested/rootless Checks.
+The delivery-evidence mode of `workflow_closeout`, legacy attestation parsing, and content-addressed handoff remain wire-compatible for portable clients. They do not grant Cursor or Codex Manual task authority. Supervised and Autonomous certification remains unchanged.

@@ -46,11 +46,11 @@ test("Manual presentation leads with outcome and next action without JSON conten
     id: "implement-plan",
     label: "Implement the Plan",
     invoke: "Implement Plan",
-    why: "Delivers inside the approved Root and runs deterministic closeout.",
+    why: "Delivers inside the approved Root and finishes normally.",
   });
   assert.equal(response.structuredContent.presentation.technical_traceability.root_plan_id, "wp-adaptive-retry");
   assert.match(response.structuredContent.presentation.next_action_invoke, /Implement Plan/);
-  assert.match(response.structuredContent.presentation.next_action_benefit, /closeout/);
+  assert.match(response.structuredContent.presentation.next_action_benefit, /finishes normally/);
   assert.equal(response.structuredContent.root_plan_id, "wp-adaptive-retry");
   assert.equal(response.structuredContent.feasible, true);
   assert.equal(isManualWorkflowTool("workflow_plan_preflight"), true);
@@ -377,7 +377,7 @@ test("Manual presentation covers record, context, status, and error paths", () =
   });
   assert.equal(blockedCloseout.outcome, "blocked");
   assert.equal(blockedCloseout.next_action, "review-root");
-  assert.match(blockedCloseout.summary, /Delivery is blocked/);
+  assert.match(blockedCloseout.summary, /delivery Evidence is blocked/i);
   assert.doesNotMatch(blockedCloseout.summary, /is ready/);
   assert.match(formatManualToolContent(blockedCloseout), /workflow_closeout — blocked/);
   assert.doesNotMatch(formatManualToolContent(blockedCloseout), /No further Workflow action/);
@@ -525,7 +525,7 @@ test("Manual status help is state-specific and remains in secondary technical tr
   assert.deepEqual(Object.keys(presentation.help), ["topic", "meaning", "label", "url"]);
   assert.equal(presentation.help.topic, "manual-state-root-plan-review");
   assert.equal(presentation.help.label, MANUAL_GUIDE_LABEL);
-  assert.equal(presentation.help.url, `${MANUAL_GUIDE_URL}#root-plan-review`);
+  assert.equal(presentation.help.url, `${MANUAL_GUIDE_URL}#manual-states`);
   const text = formatManualToolContent(presentation);
   assert.equal((text.match(/^Meaning:/gm) ?? []).length, 1);
   assert.equal((text.match(/^Learn more:/gm) ?? []).length, 1);
@@ -602,7 +602,7 @@ test("exceptional closeout, handoff, preflight, and error results select one rel
     changed_paths: [],
   });
   assert.equal(supported.help.topic, "manual-evidence-supported");
-  assert.equal(supported.help.url, `${MANUAL_GUIDE_URL}#supported`);
+  assert.equal(supported.help.url, `${MANUAL_GUIDE_URL}#evidence-grades`);
 
   const attach = buildPresentation("workflow_closeout", {
     delivery_evidence_id: "de-attach",

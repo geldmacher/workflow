@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -66,13 +66,16 @@ test("deterministic target build isolates Codex and exposes exactly five Manual 
       assert.match(`${codexReview}\n${codexExplain}\n${explanationContract}`, new RegExp(heading, "i"));
     }
     assert.match(codexReview, /current reviewer.*not another subagent or model call/is);
-    assert.match(codexReview, /protected root-boundary receipt.*Never invent/is);
-    assert.match(codexReview, /closed `json workflow-review-input`.*never Schema-5 Review bytes/is);
+    assert.match(codexReview, /current Codex Plan-mode `<proposed_plan>`.*Never restore authority/is);
+    assert.match(codexReview, /workflow_closeout.*exactly once.*Delivery Evidence and Work Review atomically or neither/is);
+    assert.match(codexReview, /failed required Check produces a completed blocked Review/is);
     assert.match(`${codexReview}\n${reviewContract}`, /first three.*stand alone.*without.*implementation history.*code knowledge/is);
     assert.match(reviewContract, /separates executor claims from independently inspected evidence/is);
     assert.match(codexExplain, /Final repository explanation.*only for `achieved`/is);
-    assert.match(`${codexCorrect}\n${codexReview}`, /every inherited required Root Check not effectively `passed`/is);
-    assert.match(codexCorrect, /Equivalent Checks run once.*stable closeout state.*each ID keeps honest Evidence/is);
+    assert.match(`${codexCorrect}\n${codexReview}`, /fresh reviewer.*planned Checks|planned Checks fresh/is);
+    assert.match(codexCorrect, /Finish normally without closeout, Evidence, persistence, or a synthetic continuation/is);
+    assert.equal(existsSync(join(codex, "skills", "close-work")), false);
+    assert.equal(readdirSync(join(codex, "skills")).length, 7);
     const transport = new StdioClientTransport({
       command: process.execPath,
       args: [join(codex, "dist", "workflow-mcp.mjs")],

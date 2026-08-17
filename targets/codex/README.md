@@ -1,6 +1,6 @@
 # Workflow for Codex
 
-Workflow provides a human-authorized Manual delivery loop for Codex: `$plan-work`, implementation closeout, fresh read-only `$review-work`, acceptance, learning, explanation, and artifact-derived status.
+Workflow provides a human-authorized Manual delivery loop for Codex: native `$plan-work`, normal implementation, fresh same-task `$review-work`, acceptance, learning, explanation, and artifact-derived status.
 
 The Codex package has no host-specific automation runtime, route pool, credentials, background Run, worktree manager, automatic merge, push, publication, or deployment. It shares only immutable Schema-5 artifact contracts and the neutral Handoff Store at `~/.geldmacher/workflow/state/<repository-key>/handoff/`.
 

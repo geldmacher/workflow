@@ -34,7 +34,7 @@ const ALLOWED_READONLY_AGENTS = new Set([
   "work-plan-auditor",
 ]);
 const LEGACY_PRIMARY_WRITER_MARKER = "[workflow-primary-writer-v1]";
-const WORKFLOW_COMMAND = /(?:^|\s)\/(?:plan-work|correct-work|review-work|explain-work|close-work|learn-from-work|work-status|work-watch|work-control|work-models|work-verification|accept-work|auto-work)(?:\s|$)/i;
+const WORKFLOW_COMMAND = /(?:^|\s)\/(?:plan-work|correct-work|review-work|explain-work|learn-from-work|work-status|work-watch|work-control|work-models|work-verification|accept-work|auto-work)(?:\s|$)/i;
 const READONLY_COMMAND = /(?:^|\s)\/(?:review-work|explain-work)(?:\s|$)/i;
 
 const deny = (user_message) => ({ permission: "deny", user_message });
@@ -109,7 +109,7 @@ function workflowPhase(task, transcript) {
   if (/\/(?:explain-work)(?:\s|$)/i.test(source)) return "explanation";
   if (/\/(?:plan-work)(?:\s|$)/i.test(source)) return "planning";
   if (/\/(?:correct-work)(?:\s|$)/i.test(source)) return "correction";
-  if (/\/(?:close-work|accept-work)(?:\s|$)/i.test(source)) return "closeout";
+  if (/\/(?:accept-work)(?:\s|$)/i.test(source)) return "acceptance";
   if (/\/(?:learn-from-work)(?:\s|$)/i.test(source)) return "learning";
   if (/\/(?:auto-work|work-status|work-watch|work-control|work-models|work-verification)(?:\s|$)/i.test(source)) return "automation";
   return "implementation";
@@ -435,11 +435,10 @@ async function main() {
   } catch {
     const event = input.hook_event_name;
     const observational = ["sessionStart", "subagentStop"].includes(event);
-    const stop = event === "stop";
     process.stdout.write(JSON.stringify(observational
       ? {}
-      : stop
-        ? { followup_message: "Workflow lifecycle state was unavailable and failed closed once. Do not claim delivery; restart from the exact current Root chain." }
+      : event === "stop"
+        ? {}
         : deny("Workflow lifecycle policy was unavailable and failed closed.")));
   }
 }

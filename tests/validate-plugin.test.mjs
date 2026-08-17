@@ -20,13 +20,10 @@ async function createFixture(explicitPaths) {
     hooks: {
       sessionStart: [{ type: "command", command, failClosed: false }],
       beforeSubmitPrompt: [{ type: "command", command, failClosed: true }],
-      preToolUse: [{ type: "command", command, matcher: "CreatePlan|TodoWrite|Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook", failClosed: true }],
+      preToolUse: [{ type: "command", command, matcher: "CreatePlan|Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook", failClosed: true }],
       subagentStart: [{ type: "command", command, failClosed: true }],
       subagentStop: [{ type: "command", command, failClosed: false }],
-      postToolUse: [{ type: "command", command, matcher: "CreatePlan|MCP:workflow_closeout|Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook", failClosed: true }],
-      postToolUseFailure: [{ type: "command", command, matcher: "CreatePlan|Shell", failClosed: true }],
-      afterAgentResponse: [{ type: "command", command, failClosed: true }],
-      stop: [{ type: "command", command, failClosed: true, loop_limit: 1 }],
+      postToolUse: [{ type: "command", command, matcher: "Task", failClosed: false }],
     },
   }));
   await write(join(root, "hooks", "closeout-guard.mjs"), "process.stdout.write('{}');\n");
@@ -34,13 +31,13 @@ async function createFixture(explicitPaths) {
   await write(join(root, "hooks", "model-inheritance-state.mjs"), "export const placeholder = true;\n");
   await write(join(root, "hooks", "plan-integrity-guard.mjs"), "process.stdout.write('{}');\n");
   await write(join(root, "hooks", "subagent-guard.mjs"), "process.stdout.write('{}');\n");
-  for (const name of ["accept-work", "auto-work", "close-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-control", "work-models", "work-status", "work-verification", "work-watch"]) {
+  for (const name of ["accept-work", "auto-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-control", "work-models", "work-status", "work-verification", "work-watch"]) {
     await write(join(root, "commands", `${name}.md`), `---\nname: ${name}\ndescription: Command.\n---\n`);
   }
   for (const name of ["delivery-auditor", "risk-auditor", "work-design-auditor", "work-explainer", "work-plan-auditor"]) {
     await write(join(root, "agents", `${name}.md`), `---\nname: ${name}\ndescription: Audit.\nmodel: inherit\nreadonly: true\n---\n`);
   }
-  for (const name of ["work-automation", "work-closeout", "work-execution", "work-explanation", "work-learning", "work-planning", "work-review"]) {
+  for (const name of ["work-automation", "work-execution", "work-explanation", "work-learning", "work-planning", "work-review"]) {
     await write(join(root, "skills", name, "SKILL.md"), `---\nname: ${name}\ndescription: Skill.\n---\n`);
   }
   for (const name of ["artifact-protocol", "automation-contract", "automation-preparation-contract", "closeout-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "host-approval-contract", "learning-contract", "manual-attestation-contract", "manual-subagent-policy", "manual-workflow-contract", "model-routing-contract", "plan-container-contract", "review-contract", "state-contract", "verification-profile-contract", "work-review-input-contract"]) {
@@ -107,7 +104,7 @@ test("requires the scoped fail-closed CreatePlan guard", async () => {
     config.hooks.preToolUse[0].failClosed = false;
     await writeFile(path, JSON.stringify(config));
     const failures = validatePlugin(root).join("\n");
-    assert.match(failures, /must match CreatePlan\|TodoWrite/);
+    assert.match(failures, /must match CreatePlan\|Write/);
     assert.match(failures, /failClosed true/);
   });
 });

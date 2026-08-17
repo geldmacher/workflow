@@ -2,7 +2,7 @@
   "name": "geldmacher-workflow",
   "displayName": "Workflow",
   "description": "Adaptive, evidence-calibrated Cursor-native workflow with manual, supervised, and certified autonomous delivery.",
-  "version": "5.4.0",
+  "version": "5.5.0",
   "author": {
     "name": "Dennis Geldmacher",
     "email": "geldmacher.dennis@outlook.de"

@@ -16,7 +16,7 @@ Every profile also keeps claims tied to evidence. Missing evidence is not called
 
 Persistent handoff or controller Run records provide recovery, inspection, and optional continuation elsewhere. They do not require the human to split Plan, execution, review, correction, or supervised acceptance across tasks. A genuine block is presented as a plain-language reason plus one concrete resolution; IDs and raw errors stay in Technical traceability.
 
-Cursor exposes all three profiles. Codex exposes the complete Manual path only and contains no Controller automation. Both hosts use the same native typed closeout kernel, repository baselines, mutation invalidation, and one-shot review recovery. Codex can hard-stop an incomplete completion, while Cursor issues one bounded recovery follow-up because its host boundary cannot provide an unbypassable stop. The five Manual MCP tools remain optional and compatible.
+Cursor exposes all three profiles. Codex exposes the complete Manual path only and contains no Controller automation. Both hosts use native Plans as the sole Manual plan authority, let implementation finish normally, and create Evidence plus Review atomically in one fresh read-only Review. Pre-5.5 Manual host state is ignored. The five Manual MCP tools remain wire-compatible for portable clients.
 
 ## Explanation in each profile
 
@@ -41,9 +41,9 @@ Cursor: Implement Plan
 /review-work
 ```
 
-Implementation performs deterministic native closeout without a mandatory MCP call. The host validates every Manual Root locally, captures a baseline before mutation, and owns Evidence identity and status. Exact task-local artifacts remain authoritative; failure of optional cross-task handoff is an advisory, not a delivery block. Starting `/review-work` in the same task authorizes final verification and at most one read-only missing-Evidence recovery. A verified `achieved/verified/none` verdict completes the Root without another acceptance command. Use `/close-work [wp-id]` only to recover a missed closeout. If review requests a bounded correction, start `/correct-work`; if the intent must change, use `/plan-work replan` and approve the new Root.
+Implementation finishes normally without lifecycle closeout or Evidence. Starting `/review-work` in the same task resolves the exact native Root, directly observes Checks, and atomically creates Evidence plus Review from the current repository. A verified `achieved/verified/none` verdict completes the Root without another acceptance command. If review requests a bounded correction, start `/correct-work`; if intent must change, use `/plan-work replan` and approve the new Root.
 
-Required machine-verifiable Checks are host-attested behind their existing tool calls. The agent runs the exact planned command, optionally with one leading `rtk` wrapper; the host binds the result to the current Root and repository snapshot. No extra human input is required. Missing or stale proof becomes a visible current-delivery gap with its exact rerun path, while success remains compact and proceeds directly to fresh review.
+Required machine-verifiable Checks are observed fresh by the reviewer using the exact planned command or inspection and directory. Optional host receipts may enrich Manual proof, but missing proof is never upgraded. High risk changes review depth, not whether the user may start native implementation.
 
 Manual is ready when the plugin is installed or linked and Cursor can run its commands. No automation configuration or certification is required: it does not need User Config, Project Policy, a Worker runtime, a Capability Receipt, a Verification Profile, or qualifying history. Do not impose controller ceremony on the Manual path.
 

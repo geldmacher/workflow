@@ -9,4 +9,4 @@ Designed for Cursor Agent Mode. This command accepts no arguments. Read [work-ex
 
 `[workflow-model-inherit-v1]`
 
-Approve only the newest unique correction in the active native Cursor Plan chain; stale, missing, or multiple tips stop before mutation. Closeout adds correction Checks plus failed, missing, affected, stale, or ambiguous Root Checks and reuses unaffected proof at the same grade. Equivalent Checks run once on a stable state, with honest Evidence per ID. Close out internally, then Ask `/review-work`.
+Approve only the newest unique correction in the exact current-task native Plan chain; stale, missing, or multiple tips stop before mutation. Run correction Checks plus failed, missing, affected, stale, or ambiguous Root Checks. Finish normally without Evidence, then Ask `/review-work` to create delta Evidence and Review atomically.

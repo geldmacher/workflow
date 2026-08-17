@@ -15,130 +15,76 @@ const read = (path) => readFileSync(join(root, path), "utf8");
 const guide = read("docs/manual-workflow.md");
 
 function markdownAnchors(markdown) {
-  const counts = new Map();
   const anchors = new Set();
   for (const line of markdown.split("\n")) {
     const match = /^(#{1,6})\s+(.+?)\s*$/.exec(line);
     if (!match) continue;
-    const base = match[2]
+    anchors.add(match[2]
       .replace(/<[^>]+>/g, "")
       .replace(/[`*_~]/g, "")
       .toLowerCase()
       .trim()
       .replace(/[^\p{L}\p{N}\s-]/gu, "")
       .replace(/\s+/g, "-")
-      .replace(/-+/g, "-");
-    const count = counts.get(base) ?? 0;
-    counts.set(base, count + 1);
-    anchors.add(count === 0 ? base : `${base}-${count}`);
+      .replace(/-+/g, "-"));
   }
   return anchors;
 }
 
-test("Manual guide covers the complete user-visible vocabulary", () => {
-  const expectedStates = [
+test("Manual guide describes the stable native Plan, implementation, Review flow", () => {
+  for (const value of [
+    "native Plan -> Implement Plan -> fresh Review",
+    "sole Manual plan authority",
+    "finish normally",
+    "atomically",
+    "resolved",
+    "unavailable",
+    "ambiguous",
+    "High-risk",
     "accepted-provisional",
-    "achieved",
-    "blocked",
-    "delivery-ready-provisional",
-    "failed",
-    "intent-clarification",
-    "replan",
-    "root-plan-review",
-    "root-review",
-    "stopped",
-    "waiting-human",
-  ];
-  assert.deepEqual(Object.keys(MANUAL_STATE_HELP).sort(), expectedStates);
-
-  const evidenceSchema = JSON.parse(read("schemas/artifacts/delivery-evidence.schema.json"));
-  const reviewSchema = JSON.parse(read("schemas/artifacts/work-review.schema.json"));
-  const vocabulary = [
-    ...expectedStates,
-    ...evidenceSchema.properties.overall_grade.enum,
-    ...evidenceSchema.properties.status.enum,
-    ...reviewSchema.properties.assessment.enum,
-    ...reviewSchema.properties.delivery_status.enum,
-    ...reviewSchema.properties.review_route.enum,
-    ...reviewSchema.properties.next_action.enum,
-    ...reviewSchema.properties.review_basis.enum,
-    "work-plan",
-    "delivery-evidence",
-    "work-review",
-    "correction",
-    "plan-work",
-    "close-work",
-    "review-work",
-    "correct-work",
-    "accept-work",
-    "work-status",
-    "explain-work",
-    "learn-from-work",
-  ];
-  for (const value of new Set(vocabulary)) {
-    assert.ok(guide.includes(value), `Manual guide must explain ${value}`);
-  }
+    "legacy runtime files",
+  ]) assert.match(guide, new RegExp(value, "i"));
+  assert.doesNotMatch(guide, /\/(?:close-work)\b|\$(?:close-work)\b/);
+  assert.match(guide, /restore the Plan in this task or create and approve a new native Plan/i);
+  assert.match(guide, /correctness.*security.*maintainability.*performance.*efficiency.*comprehensibility/is);
+  assert.match(guide, /do not require all six/i);
 });
 
 test("every help topic uses the stable public guide contract and a real anchor", () => {
   const anchors = markdownAnchors(guide);
-  const entries = [
+  const topics = new Set();
+  for (const entry of [
     ...Object.values(MANUAL_HELP_TOPICS),
     ...Object.values(MANUAL_STATE_HELP),
     ...Object.values(MANUAL_EVIDENCE_HELP),
-  ];
-  const topics = new Set();
-  for (const entry of entries) {
+  ]) {
     assert.equal(entry.label, MANUAL_GUIDE_LABEL);
-    assert.ok(entry.topic.length > 0);
-    assert.ok(entry.meaning.length > 0);
-    assert.ok(entry.meaning.length <= 220, `${entry.topic} meaning must stay concise`);
+    assert.ok(entry.meaning.length > 0 && entry.meaning.length <= 220);
     assert.match(entry.meaning, /\.$/);
     assert.ok(entry.url.startsWith(`${MANUAL_GUIDE_URL}#`));
-    const anchor = entry.url.slice(entry.url.indexOf("#") + 1);
-    assert.ok(anchors.has(anchor), `${entry.topic} must resolve to #${anchor}`);
+    assert.ok(anchors.has(entry.url.split("#")[1]), `${entry.topic} anchor must exist`);
     assert.equal(topics.has(entry.topic), false, `duplicate help topic ${entry.topic}`);
     topics.add(entry.topic);
   }
 });
 
-test("repository entry points and Manual contracts reference the canonical guide", () => {
+test("repository entry points and native Manual contracts reference the canonical guide", () => {
   for (const path of ["README.md", "docs/overview.md", "docs/usage-example.md", "targets/codex/README.md"]) {
-    assert.match(read(path), /manual-workflow\.md/, `${path} must link the Manual guide`);
+    assert.match(read(path), /manual-workflow\.md/);
   }
   for (const path of [
     "references/manual-workflow-contract.md",
-    "references/manual-mcp-output-contract.md",
     "references/state-contract.md",
     "references/review-contract.md",
     "references/work-review-input-contract.md",
     "references/delivery-evidence-output-contract.md",
     "references/learning-contract.md",
-  ]) {
-    assert.ok(read(path).includes(MANUAL_GUIDE_URL), `${path} must use the public guide URL`);
-  }
-  assert.match(read("references/manual-mcp-output-contract.md"), /help: \{ topic, meaning, label, url \}/);
+  ]) assert.ok(read(path).includes(MANUAL_GUIDE_URL), `${path} must use the public guide URL`);
 });
 
-test("Manual guidance explains invisible host receipts, human recovery, and proportional quality signals", () => {
-  for (const token of [
-    "Constraint loop and host receipts",
-    "Preflight",
-    "Mutation gate",
-    "In-loop feedback",
-    "Delivery boundary",
-    "What happened",
-    "Human attention",
-    "Problems",
-    "24 hours",
-    "raw command output",
-  ]) assert.match(guide, new RegExp(token, "i"));
-  assert.match(guide, /does not enter a hash.*copy terminal output.*another Workflow command/is);
-  assert.match(guide, /correctness.*security.*maintainability.*performance.*efficiency.*comprehensibility/is);
-  assert.match(guide, /does not require all six/is);
-  assert.match(read("skills/work-execution/SKILL.md"), /exact standalone planned command\/directory.*leading `rtk`/is);
-  assert.match(read("skills/work-review/SKILL.md"), /constraint_summary.*human_attention.*problem_details/is);
-  assert.match(read("skills/work-review/SKILL.md"), /root-boundary.*latest_evidence_id: null.*insufficient-evidence\/blocked\/replan/is);
-  assert.match(read("references/manual-mcp-output-contract.md"), /journey_state.*primary_action.*technical_traceability/is);
-  assert.match(read("references/manual-workflow-contract.md"), /fresh host receipt bound to exact Root.*repository snapshot/is);
+test("skills preserve fresh observation, human authority, and read-only Review", () => {
+  assert.match(read("skills/work-planning/SKILL.md"), /native Plan as the sole plan container/is);
+  assert.match(read("skills/work-execution/SKILL.md"), /Finish normally.*Do not call closeout/is);
+  assert.match(read("skills/work-review/SKILL.md"), /directly observed.*exactly once.*Evidence and Work Review together or neither/is);
+  assert.match(read("references/manual-workflow-contract.md"), /failed required Check.*completed blocked Review/is);
 });

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 5.5.0
+
+- Make Cursor and Codex native Plan contexts the sole Manual plan authority and ignore all pre-5.5 Manual active-root, plan-transaction, chain, closeout, and handoff state.
+- Let Implement Plan and authorized corrections finish normally without lifecycle closeout, Evidence creation, mutation-baseline gates, typed attestations, or synthetic Stop continuations.
+- Build missing full or delta Delivery Evidence and Work Review atomically in one fresh same-task read-only Review from exact native Root bytes, server-observed repository state, and direct reviewer Check observations.
+- Keep high-risk and Hard-Trigger work on the full review route, return blocked Reviews for known failed required Checks, and make repository ambiguity an explicit limitation instead of a recovery loop.
+- Remove native Cursor `/close-work` and Codex `$close-work` surfaces while retaining the five-tool portable compatibility contract and delivery-evidence mode.
+- Release synchronized Cursor, Codex, and Agent Plugins targets as Workflow 5.5.0; deployment and live-host smoke remain separately authorized.
+
 ## 5.4.0
 
 - Build every new authoritative Schema-5 `work-review` through one deterministic host-owned kernel shared by Cursor, Codex, controller, and portable Manual clients.

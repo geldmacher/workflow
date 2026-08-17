@@ -18,7 +18,7 @@ export const MANUAL_PRIMARY_ACTIONS = Object.freeze({
   "attach-artifact": Object.freeze({ label: "Export the exact artifact", command: "attach-artifact" }),
   "review-root": Object.freeze({ label: "Review delivery", command: "review-work" }),
   "accept-provisional": Object.freeze({ label: "Accept provisional delivery", command: "accept-work" }),
-  closeout: Object.freeze({ label: "Deterministic closeout", command: "close-work" }),
+  closeout: Object.freeze({ label: "Portable Evidence build", command: "workflow_closeout" }),
   correct: Object.freeze({ label: "Fix failing Checks", command: "correct-work" }),
   "approve-correction": Object.freeze({ label: "Apply bounded correction", command: "correct-work" }),
   "provide-artifacts": Object.freeze({ label: "Supply artifact chain", command: "work-status" }),

@@ -2,7 +2,7 @@
 
 - [ ] Lean, controlled, and certified Schema-5 Roots pass; missing semantic cores fail.
 - [ ] Low/medium Manual without Hard Triggers uses Lean Evidence; high-risk, Hard-Trigger, supervised, and autonomous delivery uses Full Evidence.
-- [ ] Automatic Implement Plan closeout and `/close-work` recovery produce the same deterministic valid Evidence; Plan, implementation, Review, correction, and replan can complete in one task, while a fresh context may optionally resolve persisted Evidence from the non-authoritative root-content handoff cache.
+- [ ] Native Plan, normal implementation, and one fresh Review complete in one task; Review atomically returns Evidence plus Review and no implementation closeout or recovery command appears.
 - [ ] A client without MCP Roots capability can close an exact Root/chain into the root-content cache; `workspace_binding` stays `not-established` unless host-configured or advertised workspace identity is available, and a tool-supplied `workspace_root` alone grants no authority.
 - [ ] Handoff conflicts, stale tips, repository-mutating Checks, and invalid Evidence fail closed; true cache-write failure returns valid task-local Evidence with a non-blocking advisory, and attachment is required only for deliberate continuation elsewhere.
 - [ ] Lean Check grade requirements, implicit revision/baseline defaults, and `changed_paths` authority are enforced.
@@ -15,9 +15,9 @@
 - [ ] Bugfix, refactor, performance, feature, investigation, and verify-existing recipes enforce their invariants.
 - [ ] Verification Profile prove/approve/audit invalidates on any referenced drift.
 - [ ] Controller Readers cannot write repository content; exactly one canonical Controller Writer owns its worktree.
-- [ ] Every native Implement Plan todo is model-inheritance marked; Workflow Task calls allow only omitted model or `inherit`, every concrete model is denied at `preToolUse`, observed Children match the parent or a configured Manual approved candidate at `subagentStart`, and unmarked tasks remain unaffected.
-- [ ] The `CreatePlan` guard rejects invalid Schema-5 native Plan containers, missing typed plan-closeout attestation metadata, and lossy Evidence output while leaving ordinary Cursor Plans unaffected.
-- [ ] Shared Manual lifecycle tests cover internal closeout, strict native fallback input, plan-closeout fences/metadata, Root-scoped baselines across generations, authoritative paths, raw Root bytes, exact Evidence/Review tips, impact-scoped correction reuse, native/MCP parity and conflict, later-mutation invalidation, one-shot recovery, terminal repeated Stop, legacy delivery-report identity, and Codex bundle parity.
+- [ ] Workflow Task calls allow only inherited or approved Manual candidates, observed Children match policy, and ordinary unmarked tasks remain unaffected without embedding lifecycle metadata in the native Plan.
+- [ ] The validation-only `CreatePlan` guard rejects invalid Schema-5 native Plan containers while creating no Root receipt, active-chain state, or implementation gate.
+- [ ] Shared Manual lifecycle tests cover native Root resolution, legacy-state discard, normal implementation Stop, read-only Review, atomic Evidence/Review, fresh observation grading, failed required Checks, current dirty inventory, correction delta lineage, and Codex bundle parity.
 - [ ] Parallel and duplicate Task events correlate by hashed ID; missing/mismatched fields are unattestable; executed/returned Children after Deny become `deny-not-enforced` incidents without changing Evidence grade or Review verdict.
 - [ ] Named post-implementation agents declare `readonly: true`, use `model: inherit`, and built-in, general-purpose, unmarked, or writing agents remain blocked during Review and Explanation.
 - [ ] Failed evidence blocks; incomplete evidence may be provisional; accepted-provisional never qualifies.
@@ -28,14 +28,14 @@
 - [ ] Handoff Review quarantine is exact-hash dry-run-first, preserves the original record and prior index, refuses active dependents, and changes no other Root namespace.
 - [ ] Repository tests, bundle parity, schema/version validation, focused 80% line/70% branch coverage, 10% context headroom, Markdown links, canonical surface, and isolated package dry run pass.
 - [ ] The deterministic target build produces isolated Cursor, Codex, and Agent Plugins packages with one product Semver, no symlinks, and no paths outside any plugin root.
-- [ ] The Codex manifest validates, all eight `$` skills are present, and the Manual MCP lists exactly five tools without host-specific SDK, credential, Controller-tool, or automation references.
+- [ ] The Codex manifest validates, all seven `$` skills are present, no `$close-work` surface exists, and the Manual MCP lists exactly five tools without host-specific SDK, credential, Controller-tool, or automation references.
 - [ ] The Agent Plugins root manifest and MCP configuration validate against pinned 1.0.0 schemas; all nine immediate Agent Skills have matching frontmatter and contained references.
 - [ ] Portable MCP smoke expands only `PLUGIN_ROOT` and `PLUGIN_DATA`, lists exactly five Manual tools, accepts an exact Root preflight, writes state only below `PLUGIN_DATA`, and leaves package bytes unchanged.
 - [ ] Manifest/MCP/skill negative tests reject unknown fields, version mismatch, invalid transport, placeholder misuse, path escape, symlinks, missing references, and recognizable embedded secrets.
 - [ ] Default local deployment still selects only Cursor and Codex; compatible-client installation and smoke are reported separately from repository validation.
 - [ ] Empty, repeated, duplicate, conflict, corrupt, and incomplete Cursor Handoff imports are verified; Cursor-to-Codex and Codex-to-Cursor Schema-5 chains retain exact text and hashes.
-- [ ] Codex Hook tests cover wrong `$plan-work` mode, explicit child model, observed model mismatch, ordered Manual candidate injection/fallback, review mutation, local preflight for every Manual risk level, optional MCP preflight compatibility/mismatch, native closeout, one-shot recovery, and missing typed attestation.
-- [ ] Personal Codex marketplace copy/install and a fresh-host task `$plan-work → Implement Plan → Closeout → task-local fresh $review-work → $work-status` smoke are reported separately from repository gates.
+- [ ] Codex Hook tests cover wrong `$plan-work` mode, invalid native Root, explicit child model, observed model mismatch, ordered Manual candidate injection/fallback, review mutation, legacy-state discard, and implementation Stop without continuation.
+- [ ] Personal Codex marketplace copy/install and a fresh-host task `$plan-work → Implement Plan → task-local fresh $review-work → $work-status` smoke are reported separately from repository gates.
 - [ ] An isolated compatible Agent Plugins client loads only the portable package and exercises `plan-work → implement-work → closeout → review-work → work-status` before any live-support claim.
 - [ ] Live Cursor and Marketplace certification is reported separately from repository-only evidence.
 - [ ] Cost-bounded live smokes with two different Cursor-selected parent models confirm inherited parallel Children in the actual agent tree, pre-Task override denial, and hook-log evidence that a denied Child did not execute or return.

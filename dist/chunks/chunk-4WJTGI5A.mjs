@@ -3,7 +3,7 @@ import { createRequire as __workflowCreateRequire } from 'node:module';
 const require = __workflowCreateRequire(import.meta.url);
 import {
   require_dist
-} from "./chunk-LX4EPHHS.mjs";
+} from "./chunk-QOWQ6ETR.mjs";
 import {
   __commonJS,
   __toESM
@@ -7099,20 +7099,6 @@ var CLOSEOUT_INPUT_PHASES = Object.freeze([
   "correction",
   "review-recovery"
 ]);
-var FINAL_STEP_HEADING = /^##\s+Final implementation step\s*$/im;
-var ATTESTATION_FENCE_OPEN = /^```yaml workflow-attestation\s*$/;
-var ATTESTATION_FENCE_CLOSE = /^```\s*$/;
-function asObject(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-}
-function normalizeNewlines(text) {
-  return String(text ?? "").replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-}
-function isPlanCloseoutAttestation(value) {
-  const object = asObject(value);
-  if (!object) return false;
-  return object.schema === PLAN_CLOSEOUT_ATTESTATION.schema && object.kind === PLAN_CLOSEOUT_ATTESTATION.kind && [PLAN_CLOSEOUT_ATTESTATION.action, LEGACY_PLAN_CLOSEOUT_ATTESTATION.action].includes(object.action) && Object.keys(object).length === 3;
-}
 var CLOSEOUT_INPUT_FIELDS = Object.freeze([
   "schema",
   "kind",
@@ -7134,124 +7120,6 @@ var CHECK_EVIDENCE_FIELDS = Object.freeze([
   "repetitions",
   "limitations"
 ]);
-function extractFinalImplementationStep(text) {
-  const value = normalizeNewlines(text);
-  const match = value.match(FINAL_STEP_HEADING);
-  if (!match || match.index == null) return null;
-  const start = match.index + match[0].length;
-  const rest = value.slice(start);
-  const nextHeading = rest.search(/^##\s+/m);
-  return (nextHeading >= 0 ? rest.slice(0, nextHeading) : rest).replace(/^\n+/, "").replace(/\n+$/, "");
-}
-function countFinalImplementationSections(text) {
-  return [...normalizeNewlines(text).matchAll(/^##\s+Final implementation step\s*$/gim)].length;
-}
-function extractWorkflowAttestations(text) {
-  const lines = normalizeNewlines(text).split("\n");
-  const attestations = [];
-  let inForeignFence = false;
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (inForeignFence) {
-      if (ATTESTATION_FENCE_CLOSE.test(line)) inForeignFence = false;
-      continue;
-    }
-    if (/^```(?!yaml workflow-attestation\s*$)/.test(line)) {
-      inForeignFence = true;
-      continue;
-    }
-    if (!ATTESTATION_FENCE_OPEN.test(line)) continue;
-    const body = [];
-    let cursor = index + 1;
-    let closed = false;
-    while (cursor < lines.length) {
-      if (ATTESTATION_FENCE_CLOSE.test(lines[cursor])) {
-        closed = true;
-        break;
-      }
-      body.push(lines[cursor]);
-      cursor += 1;
-    }
-    if (!closed) continue;
-    try {
-      const parsed = (0, import_yaml2.parse)(body.join("\n"));
-      if (asObject(parsed)) {
-        attestations.push({
-          value: parsed,
-          startLine: index,
-          endLine: cursor,
-          raw: `${lines[index]}
-${body.join("\n")}
-${lines[cursor]}`
-        });
-      }
-    } catch {
-    }
-    index = cursor;
-  }
-  return attestations;
-}
-function parsePlanCloseoutAttestationFromText(text, { requireFinalStepSection = false, role = "instruction" } = {}) {
-  let value = normalizeNewlines(text);
-  if (requireFinalStepSection) {
-    const sectionCount = countFinalImplementationSections(value);
-    if (sectionCount === 0) {
-      return { ok: false, issues: [`${role} must appear as an explicit ## Final implementation step section`] };
-    }
-    if (sectionCount > 1) {
-      return { ok: false, issues: [`${role} must include exactly one ## Final implementation step section`] };
-    }
-    value = extractFinalImplementationStep(value) ?? "";
-  }
-  const attestations = extractWorkflowAttestations(value);
-  const planCloseouts = attestations.filter((entry) => isPlanCloseoutAttestation(entry.value));
-  const issues = [];
-  if (planCloseouts.length === 0) {
-    issues.push(`${role} must include exactly one unindented \`\`\`yaml workflow-attestation plan-closeout block`);
-  } else if (planCloseouts.length > 1) {
-    issues.push(`${role} must include exactly one plan-closeout attestation`);
-  }
-  let remainder = value;
-  for (const entry of [...attestations].reverse()) {
-    const lines = remainder.split("\n");
-    remainder = [...lines.slice(0, entry.startLine), ...lines.slice(entry.endLine + 1)].join("\n");
-  }
-  if (/\[workflow-closeout-v\d+\]/i.test(remainder) || /\bworkflow_closeout\b/.test(remainder) || /\bexact Root\/chain\b/i.test(remainder)) {
-    issues.push(`${role} must not include free-form closeout marker or workflow_closeout prose outside typed attestation`);
-  }
-  if (/\b(?:do\s+not|don't|does\s+not|shouldn'?t|ignore)\b[\s\S]{0,120}\b(?:attestation|closeout|workflow_closeout)\b/i.test(remainder) || /\b(?:attestation|closeout|workflow_closeout)\b[\s\S]{0,120}\b(?:do\s+not|don't|ignore)\b/i.test(remainder) || /<!--[\s\S]*workflow-attestation[\s\S]*-->/i.test(value) || /~~[\s\S]*workflow-attestation[\s\S]*~~/i.test(value)) {
-    issues.push(`${role} must not negate or comment out the typed plan-closeout attestation`);
-  }
-  if (issues.length > 0) return { ok: false, issues };
-  return { ok: true, issues: [], attestation: planCloseouts[0]?.value ?? null };
-}
-function todoPlanCloseoutIssues(todo, { role = "final native todo" } = {}) {
-  const issues = [];
-  if (!todo || typeof todo !== "object" || Array.isArray(todo)) {
-    return [`${role} must be a structured native todo with typed workflow_attestation`];
-  }
-  const content = String(todo.content ?? "");
-  if (!content.startsWith("[workflow-model-inherit-v1]")) {
-    issues.push(`${role} must start with [workflow-model-inherit-v1]`);
-  }
-  if (!/verify|check|evidence|snapshot|close\s*out/i.test(content)) {
-    issues.push(`${role} must verify or evidence the implemented result`);
-  }
-  if (/\[workflow-closeout-v\d+\]/i.test(content) || /\bworkflow_closeout\b/.test(content)) {
-    issues.push(`${role} must keep closeout ceremony in workflow_attestation metadata, not todo prose`);
-  }
-  if (!isPlanCloseoutAttestation(todo.workflow_attestation)) {
-    issues.push(`${role} requires workflow_attestation: { schema: 1, kind: plan-closeout, action: delivery-closeout }; legacy workflow_closeout remains accepted`);
-  }
-  return issues;
-}
-function planCloseoutAttestationIssues(source, options = {}) {
-  const { role = "instruction", requireFinalStepSection = false } = options;
-  if (asObject(source) && Object.prototype.hasOwnProperty.call(source, "workflow_attestation")) {
-    return todoPlanCloseoutIssues(source, { role });
-  }
-  return parsePlanCloseoutAttestationFromText(String(source ?? ""), { role, requireFinalStepSection }).issues;
-}
 
 // scripts/validate-artifact.source.mjs
 var scriptDirectory = dirname(fileURLToPath(import.meta.url));
@@ -7278,7 +7146,6 @@ var fixPattern = /\bFIX-[1-9][0-9]*\b/g;
 var checkPattern = /\bCHECK-[1-9][0-9]*\b/g;
 var slicePattern = /\bSLICE-[1-9][0-9]*\b/g;
 var learningPattern = /\bLRN-[A-Za-z0-9][A-Za-z0-9-]*\b/g;
-var modelInheritMarker = "[workflow-model-inherit-v1]";
 var requiredScopeCategories = ["required", "permitted", "prohibited"];
 var baselineKinds = ["repository", "head", "dirty-files", "known-failures", "targets-and-prerequisites"];
 var sectionAliases = Object.freeze({
@@ -7744,24 +7611,7 @@ function validatePlanV4(parsed, sections, failures) {
   if (data.objectives.size !== parsed.fields.acceptance.length) failures.push("acceptance outcomes must map one-to-one to objectives");
   if (parsed.wrapper) {
     const todos = parsed.wrapper.todos ?? [];
-    const finalTodo = todos.at(-1) ?? null;
-    const final = String(finalTodo?.content ?? "");
-    const marked = todos.some((todo) => String(todo.content ?? "").includes(modelInheritMarker)) || String(parsed.wrapper.overview ?? "").includes(modelInheritMarker) || String(parsed.wrapper.name ?? "").includes(modelInheritMarker);
-    if (!marked && !final.startsWith(modelInheritMarker)) {
-      failures.push(`native Plan must include ${modelInheritMarker} on the final closeout todo or plan overview`);
-    }
-    if (todos.length > 0 && !final.startsWith(modelInheritMarker) && !todos.some((todo) => String(todo.content ?? "").startsWith(modelInheritMarker))) {
-      failures.push(`final native todo must start with ${modelInheritMarker} when no other todo carries it`);
-    }
-    if (!/verify|check|evidence|snapshot|close\s*out/i.test(final)) {
-      failures.push("final native todo must verify or evidence the implemented result");
-    }
-    if (parsed.fields.schema === 5) {
-      if (!final.startsWith(modelInheritMarker)) failures.push(`final native todo must start with ${modelInheritMarker}`);
-      for (const issue2 of planCloseoutAttestationIssues(finalTodo ?? final, { role: "final native todo" })) {
-        failures.push(issue2);
-      }
-    }
+    if (todos.length === 0) failures.push("native Plan must include at least one implementation todo");
   }
 }
 function evidenceData(artifact) {

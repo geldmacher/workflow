@@ -47,7 +47,7 @@ const MANUAL_HELP_TOPICS = Object.freeze({
   "artifacts-tips-and-handoff": helpEntry(
     "artifacts-tips-and-handoff",
     "artifacts-tips-and-handoff",
-    "Handoff only transports exact artifact bytes; missing cache context requires explicit artifacts and grants no authority.",
+    "Cursor and Codex trust exact current-task artifact bytes; handoff remains portable transport and never restores native task authority.",
   ),
   "recovery-and-troubleshooting": helpEntry(
     "recovery-and-troubleshooting",
@@ -59,57 +59,57 @@ const MANUAL_HELP_TOPICS = Object.freeze({
 const MANUAL_STATE_HELP = Object.freeze({
   "intent-clarification": helpEntry(
     "manual-state-intent-clarification",
-    "intent-clarification",
+    "manual-states",
     "The Root is not intent-ready because a material goal, acceptance, authority, or risk decision still needs a human answer.",
   ),
   "root-plan-review": helpEntry(
     "manual-state-root-plan-review",
-    "root-plan-review",
-    "A ready Intent Root exists and waits for human Implement Plan approval before Delivery Evidence can be created.",
+    "manual-states",
+    "A ready native Intent Root exists and waits for human Implement Plan approval before repository implementation.",
   ),
   "root-review": helpEntry(
     "manual-state-root-review",
-    "root-review",
-    "Delivery Evidence exists and now needs a fresh read-only review against the approved Root.",
+    "manual-states",
+    "Implementation finished and now needs fresh read-only Review to create Evidence and the delivery verdict atomically.",
   ),
   "waiting-human": helpEntry(
     "manual-state-waiting-human",
-    "waiting-human",
+    "manual-states",
     "Workflow needs the human to resolve the listed clarification, correction approval, or missing exact context.",
   ),
   replan: helpEntry(
     "manual-state-replan",
-    "replan",
+    "manual-states",
     "The current Root or chain cannot safely authorize the required work and must be replaced through a newly approved plan.",
   ),
   "delivery-ready-provisional": helpEntry(
     "manual-state-delivery-ready-provisional",
-    "delivery-ready-provisional",
+    "manual-states",
     "No known failed required Check blocks delivery, but proof remains incomplete or unavailable and needs an explicit human decision.",
   ),
   "accepted-provisional": helpEntry(
     "manual-state-accepted-provisional",
-    "accepted-provisional",
+    "manual-states",
     "The human accepted this evidence gap once; the delivery is still not verified and the acceptance is not persisted.",
   ),
   achieved: helpEntry(
     "manual-state-achieved",
-    "achieved",
+    "manual-states",
     "A fresh review verified the required Checks for this repository-only Root, so no further Workflow action is required.",
   ),
   blocked: helpEntry(
     "manual-state-blocked",
-    "blocked",
+    "manual-states",
     "A known failure or safety boundary prevents delivery and cannot be overridden by provisional acceptance.",
   ),
   failed: helpEntry(
     "manual-state-failed",
-    "failed",
+    "manual-states",
     "Workflow could not produce a valid result; repair the reported failure before retrying.",
   ),
   stopped: helpEntry(
     "manual-state-stopped",
-    "stopped",
+    "manual-states",
     "This subject is intentionally non-actionable, commonly because it is read-only Workflow-3 or Workflow-4 history.",
   ),
 });
@@ -117,27 +117,27 @@ const MANUAL_STATE_HELP = Object.freeze({
 const MANUAL_EVIDENCE_HELP = Object.freeze({
   verified: helpEntry(
     "manual-evidence-verified",
-    "verified",
+    "evidence-grades",
     "The required Check was directly observed with the method and repetition needed for verified Evidence.",
   ),
   supported: helpEntry(
     "manual-evidence-supported",
-    "supported",
+    "evidence-grades",
     "Meaningful inspection supports the claim, but the proof is not strong enough for verified delivery.",
   ),
   partial: helpEntry(
     "manual-evidence-partial",
-    "partial",
+    "evidence-grades",
     "Some relevant proof exists, but it does not fully cover the required Check or expected result.",
   ),
   unavailable: helpEntry(
     "manual-evidence-unavailable",
-    "unavailable",
+    "evidence-grades",
     "The required proof surface could not be used; the named limitation is missing proof, not success or failure.",
   ),
   failed: helpEntry(
     "manual-evidence-failed",
-    "failed-evidence",
+    "evidence-grades",
     "The observed result contradicted a required Check, so delivery is blocked and cannot be accepted provisionally.",
   ),
 });
@@ -173,7 +173,7 @@ const NEXT_STEP_CATALOG = {
   "implement-plan": {
     label: "Implement the Plan",
     invoke: "Human: native Implement Plan (approves the presented Root)",
-    benefit: "Delivers inside the approved Root and runs deterministic closeout.",
+    benefit: "Delivers inside the approved Root and finishes normally.",
     blocked_when: "No approved Root is ready for implementation.",
     recovery: "Finish Plan presentation and human approval first.",
   },
@@ -189,7 +189,7 @@ const NEXT_STEP_CATALOG = {
     invoke: "Current task, read-only phase: run /review-work or $review-work against the exact task-local chain",
     benefit: "Produces a fresh read-only verdict without requiring a new task or chat.",
     blocked_when: "The current task cannot resolve one exact Root/Evidence chain.",
-    recovery: "Run Review in the current task; it attempts one internal missing-Evidence recovery before asking for another action.",
+    recovery: "Run Review in the current task; its atomic builder creates any missing Evidence together with the Review.",
   },
   "accept-provisional": {
     label: "Accept provisional delivery",
@@ -199,15 +199,15 @@ const NEXT_STEP_CATALOG = {
     recovery: "Run a fresh review before accepting.",
   },
   closeout: {
-    label: "Deterministic closeout",
-    invoke: "Agent: /close-work [wp-id] or $close-work, or finish Implement Plan closeout",
-    benefit: "Builds validated Evidence from observed Checks.",
+    label: "Portable Evidence build",
+    invoke: "Compatible portable client: call workflow_closeout delivery-evidence mode",
+    benefit: "Preserves portable transport; Cursor and Codex use fresh Review instead.",
     blocked_when: "Exact Root/chain or Check observations are missing.",
-    recovery: "Supply exact artifacts and required Check observations, then retry.",
+    recovery: "On Cursor or Codex start fresh Review; portable clients supply exact artifacts and observations.",
   },
   correct: {
     label: "Fix failing Checks",
-    invoke: "Agent: repair failing required Checks, then closeout again",
+    invoke: "Agent: repair failing required Checks, then run fresh Review",
     benefit: "Restores a deliverable Evidence grade.",
     blocked_when: "Intent, scope, or risk must change.",
     recovery: "Use /plan-work replan or $plan-work replan instead.",
@@ -556,10 +556,10 @@ function closeoutPresentation(value) {
   else if (provisionalEvidence) outcome = "partial";
 
   const summary = blocked
-    ? "Delivery is blocked because required evidence contains a known failure."
+    ? "Portable delivery Evidence is blocked because a required Check has a known failure."
     : outcome === "partial"
-      ? "Implementation closeout is incomplete; at least one required proof remains limited."
-      : "Implementation closeout is complete and ready for task-local read-only review.";
+      ? "Portable delivery Evidence has at least one limited required proof."
+      : "Portable delivery Evidence is complete and ready for task-local read-only Review.";
 
   let nextAction = "review-root";
   let overrides = {};
@@ -603,7 +603,7 @@ function closeoutPresentation(value) {
       ? "Required delivery evidence contains a known failure."
       : outcome === "partial"
         ? `${evidenceGaps.length || 1} required proof gap${evidenceGaps.length === 1 ? "" : "s"} remain.`
-        : "Required closeout evidence is ready for fresh review.",
+        : "Required portable Evidence is ready for fresh Review.",
     enforcement_level: value.enforcement_level
       ?? ((value.constraint_summary?.receipt_coverage?.eligible ?? 0) > 0
         && value.constraint_summary.receipt_coverage.attested === value.constraint_summary.receipt_coverage.eligible

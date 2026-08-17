@@ -7,7 +7,7 @@ import { parseFrontmatter } from "./validate-plugin.mjs";
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 export const defaultRoot = dirname(scriptDirectory);
-export const measurementVersion = 2;
+export const measurementVersion = 3;
 export const baselinePath = "scripts/context-baseline.json";
 export const limits = Object.freeze({
   alwaysOnTokens: 0,
@@ -17,9 +17,7 @@ export const limits = Object.freeze({
     plan_oneshot: 2000,
     plan_compact_full: 2450,
     review_base: 2150,
-    review_correction: 2650,
     correction: 2000,
-    closeout: 1800,
     learning: 2000,
     explanation: 1200,
   }),
@@ -38,19 +36,17 @@ export const headroomTargets = Object.freeze({
   phaseFlows: Object.freeze(Object.fromEntries(Object.entries(limits.phaseFlows).map(([name, maximum]) => [name, Math.floor(maximum * 0.9)]))),
   automationFlows: Object.freeze(Object.fromEntries(Object.entries(limits.automationFlows).map(([name, maximum]) => [name, Math.floor(maximum * 0.9)]))),
 });
-export const economicTargets = Object.freeze({ plan: 1800, correction: 1800, closeout: 1620, review: 1950, learning: 1800, explanation: 1080, automation: 1350 });
+export const economicTargets = Object.freeze({ plan: 1800, correction: 1800, review: 1950, learning: 1800, explanation: 1080, automation: 1350 });
 
 export const flowMatrix = Object.freeze({
   phase_flows: Object.freeze({
     plan_intake: Object.freeze(["commands/plan-work.md", "skills/work-planning/SKILL.md"]),
     plan_oneshot: Object.freeze(["commands/plan-work.md", "skills/work-planning/SKILL.md", "references/executable-contract.md", "references/plan-container-contract.md"]),
-    plan_compact_full: Object.freeze(["commands/plan-work.md", "skills/work-planning/SKILL.md", "references/executable-contract.md", "references/plan-container-contract.md", "references/design-contract.md", "references/closeout-contract.md"]),
-    review_base: Object.freeze(["commands/review-work.md", "skills/work-review/SKILL.md", "references/artifact-protocol.md", "references/delivery-evidence-contract.md", "references/review-contract.md"]),
-    review_correction: Object.freeze(["commands/review-work.md", "skills/work-review/SKILL.md", "references/artifact-protocol.md", "references/delivery-evidence-contract.md", "references/review-contract.md", "references/correction-contract.md"]),
-    correction: Object.freeze(["commands/correct-work.md", "skills/work-execution/SKILL.md", "references/artifact-protocol.md", "references/correction-contract.md", "references/closeout-contract.md"]),
-    closeout: Object.freeze(["commands/close-work.md", "skills/work-closeout/SKILL.md", "references/artifact-protocol.md", "references/closeout-contract.md"]),
+    plan_compact_full: Object.freeze(["commands/plan-work.md", "skills/work-planning/SKILL.md", "references/executable-contract.md", "references/plan-container-contract.md", "references/design-contract.md"]),
+    review_base: Object.freeze(["commands/review-work.md", "skills/work-review/SKILL.md", "references/artifact-protocol.md", "references/review-contract.md"]),
+    correction: Object.freeze(["commands/correct-work.md", "skills/work-execution/SKILL.md", "references/artifact-protocol.md", "references/correction-contract.md"]),
     learning: Object.freeze(["commands/learn-from-work.md", "skills/work-learning/SKILL.md", "references/artifact-protocol.md", "references/learning-contract.md"]),
-    explanation: Object.freeze(["commands/explain-work.md", "skills/work-explanation/SKILL.md", "references/state-contract.md", "references/explanation-contract.md"]),
+    explanation: Object.freeze(["commands/explain-work.md", "skills/work-explanation/SKILL.md", "references/explanation-contract.md"]),
   }),
   automation_flows: Object.freeze({
     prepare_or_approve: Object.freeze(["commands/auto-work.md", "skills/work-automation/SKILL.md", "references/automation-preparation-contract.md"]),
@@ -235,13 +231,12 @@ export function measureContext(root = defaultRoot) {
     flows: {
       plan: phaseFlows.plan_oneshot,
       correction: phaseFlows.correction,
-      closeout: phaseFlows.closeout,
       review: phaseFlows.review_base,
       learning: phaseFlows.learning,
       explanation: phaseFlows.explanation,
       automation: Math.max(...Object.values(automationFlows)),
     },
-    expandedFlows: { plan_compact_full: phaseFlows.plan_compact_full, review_correction: phaseFlows.review_correction },
+    expandedFlows: { plan_compact_full: phaseFlows.plan_compact_full },
     automationFlows,
     reviewerTokens,
     limits,

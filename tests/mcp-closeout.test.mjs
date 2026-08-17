@@ -316,8 +316,11 @@ test("MCP work-review mode builds one host-owned review and remains idempotent w
     assert.equal(first.isError, false, JSON.stringify(first.structuredContent));
     assert.equal(first.structuredContent.artifact_kind, "work-review");
     assert.match(first.structuredContent.work_review_id, /^wr-adaptive-retry-[a-f0-9]{12}$/);
-    assert.equal(first.structuredContent.delivery_status, "verified");
-    assert.equal(first.structuredContent.next_action, "none");
+    // This repository is intentionally dirty while the suite runs. Stateless
+    // native Review must expose that complete current inventory rather than
+    // inherit the older fixture Evidence as a verified repository claim.
+    assert.equal(first.structuredContent.delivery_status, "blocked");
+    assert.equal(first.structuredContent.next_action, "clarify");
     assert.equal(first.structuredContent.task_local_valid, true);
     assert.equal(first.structuredContent.handoff_authoritative, false);
     assert.match(first.structuredContent.artifact, /^---\nartifact: work-review/m);
@@ -326,7 +329,7 @@ test("MCP work-review mode builds one host-owned review and remains idempotent w
     assert.equal(retry.isError, false, JSON.stringify(retry.structuredContent));
     assert.equal(retry.structuredContent.work_review_id, first.structuredContent.work_review_id);
     assert.equal(retry.structuredContent.artifact, first.structuredContent.artifact);
-    assert.equal(retry.structuredContent.duplicate, true);
+    assert.equal(retry.structuredContent.duplicate, false);
 
     const freshTaskReview = await client.callTool({
       name: "workflow_closeout",
@@ -438,6 +441,59 @@ test("MCP work-review mode builds one host-owned review and remains idempotent w
     assert.equal(reviewInputContract.anyOf[0].additionalProperties, false);
     assert.ok(reviewInputContract.anyOf[0].required.includes("assessment_summary"));
     assert.match(reviewInputContract.anyOf[1].description, /Recovery-only malformed review_input object/);
+  } finally {
+    await client.close().catch(() => {});
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("MCP native Review atomically creates missing Evidence and rejects cache-only Root recovery", async () => {
+  const home = mkdtempSync(join(tmpdir(), "workflow-atomic-review-home-"));
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [join(defaultRoot, "dist", "workflow-mcp.mjs")],
+    cwd: defaultRoot,
+    env: mcpEnv(home),
+    stderr: "pipe",
+  });
+  const client = workflowClient("workflow-atomic-review-test", [defaultRoot]);
+  try {
+    await client.connect(transport);
+    const reviewed = await client.callTool({
+      name: "workflow_closeout",
+      arguments: {
+        workspace_root: defaultRoot,
+        artifact_kind: "work-review",
+        root_plan_id: "wp-adaptive-retry",
+        root_plan: rootPlan,
+        check_evidence: [verifiedCheck],
+        review_input: achievedReviewInput,
+      },
+    });
+    assert.equal(reviewed.isError, false, JSON.stringify(reviewed.structuredContent));
+    assert.match(reviewed.structuredContent.delivery_evidence_id, /^de-/);
+    assert.match(reviewed.structuredContent.work_review_id, /^wr-/);
+    assert.match(reviewed.structuredContent.delivery_evidence_artifact, /^---\nartifact: delivery-evidence/m);
+    assert.match(reviewed.structuredContent.artifact, /^---\nartifact: work-review/m);
+    assert.equal(reviewed.structuredContent.latest_evidence_id, reviewed.structuredContent.delivery_evidence_id);
+    assert.equal(reviewed.structuredContent.handoff_persisted, false);
+    assert.ok(Array.isArray(reviewed.structuredContent.observed_dirty_paths));
+
+    const rootless = await client.callTool({
+      name: "workflow_closeout",
+      arguments: {
+        workspace_root: defaultRoot,
+        artifact_kind: "work-review",
+        root_plan_id: "wp-adaptive-retry",
+        check_evidence: [verifiedCheck],
+        review_input: achievedReviewInput,
+      },
+    });
+    assert.equal(rootless.isError, true);
+    assert.equal(rootless.structuredContent.error_code, "native-plan-unavailable");
+    assert.deepEqual(rootless.structuredContent.attempted_sources, ["workflow_closeout.root_plan from current Review task"]);
+    assert.match(rootless.structuredContent.error, /Inspected: workflow_closeout\.root_plan.*Restore the Schema-5 native Plan/is);
+    assert.match(rootless.structuredContent.resolution, /same task or create and approve a new native Plan/i);
   } finally {
     await client.close().catch(() => {});
     rmSync(home, { recursive: true, force: true });

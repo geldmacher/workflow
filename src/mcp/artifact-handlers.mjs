@@ -7,11 +7,13 @@ import {
 } from "../controller/artifact-handoff.mjs";
 import { buildDeliveryEvidence, persistCloseout } from "../controller/delivery-closeout.mjs";
 import { buildWorkReview, persistWorkReview } from "../controller/work-review-builder.mjs";
+import { buildManualReviewLifecycle } from "../controller/manual-review-lifecycle.mjs";
 import {
   invalidateManualCheckReceipts,
   loadManualCheckReceipts,
 } from "../core/manual-check-receipts.mjs";
 import { boundaryReceiptVerifier } from "../core/manual-boundary-receipts.mjs";
+import { resolveNativePlan } from "../core/native-plan-resolution.mjs";
 import { inspectArtifactText } from "../../scripts/validate-artifact.source.mjs";
 import { modelInheritanceSummary } from "../../hooks/model-inheritance-state.mjs";
 import { isWorkspaceRootsUnavailable } from "./workspace-roots.mjs";
@@ -32,11 +34,15 @@ export function createArtifactHandlers({
   const failure = (toolName) => (error) => toolResult(toolName, {
     error: error.message,
     ...(error?.code ? { error_code: error.code } : {}),
+    ...(Array.isArray(error?.attempted_sources) ? { attempted_sources: error.attempted_sources } : {}),
+    ...(Array.isArray(error?.candidate_ids) ? { candidate_ids: error.candidate_ids } : {}),
+    ...(typeof error?.resolution === "string" ? { resolution: error.resolution } : {}),
   }, true);
 
-  const codedError = (code, message) => {
+  const codedError = (code, message, details = {}) => {
     const error = new Error(message);
     error.code = code;
+    Object.assign(error, details);
     return error;
   };
 
@@ -275,6 +281,38 @@ export function createArtifactHandlers({
     ...(handoffErrorCode || persisted.handoff_error_code ? { handoff_error_code: handoffErrorCode ?? persisted.handoff_error_code } : {}),
   });
 
+  const reviewBundlePayload = ({ input, workspace, bundle, rootContentHashValue }) => ({
+    ...(workspace ? { workspace_root: workspace } : {}),
+    workspace_binding: workspace ? "trusted-root" : "not-established",
+    workspace_root_used: Boolean(workspace),
+    artifact_kind: "work-review",
+    root_plan_id: input.root_plan_id,
+    root_content_hash: rootContentHashValue,
+    delivery_evidence_id: bundle.delivery_evidence.fields.id,
+    delivery_evidence_artifact: bundle.delivery_evidence.artifact,
+    delivery_evidence_hash: bundle.delivery_evidence.artifact_hash,
+    work_review_id: bundle.review.fields.id,
+    artifact: bundle.review.artifact,
+    artifact_hash: bundle.review.artifact_hash,
+    review_input_hash: bundle.review.review_input_hash,
+    authoritative_fields: bundle.review.fields,
+    assessment: bundle.review.fields.assessment,
+    delivery_status: bundle.review.fields.delivery_status,
+    next_action: bundle.review.fields.next_action,
+    review_route: bundle.review.fields.review_route,
+    latest_evidence_id: bundle.review.fields.latest_evidence_id,
+    predecessor_review_id: bundle.review.fields.predecessor_review_id ?? null,
+    correction_id: bundle.review.fields.correction_id ?? null,
+    changed_paths: bundle.changed_paths,
+    observed_dirty_paths: bundle.observed_dirty_paths,
+    repository_snapshot: bundle.repository_snapshot,
+    duplicate: bundle.review.duplicate && bundle.delivery_evidence.duplicate,
+    task_local_valid: true,
+    handoff_persisted: false,
+    handoff_authoritative: false,
+    handoff_mode: "task-local",
+  });
+
   const record = async (input) => {
     try {
       if (bundleSize(input.artifacts) > 1_000_000) throw new Error("handoff artifact bundle exceeds 1000000 characters");
@@ -394,6 +432,51 @@ export function createArtifactHandlers({
     try {
       if (bundleSize(input.artifacts) > 1_000_000) throw new Error("closeout artifact bundle exceeds 1000000 characters");
       const operational = await optionalOperational(input.workspace_root);
+
+      // Cursor and Codex Manual Review is deliberately stateless. Exact native
+      // task artifacts plus the current repository are enough to create the
+      // paired Evidence/Review result; legacy handoff cannot grant authority.
+      if ((input.artifact_kind ?? "delivery-evidence") === "work-review") {
+        const nativePlan = resolveNativePlan({
+          candidates: input.root_plan
+            ? [{ source: "workflow_closeout.root_plan from current Review task", root_text: input.root_plan }]
+            : [],
+          attemptedSources: ["workflow_closeout.root_plan from current Review task"],
+          pluginRoot,
+        });
+        if (nativePlan.status !== "resolved") {
+          throw codedError(
+            `native-plan-${nativePlan.status}`,
+            `workflow_closeout work-review native Root is ${nativePlan.status}. Inspected: ${nativePlan.attempted_sources.join(", ") || "no native source was supplied"}. ${nativePlan.resolution}`,
+            nativePlan,
+          );
+        }
+        if (!operational.workspace) {
+          throw codedError(
+            "review-workspace-unavailable",
+            `workflow_closeout could not inspect the current repository${operational.workspace_error?.message ? `: ${operational.workspace_error.message}` : ""}`,
+          );
+        }
+        const bundle = buildManualReviewLifecycle({
+          rootPlanText: nativePlan.root_text,
+          artifacts: input.artifacts ?? [],
+          reviewInput: input.review_input,
+          checkEvidence: input.check_evidence ?? [],
+          strategyRevision: input.strategy_revision ?? 0,
+          summary: input.summary ?? null,
+          workspaceRoot: operational.workspace,
+          pluginRoot,
+        });
+        if (nativePlan.root_id !== input.root_plan_id || bundle.root_plan_id !== input.root_plan_id) {
+          throw new Error(`workflow_closeout Root ID mismatch: expected ${input.root_plan_id}, received ${bundle.root_plan_id}`);
+        }
+        return toolResult("workflow_closeout", reviewBundlePayload({
+          input,
+          workspace: operational.workspace,
+          bundle,
+          rootContentHashValue: nativePlan.root_hash,
+        }));
+      }
 
       let handoff;
       try {

@@ -4,11 +4,11 @@ Workflow 5 is a clean protocol cut, not an in-place artifact migration. Finish a
 
 ## New version bindings
 
-- Plugin `5.4.0`
+- Plugin `5.5.0`
 - Artifact Schema `5`
 - Controller Protocol `5`
 
-In 5.4, new authoritative Reviews are host-owned. Cursor, Codex, supervised/autonomous controller Runs, and portable Manual clients normalize one closed Schema-1 reviewer input through the same deterministic builder. `workflow_closeout` adds `artifact_kind: work-review` without adding a sixth Manual tool; omission remains `delivery-evidence`. New raw model-authored Review envelopes are rejected as authority, while existing immutable Review history remains readable. Exact task-local Review bytes remain valid when optional handoff persistence fails, and malformed semantic input gets one same-task repair attempt before only the Review phase blocks.
+In 5.5, Cursor and Codex use only their native task Plan as Manual authority. Implement Plan and correction finish without closeout. Fresh same-task Review observes Checks and atomically returns missing Evidence plus Review through `workflow_closeout` work-review mode. Pre-5.5 Manual active-root, chain, closeout, and handoff state is intentionally ignored; portable delivery-evidence mode remains wire-compatible.
 - Run/Preparation Record Schema `2`
 - Capability Receipt Schema `4`
 - User Config and Project Policy Schema `2`

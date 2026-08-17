@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 import { defaultRoot, parseFrontmatter } from "../scripts/validate-plugin.mjs";
@@ -7,12 +7,14 @@ import { defaultRoot, parseFrontmatter } from "../scripts/validate-plugin.mjs";
 const read = (path) => readFileSync(join(defaultRoot, path), "utf8");
 
 test("manual commands preserve Cursor-native human gates", () => {
-  for (const [command, skill, mode] of [["plan-work", "work-planning", "Plan"], ["review-work", "work-review", "Ask"], ["close-work", "work-closeout", "Agent"], ["correct-work", "work-execution", "Agent"], ["learn-from-work", "work-learning", "Agent"]]) {
+  for (const [command, skill, mode] of [["plan-work", "work-planning", "Plan"], ["review-work", "work-review", "Ask"], ["correct-work", "work-execution", "Agent"], ["learn-from-work", "work-learning", "Agent"]]) {
     const text = read(`commands/${command}.md`);
     assert.match(text, new RegExp(`designed for Cursor ${mode} Mode`, "i"));
     assert.match(text, new RegExp(`\\[${skill}\\]\\([^)]*SKILL\\.md\\).*completely`, "i"));
     assert.doesNotMatch(text, /MODE (?:GATE|PREREQUISITE)|MODE REQUIRED:|tool allowlist/i);
   }
+  assert.equal(existsSync(join(defaultRoot, "commands", "close-work.md")), false);
+  assert.equal(existsSync(join(defaultRoot, "skills", "work-closeout", "SKILL.md")), false);
 });
 
 test("review is fresh and read-only but may use Cursor inspection capabilities", () => {
@@ -20,21 +22,19 @@ test("review is fresh and read-only but may use Cursor inspection capabilities",
   assert.match(runtime, /fresh Cursor Ask(?: context)?/i);
   assert.match(runtime, /(?:do not inherit|without) Writer assumptions|not Writer/i);
   assert.match(runtime, /read-only/i);
-  assert.match(runtime, /MCP/);
-  assert.match(runtime, /(?:cannot|never) (?:upgrade|raise)/i);
+  assert.match(runtime, /workflow_closeout/);
+  assert.match(runtime, /never upgrades? proof|cannot raise/i);
 });
 
-test("review without a selector uses the active native Plan before controller state", () => {
+test("review resolves only the current native Plan and never restores Manual authority", () => {
   const command = read("commands/review-work.md");
   const runtime = [command, read("skills/work-review/SKILL.md"), read("references/review-contract.md")].join("\n");
-  assert.match(command, /optional `wp-\*`.*without it.*active native Cursor Plan/is);
-  assert.match(runtime, /Manual(?: activity)? needs no Preparation\/Run/i);
-  assert.match(runtime, /active (?:Plan's Schema-5|Schema-5 Plan) chain.*else (?:the )?unique (?:active )?Run/is);
-  assert.match(runtime, /ignore unscoped `workflow_status`(?: for Manual resolution)?/i);
-  assert.match(runtime, /Root (?:without Evidence|resolution succeeds but Evidence is still absent).*\/close-work/is);
-  assert.match(runtime, /task artifacts first.*workflow_artifact_context.*transport enrichment/is);
-  assert.match(runtime, /(?:Missing workspace binding|roots-request-failed\|roots-empty).*cannot discard.*task Root\/Evidence chain/is);
-  assert.match(runtime, /host.*build.*authoritative Review|host.*Schema-5 review/is);
+  assert.match(command, /exact Schema-5 Root.*current task's native Cursor Plan/is);
+  assert.match(runtime, /Never use active-root files, chain caches, handoff tips, `workflow_artifact_context`, or another task as authority/is);
+  assert.match(runtime, /No Root, no substantive Review/is);
+  assert.match(runtime, /restore the Plan in this task or create and approve a new native Plan/is);
+  assert.match(runtime, /Delivery Evidence and Work Review together or neither/is);
+  assert.doesNotMatch(runtime, /recommend.*close-work/i);
 });
 
 test("artifact consumers resolve semantically and recognize Workflow 3/4 as history", () => {
@@ -58,29 +58,28 @@ test("planning uses compact semantic Root with immutable intent and adaptive str
   assert.match(runtime, /predecessor_plan_id.*replan_source_review_id/is);
   assert.match(runtime, /source review.*next_action: replan/is);
   assert.match(runtime, /`### Verification`.*directly inside `## Acceptance`/is);
-  assert.match(runtime, /successful.*`CreatePlan` receipt.*exact Root hash/is);
-  assert.match(runtime, /no stable internal Plan UI ID|undocumented Cursor UI Plan ID/i);
-  assert.match(runtime, /Cursor-selected primary owns \*\*Implement Plan\*\*/i);
-  assert.match(runtime, /subagents.*inherit.*(?:main|its) model/is);
+  assert.match(runtime, /host guard validates the exact Root but grants no approval/is);
+  assert.match(runtime, /native Plan as the sole plan container/is);
+  assert.match(runtime, /Children match the parent or a Manual approved candidate/is);
   assert.match(runtime, /Manual approved candidate|parent-or-approved/i);
-  assert.match(runtime, /\[workflow-model-inherit-v1\]/);
+  assert.match(runtime, /add no closeout todo, `workflow_attestation`, Evidence step, or artifact-record step/is);
   assert.match(runtime, /correctness.*security.*maintainability.*performance.*efficiency.*comprehensibility/is);
   assert.match(runtime, /never a six-item checklist/i);
   assert.match(runtime, /advanced tests(?: and |\/)scanners stay optional/i);
 });
 
-test("Codex and portable targets explain receipt boundaries without a new Manual step", () => {
+test("Codex uses review-owned evidence while portable closeout remains compatible", () => {
   const codex = [
     "plan-work",
-    "close-work",
     "correct-work",
     "review-work",
     "work-status",
   ].map((name) => read(`targets/codex/skills/${name}/SKILL.md`)).join("\n");
-  assert.match(codex, /exact standalone planned command.*leading `rtk`/is);
-  assert.match(codex, /host records receipts automatically|Host receipts are automatic/is);
+  assert.match(codex, /Finish normally without closeout|add no closeout section/is);
+  assert.match(codex, /returns Delivery Evidence and Work Review atomically or neither/is);
   assert.match(codex, /constraint_summary.*human_attention.*problem_details/is);
-  assert.match(read("targets/codex/references/codex-manual.md"), /adds no human setup step|never adds a human setup step/i);
+  assert.match(read("targets/codex/references/codex-manual.md"), /optional receipts.*add no human setup step/is);
+  assert.equal(existsSync(join(defaultRoot, "targets", "codex", "skills", "close-work", "SKILL.md")), false);
 
   const portable = [
     read("targets/agent-plugins/skills/implement-work/SKILL.md"),
@@ -99,53 +98,43 @@ test("manual correction remains bounded and verification-only can avoid edits", 
   assert.match(runtime, /satisfied\|pending\|partial\|conflicted/);
   assert.match(runtime, /Verification-only avoids edits/i);
   assert.match(runtime, /root, Strategy revision when required, chain, scope, reuse, risk, and approval/i);
-  assert.match(runtime, /active native Cursor Plan/i);
+  assert.match(runtime, /exact native Cursor Plan/i);
   assert.match(runtime, /stale review tip|stale.*chain/i);
   assert.match(runtime, /may delegate bounded/i);
   assert.match(runtime, /omit Task model overrides/i);
-  assert.match(runtime, /primary owns execution, integration, and closeout/i);
+  assert.match(runtime, /primary owns execution and integration/i);
   assert.match(runtime, /failed, missing, (?:explicitly )?affected, (?:fingerprint-)?stale, or ambiguous Root Checks/is);
   assert.match(runtime, /unaffected proof.*existing grade/is);
-  assert.match(runtime, /Equivalent Checks (?:run|may share).*once|Equivalent Root\/correction Checks may share one current closeout observation/is);
+  assert.match(runtime, /Run correction Checks plus failed, missing, affected, stale, or ambiguous Root Checks/is);
   assert.match(runtime, /unavailable or failed.*(?:explicit|exact)/i);
   assert.match(runtime, /each machine Check.*exact standalone planned command.*leading `rtk`/is);
-  assert.match(runtime, /Receipts downgrade unattested\/stale\/rootless proof, preserve failure/is);
-  assert.match(runtime, /invalidate mutations/i);
+  assert.match(runtime, /implementation observations, not Review-owned Evidence/is);
+  assert.match(runtime, /Finish normally.*Do not call closeout/is);
 });
 
-test("manual closeout is deterministic recovery and cannot mutate the repository", () => {
-  const runtime = [read("commands/close-work.md"), read("skills/work-closeout/SKILL.md"), read("references/closeout-contract.md")].join("\n");
-  assert.match(runtime, /workflow_closeout/);
-  assert.match(runtime, /internal closeout builder|Invoke `workflow_closeout` internally/i);
-  assert.match(runtime, /print neither a delivery-report nor a persisted artifact|without artifact ceremony/i);
-  assert.match(runtime, /handoff_persisted|attach/i);
-  assert.match(runtime, /does not authorize repository mutation/i);
-  assert.match(runtime, /local, non-interactive/i);
-  assert.match(runtime, /fingerprints for every tracked, visible untracked, and Check-prerequisite path/is);
-  assert.match(runtime, /external byte-equivalent snapshot.*technically read-only.*non-bypassable full-tree write audit.*restored writes.*Write-deny the original repository.*await the full tree/is);
-  assert.match(runtime, /recompute the complete baseline.*compare content, paths, index state, and HEAD/is);
-  assert.match(runtime, /network.*production.*external effect/is);
-  assert.match(runtime, /root-content handoff cache is transport only|handoff cache is transport only|cache is non-authoritative transport/i);
-  assert.match(runtime, /Content-bound handoff|roots-request-failed\|roots-empty|exact Root hash/i);
-  assert.match(runtime, /missing workspace binding|workspace binding/i);
-  assert.match(runtime, /representation: full\|delta.*evidence_mode: lean\|full/is);
+test("portable closeout compatibility grants no Cursor or Codex Manual authority", () => {
+  const runtime = [read("references/closeout-contract.md"), read("targets/agent-plugins/skills/close-work/SKILL.md")].join("\n");
+  assert.match(runtime, /Cursor and Codex Manual do not close out implementation/is);
+  assert.match(runtime, /delivery-evidence mode.*portable clients/is);
+  assert.match(runtime, /do not grant Cursor or Codex Manual task authority/is);
+  assert.match(runtime, /server observes the repository.*Evidence and Review atomically/is);
 });
 
-test("manual status, acceptance, explanation, and learning share fail-closed active Root selection", () => {
+test("manual consumers share exact current-task artifact authority", () => {
   const status = [read("commands/work-status.md"), read("skills/work-automation/SKILL.md"), read("references/state-contract.md")].join("\n");
-  assert.match(status, /active native Cursor Plan.*before a unique active controller subject/is);
-  assert.match(status, /omit `root_plan_id` only.*unique active lineage tip/is);
+  assert.match(status, /exact Root\/Evidence\/Review bytes visible in this task/is);
+  assert.match(status, /never restores host state or cache artifacts/is);
   const acceptance = read("commands/accept-work.md");
   assert.match(acceptance, /\[wp-id\] provisional/);
   assert.match(acceptance, /delivery-ready-provisional/);
   assert.match(acceptance, /resolved `root_plan_id`/);
 
   const explanation = [read("commands/explain-work.md"), read("skills/work-explanation/SKILL.md"), read("references/explanation-contract.md")].join("\n");
-  assert.match(explanation, /active native Cursor Plan/i);
-  assert.match(explanation, /only without a Plan.*active controller Run/is);
+  assert.match(explanation, /current task's native Plan context/i);
+  assert.match(explanation, /Only without a Manual Plan may an explicitly selected controller Run/is);
 
   const learning = [read("skills/work-learning/SKILL.md"), read("references/learning-contract.md")].join("\n");
-  assert.match(learning, /active native Cursor Plan/i);
+  assert.match(learning, /current-task source: exact native Cursor Plan bytes/i);
   assert.match(learning, /exact current.*Schema-5.*chain/is);
   assert.match(learning, /one exact controller Run already returned in the task|otherwise one controller Run.*current task/is);
   assert.match(learning, /latest\/history\/store lookup stops|never search storage/is);
@@ -206,11 +195,12 @@ test("runtime surface has one bundled controller and no automatic publication", 
   assert.equal(manifest.hooks, "./hooks/hooks.json");
   const hooks = read("hooks/hooks.json");
   const hookConfig = JSON.parse(hooks);
-  assert.deepEqual(Object.values(hookConfig.hooks).map((entries) => entries.length), Array(9).fill(1));
-  for (const event of ["sessionStart", "beforeSubmitPrompt", "preToolUse", "subagentStart", "subagentStop", "postToolUse", "postToolUseFailure"]) assert.match(hooks, new RegExp(event));
+  assert.deepEqual(Object.values(hookConfig.hooks).map((entries) => entries.length), Array(6).fill(1));
+  for (const event of ["sessionStart", "beforeSubmitPrompt", "preToolUse", "subagentStart", "subagentStop", "postToolUse"]) assert.match(hooks, new RegExp(event));
+  for (const event of ["afterAgentResponse", "postToolUseFailure", '"stop"']) assert.doesNotMatch(hooks, new RegExp(event));
   assert.match(hooks, /\|Task\|/);
   assert.match(hooks, /subagent-guard\.mjs/);
-  assert.match(hooks, /"matcher": "CreatePlan\|TodoWrite/);
+  assert.match(hooks, /"matcher": "CreatePlan\|Write/);
   assert.match(hooks, /failClosed/);
   assert.equal(manifest.mcpServers, "mcp.json");
   assert.match(read("mcp.json"), /\$\{CURSOR_PLUGIN_ROOT\}\/dist\/workflow-mcp\.mjs/);

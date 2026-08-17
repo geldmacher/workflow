@@ -255,8 +255,8 @@ test("manual workflow_status is read-only and creates no controller state", asyn
     assert.equal(response.structuredContent.subject_kind, "artifact-chain");
     assert.equal(response.structuredContent.snapshot.next_action, "implement-plan");
     assert.equal(response.structuredContent.presentation.help.topic, "manual-state-root-plan-review");
-    assert.match(response.content[0].text, /Meaning: A ready Intent Root exists/);
-    assert.match(response.content[0].text, /Learn more: \[Manual Workflow guide\]\(https:\/\/github\.com\/geldmacher\/workflow\/blob\/main\/docs\/manual-workflow\.md#root-plan-review\)/);
+    assert.match(response.content[0].text, /Meaning: A ready native Intent Root exists/);
+    assert.match(response.content[0].text, /Learn more: \[Manual Workflow guide\]\(https:\/\/github\.com\/geldmacher\/workflow\/blob\/main\/docs\/manual-workflow\.md#manual-states\)/);
     assert.equal(response.structuredContent.learning.eligible, false);
     assert.equal(response.structuredContent.learning.source_kind, "artifact-chain");
     assert.deepEqual(response.structuredContent.model_inheritance, {
