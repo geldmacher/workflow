@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { closeSync, fstatSync, openSync, readSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -25,7 +24,6 @@ export const MODEL_INHERIT_MARKER = "[workflow-model-inherit-v1]";
 export const READONLY_REVIEW_MARKER = "[workflow-readonly-review-v1]";
 
 const MAX_INPUT_BYTES = 1024 * 1024;
-const MAX_TRANSCRIPT_BYTES = 2 * 1024 * 1024;
 const ALLOWED_READONLY_AGENTS = new Set([
   "delivery-auditor",
   "risk-auditor",
@@ -43,23 +41,6 @@ const cleanModel = (value) => typeof value === "string" && value.trim() !== "" &
   ? value.trim().replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 256)
   : null;
 const safeType = (value) => typeof value === "string" && value.trim() !== "" ? value.trim().slice(0, 256) : null;
-
-function transcriptTail(path) {
-  if (typeof path !== "string" || !isAbsolute(path)) return "";
-  let descriptor;
-  try {
-    descriptor = openSync(path, "r");
-    const size = fstatSync(descriptor).size;
-    const length = Math.min(size, MAX_TRANSCRIPT_BYTES);
-    const buffer = Buffer.alloc(length);
-    readSync(descriptor, buffer, 0, length, Math.max(0, size - length));
-    return buffer.toString("utf8");
-  } catch {
-    return "";
-  } finally {
-    if (descriptor !== undefined) closeSync(descriptor);
-  }
-}
 
 function timestamp(options) {
   const value = options.now ? options.now() : new Date();
@@ -93,18 +74,21 @@ function taskText(input) {
   return typeof input.task === "string" ? input.task : "";
 }
 
-function isWorkflowContext(task, transcript) {
-  return task.includes(MODEL_INHERIT_MARKER)
-    || transcript.includes(MODEL_INHERIT_MARKER)
-    || task.includes(LEGACY_PRIMARY_WRITER_MARKER)
-    || transcript.includes(LEGACY_PRIMARY_WRITER_MARKER)
-    || task.includes(READONLY_REVIEW_MARKER)
-    || WORKFLOW_COMMAND.test(task)
-    || WORKFLOW_COMMAND.test(transcript);
+function promptText(input) {
+  const candidate = input.prompt ?? input.command ?? input.task;
+  return typeof candidate === "string" ? candidate : "";
 }
 
-function workflowPhase(task, transcript) {
-  const source = `${task}\n${transcript}`;
+function isWorkflowContext(task) {
+  return task.includes(MODEL_INHERIT_MARKER)
+    || task.includes(LEGACY_PRIMARY_WRITER_MARKER)
+    || task.includes(READONLY_REVIEW_MARKER)
+    || WORKFLOW_COMMAND.test(task)
+    || READONLY_COMMAND.test(task);
+}
+
+function workflowPhase(task) {
+  const source = task;
   if (/\/(?:review-work)(?:\s|$)|\[workflow-readonly-review-v1\]/i.test(source)) return "review";
   if (/\/(?:explain-work)(?:\s|$)/i.test(source)) return "explanation";
   if (/\/(?:plan-work)(?:\s|$)/i.test(source)) return "planning";
@@ -200,18 +184,27 @@ function captureParent(input, options) {
 function evaluatePreToolUse(input, options) {
   if (input.tool_name !== "Task") return {};
   const task = taskText(input);
-  const readTranscript = options.readTranscript ?? transcriptTail;
-  const transcript = readTranscript(input.transcript_path);
-  if (!isWorkflowContext(task, transcript)) return {};
+  if (!isWorkflowContext(task)) return {};
 
   const states = stateRoots(input, options);
   const conversation = conversationHash(input);
   const hash = taskHash(input) ?? hashWorkflowIdentifier("task", `${conversation ?? "unknown"}:missing-tool-id`);
-  const phase = workflowPhase(task, transcript);
+  const phase = workflowPhase(task);
   const subagentType = safeType(input.tool_input?.subagent_type ?? input.subagent_type);
   const requested = requestModel(input.tool_input);
   const capturedAt = timestamp(options);
-  const parent = states.map((stateRoot) => readParentModel(stateRoot, conversation)).find(Boolean) ?? null;
+  let parent = states.map((stateRoot) => readParentModel(stateRoot, conversation)).find(Boolean) ?? null;
+  if (!parent && cleanModel(input.model)) {
+    for (const stateRoot of states) writeParentModel(stateRoot, conversation, {
+      model: input.model,
+      model_id: input.model_id ?? input.model,
+      model_params: input.model_params,
+      cursor_version: input.cursor_version,
+      captured_by: input.hook_event_name,
+      captured_at: capturedAt,
+    });
+    parent = states.map((stateRoot) => readParentModel(stateRoot, conversation)).find(Boolean) ?? null;
+  }
   const canonicalParent = parentModel(parent);
   const reportedParent = cleanModel(input.model);
   const parentConsistent = !reportedParent || reportedParent === cleanModel(parent?.model) || reportedParent === cleanModel(parent?.model_id);
@@ -255,10 +248,10 @@ function evaluatePreToolUse(input, options) {
   }));
 }
 
-function uncorrelatedRequest(input, task, transcript, hash, recordedAt, parent) {
+function uncorrelatedRequest(input, task, hash, recordedAt, parent) {
   return {
     task_hash: hash,
-    phase: workflowPhase(task, transcript),
+    phase: workflowPhase(task),
     subagent_type: safeType(input.subagent_type),
     parent_model: cleanModel(parent?.model),
     parent_model_id: cleanModel(parent?.model_id),
@@ -272,17 +265,15 @@ function uncorrelatedRequest(input, task, transcript, hash, recordedAt, parent) 
 
 function evaluateSubagent(input, options) {
   const task = taskText(input);
-  const readTranscript = options.readTranscript ?? transcriptTail;
-  const transcript = readTranscript(input.transcript_path);
   const states = stateRoots(input, options);
   const conversation = conversationHash(input);
   const hash = taskHash(input) ?? hashWorkflowIdentifier("task", `${conversation ?? "unknown"}:uncorrelated-start`);
   const request = findTask(states, hash, "request");
-  if (!request && !isWorkflowContext(task, transcript)) return {};
+  if (!request && !isWorkflowContext(task)) return {};
   const recordedAt = timestamp(options);
   if (!request) {
     const parent = states.map((stateRoot) => readParentModel(stateRoot, conversation)).find(Boolean) ?? null;
-    const incidentRequest = uncorrelatedRequest(input, task, transcript, hash, recordedAt, parent);
+    const incidentRequest = uncorrelatedRequest(input, task, hash, recordedAt, parent);
     const incidentId = makeIncident(states, incidentRequest, "uncorrelated-subagent-start", { enforcement: "denied-at-start" });
     return deny(incidentMessage({ incidentId, cause: "uncorrelated-subagent-start", parent: parentModel(parent), observed: incidentRequest.observed_child_model ?? "<unavailable>" }));
   }
@@ -316,7 +307,7 @@ function evaluateSubagent(input, options) {
     for (const stateRoot of states) recordIncidentObservation(stateRoot, incidentId, "start", { observed_at: recordedAt });
   }
 
-  const readonlyContext = task.includes(READONLY_REVIEW_MARKER) || READONLY_COMMAND.test(task) || READONLY_COMMAND.test(transcript);
+  const readonlyContext = task.includes(READONLY_REVIEW_MARKER) || READONLY_COMMAND.test(task);
   const readonlyDenied = readonlyContext && (!task.includes(READONLY_REVIEW_MARKER) || !ALLOWED_READONLY_AGENTS.has(input.subagent_type));
   const decision = request.pretool_decision === "deny" || cause || readonlyDenied ? "deny" : "allow";
   writeTask(states, hash, "start", {
@@ -384,7 +375,11 @@ export function evaluateHookEvent(input, options = {}) {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     return deny("Workflow subagent policy received invalid input and failed closed.");
   }
-  if (["sessionStart", "beforeSubmitPrompt"].includes(input.hook_event_name)) return captureParent(input, options);
+  if (input.hook_event_name === "sessionStart") return {};
+  if (input.hook_event_name === "beforeSubmitPrompt") {
+    if (!isWorkflowContext(promptText(input))) return {};
+    return captureParent(input, options);
+  }
   if (input.hook_event_name === "preToolUse") return evaluatePreToolUse(input, options);
   if (input.hook_event_name === "subagentStart") return evaluateSubagent(input, options);
   if (["subagentStop", "postToolUse"].includes(input.hook_event_name)) return observeCompletion(input, options);
@@ -427,19 +422,16 @@ async function main() {
   try {
     input = await readInput();
   } catch {
-    process.stdout.write(JSON.stringify(deny("Workflow subagent policy received malformed input and failed closed.")));
+    process.stdout.write("{}");
     return;
   }
   try {
     process.stdout.write(JSON.stringify(evaluateLifecycleHook(input)));
   } catch {
-    const event = input.hook_event_name;
-    const observational = ["sessionStart", "subagentStop"].includes(event);
-    process.stdout.write(JSON.stringify(observational
-      ? {}
-      : event === "stop"
-        ? {}
-        : deny("Workflow lifecycle policy was unavailable and failed closed.")));
+    // The hook is installed globally. An internal availability failure cannot
+    // establish that Workflow is active, so it must not block an unrelated host
+    // action. Explicit policy violations are returned above as normal denies.
+    process.stdout.write("{}");
   }
 }
 

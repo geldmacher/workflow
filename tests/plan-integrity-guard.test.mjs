@@ -72,7 +72,7 @@ test("CreatePlan guard reports a host preflight rejection", () => {
   assert.match(result.user_message, /Root validation failed: intent is incomplete/);
 });
 
-test("CreatePlan hook executable returns JSON and fails closed on invalid stdin", () => {
+test("CreatePlan hook executable returns JSON and stays passive on invalid stdin", () => {
   const script = join(defaultRoot, "hooks", "plan-integrity-guard.mjs");
   const valid = spawnSync(process.execPath, [script], {
     cwd: defaultRoot,
@@ -84,5 +84,5 @@ test("CreatePlan hook executable returns JSON and fails closed on invalid stdin"
 
   const invalid = spawnSync(process.execPath, [script], { cwd: defaultRoot, input: "not-json", encoding: "utf8" });
   assert.equal(invalid.status, 0);
-  assert.equal(JSON.parse(invalid.stdout).permission, "deny");
+  assert.deepEqual(JSON.parse(invalid.stdout), {});
 });

@@ -12,7 +12,7 @@
       {
         "type": "command",
         "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"",
-        "failClosed": true
+        "failClosed": false
       }
     ],
     "preToolUse": [
@@ -20,14 +20,14 @@
         "type": "command",
         "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"",
         "matcher": "CreatePlan|Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook",
-        "failClosed": true
+        "failClosed": false
       }
     ],
     "subagentStart": [
       {
         "type": "command",
         "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"",
-        "failClosed": true
+        "failClosed": false
       }
     ],
     "subagentStop": [

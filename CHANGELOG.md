@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Expand Cursor-provided `~/` workspace roots against the current home before canonical validation, reject other relative host roots explicitly, and clarify that MCP workspace/status availability never gates an already authorized native Plan implementation.
+- Fix Cursor lifecycle workspace-root resolution, make globally installed Cursor and Codex hooks passive unless an explicit Workflow action is active, retain deliberate active Review/Plan denials, and report subjectless `workflow_status` as inactive instead of an operational error.
 
 ## 5.5.0
 

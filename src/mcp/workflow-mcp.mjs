@@ -192,7 +192,14 @@ server.registerTool("workflow_status", toolContract("workflow_status"), async (i
       ...store.active().map((run) => ({ kind: "run", value: run })),
       ...preparationStore.active().map((preparation) => ({ kind: "preparation", value: preparation })),
     ];
-    if (active.length === 0) throw new Error("no active Workflow Preparation or Run");
+    if (active.length === 0) {
+      return result({
+        subject_kind: "none",
+        workflow_active: false,
+        message: "Workflow is inactive. This status is informational and never gates native Manual implementation.",
+        model_inheritance,
+      });
+    }
     if (active.length > 1) throw new Error("multiple active Workflow subjects require an explicit ID");
     if (active[0].kind === "run") {
       const sourceBinding = learningSourceReceipts.verify(input.learning_source_receipt, active[0].value);

@@ -40,7 +40,8 @@ function harness() {
 function captureParent(options, model = "cursor-parent-high", modelId = "parent") {
   return evaluateHookEvent({
     ...base,
-    hook_event_name: "sessionStart",
+    hook_event_name: "beforeSubmitPrompt",
+    prompt: "/review-work",
     model,
     model_id: modelId,
     model_params: [{ id: "effort", value: "high" }, { id: "fast", value: true }],
@@ -107,6 +108,17 @@ test("Task preflight allows only omitted model and inherit for arbitrary parents
   }
 });
 
+test("a marked Cursor Task captures its current parent without global activation", () => {
+  const run = harness();
+  try {
+    assert.deepEqual(evaluateHookEvent(taskRequest("lazy-parent", "inherit", {
+      model: "cursor-parent-live",
+      model_id: "cursor-parent-live",
+    }), run.options), {});
+    assert.deepEqual(evaluateHookEvent(subagentStart("lazy-parent", "cursor-parent-live"), run.options), {});
+  } finally { run.close(); }
+});
+
 test("Task preflight rejects every concrete child model, including the parent slug", () => {
   for (const concrete of ["cursor-parent-high", "other-provider/child", "", 42]) {
     const run = harness();
@@ -170,7 +182,7 @@ test("subagentStart accepts configured Cursor approved candidates and rejects GP
 
 test("missing parent, missing child, and uncorrelated starts are unattestable", () => {
   for (const [name, setup, event, cause] of [
-    ["parent", () => {}, () => taskRequest("missing-parent"), "parent-model-unavailable"],
+    ["parent", () => {}, () => taskRequest("missing-parent", Symbol.for("omitted"), { model: undefined, model_id: undefined }), "parent-model-unavailable"],
     ["child", (options) => { captureParent(options); evaluateHookEvent(taskRequest("missing-child"), options); }, () => subagentStart("missing-child", "cursor-parent-high", { subagent_model: undefined }), "child-model-unavailable"],
     ["correlation", captureParent, () => subagentStart("never-preflighted"), "uncorrelated-subagent-start"],
   ]) {
@@ -195,7 +207,7 @@ test("beforeSubmitPrompt replaces the parent model between turns", () => {
       model: "parent-b",
       model_id: "b",
       model_params: [{ id: "effort", value: "medium" }],
-      prompt: "sensitive text is ignored",
+      prompt: "/review-work sensitive text is ignored",
     }, run.options);
     assert.deepEqual(evaluateHookEvent(taskRequest("switched", "inherit", { model: "b" }), run.options), {});
     assert.deepEqual(evaluateHookEvent(subagentStart("switched", "parent-b"), run.options), {});
@@ -298,7 +310,7 @@ test("persisted state contains no prompts, email addresses, or absolute workspac
   } finally { run.close(); }
 });
 
-test("malformed hook input fails closed without echoing prompt content", () => {
+test("malformed globally installed hook input stays passive without echoing prompt content", () => {
   assert.equal(evaluateHookEvent(null).permission, "deny");
 
   const hookPath = join(defaultRoot, "hooks", "subagent-guard.mjs");
@@ -306,6 +318,6 @@ test("malformed hook input fails closed without echoing prompt content", () => {
   assert.equal(result.status, 0);
   assert.equal(result.stderr, "");
   const output = JSON.parse(result.stdout);
-  assert.equal(output.permission, "deny");
+  assert.deepEqual(output, {});
   assert.doesNotMatch(result.stdout, /secret-prompt/);
 });

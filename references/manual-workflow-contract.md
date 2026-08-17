@@ -6,6 +6,7 @@ This contract is host-neutral. A host facade may translate command syntax and na
 
 - The human authorizes planning, implementation, every correction, review, replan, provisional acceptance, and learning as separate actions. Starting a fresh read-only Manual review phase authorizes final verification: an `achieved/verified/none` verdict completes the Root, while only a provisional verdict needs the separate ephemeral `/accept-work provisional` decision. Freshness is a phase boundary, not a requirement to open another task or chat.
 - Manual Workflow never starts controller automation, merges, pushes, publishes, or deploys.
+- Native host activity is outside Workflow unless the current action explicitly invokes a Workflow command or marked role. Installed hooks must remain passive and non-blocking when activation cannot be established. Once explicitly active, deliberate Plan validation, read-only Review, authority, and model-attestation decisions remain enforceable.
 - Subagents are optional role helpers. By default they inherit the parent model. An optional Manual subagent policy may approve concrete host-specific candidates; see [manual subagent policy](./manual-subagent-policy.md). Their output is advisory until the primary agent verifies and records it.
 - Review is read-only. A proven gap requires a separate correction or implementation action.
 
@@ -46,5 +47,6 @@ Role helpers receive the exact Root/chain, a bounded question, and the marker `[
 - Unavailable cache transport does not invalidate or block exact artifacts already present in the task. Attach exact artifacts only when deliberately continuing in another task or host that cannot load them.
 - Unattested or model-divergent subagent output is not evidence.
 - Missing native Root or operational MCP workspace context blocks only Review or the affected MCP operation, never implementation already authorized by the host-native Plan action. `workflow_status` is not an implementation mutation gate.
+- An absent Workflow subject is an inactive status, not an error or permission decision. Hook/MCP availability cannot infer that Workflow is active.
 - Known failed required Checks cannot produce achieved or verified delivery, but they do not prevent the builder from returning a completed blocked Review.
 - Repository ambiguity or out-of-authority dirty paths appear as Evidence limitations or Findings; they do not trigger lifecycle recovery loops.

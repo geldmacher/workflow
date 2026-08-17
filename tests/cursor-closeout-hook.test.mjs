@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -102,16 +102,37 @@ test("Cursor Review parses shell input and records completed auditors", () => {
   }
 });
 
-test("Cursor closeout guard executable emits bounded JSON", () => {
-  const script = join(new URL("..", import.meta.url).pathname, "hooks", "closeout-guard.mjs");
-  const valid = spawnSync(process.execPath, [script], {
-    input: JSON.stringify(input({ hook_event_name: "stop" })),
-    encoding: "utf8",
-  });
-  assert.equal(valid.status, 0);
-  assert.deepEqual(JSON.parse(valid.stdout), {});
+test("registered Cursor lifecycle hook is passive outside explicit Workflow and enforces Review", () => {
+  const home = mkdtempSync(join(tmpdir(), "cursor-passive-hook-home-"));
+  const script = join(new URL("..", import.meta.url).pathname, "hooks", "subagent-guard.mjs");
+  const run = (overrides) => {
+    const result = spawnSync(process.execPath, [script], {
+      input: JSON.stringify(input({
+        model: "cursor-parent",
+        transcript_path: null,
+        workspace_roots: ["/tmp/cursor-native-plan-review", "/tmp/cursor-native-plan-review-secondary"],
+        ...overrides,
+      })),
+      encoding: "utf8",
+      env: { ...process.env, HOME: home },
+    });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    return JSON.parse(result.stdout || "{}");
+  };
+  try {
+    assert.deepEqual(run({ hook_event_name: "beforeSubmitPrompt", prompt: "Implement this plan" }), {});
+    assert.deepEqual(run({ hook_event_name: "preToolUse", tool_name: "Write", tool_input: { path: "src/a.mjs" } }), {});
+    assert.equal(existsSync(join(home, ".cursor", "geldmacher-workflow")), false);
 
-  const invalid = spawnSync(process.execPath, [script], { input: "not-json", encoding: "utf8" });
-  assert.equal(invalid.status, 0);
-  assert.deepEqual(JSON.parse(invalid.stdout), {});
+    assert.deepEqual(run({ hook_event_name: "beforeSubmitPrompt", prompt: "/review-work" }), {});
+    const denied = run({ hook_event_name: "preToolUse", tool_name: "Write", tool_input: { path: "src/a.mjs" } });
+    assert.equal(denied.permission, "deny");
+    assert.match(denied.user_message, /read-only/i);
+
+    const invalid = spawnSync(process.execPath, [script], { input: "not-json", encoding: "utf8", env: { ...process.env, HOME: home } });
+    assert.equal(invalid.status, 0);
+    assert.deepEqual(JSON.parse(invalid.stdout), {});
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
 });

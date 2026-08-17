@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -46,7 +46,7 @@ test("built Codex hook validates native Plan without closeout ceremony", () => {
   }
 });
 
-test("built Codex hook lets implementation Stop finish without continuation", () => {
+test("built Codex hook stays inactive throughout ordinary implementation", () => {
   const stateRoot = mkdtempSync(join(tmpdir(), "codex-bundle-implementation-"));
   try {
     runHook({ hook_event_name: "UserPromptSubmit", prompt: "Implement this plan" }, stateRoot);
@@ -55,8 +55,27 @@ test("built Codex hook lets implementation Stop finish without continuation", ()
     assert.deepEqual(stopped, {});
     assert.equal("decision" in stopped, false);
     assert.equal("continue" in stopped, false);
+    assert.deepEqual(stateFiles(stateRoot), []);
   } finally {
     rmSync(stateRoot, { recursive: true, force: true });
+  }
+});
+
+test("built Codex hook cannot turn unavailable inactive state into a host blockade", () => {
+  const root = mkdtempSync(join(tmpdir(), "codex-bundle-passive-"));
+  const unavailable = join(root, "plugin-data-is-a-file");
+  writeFileSync(unavailable, "not a directory");
+  try {
+    assert.deepEqual(runHook({ hook_event_name: "SessionStart" }, unavailable), {});
+    assert.deepEqual(runHook({ hook_event_name: "UserPromptSubmit", prompt: "Implement this plan" }, unavailable), {});
+    assert.deepEqual(runHook({ hook_event_name: "PreToolUse", tool_name: "apply_patch", tool_input: { patch: "x" } }, unavailable), {});
+    assert.deepEqual(runHook({ hook_event_name: "Stop", last_assistant_message: "Done." }, unavailable), {});
+
+    const active = runHook({ hook_event_name: "UserPromptSubmit", prompt: "$review-work" }, unavailable);
+    assert.equal(active.decision, "block");
+    assert.match(active.reason, /Workflow hook failed closed/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
 
@@ -82,9 +101,7 @@ test("built Codex hook discards legacy state and removed close-work input", () =
   try {
     const ordinary = runHook({ hook_event_name: "UserPromptSubmit", prompt: "$close-work wp-old" }, stateRoot);
     assert.deepEqual(ordinary, {});
-    const stored = JSON.parse(readFileSync(stateFiles(stateRoot)[0], "utf8"));
-    assert.equal(stored.schema, 2);
-    assert.equal(stored.turn, null);
+    assert.deepEqual(stateFiles(stateRoot), []);
   } finally {
     rmSync(stateRoot, { recursive: true, force: true });
   }

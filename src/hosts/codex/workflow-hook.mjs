@@ -3,7 +3,10 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { evaluateCodexHook } from "../../core/codex-hook-policy.mjs";
+import {
+  classifyCodexWorkflowPrompt,
+  evaluateCodexHook,
+} from "../../core/codex-hook-policy.mjs";
 
 const MAX_INPUT_BYTES = 1024 * 1024;
 const digest = (value) => createHash("sha256").update(String(value)).digest("hex");
@@ -49,14 +52,6 @@ function writeState(path, value) {
   renameSync(temporary, path);
 }
 
-export function runCodexHook(input, options = {}) {
-  const path = statePath(input, options.stateRoot);
-  const pluginRoot = options.pluginRoot ?? resolveCodexPluginRoot();
-  const evaluated = evaluateCodexHook(input, readState(path), { ...options, pluginRoot });
-  writeState(path, evaluated.state);
-  return evaluated.output;
-}
-
 function failureOutput(input, error) {
   const reason = `Workflow hook failed closed: ${String(error?.message ?? error).slice(0, 400)}`;
   if (input?.hook_event_name === "PreToolUse") return {
@@ -66,17 +61,81 @@ function failureOutput(input, error) {
   return { systemMessage: reason };
 }
 
+function inactivePrompt(classification) {
+  return ["ordinary", "hook-continuation"].includes(classification.kind);
+}
+
+function deactivateBestEffort(input, options) {
+  try {
+    const path = statePath(input, options.stateRoot);
+    if (!existsSync(path)) return;
+    const state = readState(path);
+    state.turn = null;
+    writeState(path, state);
+  } catch { /* Inactive Workflow must never block the host. */ }
+}
+
+function readStateOrEmpty(path) {
+  try { return readState(path); } catch { return {}; }
+}
+
+function sameTurn(state, input) {
+  return Boolean(state?.turn?.turn_id && input.turn_id && state.turn.turn_id === input.turn_id);
+}
+
+function markedWorkflowAgent(input) {
+  if (input.hook_event_name !== "PreToolUse" || !/^(?:Agent|spawn_agent)$/i.test(String(input.tool_name ?? ""))) return false;
+  const source = input.tool_input && typeof input.tool_input === "object" && !Array.isArray(input.tool_input) ? input.tool_input : {};
+  return String(source.prompt ?? source.task ?? "").includes("[workflow-model-inherit-v1]");
+}
+
+export function runCodexHook(input, options = {}) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return {};
+  const event = input.hook_event_name;
+  if (event === "SessionStart") return {};
+
+  if (event === "UserPromptSubmit") {
+    const classification = classifyCodexWorkflowPrompt(input.prompt);
+    if (inactivePrompt(classification)) {
+      deactivateBestEffort(input, options);
+      return {};
+    }
+  }
+
+  let path;
+  let state;
+  try {
+    path = statePath(input, options.stateRoot);
+    state = readStateOrEmpty(path);
+  } catch (error) {
+    return event === "UserPromptSubmit" ? failureOutput(input, error) : {};
+  }
+  if (event !== "UserPromptSubmit" && !sameTurn(state, input) && !markedWorkflowAgent(input)) return {};
+
+  try {
+    const pluginRoot = options.pluginRoot ?? resolveCodexPluginRoot();
+    const evaluated = evaluateCodexHook(input, state, { ...options, pluginRoot });
+    writeState(path, evaluated.state);
+    return evaluated.output;
+  } catch (error) {
+    return failureOutput(input, error);
+  }
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname)) {
   let source = "";
+  let oversized = false;
   for await (const chunk of process.stdin) {
     source += chunk;
-    if (Buffer.byteLength(source) > MAX_INPUT_BYTES) throw new Error("Workflow hook input exceeds 1 MiB");
+    if (Buffer.byteLength(source) > MAX_INPUT_BYTES) {
+      oversized = true;
+      break;
+    }
   }
-  let input = {};
-  let output;
-  try {
-    input = JSON.parse(source || "{}");
-    output = runCodexHook(input);
-  } catch (error) { output = failureOutput(input, error); }
+  let output = {};
+  if (!oversized) {
+    try { output = runCodexHook(JSON.parse(source || "{}")); }
+    catch { output = {}; }
+  }
   process.stdout.write(`${JSON.stringify(output)}\n`);
 }

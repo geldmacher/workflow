@@ -46,6 +46,9 @@ test("Manual guide describes the stable native Plan, implementation, Review flow
   ]) assert.match(guide, new RegExp(value, "i"));
   assert.doesNotMatch(guide, /\/(?:close-work)\b|\$(?:close-work)\b/);
   assert.match(guide, /restore the Plan in this task or create and approve a new native Plan/i);
+  assert.match(guide, /activates only for an explicit Workflow action/i);
+  assert.match(guide, /ordinary prompts.*file edits.*remain host-native/is);
+  assert.match(guide, /inactive `workflow_status`.*never grants or withholds permission/is);
   assert.match(guide, /correctness.*security.*maintainability.*performance.*efficiency.*comprehensibility/is);
   assert.match(guide, /do not require all six/i);
 });

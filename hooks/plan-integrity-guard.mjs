@@ -82,5 +82,5 @@ async function readInput() {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   try { process.stdout.write(JSON.stringify(evaluateCreatePlanGuard(await readInput()))); }
-  catch { process.stdout.write(JSON.stringify(deny("Workflow CreatePlan policy was unavailable and failed closed."))); }
+  catch { process.stdout.write("{}"); }
 }

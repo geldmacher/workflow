@@ -226,9 +226,9 @@ function validateHookSurface(root, manifest, failures) {
     if (eventNames.join("\n") !== expectedEvents.join("\n")) failures.push(`hooks/hooks.json must declare ${expectedEvents.join(", ")} in order`);
     const expectedByEvent = {
       sessionStart: [{ command: expectedCommand, failClosed: false }],
-      beforeSubmitPrompt: [{ command: expectedCommand, failClosed: true }],
-      preToolUse: [{ command: expectedCommand, matcher: "CreatePlan|Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook", failClosed: true }],
-      subagentStart: [{ command: expectedCommand, failClosed: true }],
+      beforeSubmitPrompt: [{ command: expectedCommand, failClosed: false }],
+      preToolUse: [{ command: expectedCommand, matcher: "CreatePlan|Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook", failClosed: false }],
+      subagentStart: [{ command: expectedCommand, failClosed: false }],
       subagentStop: [{ command: expectedCommand, failClosed: false }],
       postToolUse: [{ command: expectedCommand, matcher: "Task", failClosed: false }],
     };

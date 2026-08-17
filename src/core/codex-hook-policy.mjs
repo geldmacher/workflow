@@ -56,13 +56,7 @@ function explicitWorkflowCommand(prompt) {
   return { command: unique.length === 1 ? unique[0] : null, ambiguous: unique.length > 1 };
 }
 
-function implementationImperative(prompt) {
-  const text = String(prompt ?? "");
-  if (/\?/.test(text) || /\b(?:nicht|kein(?:e|en|em|er|es)?|not|never)\b|\bdo\s+not\b|\bdon['’]t\b/i.test(text)) return false;
-  return /^\s*(?:please\s+|bitte\s+)?(?:implement(?:\s+(?:this|the))?\s+plan|plan\s+implementieren|implementiere\s+(?:(?:diesen|den)\s+)?plan|plan\s+umsetzen|setze\s+(?:den|diesen)\s+plan\s+um)\b/i.test(text);
-}
-
-function classifyPrompt(prompt) {
+export function classifyCodexWorkflowPrompt(prompt) {
   if (hookContinuation(prompt)) return { kind: "hook-continuation", phase: null };
   const explicit = explicitWorkflowCommand(prompt);
   if (explicit.ambiguous) return { kind: "ambiguous-workflow-skill", phase: null };
@@ -70,7 +64,6 @@ function classifyPrompt(prompt) {
   if (explicit.command === "correct-work") return { kind: "workflow-skill", phase: "correction" };
   if (explicit.command === "review-work") return { kind: "workflow-skill", phase: "review" };
   if (explicit.command) return { kind: "workflow-skill", phase: explicit.command.replace(/-work$/, "") };
-  if (implementationImperative(prompt)) return { kind: "implementation-imperative", phase: "implementation" };
   return { kind: "ordinary", phase: null };
 }
 
@@ -80,6 +73,12 @@ function isWorkflowTool(name, suffix) {
 
 function agentToolName(name) {
   return /^(?:Agent|spawn_agent)$/i.test(String(name ?? ""));
+}
+
+function markedWorkflowAgent(input) {
+  if (!agentToolName(input.tool_name)) return false;
+  const source = input.tool_input && typeof input.tool_input === "object" && !Array.isArray(input.tool_input) ? input.tool_input : {};
+  return String(source.prompt ?? source.task ?? "").includes(MODEL_INHERIT_MARKER);
 }
 
 function reviewAgentRole(input) {
@@ -214,7 +213,7 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
 
   if (event === "UserPromptSubmit") {
     state.turn = null;
-    const classification = classifyPrompt(input.prompt);
+    const classification = classifyCodexWorkflowPrompt(input.prompt);
     if (classification.kind === "hook-continuation") return { output: {}, state };
     if (classification.kind === "ambiguous-workflow-skill") {
       return { output: { decision: "block", reason: "Workflow · Blocked. Use exactly one explicit Workflow skill in this prompt." }, state };
@@ -246,6 +245,9 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
     };
   }
 
+  if (!state.turn && event === "PreToolUse" && markedWorkflowAgent(input)) {
+    state.turn = beginTurn("implementation", input, policy, state);
+  }
   const turn = state.turn;
   if (!turn) return { output: {}, state };
   const routing = turn.routing;

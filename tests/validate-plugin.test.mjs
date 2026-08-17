@@ -19,9 +19,9 @@ async function createFixture(explicitPaths) {
     version: 1,
     hooks: {
       sessionStart: [{ type: "command", command, failClosed: false }],
-      beforeSubmitPrompt: [{ type: "command", command, failClosed: true }],
-      preToolUse: [{ type: "command", command, matcher: "CreatePlan|Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook", failClosed: true }],
-      subagentStart: [{ type: "command", command, failClosed: true }],
+      beforeSubmitPrompt: [{ type: "command", command, failClosed: false }],
+      preToolUse: [{ type: "command", command, matcher: "CreatePlan|Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook", failClosed: false }],
+      subagentStart: [{ type: "command", command, failClosed: false }],
       subagentStop: [{ type: "command", command, failClosed: false }],
       postToolUse: [{ type: "command", command, matcher: "Task", failClosed: false }],
     },
@@ -82,30 +82,30 @@ test("accepts default and explicit component discovery", async () => {
   for (const explicit of [false, true]) await withFixture(explicit, async (root) => assert.deepEqual(validatePlugin(root), []));
 });
 
-test("requires the exact bundled fail-closed model-inheritance hook surface", async () => {
+test("requires the exact bundled fail-quiet activation hook surface", async () => {
   await withFixture(false, async (root) => {
     const path = join(root, "hooks", "hooks.json");
     const config = JSON.parse(await readFile(path, "utf8"));
     config.hooks.subagentStart[0].command = "npx remote-hook@latest";
-    config.hooks.subagentStart[0].failClosed = false;
+    config.hooks.subagentStart[0].failClosed = true;
     await writeFile(path, JSON.stringify(config));
     const failures = validatePlugin(root).join("\n");
     assert.match(failures, /bundled Node guard/);
-    assert.match(failures, /failClosed true/);
+    assert.match(failures, /failClosed false/);
     assert.match(failures, /must not install or resolve runtime dependencies/);
   });
 });
 
-test("requires the scoped fail-closed CreatePlan guard", async () => {
+test("requires the scoped fail-quiet CreatePlan guard", async () => {
   await withFixture(false, async (root) => {
     const path = join(root, "hooks", "hooks.json");
     const config = JSON.parse(await readFile(path, "utf8"));
     config.hooks.preToolUse[0].matcher = "*";
-    config.hooks.preToolUse[0].failClosed = false;
+    config.hooks.preToolUse[0].failClosed = true;
     await writeFile(path, JSON.stringify(config));
     const failures = validatePlugin(root).join("\n");
     assert.match(failures, /must match CreatePlan\|Write/);
-    assert.match(failures, /failClosed true/);
+    assert.match(failures, /failClosed false/);
   });
 });
 

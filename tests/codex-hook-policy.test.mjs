@@ -42,9 +42,9 @@ test("Codex requires native Plan mode only for planning", () => {
   assert.match(value.output.reason, /Plan mode/i);
 });
 
-test("Codex implementation needs no stored Root and Stop emits no continuation", () => {
+test("Codex implementation needs no Workflow hook state and Stop emits no continuation", () => {
   let value = step({}, { hook_event_name: "UserPromptSubmit", prompt: "Implement this plan" });
-  assert.equal(value.state.turn.phase, "implementation");
+  assert.equal(value.state.turn, null);
   value = step(value.state, { hook_event_name: "PreToolUse", tool_name: "apply_patch", tool_input: { patch: "x" } });
   assert.deepEqual(value.output, {});
   value = step(value.state, { hook_event_name: "Stop", last_assistant_message: "Implemented and checked." });
@@ -85,6 +85,24 @@ test("Codex parent model inheritance remains enforced", () => {
   assert.deepEqual(value.output, {});
 });
 
+test("Codex activates only a marked Workflow agent outside an explicit command turn", () => {
+  const ordinary = step({}, {
+    hook_event_name: "PreToolUse",
+    tool_name: "spawn_agent",
+    tool_input: { prompt: "ordinary delegation", model: "other" },
+  });
+  assert.deepEqual(ordinary.output, {});
+  assert.equal(ordinary.state.turn, null);
+
+  const marked = step({}, {
+    hook_event_name: "PreToolUse",
+    tool_name: "spawn_agent",
+    tool_input: { prompt: "[workflow-model-inherit-v1] bounded implementation", model: "other" },
+  });
+  assert.equal(marked.state.turn.phase, "implementation");
+  assert.equal(marked.output.hookSpecificOutput.permissionDecision, "deny");
+});
+
 test("removed close-work token no longer arms a Manual phase", () => {
   const value = step({}, { hook_event_name: "UserPromptSubmit", prompt: "$close-work wp-old" });
   assert.deepEqual(value.output, {});
@@ -113,6 +131,7 @@ test("Codex classifies linked, ambiguous, continued, and ordinary prompts", () =
   });
   assert.equal(continuation.state.turn, null);
   assert.equal(step({}, { hook_event_name: "UserPromptSubmit", prompt: "Do not implement this plan?" }).state.turn, null);
+  assert.equal(step({}, { hook_event_name: "UserPromptSubmit", prompt: "Implement this plan" }).state.turn, null);
   assert.equal(step({}, { hook_event_name: "UserPromptSubmit", prompt: "$work-status" }).state.turn.phase, "work-status");
 });
 

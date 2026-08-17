@@ -35,8 +35,10 @@ test("an isolated installed-copy surface starts MCP with the canonical tool matr
       assert.deepEqual(tool.annotations, WORKFLOW_TOOL_ANNOTATIONS[tool.name]);
     }
     const status = await client.callTool({ name: "workflow_status", arguments: {} });
-    assert.equal(status.isError, true);
-    assert.match(status.structuredContent.error, /no active Workflow Preparation or Run/);
+    assert.notEqual(status.isError, true);
+    assert.equal(status.structuredContent.workflow_active, false);
+    assert.equal(status.structuredContent.subject_kind, "none");
+    assert.match(status.structuredContent.message, /never gates native Manual implementation/);
   } finally {
     await client?.close().catch(() => {});
     rmSync(installed, { recursive: true, force: true });

@@ -12,6 +12,8 @@ native Plan -> Implement Plan -> fresh Review
 
 No controller Run, persistent Manual task database, implementation closeout, Stop continuation, cross-task restore, push, PR, deploy, or publication is part of this path.
 
+Workflow activates only for an explicit Workflow action such as `/plan-work` or `/review-work` in Cursor and `$plan-work` or `$review-work` in Codex. Ordinary prompts, native Plans, **Implement Plan**, file edits, shell commands, and subagents remain host-native when no Workflow action is active. Globally installed hooks fail quiet when activation cannot be established; explicit Review read-only violations and explicit Plan validation failures still return deliberate denials. An inactive `workflow_status` response is informational and never grants or withholds permission to implement.
+
 ## Intent Root and Plan
 
 `/plan-work` in Cursor or `$plan-work` in Codex Plan mode creates one immutable Schema-5 Root with a visible `wp-*` ID. Cursor's native Plan and Codex's native `<proposed_plan>` are the sole Manual plan authority and the only authoritative plan containers. Workflow validates an exposed Root but stores no separate active Root, Plan receipt, or cache authority.
@@ -21,6 +23,8 @@ Native steps describe implementation and planned Checks. They contain no closeou
 ## Implementation
 
 The agent implements inside the approved authority and normal host sandbox. It may run the planned Checks and reports failures or uncertainty honestly, but these are implementation observations rather than final Evidence.
+
+Implementation itself carries no Workflow mutation gate. Hook or MCP state, `workflow_status`, workspace discovery, and a missing Review Root cannot block the host's already authorized native implementation action.
 
 Implementation and correction finish normally. They do not emit `closeout-input`, create `de-*`, wait for lifecycle state, persist a chain, or trigger another agent turn. The next action is a fresh Review in the same task.
 

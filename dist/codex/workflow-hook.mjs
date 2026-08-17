@@ -16494,12 +16494,7 @@ function explicitWorkflowCommand(prompt) {
   const unique2 = [...new Set(commands)];
   return { command: unique2.length === 1 ? unique2[0] : null, ambiguous: unique2.length > 1 };
 }
-function implementationImperative(prompt) {
-  const text = String(prompt ?? "");
-  if (/\?/.test(text) || /\b(?:nicht|kein(?:e|en|em|er|es)?|not|never)\b|\bdo\s+not\b|\bdon['’]t\b/i.test(text)) return false;
-  return /^\s*(?:please\s+|bitte\s+)?(?:implement(?:\s+(?:this|the))?\s+plan|plan\s+implementieren|implementiere\s+(?:(?:diesen|den)\s+)?plan|plan\s+umsetzen|setze\s+(?:den|diesen)\s+plan\s+um)\b/i.test(text);
-}
-function classifyPrompt(prompt) {
+function classifyCodexWorkflowPrompt(prompt) {
   if (hookContinuation(prompt)) return { kind: "hook-continuation", phase: null };
   const explicit = explicitWorkflowCommand(prompt);
   if (explicit.ambiguous) return { kind: "ambiguous-workflow-skill", phase: null };
@@ -16507,7 +16502,6 @@ function classifyPrompt(prompt) {
   if (explicit.command === "correct-work") return { kind: "workflow-skill", phase: "correction" };
   if (explicit.command === "review-work") return { kind: "workflow-skill", phase: "review" };
   if (explicit.command) return { kind: "workflow-skill", phase: explicit.command.replace(/-work$/, "") };
-  if (implementationImperative(prompt)) return { kind: "implementation-imperative", phase: "implementation" };
   return { kind: "ordinary", phase: null };
 }
 function isWorkflowTool(name, suffix) {
@@ -16515,6 +16509,11 @@ function isWorkflowTool(name, suffix) {
 }
 function agentToolName(name) {
   return /^(?:Agent|spawn_agent)$/i.test(String(name ?? ""));
+}
+function markedWorkflowAgent(input) {
+  if (!agentToolName(input.tool_name)) return false;
+  const source = input.tool_input && typeof input.tool_input === "object" && !Array.isArray(input.tool_input) ? input.tool_input : {};
+  return String(source.prompt ?? source.task ?? "").includes(MODEL_INHERIT_MARKER);
 }
 function reviewAgentRole(input) {
   if (!agentToolName(input.tool_name)) return null;
@@ -16629,7 +16628,7 @@ function evaluateCodexHook(input, priorState = {}, options = {}) {
   }
   if (event === "UserPromptSubmit") {
     state.turn = null;
-    const classification = classifyPrompt(input.prompt);
+    const classification = classifyCodexWorkflowPrompt(input.prompt);
     if (classification.kind === "hook-continuation") return { output: {}, state };
     if (classification.kind === "ambiguous-workflow-skill") {
       return { output: { decision: "block", reason: "Workflow \xB7 Blocked. Use exactly one explicit Workflow skill in this prompt." }, state };
@@ -16651,6 +16650,9 @@ function evaluateCodexHook(input, priorState = {}, options = {}) {
       },
       state
     };
+  }
+  if (!state.turn && event === "PreToolUse" && markedWorkflowAgent(input)) {
+    state.turn = beginTurn("implementation", input, policy, state);
   }
   const turn = state.turn;
   if (!turn) return { output: {}, state };
@@ -16800,13 +16802,6 @@ function writeState(path, value) {
 `, { mode: 384 });
   renameSync(temporary, path);
 }
-function runCodexHook(input, options = {}) {
-  const path = statePath(input, options.stateRoot);
-  const pluginRoot = options.pluginRoot ?? resolveCodexPluginRoot();
-  const evaluated = evaluateCodexHook(input, readState(path), { ...options, pluginRoot });
-  writeState(path, evaluated.state);
-  return evaluated.output;
-}
 function failureOutput(input, error) {
   const reason = `Workflow hook failed closed: ${String(error?.message ?? error).slice(0, 400)}`;
   if (input?.hook_event_name === "PreToolUse") return {
@@ -16815,19 +16810,80 @@ function failureOutput(input, error) {
   if (["UserPromptSubmit", "Stop"].includes(input?.hook_event_name)) return { decision: "block", reason };
   return { systemMessage: reason };
 }
+function inactivePrompt(classification) {
+  return ["ordinary", "hook-continuation"].includes(classification.kind);
+}
+function deactivateBestEffort(input, options) {
+  try {
+    const path = statePath(input, options.stateRoot);
+    if (!existsSync4(path)) return;
+    const state = readState(path);
+    state.turn = null;
+    writeState(path, state);
+  } catch {
+  }
+}
+function readStateOrEmpty(path) {
+  try {
+    return readState(path);
+  } catch {
+    return {};
+  }
+}
+function sameTurn(state, input) {
+  return Boolean(state?.turn?.turn_id && input.turn_id && state.turn.turn_id === input.turn_id);
+}
+function markedWorkflowAgent2(input) {
+  if (input.hook_event_name !== "PreToolUse" || !/^(?:Agent|spawn_agent)$/i.test(String(input.tool_name ?? ""))) return false;
+  const source = input.tool_input && typeof input.tool_input === "object" && !Array.isArray(input.tool_input) ? input.tool_input : {};
+  return String(source.prompt ?? source.task ?? "").includes("[workflow-model-inherit-v1]");
+}
+function runCodexHook(input, options = {}) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return {};
+  const event = input.hook_event_name;
+  if (event === "SessionStart") return {};
+  if (event === "UserPromptSubmit") {
+    const classification = classifyCodexWorkflowPrompt(input.prompt);
+    if (inactivePrompt(classification)) {
+      deactivateBestEffort(input, options);
+      return {};
+    }
+  }
+  let path;
+  let state;
+  try {
+    path = statePath(input, options.stateRoot);
+    state = readStateOrEmpty(path);
+  } catch (error) {
+    return event === "UserPromptSubmit" ? failureOutput(input, error) : {};
+  }
+  if (event !== "UserPromptSubmit" && !sameTurn(state, input) && !markedWorkflowAgent2(input)) return {};
+  try {
+    const pluginRoot = options.pluginRoot ?? resolveCodexPluginRoot();
+    const evaluated = evaluateCodexHook(input, state, { ...options, pluginRoot });
+    writeState(path, evaluated.state);
+    return evaluated.output;
+  } catch (error) {
+    return failureOutput(input, error);
+  }
+}
 if (process.argv[1] && resolve4(process.argv[1]) === resolve4(new URL(import.meta.url).pathname)) {
   let source = "";
+  let oversized = false;
   for await (const chunk of process.stdin) {
     source += chunk;
-    if (Buffer.byteLength(source) > MAX_INPUT_BYTES) throw new Error("Workflow hook input exceeds 1 MiB");
+    if (Buffer.byteLength(source) > MAX_INPUT_BYTES) {
+      oversized = true;
+      break;
+    }
   }
-  let input = {};
-  let output;
-  try {
-    input = JSON.parse(source || "{}");
-    output = runCodexHook(input);
-  } catch (error) {
-    output = failureOutput(input, error);
+  let output = {};
+  if (!oversized) {
+    try {
+      output = runCodexHook(JSON.parse(source || "{}"));
+    } catch {
+      output = {};
+    }
   }
   process.stdout.write(`${JSON.stringify(output)}
 `);

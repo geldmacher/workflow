@@ -33,7 +33,9 @@ function generationHash(input) {
 function stateRoots(input, options = {}) {
   if (typeof options.stateRoot === "string" && options.stateRoot) return [options.stateRoot];
   const roots = Array.isArray(input?.workspace_roots)
-    ? input.workspace_roots.filter((entry) => typeof entry === "string" && entry.startsWith("/")).map(resolve)
+    ? input.workspace_roots
+      .filter((entry) => typeof entry === "string" && entry.startsWith("/"))
+      .map((entry) => resolve(entry))
     : [];
   if (typeof input?.workspace_root === "string" && input.workspace_root.startsWith("/")) roots.push(resolve(input.workspace_root));
   if (roots.length === 0) roots.push(resolve(input?.cwd ?? options.cwd ?? process.cwd()));
@@ -90,9 +92,7 @@ function writeTurn(input, value, options = {}) {
 
 function phaseFromPrompt(input) {
   const prompt = String(input.prompt ?? input.command ?? "");
-  if (/\/(?:review-work)\b|\[workflow-codex-review-v1\]/i.test(prompt)) return "review";
-  if (/\/(?:correct-work)\b/i.test(prompt)) return "correction";
-  if (/\b(?:implement(?:\s+(?:this|the))?\s+plan|plan\s+implementieren|implementiere\s+(?:(?:diesen|den)\s+)?plan|plan\s+umsetzen|setze\s+(?:den|diesen)\s+plan\s+um)\b/i.test(prompt)) return "implementation";
+  if (/^\s*\/(?:review-work)(?:\s|$)|\[workflow-codex-review-v1\]/i.test(prompt)) return "review";
   return null;
 }
 
