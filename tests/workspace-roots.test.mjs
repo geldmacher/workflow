@@ -38,6 +38,38 @@ test("workspace authority prefers host-configured workspace when roots are unava
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });
 
+test("workspace authority expands a current-home host path before validation", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "workflow-host-home-root-"));
+  const home = join(directory, "home");
+  const workspace = join(home, "Projekte", "Remko", "advisor");
+  mkdirSync(workspace, { recursive: true });
+  try {
+    const authority = new WorkspaceRootAuthority(async () => roots(workspace), {
+      env: { [HOST_WORKSPACE_ENV]: "~/Projekte/Remko/advisor" },
+      home,
+    });
+    assert.equal(await authority.resolve(), realpathSync(workspace));
+    assert.equal(await authority.resolve(workspace), realpathSync(workspace));
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+test("workspace authority rejects other relative host paths instead of resolving them against process cwd", async () => {
+  for (const value of ["Projekte/Remko/advisor", "~other/Projekte/Remko/advisor"]) {
+    let rootsCalls = 0;
+    const authority = new WorkspaceRootAuthority(async () => {
+      rootsCalls += 1;
+      return { roots: [] };
+    }, {
+      env: { [HOST_WORKSPACE_ENV]: value },
+    });
+    await assert.rejects(
+      () => authority.resolve(),
+      (error) => error.code === "host-workspace-invalid" && /absolute path or use ~\//.test(error.message),
+    );
+    assert.equal(rootsCalls, 0);
+  }
+});
+
 test("workspace authority cross-checks host-configured workspace against advertised roots", async () => {
   const directory = mkdtempSync(join(tmpdir(), "workflow-host-cross-"));
   const allowed = join(directory, "allowed");

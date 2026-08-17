@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Expand Cursor-provided `~/` workspace roots against the current home before canonical validation, reject other relative host roots explicitly, and clarify that MCP workspace/status availability never gates an already authorized native Plan implementation.
+
 ## 5.5.0
 
 - Make Cursor and Codex native Plan contexts the sole Manual plan authority and ignore all pre-5.5 Manual active-root, plan-transaction, chain, closeout, and handoff state.

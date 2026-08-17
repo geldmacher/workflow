@@ -34277,7 +34277,8 @@ function resolveNativePlan({ candidates = [], attemptedSources = [], pluginRoot:
 
 // src/mcp/workspace-roots.mjs
 import { lstatSync as lstatSync3, realpathSync as realpathSync4, statSync as statSync2 } from "node:fs";
-import { resolve as resolve11 } from "node:path";
+import { homedir as homedir3 } from "node:os";
+import { isAbsolute as isAbsolute2, resolve as resolve11 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 var HOST_WORKSPACE_ENV = "GELDMACHER_WORKFLOW_WORKSPACE_ROOT";
 var WorkspaceRootError = class extends Error {
@@ -34339,12 +34340,19 @@ function rootPath(root) {
   }
   return validateDirectoryRoot(advertised, { label: "MCP workspace root" });
 }
-function hostConfiguredRoot(env = process.env) {
+function hostConfiguredRoot(env = process.env, home = homedir3()) {
   const raw = env?.[HOST_WORKSPACE_ENV];
   if (raw === void 0 || raw === null || String(raw).trim() === "") return null;
   const value = String(raw).trim();
   if (/\$\{[^}]+\}/.test(value)) return null;
-  const advertised = resolve11(value);
+  const expanded = value === "~" ? resolve11(home) : /^~[\\/]/.test(value) ? resolve11(home, value.slice(2)) : value;
+  if (!isAbsolute2(expanded)) {
+    throw new WorkspaceRootError(
+      "host-workspace-invalid",
+      `host-configured ${HOST_WORKSPACE_ENV} must be an absolute path or use ~/ for the current home: ${value}`
+    );
+  }
+  const advertised = resolve11(expanded);
   return {
     ...validateDirectoryRoot(advertised, {
       unavailableCode: "host-workspace-unavailable",
@@ -34360,6 +34368,7 @@ var WorkspaceRootAuthority = class {
     if (typeof listRoots !== "function") throw new TypeError("WorkspaceRootAuthority requires listRoots");
     this.listRoots = listRoots;
     this.env = options.env ?? process.env;
+    this.home = options.home ?? homedir3();
     this.cached = null;
     this.unavailable = null;
   }
@@ -34393,7 +34402,7 @@ var WorkspaceRootAuthority = class {
     }
   }
   async resolve(selector = void 0) {
-    const host = hostConfiguredRoot(this.env);
+    const host = hostConfiguredRoot(this.env, this.home);
     let roots = null;
     let rootsError = null;
     try {

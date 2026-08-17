@@ -1,5 +1,6 @@
 import { lstatSync, realpathSync, statSync } from "node:fs";
-import { resolve } from "node:path";
+import { homedir } from "node:os";
+import { isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const HOST_WORKSPACE_ENV = "GELDMACHER_WORKFLOW_WORKSPACE_ROOT";
@@ -52,13 +53,24 @@ function rootPath(root) {
   return validateDirectoryRoot(advertised, { label: "MCP workspace root" });
 }
 
-function hostConfiguredRoot(env = process.env) {
+function hostConfiguredRoot(env = process.env, home = homedir()) {
   const raw = env?.[HOST_WORKSPACE_ENV];
   if (raw === undefined || raw === null || String(raw).trim() === "") return null;
   const value = String(raw).trim();
   // Unexpanded host placeholders (for example ${workspaceFolder}) are absent config, not a path.
   if (/\$\{[^}]+\}/.test(value)) return null;
-  const advertised = resolve(value);
+  const expanded = value === "~"
+    ? resolve(home)
+    : /^~[\\/]/.test(value)
+      ? resolve(home, value.slice(2))
+      : value;
+  if (!isAbsolute(expanded)) {
+    throw new WorkspaceRootError(
+      "host-workspace-invalid",
+      `host-configured ${HOST_WORKSPACE_ENV} must be an absolute path or use ~/ for the current home: ${value}`,
+    );
+  }
+  const advertised = resolve(expanded);
   return {
     ...validateDirectoryRoot(advertised, {
       unavailableCode: "host-workspace-unavailable",
@@ -75,6 +87,7 @@ export class WorkspaceRootAuthority {
     if (typeof listRoots !== "function") throw new TypeError("WorkspaceRootAuthority requires listRoots");
     this.listRoots = listRoots;
     this.env = options.env ?? process.env;
+    this.home = options.home ?? homedir();
     this.cached = null;
     this.unavailable = null;
   }
@@ -109,7 +122,7 @@ export class WorkspaceRootAuthority {
   }
 
   async resolve(selector = undefined) {
-    const host = hostConfiguredRoot(this.env);
+    const host = hostConfiguredRoot(this.env, this.home);
     let roots = null;
     let rootsError = null;
     try { roots = await this.roots(); }

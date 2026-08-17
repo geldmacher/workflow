@@ -5,14 +5,14 @@ description: Apply one approved correction inside its native Plan authority.
 
 Read [protocol](../../references/artifact-protocol.md) and [correction](../../references/correction-contract.md) completely.
 
-`[workflow-model-inherit-v1]` The primary owns execution and integration. It may delegate bounded work when Task calls omit Task model overrides or use `inherit`; children match the parent or approved Manual candidate.
+`[workflow-model-inherit-v1]` The primary owns execution and integration. It may delegate bounded work when Task calls omit Task model overrides or use `inherit`; children match the parent or an approved Manual candidate.
 
-Resolve the exact native Cursor Plan Root and any actionable correction/Evidence/Review tip from this task only. Before mutation reject conflicting hashes or stale chain/Workflow-3/4; validate root, Strategy revision when required, chain, scope, reuse, risk, and approval.
+Resolve the exact native Cursor Plan Root and actionable current-task correction chain. Before mutation reject conflicts, stale chains, and Workflow-3/4; validate root, Strategy revision when required, chain, scope, reuse, risk, and approval.
 
-Respect the Root authority and normal host sandbox/approval prompts. If implementation discovers changed intent, scope, risk, or protected paths, stop and request a replan or the required human approval.
+MCP workspace resolution and `workflow_status` never gate implementation. Do not call them before mutation. If unavailable, continue the authorized native Plan inside its Root and host sandbox; report the Review limitation. Changed intent, scope, risk, or protected paths require replan or human approval.
 
-Classify FIXes `satisfied|pending|partial|conflicted`; execute pending/partial; verification-only avoids edits. Run correction Checks plus failed, missing, affected, stale, or ambiguous Root Checks. Conflict, drift, or changed intent/scope/risk stops; unavailable or failed results stay explicit for the next Review.
+Classify FIXes `satisfied|pending|partial|conflicted`; execute pending/partial. Verification-only avoids edits. Run correction Checks plus failed, missing, affected, stale, or ambiguous Root Checks. Conflict or drift stops; unavailable or failed proof stays explicit for Review.
 
-Finish normally after implementation. Do not call closeout, emit `closeout-input`, create Evidence, persist chain state, or synthesize another turn. Report changed behavior, Checks run, failures or uncertainty, and that a fresh `/review-work` is the next evidence boundary. Never invent Evidence or materialize Learning candidates.
+Finish normally. Do not call closeout, create Evidence or delivery reports, persist chain state, or synthesize another turn. Report changes, Checks, failures or uncertainty, and fresh `/review-work`. Never invent Evidence or Learning.
 
 Run each machine Check as its exact standalone planned command/directory; one leading `rtk` is allowed. Repository checks are implementation observations, not Review-owned Evidence.

@@ -85,6 +85,8 @@ test("repository entry points and native Manual contracts reference the canonica
 test("skills preserve fresh observation, human authority, and read-only Review", () => {
   assert.match(read("skills/work-planning/SKILL.md"), /native Plan as the sole plan container/is);
   assert.match(read("skills/work-execution/SKILL.md"), /Finish normally.*Do not call closeout/is);
+  assert.match(read("skills/work-execution/SKILL.md"), /workflow_status.*never gate implementation.*Do not call them before mutation/is);
   assert.match(read("skills/work-review/SKILL.md"), /directly observed.*exactly once.*Evidence and Work Review together or neither/is);
   assert.match(read("references/manual-workflow-contract.md"), /failed required Check.*completed blocked Review/is);
+  assert.match(read("references/manual-workflow-contract.md"), /operational MCP workspace context blocks only Review or the affected MCP operation.*not an implementation mutation gate/is);
 });

@@ -45,6 +45,6 @@ Role helpers receive the exact Root/chain, a bounded question, and the marker `[
 - Invalid, ambiguous, conflicting, Schema-3/4, or incomplete chains stop the action.
 - Unavailable cache transport does not invalidate or block exact artifacts already present in the task. Attach exact artifacts only when deliberately continuing in another task or host that cannot load them.
 - Unattested or model-divergent subagent output is not evidence.
-- Missing native Root blocks only Review, never implementation already authorized by the host-native Plan action.
+- Missing native Root or operational MCP workspace context blocks only Review or the affected MCP operation, never implementation already authorized by the host-native Plan action. `workflow_status` is not an implementation mutation gate.
 - Known failed required Checks cannot produce achieved or verified delivery, but they do not prevent the builder from returning a completed blocked Review.
 - Repository ambiguity or out-of-authority dirty paths appear as Evidence limitations or Findings; they do not trigger lifecycle recovery loops.
