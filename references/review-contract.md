@@ -4,7 +4,7 @@ Fresh read-only Review stays in the current task, separates executor claims from
 
 Missing or ambiguous native Root blocks before substantive Review. Report the native sources inspected and one remedy: restore the Plan in this task or create and approve a new native Plan.
 
-The reviewer directly executes or inspects planned Checks and supplies closed [Schema-1 input](work-review-input-contract.md). Manual `verified` requires matching method or inspection, directory, expectation, observed result, and repetition. Hard-Trigger or high-risk Roots require delivery and risk auditor reports, plus design review when material.
+The reviewer directly executes or inspects planned Checks and supplies closed [Schema-1 input](work-review-input-contract.md). Manual `verified` requires matching method or inspection, directory, expectation, observed result, and repetition. A repository-writing required command is a Plan defect: do not execute it; block with `replan`, not provisional acceptance or retry. Hard-Trigger or high-risk Roots require delivery and risk auditor reports, plus design review when material.
 
 `workflow_closeout` work-review mode owns chain validation, repository observation, Evidence and Review identity, status, lineage, hashes, bytes, and rendering. If current Evidence is absent or a reviewed correction needs delta proof, it builds Evidence and Review atomically. Both exact artifacts are returned or neither is emitted. Equal exact inputs yield equal bytes; a semantic or repository observation change yields another artifact.
 

@@ -87,6 +87,11 @@ test("repository entry points and native Manual contracts reference the canonica
 
 test("skills preserve fresh observation, human authority, and read-only Review", () => {
   assert.match(read("skills/work-planning/SKILL.md"), /native Plan as the sole plan container/is);
+  assert.match(read("skills/work-planning/SKILL.md"), /shell Checks inspect wrappers and pre\/post hooks; Review must not write repository content/is);
+  assert.match(read("docs/manual-workflow.md"), /repository-read-only across their complete wrapper and lifecycle-hook chain/is);
+  assert.match(read("agents/work-plan-auditor.md"), /Inspect shell wrappers and lifecycle hooks; mutating Verification commands/is);
+  assert.match(read("targets/codex/skills/plan-work/SKILL.md"), /complete wrapper and pre\/post lifecycle-hook chain.*must not write repository content/is);
+  assert.match(read("targets/agent-plugins/skills/plan-work/SKILL.md"), /complete wrapper and pre\/post lifecycle-hook chain.*must not write repository content/is);
   assert.match(read("skills/work-execution/SKILL.md"), /Finish normally.*Do not call closeout/is);
   assert.match(read("skills/work-execution/SKILL.md"), /workflow_status.*never gate implementation.*Do not call them before mutation/is);
   assert.match(read("skills/work-review/SKILL.md"), /directly observed.*exactly once.*Evidence and Work Review together or neither/is);

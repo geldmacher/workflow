@@ -22,6 +22,7 @@ test("review is fresh and read-only but may use Cursor inspection capabilities",
   assert.match(runtime, /fresh Cursor Ask(?: context)?/i);
   assert.match(runtime, /(?:do not inherit|without) Writer assumptions|not Writer/i);
   assert.match(runtime, /read-only/i);
+  assert.match(runtime, /repository-writing required command is a Plan defect.*block with `replan`/is);
   assert.match(runtime, /workflow_closeout/);
   assert.match(runtime, /never upgrades? proof|cannot raise/i);
 });
@@ -58,6 +59,8 @@ test("planning uses compact semantic Root with immutable intent and adaptive str
   assert.match(runtime, /predecessor_plan_id.*replan_source_review_id/is);
   assert.match(runtime, /source review.*next_action: replan/is);
   assert.match(runtime, /`### Verification`.*directly inside `## Acceptance`/is);
+  assert.match(runtime, /shell Checks inspect wrappers and pre\/post hooks; Review must not write repository content/is);
+  assert.match(runtime, /Without sufficient read-only proof, the Root is not ready/i);
   assert.match(runtime, /host guard validates the exact Root but grants no approval/is);
   assert.match(runtime, /native Plan as the sole plan container/is);
   assert.match(runtime, /Children match the parent or a Manual approved candidate/is);
@@ -75,6 +78,7 @@ test("Codex uses review-owned evidence while portable closeout remains compatibl
     "review-work",
     "work-status",
   ].map((name) => read(`targets/codex/skills/${name}/SKILL.md`)).join("\n");
+  assert.match(codex, /complete wrapper and pre\/post lifecycle-hook chain.*must not write repository content/is);
   assert.match(codex, /Finish normally without closeout|add no closeout section/is);
   assert.match(codex, /returns Delivery Evidence and Work Review atomically or neither/is);
   assert.match(codex, /constraint_summary.*human_attention.*problem_details/is);

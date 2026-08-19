@@ -4,11 +4,11 @@
   "always_on_tokens": 0,
   "discoverability_tokens": 365,
   "phase_flows": {
-    "plan_intake": 805,
-    "plan_oneshot": 1434,
-    "plan_compact_full": 1572,
-    "review_base": 1681,
-    "correction": 1366,
+    "plan_intake": 858,
+    "plan_oneshot": 1487,
+    "plan_compact_full": 1668,
+    "review_base": 1714,
+    "correction": 1351,
     "learning": 1785,
     "explanation": 743
   },
@@ -26,6 +26,6 @@
     "risk-auditor": 388,
     "work-design-auditor": 147,
     "work-explainer": 203,
-    "work-plan-auditor": 467
+    "work-plan-auditor": 486
   }
 }

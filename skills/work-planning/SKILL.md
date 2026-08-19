@@ -15,7 +15,7 @@ Before answers, load no contracts and do only decision-independent research. Wit
 
 Once ready, read [root semantics](../../references/executable-contract.md), [native output](../../references/plan-container-contract.md), and [adaptive design](../../references/design-contract.md) completely. Preserve material answers in one immutable Schema-5 Intent Root; Workflow-3/4 remains read-only.
 
-Check goal, acceptance, non-goals, constraints, authority, risk, Hard Triggers, and profile. Give each objective its cheapest sufficient falsifiable required Check; merge duplicates. Require `expensive` only when essential and no cheaper equivalent exists. Backtick path-specific targets.
+Check goal, acceptance, non-goals, constraints, authority, risk, Hard Triggers, and profile. Each objective needs its cheapest sufficient falsifiable required Check. For shell Checks inspect wrappers and pre/post hooks; Review must not write repository content. Keep mutating commands in implementation, and treat a Root without sufficient read-only proof as infeasible. Merge duplicates, require `expensive` only when essential and no cheaper equivalent exists, and backtick path-specific targets.
 
 Put every new Root's explicit `### Verification` table directly inside `## Acceptance`, before its next H2; any later placement fails preflight.
 

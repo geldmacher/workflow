@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Require planners to inspect complete command wrapper and lifecycle-hook chains, keep required Review Checks repository-read-only, and reject ready Roots without sufficient read-only proof.
 - Expand Cursor-provided `~/` workspace roots against the current home before canonical validation, reject other relative host roots explicitly, and clarify that MCP workspace/status availability never gates an already authorized native Plan implementation.
 - Fix Cursor lifecycle workspace-root resolution, make globally installed Cursor and Codex hooks passive unless an explicit Workflow action is active, retain deliberate active Review/Plan denials, and report subjectless `workflow_status` as inactive instead of an operational error.
 

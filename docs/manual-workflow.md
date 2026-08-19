@@ -18,7 +18,7 @@ Workflow activates only for an explicit Workflow action such as `/plan-work` or 
 
 `/plan-work` in Cursor or `$plan-work` in Codex Plan mode creates one immutable Schema-5 Root with a visible `wp-*` ID. Cursor's native Plan and Codex's native `<proposed_plan>` are the sole Manual plan authority and the only authoritative plan containers. Workflow validates an exposed Root but stores no separate active Root, Plan receipt, or cache authority.
 
-Native steps describe implementation and planned Checks. They contain no closeout todo or Workflow attestation. The human's separate **Implement Plan** action authorizes implementation inside the Root. Corrections and material replans remain separate human actions.
+Native steps describe implementation and planned Checks. They contain no closeout todo or Workflow attestation. Required Verification methods must stay repository-read-only across their complete wrapper and lifecycle-hook chain. The human's separate **Implement Plan** action authorizes implementation inside the Root. Corrections and material replans remain separate human actions.
 
 ## Implementation
 
