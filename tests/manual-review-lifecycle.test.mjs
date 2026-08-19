@@ -106,6 +106,58 @@ test("Manual Review returns a bounded clarification instead of throwing on dirty
   assert.match(bundle.review.artifact, /do not fit the native Plan authority/i);
 });
 
+test("Manual Review blocks reused Evidence whose changed_paths diverge from the current dirty inventory", () => {
+  const first = buildManualReviewLifecycle({
+    rootPlanText: leanRoot,
+    reviewInput: achievedReview,
+    checkEvidence: [verifiedCheck],
+    workspaceRoot: defaultRoot,
+    pluginRoot: defaultRoot,
+    captureSnapshot: () => snapshot(["src/retry.mjs"]),
+  });
+  const stale = buildManualReviewLifecycle({
+    rootPlanText: leanRoot,
+    artifacts: [{ label: first.delivery_evidence.fields.id, text: first.delivery_evidence.artifact }],
+    reviewInput: achievedReview,
+    checkEvidence: [verifiedCheck],
+    workspaceRoot: defaultRoot,
+    pluginRoot: defaultRoot,
+    captureSnapshot: () => snapshot([]),
+  });
+
+  assert.equal(stale.delivery_evidence.duplicate, true);
+  assert.equal(stale.delivery_evidence.fields.id, first.delivery_evidence.fields.id);
+  assert.deepEqual(stale.observed_dirty_paths, []);
+  assert.equal(stale.review.fields.delivery_status, "blocked");
+  assert.equal(stale.review.fields.next_action, "clarify");
+  assert.match(stale.review.artifact, /does not match Evidence .* changed_paths/i);
+});
+
+test("Manual Review may reuse Evidence when the current dirty inventory still matches", () => {
+  const first = buildManualReviewLifecycle({
+    rootPlanText: leanRoot,
+    reviewInput: achievedReview,
+    checkEvidence: [verifiedCheck],
+    workspaceRoot: defaultRoot,
+    pluginRoot: defaultRoot,
+    captureSnapshot: () => snapshot(["src/retry.mjs"]),
+  });
+  const reused = buildManualReviewLifecycle({
+    rootPlanText: leanRoot,
+    artifacts: [{ label: first.delivery_evidence.fields.id, text: first.delivery_evidence.artifact }],
+    reviewInput: achievedReview,
+    checkEvidence: [verifiedCheck],
+    workspaceRoot: defaultRoot,
+    pluginRoot: defaultRoot,
+    captureSnapshot: () => snapshot(["src/retry.mjs"]),
+  });
+
+  assert.equal(reused.delivery_evidence.duplicate, true);
+  assert.equal(reused.delivery_evidence.fields.id, first.delivery_evidence.fields.id);
+  assert.equal(reused.review.fields.delivery_status, "verified");
+  assert.equal(reused.review.fields.next_action, "none");
+});
+
 test("known failed required Checks complete Review with blocked delivery", () => {
   const bundle = buildManualReviewLifecycle({
     rootPlanText: leanRoot,
