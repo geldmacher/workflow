@@ -67,6 +67,14 @@ function supportedOnBoundary(checkEvidence, message) {
   }));
 }
 
+function sortedPaths(values) {
+  return [...new Set((values ?? []).map(String).map((value) => value.trim()).filter(Boolean))].sort();
+}
+
+function samePathSet(left, right) {
+  return JSON.stringify(sortedPaths(left)) === JSON.stringify(sortedPaths(right));
+}
+
 /**
  * Build the task-local Manual delivery boundary in one read-only Review call.
  * The native task supplies exact Root/chain bytes; the server owns repository
@@ -122,6 +130,23 @@ export function buildManualReviewLifecycle({
       }
     });
     evidenceSnapshot = evidenceRepositorySnapshot(current, evidenceChangedPaths, { baselineAvailable: false });
+  }
+
+  // Reusing an Evidence tip is only honest when its declared changed_paths still
+  // equal the complete current dirty inventory. Otherwise Review must expose that
+  // inventory as a clarification rather than inherit a verified repository claim.
+  const evidenceTip = evidenceTipId ? initial.inspected.effective.get(evidenceTipId) : null;
+  if (
+    evidenceTipId
+    && !correctionPending
+    && evidenceTip?.fields?.artifact === "delivery-evidence"
+    && !samePathSet(evidenceTip.fields.changed_paths, repositoryDelta.changed_paths)
+  ) {
+    const observed = sortedPaths(repositoryDelta.changed_paths).join(", ") || "none";
+    const claimed = sortedPaths(evidenceTip.fields.changed_paths).join(", ") || "none";
+    const message = `Current repository dirty inventory (${observed}) does not match Evidence ${evidenceTipId} changed_paths (${claimed})`;
+    effectiveReviewInput = repositoryLimitation(effectiveReviewInput, message);
+    effectiveCheckEvidence = supportedOnBoundary(effectiveCheckEvidence, message);
   }
 
   let evidence = null;

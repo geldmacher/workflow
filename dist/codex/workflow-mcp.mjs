@@ -34148,6 +34148,12 @@ function supportedOnBoundary(checkEvidence2, message) {
     limitations: [.../* @__PURE__ */ new Set([...entry.limitations ?? [], message])]
   }));
 }
+function sortedPaths(values) {
+  return [...new Set((values ?? []).map(String).map((value) => value.trim()).filter(Boolean))].sort();
+}
+function samePathSet(left, right) {
+  return JSON.stringify(sortedPaths(left)) === JSON.stringify(sortedPaths(right));
+}
 function buildManualReviewLifecycle({
   rootPlanText,
   artifacts = [],
@@ -34190,6 +34196,14 @@ function buildManualReviewLifecycle({
       }
     });
     evidenceSnapshot = evidenceRepositorySnapshot(current, evidenceChangedPaths, { baselineAvailable: false });
+  }
+  const evidenceTip = evidenceTipId ? initial.inspected.effective.get(evidenceTipId) : null;
+  if (evidenceTipId && !correctionPending && evidenceTip?.fields?.artifact === "delivery-evidence" && !samePathSet(evidenceTip.fields.changed_paths, repositoryDelta.changed_paths)) {
+    const observed = sortedPaths(repositoryDelta.changed_paths).join(", ") || "none";
+    const claimed = sortedPaths(evidenceTip.fields.changed_paths).join(", ") || "none";
+    const message = `Current repository dirty inventory (${observed}) does not match Evidence ${evidenceTipId} changed_paths (${claimed})`;
+    effectiveReviewInput = repositoryLimitation(effectiveReviewInput, message);
+    effectiveCheckEvidence = supportedOnBoundary(effectiveCheckEvidence, message);
   }
   let evidence = null;
   let reviewArtifacts = exact.entries;
