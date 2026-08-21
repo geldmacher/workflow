@@ -20,7 +20,7 @@ Cursor exposes all three profiles. Codex exposes the complete Manual path only a
 
 ## Explanation in each profile
 
-The explanation always has two audiences. Its first three sections tell a person what was achieved, what it means, and how it was verified without requiring the implementation history. `Technical traceability` follows with exact Workflow IDs, Checks or Findings, and paths or symbols so another maintainer or agent can continue safely.
+The explanation always has two audiences and three ordered layers. `Quick decision` lets a person act at a glance. Human `Details` then explain what was achieved, what it means, and how it was verified without requiring the implementation history. The authoritative `Agent and machine contract` follows with `Technical traceability`, exact Workflow IDs, Checks or Findings, paths or symbols, and continuation state so another maintainer or agent can continue safely.
 
 | Profile and reviewed state | Trigger and producer | Human use | Agent use | Label |
 |---|---|---|---|---|

@@ -71,6 +71,18 @@ function sortedPaths(values) {
   return [...new Set((values ?? []).map(String).map((value) => value.trim()).filter(Boolean))].sort();
 }
 
+function boundedPathSummary(values, { maxEntries = 6, maxPathCharacters = 120, completeLocation = "structured path data" } = {}) {
+  const paths = sortedPaths(values);
+  if (paths.length === 0) return "none";
+  const shown = paths.slice(0, maxEntries).map((path) => path.length <= maxPathCharacters
+    ? path
+    : `${path.slice(0, maxPathCharacters - 1)}…`);
+  const omitted = paths.length - shown.length;
+  return omitted > 0
+    ? `${shown.join(", ")}, … (+${omitted} more; complete inventory is in ${completeLocation})`
+    : shown.join(", ");
+}
+
 function samePathSet(left, right) {
   return JSON.stringify(sortedPaths(left)) === JSON.stringify(sortedPaths(right));
 }
@@ -142,8 +154,8 @@ export function buildManualReviewLifecycle({
     && evidenceTip?.fields?.artifact === "delivery-evidence"
     && !samePathSet(evidenceTip.fields.changed_paths, repositoryDelta.changed_paths)
   ) {
-    const observed = sortedPaths(repositoryDelta.changed_paths).join(", ") || "none";
-    const claimed = sortedPaths(evidenceTip.fields.changed_paths).join(", ") || "none";
+    const observed = boundedPathSummary(repositoryDelta.changed_paths, { completeLocation: "observed_dirty_paths" });
+    const claimed = boundedPathSummary(evidenceTip.fields.changed_paths, { completeLocation: "Evidence.changed_paths" });
     const message = `Current repository dirty inventory (${observed}) does not match Evidence ${evidenceTipId} changed_paths (${claimed})`;
     effectiveReviewInput = repositoryLimitation(effectiveReviewInput, message);
     effectiveCheckEvidence = supportedOnBoundary(effectiveCheckEvidence, message);

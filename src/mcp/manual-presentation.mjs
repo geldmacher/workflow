@@ -286,6 +286,12 @@ function asList(value) {
   }).filter(Boolean);
 }
 
+function uniqueText(values) {
+  return [...new Set(values.flatMap((value) => Array.isArray(value) ? value : [value])
+    .filter((value) => value !== null && value !== undefined && String(value).trim() !== "")
+    .map((value) => String(value).trim()))];
+}
+
 function firstLine(text, fallback = "No summary.") {
   const value = String(text ?? "").replace(/\s+/g, " ").trim();
   return value || fallback;
@@ -304,6 +310,14 @@ function humanBlocker(value, fallbackRecovery = "Follow the single next action, 
   if (/baseline/i.test(technical)) return {
     reason: "Workflow cannot prove which repository changes belong to this delivery because the pre-change baseline is unavailable.",
     recovery: "Use the named replan action to create a new clean approval and baseline boundary.",
+  };
+  if (/model-authored work-review|review artifact.*authority|host-owned Review authority/i.test(technical)) return {
+    reason: "The supplied Review artifact cannot establish host-owned Review authority.",
+    recovery: fallbackRecovery,
+  };
+  if (/CHECK-[1-9][0-9]*.*(?:not fully verified|host receipt)|(?:not fully verified|host receipt).*CHECK-[1-9][0-9]*/i.test(technical)) return {
+    reason: "A required verification Check is not fully verified.",
+    recovery: fallbackRecovery,
   };
   if (/authority|outside (?:the )?(?:root|scope)|protected path|approval-required/i.test(technical)) return {
     reason: "The requested or observed change is outside the approved plan boundary.",
@@ -494,7 +508,8 @@ function closeoutPresentation(value) {
     const blocked = value.delivery_status === "blocked";
     const provisional = value.delivery_status === "provisional";
     const outcome = blocked ? "blocked" : provisional ? "partial" : "ready";
-    const nextAction = value.next_action ?? "retry-review";
+    const reviewAction = value.next_action ?? "retry-review";
+    const nextAction = reviewAction === "correct" ? "approve-correction" : reviewAction;
     const recovery = nextAction === "retry-review"
       ? "Correct the named review_input field and repeat Review in this task; no repository work or new task is required."
       : `Continue with ${nextAction} in this task.`;
@@ -713,7 +728,7 @@ function errorPresentation(toolName, value) {
   }), MANUAL_HELP_TOPICS["recovery-and-troubleshooting"]);
 }
 
-function buildPresentation(toolName, value, { isError = false } = {}) {
+function buildPresentationCore(toolName, value, { isError = false } = {}) {
   if (isError || value?.error) {
     return errorPresentation(toolName, value);
   }
@@ -943,6 +958,13 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
   }, "none");
 }
 
+function buildPresentation(toolName, value, options = {}) {
+  const presentation = buildPresentationCore(toolName, value, options);
+  return value?.human_projection
+    ? { ...presentation, human_projection: value.human_projection }
+    : presentation;
+}
+
 function formatSection(title, items) {
   if (!items || items.length === 0) return null;
   return [`${title}:`, ...items.map((item) => `- ${item}`)].join("\n");
@@ -977,6 +999,71 @@ function formatNextStepFooter(presentation) {
     `- How: ${primary.invoke}`,
     `- Why: ${primary.why}`,
   ].join("\n");
+}
+
+function formatProjectionList(label, values, fallback) {
+  const items = asList(values);
+  const effective = items.length > 0 ? items : [fallback];
+  return [
+    `${label}:`,
+    ...effective.map((item) => item.includes("\n") ? item : `- ${item}`),
+  ].join("\n");
+}
+
+function formatHumanDetails(presentation, journeyLabel, blocker) {
+  const guidance = blocker
+    ? humanBlocker(blocker, presentation.next_action_recovery ?? "Follow the single next action, then repeat this Workflow phase.")
+    : null;
+  const projection = presentation.human_projection ?? {};
+  const considerations = [...new Set([
+    ...asList(presentation.human_attention),
+    ...asList(presentation.problems),
+    ...asList(presentation.gaps),
+    ...asList(presentation.warnings),
+    ...asList(presentation.advisories),
+  ].filter((item) => item !== blocker).map((item) => humanBlocker(item).reason))];
+  return [
+    "## Details",
+    "Read this section when the quick decision does not resolve uncertainty.",
+    "",
+    "### Outcome and approach",
+    "",
+    `Outcome: ${projection.outcome ?? presentation.summary}`,
+    formatProjectionList(
+      "Approach and rationale",
+      projection.approach_and_rationale,
+      "No separate approach rationale is available for this tool result; use the exact Root in structuredContent before implementation.",
+    ),
+    "",
+    "### Scope and boundaries",
+    "",
+    formatProjectionList("In scope", projection.in_scope, "No repository scope is available in this tool result."),
+    "",
+    formatProjectionList("Non-goals", projection.non_goals, "No explicit non-goals are available in this tool result."),
+    "",
+    formatProjectionList("Constraints", projection.constraints, "No explicit constraints are available in this tool result."),
+    "",
+    "### Verification, risks, and recovery",
+    "",
+    formatProjectionList(
+      "Acceptance and verification",
+      uniqueText([...(projection.acceptance_and_verification ?? []), presentation.check_summary]),
+      "Exact verification observations are unavailable; consult structuredContent before continuing.",
+    ),
+    "",
+    formatProjectionList("Risks and trade-offs", projection.risks_and_tradeoffs, "No explicit risks or trade-offs are available in this tool result."),
+    "",
+    formatProjectionList(
+      "Unknowns and recovery",
+      uniqueText([
+        ...(projection.unknowns_and_recovery ?? []),
+        ...(guidance ? [guidance.reason, presentation.next_action_recovery ?? guidance.recovery] : []),
+        ...considerations,
+        `Current Workflow state: ${journeyLabel}.`,
+      ]),
+      "No additional uncertainty or recovery condition is reported for this tool result.",
+    ),
+  ].filter((line) => line !== null && line !== undefined).join("\n");
 }
 
 function traceValue(value) {
@@ -1018,21 +1105,39 @@ function formatTechnicalTraceability(presentation, { disclosure = true } = {}) {
     presentation.next_action_recovery ? `Recovery detail: ${presentation.next_action_recovery}` : null,
     formatHelp(presentation.help),
   ].filter((line) => line !== null && line !== undefined).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  const index = [
+    "The complete structuredContent returned with this tool result is the authoritative agent and machine contract.",
+    "Read structuredContent before continuing. This bounded visible index is non-authoritative and intentionally omits exact artifact bytes instead of duplicating them.",
+    "",
+    "### Technical traceability index",
+    "",
+    body,
+  ].join("\n");
   return disclosure
-    ? `<details><summary>Technical traceability</summary>\n\n${body}\n\n</details>`
-    : `---\n\n### Technical traceability\n\n${body}`;
+    ? `<details><summary>Agent and machine index (structuredContent is authoritative)</summary>\n\n${index}\n\n</details>`
+    : `---\n\n## Agent and machine index\n\n${index}`;
 }
 
 export function formatManualToolContent(presentation, { technicalDisclosure = true } = {}) {
   const journeyLabel = JOURNEY_STATE_LABELS[presentation.journey_state] ?? presentation.journey_state ?? "Manual state";
   const blocker = firstProblem(presentation);
+  const blockerGuidance = blocker
+    ? humanBlocker(blocker, presentation.next_action_recovery ?? "Follow the single next action, then repeat this Workflow phase.")
+    : null;
   const lines = [
-    `## Workflow · ${journeyLabel}`,
+    "## Quick decision",
+    "",
+    "Use this section for the immediate Workflow decision.",
+    `State: ${journeyLabel}`,
     `What happened: ${presentation.summary}`,
     `Checks: ${presentation.check_summary ?? "See technical traceability for exact evidence."}`,
-    blocker ? `Blocker: ${blocker}` : null,
-    blocker && presentation.next_action_recovery ? `Resolution: ${presentation.next_action_recovery}` : null,
+    blockerGuidance ? `Blocker: ${blockerGuidance.reason}` : null,
+    blockerGuidance ? `Resolution: ${presentation.next_action_recovery ?? blockerGuidance.recovery}` : null,
+    "",
     formatNextStepFooter(presentation),
+    "",
+    formatHumanDetails(presentation, journeyLabel, blocker),
+    "",
     formatTechnicalTraceability(presentation, { disclosure: technicalDisclosure }),
   ].filter((line) => line !== null && line !== undefined);
   return `${lines.join("\n").replace(/\n{3,}/g, "\n\n").trim()}\n`;
@@ -1063,15 +1168,16 @@ export function coalesceManualPresentation(presentation) {
 }
 
 export function manualMcpResult(toolName, value, isError = false) {
+  const { human_projection: _humanProjection, ...machineValue } = value ?? {};
   if (process.env.GELDMACHER_WORKFLOW_LEGACY_MCP_TEXT === "1" || !isManualWorkflowTool(toolName)) {
     return {
-      content: [{ type: "text", text: JSON.stringify(value, null, 2) }],
-      structuredContent: value,
+      content: [{ type: "text", text: JSON.stringify(machineValue, null, 2) }],
+      structuredContent: machineValue,
       isError,
     };
   }
   const presentation = coalesceManualPresentation(buildPresentation(toolName, value, { isError }));
-  const structuredContent = { ...value, presentation };
+  const structuredContent = { ...machineValue, presentation };
   return {
     content: presentation.update_suppressed ? [] : [{ type: "text", text: formatManualToolContent(presentation) }],
     structuredContent,

@@ -133,6 +133,31 @@ test("Manual Review blocks reused Evidence whose changed_paths diverge from the 
   assert.match(stale.review.artifact, /does not match Evidence .* changed_paths/i);
 });
 
+test("Manual Review bounds large dirty-inventory prose while retaining every structured path", () => {
+  const first = buildManualReviewLifecycle({
+    rootPlanText: leanRoot,
+    reviewInput: achievedReview,
+    checkEvidence: [verifiedCheck],
+    workspaceRoot: defaultRoot,
+    pluginRoot: defaultRoot,
+    captureSnapshot: () => snapshot(["src/retry.mjs"]),
+  });
+  const manyPaths = Array.from({ length: 100 }, (_, index) => `src/generated/path-${String(index).padStart(3, "0")}.mjs`);
+  const stale = buildManualReviewLifecycle({
+    rootPlanText: leanRoot,
+    artifacts: [{ label: first.delivery_evidence.fields.id, text: first.delivery_evidence.artifact }],
+    reviewInput: achievedReview,
+    checkEvidence: [verifiedCheck],
+    workspaceRoot: defaultRoot,
+    pluginRoot: defaultRoot,
+    captureSnapshot: () => snapshot(manyPaths),
+  });
+
+  assert.deepEqual(stale.observed_dirty_paths, manyPaths);
+  assert.equal(stale.review.fields.delivery_status, "blocked");
+  assert.match(stale.review.artifact, /\+94 more; complete inventory is in observed_dirty_paths/);
+});
+
 test("Manual Review may reuse Evidence when the current dirty inventory still matches", () => {
   const first = buildManualReviewLifecycle({
     rootPlanText: leanRoot,

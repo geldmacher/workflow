@@ -2770,11 +2770,11 @@ var require_validate = __commonJS({
         jsonPointer = $data;
         data = names_1.default.rootData;
       } else {
-        const matches = RELATIVE_JSON_POINTER.exec($data);
-        if (!matches)
+        const matches2 = RELATIVE_JSON_POINTER.exec($data);
+        if (!matches2)
           throw new Error(`Invalid JSON-pointer: ${$data}`);
-        const up = +matches[1];
-        jsonPointer = matches[2];
+        const up = +matches2[1];
+        jsonPointer = matches2[2];
         if (jsonPointer === "#") {
           if (up >= dataLevel)
             throw new Error(errorMsg("property/index", up));
@@ -3471,11 +3471,11 @@ var require_schemes = __commonJS({
         urnComponent.error = "URN can not be parsed";
         return urnComponent;
       }
-      const matches = urnComponent.path.match(URN_REG);
-      if (matches) {
+      const matches2 = urnComponent.path.match(URN_REG);
+      if (matches2) {
         const scheme = options.scheme || urnComponent.scheme || "urn";
-        urnComponent.nid = matches[1].toLowerCase();
-        urnComponent.nss = matches[2];
+        urnComponent.nid = matches2[1].toLowerCase();
+        urnComponent.nss = matches2[2];
         const urnScheme = `${scheme}:${options.nid || urnComponent.nid}`;
         const schemeHandler = getSchemeHandler(urnScheme);
         urnComponent.path = void 0;
@@ -3746,8 +3746,8 @@ var require_fast_uri = __commonJS({
     }
     var URI_PARSE = /^(?:([^#/:?]+):)?(?:\/\/((?:([^#/?@]*)@)?(\[[^#/?\]]+\]|[^#/:?]*)(?::(\d*))?))?([^#?]*)(?:\?([^#]*))?(?:#((?:.|[\n\r])*))?/u;
     var AUTHORITY_PREFIX = /^(?:[^#/:?]+:)?\/\/([^/?#]*)/;
-    function getParseError(parsed, matches) {
-      if (matches[2] !== void 0 && parsed.path && parsed.path[0] !== "/") {
+    function getParseError(parsed, matches2) {
+      if (matches2[2] !== void 0 && parsed.path && parsed.path[0] !== "/") {
         return 'URI path must start with "/" when authority is present.';
       }
       if (typeof parsed.port === "number" && (parsed.port < 0 || parsed.port > 65535)) {
@@ -3780,19 +3780,19 @@ var require_fast_uri = __commonJS({
         parsed.error = "URI authority must not contain a literal backslash.";
         malformedAuthorityOrPort = true;
       }
-      const matches = uri.match(URI_PARSE);
-      if (matches) {
-        parsed.scheme = matches[1];
-        parsed.userinfo = matches[3];
-        parsed.host = matches[4];
-        parsed.port = parseInt(matches[5], 10);
-        parsed.path = matches[6] || "";
-        parsed.query = matches[7];
-        parsed.fragment = matches[8];
+      const matches2 = uri.match(URI_PARSE);
+      if (matches2) {
+        parsed.scheme = matches2[1];
+        parsed.userinfo = matches2[3];
+        parsed.host = matches2[4];
+        parsed.port = parseInt(matches2[5], 10);
+        parsed.path = matches2[6] || "";
+        parsed.query = matches2[7];
+        parsed.fragment = matches2[8];
         if (isNaN(parsed.port)) {
-          parsed.port = matches[5];
+          parsed.port = matches2[5];
         }
-        const parseError = getParseError(parsed, matches);
+        const parseError = getParseError(parsed, matches2);
         if (parseError !== void 0) {
           parsed.error = parsed.error || parseError;
           malformedAuthorityOrPort = true;
@@ -6632,12 +6632,12 @@ var require_formats = __commonJS({
     var DATE = /^(\d\d\d\d)-(\d\d)-(\d\d)$/;
     var DAYS = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
     function date(str) {
-      const matches = DATE.exec(str);
-      if (!matches)
+      const matches2 = DATE.exec(str);
+      if (!matches2)
         return false;
-      const year = +matches[1];
-      const month = +matches[2];
-      const day = +matches[3];
+      const year = +matches2[1];
+      const month = +matches2[2];
+      const day = +matches2[3];
       return month >= 1 && month <= 12 && day >= 1 && day <= (month === 2 && isLeapYear(year) ? 29 : DAYS[month]);
     }
     function compareDate(d1, d2) {
@@ -6652,16 +6652,16 @@ var require_formats = __commonJS({
     var TIME = /^(\d\d):(\d\d):(\d\d(?:\.\d+)?)(z|([+-])(\d\d)(?::?(\d\d))?)?$/i;
     function getTime(strictTimeZone) {
       return function time(str) {
-        const matches = TIME.exec(str);
-        if (!matches)
+        const matches2 = TIME.exec(str);
+        if (!matches2)
           return false;
-        const hr = +matches[1];
-        const min = +matches[2];
-        const sec = +matches[3];
-        const tz = matches[4];
-        const tzSign = matches[5] === "-" ? -1 : 1;
-        const tzH = +(matches[6] || 0);
-        const tzM = +(matches[7] || 0);
+        const hr = +matches2[1];
+        const min = +matches2[2];
+        const sec = +matches2[3];
+        const tz = matches2[4];
+        const tzSign = matches2[5] === "-" ? -1 : 1;
+        const tzH = +(matches2[6] || 0);
+        const tzM = +(matches2[7] || 0);
         if (tzH > 23 || tzM > 59 || strictTimeZone && !tz)
           return false;
         if (hr <= 23 && min <= 59 && sec < 60)
@@ -6873,6 +6873,94 @@ var require_dist2 = __commonJS({
 
 // scripts/artifact-validator/parser.mjs
 var import_yaml = __toESM(require_dist(), 1);
+
+// src/core/human-plan-layout.mjs
+var REQUIRED_HEADINGS = Object.freeze([
+  "Quick decision",
+  "Details",
+  "Agent and machine contract (authoritative)"
+]);
+var H2 = /^##[ \t]+([^\r\n]+?)[ \t]*$/gm;
+var H3 = /^###[ \t]+([^\r\n]+?)[ \t]*$/gm;
+var ROOT_FENCE = /^```yaml artifact-envelope[ \t]*$/gm;
+var NEXT_STEP = /^###[ \t]+Next step[ \t]*$/gm;
+var DETAIL_SECTIONS = Object.freeze([
+  ["Outcome and approach", ["Outcome", "Approach and rationale"]],
+  ["Scope and boundaries", ["In scope", "Non-goals", "Constraints"]],
+  ["Verification, risks, and recovery", ["Acceptance and verification", "Risks and trade-offs", "Unknowns and recovery"]]
+]);
+function matches(source, expression) {
+  expression.lastIndex = 0;
+  return [...source.matchAll(expression)];
+}
+function inspectHumanFirstPlanLayout(source) {
+  const text = String(source ?? "").replace(/\r\n/g, "\n");
+  const failures = [];
+  const fences = matches(text, ROOT_FENCE);
+  if (fences.length !== 1) {
+    failures.push(`native Plan requires exactly one yaml artifact-envelope in the final agent and machine layer; observed ${fences.length}`);
+    return { ok: false, failures };
+  }
+  const prefix = text.slice(0, fences[0].index);
+  const headings = matches(prefix, H2);
+  const observed = headings.map((match) => match[1].trim());
+  if (JSON.stringify(observed) !== JSON.stringify(REQUIRED_HEADINGS)) {
+    failures.push(`native Plan requires exactly these ordered H2 layers before the Root: ${REQUIRED_HEADINGS.join(" -> ")}`);
+    return { ok: false, failures };
+  }
+  if (prefix.slice(0, headings[0].index).trim()) {
+    failures.push("native Plan must start with Quick decision before other presentation prose");
+  }
+  const sectionBody = (index, end) => prefix.slice(headings[index].index + headings[index][0].length, end).trim();
+  const quickDecision = sectionBody(0, headings[1].index);
+  const details = sectionBody(1, headings[2].index);
+  const agentContractIntroduction = sectionBody(2, prefix.length);
+  if (!quickDecision) failures.push("Quick decision must contain a human decision summary");
+  if (!details) failures.push("Details must contain the human deep dive");
+  if (!agentContractIntroduction) failures.push("Agent and machine contract must explain that the exact Root below is authoritative");
+  if (agentContractIntroduction && !/(?:human layers|sections above)[\s\S]*(?:projections|oversight)[\s\S]*exact Root[\s\S]*(?:only|sole)[\s\S]*authorit/i.test(agentContractIntroduction)) {
+    failures.push("Agent and machine contract must identify the human layers as oversight projections and the exact Root as the only implementation authority");
+  }
+  const detailH3 = matches(details, H3);
+  const detailH3Names = detailH3.map((match) => match[1].trim());
+  if (JSON.stringify(detailH3Names) !== JSON.stringify(DETAIL_SECTIONS.map(([name]) => name))) {
+    failures.push(`Details requires exactly these ordered H3 sections: ${DETAIL_SECTIONS.map(([name]) => name).join(" -> ")}`);
+  } else {
+    DETAIL_SECTIONS.forEach(([, labels], index) => {
+      const start = detailH3[index].index + detailH3[index][0].length;
+      const end = detailH3[index + 1]?.index ?? details.length;
+      const body = details.slice(start, end);
+      for (const label of labels) {
+        const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        if (!new RegExp(`^-[ \\t]+${escaped}:[ \\t]+\\S.*$`, "m").test(body)) {
+          failures.push(`Details coverage requires a non-empty - ${label}: value line`);
+        }
+      }
+    });
+  }
+  const agentH3 = matches(agentContractIntroduction, H3);
+  const agentH3Names = agentH3.map((match) => match[1].trim());
+  if (JSON.stringify(agentH3Names) !== JSON.stringify(["Completion handoff"])) {
+    failures.push("Agent and machine contract requires exactly one ### Completion handoff before the Root");
+  } else {
+    const handoff = agentContractIntroduction.slice(agentH3[0].index + agentH3[0][0].length).trim();
+    const orderedTokens = ["`Quick decision`", "`Details`", "`Agent and machine contract`"];
+    const positions = orderedTokens.map((token) => handoff.indexOf(token));
+    const ordered = positions.every((position) => position >= 0) && positions.every((position, index) => index === 0 || position > positions[index - 1]);
+    const complete = /\bImplement Plan\b/i.test(handoff) && ordered && /Human:[\s\S]*(?:\/review-work|\$review-work)/i.test(handoff) && /changed paths/i.test(handoff) && /Check commands\/directories\/observations/i.test(handoff) && /failures\/uncertainty/i.test(handoff) && /(?:do not|never) claim[\s\S]*Evidence[\s\S]*Review[\s\S]*Learning/i.test(handoff);
+    if (!complete) failures.push("Completion handoff must carry the three-layer implementation reply, exact implementation observations, fresh human Review action, and no Evidence/Review/Learning claim");
+  }
+  const allNextSteps = matches(prefix, NEXT_STEP);
+  const quickNextSteps = matches(quickDecision, NEXT_STEP);
+  if (allNextSteps.length !== 1) {
+    failures.push(`Quick decision requires exactly one ### Next step section across all human layers; observed ${allNextSteps.length}`);
+  } else if (quickNextSteps.length !== 1) {
+    failures.push("the only ### Next step section must be inside Quick decision");
+  }
+  return { ok: failures.length === 0, failures };
+}
+
+// scripts/artifact-validator/parser.mjs
 function yamlObject(source, label, failures) {
   const document = (0, import_yaml.parseDocument)(source, { prettyErrors: false, uniqueKeys: true });
   for (const error of document.errors) failures.push(`${label}: invalid YAML: ${error.message}`);
@@ -6885,17 +6973,24 @@ function yamlObject(source, label, failures) {
   return value;
 }
 function parsePlanContainer(text, wrapper, failures, normalizations = []) {
-  const match = String(text).match(/(?:^|\n)# ([^\r\n]+)\r?\n(?:[ \t]*\r?\n)*```yaml artifact-envelope\r?\n([\s\S]*?)\r?\n```(?:\r?\n|$)/);
+  const source = String(text);
+  const match = source.match(/(?:^|\n)# ([^\r\n]+)\r?\n[\s\S]*?```yaml artifact-envelope\r?\n([\s\S]*?)\r?\n```(?:\r?\n|$)/);
   if (!match) {
-    failures.push("native plan must contain one H1 followed by a yaml artifact-envelope");
+    failures.push("native plan must contain one H1 and a later yaml artifact-envelope");
+    return null;
+  }
+  const offset = match.index + (match[0].startsWith("\n") ? 1 : 0);
+  const presentation = source.slice(offset).replace(/^# [^\r\n]+\r?\n/, "");
+  const layout = inspectHumanFirstPlanLayout(presentation);
+  if (!layout.ok) {
+    failures.push(...layout.failures);
     return null;
   }
   const fields = yamlObject(match[2], "artifact envelope", failures);
   if (!fields) return null;
   if (fields.artifact !== "work-plan") failures.push("native plan containers may contain only work-plan");
-  const offset = match.index + (match[0].startsWith("\n") ? 1 : 0);
   if (offset > 0) normalizations.push("ignored Cursor progress text before native plan");
-  return { fields, body: String(text).slice(match.index + match[0].length), wrapper, container: "cursor-plan", title: match[1], normalizations };
+  return { fields, body: source.slice(match.index + match[0].length), wrapper, container: "cursor-plan", title: match[1], normalizations };
 }
 function parseArtifact(text, failures = [], normalizations = []) {
   const source = String(text);
@@ -7280,12 +7375,12 @@ function maskFences(text) {
 }
 function sectionMap(body, required, failures, normalizations = []) {
   const structural = maskFences(body);
-  const matches = [...structural.matchAll(/^## ([^\r\n]+)$/gm)];
-  const actual = matches.map((match) => match[1].trim());
+  const matches2 = [...structural.matchAll(/^## ([^\r\n]+)$/gm)];
+  const actual = matches2.map((match) => match[1].trim());
   const sections = /* @__PURE__ */ new Map();
-  matches.forEach((match, index) => {
+  matches2.forEach((match, index) => {
     const start = match.index + match[0].length;
-    const end = matches[index + 1]?.index ?? body.length;
+    const end = matches2[index + 1]?.index ?? body.length;
     const content = body.slice(start, end).trim();
     const actualName = match[1].trim();
     const normalizedActual = normalizedHeader(actualName);
@@ -7372,9 +7467,9 @@ function tableMatching(content, headers) {
   return markdownTables(content).flatMap((candidate) => {
     const mapping = /* @__PURE__ */ new Map();
     for (const expected of headers) {
-      const matches = candidate.headers.filter((actual) => resolveHeader(actual, expected));
-      if (matches.length !== 1) return [];
-      mapping.set(expected, matches[0]);
+      const matches2 = candidate.headers.filter((actual) => resolveHeader(actual, expected));
+      if (matches2.length !== 1) return [];
+      mapping.set(expected, matches2[0]);
     }
     return [{
       headers,
@@ -7388,11 +7483,11 @@ function tableRows(content, headers) {
 }
 function subsection(content, name) {
   const structural = maskFences(content);
-  const matches = [...structural.matchAll(/^### ([^\r\n]+)$/gm)];
-  const index = matches.findIndex((match) => normalizedHeader(match[1]) === normalizedHeader(name));
+  const matches2 = [...structural.matchAll(/^### ([^\r\n]+)$/gm)];
+  const index = matches2.findIndex((match) => normalizedHeader(match[1]) === normalizedHeader(name));
   if (index < 0) return "";
-  const start = matches[index].index + matches[index][0].length;
-  const end = matches[index + 1]?.index ?? content.length;
+  const start = matches2[index].index + matches2[index][0].length;
+  const end = matches2[index + 1]?.index ?? content.length;
   return content.slice(start, end).trim();
 }
 function verificationSectionContent(artifact) {
@@ -7420,21 +7515,21 @@ function requireTable(sections, sectionName, headers, failures, { allowNone = fa
     return { headers, rows: [], none: true };
   }
   if (optional && !content.trim()) return { headers, rows: [], none: true };
-  const matches = tableMatching(content, headers);
-  if (allowNone && matches.length === 0 && hasStandaloneNone(content)) {
+  const matches2 = tableMatching(content, headers);
+  if (allowNone && matches2.length === 0 && hasStandaloneNone(content)) {
     normalizations.push(`${sectionName}: materialized embedded empty marker`);
     return { headers, rows: [], none: true };
   }
-  if (matches.length !== 1) {
+  if (matches2.length !== 1) {
     failures.push(`${sectionName}: requires exactly one table [${headers.join(", ")}]`);
     return { headers, rows: [] };
   }
-  if (matches[0].normalized) normalizations.push(`${sectionName}: normalized table column order or casing`);
-  if (matches[0].rows.length === 0) failures.push(`${sectionName}: required table must contain a row`);
-  matches[0].rows.forEach((row, index) => {
+  if (matches2[0].normalized) normalizations.push(`${sectionName}: normalized table column order or casing`);
+  if (matches2[0].rows.length === 0) failures.push(`${sectionName}: required table must contain a row`);
+  matches2[0].rows.forEach((row, index) => {
     for (const header of headers) if (!row[header] && !optionalTableCells.has(normalizedHeader(header))) failures.push(`${sectionName}: row ${index + 1} has empty ${header}`);
   });
-  return matches[0];
+  return matches2[0];
 }
 function placeholder(value) {
   return /<(?:placeholder|replace[-_ ]?me|insert[-_ ][^>\r\n]+|[^>\r\n]*\.{3}[^>\r\n]*)>/i.test(String(value)) || /\b(?:TBD|TODO|UNKNOWN)\b/.test(String(value));

@@ -21,7 +21,7 @@ import {
   readManualReceiptRecord,
   repositorySnapshotFingerprint,
   stableManualReceiptJson
-} from "./chunks/chunk-AZ66PJEX.mjs";
+} from "./chunks/chunk-5K4PDT5A.mjs";
 import {
   AjvJsonSchemaValidator,
   CallToolRequestSchema,
@@ -82,7 +82,7 @@ import {
   union,
   unknown,
   writeWorkerControl
-} from "./chunks/chunk-LQ5E6D5U.mjs";
+} from "./chunks/chunk-MJ6FPZU2.mjs";
 import {
   PlanningEngine,
   approveVerificationProfile,
@@ -91,7 +91,7 @@ import {
   inspectVerificationProfile,
   recordVerificationProof,
   resolveCapabilities
-} from "./chunks/chunk-VSOEKQMF.mjs";
+} from "./chunks/chunk-MGG4F5J6.mjs";
 import {
   loadWorkflowConfig,
   resolveRouteProfile
@@ -105,14 +105,14 @@ import {
   createContentAddressedHandoffStore,
   rememberContentAddressedRoot,
   resolveRootPlanText
-} from "./chunks/chunk-G5KT3VHO.mjs";
+} from "./chunks/chunk-OYSBJH5W.mjs";
 import {
   effectiveCliSummary,
   executionContractFromArtifactText,
   inspectArtifactSet,
   inspectArtifactText,
   preflightRootPlan
-} from "./chunks/chunk-4WJTGI5A.mjs";
+} from "./chunks/chunk-WNGW7KKK.mjs";
 import {
   PreparationStore,
   RunStore,
@@ -1975,6 +1975,122 @@ function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot: plugi
   };
 }
 
+// src/core/human-output-projection.mjs
+var asList = (value) => Array.isArray(value) ? value.map(String).map((item) => item.trim()).filter(Boolean) : value === null || value === void 0 || String(value).trim() === "" ? [] : [String(value).trim()];
+var unique2 = (values) => [...new Set(values.flatMap(asList))];
+function sectionValues(artifact3, names) {
+  if (!(artifact3?.sections instanceof Map)) return [];
+  return unique2(names.map((name) => artifact3.sections.get(name)));
+}
+function proseSectionValues(artifact3, names) {
+  return sectionValues(artifact3, names).map((value) => value.split(/\n(?=###\s|\|)/, 1)[0].trim()).filter(Boolean);
+}
+function tableRows(markdown) {
+  const lines = String(markdown ?? "").split("\n");
+  const rows = [];
+  for (let index = 0; index < lines.length - 2; index += 1) {
+    if (!/^\|.*\|$/.test(lines[index]) || !/^\|(?:[\s:|-]+\|)+$/.test(lines[index + 1])) continue;
+    const cells = (line2) => line2.slice(1, -1).split("|").map((cell) => cell.trim());
+    const headers = cells(lines[index]);
+    index += 2;
+    while (index < lines.length && /^\|.*\|$/.test(lines[index])) {
+      const values = cells(lines[index]);
+      rows.push(Object.fromEntries(headers.map((header, cellIndex) => [header, values[cellIndex] ?? ""])));
+      index += 1;
+    }
+    index -= 1;
+  }
+  return rows;
+}
+function plannedCheckSummary(root) {
+  return sectionValues(root, ["Acceptance"]).flatMap(tableRows).filter((row) => row["Check ID"]).map((row) => `${row["Check ID"]}: ${row["Command or Inspection"]} in ${row["Working Directory"]}; expected ${row["Expected Result"]}; ${row.Required === "yes" ? "required" : "optional"}; evidence class ${row["Evidence Class"]}.`);
+}
+function observedCheckSummary(evidence) {
+  return (evidence?.fields?.check_evidence ?? []).map((entry) => unique2([
+    `${entry.check_id}: ${entry.grade}`,
+    entry.expected ? `expected ${entry.expected}` : null,
+    entry.observed ? `observed ${entry.observed}` : null,
+    Number.isInteger(entry.repetitions) ? `repetitions ${entry.repetitions}` : null,
+    entry.limitations?.length ? `limitations ${entry.limitations.join(", ")}` : null
+  ]).join("; ") + ".");
+}
+function inspectedArtifacts(rootPlanText, artifacts, pluginRoot2) {
+  const values = [];
+  for (const text of [rootPlanText, ...(artifacts ?? []).map((entry) => typeof entry === "string" ? entry : entry?.text)]) {
+    if (typeof text !== "string" || !text.trim()) continue;
+    const inspected = inspectArtifactText(text, pluginRoot2);
+    if (inspected.errors.length === 0 && inspected.artifact?.fields?.artifact) values.push(inspected.artifact);
+  }
+  return values;
+}
+function exactOrLast(artifacts, kind, id) {
+  const matching = artifacts.filter((artifact3) => artifact3.fields.artifact === kind);
+  return (id ? matching.find((artifact3) => artifact3.fields.id === id) : null) ?? matching.at(-1) ?? null;
+}
+function authorityConstraints(fields) {
+  const authority = fields?.authority ?? {};
+  return unique2([
+    ...authority.protected_paths?.length ? [`Protected paths: ${authority.protected_paths.join(", ")}.`] : [],
+    ...authority.approval_required_paths?.length ? [`Approval-required paths: ${authority.approval_required_paths.join(", ")}.`] : [],
+    authority.dependencies ? `Dependency authority: ${authority.dependencies}.` : null,
+    authority.external_effects ? `External effects: ${authority.external_effects}.` : null,
+    authority.delivery ? `Delivery boundary: ${authority.delivery}.` : null
+  ]);
+}
+function humanWorkflowProjection({
+  rootPlanText = null,
+  artifacts = [],
+  pluginRoot: pluginRoot2,
+  rootPlanId = null,
+  evidenceId = null,
+  reviewId = null
+} = {}) {
+  const inspected = inspectedArtifacts(rootPlanText, artifacts, pluginRoot2);
+  const root = exactOrLast(inspected, "work-plan", rootPlanId);
+  if (!root) return null;
+  const evidence = exactOrLast(inspected, "delivery-evidence", evidenceId);
+  const review = exactOrLast(inspected, "work-review", reviewId);
+  const fields = root.fields;
+  const authority = fields.authority ?? {};
+  const approach = unique2([
+    ...proseSectionValues(root, ["Intent", "Intent and decisions", "Execution steps", "Program design", "System impact", "Slices"]),
+    ...proseSectionValues(evidence, ["Summary"]),
+    ...evidence?.fields?.changed_paths?.length ? [`Current Evidence changed paths: ${evidence.fields.changed_paths.join(", ")}.`] : []
+  ]);
+  const verification = unique2([
+    ...asList(fields.acceptance),
+    ...proseSectionValues(root, ["Acceptance"]),
+    ...plannedCheckSummary(root),
+    ...observedCheckSummary(evidence),
+    ...proseSectionValues(review, ["Assessment"])
+  ]);
+  const risks = unique2([
+    `Declared risk: ${fields.risk ?? "not declared"}.`,
+    ...fields.hard_triggers?.length ? [`Hard triggers: ${fields.hard_triggers.join(", ")}.`] : [],
+    ...proseSectionValues(root, ["Risks", "Risk and closeout", "Operational readiness"]),
+    ...proseSectionValues(evidence, ["Deviations", "Residual risks"]).map((value) => `Evidence risk/deviation: ${value}`)
+  ]);
+  const unknowns = unique2([
+    ...proseSectionValues(review, ["Findings"]).map((value) => `Review findings: ${value}`),
+    ...proseSectionValues(review, ["Next action"]).map((value) => `Review next action: ${value}`),
+    ...!review ? ["No fresh Review verdict is present yet; the current Workflow action remains the recovery boundary."] : []
+  ]);
+  return {
+    schema: 1,
+    outcome: String(fields.goal ?? sectionValues(root, ["Intent"])[0] ?? "Current Root outcome is not available."),
+    approach_and_rationale: approach.length > 0 ? approach : ["The current Root contains no separate approach and rationale explanation."],
+    in_scope: unique2([
+      ...authority.allowed_roots?.length ? [`Allowed repository roots: ${authority.allowed_roots.join(", ")}.`] : [],
+      ...proseSectionValues(root, ["Boundaries", "Scope and targets"])
+    ]),
+    non_goals: asList(fields.non_goals),
+    constraints: unique2([...asList(fields.constraints), ...authorityConstraints(fields)]),
+    acceptance_and_verification: verification,
+    risks_and_tradeoffs: risks,
+    unknowns_and_recovery: unknowns
+  };
+}
+
 // src/core/manual-boundary-receipts.mjs
 import { join, relative, resolve } from "node:path";
 var MANUAL_BOUNDARY_RECEIPT_TTL_MS = 15 * 60 * 1e3;
@@ -2480,6 +2596,13 @@ function supportedOnBoundary(checkEvidence3, message) {
 function sortedPaths(values) {
   return [...new Set((values ?? []).map(String).map((value) => value.trim()).filter(Boolean))].sort();
 }
+function boundedPathSummary(values, { maxEntries = 6, maxPathCharacters = 120, completeLocation = "structured path data" } = {}) {
+  const paths = sortedPaths(values);
+  if (paths.length === 0) return "none";
+  const shown = paths.slice(0, maxEntries).map((path) => path.length <= maxPathCharacters ? path : `${path.slice(0, maxPathCharacters - 1)}\u2026`);
+  const omitted = paths.length - shown.length;
+  return omitted > 0 ? `${shown.join(", ")}, \u2026 (+${omitted} more; complete inventory is in ${completeLocation})` : shown.join(", ");
+}
 function samePathSet(left, right) {
   return JSON.stringify(sortedPaths(left)) === JSON.stringify(sortedPaths(right));
 }
@@ -2528,8 +2651,8 @@ function buildManualReviewLifecycle({
   }
   const evidenceTip = evidenceTipId ? initial.inspected.effective.get(evidenceTipId) : null;
   if (evidenceTipId && !correctionPending && evidenceTip?.fields?.artifact === "delivery-evidence" && !samePathSet(evidenceTip.fields.changed_paths, repositoryDelta.changed_paths)) {
-    const observed = sortedPaths(repositoryDelta.changed_paths).join(", ") || "none";
-    const claimed = sortedPaths(evidenceTip.fields.changed_paths).join(", ") || "none";
+    const observed = boundedPathSummary(repositoryDelta.changed_paths, { completeLocation: "observed_dirty_paths" });
+    const claimed = boundedPathSummary(evidenceTip.fields.changed_paths, { completeLocation: "Evidence.changed_paths" });
     const message = `Current repository dirty inventory (${observed}) does not match Evidence ${evidenceTipId} changed_paths (${claimed})`;
     effectiveReviewInput = repositoryLimitation(effectiveReviewInput, message);
     effectiveCheckEvidence = supportedOnBoundary(effectiveCheckEvidence, message);
@@ -2599,23 +2722,23 @@ function resolveNativePlan({ candidates = [], attemptedSources = [], pluginRoot:
       source: candidate.source ?? "native-task-plan"
     });
   }
-  const unique2 = [...new Map(valid.map((entry) => [entry.root_hash, entry])).values()];
-  if (unique2.length === 0) {
+  const unique3 = [...new Map(valid.map((entry) => [entry.root_hash, entry])).values()];
+  if (unique3.length === 0) {
     return {
       status: "unavailable",
       attempted_sources: attempted,
       resolution: "Restore the Schema-5 native Plan in this same task or create and approve a new native Plan, then repeat Review."
     };
   }
-  if (unique2.length > 1) {
+  if (unique3.length > 1) {
     return {
       status: "ambiguous",
-      candidate_ids: [...new Set(unique2.map((entry) => entry.root_id))].sort(),
+      candidate_ids: [...new Set(unique3.map((entry) => entry.root_id))].sort(),
       attempted_sources: attempted,
       resolution: "Keep exactly one Schema-5 native Plan in the current task context, then repeat Review."
     };
   }
-  return { status: "resolved", ...unique2[0] };
+  return { status: "resolved", ...unique3[0] };
 }
 
 // src/mcp/workspace-roots.mjs
@@ -2731,9 +2854,9 @@ var WorkspaceRootAuthority = class {
           throw new WorkspaceRootError("roots-request-failed", `trusted MCP workspace roots request failed: ${reason}`, { cause: error });
         }
         const entries = (response?.roots ?? []).map(rootPath);
-        const unique2 = new Map(entries.map((entry) => [entry.canonical, entry]));
-        if (unique2.size === 0) throw new WorkspaceRootError("roots-empty", "trusted MCP workspace roots list is empty");
-        return [...unique2.values()].sort((left, right) => left.canonical.localeCompare(right.canonical));
+        const unique3 = new Map(entries.map((entry) => [entry.canonical, entry]));
+        if (unique3.size === 0) throw new WorkspaceRootError("roots-empty", "trusted MCP workspace roots list is empty");
+        return [...unique3.values()].sort((left, right) => left.canonical.localeCompare(right.canonical));
       });
     }
     try {
@@ -2815,6 +2938,20 @@ function createArtifactHandlers({
     Object.assign(error, details);
     return error;
   };
+  const projectForHumans = ({
+    rootPlanText = null,
+    artifacts = [],
+    rootPlanId = null,
+    evidenceId = null,
+    reviewId = null
+  } = {}) => humanWorkflowProjection({
+    rootPlanText,
+    artifacts,
+    pluginRoot: pluginRoot2,
+    rootPlanId,
+    evidenceId,
+    reviewId
+  });
   const mergeArtifacts = (entries) => {
     const merged = /* @__PURE__ */ new Map();
     for (const entry of entries) {
@@ -2847,6 +2984,26 @@ function createArtifactHandlers({
     const fields = inspected.artifact?.fields;
     return inspected.errors.length === 0 && fields?.artifact === "delivery-evidence" && (!rootPlanId || fields.root_plan_id === rootPlanId);
   });
+  const enrichCachedReviewProvenance = (rootPlanId, rootPlanText, artifacts, handoffStore) => {
+    let cached;
+    try {
+      cached = handoffStore.context(rootPlanId, rootPlanText).artifacts;
+    } catch {
+      return artifacts;
+    }
+    const cachedById = new Map(cached.map((entry) => [entry.label, entry]));
+    return artifacts.map((entry) => {
+      const inspected = inspectArtifactText(entry.text, pluginRoot2);
+      const fields = inspected.artifact?.fields;
+      if (inspected.errors.length > 0 || fields?.artifact !== "work-review") return entry;
+      const protectedEntry = cachedById.get(fields.id);
+      if (!protectedEntry) return entry;
+      if (protectedEntry.text !== entry.text) {
+        throw new Error(`cached work-review ${fields.id} conflicts with current-task immutable bytes`);
+      }
+      return protectedEntry.builder_provenance ? { ...entry, builder_provenance: protectedEntry.builder_provenance } : entry;
+    });
+  };
   const assertConsistentArtifactTexts = (artifacts = [], { rootPlan = null } = {}) => {
     const byId = /* @__PURE__ */ new Map();
     const consider = (text, label = "artifact") => {
@@ -2972,7 +3129,8 @@ function createArtifactHandlers({
     warning,
     handoffErrorCode,
     rootContentHashValue,
-    handoffMode
+    handoffMode,
+    rootPlanText
   }) => ({
     ...workspace ? { workspace_root: workspace } : {},
     workspace_binding: workspaceBinding ?? (workspace ? "trusted-root" : "not-established"),
@@ -2999,7 +3157,13 @@ function createArtifactHandlers({
     ...closeoutResult.problem_details ? { problem_details: closeoutResult.problem_details } : {},
     ...persisted.artifact_set_hash ? { artifact_set_hash: persisted.artifact_set_hash } : {},
     ...warning ? { warning } : {},
-    ...handoffErrorCode || persisted.handoff_error_code ? { handoff_error_code: handoffErrorCode ?? persisted.handoff_error_code } : {}
+    ...handoffErrorCode || persisted.handoff_error_code ? { handoff_error_code: handoffErrorCode ?? persisted.handoff_error_code } : {},
+    human_projection: projectForHumans({
+      rootPlanText,
+      artifacts: [{ label: persisted.fields.id, text: persisted.artifact }],
+      rootPlanId: input.root_plan_id,
+      evidenceId: persisted.fields.id
+    })
   });
   const reviewPayload = ({
     input,
@@ -3010,7 +3174,8 @@ function createArtifactHandlers({
     warning,
     handoffErrorCode,
     rootContentHashValue,
-    handoffMode
+    handoffMode,
+    rootPlanText
   }) => ({
     ...workspace ? { workspace_root: workspace } : {},
     workspace_binding: workspaceBinding ?? (workspace ? "trusted-root" : "not-established"),
@@ -3037,9 +3202,16 @@ function createArtifactHandlers({
     ...rootContentHashValue ? { root_content_hash: rootContentHashValue } : {},
     ...persisted.artifact_set_hash ? { artifact_set_hash: persisted.artifact_set_hash } : {},
     ...warning ? { warning } : {},
-    ...handoffErrorCode || persisted.handoff_error_code ? { handoff_error_code: handoffErrorCode ?? persisted.handoff_error_code } : {}
+    ...handoffErrorCode || persisted.handoff_error_code ? { handoff_error_code: handoffErrorCode ?? persisted.handoff_error_code } : {},
+    human_projection: projectForHumans({
+      rootPlanText,
+      artifacts: [...input.artifacts ?? [], { label: persisted.fields.id, text: persisted.artifact }],
+      rootPlanId: input.root_plan_id,
+      evidenceId: persisted.fields.latest_evidence_id ?? null,
+      reviewId: persisted.fields.id
+    })
   });
-  const reviewBundlePayload = ({ input, workspace, bundle, rootContentHashValue }) => ({
+  const reviewBundlePayload = ({ input, workspace, bundle, persisted, rootContentHashValue, rootPlanText }) => ({
     ...workspace ? { workspace_root: workspace } : {},
     workspace_binding: workspace ? "trusted-root" : "not-established",
     workspace_root_used: Boolean(workspace),
@@ -3049,26 +3221,39 @@ function createArtifactHandlers({
     delivery_evidence_id: bundle.delivery_evidence.fields.id,
     delivery_evidence_artifact: bundle.delivery_evidence.artifact,
     delivery_evidence_hash: bundle.delivery_evidence.artifact_hash,
-    work_review_id: bundle.review.fields.id,
-    artifact: bundle.review.artifact,
-    artifact_hash: bundle.review.artifact_hash,
-    review_input_hash: bundle.review.review_input_hash,
-    authoritative_fields: bundle.review.fields,
-    assessment: bundle.review.fields.assessment,
-    delivery_status: bundle.review.fields.delivery_status,
-    next_action: bundle.review.fields.next_action,
-    review_route: bundle.review.fields.review_route,
-    latest_evidence_id: bundle.review.fields.latest_evidence_id,
-    predecessor_review_id: bundle.review.fields.predecessor_review_id ?? null,
-    correction_id: bundle.review.fields.correction_id ?? null,
+    work_review_id: persisted.fields.id,
+    artifact: persisted.artifact,
+    artifact_hash: persisted.artifact_hash,
+    review_input_hash: persisted.review_input_hash,
+    authoritative_fields: persisted.fields,
+    assessment: persisted.fields.assessment,
+    delivery_status: persisted.fields.delivery_status,
+    next_action: persisted.fields.next_action,
+    review_route: persisted.fields.review_route,
+    latest_evidence_id: persisted.fields.latest_evidence_id,
+    predecessor_review_id: persisted.fields.predecessor_review_id ?? null,
+    correction_id: persisted.fields.correction_id ?? null,
     changed_paths: bundle.changed_paths,
     observed_dirty_paths: bundle.observed_dirty_paths,
     repository_snapshot: bundle.repository_snapshot,
-    duplicate: bundle.review.duplicate && bundle.delivery_evidence.duplicate,
+    duplicate: persisted.duplicate && bundle.delivery_evidence.duplicate,
     task_local_valid: true,
-    handoff_persisted: false,
+    handoff_persisted: persisted.handoff_persisted,
     handoff_authoritative: false,
-    handoff_mode: "task-local"
+    handoff_mode: persisted.handoff_persisted ? "root-content-cache" : "task-local",
+    ...persisted.artifact_set_hash ? { artifact_set_hash: persisted.artifact_set_hash } : {},
+    ...persisted.warning ? { warning: persisted.warning } : {},
+    ...persisted.handoff_error_code ? { handoff_error_code: persisted.handoff_error_code } : {},
+    human_projection: projectForHumans({
+      rootPlanText,
+      artifacts: [
+        { label: bundle.delivery_evidence.fields.id, text: bundle.delivery_evidence.artifact },
+        { label: persisted.fields.id, text: persisted.artifact }
+      ],
+      rootPlanId: input.root_plan_id,
+      evidenceId: bundle.delivery_evidence.fields.id,
+      reviewId: persisted.fields.id
+    })
   });
   const record2 = async (input) => {
     try {
@@ -3102,7 +3287,11 @@ function createArtifactHandlers({
           handoff_error_code: "handoff-persist-failed",
           recorded: [],
           duplicates: [],
-          warning: `handoff cache unavailable: ${error.message}; attach the exact artifact explicitly to the next Workflow command`
+          warning: `handoff cache unavailable: ${error.message}; attach the exact artifact explicitly to the next Workflow command`,
+          human_projection: projectForHumans({
+            rootPlanText: input.root_plan ?? null,
+            artifacts: input.artifacts
+          })
         });
       }
       const operational = await optionalOperational(input.workspace_root);
@@ -3137,6 +3326,10 @@ function createArtifactHandlers({
           handoff_mode: "root-content-cache",
           root_content_hash,
           ...recorded,
+          human_projection: projectForHumans({
+            rootPlanText,
+            artifacts: [...byId.values()]
+          }),
           ...operational.workspace_error && input.workspace_root ? { warning: `workspace binding unavailable (${operational.workspace_error.code}); recorded under root-content handoff namespace` } : {}
         });
       } catch (error) {
@@ -3152,7 +3345,11 @@ function createArtifactHandlers({
           root_content_hash,
           recorded: [],
           duplicates: [],
-          warning: `handoff cache unavailable: ${error.message}; attach the exact artifact explicitly to the next Workflow command`
+          warning: `handoff cache unavailable: ${error.message}; attach the exact artifact explicitly to the next Workflow command`,
+          human_projection: projectForHumans({
+            rootPlanText,
+            artifacts: [...byId.values()]
+          })
         });
       }
     } catch (error) {
@@ -3161,7 +3358,7 @@ function createArtifactHandlers({
   };
   const context2 = async (input) => {
     try {
-      const { root_content_hash, handoffStore } = contentHandoff({
+      const { rootPlanText, root_content_hash, handoffStore } = contentHandoff({
         rootPlanId: input.root_plan_id,
         rootPlan: input.root_plan,
         artifacts: input.artifacts
@@ -3177,6 +3374,13 @@ function createArtifactHandlers({
         handoff_mode: "root-content-cache",
         root_content_hash,
         ...chain,
+        human_projection: projectForHumans({
+          rootPlanText,
+          artifacts: chain.artifacts,
+          rootPlanId: input.root_plan_id,
+          evidenceId: chain.evidence_tip ?? null,
+          reviewId: chain.review_tip ?? null
+        }),
         model_inheritance: operational.stateRoot ? modelInheritanceSummary(operational.stateRoot) : { authoritative: false, status: "unavailable", evidence_effect: "none", reason: "workspace-binding-not-established" }
       });
     } catch (error) {
@@ -3206,9 +3410,17 @@ function createArtifactHandlers({
             `workflow_closeout could not inspect the current repository${operational.workspace_error?.message ? `: ${operational.workspace_error.message}` : ""}`
           );
         }
+        const handoffStore2 = handoffStoreFactory(nativePlan.root_text, pluginRoot2);
+        bindBoundaryTrust(handoffStore2, operational.workspace);
+        const reviewArtifacts = enrichCachedReviewProvenance(
+          input.root_plan_id,
+          nativePlan.root_text,
+          input.artifacts ?? [],
+          handoffStore2
+        );
         const bundle = buildManualReviewLifecycle({
           rootPlanText: nativePlan.root_text,
-          artifacts: input.artifacts ?? [],
+          artifacts: reviewArtifacts,
           reviewInput: input.review_input,
           checkEvidence: input.check_evidence ?? [],
           strategyRevision: input.strategy_revision ?? 0,
@@ -3219,11 +3431,34 @@ function createArtifactHandlers({
         if (nativePlan.root_id !== input.root_plan_id || bundle.root_plan_id !== input.root_plan_id) {
           throw new Error(`workflow_closeout Root ID mismatch: expected ${input.root_plan_id}, received ${bundle.root_plan_id}`);
         }
+        let persisted2 = persistWorkReview({
+          handoffStore: handoffStore2,
+          rootPlanText: nativePlan.root_text,
+          artifacts: [
+            ...reviewArtifacts,
+            { label: bundle.delivery_evidence.fields.id, text: bundle.delivery_evidence.artifact }
+          ],
+          review: bundle.review
+        });
+        if (persisted2.handoff_persisted) {
+          try {
+            rememberContentAddressedRoot(nativePlan.root_text, pluginRoot2);
+          } catch (error) {
+            persisted2 = {
+              ...persisted2,
+              handoff_persisted: false,
+              handoff_error_code: "handoff-persist-failed",
+              warning: `optional cross-task review handoff index unavailable: ${error.message}; task-local Review remains valid`
+            };
+          }
+        }
         return toolResult("workflow_closeout", reviewBundlePayload({
           input,
           workspace: operational.workspace,
           bundle,
-          rootContentHashValue: nativePlan.root_hash
+          persisted: persisted2,
+          rootContentHashValue: nativePlan.root_hash,
+          rootPlanText: nativePlan.root_text
         }));
       }
       let handoff;
@@ -3253,7 +3488,7 @@ function createArtifactHandlers({
         if (!handoff) {
           if (!input.root_plan) throw error;
           const merged2 = mergeArtifacts(input.artifacts ?? []);
-          const { closeoutResult: closeoutResult2, artifactKind: artifactKind2 } = buildCloseout(input, merged2, operational.workspace);
+          const { rootPlan: rootPlan2, closeoutResult: closeoutResult2, artifactKind: artifactKind2 } = buildCloseout(input, merged2, operational.workspace);
           const payload2 = artifactKind2 === "work-review" ? reviewPayload : closeoutPayload;
           return toolResult("workflow_closeout", payload2({
             input,
@@ -3263,7 +3498,8 @@ function createArtifactHandlers({
             persisted: { ...closeoutResult2, handoff_persisted: false },
             warning: `optional cross-task handoff unavailable: ${error.message}; task-local ${artifactKind2 === "work-review" ? "Review" : "continuation"} remains valid`,
             handoffErrorCode: "handoff-persist-failed",
-            handoffMode: "stateless"
+            handoffMode: "stateless",
+            rootPlanText: rootPlan2
           }));
         }
       }
@@ -3314,7 +3550,8 @@ function createArtifactHandlers({
         warning,
         rootContentHashValue: root_content_hash ?? rootContentHash(rootPlan),
         handoffMode: persisted.handoff_persisted ? "root-content-cache" : "stateless",
-        handoffErrorCode: persisted.handoff_error_code
+        handoffErrorCode: persisted.handoff_error_code,
+        rootPlanText: rootPlan
       }));
     } catch (error) {
       return failure2("workflow_closeout")(error);
@@ -3359,6 +3596,7 @@ var SAFE_BLOCKED_ACTIONS = /* @__PURE__ */ new Set([
   "repair-root",
   "attach-artifact",
   "review-root",
+  "approve-correction",
   "closeout",
   "provide-artifacts",
   "replan",
@@ -3660,13 +3898,16 @@ var NEXT_STEP_CATALOG = {
     recovery: "Run /work-status or supply exact artifacts first."
   }
 };
-function asList(value) {
+function asList2(value) {
   if (!Array.isArray(value)) return [];
   return value.map((entry) => {
     if (typeof entry === "string") return entry;
     if (entry && typeof entry === "object") return String(entry.message ?? entry.code ?? JSON.stringify(entry));
     return String(entry);
   }).filter(Boolean);
+}
+function uniqueText(values) {
+  return [...new Set(values.flatMap((value) => Array.isArray(value) ? value : [value]).filter((value) => value !== null && value !== void 0 && String(value).trim() !== "").map((value) => String(value).trim()))];
 }
 function firstLine(text, fallback = "No summary.") {
   const value = String(text ?? "").replace(/\s+/g, " ").trim();
@@ -3685,6 +3926,14 @@ function humanBlocker(value, fallbackRecovery = "Follow the single next action, 
   if (/baseline/i.test(technical)) return {
     reason: "Workflow cannot prove which repository changes belong to this delivery because the pre-change baseline is unavailable.",
     recovery: "Use the named replan action to create a new clean approval and baseline boundary."
+  };
+  if (/model-authored work-review|review artifact.*authority|host-owned Review authority/i.test(technical)) return {
+    reason: "The supplied Review artifact cannot establish host-owned Review authority.",
+    recovery: fallbackRecovery
+  };
+  if (/CHECK-[1-9][0-9]*.*(?:not fully verified|host receipt)|(?:not fully verified|host receipt).*CHECK-[1-9][0-9]*/i.test(technical)) return {
+    reason: "A required verification Check is not fully verified.",
+    recovery: fallbackRecovery
   };
   if (/authority|outside (?:the )?(?:root|scope)|protected path|approval-required/i.test(technical)) return {
     reason: "The requested or observed change is outside the approved plan boundary.",
@@ -3740,11 +3989,11 @@ function journeyStateFor(presentation, action) {
 }
 function firstProblem(presentation) {
   return [
-    ...asList(presentation.blocker ? [presentation.blocker] : []),
-    ...asList(presentation.gaps),
-    ...asList(presentation.human_attention),
-    ...asList(presentation.problems),
-    ...asList(presentation.errors)
+    ...asList2(presentation.blocker ? [presentation.blocker] : []),
+    ...asList2(presentation.gaps),
+    ...asList2(presentation.human_attention),
+    ...asList2(presentation.problems),
+    ...asList2(presentation.errors)
   ][0] ?? null;
 }
 function defaultTechnicalTraceability(presentation) {
@@ -3841,7 +4090,7 @@ function problemLines(value) {
   });
 }
 function statusPresentationOutcome(snapshot) {
-  const blockers = asList(snapshot.blockers);
+  const blockers = asList2(snapshot.blockers);
   const state = snapshot.state ?? "unknown";
   if (blockers.length > 0) return "blocked";
   if (TERMINAL_READY_STATES.has(state)) return "ready";
@@ -3853,7 +4102,8 @@ function closeoutPresentation(value) {
     const blocked2 = value.delivery_status === "blocked";
     const provisional = value.delivery_status === "provisional";
     const outcome2 = blocked2 ? "blocked" : provisional ? "partial" : "ready";
-    const nextAction2 = value.next_action ?? "retry-review";
+    const reviewAction = value.next_action ?? "retry-review";
+    const nextAction2 = reviewAction === "correct" ? "approve-correction" : reviewAction;
     const recovery = nextAction2 === "retry-review" ? "Correct the named review_input field and repeat Review in this task; no repository work or new task is required." : `Continue with ${nextAction2} in this task.`;
     return withNextStepFields({
       schema: 1,
@@ -3888,14 +4138,14 @@ function closeoutPresentation(value) {
         "The exact task-local artifact is authoritative; optional handoff persistence is resilience only.",
         ...value.handoff_persisted === false ? ["Handoff failure did not invalidate this Review."] : []
       ],
-      warnings: asList(value.warning ? [value.warning] : []),
+      warnings: asList2(value.warning ? [value.warning] : []),
       errors: []
     }, nextAction2, blocked2 ? { blocked_reason: `Review selected ${nextAction2}.`, recovery } : {});
   }
   const persisted = value.handoff_persisted !== false;
   const status = value.status ?? "unknown";
   const grade = value.overall_grade ?? "ungraded";
-  const warnings = asList(value.warning ? [value.warning] : []);
+  const warnings = asList2(value.warning ? [value.warning] : []);
   const evidenceGaps = value.constraint_summary?.evidence_gap_checks ?? [];
   const legacyReceiptGaps = value.constraint_summary?.legacy_unattested_verified_checks ?? [];
   const blocked = status === "blocked" || grade === "failed";
@@ -4018,13 +4268,13 @@ function errorPresentation(toolName, value) {
     recovery: guidance.recovery
   }), MANUAL_HELP_TOPICS["recovery-and-troubleshooting"]);
 }
-function buildPresentation(toolName, value, { isError = false } = {}) {
+function buildPresentationCore(toolName, value, { isError = false } = {}) {
   if (isError || value?.error) {
     return errorPresentation(toolName, value);
   }
   if (toolName === "workflow_plan_preflight") {
-    const blockers = asList(value.blocking_issues);
-    const advisories = asList(value.advisories);
+    const blockers = asList2(value.blocking_issues);
+    const advisories = asList2(value.advisories);
     const feasible = value.feasible === true && blockers.length === 0;
     const nextAction = feasible ? "implement-plan" : "repair-root";
     const blockerGuidance = feasible ? null : humanBlocker(blockers[0] ?? "Root cannot be presented yet.", "Repair the Root blockers, then retry /plan-work.");
@@ -4063,8 +4313,8 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
   }
   if (toolName === "workflow_artifact_record") {
     const persisted = value.handoff_persisted !== false && value.handoff_mode !== "stateless";
-    const warnings = asList(value.warning ? [value.warning] : []);
-    const recordedIds = [...asList(value.recorded), ...asList(value.duplicates)];
+    const warnings = asList2(value.warning ? [value.warning] : []);
+    const recordedIds = [...asList2(value.recorded), ...asList2(value.duplicates)];
     const containsReview = recordedIds.some((id) => /^wr-/.test(id));
     const nextAction = persisted ? containsReview ? "provide-artifacts" : "implement-plan" : "attach-artifact";
     const overrides = persisted ? {} : {
@@ -4120,7 +4370,7 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
       ],
       gaps: value.evidence_tip ? [] : ["Evidence tip missing; Review will attempt one internal recovery."],
       advisories: ["Task artifacts remain authoritative; context is enrichment only."],
-      warnings: asList(value.warning ? [value.warning] : []),
+      warnings: asList2(value.warning ? [value.warning] : []),
       errors: []
     }, nextAction, overrides);
     return value.evidence_tip && !value.warning ? presentation : withHelpFields(presentation, MANUAL_HELP_TOPICS["artifacts-tips-and-handoff"]);
@@ -4130,7 +4380,7 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
   }
   if (toolName === "workflow_status") {
     const snapshot = value.snapshot ?? {};
-    const blockers = asList(snapshot.blockers);
+    const blockers = asList2(snapshot.blockers);
     const state = snapshot.state ?? "unknown";
     const action = snapshot.next_action ?? "none";
     const requestedProfile = snapshot.requested_profile ?? "manual";
@@ -4180,11 +4430,11 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
         receiptCoverageLine(value.constraint_summary)
       ].filter(Boolean),
       gaps: blockers,
-      advisories: asList([
+      advisories: asList2([
         formatHostToolApproval(value.host_tool_approval),
         value.model_inheritance?.status ? `model_inheritance: ${value.model_inheritance.status}` : null
       ].filter(Boolean)),
-      warnings: asList([
+      warnings: asList2([
         ...value.warning ? [value.warning] : [],
         ...downgradeReason ? [`profile downgrade: ${requestedProfile} \u2192 ${effectiveProfile} (${downgradeReason})`] : []
       ]),
@@ -4206,6 +4456,10 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
     warnings: [],
     errors: []
   }, "none");
+}
+function buildPresentation(toolName, value, options = {}) {
+  const presentation = buildPresentationCore(toolName, value, options);
+  return value?.human_projection ? { ...presentation, human_projection: value.human_projection } : presentation;
 }
 function formatSection(title, items) {
   if (!items || items.length === 0) return null;
@@ -4239,6 +4493,67 @@ function formatNextStepFooter(presentation) {
     `- How: ${primary.invoke}`,
     `- Why: ${primary.why}`
   ].join("\n");
+}
+function formatProjectionList(label, values, fallback) {
+  const items = asList2(values);
+  const effective = items.length > 0 ? items : [fallback];
+  return [
+    `${label}:`,
+    ...effective.map((item) => item.includes("\n") ? item : `- ${item}`)
+  ].join("\n");
+}
+function formatHumanDetails(presentation, journeyLabel, blocker) {
+  const guidance = blocker ? humanBlocker(blocker, presentation.next_action_recovery ?? "Follow the single next action, then repeat this Workflow phase.") : null;
+  const projection = presentation.human_projection ?? {};
+  const considerations = [...new Set([
+    ...asList2(presentation.human_attention),
+    ...asList2(presentation.problems),
+    ...asList2(presentation.gaps),
+    ...asList2(presentation.warnings),
+    ...asList2(presentation.advisories)
+  ].filter((item) => item !== blocker).map((item) => humanBlocker(item).reason))];
+  return [
+    "## Details",
+    "Read this section when the quick decision does not resolve uncertainty.",
+    "",
+    "### Outcome and approach",
+    "",
+    `Outcome: ${projection.outcome ?? presentation.summary}`,
+    formatProjectionList(
+      "Approach and rationale",
+      projection.approach_and_rationale,
+      "No separate approach rationale is available for this tool result; use the exact Root in structuredContent before implementation."
+    ),
+    "",
+    "### Scope and boundaries",
+    "",
+    formatProjectionList("In scope", projection.in_scope, "No repository scope is available in this tool result."),
+    "",
+    formatProjectionList("Non-goals", projection.non_goals, "No explicit non-goals are available in this tool result."),
+    "",
+    formatProjectionList("Constraints", projection.constraints, "No explicit constraints are available in this tool result."),
+    "",
+    "### Verification, risks, and recovery",
+    "",
+    formatProjectionList(
+      "Acceptance and verification",
+      uniqueText([...projection.acceptance_and_verification ?? [], presentation.check_summary]),
+      "Exact verification observations are unavailable; consult structuredContent before continuing."
+    ),
+    "",
+    formatProjectionList("Risks and trade-offs", projection.risks_and_tradeoffs, "No explicit risks or trade-offs are available in this tool result."),
+    "",
+    formatProjectionList(
+      "Unknowns and recovery",
+      uniqueText([
+        ...projection.unknowns_and_recovery ?? [],
+        ...guidance ? [guidance.reason, presentation.next_action_recovery ?? guidance.recovery] : [],
+        ...considerations,
+        `Current Workflow state: ${journeyLabel}.`
+      ]),
+      "No additional uncertainty or recovery condition is reported for this tool result."
+    )
+  ].filter((line2) => line2 !== null && line2 !== void 0).join("\n");
 }
 function traceValue(value) {
   if (Array.isArray(value)) return value.length > 0 ? value.join(", ") : "none";
@@ -4278,26 +4593,42 @@ function formatTechnicalTraceability(presentation, { disclosure = true } = {}) {
     presentation.next_action_recovery ? `Recovery detail: ${presentation.next_action_recovery}` : null,
     formatHelp(presentation.help)
   ].filter((line2) => line2 !== null && line2 !== void 0).join("\n").replace(/\n{3,}/g, "\n\n").trim();
-  return disclosure ? `<details><summary>Technical traceability</summary>
+  const index = [
+    "The complete structuredContent returned with this tool result is the authoritative agent and machine contract.",
+    "Read structuredContent before continuing. This bounded visible index is non-authoritative and intentionally omits exact artifact bytes instead of duplicating them.",
+    "",
+    "### Technical traceability index",
+    "",
+    body
+  ].join("\n");
+  return disclosure ? `<details><summary>Agent and machine index (structuredContent is authoritative)</summary>
 
-${body}
+${index}
 
 </details>` : `---
 
-### Technical traceability
+## Agent and machine index
 
-${body}`;
+${index}`;
 }
 function formatManualToolContent(presentation, { technicalDisclosure = true } = {}) {
   const journeyLabel = JOURNEY_STATE_LABELS[presentation.journey_state] ?? presentation.journey_state ?? "Manual state";
   const blocker = firstProblem(presentation);
+  const blockerGuidance = blocker ? humanBlocker(blocker, presentation.next_action_recovery ?? "Follow the single next action, then repeat this Workflow phase.") : null;
   const lines = [
-    `## Workflow \xB7 ${journeyLabel}`,
+    "## Quick decision",
+    "",
+    "Use this section for the immediate Workflow decision.",
+    `State: ${journeyLabel}`,
     `What happened: ${presentation.summary}`,
     `Checks: ${presentation.check_summary ?? "See technical traceability for exact evidence."}`,
-    blocker ? `Blocker: ${blocker}` : null,
-    blocker && presentation.next_action_recovery ? `Resolution: ${presentation.next_action_recovery}` : null,
+    blockerGuidance ? `Blocker: ${blockerGuidance.reason}` : null,
+    blockerGuidance ? `Resolution: ${presentation.next_action_recovery ?? blockerGuidance.recovery}` : null,
+    "",
     formatNextStepFooter(presentation),
+    "",
+    formatHumanDetails(presentation, journeyLabel, blocker),
+    "",
     formatTechnicalTraceability(presentation, { disclosure: technicalDisclosure })
   ].filter((line2) => line2 !== null && line2 !== void 0);
   return `${lines.join("\n").replace(/\n{3,}/g, "\n\n").trim()}
@@ -4320,15 +4651,16 @@ function coalesceManualPresentation(presentation) {
   return { ...presentation, update_suppressed: duplicate };
 }
 function manualMcpResult(toolName, value, isError = false) {
+  const { human_projection: _humanProjection, ...machineValue } = value ?? {};
   if (process.env.GELDMACHER_WORKFLOW_LEGACY_MCP_TEXT === "1" || !isManualWorkflowTool(toolName)) {
     return {
-      content: [{ type: "text", text: JSON.stringify(value, null, 2) }],
-      structuredContent: value,
+      content: [{ type: "text", text: JSON.stringify(machineValue, null, 2) }],
+      structuredContent: machineValue,
       isError
     };
   }
   const presentation = coalesceManualPresentation(buildPresentation(toolName, value, { isError }));
-  const structuredContent = { ...value, presentation };
+  const structuredContent = { ...machineValue, presentation };
   return {
     content: presentation.update_suppressed ? [] : [{ type: "text", text: formatManualToolContent(presentation) }],
     structuredContent,
@@ -4523,12 +4855,12 @@ var contracts = Object.freeze({
     }
   },
   workflow_status: {
-    description: "Return current status and a uniform read-only learning projection for an explicit stateless Manual Schema-5 artifact chain.",
+    description: "Return current status and a uniform read-only learning projection for an explicit Manual Schema-5 artifact chain, with root-content cache enrichment only when exact artifacts are omitted.",
     inputSchema: {
       workspace_root: workspaceRoot,
       root_plan_id: string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
       manual_acceptance: _enum(["provisional"]).optional(),
-      artifacts: array(artifact).min(1).max(32)
+      artifacts: array(artifact).min(1).max(32).optional()
     }
   }
 });
@@ -4602,11 +4934,6 @@ function registerManualWorkflowTools({
   const status = async (input) => {
     try {
       if (input.run_id || input.preparation_id) throw new Error("manual workflow_status does not accept controller subjects");
-      if (input.root_plan_id && !input.artifacts) throw new Error("manual workflow_status requires artifacts with root_plan_id");
-      if (!input.artifacts) throw new Error("manual workflow_status requires current-task artifacts");
-      if (input.artifacts.reduce((total, artifact3) => total + artifact3.text.length, 0) > 1e6) {
-        throw new Error("manual workflow_status artifact bundle exceeds 1000000 characters");
-      }
       let workspace = null;
       let stateRoot = null;
       let workspaceBinding = "not-established";
@@ -4618,12 +4945,37 @@ function registerManualWorkflowTools({
       } catch (error) {
         if (!isWorkspaceRootsUnavailable(error)) throw error;
       }
+      let artifacts = input.artifacts ?? null;
+      let artifactTransport = "current-task-artifacts";
+      let artifactSetHash2 = null;
+      if (!artifacts) {
+        if (input.manual_acceptance) {
+          throw new Error("manual workflow_status acceptance requires the explicit exact current-task artifact chain");
+        }
+        const rootPlanText = resolveRootPlanText(pluginRoot2, { rootPlanId: input.root_plan_id });
+        const handoffStore = handoffStoreFactory(rootPlanText, pluginRoot2);
+        handoffStore.artifactSetOptions = workspace ? { boundaryReceiptVerifier: boundaryReceiptVerifier({ pluginRoot: pluginRoot2, workspaceRoot: workspace }) } : {};
+        const context2 = handoffStore.context(input.root_plan_id, rootPlanText);
+        artifacts = context2.artifacts;
+        artifactTransport = "root-content-cache";
+        artifactSetHash2 = context2.artifact_set_hash;
+      }
+      if (artifacts.reduce((total, artifact3) => total + artifact3.text.length, 0) > 1e6) {
+        throw new Error("manual workflow_status artifact bundle exceeds 1000000 characters");
+      }
       const manual = deriveManualWorkflowSnapshot({
         rootPlanId: input.root_plan_id,
-        artifacts: input.artifacts,
+        artifacts,
         pluginRoot: pluginRoot2,
         manualAcceptance: input.manual_acceptance ?? null,
         boundaryReceiptVerifier: workspace ? boundaryReceiptVerifier({ pluginRoot: pluginRoot2, workspaceRoot: workspace }) : null
+      });
+      const humanProjection = humanWorkflowProjection({
+        artifacts,
+        pluginRoot: pluginRoot2,
+        rootPlanId: input.root_plan_id,
+        evidenceId: manual.snapshot?.latest_evidence_id ?? manual.snapshot?.evidence_tip ?? null,
+        reviewId: manual.snapshot?.latest_review_id ?? manual.snapshot?.review_tip ?? null
       });
       return statusResult({
         subject_kind: "artifact-chain",
@@ -4633,19 +4985,30 @@ function registerManualWorkflowTools({
         ...workspace ? { workspace_root: workspace } : {},
         workspace_binding: workspaceBinding,
         workspace_root_used: Boolean(workspace),
+        artifact_transport: artifactTransport,
+        handoff_authoritative: false,
+        ...artifactSetHash2 ? { artifact_set_hash: artifactSetHash2 } : {},
         model_inheritance: stateRoot ? modelInheritanceSummary(stateRoot) : { authoritative: false, status: "unavailable", evidence_effect: "none", reason: "workspace-binding-not-established" },
         host_tool_approval: resolveHostToolApprovalPreference(),
-        manual_subagent_policy: publicManualSubagentPolicy(resolveManualSubagentPolicyPreference())
+        manual_subagent_policy: publicManualSubagentPolicy(resolveManualSubagentPolicyPreference()),
+        ...humanProjection ? { human_projection: humanProjection } : {}
       });
     } catch (error) {
       return namedFailure("workflow_status")(error);
     }
   };
-  server2.registerTool("workflow_plan_preflight", contract("workflow_plan_preflight"), async (input) => preflightResult(preflightRootPlan(input.root_plan, pluginRoot2)));
+  server2.registerTool("workflow_plan_preflight", contract("workflow_plan_preflight"), async (input) => preflightResult({
+    ...preflightRootPlan(input.root_plan, pluginRoot2),
+    human_projection: humanWorkflowProjection({
+      rootPlanText: input.root_plan,
+      pluginRoot: pluginRoot2
+    })
+  }));
   server2.registerTool("workflow_artifact_record", contract("workflow_artifact_record"), artifactHandlers.record);
   server2.registerTool("workflow_artifact_context", contract("workflow_artifact_context"), async (input) => {
     try {
       if (!input.root_plan) {
+        let legacyError = null;
         try {
           const operational = await resolveOperationalContext(input.workspace_root);
           const legacy = operational.legacyHandoffStore.context(input.root_plan_id, null);
@@ -4656,11 +5019,24 @@ function registerManualWorkflowTools({
             handoff_authoritative: false,
             handoff_mode: "legacy-repository-cache",
             ...legacy,
+            human_projection: humanWorkflowProjection({
+              artifacts: legacy.artifacts,
+              pluginRoot: pluginRoot2,
+              rootPlanId: input.root_plan_id,
+              evidenceId: legacy.evidence_tip ?? null,
+              reviewId: legacy.review_tip ?? null
+            }),
             model_inheritance: modelInheritanceSummary(operational.stateRoot)
           });
         } catch (error) {
           if (!isWorkspaceRootsUnavailable(error) && !/no handoff Root/.test(error.message)) throw error;
-          throw new Error(`workflow_artifact_context requires exact root_plan text for content-bound handoff${error?.message ? `; ${error.message}` : ""}`);
+          legacyError = error;
+        }
+        try {
+          const rootPlan = resolveRootPlanText(pluginRoot2, { rootPlanId: input.root_plan_id });
+          return artifactHandlers.context({ ...input, root_plan: rootPlan });
+        } catch (error) {
+          throw new Error(`workflow_artifact_context requires exact root_plan text or one unambiguous content-bound handoff tip; ${error.message}${legacyError?.message ? `; legacy lookup: ${legacyError.message}` : ""}`);
         }
       }
       resolveRootPlanText(pluginRoot2, { rootPlanId: input.root_plan_id, rootPlan: input.root_plan });
@@ -4859,7 +5235,7 @@ var WORKFLOW_TOOL_CONTRACTS = Object.freeze({
     }
   },
   workflow_status: {
-    description: "Return current status and a uniform read-only learning projection for one preparation, adaptive run, or explicit/uniquely active stateless manual schema-5 artifact chain. With no subject it reports Workflow inactive and never gates native Manual implementation. Controller learning authority requires the ephemeral source receipt from an operational response, and Workflow-3/4 subjects remain read-only.",
+    description: "Return current status and a uniform read-only learning projection for one preparation, adaptive run, or explicit/uniquely content-bound Manual Schema-5 artifact chain. With no subject it reports Workflow inactive and never gates native Manual implementation. Controller learning authority requires the ephemeral source receipt from an operational response, and Workflow-3/4 subjects remain read-only.",
     inputSchema: {
       ...subject,
       root_plan_id: string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/).optional(),
@@ -5051,9 +5427,8 @@ server.registerTool("workflow_status", toolContract("workflow_status"), async (i
     const subjectCount = [input.run_id, input.preparation_id, input.root_plan_id].filter(Boolean).length;
     if (subjectCount > 1) throw new Error("workflow_status accepts only one of run_id, preparation_id, or root_plan_id");
     if (input.artifacts && (input.run_id || input.preparation_id)) throw new Error("workflow_status artifacts cannot be combined with a controller subject");
-    if (input.artifacts && input.learning_source_receipt) throw new Error("manual workflow_status does not accept a controller learning source receipt");
-    if (input.root_plan_id && !input.artifacts) throw new Error("manual workflow_status requires artifacts with root_plan_id");
-    if (input.artifacts) return manualTools.status(input);
+    if ((input.root_plan_id || input.artifacts) && input.learning_source_receipt) throw new Error("manual workflow_status does not accept a controller learning source receipt");
+    if (input.root_plan_id || input.artifacts) return manualTools.status(input);
     if (input.manual_acceptance) throw new Error("workflow_status manual_acceptance requires current-task artifacts");
     const { workspace, stateRoot, store, preparationStore, engine } = await context(input.workspace_root);
     const model_inheritance = modelInheritanceSummary(stateRoot);

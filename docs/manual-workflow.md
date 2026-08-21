@@ -18,6 +18,8 @@ Workflow activates only for an explicit Workflow action such as `/plan-work` or 
 
 `/plan-work` in Cursor or `$plan-work` in Codex Plan mode creates one immutable Schema-5 Root with a visible `wp-*` ID. Cursor's native Plan and Codex's native `<proposed_plan>` are the sole Manual plan authority and the only authoritative plan containers. Workflow validates an exposed Root but stores no separate active Root, Plan receipt, or cache authority.
 
+The Plan starts with `Quick decision` for approval at a glance, follows with labeled `Details` covering outcome/approach, scope/boundaries, and verification/risks/recovery, then ends with `Agent and machine contract`. The last layer tells the implementer how to hand back the completed work, then contains the exact self-contained Root; the first two are faithful oversight explanations without authority. Workflow keeps compact YAML/tables instead of duplicate JSON. A host may fold the last layer only when it preserves complete extractable Root bytes.
+
 Native steps describe implementation and planned Checks. They contain no closeout todo or Workflow attestation. Required Verification methods must stay repository-read-only across their complete wrapper and lifecycle-hook chain. The human's separate **Implement Plan** action authorizes implementation inside the Root. Corrections and material replans remain separate human actions.
 
 ## Implementation
@@ -26,7 +28,7 @@ The agent implements inside the approved authority and normal host sandbox. It m
 
 Implementation itself carries no Workflow mutation gate. Hook or MCP state, `workflow_status`, workspace discovery, and a missing Review Root cannot block the host's already authorized native implementation action.
 
-Implementation and correction finish normally. They do not emit `closeout-input`, create `de-*`, wait for lifecycle state, persist a chain, or trigger another agent turn. The next action is a fresh Review in the same task.
+Implementation and correction finish normally. They do not emit `closeout-input`, create `de-*`, wait for lifecycle state, persist a chain, or trigger another agent turn. The Plan's `Completion handoff` makes their reply order explicit: quick decision, complete human details, then exact changed paths, Check observations, limits, and continuation data. The only action is fresh Review in the same task.
 
 ## Fresh Review and atomic Evidence
 
@@ -69,7 +71,7 @@ Review depth is proportional. Consider material correctness, security, maintaina
 - `correct`: authorize only the bounded Findings-backed correction, then run a fresh Review that creates delta Evidence.
 - `clarify`, `retry-review`, or `replan`: follow the one named action; do not reinterpret uncertainty as success.
 
-The result leads with outcome, Checks, limitations, and one next action. Exact Root, Evidence, Review, Check, Finding, path, and hash details follow under Technical traceability. Repository delivery never claims live host activation or production deployment.
+Every result uses the same three layers. `Quick decision` gives outcome, Checks, at most one blocker, and one next action. `Details` explains what was achieved, what it means, and verification and limits without requiring implementation history. `Agent and machine contract` comes last with exact Root, Evidence, Review, Check, Finding, path, hash, and continuation data under Technical traceability. Repository delivery never claims live host activation or production deployment.
 
 ## Manual states
 

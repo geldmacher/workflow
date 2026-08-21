@@ -1,12 +1,12 @@
 # Manual MCP output contract
 
-Manual MCP tools keep `structuredContent` as the authoritative machine contract. Existing keys remain stable; `presentation` is additive Schema-1 metadata for calm human/agent summaries.
+Manual MCP tools keep `structuredContent` as the authoritative machine contract. Existing keys remain stable; `presentation` is additive Schema-1 metadata for [human-first output](./human-output-contract.md).
 
 ## Content vs structuredContent
 
-- `content[0].text` leads with journey state, outcome, a required-Check summary, at most one blocker, and one Next-step action. Secondary technical traceability follows.
+- `content[0].text` renders `Quick decision`, then human `Details`, then a bounded non-authoritative `Agent and machine index` pointing to complete `structuredContent`. The first layer contains journey state, outcome, required-Check summary, at most one blocker, and either one actionable Next step or an explicit terminal block with no action. `Details` deterministically projects the exact current Root/artifacts into outcome and approach, scope and boundaries, then verification, risks, uncertainty, and recovery; missing inputs are stated explicitly rather than silently omitted.
 - `content[0].text` never duplicates full Root/Evidence artifact text or pretty-printed JSON.
-- Contextual help, when present, renders exactly one `Meaning:` sentence and one `Learn more:` Markdown link inside secondary technical traceability.
+- Contextual help, when present, renders exactly one `Meaning:` sentence and one `Learn more:` Markdown link inside the final technical index.
 - `structuredContent` retains every existing field plus optional `presentation`.
 - Exact artifacts remain in `structuredContent.artifact` or `structuredContent.artifacts`.
 - Status presentation may add `presentation.workflow_state`; it never replaces `structuredContent.snapshot.state`.
@@ -35,9 +35,9 @@ Distinguish **tool success**, **delivery semantics**, and **transport follow-up*
 ## Agent chat and native Plan presentation
 
 - Manual phases lead with outcome, checks, and gaps. Actionable phases end with the Next-step footer; terminal status uses the compact state-specific completion block before any required machine attestation fence.
-- Every emitted review adds a self-contained explanation in this order: `What was achieved`, `What this means`, `Verification and limits`, then `Technical traceability`. The current reviewer produces it directly; `/explain-work` remains an optional read-only refresh. Only `achieved` is **Final repository explanation**; other reviewed states are **Preliminary explanation** with blockers and next safe action.
-- Never duplicate full Root/Evidence text in chat when the exact copy already lives in the Plan envelope or `structuredContent.artifact`.
-- Always surface authoritative IDs (`wp-*`, `de-*`, `wr-*`) in secondary technical traceability. Attach an exact artifact only when the user intentionally leaves the current task and optional handoff cannot transport it.
+- Every emitted review adds a self-contained explanation in this order: `Quick decision`; `Details` containing `What was achieved`, `What this means`, and `Verification and limits`; then the agent-authored `Agent and machine contract` containing `Technical traceability`. MCP tool text uses its final index instead because the exact contract already exists in `structuredContent`. The current reviewer produces the reply directly; `/explain-work` remains an optional read-only refresh. Only `achieved` is **Final repository explanation**; other reviewed states are **Preliminary explanation** with blockers and next safe action.
+- Never duplicate full Root/Evidence/Review text in chat when the exact copy already lives in the Plan envelope or `structuredContent`. Preserve exact IDs and hashes in the final index; include raw bytes only for an explicitly requested cross-task or cross-host export without exact handoff transport.
+- Always surface authoritative IDs (`wp-*`, `de-*`, `wr-*`) in the last agent and machine layer. Attach an exact artifact only when the user intentionally leaves the current task and optional handoff cannot transport it.
 - A blocker must be plain language in the primary layer as `Blocker: <reason>` followed by `Resolution: <one practical recovery>`. Keep the raw error code or parser detail in Technical traceability.
 - Compact prose, lists, or tables are valid for low/medium Manual Intent/Acceptance/Boundaries/Risks; Verification remains an explicit table at presentation. High-risk, Hard-Trigger, and controller preparation stay fail-closed.
 
@@ -53,7 +53,7 @@ Actionable human-facing Manual MCP text and agent chat must end with this recogn
 - Off track: <reason> → <recovery>
 ```
 
-For blocked or partial output, place the plain `Blocker:` and `Resolution:` immediately before this footer. `Off track` remains a compatible optional compact rendering of the same information; do not duplicate it when Blocker/Resolution are already present. Place the footer at the end of the primary human layer. A single `Technical traceability` disclosure may follow; portable-client compatibility attestations may follow only when that client contract explicitly requires them. Cursor and Codex Manual add none.
+For blocked or partial output, place the plain `Blocker:` and `Resolution:` immediately before this footer. `Off track` remains a compatible optional compact rendering of the same information; do not duplicate it when Blocker/Resolution are already present. The footer closes `Quick decision`; human `Details` and then one `Agent and machine index` disclosure follow. Portable-client compatibility attestations may follow only when that client contract explicitly requires them. Cursor and Codex Manual add none.
 
 Terminal `workflow_status` is deliberately shorter:
 
@@ -86,7 +86,7 @@ Stable `next_action` ids and their default invoke/benefit/recovery copy:
 
 ## Presentation fields
 
-`presentation.schema` is `1`. Required fields: `tool`, `phase`, `outcome` (`ready|blocked|partial|failed`), `summary`, `checks`, `gaps`, `advisories`, `warnings`, `errors`, `next_action`, `next_action_label`, `journey_state`, `enforcement_level`, `primary_action`, and `technical_traceability`.
+`presentation.schema` is `1`. Required fields: `tool`, `phase`, `outcome` (`ready|blocked|partial|failed`), `summary`, `checks`, `gaps`, `advisories`, `warnings`, `errors`, `next_action`, `next_action_label`, `journey_state`, `enforcement_level`, `primary_action`, and `technical_traceability`. When a valid Root is available, `presentation.human_projection` is Schema 1 with `outcome`, `approach_and_rationale`, `in_scope`, `non_goals`, `constraints`, `acceptance_and_verification`, `risks_and_tradeoffs`, and `unknowns_and_recovery`. The renderer derives both human layers plus the final visible machine index without changing the authoritative payload or duplicating exact artifact bytes.
 
 `journey_state` is one of `plan-ready|implementation-active|closeout-recovery-required|review-ready|review-active|correction-approval-required|replan-approval-required|provisional-acceptance-required|clarification-required|blocked|done`. `enforcement_level` is `host-native|explicit`. `primary_action` is exactly `{ id, label, invoke, why }` or `null`; it is the only primary action. `technical_traceability` carries Root/Evidence/Review/Correction IDs, Checks, Findings, paths, and enforcement detail. `deduplication_key` is deterministically derived from Root, journey state, first problem, and action so hosts can coalesce repeated messages.
 

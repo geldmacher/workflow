@@ -19,7 +19,7 @@ test("explain-work is an anytime manual Ask command with a fresh inherited-model
 });
 
 test("explanations handle missing, running, correctable, and achieved roots without becoming proof", () => {
-  const runtime = [read("skills/work-explanation/SKILL.md"), read("references/explanation-contract.md"), read("agents/work-explainer.md")].join("\n");
+  const runtime = [read("skills/work-explanation/SKILL.md"), read("references/explanation-contract.md"), read("references/human-output-contract.md"), read("agents/work-explainer.md")].join("\n");
   assert.match(runtime, /no unique root.*exact Root bytes/i);
   assert.match(runtime, /current task's native Plan context/i);
   assert.match(runtime, /not `achieved`.*preliminary/i);
@@ -34,20 +34,24 @@ test("explanations handle missing, running, correctable, and achieved roots with
   assert.match(runtime, /excluded from explanations and explainer handoffs/i);
 });
 
-test("review and controller handoffs explain in two layers without another model call", () => {
-  const cursorReview = [read("skills/work-review/SKILL.md"), read("references/review-contract.md")].join("\n");
+test("review and controller handoffs explain in three layers without another model call", () => {
+  const cursorReview = [read("skills/work-review/SKILL.md"), read("references/review-contract.md"), read("references/human-output-contract.md")].join("\n");
   const review = [cursorReview, read("targets/codex/skills/review-work/SKILL.md")].join("\n");
-  const automation = read("skills/work-automation/SKILL.md");
+  const automationSkill = read("skills/work-automation/SKILL.md");
+  const automation = [automationSkill, read("references/human-output-runtime-contract.md")].join("\n");
   const explainer = read("agents/work-explainer.md");
-  for (const heading of ["What was achieved", "What this means", "Verification and limits", "Technical traceability"]) {
+  for (const heading of ["Quick decision", "Details", "What was achieved", "What this means", "Verification and limits", "Agent and machine contract", "Technical traceability"]) {
     assert.match(`${review}\n${automation}`, new RegExp(heading, "i"));
   }
   assert.match(review, /reviewer.*not `?work-explainer`?|no `work-explainer` call/is);
-  assert.match(cursorReview, /first three.*stand alone.*without.*implementation history.*code knowledge/is);
+  assert.match(cursorReview, /human layers.*stand alone.*without.*implementation history.*code knowledge/is);
   assert.match(cursorReview, /separates executor claims from independently inspected evidence/is);
-  assert.match(automation, /outer agent.*(?:never|no).*extra.*(?:phase|model call)/is);
+  assert.match(automationSkill, /human-output-runtime-contract\.md/i);
+  assert.match(automationSkill, /outer agent.*(?:never|no).*extra.*(?:phase|model call)/is);
+  assert.match(automation, /Every material (?:reply|result).*Quick decision.*Details.*Agent and machine contract/is);
+  assert.match(automation, /complete `structuredContent`.*visible index.*non-authoritative/is);
   assert.match(automation, /Only `achieved`.*Final repository explanation/is);
-  assert.match(automation, /every other state.*Preliminary explanation/is);
+  assert.match(automation, /(?:every other state|otherwise|others are).*Preliminary explanation/is);
   assert.match(explainer, /Schema-5 Root\/Evidence\/Review chain/i);
   assert.match(explainer, /Workflow-3\/4 is read-only history/i);
   assert.doesNotMatch(explainer, /schema-3 root/i);

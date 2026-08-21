@@ -35,6 +35,7 @@ const SAFE_BLOCKED_ACTIONS = new Set([
   "repair-root",
   "attach-artifact",
   "review-root",
+  "approve-correction",
   "closeout",
   "provide-artifacts",
   "replan",

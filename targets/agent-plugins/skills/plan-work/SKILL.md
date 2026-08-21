@@ -6,7 +6,7 @@ compatibility: Requires an Agent Plugins v1 client with Agent Skills and stdio M
 
 # Plan work
 
-Read [portable Manual boundaries](../../references/portable-manual.md), [Manual Workflow](../../../../references/manual-workflow-contract.md), [artifact protocol](../../../../references/artifact-protocol.md), [executable contract](../../../../references/executable-contract.md), [design contract](../../../../references/design-contract.md), and [closeout](../../../../references/closeout-contract.md) completely.
+Read [portable Manual boundaries](../../references/portable-manual.md), [Manual Workflow](../../../../references/manual-workflow-contract.md), [human-first output](../../../../references/human-output-contract.md), [artifact protocol](../../../../references/artifact-protocol.md), [executable contract](../../../../references/executable-contract.md), [design contract](../../../../references/design-contract.md), and [closeout](../../../../references/closeout-contract.md) completely.
 
 Inspect the repository read-only. Clarify only choices that materially change the outcome, scope, authority, public behavior, data or security posture, risk, or acceptance.
 
@@ -14,4 +14,4 @@ Create one immutable Schema-5 `work-plan` Root with a visible `wp-*` ID, `profil
 
 Call `workflow_plan_preflight` with the exact complete Root text. Present the Root only when structured output says `feasible: true`, `blocking_issues` is empty, and `root_plan_id` equals the Root ID. Otherwise repair the Root or stop with the exact blockers. Never treat prose, an ID alone, or a preflight for different bytes as approval.
 
-Return the exact Root and a concise next step telling the human to invoke `implement-work` after approval. Do not edit files or begin implementation.
+Return `Quick decision` with the `implement-work` approval action, complete human `Details`, then the final authoritative `Agent and machine contract` containing the exact Root. The Root must stand alone for a weaker capable implementer with explicit ordered dependencies, targets, completion probes, Check context, boundaries, and stop/replan conditions; do not refer back to the human projection or duplicate it as JSON. Do not edit files or begin implementation.

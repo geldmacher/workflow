@@ -1,15 +1,23 @@
 # Native Plan container
 
-Cursor and Codex own their native Plan UI. Workflow contributes one exact immutable Schema-5 `work-plan` Root with a visible `wp-*` ID; it does not create a second authoritative plan container or store an active Manual Root.
+Native Cursor/Codex Plan is the sole container. Workflow adds one immutable Schema-5 Root/visible `wp-*`, never another plan.
+
+Before Root use exactly three non-empty H2s: `Quick decision` with sole `### Next step`; human `Details`; `Agent and machine contract (authoritative)`. Human H2s are oversight projections; exact Root alone authorizes implementation and is not copied as JSON. Final H2 has exactly one `### Completion handoff` before Root.
+
+`Details` uses exact ordered H3s and non-empty bullets: `Outcome and approach` (`Outcome`, `Approach and rationale`); `Scope and boundaries` (`In scope`, `Non-goals`, `Constraints`); `Verification, risks, and recovery` (`Acceptance and verification`, `Risks and trade-offs`, `Unknowns and recovery`).
+
+Completion handoff orders post-**Implement Plan** `Quick decision` -> `Details` -> `Agent and machine contract`; sole action is `Human: fresh /review-work or $review-work`; last contract records exact changed paths, Check commands/directories/observations, failures/uncertainty, continuation; it forbids Evidence, Review, or Learning claims. It controls the reply only.
 
 ## Cursor
 
-Emit one H1, then a `yaml artifact-envelope` containing the exact Root. Native todos describe implementation and planned Checks only. Add no closeout todo, model-inheritance marker requirement, `workflow_attestation`, Evidence step, artifact-record call, or delivery report. The validation-only CreatePlan guard checks the exposed Root but creates no receipt and does not gate later implementation.
+Emit one H1/layers; Root goes in final `yaml artifact-envelope`. Todos: implementation/Checks only; no closeout, model marker, attestation, Evidence, artifact-record, or delivery report. CreatePlan only validates.
 
 ## Codex
 
-Return one native `<proposed_plan>` containing the exact Schema-5 Root text and visible ID. Add no `## Final implementation step` ceremony or attestation fence. Native Stop validation may reject an invalid Root but stores no active Root or cross-task authority.
+Return one `<proposed_plan>` with layers and Root/ID last. No final ceremony/attestation; Stop stores nothing.
 
-For a replan, preserve decisions not reopened by the current task's exact Review. Use a fresh Root ID with exact `predecessor_plan_id` and `replan_source_review_id`, then obtain renewed human approval through native **Implement Plan**.
+Replan preserves unopened decisions, binds fresh Root ID to this task's exact Review via `predecessor_plan_id` and `replan_source_review_id`, then renews human **Implement Plan** approval.
 
-Put the explicit `### Verification` table directly inside `## Acceptance`, before its next H2. Columns: `Check ID | Objectives | Working Directory | Command or Inspection | Expected Result | Required | Evidence Class | Cost Class | Prerequisites`.
+Place `### Verification` directly in `## Acceptance` before its next H2: `Check ID | Objectives | Working Directory | Command or Inspection | Expected Result | Required | Evidence Class | Cost Class | Prerequisites`.
+
+Root stands alone for a weaker implementer with targets, dependencies, probes, Check context, boundaries, stop/replan. Strategy adapts; Intent does not. Fold only with extractable Root bytes.

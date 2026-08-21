@@ -1,4 +1,5 @@
 import { parseDocument } from "yaml";
+import { inspectHumanFirstPlanLayout } from "../../src/core/human-plan-layout.mjs";
 
 function yamlObject(source, label, failures) {
   const document = parseDocument(source, { prettyErrors: false, uniqueKeys: true });
@@ -13,17 +14,24 @@ function yamlObject(source, label, failures) {
 }
 
 function parsePlanContainer(text, wrapper, failures, normalizations = []) {
-  const match = String(text).match(/(?:^|\n)# ([^\r\n]+)\r?\n(?:[ \t]*\r?\n)*```yaml artifact-envelope\r?\n([\s\S]*?)\r?\n```(?:\r?\n|$)/);
+  const source = String(text);
+  const match = source.match(/(?:^|\n)# ([^\r\n]+)\r?\n[\s\S]*?```yaml artifact-envelope\r?\n([\s\S]*?)\r?\n```(?:\r?\n|$)/);
   if (!match) {
-    failures.push("native plan must contain one H1 followed by a yaml artifact-envelope");
+    failures.push("native plan must contain one H1 and a later yaml artifact-envelope");
+    return null;
+  }
+  const offset = match.index + (match[0].startsWith("\n") ? 1 : 0);
+  const presentation = source.slice(offset).replace(/^# [^\r\n]+\r?\n/, "");
+  const layout = inspectHumanFirstPlanLayout(presentation);
+  if (!layout.ok) {
+    failures.push(...layout.failures);
     return null;
   }
   const fields = yamlObject(match[2], "artifact envelope", failures);
   if (!fields) return null;
   if (fields.artifact !== "work-plan") failures.push("native plan containers may contain only work-plan");
-  const offset = match.index + (match[0].startsWith("\n") ? 1 : 0);
   if (offset > 0) normalizations.push("ignored Cursor progress text before native plan");
-  return { fields, body: String(text).slice(match.index + match[0].length), wrapper, container: "cursor-plan", title: match[1], normalizations };
+  return { fields, body: source.slice(match.index + match[0].length), wrapper, container: "cursor-plan", title: match[1], normalizations };
 }
 
 export function parseArtifact(text, failures = [], normalizations = []) {

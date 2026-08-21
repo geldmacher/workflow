@@ -24,6 +24,22 @@ const evidence = read("delivery-evidence.valid.md");
 const review = read("work-review.valid.md");
 const manualPlan = plan.replace("profile_max: supervised", "profile_max: manual").replace("contract_level: controlled", "contract_level: lean");
 const manualIntentHash = authoritativeArtifactProjectionFromText(manualPlan).projection_hash;
+const humanDetails = `### Outcome and approach
+
+- Outcome: Retry handling is deterministic without changing the public contract.
+- Approach and rationale: Update retry implementation and focused tests while preserving the public API.
+
+### Scope and boundaries
+
+- In scope: Repository changes under src and tests.
+- Non-goals: No deployment or external service change.
+- Constraints: Preserve the public API and repository-only delivery.
+
+### Verification, risks, and recovery
+
+- Acceptance and verification: Run retry verification twice and confirm the public API remains stable.
+- Risks and trade-offs: The main risk is a public-contract regression; prefer the smallest deterministic change.
+- Unknowns and recovery: Replan if scope, acceptance, or risk must change.`;
 
 function nativePlan(todos) {
   const match = plan.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
@@ -48,6 +64,26 @@ function nativePlan(todos) {
     "---",
     "",
     "# Adaptive retry",
+    "",
+    "## Quick decision",
+    "",
+    "Implement deterministic retry handling after approval.",
+    "",
+    "### Next step",
+    "",
+    "Human: approve Implement Plan.",
+    "",
+    "## Details",
+    "",
+    ...humanDetails.split("\n"),
+    "",
+    "## Agent and machine contract (authoritative)",
+    "",
+    "The sections above are human projections. The exact Root below is the only implementation authority.",
+    "",
+    "### Completion handoff",
+    "",
+    "After **Implement Plan**, reply in this order: `Quick decision` with result, Check summary, optional blocker, and one action (`Human: start fresh /review-work or $review-work`); complete human `Details` covering outcome, approach, scope/non-goals, verification/limits, risks/unknowns/recovery; then authoritative `Agent and machine contract` with exact changed paths, Check commands/directories/observations, failures/uncertainty, and continuation. Do not claim Evidence, Review, or Learning.",
     "",
     "```yaml artifact-envelope",
     match[1],
@@ -189,6 +225,10 @@ test("native Schema-5 plans require implementation work but no closeout ceremony
     { id: "step-1", content: "STEP-1 implement deterministic retry handling and verify CHECK-1" },
   ]);
   assert.deepEqual(validateArtifactText(valid), []);
+  assert.match(valid, /### Completion handoff/);
+  assert.match(validateArtifactText(valid.replace("- Non-goals: No deployment or external service change.", "- Non-goals:")).join("\n"), /Details coverage/);
+  assert.match(validateArtifactText(valid.replace("### Completion handoff", "### Completion notes")).join("\n"), /Completion handoff/);
+  assert.match(validateArtifactText(valid.replace("Human: start fresh /review-work or $review-work", "Agent: optionally review later")).join("\n"), /Completion handoff/);
   assert.match(validateArtifactText(nativePlan([])).join("\n"), /at least one implementation todo/);
   assert.doesNotMatch(JSON.stringify(valid), /workflow_attestation|plan-closeout|workflow_closeout/);
   assert.deepEqual(validateArtifactText(plan), []);

@@ -52,7 +52,7 @@ test("profile guide assigns human-first and agent-facing explanations across all
   for (const state of ["Manual `achieved`", "Manual provisional or blocked", "Supervised awaiting acceptance", "Autonomous `achieved`"]) {
     assert.match(guide, new RegExp(state.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
   }
-  assert.match(guide, /first three sections tell a person.*Technical traceability.*maintainer or agent/is);
+  assert.match(guide, /three ordered layers.*Quick decision.*Human `Details`.*Agent and machine contract.*Technical traceability/is);
   assert.match(guide, /Supervised awaiting acceptance.*Preliminary explanation.*verified acceptance.*final/is);
   assert.match(guide, /Autonomous `achieved`.*Final repository explanation/is);
   assert.match(guide, /No row invokes.*`explainer` Pool.*separate model call/is);

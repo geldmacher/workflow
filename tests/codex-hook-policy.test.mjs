@@ -3,10 +3,28 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 import { evaluateCodexHook, isReadOnlyShell } from "../src/core/codex-hook-policy.mjs";
+import { extractRootPlanText } from "../src/core/root-plan-attestation.mjs";
 import { defaultRoot } from "../scripts/validate-artifact.source.mjs";
 
 const rootPlan = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
-const proposedPlan = `<proposed_plan>\n${rootPlan}\n</proposed_plan>`;
+const rootMatch = rootPlan.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+const humanDetails = `### Outcome and approach
+
+- Outcome: Retry handling is deterministic without changing the public contract.
+- Approach and rationale: Update retry implementation and focused tests while preserving the public API.
+
+### Scope and boundaries
+
+- In scope: Repository changes under src and tests.
+- Non-goals: No deployment or external service change.
+- Constraints: Preserve the public API and repository-only delivery.
+
+### Verification, risks, and recovery
+
+- Acceptance and verification: Run retry verification twice and confirm the public API remains stable.
+- Risks and trade-offs: The main risk is a public-contract regression; prefer the smallest deterministic change.
+- Unknowns and recovery: Replan if scope, acceptance, or risk must change.`;
+const proposedPlan = `<proposed_plan>\n## Quick decision\n\nImplement deterministic retry handling after approval.\n\n### Next step\n\nHuman: approve Implement Plan.\n\n## Details\n\n${humanDetails}\n\n## Agent and machine contract (authoritative)\n\nThe sections above are human projections. The exact Root below is the only implementation authority.\n\n### Completion handoff\n\nAfter **Implement Plan**, reply in this order: \`Quick decision\` with result, Check summary, optional blocker, and one action (\`Human: start fresh /review-work or $review-work\`); complete human \`Details\` covering outcome, approach, scope/non-goals, verification/limits, risks/unknowns/recovery; then authoritative \`Agent and machine contract\` with exact changed paths, Check commands/directories/observations, failures/uncertainty, and continuation. Do not claim Evidence, Review, or Learning.\n\n\`\`\`yaml artifact-envelope\n${rootMatch[1]}\n\`\`\`\n${rootMatch[2]}\n</proposed_plan>`;
 
 function step(state, input, options = {}) {
   return evaluateCodexHook({ session_id: "session", turn_id: "turn", model: "gpt-parent", ...input }, state, { pluginRoot: defaultRoot, ...options });
@@ -34,6 +52,42 @@ test("Codex Plan mode validates exact Root without final closeout attestation", 
   assert.deepEqual(value.output, {});
   assert.equal(value.state.turn, null);
   assert.equal(value.state.active_root_plan_id, undefined);
+});
+
+test("Codex Plan validation accepts human-first layers and a final exact Root", () => {
+  let value = step({}, { hook_event_name: "UserPromptSubmit", permission_mode: "plan", prompt: "$plan-work add retries" });
+  value = step(value.state, { hook_event_name: "Stop", last_assistant_message: proposedPlan });
+  assert.deepEqual(value.output, {});
+  assert.ok(proposedPlan.indexOf("## Quick decision") < proposedPlan.indexOf("## Details"));
+  assert.ok(proposedPlan.indexOf("## Details") < proposedPlan.indexOf("## Agent and machine contract"));
+  const extracted = extractRootPlanText(proposedPlan);
+  assert.match(extracted, /^---\nartifact: work-plan[\s\S]*## Intent/);
+  assert.doesNotMatch(extracted, /Quick decision|Agent and machine contract|human projections/);
+});
+
+test("Codex Plan validation rejects missing, reordered, or incomplete human-first layers", () => {
+  const variants = [
+    proposedPlan.replace(/## Quick decision[\s\S]*?(?=\`\`\`yaml artifact-envelope)/, "Arbitrary preamble only.\n\n"),
+    proposedPlan.replace("## Details", "## Background"),
+    proposedPlan
+      .replace("## Quick decision", "## TEMP")
+      .replace("## Details", "## Quick decision")
+      .replace("## TEMP", "## Details"),
+    proposedPlan.replace("### Next step", "### Suggested action"),
+    proposedPlan.replace("## Details", "## Details\n\n### Next step\n\nHuman: take a conflicting second action."),
+    proposedPlan
+      .replace("### Next step\n\nHuman: approve Implement Plan.\n\n", "")
+      .replace("## Details\n\n", "## Details\n\n### Next step\n\nHuman: approve Implement Plan.\n\n"),
+    proposedPlan.replace("### Completion handoff", "### Completion notes"),
+    proposedPlan.replace("Human: start fresh /review-work or $review-work", "Agent: optionally review later"),
+    proposedPlan.replace("- Non-goals: No deployment or external service change.", "- Non-goals:"),
+  ];
+  for (const lastAssistantMessage of variants) {
+    let value = step({}, { hook_event_name: "UserPromptSubmit", permission_mode: "plan", prompt: "$plan-work add retries" });
+    value = step(value.state, { hook_event_name: "Stop", last_assistant_message: lastAssistantMessage });
+    assert.equal(value.output.decision, "block");
+    assert.match(value.output.reason, /ordered H2 layers|Quick decision requires exactly one|Next step.*Quick decision|Completion handoff|Details coverage|Details requires/);
+  }
 });
 
 test("Codex requires native Plan mode only for planning", () => {

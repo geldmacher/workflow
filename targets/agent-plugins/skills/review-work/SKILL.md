@@ -6,7 +6,7 @@ compatibility: Requires an Agent Plugins v1 client with Agent Skills and stdio M
 
 # Review work
 
-Use a fresh read-only phase in the current task; another task is optional. Read [portable Manual boundaries](../../references/portable-manual.md), [Manual Workflow](../../../../references/manual-workflow-contract.md), [artifact protocol](../../../../references/artifact-protocol.md), [delivery evidence](../../../../references/delivery-evidence-contract.md), [review contract](../../../../references/review-contract.md), [host-owned input](../../../../references/work-review-input-contract.md), and [explanation contract](../../../../references/explanation-contract.md) completely.
+Use a fresh read-only phase in the current task; another task is optional. Read [portable Manual boundaries](../../references/portable-manual.md), [Manual Workflow](../../../../references/manual-workflow-contract.md), [human-first output](../../../../references/human-output-contract.md), [artifact protocol](../../../../references/artifact-protocol.md), [delivery evidence](../../../../references/delivery-evidence-contract.md), [review contract](../../../../references/review-contract.md), [host-owned input](../../../../references/work-review-input-contract.md), and [explanation contract](../../../../references/explanation-contract.md) completely.
 
 Require one exact current Schema-5 Root and normally an Evidence chain in the conversation. `workflow_artifact_context` may recover exact cached bytes only as transport enrichment. If Evidence is absent, attempt one explicit read-only `close-work` recovery. Invalid, stale, conflicting, or mixed-version context stops without a Review.
 
@@ -18,4 +18,4 @@ Return one closed Schema-1 `review_input`, never artifact bytes, IDs, bindings, 
 
 Malformed input gets one named-field repair in this task; Root, Evidence, and repository work remain intact. A second failure blocks Review only. Optional persistence failure cannot invalidate the exact task-local Review. New full model-authored Reviews are rejected; immutable history remains readable.
 
-Lead with the journey state, jargon-light outcome, Check summary, at most one blocker, and one Now/How/Why action. Then explain `What was achieved`, `What this means`, and `Verification and limits`. Keep exact Root, Evidence, Review, Check, Finding, path, symbol, receipt, and `enforcement_level: explicit` only in Technical traceability.
+Return `Quick decision` with journey state, jargon-light outcome, Check summary, at most one blocker, and one Now/How/Why action. Then give human `Details` with `What was achieved`, `What this means`, and `Verification and limits`. Finish with the authoritative `Agent and machine contract`; keep exact Root, Evidence, Review, Check, Finding, path, symbol, receipt, continuation state, and `enforcement_level: explicit` only in its Technical traceability.

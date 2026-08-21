@@ -1,6 +1,7 @@
 import { ArtifactHandoffStore, createContentAddressedHandoffStore, resolveRootPlanText } from "../controller/artifact-handoff.mjs";
 import { deriveManualLearningProjection, deriveManualWorkflowSnapshot } from "../controller/manual-status.mjs";
 import { resolveHostToolApproval } from "../core/host-preferences.mjs";
+import { humanWorkflowProjection } from "../core/human-output-projection.mjs";
 import { boundaryReceiptVerifier } from "../core/manual-boundary-receipts.mjs";
 import { resolveManualSubagentPolicy } from "../core/manual-subagent-policy.mjs";
 import { sharedArtifactStateRoot } from "../core/state-paths.mjs";
@@ -79,11 +80,6 @@ export function registerManualWorkflowTools({
   const status = async (input) => {
     try {
       if (input.run_id || input.preparation_id) throw new Error("manual workflow_status does not accept controller subjects");
-      if (input.root_plan_id && !input.artifacts) throw new Error("manual workflow_status requires artifacts with root_plan_id");
-      if (!input.artifacts) throw new Error("manual workflow_status requires current-task artifacts");
-      if (input.artifacts.reduce((total, artifact) => total + artifact.text.length, 0) > 1_000_000) {
-        throw new Error("manual workflow_status artifact bundle exceeds 1000000 characters");
-      }
       let workspace = null;
       let stateRoot = null;
       let workspaceBinding = "not-established";
@@ -95,14 +91,41 @@ export function registerManualWorkflowTools({
       } catch (error) {
         if (!isWorkspaceRootsUnavailable(error)) throw error;
       }
+      let artifacts = input.artifacts ?? null;
+      let artifactTransport = "current-task-artifacts";
+      let artifactSetHash = null;
+      if (!artifacts) {
+        if (input.manual_acceptance) {
+          throw new Error("manual workflow_status acceptance requires the explicit exact current-task artifact chain");
+        }
+        const rootPlanText = resolveRootPlanText(pluginRoot, { rootPlanId: input.root_plan_id });
+        const handoffStore = handoffStoreFactory(rootPlanText, pluginRoot);
+        handoffStore.artifactSetOptions = workspace
+          ? { boundaryReceiptVerifier: boundaryReceiptVerifier({ pluginRoot, workspaceRoot: workspace }) }
+          : {};
+        const context = handoffStore.context(input.root_plan_id, rootPlanText);
+        artifacts = context.artifacts;
+        artifactTransport = "root-content-cache";
+        artifactSetHash = context.artifact_set_hash;
+      }
+      if (artifacts.reduce((total, artifact) => total + artifact.text.length, 0) > 1_000_000) {
+        throw new Error("manual workflow_status artifact bundle exceeds 1000000 characters");
+      }
       const manual = deriveManualWorkflowSnapshot({
         rootPlanId: input.root_plan_id,
-        artifacts: input.artifacts,
+        artifacts,
         pluginRoot,
         manualAcceptance: input.manual_acceptance ?? null,
         boundaryReceiptVerifier: workspace
           ? boundaryReceiptVerifier({ pluginRoot, workspaceRoot: workspace })
           : null,
+      });
+      const humanProjection = humanWorkflowProjection({
+        artifacts,
+        pluginRoot,
+        rootPlanId: input.root_plan_id,
+        evidenceId: manual.snapshot?.latest_evidence_id ?? manual.snapshot?.evidence_tip ?? null,
+        reviewId: manual.snapshot?.latest_review_id ?? manual.snapshot?.review_tip ?? null,
       });
       return statusResult({
         subject_kind: "artifact-chain",
@@ -112,20 +135,31 @@ export function registerManualWorkflowTools({
         ...(workspace ? { workspace_root: workspace } : {}),
         workspace_binding: workspaceBinding,
         workspace_root_used: Boolean(workspace),
+        artifact_transport: artifactTransport,
+        handoff_authoritative: false,
+        ...(artifactSetHash ? { artifact_set_hash: artifactSetHash } : {}),
         model_inheritance: stateRoot
           ? modelInheritanceSummary(stateRoot)
           : { authoritative: false, status: "unavailable", evidence_effect: "none", reason: "workspace-binding-not-established" },
         host_tool_approval: resolveHostToolApprovalPreference(),
         manual_subagent_policy: publicManualSubagentPolicy(resolveManualSubagentPolicyPreference()),
+        ...(humanProjection ? { human_projection: humanProjection } : {}),
       });
     } catch (error) { return namedFailure("workflow_status")(error); }
   };
 
-  server.registerTool("workflow_plan_preflight", contract("workflow_plan_preflight"), async (input) => preflightResult(preflightRootPlan(input.root_plan, pluginRoot)));
+  server.registerTool("workflow_plan_preflight", contract("workflow_plan_preflight"), async (input) => preflightResult({
+    ...preflightRootPlan(input.root_plan, pluginRoot),
+    human_projection: humanWorkflowProjection({
+      rootPlanText: input.root_plan,
+      pluginRoot,
+    }),
+  }));
   server.registerTool("workflow_artifact_record", contract("workflow_artifact_record"), artifactHandlers.record);
   server.registerTool("workflow_artifact_context", contract("workflow_artifact_context"), async (input) => {
     try {
       if (!input.root_plan) {
+        let legacyError = null;
         try {
           const operational = await resolveOperationalContext(input.workspace_root);
           const legacy = operational.legacyHandoffStore.context(input.root_plan_id, null);
@@ -136,11 +170,24 @@ export function registerManualWorkflowTools({
             handoff_authoritative: false,
             handoff_mode: "legacy-repository-cache",
             ...legacy,
+            human_projection: humanWorkflowProjection({
+              artifacts: legacy.artifacts,
+              pluginRoot,
+              rootPlanId: input.root_plan_id,
+              evidenceId: legacy.evidence_tip ?? null,
+              reviewId: legacy.review_tip ?? null,
+            }),
             model_inheritance: modelInheritanceSummary(operational.stateRoot),
           });
         } catch (error) {
           if (!isWorkspaceRootsUnavailable(error) && !/no handoff Root/.test(error.message)) throw error;
-          throw new Error(`workflow_artifact_context requires exact root_plan text for content-bound handoff${error?.message ? `; ${error.message}` : ""}`);
+          legacyError = error;
+        }
+        try {
+          const rootPlan = resolveRootPlanText(pluginRoot, { rootPlanId: input.root_plan_id });
+          return artifactHandlers.context({ ...input, root_plan: rootPlan });
+        } catch (error) {
+          throw new Error(`workflow_artifact_context requires exact root_plan text or one unambiguous content-bound handoff tip; ${error.message}${legacyError?.message ? `; legacy lookup: ${legacyError.message}` : ""}`);
         }
       }
       resolveRootPlanText(pluginRoot, { rootPlanId: input.root_plan_id, rootPlan: input.root_plan });

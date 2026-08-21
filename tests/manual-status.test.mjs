@@ -255,6 +255,9 @@ test("manual workflow_status is read-only and creates no controller state", asyn
     assert.equal(response.structuredContent.subject_kind, "artifact-chain");
     assert.equal(response.structuredContent.snapshot.next_action, "implement-plan");
     assert.equal(response.structuredContent.presentation.help.topic, "manual-state-root-plan-review");
+    assert.equal(response.structuredContent.presentation.human_projection.outcome, "Make retry handling deterministic without changing the public contract.");
+    assert.match(response.content[0].text, /### Outcome and approach[\s\S]*Make retry handling deterministic/);
+    assert.match(response.content[0].text, /Non-goals:[\s\S]*No deployment or external service change/);
     assert.match(response.content[0].text, /Meaning: A ready native Intent Root exists/);
     assert.match(response.content[0].text, /Learn more: \[Manual Workflow guide\]\(https:\/\/github\.com\/geldmacher\/workflow\/blob\/main\/docs\/manual-workflow\.md#manual-states\)/);
     assert.equal(response.structuredContent.learning.eligible, false);
@@ -279,6 +282,12 @@ test("manual workflow_status is read-only and creates no controller state", asyn
     assert.equal(response.structuredContent.manual_subagent_policy.source, "default");
     assert.deepEqual(response.structuredContent.manual_subagent_policy.hosts.cursor.candidates, []);
     assert.deepEqual(response.structuredContent.manual_subagent_policy.hosts.codex.candidates, []);
+    const missingTransport = await client.callTool({
+      name: "workflow_status",
+      arguments: { workspace_root: root, root_plan_id: rootPlanId },
+    });
+    assert.equal(missingTransport.isError, true);
+    assert.match(missingTransport.structuredContent.error, /exact Root text.*required for content-bound handoff transport/);
     const active = await client.callTool({ name: "workflow_status", arguments: { workspace_root: root, artifacts: [plan] } });
     assert.equal(active.isError, false);
     assert.equal(active.structuredContent.snapshot.root_plan_id, rootPlanId);
@@ -312,7 +321,7 @@ test("manual workflow_status is read-only and creates no controller state", asyn
     assert.equal(fresh.structuredContent.snapshot.state, "delivery-ready-provisional");
     assert.equal(fresh.structuredContent.presentation.outcome, "partial");
     assert.equal(fresh.structuredContent.presentation.help.topic, "manual-state-delivery-ready-provisional");
-    assert.match(fresh.content[0].text, /## Workflow · Provisional acceptance required/);
+    assert.match(fresh.content[0].text, /## Quick decision[\s\S]*State: Provisional acceptance required/);
     assert.match(fresh.content[0].text, /Technical traceability[\s\S]*workflow_status — partial/);
     assert.equal(accepted.structuredContent.presentation.outcome, "ready");
     const boundary = await client.callTool({
@@ -323,7 +332,7 @@ test("manual workflow_status is read-only and creates no controller state", asyn
     assert.equal(boundary.structuredContent.snapshot.next_action, "replan");
     assert.equal(boundary.structuredContent.presentation.journey_state, "replan-approval-required");
     assert.equal(boundary.structuredContent.presentation.primary_action.id, "replan");
-    assert.match(boundary.content[0].text, /Workflow · Replan approval required/);
+    assert.match(boundary.content[0].text, /## Quick decision[\s\S]*State: Replan approval required/);
     assert.equal(existsSync(join(home, ".cursor", "geldmacher-workflow")), false);
   } finally {
     await client.close().catch(() => {});

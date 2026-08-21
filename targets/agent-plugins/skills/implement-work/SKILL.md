@@ -6,7 +6,7 @@ compatibility: Requires an Agent Plugins v1 client with Agent Skills and stdio M
 
 # Implement work
 
-Read [portable Manual boundaries](../../references/portable-manual.md), [Manual Workflow](../../../../references/manual-workflow-contract.md), [artifact protocol](../../../../references/artifact-protocol.md), [executable contract](../../../../references/executable-contract.md), [delivery evidence](../../../../references/delivery-evidence-contract.md), and [closeout](../../../../references/closeout-contract.md) completely.
+Read [portable Manual boundaries](../../references/portable-manual.md), [Manual Workflow](../../../../references/manual-workflow-contract.md), [human-first output](../../../../references/human-output-contract.md), [artifact protocol](../../../../references/artifact-protocol.md), [executable contract](../../../../references/executable-contract.md), [delivery evidence](../../../../references/delivery-evidence-contract.md), and [closeout](../../../../references/closeout-contract.md) completely.
 
 Treat this explicit invocation as implementation authority only for one exact Schema-5 Root present in the current conversation. Require an unambiguous workspace root and call `workflow_plan_preflight` again with the exact Root. Proceed only when it is feasible, has no blocking issues, and returns the same Root ID.
 
@@ -16,4 +16,4 @@ Implement the approved outcome and run every required machine Check as its exact
 
 Call `workflow_closeout` with the exact Root text and ID, explicit changed paths, direct Check observations, and the stable repository snapshot. Completion requires a successful exact Schema-5 Evidence result from that call. If closeout fails, do not claim completion; route to `close-work` after resolving the reported blocker. Do not merge, push, publish, deploy, or install.
 
-Portable clients do not standardize native lifecycle receipts. Unless the client supplies compatible protected host receipts, MCP must downgrade machine claims and expose one current-delivery Problem. In human-facing output use one primary journey action and put `enforcement_level: explicit`, IDs, hashes, paths, and receipts only in Technical traceability. Do not loop or fabricate proof; report the provisional boundary and continue to fresh human review.
+Portable clients do not standardize native lifecycle receipts. Unless the client supplies compatible protected host receipts, MCP must downgrade machine claims and expose one current-delivery Problem. Return `Quick decision`, complete human `Details`, then the authoritative `Agent and machine contract`. Use one primary journey action and put `enforcement_level: explicit`, IDs, hashes, paths, receipts, exact Check observations, and continuation state only in the last layer's Technical traceability. Do not loop or fabricate proof; report the provisional boundary and continue to fresh human review.

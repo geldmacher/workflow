@@ -117,6 +117,8 @@ test("Agent Plugins v1 target is deterministic, closed, and immediately discover
       assert.equal(existsSync(join(skillRoot, "SKILL.md")), true);
       const source = readFileSync(join(skillRoot, "SKILL.md"), "utf8");
       assert.match(source, new RegExp(`^---\\nname: ${skill}\\n`));
+      assert.match(source, /\]\(references\/human-output-contract\.md\)/, `${skill} must load the human-output contract`);
+      assert.equal(existsSync(join(skillRoot, "references", "human-output-contract.md")), true, `${skill} misses the human-output contract`);
       assert.equal(source.split(`compatibility: ${compatibility}`).length - 1, 1, `${skill} must declare exact runtime compatibility once`);
       assert.doesNotMatch(source, /^(?:allowed-tools|license|metadata):/m, `${skill} must not predeclare optional permissions or metadata`);
       for (const match of source.matchAll(/\]\((references\/[^)]+)\)/g)) {

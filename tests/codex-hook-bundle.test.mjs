@@ -10,6 +10,24 @@ const hookPath = join(defaultRoot, "dist", "codex", "workflow-hook.mjs");
 const rootPlan = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8")
   .replace("profile_max: supervised", "profile_max: manual")
   .replace("contract_level: controlled", "contract_level: lean");
+const rootMatch = rootPlan.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+const humanDetails = `### Outcome and approach
+
+- Outcome: Retry handling is deterministic without changing the public contract.
+- Approach and rationale: Update retry implementation and focused tests while preserving the public API.
+
+### Scope and boundaries
+
+- In scope: Repository changes under src and tests.
+- Non-goals: No deployment or external service change.
+- Constraints: Preserve the public API and repository-only delivery.
+
+### Verification, risks, and recovery
+
+- Acceptance and verification: Run retry verification twice and confirm the public API remains stable.
+- Risks and trade-offs: The main risk is a public-contract regression; prefer the smallest deterministic change.
+- Unknowns and recovery: Replan if scope, acceptance, or risk must change.`;
+const proposedPlan = `<proposed_plan>\n## Quick decision\n\nImplement the approved Root.\n\n### Next step\n\nHuman: approve Implement Plan.\n\n## Details\n\n${humanDetails}\n\n## Agent and machine contract (authoritative)\n\nThe sections above are human projections. The exact Root below is the only implementation authority.\n\n### Completion handoff\n\nAfter **Implement Plan**, reply in this order: \`Quick decision\` with result, Check summary, optional blocker, and one action (\`Human: start fresh /review-work or $review-work\`); complete human \`Details\` covering outcome, approach, scope/non-goals, verification/limits, risks/unknowns/recovery; then authoritative \`Agent and machine contract\` with exact changed paths, Check commands/directories/observations, failures/uncertainty, and continuation. Do not claim Evidence, Review, or Learning.\n\n\`\`\`yaml artifact-envelope\n${rootMatch[1]}\n\`\`\`\n${rootMatch[2]}\n</proposed_plan>`;
 
 function runHook(input, stateRoot) {
   const result = spawnSync(process.execPath, [hookPath], {
@@ -35,12 +53,67 @@ test("built Codex hook validates native Plan without closeout ceremony", () => {
   try {
     const started = runHook({ hook_event_name: "UserPromptSubmit", permission_mode: "plan", prompt: "$plan-work bundle" }, stateRoot);
     assert.match(started.hookSpecificOutput.additionalContext, /Native task plans are the only Manual plan authority/);
-    assert.deepEqual(runHook({ hook_event_name: "Stop", last_assistant_message: `<proposed_plan>\n${rootPlan}\n</proposed_plan>` }, stateRoot), {});
+    assert.deepEqual(runHook({ hook_event_name: "Stop", last_assistant_message: proposedPlan }, stateRoot), {});
     const stored = JSON.parse(readFileSync(stateFiles(stateRoot)[0], "utf8"));
     assert.equal(stored.schema, 2);
     assert.equal(stored.kind, "manual-native-plan-review");
     assert.equal(stored.turn, null);
     assert.equal(stored.active_root_plan_id, undefined);
+
+    runHook({ hook_event_name: "UserPromptSubmit", permission_mode: "plan", prompt: "$plan-work bundle again" }, stateRoot);
+    const denied = runHook({
+      hook_event_name: "Stop",
+      last_assistant_message: proposedPlan.replace(/## Quick decision[\s\S]*?(?=\`\`\`yaml artifact-envelope)/, "Arbitrary preamble only.\n\n"),
+    }, stateRoot);
+    assert.equal(denied.decision, "block");
+    assert.match(denied.reason, /ordered H2 layers/);
+  } finally {
+    rmSync(stateRoot, { recursive: true, force: true });
+  }
+});
+
+test("built Codex hook rejects duplicate Next step sections across human layers", () => {
+  const stateRoot = mkdtempSync(join(tmpdir(), "codex-bundle-layout-"));
+  try {
+    runHook({ hook_event_name: "UserPromptSubmit", permission_mode: "plan", prompt: "$plan-work bundle layout" }, stateRoot);
+    const denied = runHook({
+      hook_event_name: "Stop",
+      last_assistant_message: proposedPlan.replace("## Details", "## Details\n\n### Next step\n\nHuman: take a conflicting second action."),
+    }, stateRoot);
+    assert.equal(denied.decision, "block");
+    assert.match(denied.reason, /exactly one.*Next step|Next step.*exactly one/i);
+  } finally {
+    rmSync(stateRoot, { recursive: true, force: true });
+  }
+});
+
+test("built Codex hook requires the native implementation Completion handoff", () => {
+  for (const [label, lastAssistantMessage] of [
+    ["missing", proposedPlan.replace("### Completion handoff", "### Completion notes")],
+    ["incomplete", proposedPlan.replace("Human: start fresh /review-work or $review-work", "Agent: optionally review later")],
+  ]) {
+    const stateRoot = mkdtempSync(join(tmpdir(), `codex-bundle-handoff-${label}-`));
+    try {
+      runHook({ hook_event_name: "UserPromptSubmit", permission_mode: "plan", prompt: "$plan-work bundle handoff" }, stateRoot);
+      const denied = runHook({ hook_event_name: "Stop", last_assistant_message: lastAssistantMessage }, stateRoot);
+      assert.equal(denied.decision, "block", label);
+      assert.match(denied.reason, /Completion handoff/, label);
+    } finally {
+      rmSync(stateRoot, { recursive: true, force: true });
+    }
+  }
+});
+
+test("built Codex hook rejects incomplete human detail coverage", () => {
+  const stateRoot = mkdtempSync(join(tmpdir(), "codex-bundle-details-"));
+  try {
+    runHook({ hook_event_name: "UserPromptSubmit", permission_mode: "plan", prompt: "$plan-work bundle details" }, stateRoot);
+    const denied = runHook({
+      hook_event_name: "Stop",
+      last_assistant_message: proposedPlan.replace("- Non-goals: No deployment or external service change.", "- Non-goals:"),
+    }, stateRoot);
+    assert.equal(denied.decision, "block");
+    assert.match(denied.reason, /Details coverage|Details requires/);
   } finally {
     rmSync(stateRoot, { recursive: true, force: true });
   }

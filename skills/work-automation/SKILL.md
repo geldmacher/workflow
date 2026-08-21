@@ -3,12 +3,12 @@ name: work-automation
 description: Operate adaptive supervised and certified autonomous Workflow runs.
 ---
 
-Use bundled `workflow_*` tools; never hand-edit state. Load only: `/auto-work` [Preparation](../../references/automation-preparation-contract.md); `/work-status|work-watch|accept-work` [state](../../references/state-contract.md); `/work-control` plus [authorization](../../references/automation-contract.md); `/work-models` [pools](../../references/model-routing-contract.md); `/work-verification` [Profiles](../../references/verification-profile-contract.md).
+Use bundled `workflow_*`; never edit state. Load [runtime output](../../references/human-output-runtime-contract.md), plus: `/auto-work` [Preparation](../../references/automation-preparation-contract.md); `/work-status|work-watch|accept-work` [state](../../references/state-contract.md); `/work-control` [authorization](../../references/automation-contract.md); `/work-models` [pools](../../references/model-routing-contract.md); `/work-verification` [Profiles](../../references/verification-profile-contract.md).
 
-Before mutation read fresh status, revision, and idempotency key. No result grants unstated authority. Never push, PR, merge, deploy, integrate, or auto-learn. Replan passes exact predecessor/review `root_artifacts`; invalid lineage stops.
+Before mutation read status/revision/idempotency. Results grant no authority or push/PR/merge/deploy/integrate/auto-learn. Replan requires exact predecessor/review `root_artifacts`; invalid lineage stops.
 
-Manual status/acceptance sends exact task artifacts; omit `root_plan_id` only for their unique active lineage tip. Never infer authority/evidence. Missing/ambiguous waits; invalid replans. Send `manual_acceptance: provisional` only after explicit `/accept-work`; never persist it. Workflow-3/4 is status-only.
+Manual status prefers exact artifacts. A Root ID may once revalidate cache as non-authoritative transport; missing/conflicting/ambiguous waits. Never infer proof. Acceptance needs an explicit chain via `/accept-work`. Workflow-3/4 is status-only.
 
-A reviewed Run is explained by the outer agent from Root, Strategy, Evidence, receipts, paths, and snapshot—never an extra phase or model call. Order `What was achieved`, `What this means`, `Verification and limits`, then `Technical traceability`. Only `achieved` is **Final repository explanation**; every other state is **Preliminary explanation** with blocker and recovery. Verified acceptance becomes final.
+Outer agent explains directly—no extra phase/model call—via runtime output; final adds exact Root/Strategy/Evidence/receipts/paths/snapshot/continuation. Only `achieved` is **Final repository explanation**; others are **Preliminary explanation** with blocker/recovery. Verified acceptance finalizes it.
 
-Keep journey task-local; Runs aid recovery. Blockers state reason and resolution.
+Task-local Runs aid recovery; blockers give reason/resolution.

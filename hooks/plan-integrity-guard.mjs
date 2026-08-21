@@ -16,7 +16,9 @@ const deny = (user_message) => ({ permission: "deny", user_message });
 function schema5Claim(plan, root) {
   const inspected = inspectArtifactText(plan, root);
   if (inspected.artifact?.fields?.artifact === "work-plan" && inspected.artifact.fields.schema === 5) return true;
-  return /```yaml artifact-envelope[\s\S]*?\bartifact:\s*work-plan\b[\s\S]*?\bschema:\s*5\b[\s\S]*?```/i.test(plan);
+  const fenced = String(plan).match(/```yaml artifact-envelope\s*([\s\S]*?)```/i)?.[1] ?? "";
+  return /(?:^|\n)[ \t]*artifact[ \t]*:[ \t]*work-plan[ \t]*(?:\r?\n|$)/i.test(fenced)
+    && /(?:^|\n)[ \t]*schema[ \t]*:[ \t]*5[ \t]*(?:\r?\n|$)/i.test(fenced);
 }
 
 function extractRootPlanText(plan) {

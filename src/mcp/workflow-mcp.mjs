@@ -167,9 +167,8 @@ server.registerTool("workflow_status", toolContract("workflow_status"), async (i
     const subjectCount = [input.run_id, input.preparation_id, input.root_plan_id].filter(Boolean).length;
     if (subjectCount > 1) throw new Error("workflow_status accepts only one of run_id, preparation_id, or root_plan_id");
     if (input.artifacts && (input.run_id || input.preparation_id)) throw new Error("workflow_status artifacts cannot be combined with a controller subject");
-    if (input.artifacts && input.learning_source_receipt) throw new Error("manual workflow_status does not accept a controller learning source receipt");
-    if (input.root_plan_id && !input.artifacts) throw new Error("manual workflow_status requires artifacts with root_plan_id");
-    if (input.artifacts) return manualTools.status(input);
+    if ((input.root_plan_id || input.artifacts) && input.learning_source_receipt) throw new Error("manual workflow_status does not accept a controller learning source receipt");
+    if (input.root_plan_id || input.artifacts) return manualTools.status(input);
     if (input.manual_acceptance) throw new Error("workflow_status manual_acceptance requires current-task artifacts");
     const { workspace, stateRoot, store, preparationStore, engine } = await context(input.workspace_root);
     const model_inheritance = modelInheritanceSummary(stateRoot);

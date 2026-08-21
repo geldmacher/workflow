@@ -60,12 +60,12 @@ const contracts = Object.freeze({
     },
   },
   workflow_status: {
-    description: "Return current status and a uniform read-only learning projection for an explicit stateless Manual Schema-5 artifact chain.",
+    description: "Return current status and a uniform read-only learning projection for an explicit Manual Schema-5 artifact chain, with root-content cache enrichment only when exact artifacts are omitted.",
     inputSchema: {
       workspace_root: workspaceRoot,
       root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
       manual_acceptance: z.enum(["provisional"]).optional(),
-      artifacts: z.array(artifact).min(1).max(32),
+      artifacts: z.array(artifact).min(1).max(32).optional(),
     },
   },
 });

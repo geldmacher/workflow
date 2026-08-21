@@ -184,6 +184,7 @@ test("dry-run preparation uses a Git-visible snapshot, preserves modes, and alwa
   const item = previewFixture();
   let successRoot;
   let failureRoot;
+  let releaseRoot;
   const scripts = [];
   try {
     const result = withPreparedDeploymentRoot({
@@ -192,6 +193,13 @@ test("dry-run preparation uses a Git-visible snapshot, preserves modes, and alwa
       full: true,
       npmRunner(name, root) {
         scripts.push([name, root]);
+        if (name === "deploy:prepare") assert.equal(existsSync(join(root, ".git")), false);
+        if (name === "release-check") {
+          releaseRoot = root;
+          assert.equal(existsSync(join(root, ".git")), true);
+          assert.equal(realpathSync(git(root, "rev-parse", "--show-toplevel").trim()), realpathSync(root));
+          assert.equal(git(root, "status", "--porcelain", "--untracked-files=normal").trim(), "");
+        }
       },
     }, (root) => {
       successRoot = root;
@@ -211,6 +219,7 @@ test("dry-run preparation uses a Git-visible snapshot, preserves modes, and alwa
     assert.equal(result, "prepared");
     assert.deepEqual(scripts.map(([name]) => name), ["deploy:prepare", "release-check"]);
     assert.equal(scripts.every(([, root]) => root === successRoot), true);
+    assert.equal(releaseRoot, successRoot);
     assert.equal(existsSync(successRoot), false);
 
     assert.throws(() => withPreparedDeploymentRoot({

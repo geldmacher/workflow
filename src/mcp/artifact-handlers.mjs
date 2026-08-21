@@ -13,6 +13,7 @@ import {
   loadManualCheckReceipts,
 } from "../core/manual-check-receipts.mjs";
 import { boundaryReceiptVerifier } from "../core/manual-boundary-receipts.mjs";
+import { humanWorkflowProjection } from "../core/human-output-projection.mjs";
 import { resolveNativePlan } from "../core/native-plan-resolution.mjs";
 import { inspectArtifactText } from "../../scripts/validate-artifact.source.mjs";
 import { modelInheritanceSummary } from "../../hooks/model-inheritance-state.mjs";
@@ -45,6 +46,21 @@ export function createArtifactHandlers({
     Object.assign(error, details);
     return error;
   };
+
+  const projectForHumans = ({
+    rootPlanText = null,
+    artifacts = [],
+    rootPlanId = null,
+    evidenceId = null,
+    reviewId = null,
+  } = {}) => humanWorkflowProjection({
+    rootPlanText,
+    artifacts,
+    pluginRoot,
+    rootPlanId,
+    evidenceId,
+    reviewId,
+  });
 
   const mergeArtifacts = (entries) => {
     const merged = new Map();
@@ -82,6 +98,29 @@ export function createArtifactHandlers({
       && fields?.artifact === "delivery-evidence"
       && (!rootPlanId || fields.root_plan_id === rootPlanId);
   });
+
+  const enrichCachedReviewProvenance = (rootPlanId, rootPlanText, artifacts, handoffStore) => {
+    let cached;
+    try {
+      cached = handoffStore.context(rootPlanId, rootPlanText).artifacts;
+    } catch {
+      return artifacts;
+    }
+    const cachedById = new Map(cached.map((entry) => [entry.label, entry]));
+    return artifacts.map((entry) => {
+      const inspected = inspectArtifactText(entry.text, pluginRoot);
+      const fields = inspected.artifact?.fields;
+      if (inspected.errors.length > 0 || fields?.artifact !== "work-review") return entry;
+      const protectedEntry = cachedById.get(fields.id);
+      if (!protectedEntry) return entry;
+      if (protectedEntry.text !== entry.text) {
+        throw new Error(`cached work-review ${fields.id} conflicts with current-task immutable bytes`);
+      }
+      return protectedEntry.builder_provenance
+        ? { ...entry, builder_provenance: protectedEntry.builder_provenance }
+        : entry;
+    });
+  };
 
   const assertConsistentArtifactTexts = (artifacts = [], { rootPlan = null } = {}) => {
     const byId = new Map();
@@ -213,6 +252,7 @@ export function createArtifactHandlers({
     handoffErrorCode,
     rootContentHashValue,
     handoffMode,
+    rootPlanText,
   }) => ({
     ...(workspace ? { workspace_root: workspace } : {}),
     workspace_binding: workspaceBinding ?? (workspace ? "trusted-root" : "not-established"),
@@ -240,6 +280,12 @@ export function createArtifactHandlers({
     ...(persisted.artifact_set_hash ? { artifact_set_hash: persisted.artifact_set_hash } : {}),
     ...(warning ? { warning } : {}),
     ...(handoffErrorCode || persisted.handoff_error_code ? { handoff_error_code: handoffErrorCode ?? persisted.handoff_error_code } : {}),
+    human_projection: projectForHumans({
+      rootPlanText,
+      artifacts: [{ label: persisted.fields.id, text: persisted.artifact }],
+      rootPlanId: input.root_plan_id,
+      evidenceId: persisted.fields.id,
+    }),
   });
 
   const reviewPayload = ({
@@ -252,6 +298,7 @@ export function createArtifactHandlers({
     handoffErrorCode,
     rootContentHashValue,
     handoffMode,
+    rootPlanText,
   }) => ({
     ...(workspace ? { workspace_root: workspace } : {}),
     workspace_binding: workspaceBinding ?? (workspace ? "trusted-root" : "not-established"),
@@ -279,9 +326,16 @@ export function createArtifactHandlers({
     ...(persisted.artifact_set_hash ? { artifact_set_hash: persisted.artifact_set_hash } : {}),
     ...(warning ? { warning } : {}),
     ...(handoffErrorCode || persisted.handoff_error_code ? { handoff_error_code: handoffErrorCode ?? persisted.handoff_error_code } : {}),
+    human_projection: projectForHumans({
+      rootPlanText,
+      artifacts: [...(input.artifacts ?? []), { label: persisted.fields.id, text: persisted.artifact }],
+      rootPlanId: input.root_plan_id,
+      evidenceId: persisted.fields.latest_evidence_id ?? null,
+      reviewId: persisted.fields.id,
+    }),
   });
 
-  const reviewBundlePayload = ({ input, workspace, bundle, rootContentHashValue }) => ({
+  const reviewBundlePayload = ({ input, workspace, bundle, persisted, rootContentHashValue, rootPlanText }) => ({
     ...(workspace ? { workspace_root: workspace } : {}),
     workspace_binding: workspace ? "trusted-root" : "not-established",
     workspace_root_used: Boolean(workspace),
@@ -291,26 +345,39 @@ export function createArtifactHandlers({
     delivery_evidence_id: bundle.delivery_evidence.fields.id,
     delivery_evidence_artifact: bundle.delivery_evidence.artifact,
     delivery_evidence_hash: bundle.delivery_evidence.artifact_hash,
-    work_review_id: bundle.review.fields.id,
-    artifact: bundle.review.artifact,
-    artifact_hash: bundle.review.artifact_hash,
-    review_input_hash: bundle.review.review_input_hash,
-    authoritative_fields: bundle.review.fields,
-    assessment: bundle.review.fields.assessment,
-    delivery_status: bundle.review.fields.delivery_status,
-    next_action: bundle.review.fields.next_action,
-    review_route: bundle.review.fields.review_route,
-    latest_evidence_id: bundle.review.fields.latest_evidence_id,
-    predecessor_review_id: bundle.review.fields.predecessor_review_id ?? null,
-    correction_id: bundle.review.fields.correction_id ?? null,
+    work_review_id: persisted.fields.id,
+    artifact: persisted.artifact,
+    artifact_hash: persisted.artifact_hash,
+    review_input_hash: persisted.review_input_hash,
+    authoritative_fields: persisted.fields,
+    assessment: persisted.fields.assessment,
+    delivery_status: persisted.fields.delivery_status,
+    next_action: persisted.fields.next_action,
+    review_route: persisted.fields.review_route,
+    latest_evidence_id: persisted.fields.latest_evidence_id,
+    predecessor_review_id: persisted.fields.predecessor_review_id ?? null,
+    correction_id: persisted.fields.correction_id ?? null,
     changed_paths: bundle.changed_paths,
     observed_dirty_paths: bundle.observed_dirty_paths,
     repository_snapshot: bundle.repository_snapshot,
-    duplicate: bundle.review.duplicate && bundle.delivery_evidence.duplicate,
+    duplicate: persisted.duplicate && bundle.delivery_evidence.duplicate,
     task_local_valid: true,
-    handoff_persisted: false,
+    handoff_persisted: persisted.handoff_persisted,
     handoff_authoritative: false,
-    handoff_mode: "task-local",
+    handoff_mode: persisted.handoff_persisted ? "root-content-cache" : "task-local",
+    ...(persisted.artifact_set_hash ? { artifact_set_hash: persisted.artifact_set_hash } : {}),
+    ...(persisted.warning ? { warning: persisted.warning } : {}),
+    ...(persisted.handoff_error_code ? { handoff_error_code: persisted.handoff_error_code } : {}),
+    human_projection: projectForHumans({
+      rootPlanText,
+      artifacts: [
+        { label: bundle.delivery_evidence.fields.id, text: bundle.delivery_evidence.artifact },
+        { label: persisted.fields.id, text: persisted.artifact },
+      ],
+      rootPlanId: input.root_plan_id,
+      evidenceId: bundle.delivery_evidence.fields.id,
+      reviewId: persisted.fields.id,
+    }),
   });
 
   const record = async (input) => {
@@ -346,6 +413,10 @@ export function createArtifactHandlers({
           recorded: [],
           duplicates: [],
           warning: `handoff cache unavailable: ${error.message}; attach the exact artifact explicitly to the next Workflow command`,
+          human_projection: projectForHumans({
+            rootPlanText: input.root_plan ?? null,
+            artifacts: input.artifacts,
+          }),
         });
       }
       const operational = await optionalOperational(input.workspace_root);
@@ -380,6 +451,10 @@ export function createArtifactHandlers({
           handoff_mode: "root-content-cache",
           root_content_hash,
           ...recorded,
+          human_projection: projectForHumans({
+            rootPlanText,
+            artifacts: [...byId.values()],
+          }),
           ...(operational.workspace_error && input.workspace_root
             ? { warning: `workspace binding unavailable (${operational.workspace_error.code}); recorded under root-content handoff namespace` }
             : {}),
@@ -398,6 +473,10 @@ export function createArtifactHandlers({
           recorded: [],
           duplicates: [],
           warning: `handoff cache unavailable: ${error.message}; attach the exact artifact explicitly to the next Workflow command`,
+          human_projection: projectForHumans({
+            rootPlanText,
+            artifacts: [...byId.values()],
+          }),
         });
       }
     } catch (error) { return failure("workflow_artifact_record")(error); }
@@ -405,7 +484,7 @@ export function createArtifactHandlers({
 
   const context = async (input) => {
     try {
-      const { root_content_hash, handoffStore } = contentHandoff({
+      const { rootPlanText, root_content_hash, handoffStore } = contentHandoff({
         rootPlanId: input.root_plan_id,
         rootPlan: input.root_plan,
         artifacts: input.artifacts,
@@ -421,6 +500,13 @@ export function createArtifactHandlers({
         handoff_mode: "root-content-cache",
         root_content_hash,
         ...chain,
+        human_projection: projectForHumans({
+          rootPlanText,
+          artifacts: chain.artifacts,
+          rootPlanId: input.root_plan_id,
+          evidenceId: chain.evidence_tip ?? null,
+          reviewId: chain.review_tip ?? null,
+        }),
         model_inheritance: operational.stateRoot
           ? modelInheritanceSummary(operational.stateRoot)
           : { authoritative: false, status: "unavailable", evidence_effect: "none", reason: "workspace-binding-not-established" },
@@ -433,9 +519,9 @@ export function createArtifactHandlers({
       if (bundleSize(input.artifacts) > 1_000_000) throw new Error("closeout artifact bundle exceeds 1000000 characters");
       const operational = await optionalOperational(input.workspace_root);
 
-      // Cursor and Codex Manual Review is deliberately stateless. Exact native
-      // task artifacts plus the current repository are enough to create the
-      // paired Evidence/Review result; legacy handoff cannot grant authority.
+      // Cursor and Codex Manual Review authority stays task-local. The paired
+      // result is additionally cached as non-authoritative transport so a
+      // later task turn can recover the exact bytes without inventing them.
       if ((input.artifact_kind ?? "delivery-evidence") === "work-review") {
         const nativePlan = resolveNativePlan({
           candidates: input.root_plan
@@ -457,9 +543,17 @@ export function createArtifactHandlers({
             `workflow_closeout could not inspect the current repository${operational.workspace_error?.message ? `: ${operational.workspace_error.message}` : ""}`,
           );
         }
+        const handoffStore = handoffStoreFactory(nativePlan.root_text, pluginRoot);
+        bindBoundaryTrust(handoffStore, operational.workspace);
+        const reviewArtifacts = enrichCachedReviewProvenance(
+          input.root_plan_id,
+          nativePlan.root_text,
+          input.artifacts ?? [],
+          handoffStore,
+        );
         const bundle = buildManualReviewLifecycle({
           rootPlanText: nativePlan.root_text,
-          artifacts: input.artifacts ?? [],
+          artifacts: reviewArtifacts,
           reviewInput: input.review_input,
           checkEvidence: input.check_evidence ?? [],
           strategyRevision: input.strategy_revision ?? 0,
@@ -470,11 +564,34 @@ export function createArtifactHandlers({
         if (nativePlan.root_id !== input.root_plan_id || bundle.root_plan_id !== input.root_plan_id) {
           throw new Error(`workflow_closeout Root ID mismatch: expected ${input.root_plan_id}, received ${bundle.root_plan_id}`);
         }
+        let persisted = persistWorkReview({
+          handoffStore,
+          rootPlanText: nativePlan.root_text,
+          artifacts: [
+            ...reviewArtifacts,
+            { label: bundle.delivery_evidence.fields.id, text: bundle.delivery_evidence.artifact },
+          ],
+          review: bundle.review,
+        });
+        if (persisted.handoff_persisted) {
+          try {
+            rememberContentAddressedRoot(nativePlan.root_text, pluginRoot);
+          } catch (error) {
+            persisted = {
+              ...persisted,
+              handoff_persisted: false,
+              handoff_error_code: "handoff-persist-failed",
+              warning: `optional cross-task review handoff index unavailable: ${error.message}; task-local Review remains valid`,
+            };
+          }
+        }
         return toolResult("workflow_closeout", reviewBundlePayload({
           input,
           workspace: operational.workspace,
           bundle,
+          persisted,
           rootContentHashValue: nativePlan.root_hash,
+          rootPlanText: nativePlan.root_text,
         }));
       }
 
@@ -504,7 +621,7 @@ export function createArtifactHandlers({
         if (!handoff) {
           if (!input.root_plan) throw error;
           const merged = mergeArtifacts(input.artifacts ?? []);
-          const { closeoutResult, artifactKind } = buildCloseout(input, merged, operational.workspace);
+          const { rootPlan, closeoutResult, artifactKind } = buildCloseout(input, merged, operational.workspace);
           const payload = artifactKind === "work-review" ? reviewPayload : closeoutPayload;
           return toolResult("workflow_closeout", payload({
             input,
@@ -515,6 +632,7 @@ export function createArtifactHandlers({
             warning: `optional cross-task handoff unavailable: ${error.message}; task-local ${artifactKind === "work-review" ? "Review" : "continuation"} remains valid`,
             handoffErrorCode: "handoff-persist-failed",
             handoffMode: "stateless",
+            rootPlanText: rootPlan,
           }));
         }
       }
@@ -572,6 +690,7 @@ export function createArtifactHandlers({
         rootContentHashValue: root_content_hash ?? rootContentHash(rootPlan),
         handoffMode: persisted.handoff_persisted ? "root-content-cache" : "stateless",
         handoffErrorCode: persisted.handoff_error_code,
+        rootPlanText: rootPlan,
       }));
     } catch (error) { return failure("workflow_closeout")(error); }
   };

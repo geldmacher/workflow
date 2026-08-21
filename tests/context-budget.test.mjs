@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   baselineFromMeasurement,
@@ -42,6 +43,17 @@ test("manual phase flows model progressive contract loading", () => {
   assert.ok(!Object.hasOwn(measurement.flow_breakdown.correction, "references/closeout-contract.md"));
   assert.ok(!Object.hasOwn(measurement.phase_flows, "closeout"));
   assert.ok(Object.hasOwn(measurement.flow_breakdown.learning, "references/learning-contract.md"));
+  for (const name of Object.keys(flowMatrix.phase_flows).filter((name) => name !== "plan_intake")) {
+    assert.ok(Object.hasOwn(measurement.flow_breakdown[name], "references/human-output-runtime-contract.md"), `${name} misses runtime output`);
+  }
+  for (const name of Object.keys(flowMatrix.automation_flows)) {
+    assert.ok(Object.hasOwn(measurement.flow_breakdown[name], "references/human-output-runtime-contract.md"), `${name} misses runtime output`);
+  }
+  const runtimeOutput = readFileSync(new URL("../references/human-output-runtime-contract.md", import.meta.url), "utf8");
+  assert.match(runtimeOutput, /Quick decision.*actionable.*one actor\/action.*terminal.*Done.*Accepted provisionally.*no action/is);
+  assert.match(runtimeOutput, /Details.*scope\/non-goals.*acceptance\/verification.*risks\/trade-offs.*unknowns\/limits\/recovery/is);
+  assert.match(runtimeOutput, /Agent and machine contract.*standalone for a weaker agent/is);
+  assert.match(runtimeOutput, /complete `structuredContent`.*visible index is non-authoritative/is);
 });
 
 test("load graph matches direct Command and Skill contract links", () => {

@@ -36,6 +36,8 @@ test("review resolves only the current native Plan and never restores Manual aut
   assert.match(runtime, /restore the Plan in this task or create and approve a new native Plan/is);
   assert.match(runtime, /Delivery Evidence and Work Review together or neither/is);
   assert.doesNotMatch(runtime, /recommend.*close-work/i);
+  assert.match(runtime, /exact IDs\/hashes|exact artifact IDs and hashes/i);
+  assert.match(runtime, /do not duplicate (?:their )?raw bytes|instead of duplicating raw bytes/i);
 });
 
 test("artifact consumers resolve semantically and recognize Workflow 3/4 as history", () => {
@@ -44,8 +46,8 @@ test("artifact consumers resolve semantically and recognize Workflow 3/4 as hist
   for (const skill of ["work-review", "work-execution", "work-learning", "work-explanation"]) assert.match(read(`skills/${skill}/SKILL.md`), /Workflow-3\/4/i);
 });
 
-test("planning uses compact semantic Root with immutable intent and adaptive strategy", () => {
-  const runtime = [read("skills/work-planning/SKILL.md"), read("references/executable-contract.md"), read("references/design-contract.md"), read("references/plan-container-contract.md")].join("\n");
+test("planning uses a human-first compact semantic Root with immutable intent and adaptive strategy", () => {
+  const runtime = [read("skills/work-planning/SKILL.md"), read("references/executable-contract.md"), read("references/design-contract.md"), read("references/plan-container-contract.md"), read("references/human-output-contract.md")].join("\n");
   assert.match(runtime, /Intent Readiness, not broad brainstorming/i);
   assert.match(runtime, /at most three related questions/i);
   assert.match(runtime, /Emit no plan or draft before the answer/i);
@@ -62,13 +64,19 @@ test("planning uses compact semantic Root with immutable intent and adaptive str
   assert.match(runtime, /shell Checks inspect wrappers and pre\/post hooks; Review must not write repository content/is);
   assert.match(runtime, /Without sufficient read-only proof, the Root is not ready/i);
   assert.match(runtime, /host guard validates the exact Root but grants no approval/is);
-  assert.match(runtime, /native Plan as the sole plan container/is);
+  assert.match(runtime, /native Plan as the sole (?:plan )?container/is);
+  assert.match(runtime, /Quick decision.*Details.*Agent and machine contract/is);
+  assert.match(runtime, /Completion handoff.*Implement Plan.*Human:.*review-work.*changed paths.*Check commands\/directories\/observations.*failures\/uncertainty.*forbids Evidence, Review, or Learning claims/is);
+  assert.match(runtime, /human layers.*add no authority|oversight projections.*only the exact Root grants authority/is);
+  assert.match(runtime, /weaker capable (?:implementer|agent).*stand alone|stand alone for a weaker capable (?:implementer|agent)/is);
+  assert.match(runtime, /do not add a duplicate JSON projection|do not duplicate the Root as JSON/is);
   assert.match(runtime, /Children match the parent or a Manual approved candidate/is);
   assert.match(runtime, /Manual approved candidate|parent-or-approved/i);
-  assert.match(runtime, /add no closeout todo, `workflow_attestation`, Evidence step, or artifact-record step/is);
+  assert.match(runtime, /no closeout.*attestation.*Evidence.*artifact-record/is);
   assert.match(runtime, /correctness.*security.*maintainability.*performance.*efficiency.*comprehensibility/is);
   assert.match(runtime, /never a six-item checklist/i);
   assert.match(runtime, /advanced tests(?: and |\/)scanners stay optional/i);
+  assert.match(runtime, /Actionable output has exactly one next action.*terminal output has explicit `Done` or `Accepted provisionally` and no action/is);
 });
 
 test("Codex uses review-owned evidence while portable closeout remains compatible", () => {
@@ -127,7 +135,9 @@ test("portable closeout compatibility grants no Cursor or Codex Manual authority
 test("manual consumers share exact current-task artifact authority", () => {
   const status = [read("commands/work-status.md"), read("skills/work-automation/SKILL.md"), read("references/state-contract.md")].join("\n");
   assert.match(status, /exact Root\/Evidence\/Review bytes visible in this task/is);
-  assert.match(status, /never restores host state or cache artifacts/is);
+  assert.match(status, /Root ID.*revalidate.*non-authoritative (?:cache )?transport/is);
+  assert.match(status, /Missing\/conflicting\/ambiguous(?: context)? (?:stops|waits)/is);
+  assert.match(status, /Acceptance needs an explicit chain/is);
   const acceptance = read("commands/accept-work.md");
   assert.match(acceptance, /\[wp-id\] provisional/);
   assert.match(acceptance, /delivery-ready-provisional/);
@@ -140,7 +150,7 @@ test("manual consumers share exact current-task artifact authority", () => {
   const learning = [read("skills/work-learning/SKILL.md"), read("references/learning-contract.md")].join("\n");
   assert.match(learning, /current-task source: exact native Cursor Plan bytes/i);
   assert.match(learning, /exact current.*Schema-5.*chain/is);
-  assert.match(learning, /one exact controller Run already returned in the task|otherwise one controller Run.*current task/is);
+  assert.match(learning, /one exact task-returned Run|explicitly returned controller Run/is);
   assert.match(learning, /latest\/history\/store lookup stops|never search storage/is);
 });
 
@@ -150,7 +160,7 @@ test("automation documents ordered Pools, writer affinity, and automatic downgra
   assert.match(runtime, /Writer affinity persists/i);
   assert.match(runtime, /downgrade.*supervised/i);
   assert.match(runtime, /exact Qualification Key/i);
-  assert.match(runtime, /never push, PR, merge, deploy/i);
+  assert.match(runtime, /(?:never push, PR, merge, deploy|Push(?:\W+PR\W+merge\W+deploy).*forbidden)/is);
 });
 
 test("verification profile is hash bound and drift invalidates activation", () => {
@@ -164,8 +174,8 @@ test("verification profile is hash bound and drift invalidates activation", () =
 test("learning stays human invoked and does not publish transcript rules", () => {
   const runtime = [read("commands/learn-from-work.md"), read("skills/work-learning/SKILL.md"), read("references/learning-contract.md"), read("references/automation-contract.md")].join("\n");
   assert.match(runtime, /(?:separately|directly?) authoriz\w* bounded project-guidance edits/i);
-  assert.match(runtime, /transcripts(?: and provisional acceptance)? never publish rules automatically/i);
-  assert.match(runtime, /workspace[-_]match|delivered paths matching/i);
+  assert.match(runtime, /transcripts(?:\/| and )provisional acceptance never (?:auto-publish|publish automatically) rules/i);
+  assert.match(runtime, /workspace[-_ ]match|delivered paths matching/i);
   assert.match(runtime, /separate human/i);
   assert.match(runtime, /applied\|already-covered\|skipped-unconfirmed\|needs-clarification/i);
 });

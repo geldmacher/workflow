@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 import { defaultRoot } from "../scripts/validate-artifact.source.mjs";
+import { humanWorkflowProjection } from "../src/core/human-output-projection.mjs";
 import {
   buildPresentation,
   formatChangedPaths,
@@ -17,8 +18,32 @@ import {
 } from "../src/mcp/manual-presentation.mjs";
 
 const chatGolden = JSON.parse(readFileSync(join(defaultRoot, "tests", "fixtures", "manual-chat-golden.json"), "utf8"));
+const rootPlan = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
+const evidence = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "delivery-evidence.valid.md"), "utf8");
+const review = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-review.valid.md"), "utf8");
 
-test("Manual presentation leads with outcome and next action without JSON content", () => {
+test("human Workflow projection selects the requested Root and artifact tips", () => {
+  const unrelatedRoot = rootPlan
+    .replace("id: wp-adaptive-retry", "id: wp-unrelated")
+    .replace("goal: Make retry handling deterministic without changing the public contract.", "goal: Unrelated goal.");
+  const projection = humanWorkflowProjection({
+    artifacts: [
+      { label: "wp-adaptive-retry", text: rootPlan },
+      { label: "wp-unrelated", text: unrelatedRoot },
+      { label: "de-adaptive-retry", text: evidence },
+      { label: "wr-adaptive-retry", text: review },
+    ],
+    pluginRoot: defaultRoot,
+    rootPlanId: "wp-adaptive-retry",
+    evidenceId: "de-adaptive-retry",
+    reviewId: "wr-adaptive-retry",
+  });
+  assert.equal(projection.outcome, "Make retry handling deterministic without changing the public contract.");
+  assert.match(projection.approach_and_rationale.join("\n"), /authorized repository change is complete and verified/);
+  assert.match(projection.unknowns_and_recovery.join("\n"), /None\./);
+});
+
+test("Manual presentation uses human-first layers and points last to authoritative structuredContent", () => {
   resetManualPresentationDedupe();
   const response = manualMcpResult("workflow_plan_preflight", {
     feasible: true,
@@ -27,10 +52,30 @@ test("Manual presentation leads with outcome and next action without JSON conten
     advisories: [],
     required_checks: ["CHECK-1"],
     deferred_checks: [],
+    human_projection: humanWorkflowProjection({
+      rootPlanText: rootPlan,
+      artifacts: [{ label: "de-adaptive-retry", text: evidence }, { label: "wr-adaptive-retry", text: review }],
+      pluginRoot: defaultRoot,
+      rootPlanId: "wp-adaptive-retry",
+      evidenceId: "de-adaptive-retry",
+      reviewId: "wr-adaptive-retry",
+    }),
   });
   assert.equal(response.isError, false);
-  assert.match(response.content[0].text, /## Workflow · Plan ready/);
-  assert.match(response.content[0].text, /Technical traceability[\s\S]*workflow_plan_preflight — ready/);
+  assert.match(response.content[0].text, /## Quick decision[\s\S]*State: Plan ready/);
+  assert.match(response.content[0].text, /## Details/);
+  assert.match(response.content[0].text, /### Outcome and approach[\s\S]*Outcome: Make retry handling deterministic/);
+  assert.match(response.content[0].text, /Approach and rationale:[\s\S]*current repository surface/);
+  assert.match(response.content[0].text, /### Scope and boundaries[\s\S]*Allowed repository roots: src, tests/);
+  assert.match(response.content[0].text, /Non-goals:[\s\S]*No deployment or external service change/);
+  assert.match(response.content[0].text, /Constraints:[\s\S]*Preserve the public API/);
+  assert.match(response.content[0].text, /### Verification, risks, and recovery[\s\S]*Retry verification passes twice/);
+  assert.match(response.content[0].text, /Risks and trade-offs:[\s\S]*public-contract regression/);
+  assert.match(response.content[0].text, /Unknowns and recovery:[\s\S]*None\./);
+  assert.match(response.content[0].text, /Agent and machine index \(structuredContent is authoritative\)/);
+  assert.match(response.content[0].text, /Technical traceability index[\s\S]*workflow_plan_preflight — ready/);
+  assert.match(response.content[0].text, /complete structuredContent.*authoritative agent and machine contract/);
+  assert.match(response.content[0].text, /visible index is non-authoritative/);
   assert.match(response.content[0].text, /What happened:/);
   assert.match(response.content[0].text, /### Next step/);
   assert.match(response.content[0].text, /- Now: Implement the Plan/);
@@ -38,7 +83,11 @@ test("Manual presentation leads with outcome and next action without JSON conten
   assert.match(response.content[0].text, /- Why: Delivers inside the approved Root/);
   assert.doesNotMatch(response.content[0].text, /Off track:/);
   assert.doesNotMatch(response.content[0].text, /^\s*\{/);
+  assert.ok(response.content[0].text.indexOf("## Quick decision") < response.content[0].text.indexOf("## Details"));
+  assert.ok(response.content[0].text.indexOf("## Details") < response.content[0].text.indexOf("Agent and machine index"));
   assert.equal(response.structuredContent.presentation.schema, 1);
+  assert.equal(response.structuredContent.presentation.human_projection.schema, 1);
+  assert.equal(Object.hasOwn(response.structuredContent, "human_projection"), false);
   assert.equal(response.structuredContent.presentation.next_action, "implement-plan");
   assert.equal(response.structuredContent.presentation.journey_state, "plan-ready");
   assert.equal(response.structuredContent.presentation.enforcement_level, "explicit");
@@ -191,11 +240,43 @@ test("Next-step footer covers task-local closeout, optional handoff loss, and bl
   assert.equal(status.workflow_state, "root-plan-review");
   assert.match(statusText, /profile: manual/);
   assert.match(statusText, /required actor: unknown/);
-  assert.match(statusText, /Blocker: missing evidence/);
+  assert.match(statusText, /Blocker: Delivery Evidence is not available yet/);
+  assert.match(statusText, /Gaps:[\s\S]*missing evidence/);
   assert.match(statusText, /Resolution: Resolve blocking issues/);
   assert.match(statusText, /Action blocker: Delivery Evidence is not available yet/);
   assert.doesNotMatch(statusText.split("<details>")[0], /Implement Plan/);
   assert.match(status.next_action_invoke, /plan-work wp-x/);
+});
+
+test("blocked host Review routes directly to separately authorized correction", () => {
+  const review = buildPresentation("workflow_closeout", {
+    artifact_kind: "work-review",
+    root_plan_id: "wp-correct",
+    delivery_evidence_id: "de-correct",
+    work_review_id: "wr-correct",
+    latest_evidence_id: "de-correct",
+    artifact_hash: "a".repeat(64),
+    assessment: "not-achieved",
+    delivery_status: "blocked",
+    next_action: "correct",
+    correction_id: "cp-correct",
+    review_route: "inline",
+    handoff_persisted: true,
+    task_local_valid: true,
+    authoritative_fields: { inspected_checks: ["CHECK-1"] },
+  });
+  const text = formatManualToolContent(review);
+  assert.equal(review.next_action, "approve-correction");
+  assert.equal(review.journey_state, "correction-approval-required");
+  assert.deepEqual(review.primary_action, {
+    id: "approve-correction",
+    label: "Apply bounded correction",
+    invoke: "correct-work wp-correct",
+    why: "Applies only the review-approved in-scope FIX set.",
+  });
+  assert.match(text, /Now: Apply bounded correction/);
+  assert.match(text, /How: correct-work wp-correct/);
+  assert.doesNotMatch(text.split("<details>")[0], /work-status|retry review/i);
 });
 
 test("Manual presentation separates blockers from advisories and warnings", () => {
@@ -640,7 +721,7 @@ test("exceptional closeout, handoff, preflight, and error results select one rel
   assert.ok(failedText.indexOf("Learn more:") > failedText.indexOf("### Next step"));
 });
 
-test("two-layer chat exposes one primary action, keeps IDs secondary, and derives a stable deduplication key", () => {
+test("three-layer chat exposes one primary action, keeps IDs last, and derives a stable deduplication key", () => {
   const value = {
     snapshot: {
       root_plan_id: "wp-chat",
@@ -764,9 +845,11 @@ test("golden chat matrix covers every journey state, one action, terminal Done, 
     const disclosure = formatManualToolContent(presentation);
     const fallback = formatManualToolContent(presentation, { technicalDisclosure: false });
     const primary = disclosure.split("<details>")[0];
-    assert.match(primary, new RegExp(`Workflow · ${JOURNEY_STATE_LABELS[entry.state]}`));
+    assert.match(primary, /## Quick decision/);
+    assert.match(primary, new RegExp(`State: ${JOURNEY_STATE_LABELS[entry.state]}`));
+    assert.match(primary, /## Details/);
     assert.doesNotMatch(primary.replace(/- How:.*\n/, ""), /wp-golden-chat|```yaml|workflow_(?:closeout|status)|MCP/);
-    assert.match(fallback, /\n---\n\n### Technical traceability\n/);
+    assert.match(fallback, /\n---\n\n## Agent and machine index[\s\S]*### Technical traceability index\n/);
     if (entry.action) {
       assert.equal(presentation.primary_action.id, entry.action);
       assert.equal((primary.match(/^- Now:/gm) ?? []).length, 1);
@@ -785,6 +868,7 @@ test("changed path rendering stays bounded while preserving count", () => {
   assert.equal(formatChangedPaths([]), "changed paths: none");
   assert.equal(formatChangedPaths(["a.mjs", "b.mjs"]), "changed paths (2): a.mjs, b.mjs");
   const many = Array.from({ length: 50 }, (_, index) => `src/path-${index}.mjs`);
+  const exactArtifact = "EXACT-DELIVERY-EVIDENCE-BYTES";
   const rendered = formatChangedPaths(many);
   assert.match(rendered, /changed paths \(50, showing 10\):/);
   assert.match(rendered, /\(\+40 more\)/);
@@ -803,6 +887,7 @@ test("changed path rendering stays bounded while preserving count", () => {
 
   const response = manualMcpResult("workflow_closeout", {
     delivery_evidence_id: "de-many",
+    artifact: exactArtifact,
     overall_grade: "verified",
     status: "complete",
     evidence_mode: "lean",
@@ -811,7 +896,11 @@ test("changed path rendering stays bounded while preserving count", () => {
   });
   assert.equal(response.structuredContent.changed_paths.length, 50);
   assert.equal(response.structuredContent.changed_paths[11], "src/path-11.mjs");
+  assert.equal(response.structuredContent.artifact, exactArtifact);
   assert.doesNotMatch(response.content[0].text, /src\/path-11\.mjs/);
+  assert.doesNotMatch(response.content[0].text, new RegExp(exactArtifact));
+  assert.doesNotMatch(response.content[0].text, /authoritative continuation data/);
+  assert.match(response.content[0].text, /structuredContent.*authoritative agent and machine contract/);
 });
 
 test("blocked closeout with unpersisted handoff still routes to review", () => {

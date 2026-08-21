@@ -1,0 +1,3 @@
+# Runtime output
+
+Every material reply: `Quick decision` (result/effect, Checks, blocker; actionable: one actor/action; terminal: `Done`/`Accepted provisionally`, no action); `Details` (outcome, approach, scope/non-goals, constraints, acceptance/verification, risks/trade-offs, unknowns/limits/recovery; no machine-only meaning); authoritative `Agent and machine contract`, standalone for a weaker agent. Phase supplies authority/artifacts, work/dependencies/targets/Checks, evidence/limits, continuation/stop data. Human layers add no authority. MCP returns complete `structuredContent`; its visible index is non-authoritative.

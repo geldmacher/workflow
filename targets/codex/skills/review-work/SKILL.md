@@ -5,7 +5,7 @@ description: Perform a fresh read-only Workflow delivery review. Use when the us
 
 # $review-work
 
-Use a fresh Review phase in this Codex task; another task is optional. Read [Manual Workflow](../../references/manual-workflow-contract.md), [artifact protocol](../../references/artifact-protocol.md), [delivery evidence](../../references/delivery-evidence-contract.md), and [review contract](../../references/review-contract.md) completely; that contract links the closed host-owned input.
+Use a fresh Review phase in this Codex task; another task is optional. Read [Manual Workflow](../../references/manual-workflow-contract.md), [human-first output](../../references/human-output-contract.md), [artifact protocol](../../references/artifact-protocol.md), [delivery evidence](../../references/delivery-evidence-contract.md), and [review contract](../../references/review-contract.md) completely; that contract links the closed host-owned input.
 
 Resolve one exact Schema-5 Root only from the current Codex Plan-mode `<proposed_plan>` and current task context. Current-task predecessor Evidence/Review bytes may extend it. Never restore authority from hook state, handoff/cache, `workflow_artifact_context`, or another task. If no exact Root is available, stop before substantive review: list the native sources inspected and give one remedy—restore the Plan in this task or create and approve a new native Plan. Ambiguous native candidates block Review the same way.
 
@@ -17,6 +17,8 @@ Call `workflow_closeout` exactly once with `artifact_kind: work-review`, exact n
 
 Use the current-delivery `constraint_summary`, `human_attention`, and `problem_details`. State what happened; show attention and Problems only when actionable; explain why and how to recover; end with one Now/How/Why action.
 
-The current reviewer—not another subagent or model call—must then give **Final repository explanation** only for `achieved`, otherwise **Preliminary explanation** with blockers and next safe action. Order `What was achieved`, `What this means`, `Verification and limits`, and `Technical traceability`; make the first three understandable without implementation history and put exact Root/Evidence/Review, Check/Finding, and path/symbol IDs last.
+The current reviewer—not another subagent or model call—must then give **Final repository explanation** only for `achieved`, otherwise **Preliminary explanation** with blockers and next safe action. Order `Quick decision`; human `Details` containing `What was achieved`, `What this means`, and `Verification and limits`; then the authoritative `Agent and machine contract` containing `Technical traceability`. Make both human layers understandable without implementation history and put exact Root/Evidence/Review, Check/Finding, path/symbol IDs, observations, and continuation state last.
 
 Malformed input gets one named-field repair in this task; Root and repository work remain intact. A second failure blocks only Review. Returned exact Evidence/Review bytes remain authoritative in this task even when persistence is unavailable. End actionable output with `### Next step` using `$command`; achieved uses `### Done`. Correction stays separately human-authorized.
+
+Follow the single host action directly. `next_action: correct` means `$correct-work`; never insert `$work-status` or another Review. Preserve exact artifact IDs and hashes, but reference task-local Root/Evidence/Review fields already present in the Plan or `structuredContent` instead of duplicating raw bytes. Include raw bytes only for an explicitly requested cross-task or cross-host export without exact handoff transport.

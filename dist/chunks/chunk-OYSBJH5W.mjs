@@ -5,7 +5,7 @@ import {
   effectiveCliSummary,
   inspectArtifactSet,
   inspectArtifactText
-} from "./chunk-4WJTGI5A.mjs";
+} from "./chunk-WNGW7KKK.mjs";
 import {
   contentAddressedHandoffRoot,
   contentAddressedHandoffRootByHash,

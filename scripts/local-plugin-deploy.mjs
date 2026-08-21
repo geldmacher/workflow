@@ -263,6 +263,28 @@ function createDeploymentPreviewSnapshot(root) {
   }
 }
 
+function withTemporaryPreviewRepository(root, callback) {
+  const gitDirectory = join(root, ".git");
+  run("git", ["init", "--quiet"], { cwd: root });
+  try {
+    writeFileSync(join(gitDirectory, "info", "exclude"), ".build/\nnode_modules/\n.tmp-*/\n", "utf8");
+    run("git", ["add", "--all"], { cwd: root });
+    run("git", [
+      "-c", "core.hooksPath=/dev/null",
+      "-c", "commit.gpgSign=false",
+      "-c", "user.name=Workflow Preview",
+      "-c", "user.email=workflow-preview@localhost",
+      "commit", "--quiet", "--no-verify", "--message", "Workflow deployment preview",
+    ], { cwd: root });
+    if (run("git", ["status", "--porcelain", "--untracked-files=normal"], { cwd: root }).trim()) {
+      throw new Error("deployment preview repository is not clean after snapshot commit");
+    }
+    return callback();
+  } finally {
+    rmSync(gitDirectory, { recursive: true, force: true });
+  }
+}
+
 export function withPreparedDeploymentRoot({ root, dryRun, full = false, npmRunner = npmScript }, callback) {
   if (!dryRun) {
     npmRunner("deploy:prepare", root);
@@ -272,7 +294,9 @@ export function withPreparedDeploymentRoot({ root, dryRun, full = false, npmRunn
   const snapshot = createDeploymentPreviewSnapshot(root);
   try {
     npmRunner("deploy:prepare", snapshot.root);
-    if (full) npmRunner("release-check", snapshot.root);
+    if (full) {
+      withTemporaryPreviewRepository(snapshot.root, () => npmRunner("release-check", snapshot.root));
+    }
     return callback(snapshot.root);
   } finally {
     rmSync(snapshot.tempRoot, { recursive: true, force: true });

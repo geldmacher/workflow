@@ -21,6 +21,10 @@ This contract preserves Workflow's Schema-5 Manual semantics on Agent Plugins cl
 
 Required machine claims are verified only by fresh protected host receipts bound to the exact Root, command, directory, and repository snapshot. Agent Plugins clients without compatible lifecycle hooks receive an honest MCP downgrade; they never simulate receipts. Closeout, status, and review expose current-delivery coverage, actionable human attention, Problems with cause and recovery, and one next action.
 
+## Human-facing output
+
+Every material reply follows [human-first output](./human-output-contract.md): `Quick decision`, complete human `Details`, then the authoritative `Agent and machine contract`. The human layers add no authority. For MCP tool results, inspect the complete authoritative `structuredContent`; the visible final machine index is a non-authoritative pointer, not a substitute.
+
 ## Failure boundary
 
 Invalid, incomplete, stale, conflicting, mixed-version, redirected, or ambiguous Roots, workspace identity, baselines, Check observations, or artifact chains stop the action. Missing MCP capability stops planning or closeout where it is mandatory. Prose, cache content, tool IDs, or subagent claims cannot substitute for exact artifacts or manufacture approval, Evidence, or success.

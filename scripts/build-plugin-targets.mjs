@@ -50,6 +50,7 @@ const sharedReferences = [
   "explanation-contract.md",
   "learning-contract.md",
   "host-approval-contract.md",
+  "human-output-contract.md",
   "manual-subagent-policy.md",
   "manual-workflow-contract.md",
   "manual-attestation-contract.md",
@@ -60,15 +61,15 @@ const sharedReferences = [
   "state-contract.md",
 ];
 const portableSkillReferences = Object.freeze({
-  "accept-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "state-contract.md"],
-  "close-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "delivery-evidence-contract.md", "closeout-contract.md"],
-  "correct-work": ["portable-manual.md", "manual-workflow-contract.md", "correction-contract.md", "artifact-protocol.md", "closeout-contract.md"],
-  "explain-work": ["portable-manual.md", "manual-workflow-contract.md", "state-contract.md", "explanation-contract.md"],
-  "implement-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "executable-contract.md", "delivery-evidence-contract.md", "closeout-contract.md"],
-  "learn-from-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "learning-contract.md"],
-  "plan-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "executable-contract.md", "design-contract.md", "closeout-contract.md"],
-  "review-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "delivery-evidence-contract.md", "review-contract.md", "work-review-input-contract.md", "explanation-contract.md"],
-  "work-status": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "state-contract.md"],
+  "accept-work": ["portable-manual.md", "manual-workflow-contract.md", "human-output-contract.md", "artifact-protocol.md", "state-contract.md"],
+  "close-work": ["portable-manual.md", "manual-workflow-contract.md", "human-output-contract.md", "artifact-protocol.md", "delivery-evidence-contract.md", "closeout-contract.md"],
+  "correct-work": ["portable-manual.md", "manual-workflow-contract.md", "human-output-contract.md", "correction-contract.md", "artifact-protocol.md", "closeout-contract.md"],
+  "explain-work": ["portable-manual.md", "manual-workflow-contract.md", "human-output-contract.md", "state-contract.md", "explanation-contract.md"],
+  "implement-work": ["portable-manual.md", "manual-workflow-contract.md", "human-output-contract.md", "artifact-protocol.md", "executable-contract.md", "delivery-evidence-contract.md", "closeout-contract.md"],
+  "learn-from-work": ["portable-manual.md", "manual-workflow-contract.md", "human-output-contract.md", "artifact-protocol.md", "learning-contract.md"],
+  "plan-work": ["portable-manual.md", "manual-workflow-contract.md", "human-output-contract.md", "artifact-protocol.md", "executable-contract.md", "design-contract.md", "closeout-contract.md"],
+  "review-work": ["portable-manual.md", "manual-workflow-contract.md", "human-output-contract.md", "artifact-protocol.md", "delivery-evidence-contract.md", "review-contract.md", "work-review-input-contract.md", "explanation-contract.md"],
+  "work-status": ["portable-manual.md", "manual-workflow-contract.md", "human-output-contract.md", "artifact-protocol.md", "state-contract.md"],
 });
 
 function inside(base, path) {

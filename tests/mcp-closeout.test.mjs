@@ -74,6 +74,10 @@ test("MCP plan preflight is read-only and independent from workspace roots", asy
     assert.equal(preflight.structuredContent.feasible, true);
     assert.equal(preflight.structuredContent.approval_granted, false);
     assert.equal(preflight.structuredContent.mutation_performed, false);
+    assert.equal(preflight.structuredContent.presentation.human_projection.schema, 1);
+    assert.equal(preflight.structuredContent.presentation.human_projection.outcome, "Make retry handling deterministic without changing the public contract.");
+    assert.match(preflight.content[0].text, /### Scope and boundaries[\s\S]*No deployment or external service change/);
+    assert.match(preflight.content[0].text, /Risks and trade-offs:[\s\S]*public-contract regression/);
   } finally {
     await client.close().catch(() => {});
     rmSync(home, { recursive: true, force: true });
@@ -419,13 +423,25 @@ test("MCP work-review mode builds one host-owned review and remains idempotent w
         artifacts: [...argumentsValue.artifacts, { label: "raw-review", text: first.structuredContent.artifact, legacy_review_recorded: true }],
         review_input: {
           ...achievedReviewInput,
-          assessment_summary: "A newly imported raw Review must not enter predecessor authority.",
+          assessment_summary: "The exact returned Review may continue only with matching protected builder provenance.",
         },
       },
     });
-    assert.equal(rawReviewCloseout.isError, true);
-    assert.equal(rawReviewCloseout.structuredContent.error_code, "review-artifact-rejected");
-    assert.match(rawReviewCloseout.structuredContent.error, /rejects newly imported work-review.*without protected builder provenance/);
+    assert.equal(rawReviewCloseout.isError, false, JSON.stringify(rawReviewCloseout.structuredContent));
+    assert.equal(rawReviewCloseout.structuredContent.predecessor_review_id, first.structuredContent.work_review_id);
+    const conflictingReviewCloseout = await client.callTool({
+      name: "workflow_closeout",
+      arguments: {
+        ...argumentsValue,
+        artifacts: [{ label: "evidence", text: controlledEvidence }, {
+          label: "conflicting-review",
+          text: `${first.structuredContent.artifact}\nConflicting immutable bytes.\n`,
+        }],
+        review_input: achievedReviewInput,
+      },
+    });
+    assert.equal(conflictingReviewCloseout.isError, true);
+    assert.match(conflictingReviewCloseout.structuredContent.error, /conflicts with current-task immutable bytes/);
     const tools = await client.listTools();
     const manualNames = new Set([
       "workflow_artifact_context",
@@ -476,8 +492,52 @@ test("MCP native Review atomically creates missing Evidence and rejects cache-on
     assert.match(reviewed.structuredContent.delivery_evidence_artifact, /^---\nartifact: delivery-evidence/m);
     assert.match(reviewed.structuredContent.artifact, /^---\nartifact: work-review/m);
     assert.equal(reviewed.structuredContent.latest_evidence_id, reviewed.structuredContent.delivery_evidence_id);
-    assert.equal(reviewed.structuredContent.handoff_persisted, false);
+    assert.equal(reviewed.structuredContent.handoff_persisted, true);
+    assert.equal(reviewed.structuredContent.handoff_mode, "root-content-cache");
     assert.ok(Array.isArray(reviewed.structuredContent.observed_dirty_paths));
+
+    const context = await client.callTool({
+      name: "workflow_artifact_context",
+      arguments: { workspace_root: defaultRoot, root_plan_id: "wp-adaptive-retry" },
+    });
+    assert.equal(context.isError, false, JSON.stringify(context.structuredContent));
+    assert.equal(context.structuredContent.evidence_tip, reviewed.structuredContent.delivery_evidence_id);
+    assert.equal(context.structuredContent.review_tip, reviewed.structuredContent.work_review_id);
+    const cachedReview = context.structuredContent.artifacts.find((entry) => entry.label === reviewed.structuredContent.work_review_id);
+    assert.equal(cachedReview.text, reviewed.structuredContent.artifact);
+    assert.equal(cachedReview.builder_provenance.kind, "host-work-review-builder");
+
+    const resumedStatus = await client.callTool({
+      name: "workflow_status",
+      arguments: { workspace_root: defaultRoot, root_plan_id: "wp-adaptive-retry" },
+    });
+    assert.equal(resumedStatus.isError, false, JSON.stringify(resumedStatus.structuredContent));
+    assert.equal(resumedStatus.structuredContent.artifact_transport, "root-content-cache");
+    assert.equal(resumedStatus.structuredContent.handoff_authoritative, false);
+    assert.equal(resumedStatus.structuredContent.snapshot.evidence_tip, reviewed.structuredContent.delivery_evidence_id);
+    assert.equal(resumedStatus.structuredContent.snapshot.review_tip, reviewed.structuredContent.work_review_id);
+
+    const mixedAuthority = await client.callTool({
+      name: "workflow_status",
+      arguments: {
+        workspace_root: defaultRoot,
+        root_plan_id: "wp-adaptive-retry",
+        learning_source_receipt: "controller-receipt-does-not-belong-to-manual-status",
+      },
+    });
+    assert.equal(mixedAuthority.isError, true);
+    assert.match(mixedAuthority.structuredContent.error, /does not accept a controller learning source receipt/);
+
+    const cachedAcceptance = await client.callTool({
+      name: "workflow_status",
+      arguments: {
+        workspace_root: defaultRoot,
+        root_plan_id: "wp-adaptive-retry",
+        manual_acceptance: "provisional",
+      },
+    });
+    assert.equal(cachedAcceptance.isError, true);
+    assert.match(cachedAcceptance.structuredContent.error, /acceptance requires the explicit exact current-task artifact chain/);
 
     const rootless = await client.callTool({
       name: "workflow_closeout",
@@ -540,6 +600,25 @@ test("MCP returns task-local valid Evidence when only optional handoff persisten
     assert.equal(closed.structuredContent.presentation.next_action, "review-root");
     assert.match(closed.content[0].text, /Review delivery/);
     assert.equal(closed.structuredContent.presentation.schema, 1);
+
+    const reviewed = await client.callTool({
+      name: "workflow_closeout",
+      arguments: {
+        workspace_root: defaultRoot,
+        artifact_kind: "work-review",
+        root_plan_id: "wp-adaptive-retry",
+        root_plan: rootPlan,
+        check_evidence: [verifiedCheck],
+        review_input: achievedReviewInput,
+      },
+    });
+    assert.equal(reviewed.isError, false, JSON.stringify(reviewed.structuredContent));
+    assert.equal(reviewed.structuredContent.task_local_valid, true);
+    assert.equal(reviewed.structuredContent.handoff_persisted, false);
+    assert.equal(reviewed.structuredContent.handoff_error_code, "handoff-persist-failed");
+    assert.match(reviewed.structuredContent.delivery_evidence_artifact, /^---\nartifact: delivery-evidence/m);
+    assert.match(reviewed.structuredContent.artifact, /^---\nartifact: work-review/m);
+    assert.match(reviewed.structuredContent.warning, /task-local Review remains valid/);
   } finally {
     await client.close().catch(() => {});
     rmSync(directory, { recursive: true, force: true });

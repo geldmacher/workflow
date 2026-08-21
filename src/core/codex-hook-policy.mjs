@@ -9,6 +9,7 @@ import {
   extractRootPlanText,
   inspectPresentedRootPlan,
 } from "./root-plan-attestation.mjs";
+import { inspectHumanFirstPlanLayout } from "./human-plan-layout.mjs";
 
 export const CODEX_PLAN_MARKER = "[workflow-codex-plan-v1]";
 export const CODEX_REVIEW_MARKER = "[workflow-codex-review-v1]";
@@ -161,19 +162,25 @@ function planningStop(input, state, options = {}) {
   const message = String(input.last_assistant_message ?? "");
   const rootText = extractRootPlanText(message);
   let reason = null;
-  if (!/<proposed_plan>[\s\S]*<\/proposed_plan>/i.test(message) || !rootText) {
+  const proposedMatch = message.match(/<proposed_plan>([\s\S]*?)<\/proposed_plan>/i);
+  if (!proposedMatch || !rootText) {
     reason = "Workflow Plan validation failed: return one <proposed_plan> containing the exact Schema-5 Root text and its wp-* ID.";
   } else {
-    const inspected = inspectPresentedRootPlan(rootText, {
-      pluginRoot: options.pluginRoot,
-      preflightRootPlan: options.preflightRootPlan,
-    });
-    if (!inspected.ok) {
-      const detail = inspected.blockers.slice(0, 4)
-        .map((issue) => String(issue?.message ?? issue).replace(/\s+/g, " ").slice(0, 200))
-        .filter(Boolean)
-        .join("; ");
-      reason = `Workflow Plan validation failed: the native Plan must contain one valid Schema-5 Root${detail ? `: ${detail}` : "."}`;
+    const layout = inspectHumanFirstPlanLayout(proposedMatch[1]);
+    if (!layout.ok) {
+      reason = `Workflow Plan validation failed: ${layout.failures.slice(0, 4).join("; ")}.`;
+    } else {
+      const inspected = inspectPresentedRootPlan(rootText, {
+        pluginRoot: options.pluginRoot,
+        preflightRootPlan: options.preflightRootPlan,
+      });
+      if (!inspected.ok) {
+        const detail = inspected.blockers.slice(0, 4)
+          .map((issue) => String(issue?.message ?? issue).replace(/\s+/g, " ").slice(0, 200))
+          .filter(Boolean)
+          .join("; ");
+        reason = `Workflow Plan validation failed: the native Plan must contain one valid Schema-5 Root${detail ? `: ${detail}` : "."}`;
+      }
     }
   }
   if (!reason) {

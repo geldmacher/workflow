@@ -9,6 +9,7 @@ Workflow turns AI output into trustworthy repository delivery. Preserve human au
 - Evidence stays honest: verified, provisional, unavailable, or failed — never disguised success.
 - Fresh review; known failed required Checks block delivery.
 - Repository-only finish line: no auto push, PR, merge, deploy, production access, or learning publication.
+- Every material Workflow reply starts with a quick human decision summary, follows with a complete human deep dive, and ends with the authoritative agent and machine contract. The human layers add no authority; the machine layer omits no process data.
 
 ## Manual — default path
 

@@ -89,7 +89,7 @@ export const WORKFLOW_TOOL_CONTRACTS = Object.freeze({
     },
   },
   workflow_status: {
-    description: "Return current status and a uniform read-only learning projection for one preparation, adaptive run, or explicit/uniquely active stateless manual schema-5 artifact chain. With no subject it reports Workflow inactive and never gates native Manual implementation. Controller learning authority requires the ephemeral source receipt from an operational response, and Workflow-3/4 subjects remain read-only.",
+    description: "Return current status and a uniform read-only learning projection for one preparation, adaptive run, or explicit/uniquely content-bound Manual Schema-5 artifact chain. With no subject it reports Workflow inactive and never gates native Manual implementation. Controller learning authority requires the ephemeral source receipt from an operational response, and Workflow-3/4 subjects remain read-only.",
     inputSchema: {
       ...subject,
       root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/).optional(),

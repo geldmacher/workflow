@@ -58,18 +58,27 @@ test("deterministic target build isolates Codex and exposes exactly five Manual 
     assert.equal(manifest.skills, "./skills/");
     assert.equal(manifest.mcpServers, "./.mcp.json");
     const codexReview = readFileSync(join(codex, "skills", "review-work", "SKILL.md"), "utf8");
+    const codexPlan = readFileSync(join(codex, "skills", "plan-work", "SKILL.md"), "utf8");
     const codexCorrect = readFileSync(join(codex, "skills", "correct-work", "SKILL.md"), "utf8");
     const codexExplain = readFileSync(join(codex, "skills", "explain-work", "SKILL.md"), "utf8");
     const explanationContract = readFileSync(join(codex, "references", "explanation-contract.md"), "utf8");
+    const humanOutputContract = readFileSync(join(codex, "references", "human-output-contract.md"), "utf8");
     const reviewContract = readFileSync(join(codex, "references", "review-contract.md"), "utf8");
-    for (const heading of ["What was achieved", "What this means", "Verification and limits", "Technical traceability"]) {
-      assert.match(`${codexReview}\n${codexExplain}\n${explanationContract}`, new RegExp(heading, "i"));
+    for (const skill of readdirSync(join(codex, "skills"))) {
+      const source = readFileSync(join(codex, "skills", skill, "SKILL.md"), "utf8");
+      assert.match(source, /\]\(\.\.\/\.\.\/references\/human-output-contract\.md\)/, `${skill} must load the human-output contract`);
+    }
+    for (const heading of ["Quick decision", "Details", "What was achieved", "What this means", "Verification and limits", "Agent and machine contract", "Technical traceability"]) {
+      assert.match(`${codexReview}\n${codexExplain}\n${explanationContract}\n${humanOutputContract}`, new RegExp(heading, "i"));
     }
     assert.match(codexReview, /current reviewer.*not another subagent or model call/is);
+    assert.match(codexPlan, /Completion handoff.*post-implementation three-layer reply.*fresh human Review action.*without Evidence\/Review\/Learning claims/is);
     assert.match(codexReview, /current Codex Plan-mode `<proposed_plan>`.*Never restore authority/is);
     assert.match(codexReview, /workflow_closeout.*exactly once.*Delivery Evidence and Work Review atomically or neither/is);
     assert.match(codexReview, /failed required Check produces a completed blocked Review/is);
-    assert.match(`${codexReview}\n${reviewContract}`, /first three.*stand alone.*without.*implementation history.*code knowledge/is);
+    assert.match(codexReview, /Preserve exact artifact IDs and hashes.*instead of duplicating raw bytes/is);
+    assert.match(codexReview, /raw bytes only for an explicitly requested cross-task or cross-host export/is);
+    assert.match(`${codexReview}\n${reviewContract}`, /human layers.*stand alone.*without.*implementation history.*code knowledge/is);
     assert.match(reviewContract, /separates executor claims from independently inspected evidence/is);
     assert.match(codexExplain, /Final repository explanation.*only for `achieved`/is);
     assert.match(`${codexCorrect}\n${codexReview}`, /fresh reviewer.*planned Checks|planned Checks fresh/is);
