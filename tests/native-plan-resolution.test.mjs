@@ -27,3 +27,16 @@ test("native plan resolution reports inspected native sources without cache reco
     resolution: "Restore the Schema-5 native Plan in this same task or create and approve a new native Plan, then repeat Review.",
   });
 });
+
+test("native plan resolution distinguishes a supplied truncated Root from absence", () => {
+  const resolution = resolveNativePlan({
+    candidates: [{ source: "workflow_closeout.root_plan", root_text: plan.slice(0, 180) }],
+    attemptedSources: ["workflow_closeout.root_plan"],
+    pluginRoot: root,
+  });
+  assert.equal(resolution.status, "invalid");
+  assert.deepEqual(resolution.attempted_sources, ["workflow_closeout.root_plan"]);
+  assert.equal(resolution.rejected_sources[0].source, "workflow_closeout.root_plan");
+  assert.ok(resolution.rejected_sources[0].validation_errors.length > 0);
+  assert.match(resolution.resolution, /complete exact Schema-5 native Plan/i);
+});

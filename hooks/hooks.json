@@ -19,7 +19,7 @@
       {
         "type": "command",
         "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"",
-        "matcher": "CreatePlan|Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook",
+        "matcher": "CreatePlan|Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook|MCP:workflow_closeout",
         "failClosed": false
       }
     ],
@@ -41,7 +41,7 @@
       {
         "type": "command",
         "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"",
-        "matcher": "Task",
+        "matcher": "Task|CreatePlan|MCP:workflow_closeout",
         "failClosed": false
       }
     ]

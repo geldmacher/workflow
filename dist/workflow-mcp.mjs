@@ -133,9 +133,9 @@ import "./chunks/chunk-IQRLCJ3K.mjs";
 
 // src/mcp/workflow-mcp.mjs
 import { spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
-import { mkdirSync as mkdirSync2, rmSync as rmSync2 } from "node:fs";
-import { dirname as dirname3, join as join4, resolve as resolve5 } from "node:path";
+import { randomUUID as randomUUID2 } from "node:crypto";
+import { mkdirSync as mkdirSync3, rmSync as rmSync2 } from "node:fs";
+import { dirname as dirname4, join as join5, resolve as resolve5 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/server.js
@@ -2361,7 +2361,7 @@ function modelInheritanceSummary(stateRoot) {
 }
 
 // src/mcp/artifact-handlers.mjs
-import { createHash as createHash4 } from "node:crypto";
+import { createHash as createHash5 } from "node:crypto";
 
 // src/controller/manual-review-lifecycle.mjs
 import { createHash as createHash2 } from "node:crypto";
@@ -2587,11 +2587,18 @@ function resolveNativePlan({ candidates = [], attemptedSources = [], pluginRoot:
     ...candidates.map((entry) => entry?.source).filter(Boolean)
   ])];
   const valid = [];
+  const rejected = [];
   for (const candidate of candidates) {
     if (typeof candidate?.root_text !== "string" || !candidate.root_text.trim()) continue;
     const inspected = inspectArtifactText(candidate.root_text, pluginRoot2);
     const fields = inspected.artifact?.fields;
-    if (inspected.errors.length > 0 || fields?.artifact !== "work-plan" || fields?.schema !== 5) continue;
+    if (inspected.errors.length > 0 || fields?.artifact !== "work-plan" || fields?.schema !== 5) {
+      rejected.push({
+        source: candidate.source ?? "native-task-plan",
+        validation_errors: (inspected.errors.length > 0 ? inspected.errors : ["not a Schema-5 work-plan"]).slice(0, 8).map((entry) => String(entry).replace(/\s+/g, " ").slice(0, 300))
+      });
+      continue;
+    }
     valid.push({
       root_text: candidate.root_text,
       root_id: fields.id,
@@ -2601,6 +2608,14 @@ function resolveNativePlan({ candidates = [], attemptedSources = [], pluginRoot:
   }
   const unique2 = [...new Map(valid.map((entry) => [entry.root_hash, entry])).values()];
   if (unique2.length === 0) {
+    if (rejected.length > 0) {
+      return {
+        status: "invalid",
+        attempted_sources: attempted,
+        rejected_sources: rejected,
+        resolution: "Supply the complete exact Schema-5 native Plan from this task, then repeat Review."
+      };
+    }
     return {
       status: "unavailable",
       attempted_sources: attempted,
@@ -2616,6 +2631,132 @@ function resolveNativePlan({ candidates = [], attemptedSources = [], pluginRoot:
     };
   }
   return { status: "resolved", ...unique2[0] };
+}
+
+// hooks/native-review-receipt.mjs
+import { createHash as createHash4, randomUUID } from "node:crypto";
+import {
+  chmodSync as chmodSync2,
+  existsSync as existsSync4,
+  mkdirSync as mkdirSync2,
+  readFileSync as readFileSync3,
+  readdirSync as readdirSync2,
+  renameSync as renameSync2,
+  writeFileSync as writeFileSync2
+} from "node:fs";
+import { basename, dirname as dirname3, join as join3 } from "node:path";
+var MAX_RECEIPT_BYTES = 2 * 1024 * 1024;
+var sha2563 = (value) => createHash4("sha256").update(String(value), "utf8").digest("hex");
+function timestamp(options = {}) {
+  const value = options.now ? options.now() : /* @__PURE__ */ new Date();
+  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+}
+function nowMs(options = {}) {
+  return Date.parse(timestamp(options));
+}
+function ensureDirectory(path) {
+  mkdirSync2(path, { recursive: true, mode: 448 });
+  try {
+    chmodSync2(path, 448);
+  } catch {
+  }
+}
+function atomicJson(path, value) {
+  ensureDirectory(dirname3(path));
+  const source = `${JSON.stringify(value, null, 2)}
+`;
+  if (Buffer.byteLength(source) > MAX_RECEIPT_BYTES) throw new Error("native Review receipt exceeds size limit");
+  const temporary = `${path}.${process.pid}.${randomUUID()}.tmp`;
+  writeFileSync2(temporary, source, { encoding: "utf8", mode: 384 });
+  renameSync2(temporary, path);
+  try {
+    chmodSync2(path, 384);
+  } catch {
+  }
+}
+function readJson2(path) {
+  try {
+    const value = JSON.parse(readFileSync3(path, "utf8"));
+    return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+function canonicalValue(value) {
+  if (Array.isArray(value)) return value.map(canonicalValue);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalValue(value[key])]));
+}
+function nativeReviewRequestHash(input = {}) {
+  const semantic = {
+    artifact_kind: input.artifact_kind ?? "delivery-evidence",
+    effective_profile: input.effective_profile ?? "manual",
+    strategy_revision: input.strategy_revision ?? 0,
+    check_evidence: input.check_evidence ?? [],
+    review_input: input.review_input ?? null,
+    summary: input.summary ?? null
+  };
+  return sha2563(JSON.stringify(canonicalValue(semantic)));
+}
+function nativeReviewReceiptDirectory(stateRoot, requestHash, bucket = "pending") {
+  return join3(stateRoot, "manual-native-task-review", "receipts", bucket, requestHash);
+}
+function receiptFiles(stateRoot, requestHash, bucket) {
+  const directory = nativeReviewReceiptDirectory(stateRoot, requestHash, bucket);
+  if (!existsSync4(directory)) return [];
+  return readdirSync2(directory).filter((name) => name.endsWith(".json")).sort().map((name) => join3(directory, name));
+}
+function moveReceipt(path, stateRoot, requestHash, bucket, value) {
+  const target = join3(nativeReviewReceiptDirectory(stateRoot, requestHash, bucket), basename(path));
+  ensureDirectory(dirname3(target));
+  renameSync2(path, target);
+  atomicJson(target, value);
+  return target;
+}
+function validReceipt(receipt, stateRoot, requestHash) {
+  return receipt?.schema === 1 && receipt?.kind === "cursor-native-review-receipt" && receipt.request_hash === requestHash && receipt.workspace_hash === sha2563(stateRoot).slice(0, 32) && /^[a-f0-9]{32}$/.test(String(receipt.conversation_hash ?? "")) && /^[a-f0-9]{32}$/.test(String(receipt.generation_hash ?? "")) && /^[a-f0-9]{32}$/.test(String(receipt.tool_hash ?? "")) && /^[a-f0-9]{64}$/.test(String(receipt.root_hash ?? "")) && typeof receipt.root_text === "string" && receipt.root_hash === sha2563(receipt.root_text) && Array.isArray(receipt.artifacts) && ["task-chain", "full-rebuild"].includes(receipt.predecessor_mode) && receipt.artifacts.length > 0 === (receipt.predecessor_mode === "task-chain") && Number.isFinite(Date.parse(receipt.expires_at));
+}
+function consumeNativeReviewReceipt({ stateRoot, input, options = {} }) {
+  const requestHash = nativeReviewRequestHash(input);
+  const currentMs = nowMs(options);
+  const pending = receiptFiles(stateRoot, requestHash, "pending");
+  const valid = [];
+  let expired = false;
+  for (const path of pending) {
+    const receipt = readJson2(path);
+    if (!receipt && !existsSync4(path)) {
+      const consumed2 = readJson2(join3(nativeReviewReceiptDirectory(stateRoot, requestHash, "consumed"), basename(path)));
+      if (validReceipt(consumed2, stateRoot, requestHash) && Date.parse(consumed2.expires_at) > currentMs) return { status: "replayed" };
+    }
+    if (!validReceipt(receipt, stateRoot, requestHash)) {
+      return { status: "mismatch" };
+    }
+    if (Date.parse(receipt.expires_at) <= currentMs) {
+      expired = true;
+      try {
+        moveReceipt(path, stateRoot, requestHash, "expired", { ...receipt, expired_at: timestamp(options) });
+      } catch (error) {
+        if (error?.code !== "ENOENT") throw error;
+      }
+      continue;
+    }
+    valid.push({ path, receipt });
+  }
+  if (valid.length > 1) return { status: "mismatch" };
+  if (valid.length === 1) {
+    const [{ path, receipt }] = valid;
+    try {
+      moveReceipt(path, stateRoot, requestHash, "consumed", { ...receipt, consumed_at: timestamp(options) });
+    } catch (error) {
+      if (error?.code === "ENOENT") return { status: "replayed" };
+      throw error;
+    }
+    return { status: "resolved", receipt };
+  }
+  const consumed = receiptFiles(stateRoot, requestHash, "consumed").map(readJson2).filter(Boolean);
+  if (consumed.some((receipt) => Date.parse(receipt.expires_at) > currentMs)) return { status: "replayed" };
+  const expiredReceipts = receiptFiles(stateRoot, requestHash, "expired").map(readJson2).filter(Boolean);
+  return { status: expired || expiredReceipts.length > 0 ? "expired" : "unavailable" };
 }
 
 // src/mcp/workspace-roots.mjs
@@ -2796,7 +2937,9 @@ function createArtifactHandlers({
   resolveOperationalContext,
   result: result2,
   handoffStoreFactory = createContentAddressedHandoffStore,
-  receiptOptions = {}
+  receiptOptions = {},
+  clientHost = "portable",
+  consumeReviewReceipt = consumeNativeReviewReceipt
 }) {
   const toolResult = (toolName, value, isError = false) => {
     if (typeof result2 === "function" && result2.toolAware === true) return result2(toolName, value, isError);
@@ -2807,6 +2950,7 @@ function createArtifactHandlers({
     ...error?.code ? { error_code: error.code } : {},
     ...Array.isArray(error?.attempted_sources) ? { attempted_sources: error.attempted_sources } : {},
     ...Array.isArray(error?.candidate_ids) ? { candidate_ids: error.candidate_ids } : {},
+    ...Array.isArray(error?.rejected_sources) ? { rejected_sources: error.rejected_sources } : {},
     ...typeof error?.resolution === "string" ? { resolution: error.resolution } : {}
   }, true);
   const codedError = (code, message, details = {}) => {
@@ -2980,7 +3124,7 @@ function createArtifactHandlers({
     root_plan_id: input.root_plan_id,
     delivery_evidence_id: closeoutResult.fields.id,
     artifact: persisted.artifact,
-    artifact_hash: persisted.artifact_hash ?? createHash4("sha256").update(persisted.artifact).digest("hex"),
+    artifact_hash: persisted.artifact_hash ?? createHash5("sha256").update(persisted.artifact).digest("hex"),
     evidence_mode: persisted.fields.evidence_mode,
     overall_grade: persisted.fields.overall_grade,
     status: persisted.fields.status,
@@ -3019,7 +3163,7 @@ function createArtifactHandlers({
     root_plan_id: input.root_plan_id,
     work_review_id: reviewResult.fields.id,
     artifact: persisted.artifact,
-    artifact_hash: persisted.artifact_hash ?? createHash4("sha256").update(persisted.artifact).digest("hex"),
+    artifact_hash: persisted.artifact_hash ?? createHash5("sha256").update(persisted.artifact).digest("hex"),
     review_input_hash: persisted.review_input_hash,
     authoritative_fields: persisted.fields,
     assessment: persisted.fields.assessment,
@@ -3039,12 +3183,12 @@ function createArtifactHandlers({
     ...warning ? { warning } : {},
     ...handoffErrorCode || persisted.handoff_error_code ? { handoff_error_code: handoffErrorCode ?? persisted.handoff_error_code } : {}
   });
-  const reviewBundlePayload = ({ input, workspace, bundle, rootContentHashValue }) => ({
+  const reviewBundlePayload = ({ input, workspace, bundle, rootPlanId, rootContentHashValue, nativeBinding = null }) => ({
     ...workspace ? { workspace_root: workspace } : {},
     workspace_binding: workspace ? "trusted-root" : "not-established",
     workspace_root_used: Boolean(workspace),
     artifact_kind: "work-review",
-    root_plan_id: input.root_plan_id,
+    root_plan_id: rootPlanId,
     root_content_hash: rootContentHashValue,
     delivery_evidence_id: bundle.delivery_evidence.fields.id,
     delivery_evidence_artifact: bundle.delivery_evidence.artifact,
@@ -3068,7 +3212,12 @@ function createArtifactHandlers({
     task_local_valid: true,
     handoff_persisted: false,
     handoff_authoritative: false,
-    handoff_mode: "task-local"
+    handoff_mode: "task-local",
+    ...nativeBinding ? {
+      native_task_binding: nativeBinding.binding_source,
+      native_root_source: nativeBinding.root_source,
+      predecessor_mode: nativeBinding.predecessor_mode
+    } : {}
   });
   const record2 = async (input) => {
     try {
@@ -3187,10 +3336,46 @@ function createArtifactHandlers({
     try {
       if (bundleSize(input.artifacts) > 1e6) throw new Error("closeout artifact bundle exceeds 1000000 characters");
       const operational = await optionalOperational(input.workspace_root);
+      if ((input.artifact_kind ?? "delivery-evidence") !== "work-review" && !input.root_plan_id) {
+        throw codedError("root-plan-id-required", "workflow_closeout delivery-evidence mode requires root_plan_id");
+      }
       if ((input.artifact_kind ?? "delivery-evidence") === "work-review") {
+        let rootPlanText2 = input.root_plan ?? null;
+        let rootPlanId = input.root_plan_id ?? null;
+        let taskArtifacts = input.artifacts ?? [];
+        let nativeBinding = null;
+        let nativeReceipt = null;
+        if (clientHost === "cursor") {
+          if (!operational.workspace || !operational.stateRoot) {
+            throw codedError("native-task-receipt-unavailable", "Cursor work-review could not establish the trusted workspace needed for its native task receipt");
+          }
+          const consumed = consumeReviewReceipt({ stateRoot: operational.stateRoot, input, options: receiptOptions });
+          const receiptFailures = {
+            unavailable: ["native-task-receipt-unavailable", "No protected Cursor task receipt matched this work-review call. Repeat /review-work in the same approved native Plan task."],
+            expired: ["native-task-receipt-expired", "The protected Cursor task receipt expired before workflow_closeout consumed it. Repeat /review-work to create a fresh receipt."],
+            replayed: ["native-task-receipt-replayed", "This protected Cursor task receipt was already consumed. Repeat /review-work to create a fresh receipt."],
+            mismatch: ["native-task-receipt-mismatch", "The protected Cursor task receipt does not match this work-review call. Repeat /review-work without model-supplied Root transport."]
+          };
+          if (consumed.status !== "resolved") {
+            const [code, message] = receiptFailures[consumed.status] ?? receiptFailures.unavailable;
+            throw codedError(code, message);
+          }
+          if (input.root_plan_id && input.root_plan_id !== consumed.receipt.root_plan_id) {
+            throw codedError("native-task-receipt-mismatch", `Cursor work-review Root ID mismatch: host-approved ${consumed.receipt.root_plan_id}, model supplied ${input.root_plan_id}`);
+          }
+          rootPlanText2 = consumed.receipt.root_text;
+          rootPlanId = consumed.receipt.root_plan_id;
+          taskArtifacts = consumed.receipt.artifacts ?? [];
+          nativeReceipt = consumed.receipt;
+          nativeBinding = {
+            binding_source: "cursor-receipt",
+            root_source: "cursor-create-plan",
+            predecessor_mode: consumed.receipt.predecessor_mode ?? "full-rebuild"
+          };
+        }
         const nativePlan = resolveNativePlan({
-          candidates: input.root_plan ? [{ source: "workflow_closeout.root_plan from current Review task", root_text: input.root_plan }] : [],
-          attemptedSources: ["workflow_closeout.root_plan from current Review task"],
+          candidates: rootPlanText2 ? [{ source: nativeBinding ? "protected Cursor native task receipt" : "workflow_closeout.root_plan from current Review task", root_text: rootPlanText2 }] : [],
+          attemptedSources: [nativeBinding ? "protected Cursor native task receipt" : "workflow_closeout.root_plan from current Review task"],
           pluginRoot: pluginRoot2
         });
         if (nativePlan.status !== "resolved") {
@@ -3200,6 +3385,9 @@ function createArtifactHandlers({
             nativePlan
           );
         }
+        if (nativeReceipt && nativePlan.root_hash !== nativeReceipt.root_hash) {
+          throw codedError("native-task-receipt-mismatch", "Cursor work-review native task receipt Root hash changed before review construction");
+        }
         if (!operational.workspace) {
           throw codedError(
             "review-workspace-unavailable",
@@ -3208,7 +3396,7 @@ function createArtifactHandlers({
         }
         const bundle = buildManualReviewLifecycle({
           rootPlanText: nativePlan.root_text,
-          artifacts: input.artifacts ?? [],
+          artifacts: taskArtifacts,
           reviewInput: input.review_input,
           checkEvidence: input.check_evidence ?? [],
           strategyRevision: input.strategy_revision ?? 0,
@@ -3216,14 +3404,16 @@ function createArtifactHandlers({
           workspaceRoot: operational.workspace,
           pluginRoot: pluginRoot2
         });
-        if (nativePlan.root_id !== input.root_plan_id || bundle.root_plan_id !== input.root_plan_id) {
-          throw new Error(`workflow_closeout Root ID mismatch: expected ${input.root_plan_id}, received ${bundle.root_plan_id}`);
+        if (!rootPlanId || nativePlan.root_id !== rootPlanId || bundle.root_plan_id !== rootPlanId) {
+          throw new Error(`workflow_closeout Root ID mismatch: expected ${rootPlanId ?? "<unavailable>"}, received ${bundle.root_plan_id}`);
         }
         return toolResult("workflow_closeout", reviewBundlePayload({
           input,
           workspace: operational.workspace,
           bundle,
-          rootContentHashValue: nativePlan.root_hash
+          rootPlanId,
+          rootContentHashValue: nativePlan.root_hash,
+          nativeBinding
         }));
       }
       let handoff;
@@ -4571,6 +4761,7 @@ function registerManualWorkflowTools({
   failure: failure2,
   includeStatus = true,
   contract = manualToolContract,
+  clientHost = "portable",
   resolveHostToolApprovalPreference = resolveHostToolApproval,
   resolveManualSubagentPolicyPreference = resolveManualSubagentPolicy
 }) {
@@ -4597,7 +4788,8 @@ function registerManualWorkflowTools({
     pluginRoot: pluginRoot2,
     resolveOperationalContext,
     result: toolAwareResult,
-    handoffStoreFactory
+    handoffStoreFactory,
+    clientHost
   });
   const status = async (input) => {
     try {
@@ -4675,24 +4867,24 @@ function registerManualWorkflowTools({
 }
 
 // src/mcp/proof-artifacts.mjs
-import { createHash as createHash5 } from "node:crypto";
-import { lstatSync as lstatSync2, readFileSync as readFileSync3, readdirSync as readdirSync2 } from "node:fs";
-import { join as join3 } from "node:path";
+import { createHash as createHash6 } from "node:crypto";
+import { lstatSync as lstatSync2, readFileSync as readFileSync4, readdirSync as readdirSync3 } from "node:fs";
+import { join as join4 } from "node:path";
 var PROOF_LIMITS = Object.freeze({ files: 128, file_bytes: 10 * 1024 * 1024, total_bytes: 32 * 1024 * 1024, depth: 8 });
-function hashStableProofFile(path, stat = lstatSync2, read = readFileSync3, before = stat(path)) {
+function hashStableProofFile(path, stat = lstatSync2, read = readFileSync4, before = stat(path)) {
   if (before.size > PROOF_LIMITS.file_bytes) throw new Error(`verification proof artifact exceeds 10 MiB: ${path}`);
   const content = read(path);
   const after = stat(path);
   if (before.ino !== after.ino || before.size !== after.size || before.mtimeMs !== after.mtimeMs) throw new Error(`verification proof artifact changed while hashing: ${path}`);
-  return { size: before.size, hash: createHash5("sha256").update(content).digest("hex") };
+  return { size: before.size, hash: createHash6("sha256").update(content).digest("hex") };
 }
 function proofArtifacts(root) {
   const files = [];
   let totalBytes = 0;
   const visit = (directory, depth = 0) => {
     if (depth > PROOF_LIMITS.depth) throw new Error(`verification proof artifact depth exceeds ${PROOF_LIMITS.depth}: ${directory}`);
-    for (const entry of readdirSync2(directory, { withFileTypes: true })) {
-      const path = join3(directory, entry.name);
+    for (const entry of readdirSync3(directory, { withFileTypes: true })) {
+      const path = join4(directory, entry.name);
       if (entry.isSymbolicLink()) throw new Error(`verification proof artifact may not be a symlink: ${path}`);
       if (entry.isDirectory()) visit(path, depth + 1);
       else if (entry.isFile()) {
@@ -4701,7 +4893,7 @@ function proofArtifacts(root) {
         if (before.size > PROOF_LIMITS.file_bytes) throw new Error(`verification proof artifact exceeds 10 MiB: ${path}`);
         totalBytes += before.size;
         if (totalBytes > PROOF_LIMITS.total_bytes) throw new Error("verification proof artifacts exceed 32 MiB total");
-        const stable = hashStableProofFile(path, lstatSync2, readFileSync3, before);
+        const stable = hashStableProofFile(path, lstatSync2, readFileSync4, before);
         files.push({ path, hash: stable.hash });
       } else throw new Error(`verification proof artifact must be a regular file or directory: ${path}`);
     }
@@ -4837,10 +5029,10 @@ var WORKFLOW_TOOL_CONTRACTS = Object.freeze({
     }
   },
   workflow_closeout: {
-    description: "For native Manual Review, atomically build paired Schema-5 delivery-evidence and work-review artifacts from the exact task Root and fresh observations; portable delivery-evidence mode remains the default compatibility path.",
+    description: "For Cursor native Manual Review, atomically build paired Schema-5 delivery-evidence and work-review artifacts from the protected current-task receipt and fresh observations; delivery-evidence and portable clients retain exact Root inputs.",
     inputSchema: {
       workspace_root: workspaceRoot2,
-      root_plan_id: string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
+      root_plan_id: string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/).optional(),
       root_plan: string().min(1).max(25e4).optional(),
       artifacts: array(artifact2).min(1).max(32).optional(),
       artifact_kind: _enum(["delivery-evidence", "work-review"]).default("delivery-evidence"),
@@ -4922,7 +5114,7 @@ function toolContract(name) {
 }
 
 // src/mcp/workflow-mcp.mjs
-var pluginRoot = resolve5(process.env.CURSOR_PLUGIN_ROOT ?? dirname3(dirname3(fileURLToPath2(import.meta.url))));
+var pluginRoot = resolve5(process.env.CURSOR_PLUGIN_ROOT ?? dirname4(dirname4(fileURLToPath2(import.meta.url))));
 var server = new McpServer({ name: "workflow", version: PLUGIN_VERSION });
 var workspaceAuthority = new WorkspaceRootAuthority(() => server.server.listRoots());
 var learningSourceReceipts = createLearningSourceReceiptAuthority();
@@ -4961,7 +5153,8 @@ var manualTools = registerManualWorkflowTools({
   result,
   failure,
   includeStatus: false,
-  contract: toolContract
+  contract: toolContract,
+  clientHost: "cursor"
 });
 function runnerPath() {
   return resolve5(process.env.GELDMACHER_WORKFLOW_RUNNER ?? fileURLToPath2(new URL("./workflow-runner.mjs", import.meta.url)));
@@ -5230,10 +5423,10 @@ server.registerTool("workflow_verification_profile", toolContract("workflow_veri
       const config = loadWorkflowConfig(workspace);
       if (config.errors.length > 0) throw new Error(`workflow configuration invalid: ${config.errors.join("; ")}`);
       const route = resolveRouteProfile(config, input.route_profile);
-      const proofRoot = join4(stateRoot, "verification-proof-artifacts", inspection.profile_hash, randomUUID());
+      const proofRoot = join5(stateRoot, "verification-proof-artifacts", inspection.profile_hash, randomUUID2());
       ownedProofRoot = proofRoot;
-      mkdirSync2(proofRoot, { recursive: true, mode: 448 });
-      const adapter = new CursorWorkerAdapter({ runDirectory: join4(stateRoot, "verification-proof-runs", inspection.profile_hash), pluginRoot });
+      mkdirSync3(proofRoot, { recursive: true, mode: 448 });
+      const adapter = new CursorWorkerAdapter({ runDirectory: join5(stateRoot, "verification-proof-runs", inspection.profile_hash), pluginRoot });
       const validation = adapter.validateProfile(route);
       const verifier = validation.routes?.verifier;
       if (!validation.verified || !verifier?.selected_candidate || !verifier.model) throw new Error(`verifier route unavailable: ${(validation.errors ?? []).join("; ")}`);

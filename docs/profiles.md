@@ -43,7 +43,7 @@ Cursor: Implement Plan
 
 Implementation finishes normally without lifecycle closeout or Evidence. Starting `/review-work` in the same task resolves the exact native Root, directly observes Checks, and atomically creates Evidence plus Review from the current repository. A verified `achieved/verified/none` verdict completes the Root without another acceptance command. If review requests a bounded correction, start `/correct-work`; if intent must change, use `/plan-work replan` and approve the new Root.
 
-Required machine-verifiable Checks are observed fresh by the reviewer using the exact planned command or inspection and directory. Optional host receipts may enrich Manual proof, but missing proof is never upgraded. High risk changes review depth, not whether the user may start native implementation.
+Required machine-verifiable Checks are observed fresh by the reviewer using the exact planned command or inspection and directory. Cursor's native task receipt transports exact Root/chain bytes but adds no Check proof. Optional proof receipts may enrich Manual evidence, but missing proof is never upgraded. High risk changes review depth, not whether the user may start native implementation.
 
 Manual is ready when the plugin is installed or linked and Cursor can run its commands. No automation configuration or certification is required: it does not need User Config, Project Policy, a Worker runtime, a Capability Receipt, a Verification Profile, or qualifying history. Do not impose controller ceremony on the Manual path.
 

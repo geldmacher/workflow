@@ -16,7 +16,7 @@ Workflow activates only for an explicit Workflow action such as `/plan-work` or 
 
 ## Intent Root and Plan
 
-`/plan-work` in Cursor or `$plan-work` in Codex Plan mode creates one immutable Schema-5 Root with a visible `wp-*` ID. Cursor's native Plan and Codex's native `<proposed_plan>` are the sole Manual plan authority and the only authoritative plan containers. Workflow validates an exposed Root but stores no separate active Root, Plan receipt, or cache authority.
+`/plan-work` in Cursor or `$plan-work` in Codex Plan mode creates one immutable Schema-5 Root with a visible `wp-*` ID. Cursor's native Plan and Codex's native `<proposed_plan>` are the sole Manual plan authority and the only authoritative plan containers. Workflow validates an exposed Root. Cursor may retain a protected conversation-bound observation of the exact `CreatePlan` bytes after successful validation, but that observation is transport provenance only: it cannot approve a Plan, select an active Root, cross a task or workspace boundary, or become cache authority.
 
 Native steps describe implementation and planned Checks. They contain no closeout todo or Workflow attestation. Required Verification methods must stay repository-read-only across their complete wrapper and lifecycle-hook chain. The human's separate **Implement Plan** action authorizes implementation inside the Root. Corrections and material replans remain separate human actions.
 
@@ -30,17 +30,21 @@ Implementation and correction finish normally. They do not emit `closeout-input`
 
 ## Fresh Review and atomic Evidence
 
-`/review-work` or `$review-work` is repository-read-only and resolves the exact Root only from the current native Plan/task context. Current-task predecessor Evidence and Review bytes may extend that chain. Legacy state, handoff tips, artifact caches, IDs without bytes, and another task cannot substitute.
+`/review-work` or `$review-work` is repository-read-only and resolves the exact Root only from the current native Plan/task context. In Cursor, successful `CreatePlan` observation plus the later native **Implement Plan** choice binds the exact approved Root to that conversation. The explicit Review turn creates a protected five-minute single-use receipt for the matching `workflow_closeout` call. In Codex and portable clients, the reviewer continues to supply the exact Root and predecessor bytes directly. Legacy state, handoff tips, artifact caches, IDs without bytes, and another task cannot substitute.
 
 Root resolution is explicit:
 
 - `resolved`: exact Root text, ID, hash, and native source are available.
 - `unavailable`: Review lists the native sources inspected and stops.
+- `unapproved`: Cursor observed a Root, but the human has not selected native **Implement Plan** for it.
+- `invalid`: an observed or recovered native candidate is present but fails exact Schema-5 validation.
 - `ambiguous`: Review lists candidate IDs and stops.
 
 For unavailable or ambiguous resolution, restore the Plan in this task or create and approve a new native Plan. Only Review is blocked; completed repository work is not rewritten or discarded.
 
-The reviewer executes or directly inspects planned Checks fresh. It then calls the stateless work-review builder once with the exact Root, current-task predecessor artifacts, Check observations, and closed review input. The server observes the current repository and returns Delivery Evidence plus Work Review atomically. Both artifacts exist or neither does.
+The reviewer executes or directly inspects planned Checks fresh. In Cursor it calls the stateless work-review builder once with semantic Review input only; the host receipt supplies the exact Root and validated predecessor artifacts. In Codex and portable clients it supplies those exact bytes in the call as before. The server observes the current repository and returns Delivery Evidence plus Work Review atomically. Both artifacts exist or neither does.
+
+The Cursor MCP consumes a matching receipt atomically and once. Missing, expired, replayed, mismatched, cross-task, or cross-workspace receipts fail closed. A successful Review reports `native_task_binding: cursor-receipt`, `native_root_source: cursor-create-plan`, and `predecessor_mode: task-chain|full-rebuild`. If historical artifact bytes are unavailable, `full-rebuild` creates honest full Evidence and claims no delta lineage.
 
 Caller-supplied paths do not narrow the repository observation. Pre-existing, ambiguous, or out-of-authority changes become explicit limitations or Findings. A failed required Check still yields a completed Review whose delivery status is blocked.
 
@@ -88,7 +92,7 @@ State is derived from exact current-task artifacts, never from legacy runtime fi
 
 ## Artifacts, tips, and handoff
 
-Exact Root, Evidence, and Review bytes returned in the current task are authoritative there. Cursor and Codex do not restore Manual authority from artifact tips or handoff caches. Portable clients may transport exact bytes under the compatibility contract, but transport never creates approval.
+Exact Root, Evidence, and Review bytes returned in the current task are authoritative there. A successful Cursor post-tool observation may retain the validated paired Evidence/Review bytes only for later same-conversation delta lineage. It cannot authorize a Review or restore another task. Cursor and Codex do not restore Manual authority from artifact tips or handoff caches. Portable clients may transport exact bytes under the compatibility contract, but transport never creates approval.
 
 ## Recovery and troubleshooting
 

@@ -192,11 +192,15 @@ function validateHookSurface(root, manifest, failures) {
   const statePath = join(directory, "model-inheritance-state.mjs");
   const planGuardPath = join(directory, "plan-integrity-guard.mjs");
   const closeoutGuardPath = join(directory, "closeout-guard.mjs");
+  const nativeReviewReceiptPath = join(directory, "native-review-receipt.mjs");
+  const nativeTaskReviewPath = join(directory, "native-task-review-context.mjs");
   const scriptPath = join(directory, "subagent-guard.mjs");
   if (!existsSync(configPath)) failures.push("hooks/hooks.json is missing");
   if (!existsSync(statePath)) failures.push("hooks/model-inheritance-state.mjs is missing");
   if (!existsSync(planGuardPath)) failures.push("hooks/plan-integrity-guard.mjs is missing");
   if (!existsSync(closeoutGuardPath)) failures.push("hooks/closeout-guard.mjs is missing");
+  if (!existsSync(nativeReviewReceiptPath)) failures.push("hooks/native-review-receipt.mjs is missing");
+  if (!existsSync(nativeTaskReviewPath)) failures.push("hooks/native-task-review-context.mjs is missing");
   if (!existsSync(scriptPath)) failures.push("hooks/subagent-guard.mjs is missing");
   const files = listFiles(directory, () => true).map((file) => relative(root, file));
   const expectedFiles = [
@@ -204,6 +208,8 @@ function validateHookSurface(root, manifest, failures) {
     "hooks/hooks.json",
     "hooks/manual-subagent-policy.mjs",
     "hooks/model-inheritance-state.mjs",
+    "hooks/native-review-receipt.mjs",
+    "hooks/native-task-review-context.mjs",
     "hooks/plan-integrity-guard.mjs",
     "hooks/subagent-guard.mjs",
   ];
@@ -227,10 +233,10 @@ function validateHookSurface(root, manifest, failures) {
     const expectedByEvent = {
       sessionStart: [{ command: expectedCommand, failClosed: false }],
       beforeSubmitPrompt: [{ command: expectedCommand, failClosed: false }],
-      preToolUse: [{ command: expectedCommand, matcher: "CreatePlan|Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook", failClosed: false }],
+      preToolUse: [{ command: expectedCommand, matcher: "CreatePlan|Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook|MCP:workflow_closeout", failClosed: false }],
       subagentStart: [{ command: expectedCommand, failClosed: false }],
       subagentStop: [{ command: expectedCommand, failClosed: false }],
-      postToolUse: [{ command: expectedCommand, matcher: "Task", failClosed: false }],
+      postToolUse: [{ command: expectedCommand, matcher: "Task|CreatePlan|MCP:workflow_closeout", failClosed: false }],
     };
     for (const eventName of expectedEvents) {
       const entries = config.hooks?.[eventName];

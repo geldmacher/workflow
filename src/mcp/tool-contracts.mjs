@@ -67,10 +67,10 @@ export const WORKFLOW_TOOL_CONTRACTS = Object.freeze({
     },
   },
   workflow_closeout: {
-    description: "For native Manual Review, atomically build paired Schema-5 delivery-evidence and work-review artifacts from the exact task Root and fresh observations; portable delivery-evidence mode remains the default compatibility path.",
+    description: "For Cursor native Manual Review, atomically build paired Schema-5 delivery-evidence and work-review artifacts from the protected current-task receipt and fresh observations; delivery-evidence and portable clients retain exact Root inputs.",
     inputSchema: {
       workspace_root: workspaceRoot,
-      root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
+      root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/).optional(),
       root_plan: z.string().min(1).max(250_000).optional(),
       artifacts: z.array(artifact).min(1).max(32).optional(),
       artifact_kind: z.enum(["delivery-evidence", "work-review"]).default("delivery-evidence"),

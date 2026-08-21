@@ -16,9 +16,11 @@ import { boundaryReceiptVerifier } from "../core/manual-boundary-receipts.mjs";
 import { resolveNativePlan } from "../core/native-plan-resolution.mjs";
 import { inspectArtifactText } from "../../scripts/validate-artifact.source.mjs";
 import { modelInheritanceSummary } from "../../hooks/model-inheritance-state.mjs";
+import { consumeNativeReviewReceipt } from "../../hooks/native-review-receipt.mjs";
 import { isWorkspaceRootsUnavailable } from "./workspace-roots.mjs";
 
 const bundleSize = (artifacts = []) => artifacts.reduce((total, artifact) => total + artifact.text.length, 0);
+const sha256 = (text) => createHash("sha256").update(text, "utf8").digest("hex");
 
 export function createArtifactHandlers({
   pluginRoot,
@@ -26,6 +28,8 @@ export function createArtifactHandlers({
   result,
   handoffStoreFactory = createContentAddressedHandoffStore,
   receiptOptions = {},
+  clientHost = "portable",
+  consumeReviewReceipt = consumeNativeReviewReceipt,
 }) {
   const toolResult = (toolName, value, isError = false) => {
     if (typeof result === "function" && result.toolAware === true) return result(toolName, value, isError);
@@ -36,6 +40,7 @@ export function createArtifactHandlers({
     ...(error?.code ? { error_code: error.code } : {}),
     ...(Array.isArray(error?.attempted_sources) ? { attempted_sources: error.attempted_sources } : {}),
     ...(Array.isArray(error?.candidate_ids) ? { candidate_ids: error.candidate_ids } : {}),
+    ...(Array.isArray(error?.rejected_sources) ? { rejected_sources: error.rejected_sources } : {}),
     ...(typeof error?.resolution === "string" ? { resolution: error.resolution } : {}),
   }, true);
 
@@ -281,12 +286,12 @@ export function createArtifactHandlers({
     ...(handoffErrorCode || persisted.handoff_error_code ? { handoff_error_code: handoffErrorCode ?? persisted.handoff_error_code } : {}),
   });
 
-  const reviewBundlePayload = ({ input, workspace, bundle, rootContentHashValue }) => ({
+  const reviewBundlePayload = ({ input, workspace, bundle, rootPlanId, rootContentHashValue, nativeBinding = null }) => ({
     ...(workspace ? { workspace_root: workspace } : {}),
     workspace_binding: workspace ? "trusted-root" : "not-established",
     workspace_root_used: Boolean(workspace),
     artifact_kind: "work-review",
-    root_plan_id: input.root_plan_id,
+    root_plan_id: rootPlanId,
     root_content_hash: rootContentHashValue,
     delivery_evidence_id: bundle.delivery_evidence.fields.id,
     delivery_evidence_artifact: bundle.delivery_evidence.artifact,
@@ -311,6 +316,11 @@ export function createArtifactHandlers({
     handoff_persisted: false,
     handoff_authoritative: false,
     handoff_mode: "task-local",
+    ...(nativeBinding ? {
+      native_task_binding: nativeBinding.binding_source,
+      native_root_source: nativeBinding.root_source,
+      predecessor_mode: nativeBinding.predecessor_mode,
+    } : {}),
   });
 
   const record = async (input) => {
@@ -433,15 +443,52 @@ export function createArtifactHandlers({
       if (bundleSize(input.artifacts) > 1_000_000) throw new Error("closeout artifact bundle exceeds 1000000 characters");
       const operational = await optionalOperational(input.workspace_root);
 
-      // Cursor and Codex Manual Review is deliberately stateless. Exact native
-      // task artifacts plus the current repository are enough to create the
-      // paired Evidence/Review result; legacy handoff cannot grant authority.
+      if ((input.artifact_kind ?? "delivery-evidence") !== "work-review" && !input.root_plan_id) {
+        throw codedError("root-plan-id-required", "workflow_closeout delivery-evidence mode requires root_plan_id");
+      }
+
+      // Manual Review is task-bound. Cursor consumes protected native-task
+      // transport; Codex and portable clients supply exact task artifacts.
+      // Legacy handoff cannot grant authority in either path.
       if ((input.artifact_kind ?? "delivery-evidence") === "work-review") {
+        let rootPlanText = input.root_plan ?? null;
+        let rootPlanId = input.root_plan_id ?? null;
+        let taskArtifacts = input.artifacts ?? [];
+        let nativeBinding = null;
+        let nativeReceipt = null;
+        if (clientHost === "cursor") {
+          if (!operational.workspace || !operational.stateRoot) {
+            throw codedError("native-task-receipt-unavailable", "Cursor work-review could not establish the trusted workspace needed for its native task receipt");
+          }
+          const consumed = consumeReviewReceipt({ stateRoot: operational.stateRoot, input, options: receiptOptions });
+          const receiptFailures = {
+            unavailable: ["native-task-receipt-unavailable", "No protected Cursor task receipt matched this work-review call. Repeat /review-work in the same approved native Plan task."],
+            expired: ["native-task-receipt-expired", "The protected Cursor task receipt expired before workflow_closeout consumed it. Repeat /review-work to create a fresh receipt."],
+            replayed: ["native-task-receipt-replayed", "This protected Cursor task receipt was already consumed. Repeat /review-work to create a fresh receipt."],
+            mismatch: ["native-task-receipt-mismatch", "The protected Cursor task receipt does not match this work-review call. Repeat /review-work without model-supplied Root transport."],
+          };
+          if (consumed.status !== "resolved") {
+            const [code, message] = receiptFailures[consumed.status] ?? receiptFailures.unavailable;
+            throw codedError(code, message);
+          }
+          if (input.root_plan_id && input.root_plan_id !== consumed.receipt.root_plan_id) {
+            throw codedError("native-task-receipt-mismatch", `Cursor work-review Root ID mismatch: host-approved ${consumed.receipt.root_plan_id}, model supplied ${input.root_plan_id}`);
+          }
+          rootPlanText = consumed.receipt.root_text;
+          rootPlanId = consumed.receipt.root_plan_id;
+          taskArtifacts = consumed.receipt.artifacts ?? [];
+          nativeReceipt = consumed.receipt;
+          nativeBinding = {
+            binding_source: "cursor-receipt",
+            root_source: "cursor-create-plan",
+            predecessor_mode: consumed.receipt.predecessor_mode ?? "full-rebuild",
+          };
+        }
         const nativePlan = resolveNativePlan({
-          candidates: input.root_plan
-            ? [{ source: "workflow_closeout.root_plan from current Review task", root_text: input.root_plan }]
+          candidates: rootPlanText
+            ? [{ source: nativeBinding ? "protected Cursor native task receipt" : "workflow_closeout.root_plan from current Review task", root_text: rootPlanText }]
             : [],
-          attemptedSources: ["workflow_closeout.root_plan from current Review task"],
+          attemptedSources: [nativeBinding ? "protected Cursor native task receipt" : "workflow_closeout.root_plan from current Review task"],
           pluginRoot,
         });
         if (nativePlan.status !== "resolved") {
@@ -451,6 +498,9 @@ export function createArtifactHandlers({
             nativePlan,
           );
         }
+        if (nativeReceipt && nativePlan.root_hash !== nativeReceipt.root_hash) {
+          throw codedError("native-task-receipt-mismatch", "Cursor work-review native task receipt Root hash changed before review construction");
+        }
         if (!operational.workspace) {
           throw codedError(
             "review-workspace-unavailable",
@@ -459,7 +509,7 @@ export function createArtifactHandlers({
         }
         const bundle = buildManualReviewLifecycle({
           rootPlanText: nativePlan.root_text,
-          artifacts: input.artifacts ?? [],
+          artifacts: taskArtifacts,
           reviewInput: input.review_input,
           checkEvidence: input.check_evidence ?? [],
           strategyRevision: input.strategy_revision ?? 0,
@@ -467,14 +517,16 @@ export function createArtifactHandlers({
           workspaceRoot: operational.workspace,
           pluginRoot,
         });
-        if (nativePlan.root_id !== input.root_plan_id || bundle.root_plan_id !== input.root_plan_id) {
-          throw new Error(`workflow_closeout Root ID mismatch: expected ${input.root_plan_id}, received ${bundle.root_plan_id}`);
+        if (!rootPlanId || nativePlan.root_id !== rootPlanId || bundle.root_plan_id !== rootPlanId) {
+          throw new Error(`workflow_closeout Root ID mismatch: expected ${rootPlanId ?? "<unavailable>"}, received ${bundle.root_plan_id}`);
         }
         return toolResult("workflow_closeout", reviewBundlePayload({
           input,
           workspace: operational.workspace,
           bundle,
+          rootPlanId,
           rootContentHashValue: nativePlan.root_hash,
+          nativeBinding,
         }));
       }
 

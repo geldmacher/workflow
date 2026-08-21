@@ -14,8 +14,16 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isReadOnlyShell, manualJourneyDecision } from "../scripts/validate-artifact.mjs";
 import { hashWorkflowIdentifier, workflowStateRoot } from "./model-inheritance-state.mjs";
+import {
+  approveNativeImplementPlan,
+  cleanupNativeTaskReviewContext,
+  observeNativeCreatePlan,
+  observeNativeReviewResult,
+  prepareNativeReviewReceipt,
+} from "./native-task-review-context.mjs";
 
 const MAX_INPUT_BYTES = 1024 * 1024;
+const pluginRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const MUTATING_TOOL = /^(?:Write|Edit|Delete|Task|Agent|spawn_agent|ApplyPatch|apply_patch|DeleteFile|StrReplace|EditNotebook)$/i;
 const READONLY_REVIEW_MARKER = "[workflow-readonly-review-v1]";
 const READONLY_REVIEW_AGENTS = new Set(["delivery-auditor", "risk-auditor", "work-design-auditor"]);
@@ -121,16 +129,53 @@ function readOnlyReviewAgent(input) {
     : null;
 }
 
+function nativeReviewDenial(value) {
+  const failures = {
+    unavailable: ["native-task-root-unavailable", "No human-approved native Schema-5 Plan is available in this Cursor task. Restore the native Plan context in this task, then repeat /review-work."],
+    unapproved: ["native-task-root-unapproved", "The native Schema-5 Plan was created but no matching human Implement Plan action was observed. Select Implement Plan before repeating /review-work."],
+    ambiguous: ["native-task-root-ambiguous", "More than one native Plan candidate could match this Cursor task. Approve exactly one native Plan, then repeat /review-work."],
+    invalid: ["native-task-root-invalid", "The host-observed native Plan or predecessor chain is invalid. Repair and approve one native Plan, then repeat /review-work."],
+    expired: ["native-task-receipt-expired", "The protected Cursor Review receipt expired. Repeat /review-work in the same approved native Plan task."],
+    replayed: ["native-task-receipt-replayed", "The protected Cursor Review receipt was already consumed. Start a fresh /review-work turn."],
+    mismatch: ["native-task-receipt-mismatch", `The Review call names a different Root than the host-approved Cursor task${value.expected_root_plan_id ? `; expected ${value.expected_root_plan_id}` : ""}. Repeat /review-work without model-supplied Root transport.`],
+  };
+  const [code, message] = failures[value.status] ?? failures.unavailable;
+  return deny(`[${code}] ${message}`);
+}
+
 export function evaluateCloseoutGuard(input, options = {}) {
   if (!input || typeof input !== "object" || Array.isArray(input)) return {};
   const event = input.hook_event_name;
+  const roots = stateRoots(input, options);
+  const nativeContextEvent = event === "beforeSubmitPrompt"
+    || (event === "postToolUse" && /^(?:CreatePlan|MCP:workflow_closeout)$/i.test(String(input.tool_name ?? "")))
+    || (event === "preToolUse" && /^MCP:workflow_closeout$/i.test(String(input.tool_name ?? "")));
+  if (nativeContextEvent) {
+    for (const root of roots) {
+      try { cleanupNativeTaskReviewContext(root, options); } catch { /* availability is handled only in explicit Review */ }
+    }
+  }
   if (event === "beforeSubmitPrompt") {
+    try { approveNativeImplementPlan({ stateRoots: roots, input, options }); } catch { /* native non-Workflow prompts stay passive */ }
     const phase = phaseFromPrompt(input);
     if (phase) writeTurn(input, { phase, observed_review_auditors: [] }, options);
     return {};
   }
+  if (event === "postToolUse" && input.tool_name === "CreatePlan") {
+    try { observeNativeCreatePlan({ stateRoots: roots, input, pluginRoot: options.pluginRoot ?? pluginRoot, options }); } catch { /* preToolUse already owns CreatePlan denial */ }
+    return {};
+  }
   const turn = readTurn(input, options);
   if (!turn) return {};
+  if (event === "preToolUse" && turn.phase === "review" && /^MCP:workflow_closeout$/i.test(String(input.tool_name ?? ""))) {
+    let prepared;
+    try {
+      prepared = prepareNativeReviewReceipt({ stateRoots: roots, input, pluginRoot: options.pluginRoot ?? pluginRoot, options });
+    } catch {
+      prepared = { status: "invalid" };
+    }
+    if (!["ignored", "prepared"].includes(prepared.status)) return nativeReviewDenial(prepared);
+  }
   if (event === "preToolUse" && turn.phase === "review" && isMutatingTool(input) && !readOnlyReviewAgent(input)) {
     return deny(manualJourneyDecision({
       state: "blocked",
@@ -140,6 +185,9 @@ export function evaluateCloseoutGuard(input, options = {}) {
     }));
   }
   if (event === "postToolUse" && turn.phase === "review") {
+    if (/^MCP:workflow_closeout$/i.test(String(input.tool_name ?? ""))) {
+      try { observeNativeReviewResult({ stateRoots: roots, input, pluginRoot: options.pluginRoot ?? pluginRoot, options }); } catch { /* MCP result remains authoritative in current task */ }
+    }
     const auditor = readOnlyReviewAgent(input);
     if (auditor) writeTurn(input, {
       ...turn,

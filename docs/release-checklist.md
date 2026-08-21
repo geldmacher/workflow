@@ -16,7 +16,7 @@
 - [ ] Verification Profile prove/approve/audit invalidates on any referenced drift.
 - [ ] Controller Readers cannot write repository content; exactly one canonical Controller Writer owns its worktree.
 - [ ] Workflow Task calls allow only inherited or approved Manual candidates, observed Children match policy, and ordinary unmarked tasks remain unaffected without embedding lifecycle metadata in the native Plan.
-- [ ] The validation-only `CreatePlan` guard rejects invalid Schema-5 native Plan containers while creating no Root receipt, active-chain state, or implementation gate.
+- [ ] The pre-tool `CreatePlan` guard rejects invalid Schema-5 native Plan containers without creating authority or an implementation gate; successful post-tool observation can retain protected same-conversation transport bytes, and only native **Implement Plan** approves them.
 - [ ] Shared Manual lifecycle tests cover native Root resolution, legacy-state discard, normal implementation Stop, read-only Review, atomic Evidence/Review, fresh observation grading, failed required Checks, current dirty inventory, correction delta lineage, and Codex bundle parity.
 - [ ] Parallel and duplicate Task events correlate by hashed ID; missing/mismatched fields are unattestable; executed/returned Children after Deny become `deny-not-enforced` incidents without changing Evidence grade or Review verdict.
 - [ ] Named post-implementation agents declare `readonly: true`, use `model: inherit`, and built-in, general-purpose, unmarked, or writing agents remain blocked during Review and Explanation.

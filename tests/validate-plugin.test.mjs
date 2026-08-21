@@ -20,15 +20,17 @@ async function createFixture(explicitPaths) {
     hooks: {
       sessionStart: [{ type: "command", command, failClosed: false }],
       beforeSubmitPrompt: [{ type: "command", command, failClosed: false }],
-      preToolUse: [{ type: "command", command, matcher: "CreatePlan|Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook", failClosed: false }],
+      preToolUse: [{ type: "command", command, matcher: "CreatePlan|Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook|MCP:workflow_closeout", failClosed: false }],
       subagentStart: [{ type: "command", command, failClosed: false }],
       subagentStop: [{ type: "command", command, failClosed: false }],
-      postToolUse: [{ type: "command", command, matcher: "Task", failClosed: false }],
+      postToolUse: [{ type: "command", command, matcher: "Task|CreatePlan|MCP:workflow_closeout", failClosed: false }],
     },
   }));
   await write(join(root, "hooks", "closeout-guard.mjs"), "process.stdout.write('{}');\n");
   await write(join(root, "hooks", "manual-subagent-policy.mjs"), "export const placeholder = true;\n");
   await write(join(root, "hooks", "model-inheritance-state.mjs"), "export const placeholder = true;\n");
+  await write(join(root, "hooks", "native-review-receipt.mjs"), "export const placeholder = true;\n");
+  await write(join(root, "hooks", "native-task-review-context.mjs"), "export const placeholder = true;\n");
   await write(join(root, "hooks", "plan-integrity-guard.mjs"), "process.stdout.write('{}');\n");
   await write(join(root, "hooks", "subagent-guard.mjs"), "process.stdout.write('{}');\n");
   for (const name of ["accept-work", "auto-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-control", "work-models", "work-status", "work-verification", "work-watch"]) {

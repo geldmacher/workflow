@@ -6,7 +6,7 @@ Manual remains familiar and task-local: `/plan-work`, human **Implement Plan**, 
 
 The plugin hook keeps parent-model inheritance and read-only Review enforcement without embedding lifecycle metadata in the Plan. After implementation, switch to a fresh Ask/read-only phase inside the same task for `/review-work` or `/explain-work`; only the marked, named read-only plugin agents may be delegated to.
 
-Within the current task, Manual context commands resolve exact native Plan and artifact bytes only. Without a native Plan, Review reports which native sources were inspected and asks to restore the Plan in this task or create a new one; it never restores a cache-selected Root automatically.
+Within the current task, Manual context commands resolve exact native Plan and artifact bytes only. Cursor transports a human-approved native Plan into Review through a protected same-conversation single-use receipt; Codex keeps the exact-input path. Missing, unapproved, invalid, or ambiguous native context blocks only Review and asks to restore and approve the Plan in this task or create a new one; it never restores a cache-selected Root automatically.
 
 For a plausible Manual delivery with an unavailable proof surface:
 

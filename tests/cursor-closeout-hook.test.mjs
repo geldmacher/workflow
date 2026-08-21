@@ -1,10 +1,16 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { evaluateCloseoutGuard } from "../hooks/closeout-guard.mjs";
+import { consumeNativeReviewReceipt } from "../hooks/native-task-review-context.mjs";
+import { defaultRoot } from "../scripts/validate-artifact.source.mjs";
+
+const rootPlan = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8")
+  .replace("profile_max: supervised", "profile_max: manual")
+  .replace("contract_level: controlled", "contract_level: lean");
 
 function input(overrides = {}) {
   return {
@@ -97,6 +103,79 @@ test("Cursor Review parses shell input and records completed auditors", () => {
         prompt: "[workflow-readonly-review-v1] Inspect risk.",
       },
     }), options), {});
+  } finally {
+    rmSync(stateRoot, { recursive: true, force: true });
+  }
+});
+
+test("Cursor lifecycle binds native Implement Plan to one work-review receipt", () => {
+  const stateRoot = mkdtempSync(join(tmpdir(), "cursor-native-review-receipt-"));
+  try {
+    const options = { stateRoot, pluginRoot: defaultRoot };
+    assert.deepEqual(evaluateCloseoutGuard(input({
+      hook_event_name: "postToolUse",
+      generation_id: "plan-generation",
+      tool_name: "CreatePlan",
+      tool_use_id: "create-plan-call",
+      tool_input: { name: "Adaptive retry", plan: rootPlan },
+    }), options), {});
+    assert.deepEqual(evaluateCloseoutGuard(input({
+      hook_event_name: "beforeSubmitPrompt",
+      generation_id: "implementation-generation",
+      prompt: "Adaptive retry\n\nImplement the plan as specified, it is attached for your reference. Do NOT edit the plan file itself.",
+    }), options), {});
+    assert.deepEqual(evaluateCloseoutGuard(input({
+      hook_event_name: "beforeSubmitPrompt",
+      generation_id: "review-generation",
+      prompt: "/review-work",
+    }), options), {});
+    const toolInput = {
+      artifact_kind: "work-review",
+      root_plan_id: "wp-adaptive-retry",
+      root_plan: rootPlan.slice(0, 250),
+      check_evidence: [],
+      review_input: { schema: 1, kind: "review-input" },
+    };
+    assert.deepEqual(evaluateCloseoutGuard(input({
+      hook_event_name: "preToolUse",
+      generation_id: "review-generation",
+      tool_name: "MCP:workflow_closeout",
+      tool_use_id: "review-call",
+      tool_input: toolInput,
+    }), options), {});
+    const consumed = consumeNativeReviewReceipt({ stateRoot, input: toolInput });
+    assert.equal(consumed.status, "resolved");
+    assert.equal(consumed.receipt.root_text, rootPlan);
+  } finally {
+    rmSync(stateRoot, { recursive: true, force: true });
+  }
+});
+
+test("Cursor lifecycle blocks a mismatched Review Root before MCP execution", () => {
+  const stateRoot = mkdtempSync(join(tmpdir(), "cursor-native-review-mismatch-"));
+  try {
+    const options = { stateRoot, pluginRoot: defaultRoot };
+    evaluateCloseoutGuard(input({
+      hook_event_name: "postToolUse",
+      generation_id: "plan-generation",
+      tool_name: "CreatePlan",
+      tool_use_id: "create-plan-call",
+      tool_input: { name: "Adaptive retry", plan: rootPlan },
+    }), options);
+    evaluateCloseoutGuard(input({
+      hook_event_name: "beforeSubmitPrompt",
+      generation_id: "implementation-generation",
+      prompt: "Adaptive retry\n\nImplement the plan as specified, it is attached for your reference. Do NOT edit the plan file itself.",
+    }), options);
+    evaluateCloseoutGuard(input({ hook_event_name: "beforeSubmitPrompt", generation_id: "review-generation", prompt: "/review-work" }), options);
+    const denied = evaluateCloseoutGuard(input({
+      hook_event_name: "preToolUse",
+      generation_id: "review-generation",
+      tool_name: "MCP:workflow_closeout",
+      tool_input: { artifact_kind: "work-review", root_plan_id: "wp-other-root" },
+    }), options);
+    assert.equal(denied.permission, "deny");
+    assert.match(denied.user_message, /native-task-receipt-mismatch/);
   } finally {
     rmSync(stateRoot, { recursive: true, force: true });
   }

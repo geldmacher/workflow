@@ -14,11 +14,20 @@ export function resolveNativePlan({ candidates = [], attemptedSources = [], plug
     ...candidates.map((entry) => entry?.source).filter(Boolean),
   ])];
   const valid = [];
+  const rejected = [];
   for (const candidate of candidates) {
     if (typeof candidate?.root_text !== "string" || !candidate.root_text.trim()) continue;
     const inspected = inspectArtifactText(candidate.root_text, pluginRoot);
     const fields = inspected.artifact?.fields;
-    if (inspected.errors.length > 0 || fields?.artifact !== "work-plan" || fields?.schema !== 5) continue;
+    if (inspected.errors.length > 0 || fields?.artifact !== "work-plan" || fields?.schema !== 5) {
+      rejected.push({
+        source: candidate.source ?? "native-task-plan",
+        validation_errors: (inspected.errors.length > 0 ? inspected.errors : ["not a Schema-5 work-plan"])
+          .slice(0, 8)
+          .map((entry) => String(entry).replace(/\s+/g, " ").slice(0, 300)),
+      });
+      continue;
+    }
     valid.push({
       root_text: candidate.root_text,
       root_id: fields.id,
@@ -28,6 +37,14 @@ export function resolveNativePlan({ candidates = [], attemptedSources = [], plug
   }
   const unique = [...new Map(valid.map((entry) => [entry.root_hash, entry])).values()];
   if (unique.length === 0) {
+    if (rejected.length > 0) {
+      return {
+        status: "invalid",
+        attempted_sources: attempted,
+        rejected_sources: rejected,
+        resolution: "Supply the complete exact Schema-5 native Plan from this task, then repeat Review.",
+      };
+    }
     return {
       status: "unavailable",
       attempted_sources: attempted,

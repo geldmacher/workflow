@@ -74,6 +74,7 @@ const manualTools = registerManualWorkflowTools({
   failure,
   includeStatus: false,
   contract: toolContract,
+  clientHost: "cursor",
 });
 
 function runnerPath() {

@@ -44,6 +44,7 @@ export function registerManualWorkflowTools({
   failure,
   includeStatus = true,
   contract = manualToolContract,
+  clientHost = "portable",
   resolveHostToolApprovalPreference = resolveHostToolApproval,
   resolveManualSubagentPolicyPreference = resolveManualSubagentPolicy,
 }) {
@@ -74,6 +75,7 @@ export function registerManualWorkflowTools({
     resolveOperationalContext,
     result: toolAwareResult,
     handoffStoreFactory,
+    clientHost,
   });
 
   const status = async (input) => {

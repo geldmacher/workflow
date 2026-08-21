@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Cursor CreatePlan policy: validate the native Root without storing authority. */
+/** Cursor CreatePlan policy: validate the native Root without creating independent authority. */
 
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";

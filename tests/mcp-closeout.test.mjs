@@ -7,6 +7,11 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { defaultRoot, executionContractFromArtifactText, inspectArtifactText } from "../scripts/validate-artifact.source.mjs";
 import { workflowClient } from "./mcp-client.mjs";
 import { recordModelIncident, workflowStateRoot } from "../hooks/model-inheritance-state.mjs";
+import {
+  approveNativeImplementPlan,
+  observeNativeCreatePlan,
+  prepareNativeReviewReceipt,
+} from "../hooks/native-task-review-context.mjs";
 import { PreparationStore, repositoryKey, RunStore } from "../src/controller/store.mjs";
 import { createInitialStrategy } from "../src/controller/strategy.mjs";
 import { buildDeliveryEvidence } from "../src/controller/delivery-closeout.mjs";
@@ -55,6 +60,41 @@ function mcpEnv(home, extra = {}) {
     CURSOR_PLUGIN_ROOT: defaultRoot,
     ...extra,
   };
+}
+
+function seedCursorReviewReceipt(home, argumentsValue, suffix, exactRoot = rootPlan) {
+  const stateRoot = workflowStateRoot(defaultRoot, { home });
+  const conversationId = `mcp-review-${suffix}`;
+  observeNativeCreatePlan({
+    stateRoots: [stateRoot],
+    pluginRoot: defaultRoot,
+    input: {
+      conversation_id: conversationId,
+      generation_id: `plan-${suffix}`,
+      tool_use_id: `create-${suffix}`,
+      tool_input: { name: "Adaptive retry", plan: exactRoot },
+    },
+  });
+  approveNativeImplementPlan({
+    stateRoots: [stateRoot],
+    input: {
+      conversation_id: conversationId,
+      generation_id: `implement-${suffix}`,
+      prompt: "Adaptive retry\n\nImplement the plan as specified, it is attached for your reference. Do NOT edit the plan file itself.",
+    },
+  });
+  const prepared = prepareNativeReviewReceipt({
+    stateRoots: [stateRoot],
+    pluginRoot: defaultRoot,
+    input: {
+      conversation_id: conversationId,
+      generation_id: `review-${suffix}`,
+      tool_use_id: `closeout-${suffix}`,
+      tool_name: "MCP:workflow_closeout",
+      tool_input: argumentsValue,
+    },
+  });
+  assert.equal(prepared.status, "prepared");
 }
 
 test("MCP plan preflight is read-only and independent from workspace roots", async () => {
@@ -296,7 +336,7 @@ test("MCP work-review mode builds one host-owned review and remains idempotent w
   const home = mkdtempSync(join(tmpdir(), "workflow-review-mode-home-"));
   const transport = new StdioClientTransport({
     command: process.execPath,
-    args: [join(defaultRoot, "dist", "workflow-mcp.mjs")],
+    args: [join(defaultRoot, "dist", "codex", "workflow-mcp.mjs")],
     cwd: defaultRoot,
     env: mcpEnv(home),
     stderr: "pipe",
@@ -384,6 +424,21 @@ test("MCP work-review mode builds one host-owned review and remains idempotent w
     assert.match(authorityInjection.structuredContent.error, /unsupported field root_plan_id/);
     assert.equal(authorityInjection.structuredContent.presentation.next_action, "retry-review");
 
+    const invalidNativePlan = await client.callTool({
+      name: "workflow_closeout",
+      arguments: { ...argumentsValue, root_plan: controlledRootPlan.slice(0, 300) },
+    });
+    assert.equal(invalidNativePlan.isError, true);
+    assert.equal(invalidNativePlan.structuredContent.error_code, "native-plan-invalid");
+    assert.equal(invalidNativePlan.structuredContent.rejected_sources[0].source, "workflow_closeout.root_plan from current Review task");
+
+    const unavailableNativePlan = await client.callTool({
+      name: "workflow_closeout",
+      arguments: { ...argumentsValue, root_plan: undefined },
+    });
+    assert.equal(unavailableNativePlan.isError, true);
+    assert.equal(unavailableNativePlan.structuredContent.error_code, "native-plan-unavailable");
+
     const contradictoryJudgment = await client.callTool({
       name: "workflow_closeout",
       arguments: {
@@ -441,6 +496,7 @@ test("MCP work-review mode builds one host-owned review and remains idempotent w
     assert.equal(reviewInputContract.anyOf[0].additionalProperties, false);
     assert.ok(reviewInputContract.anyOf[0].required.includes("assessment_summary"));
     assert.match(reviewInputContract.anyOf[1].description, /Recovery-only malformed review_input object/);
+    assert.ok(tools.tools.find((tool) => tool.name === "workflow_closeout").inputSchema.required.includes("root_plan_id"));
   } finally {
     await client.close().catch(() => {});
     rmSync(home, { recursive: true, force: true });
@@ -459,6 +515,16 @@ test("MCP native Review atomically creates missing Evidence and rejects cache-on
   const client = workflowClient("workflow-atomic-review-test", [defaultRoot]);
   try {
     await client.connect(transport);
+    const cursorTools = await client.listTools();
+    assert.equal(cursorTools.tools.find((tool) => tool.name === "workflow_closeout").inputSchema.required?.includes("root_plan_id") ?? false, false);
+    seedCursorReviewReceipt(home, {
+      workspace_root: defaultRoot,
+      artifact_kind: "work-review",
+      root_plan_id: "wp-adaptive-retry",
+      root_plan: rootPlan,
+      check_evidence: [verifiedCheck],
+      review_input: achievedReviewInput,
+    }, "atomic-reviewed");
     const reviewed = await client.callTool({
       name: "workflow_closeout",
       arguments: {
@@ -478,22 +544,41 @@ test("MCP native Review atomically creates missing Evidence and rejects cache-on
     assert.equal(reviewed.structuredContent.latest_evidence_id, reviewed.structuredContent.delivery_evidence_id);
     assert.equal(reviewed.structuredContent.handoff_persisted, false);
     assert.ok(Array.isArray(reviewed.structuredContent.observed_dirty_paths));
+    assert.equal(reviewed.structuredContent.native_task_binding, "cursor-receipt");
+    assert.equal(reviewed.structuredContent.native_root_source, "cursor-create-plan");
+    assert.equal(reviewed.structuredContent.predecessor_mode, "full-rebuild");
 
+    const rootlessArguments = {
+      workspace_root: defaultRoot,
+      artifact_kind: "work-review",
+      check_evidence: [verifiedCheck],
+      review_input: achievedReviewInput,
+    };
+    seedCursorReviewReceipt(home, rootlessArguments, "atomic-rootless");
     const rootless = await client.callTool({
       name: "workflow_closeout",
-      arguments: {
-        workspace_root: defaultRoot,
-        artifact_kind: "work-review",
-        root_plan_id: "wp-adaptive-retry",
-        check_evidence: [verifiedCheck],
-        review_input: achievedReviewInput,
-      },
+      arguments: rootlessArguments,
     });
-    assert.equal(rootless.isError, true);
-    assert.equal(rootless.structuredContent.error_code, "native-plan-unavailable");
-    assert.deepEqual(rootless.structuredContent.attempted_sources, ["workflow_closeout.root_plan from current Review task"]);
-    assert.match(rootless.structuredContent.error, /Inspected: workflow_closeout\.root_plan.*Restore the Schema-5 native Plan/is);
-    assert.match(rootless.structuredContent.resolution, /same task or create and approve a new native Plan/i);
+    assert.equal(rootless.isError, false, JSON.stringify(rootless.structuredContent));
+    assert.equal(rootless.structuredContent.root_plan_id, "wp-adaptive-retry");
+    assert.equal(rootless.structuredContent.native_task_binding, "cursor-receipt");
+
+    const truncatedArguments = { ...rootlessArguments, root_plan_id: "wp-adaptive-retry", root_plan: rootPlan.slice(0, 300) };
+    seedCursorReviewReceipt(home, truncatedArguments, "atomic-truncated");
+    const truncated = await client.callTool({ name: "workflow_closeout", arguments: truncatedArguments });
+    assert.equal(truncated.isError, false, JSON.stringify(truncated.structuredContent));
+    assert.equal(truncated.structuredContent.root_content_hash, rootless.structuredContent.root_content_hash);
+
+    const replayed = await client.callTool({ name: "workflow_closeout", arguments: truncatedArguments });
+    assert.equal(replayed.isError, true);
+    assert.equal(replayed.structuredContent.error_code, "native-task-receipt-replayed");
+
+    const unavailable = await client.callTool({
+      name: "workflow_closeout",
+      arguments: { ...rootlessArguments, summary: "No hook receipt was prepared for this distinct Review call." },
+    });
+    assert.equal(unavailable.isError, true);
+    assert.equal(unavailable.structuredContent.error_code, "native-task-receipt-unavailable");
   } finally {
     await client.close().catch(() => {});
     rmSync(home, { recursive: true, force: true });

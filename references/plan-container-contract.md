@@ -4,7 +4,7 @@ Cursor and Codex own their native Plan UI. Workflow contributes one exact immuta
 
 ## Cursor
 
-Emit one H1, then a `yaml artifact-envelope` containing the exact Root. Native todos describe implementation and planned Checks only. Add no closeout todo, model-inheritance marker requirement, `workflow_attestation`, Evidence step, artifact-record call, or delivery report. The validation-only CreatePlan guard checks the exposed Root but creates no receipt and does not gate later implementation.
+Emit one H1, then a `yaml artifact-envelope` containing the exact Root. Native todos describe implementation and planned Checks only. Add no closeout todo, model-inheritance marker requirement, `workflow_attestation`, Evidence step, artifact-record call, or delivery report. The guard grants nothing; successful `CreatePlan` may retain same-task bytes, approved only by **Implement Plan**.
 
 ## Codex
 
