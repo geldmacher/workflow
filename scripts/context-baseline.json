@@ -2,24 +2,24 @@
   "measurement_version": 3,
   "flow_matrix_hash": "b525c883639accb248143a6774d9d7fa95bdb2a4a9b16be4cac773f75e70effc",
   "always_on_tokens": 0,
-  "discoverability_tokens": 365,
+  "discoverability_tokens": 367,
   "phase_flows": {
-    "plan_intake": 858,
-    "plan_oneshot": 1487,
-    "plan_compact_full": 1668,
-    "review_base": 1714,
+    "plan_intake": 969,
+    "plan_oneshot": 1748,
+    "plan_compact_full": 1929,
+    "review_base": 1829,
     "correction": 1351,
     "learning": 1785,
-    "explanation": 743
+    "explanation": 778
   },
   "automation_flows": {
-    "prepare_or_approve": 882,
-    "status": 1078,
-    "watch": 879,
-    "control": 1278,
-    "models": 845,
-    "verification": 851,
-    "acceptance": 1011
+    "prepare_or_approve": 922,
+    "status": 1150,
+    "watch": 919,
+    "control": 1334,
+    "models": 885,
+    "verification": 891,
+    "acceptance": 1123
   },
   "reviewer_tokens": {
     "delivery-auditor": 495,

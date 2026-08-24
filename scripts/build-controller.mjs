@@ -53,6 +53,8 @@ const sharedEntries = {
 
 const sharedResult = await build({
   ...common,
+  // Preserve readable identifiers and layout while compacting equivalent syntax for the bounded package surface.
+  minifySyntax: true,
   entryPoints: sharedEntries,
   outdir: dist,
   entryNames: "[name]",
@@ -63,6 +65,7 @@ const sharedResult = await build({
 });
 const independentResult = await build({
   ...common,
+  minifySyntax: true,
   entryPoints: sharedEntries,
   outdir: dist,
   entryNames: "independent-[name]",
@@ -84,11 +87,25 @@ const workerResult = await build({
 const codexResult = await build({
   ...common,
   external: [],
+  define: { __GELDMACHER_WORKFLOW_MANUAL_CLIENT_HOST__: JSON.stringify("codex") },
   entryPoints: {
     "workflow-mcp": join(root, "src", "mcp", "workflow-mcp-manual.mjs"),
     "workflow-hook": join(root, "src", "hosts", "codex", "workflow-hook.mjs"),
   },
   outdir: join(dist, "codex"),
+  entryNames: "[name]",
+  outExtension: { ".js": ".mjs" },
+  splitting: false,
+  banner: { js: nodeBanner },
+});
+const portableResult = await build({
+  ...common,
+  external: [],
+  define: { __GELDMACHER_WORKFLOW_MANUAL_CLIENT_HOST__: JSON.stringify("portable") },
+  entryPoints: {
+    "workflow-mcp": join(root, "src", "mcp", "workflow-mcp-manual.mjs"),
+  },
+  outdir: join(dist, "portable"),
   entryNames: "[name]",
   outExtension: { ".js": ".mjs" },
   splitting: false,
@@ -110,7 +127,7 @@ const hookHelperResult = await build({
 });
 const generatedHookHelper = `${hookHelperResult.outputFiles[0].text.replace(/[ \t]+$/gm, "").trimEnd()}\n`;
 const hookHelperPath = join(root, "hooks", "manual-subagent-policy.mjs");
-const results = [sharedResult, workerResult, codexResult];
+const results = [sharedResult, workerResult, codexResult, portableResult];
 const generated = new Map(results.flatMap((result) => result.outputFiles.map((output) => [
   relative(dist, output.path),
   `${output.text.replace(/[ \t]+$/gm, "").trimEnd()}\n`,
@@ -163,8 +180,9 @@ const noticeSections = controllerPackages.map((name) => {
 });
 const generatedNotices = `# Controller third-party notices\n\nThe built MCP/controller bundles contain the packages selected by the build, and the worker declares the exact Cursor SDK and its optional platform packages below as external runtime dependencies. License texts are reproduced from their installed packages; each Cursor platform package uses the Cursor SDK license shipped with the matching version. The external SDK is not copied into dist and must be proven present in the actually installed plugin before automation activation.\n\n${noticeSections.join("\n\n")}\n`;
 
-const codexPackages = [...new Set(Object.keys(codexResult.metafile.inputs).map(packageName).filter(Boolean))].sort();
-if (codexPackages.some((name) => name.startsWith("@cursor/"))) throw new Error("Codex bundles must not include Cursor packages");
+const codexPackages = [...new Set([codexResult, portableResult]
+  .flatMap((result) => Object.keys(result.metafile.inputs).map(packageName).filter(Boolean)))].sort();
+if (codexPackages.some((name) => name.startsWith("@cursor/"))) throw new Error("Manual bundles must not include Cursor packages");
 const codexNoticeSections = codexPackages.map((name) => {
   const directory = join(root, "node_modules", ...name.split("/"));
   const metadata = JSON.parse(readFileSync(join(directory, "package.json"), "utf8"));
@@ -175,11 +193,11 @@ const codexNoticeSections = codexPackages.map((name) => {
 const generatedCodexNotices = `# Codex third-party notices\n\nThe standalone Manual MCP and lifecycle-policy bundles contain only the packages selected by the Codex build. They do not include host-specific automation dependencies.\n\n${codexNoticeSections.join("\n\n")}\n`;
 
 const codexBundleText = [...generated]
-  .filter(([file]) => file.startsWith("codex/"))
+  .filter(([file]) => file.startsWith("codex/") || file.startsWith("portable/"))
   .map(([, content]) => content)
   .join("\n");
 for (const forbidden of ["@cursor/sdk", "CURSOR_API_KEY", "workflow_prepare", "workflow_start", "workflow_watch", "workflow_control", "workflow_answer", "workflow_validate_models", "workflow_verification_profile"]) {
-  if (codexBundleText.includes(forbidden)) throw new Error(`Codex bundle leaked forbidden Cursor surface: ${forbidden}`);
+  if (codexBundleText.includes(forbidden)) throw new Error(`Manual bundle leaked forbidden Cursor surface: ${forbidden}`);
 }
 
 if (checkOnly) {

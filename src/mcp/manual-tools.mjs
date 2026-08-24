@@ -48,7 +48,7 @@ export function registerManualWorkflowTools({
   resolveHostToolApprovalPreference = resolveHostToolApproval,
   resolveManualSubagentPolicyPreference = resolveManualSubagentPolicy,
 }) {
-  const namedResult = (toolName) => (value, isError = false) => manualMcpResult(toolName, value, isError);
+  const namedResult = (toolName) => (value, isError = false) => manualMcpResult(toolName, value, isError, { clientHost });
   const namedFailure = (toolName) => (error) => namedResult(toolName)({
     error: error.message,
     ...(error?.code ? { error_code: error.code } : {}),

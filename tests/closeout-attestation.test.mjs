@@ -96,6 +96,40 @@ test("native todo plan-closeout requires typed metadata without ceremony prose",
   );
 });
 
+test("repository attribution excludes unchanged pre-existing paths and degrades on HEAD drift", () => {
+  const baseline = {
+    schema: 1,
+    repository_root: defaultRoot,
+    head: "a".repeat(40),
+    dirty_paths: ["src/pre-existing.mjs"],
+    fingerprints: { "src/pre-existing.mjs": `file:100644:${"1".repeat(64)}` },
+    index_fingerprint: "2".repeat(64),
+    status_fingerprint: "3".repeat(64),
+    working_tree: "modified",
+    captured_at: "2026-08-23T00:00:00.000Z",
+  };
+  const current = {
+    ...baseline,
+    dirty_paths: ["src/pre-existing.mjs", "src/retry.mjs"],
+    fingerprints: {
+      ...baseline.fingerprints,
+      "src/retry.mjs": `file:100644:${"4".repeat(64)}`,
+    },
+    index_fingerprint: "5".repeat(64),
+    status_fingerprint: "6".repeat(64),
+  };
+  const attributed = deriveRepositoryDelta(baseline, current);
+  assert.deepEqual(attributed.changed_paths, ["src/retry.mjs"]);
+  assert.deepEqual(attributed.pre_existing_paths, ["src/pre-existing.mjs"]);
+  assert.equal(attributed.attribution_status, "attributed");
+
+  const drifted = deriveRepositoryDelta(baseline, { ...current, head: "b".repeat(40) });
+  assert.equal(drifted.attribution_status, "provisional");
+  assert.equal(drifted.baseline_available, false);
+  assert.deepEqual(drifted.attribution_reason_codes, ["head-drift"]);
+  assert.deepEqual(drifted.changed_paths, current.dirty_paths);
+});
+
 const validCloseoutInput = Object.freeze({
   schema: 1,
   kind: "closeout-input",
@@ -212,6 +246,30 @@ function attestRootCheck(repository, receiptOptions) {
   });
 }
 
+test("repository attribution detects staged changes hidden behind an unchanged worktree file", () => {
+  const temporary = mkdtempSync(join(tmpdir(), "workflow-index-attribution-"));
+  const repository = join(temporary, "repository");
+  try {
+    mkdirSync(join(repository, "src"), { recursive: true });
+    writeFileSync(join(repository, "src/retry.mjs"), "export const retries = 1;\n");
+    git(repository, ["init", "--quiet"]);
+    git(repository, ["add", "src/retry.mjs"]);
+    git(repository, ["-c", "user.name=Workflow Test", "-c", "user.email=workflow@example.invalid", "commit", "--quiet", "-m", "baseline"]);
+
+    writeFileSync(join(repository, "src/retry.mjs"), "export const retries = 2;\n");
+    const baseline = captureRepositorySnapshot(repository);
+    writeFileSync(join(repository, "src/retry.mjs"), "export const retries = 3;\n");
+    git(repository, ["add", "src/retry.mjs"]);
+    writeFileSync(join(repository, "src/retry.mjs"), "export const retries = 2;\n");
+
+    const delta = deriveRepositoryDelta(baseline, captureRepositorySnapshot(repository));
+    assert.deepEqual(delta.changed_paths, ["src/retry.mjs"]);
+    assert.deepEqual(delta.pre_existing_paths, []);
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
+  }
+});
+
 test("native closeout derives paths host-side and is byte-identical and idempotent with the deterministic builder", () => {
   const temporary = mkdtempSync(join(tmpdir(), "workflow-native-closeout-"));
   const repository = join(temporary, "repository");
@@ -248,6 +306,12 @@ test("native closeout derives paths host-side and is byte-identical and idempote
       strategyRevision: report.strategy_revision,
       effectiveProfile: "manual",
       repositorySnapshot: delta.repository_snapshot,
+      repositoryAttribution: {
+        status: delta.attribution_status,
+        boundary: delta.attribution_boundary,
+        baseline_hash: delta.baseline_hash,
+        reason_codes: delta.attribution_reason_codes,
+      },
       summary: report.summary,
       manualCheckReceipts: receipts,
       pluginRoot: defaultRoot,
@@ -269,7 +333,7 @@ test("native closeout derives paths host-side and is byte-identical and idempote
     assert.equal(duplicate.duplicate, true);
     assert.equal(duplicate.artifact, native.artifact);
 
-    const hydrated = performNativeCloseout({
+    assert.throws(() => performNativeCloseout({
       attestation: { ...report, phase: "review-recovery" },
       expectedPhase: "review-recovery",
       rootPlanText: leanRoot,
@@ -277,10 +341,7 @@ test("native closeout derives paths host-side and is byte-identical and idempote
       pluginRoot: defaultRoot,
       handoffOptions: { baseRoot: handoffRoot },
       receiptOptions,
-    });
-    assert.equal(hydrated.duplicate, true);
-    assert.equal(hydrated.fields.status, "complete");
-    assert.equal(hydrated.artifact, native.artifact);
+    }), /stale|competing|conflict/i);
 
     const unusableHandoff = join(temporary, "handoff-is-a-file");
     writeFileSync(unusableHandoff, "not a directory\n");

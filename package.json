@@ -1,6 +1,6 @@
 {
   "name": "@geldmacher/workflow-plugin-development",
-  "version": "5.5.0",
+  "version": "5.5.1",
   "private": true,
   "description": "Development and controller validation for the adaptive, evidence-calibrated Cursor-native Workflow plugin.",
   "files": [
@@ -30,6 +30,7 @@
     "schemas",
     "scripts/validate-artifact.mjs",
     "skills",
+    "src/core/native-task-review-state.mjs",
     "THIRD_PARTY_NOTICES.md"
   ],
   "engines": {

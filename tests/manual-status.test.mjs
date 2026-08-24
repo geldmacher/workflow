@@ -303,7 +303,7 @@ test("manual workflow_status is read-only and creates no controller state", asyn
     assert.equal(accepted.structuredContent.snapshot.root_plan_id, rootPlanId);
     assert.equal(accepted.structuredContent.presentation.workflow_state, "accepted-provisional");
     assert.equal(accepted.structuredContent.presentation.help.topic, "manual-state-accepted-provisional");
-    assert.match(accepted.content[0].text, /### Accepted provisionally/);
+    assert.match(accepted.content[0].text, /### Provisional gap acknowledged/);
     assert.doesNotMatch(accepted.content[0].text, /### Done/);
     const fresh = await client.callTool({
       name: "workflow_status",
@@ -312,7 +312,7 @@ test("manual workflow_status is read-only and creates no controller state", asyn
     assert.equal(fresh.structuredContent.snapshot.state, "delivery-ready-provisional");
     assert.equal(fresh.structuredContent.presentation.outcome, "partial");
     assert.equal(fresh.structuredContent.presentation.help.topic, "manual-state-delivery-ready-provisional");
-    assert.match(fresh.content[0].text, /## Workflow · Provisional acceptance required/);
+    assert.match(fresh.content[0].text, /## Workflow · Decision needed/);
     assert.match(fresh.content[0].text, /Technical traceability[\s\S]*workflow_status — partial/);
     assert.equal(accepted.structuredContent.presentation.outcome, "ready");
     const boundary = await client.callTool({
@@ -323,7 +323,7 @@ test("manual workflow_status is read-only and creates no controller state", asyn
     assert.equal(boundary.structuredContent.snapshot.next_action, "replan");
     assert.equal(boundary.structuredContent.presentation.journey_state, "replan-approval-required");
     assert.equal(boundary.structuredContent.presentation.primary_action.id, "replan");
-    assert.match(boundary.content[0].text, /Workflow · Replan approval required/);
+    assert.match(boundary.content[0].text, /Workflow · Decision needed/);
     assert.equal(existsSync(join(home, ".cursor", "geldmacher-workflow")), false);
   } finally {
     await client.close().catch(() => {});

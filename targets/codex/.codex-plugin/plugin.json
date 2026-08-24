@@ -1,6 +1,6 @@
 {
   "name": "geldmacher-workflow",
-  "version": "5.5.0",
+  "version": "5.5.1",
   "description": "Human-authorized native planning, implementation, atomic evidence review, and status for Codex.",
   "author": {
     "name": "Geldmacher"

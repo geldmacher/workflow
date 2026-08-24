@@ -2,10 +2,27 @@
 
 ## Unreleased
 
+- Capture future Cursor Manual Schema-5 Roots passively at the planning `stop` boundary when native `CreatePlan` tool hooks are omitted, while preserving the post-tool fast path and requiring exact latest-turn transcript binding.
+- Allow only one recent native Plan file as a visibly provisional transcript-unavailable fallback, propagate its trust level through Schema-4 Review receipts and MCP output, and prevent it from producing verified delivery.
+
+## 5.5.1
+
+- Restrict active Review Shell to one exact structurally safe machine-verifiable Root Check and reject command chaining, mutation flags, output options, changed test targets, and unknown npm scripts before execution.
+- Split availability-first prompt observation from fail-closed active mutation enforcement; allow only exact conversation-bound transcript recovery for Review activation and force `review-observer-unavailable` delivery to remain supported/provisional.
+- Canonicalize every Review workspace through the real Git toplevel and serialize conversation and turn state with owner-token/PID locks that never steal from a live process or release another owner's lock.
+- Make provisional, stopped, blocked-controller, and Details output concrete: named evidence limits, ended-without-delivery completion, `resolve-blocker`, and complete human-first native Plan Next-step footers.
+
+- Bind Cursor Manual Review to one validated CreatePlan Root, one canonical workspace, and an opaque single-use native receipt without claiming to observe the host-owned Implement Plan action.
+- Attribute delivery only to repository changes after the recorded Plan or correction baseline, downgrade missing or drifting boundaries honestly, and serialize native state updates against concurrent loss or replay.
+- Enforce active Review read-only behavior across mutating built-ins, shell, tasks, and MCP surfaces with a small fail-closed guard while keeping passive lifecycle observation separate.
+- Present Plan, Manual MCP, and controller outcomes through one deterministic human-first projection with exact host actions, explicit limitations, and non-persistent provisional acknowledgement.
+- Preserve Workflow 5 public schemas and tool contracts with frozen compatibility snapshots, critical authority coverage, sanitized Cursor payload replay, and synchronized patch-release validation.
+
 - Block Manual work-review closeout from inheriting an Evidence tip as verified when its `changed_paths` no longer match the complete current dirty inventory.
 - Require planners to inspect complete command wrapper and lifecycle-hook chains, keep required Review Checks repository-read-only, and reject ready Roots without sufficient read-only proof.
 - Expand Cursor-provided `~/` workspace roots against the current home before canonical validation, reject other relative host roots explicitly, and clarify that MCP workspace/status availability never gates an already authorized native Plan implementation.
 - Fix Cursor lifecycle workspace-root resolution, make globally installed Cursor and Codex hooks passive unless an explicit Workflow action is active, retain deliberate active Review/Plan denials, and report subjectless `workflow_status` as inactive instead of an operational error.
+- Stop treating Codex hook `permission_mode` as native Plan-mode evidence; admit plugin-qualified `$plan-work` when collaboration-mode evidence is unavailable, retain explicit non-Plan rejection, and preserve exact Schema-5 Stop validation.
 
 ## 5.5.0
 

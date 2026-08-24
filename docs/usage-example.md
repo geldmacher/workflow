@@ -2,11 +2,11 @@
 
 Choose the smallest profile that fits the task. `manual` means you drive the work in Cursor. `supervised` means the controller drives execution but you accept the delivery. `autonomous` means the same controller may finish a fully verified delivery only for an exact certified Qualification Key. All three keep the same approved Intent, evidence rules, repository-only boundary, and prohibition on automatic push, PR, merge, or deployment. See the [profile guide](profiles.md) for prerequisites.
 
-Manual remains familiar and task-local: `/plan-work`, human **Implement Plan**, `/review-work`, optional `/correct-work`, then `/learn-from-work` or an `/explain-work` refresh. The native host Plan is the only plan container. Implementation ends normally with no closeout or synthetic second turn. Fresh read-only Review resolves the exact current-task Root, observes Checks, and atomically creates Evidence plus Review from the current repository. `achieved/verified/none` completes the Root and only provisional delivery needs `/accept-work provisional`. Repository checks do not prove live host activation. See the [Manual Workflow guide](manual-workflow.md).
+Manual remains familiar and task-local: `/plan-work`, human **Implement Plan**, `/review-work`, optional `/correct-work`, then `/learn-from-work` or an `/explain-work` refresh. The native host Plan is the only plan container. Implementation and correction end normally with no closeout or synthetic second turn. Fresh read-only Review resolves the exact current-task Root, observes Checks, and atomically creates Evidence plus Review from the current repository. `achieved/verified/none` completes the Root and only provisional delivery needs the ephemeral `/accept-work provisional` acknowledgement. Repository checks do not prove live host activation. See the [Manual Workflow guide](manual-workflow.md).
 
 The plugin hook keeps parent-model inheritance and read-only Review enforcement without embedding lifecycle metadata in the Plan. After implementation, switch to a fresh Ask/read-only phase inside the same task for `/review-work` or `/explain-work`; only the marked, named read-only plugin agents may be delegated to.
 
-Within the current task, Manual context commands resolve exact native Plan and artifact bytes only. Cursor transports a human-approved native Plan into Review through a protected same-conversation single-use receipt; Codex keeps the exact-input path. Missing, unapproved, invalid, or ambiguous native context blocks only Review and asks to restore and approve the Plan in this task or create a new one; it never restores a cache-selected Root automatically.
+Within the current task, Manual context commands resolve exact native Plan and artifact bytes only. Cursor transports the current validated CreatePlan Root into explicit Review through a protected same-conversation single-use receipt; native implementation authorization remains host-owned and unattested. Codex and portable clients keep the exact-input path. Missing, superseded, invalid, or ambiguous native context blocks only Review and asks to restore the Plan in this task or create a new one; it never restores a cache-selected Root automatically.
 
 For a plausible Manual delivery with an unavailable proof surface:
 
@@ -15,7 +15,7 @@ For a plausible Manual delivery with an unavailable proof surface:
 /accept-work provisional
 ```
 
-Acceptance is a hash-bound response snapshot only and reports the resolved `root_plan_id`, `acceptance_basis_hash`, and `acceptance_persisted: false`. No controller or repository state is written; a later `/work-status` again shows `delivery-ready-provisional`. The explicit forms `/work-status wp-...` and `/accept-work wp-... provisional` remain available.
+The acknowledgement is a hash-bound response snapshot only and reports the resolved `root_plan_id`, `acceptance_basis_hash`, and `acceptance_persisted: false`. No controller or repository state is written; it never qualifies future automation or Learning, and a later `/work-status` again shows `delivery-ready-provisional`. The compatible explicit forms `/work-status wp-...` and `/accept-work wp-... provisional` remain available, but human-facing CTAs never append a Root ID automatically.
 
 When the current review requires material replanning:
 
@@ -34,7 +34,7 @@ Before this can create a writable Run, configure exact model Pools and budgets, 
 /auto-work "Fix retry regression" supervised default
 /auto-work prep-... approve
 /work-status run-...
-/work-control run-... accept acceptance=verified
+/work-control run-... accept verified
 ```
 
 The controller snapshots a Dirty human baseline into an isolated worktree, maintains one Writer, records Strategy revisions and granular evidence, and returns a local branch for human integration. Its reviewed delivery handoff is explained by the current outer agent from existing Run data: preliminary while Supervised acceptance is pending, final after verified acceptance. No explainer phase or model call is added. Learning candidates remain recorded only; after acceptance and integration, separate `/learn-from-work` may apply confirmed guidance.

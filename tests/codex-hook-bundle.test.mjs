@@ -33,8 +33,13 @@ function stateFiles(root) {
 test("built Codex hook validates native Plan without closeout ceremony", () => {
   const stateRoot = mkdtempSync(join(tmpdir(), "codex-bundle-plan-"));
   try {
-    const started = runHook({ hook_event_name: "UserPromptSubmit", permission_mode: "plan", prompt: "$plan-work bundle" }, stateRoot);
+    const started = runHook({
+      hook_event_name: "UserPromptSubmit",
+      permission_mode: "default",
+      prompt: "[$geldmacher-workflow:plan-work](plugin://geldmacher-workflow/skills/plan-work/SKILL.md) bundle",
+    }, stateRoot);
     assert.match(started.hookSpecificOutput.additionalContext, /Native task plans are the only Manual plan authority/);
+    assert.match(started.hookSpecificOutput.additionalContext, /does not infer that mode from permission_mode/i);
     assert.deepEqual(runHook({ hook_event_name: "Stop", last_assistant_message: `<proposed_plan>\n${rootPlan}\n</proposed_plan>` }, stateRoot), {});
     const stored = JSON.parse(readFileSync(stateFiles(stateRoot)[0], "utf8"));
     assert.equal(stored.schema, 2);

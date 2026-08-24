@@ -18,7 +18,6 @@ import {
   writeTaskEvent,
 } from "./model-inheritance-state.mjs";
 import { evaluateCreatePlanGuard } from "./plan-integrity-guard.mjs";
-import { evaluateCloseoutGuard } from "./closeout-guard.mjs";
 
 export const MODEL_INHERIT_MARKER = "[workflow-model-inherit-v1]";
 export const READONLY_REVIEW_MARKER = "[workflow-readonly-review-v1]";
@@ -394,15 +393,13 @@ function isBlockingResult(value) {
   return value?.permission === "deny" || value?.continue === false;
 }
 
-/** One Cursor process per host event; individual policies stay independently testable. */
+/** Model/subagent observation stays independent from Review activation. */
 export function evaluateLifecycleHook(input, options = {}) {
   const subagent = evaluateHookEvent(input, options);
   if (isBlockingResult(subagent)) return subagent;
   const planning = evaluateCreatePlanGuard(input, options);
   if (isBlockingResult(planning)) return planning;
-  const closeout = evaluateCloseoutGuard(input, options);
-  if (isBlockingResult(closeout)) return closeout;
-  for (const result of [closeout, planning, subagent]) {
+  for (const result of [planning, subagent]) {
     if (result && Object.keys(result).length > 0) return result;
   }
   return {};

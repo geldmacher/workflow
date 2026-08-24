@@ -9,9 +9,24 @@ import {
   captureRepositorySnapshot,
   deriveRepositoryDelta,
   evidenceRepositorySnapshot,
+  repositorySnapshotHash,
 } from "../core/manual-repository-snapshot.mjs";
 import { buildDeliveryEvidence } from "./delivery-closeout.mjs";
 import { buildWorkReview } from "./work-review-builder.mjs";
+
+function codedError(code, message) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+
+function validReviewProvenance(provenance, text) {
+  return provenance?.schema === 1
+    && provenance?.kind === "host-work-review-builder"
+    && /^[a-f0-9]{64}$/.test(String(provenance.review_input_hash ?? ""))
+    && provenance.artifact_hash === createHash("sha256").update(text, "utf8").digest("hex")
+    && Object.keys(provenance).every((key) => ["schema", "kind", "review_input_hash", "artifact_hash"].includes(key));
+}
 
 function exactEntries(rootPlanText, artifacts, pluginRoot) {
   const root = inspectArtifactText(rootPlanText, pluginRoot);
@@ -26,6 +41,15 @@ function exactEntries(rootPlanText, artifacts, pluginRoot) {
       throw new Error(`manual Review artifact ${entry.label ?? "unknown"} is invalid: ${inspected.errors.join("; ")}`);
     }
     const id = inspected.artifact.fields.id;
+    if (inspected.artifact.fields.artifact === "work-review") {
+      const provenance = entry.builder_provenance ?? null;
+      if (provenance && !validReviewProvenance(provenance, entry.text)) {
+        throw codedError("review-artifact-rejected", `manual Review artifact ${id} has invalid host builder provenance`);
+      }
+      if (!provenance && entry.legacy_review_recorded !== true) {
+        throw codedError("review-artifact-rejected", `manual Review rejects newly imported work-review ${id} without protected builder provenance`);
+      }
+    }
     const prior = byId.get(id);
     if (prior && prior.text !== entry.text) throw new Error(`manual Review artifact ${id} has conflicting immutable bytes`);
     byId.set(id, {
@@ -45,7 +69,19 @@ function currentTips(entries, pluginRoot) {
   return { inspected, tips };
 }
 
-function repositoryLimitation(reviewInput, message) {
+function boundedLine(value, maximum = 1_900) {
+  const source = String(value ?? "").trim();
+  if (source.length <= maximum) return source;
+  const suffix = " … [bounded]";
+  return `${source.slice(0, maximum - suffix.length).trimEnd()}${suffix}`;
+}
+
+function appendBoundedSummary(summary, message) {
+  return boundedLine(`${summary ?? ""} ${boundedLine(message)}`.trim());
+}
+
+function authorityLimitation(reviewInput, message) {
+  const boundedMessage = boundedLine(message);
   return {
     ...reviewInput,
     assessment: ["achieved", "provisional"].includes(reviewInput.assessment)
@@ -53,22 +89,61 @@ function repositoryLimitation(reviewInput, message) {
       : reviewInput.assessment,
     recommended_action: "clarify",
     snapshot_assessment: "incomplete",
-    snapshot_summary: `${reviewInput.snapshot_summary} ${message}`.trim(),
-    missing_evidence: [...new Set([...(reviewInput.missing_evidence ?? []), message])],
+    snapshot_summary: appendBoundedSummary(reviewInput.snapshot_summary, boundedMessage),
+    missing_evidence: [...new Set([...(reviewInput.missing_evidence ?? []), boundedMessage])],
     correction: undefined,
   };
 }
 
+function attributionLimitation(reviewInput, message) {
+  const boundedMessage = boundedLine(message);
+  const decisionCanRemainEvidenceOnly = ["none", "accept-provisional"].includes(reviewInput.recommended_action)
+    && (reviewInput.findings ?? []).length === 0
+    && (reviewInput.missing_evidence ?? []).length === 0
+    && reviewInput.snapshot_assessment !== "contradicted";
+  return {
+    ...reviewInput,
+    assessment: ["achieved", "provisional"].includes(reviewInput.assessment)
+      ? "provisional"
+      : reviewInput.assessment,
+    recommended_action: decisionCanRemainEvidenceOnly
+      ? "accept-provisional"
+      : reviewInput.recommended_action,
+    snapshot_assessment: decisionCanRemainEvidenceOnly
+      ? "consistent"
+      : reviewInput.snapshot_assessment,
+    snapshot_summary: appendBoundedSummary(reviewInput.snapshot_summary, boundedMessage),
+  };
+}
+
 function supportedOnBoundary(checkEvidence, message) {
+  const boundedMessage = boundedLine(message);
   return (checkEvidence ?? []).map((entry) => ({
     ...entry,
     grade: entry.grade === "verified" ? "supported" : entry.grade,
-    limitations: [...new Set([...(entry.limitations ?? []), message])],
+    limitations: [...new Set([...(entry.limitations ?? []), boundedMessage])],
   }));
 }
 
 function sortedPaths(values) {
   return [...new Set((values ?? []).map(String).map((value) => value.trim()).filter(Boolean))].sort();
+}
+
+function summarizedPaths(values, maximum = 750) {
+  const paths = sortedPaths(values);
+  if (paths.length === 0) return "none";
+  const visible = [];
+  for (const path of paths) {
+    const suffix = paths.length > visible.length + 1 ? `, … (+${paths.length - visible.length - 1} more)` : "";
+    if (visible.length > 0 && `${visible.join(", ")}, ${path}${suffix}`.length > maximum) break;
+    visible.push(path);
+    if (`${visible.join(", ")}${suffix}`.length > maximum) {
+      visible[visible.length - 1] = boundedLine(path, Math.max(80, maximum - suffix.length));
+      break;
+    }
+  }
+  const remaining = paths.length - visible.length;
+  return `${visible.join(", ")}${remaining > 0 ? `, … (+${remaining} more)` : ""}`;
 }
 
 function samePathSet(left, right) {
@@ -89,6 +164,8 @@ export function buildManualReviewLifecycle({
   summary = null,
   workspaceRoot,
   pluginRoot,
+  repositoryBaseline = null,
+  repositoryAttribution = null,
   captureSnapshot = captureRepositorySnapshot,
 }) {
   if (!reviewInput) throw new Error("manual Review requires review_input schema 1");
@@ -107,17 +184,32 @@ export function buildManualReviewLifecycle({
   );
 
   const current = captureSnapshot(workspaceRoot);
-  const repositoryDelta = deriveRepositoryDelta(null, current);
+  const suppliedReasonCodes = [
+    ...(repositoryAttribution?.reason_codes ?? []),
+    ...(repositoryAttribution?.status === "provisional" && (repositoryAttribution?.reason_codes ?? []).length === 0
+      ? ["attribution-unavailable"]
+      : []),
+  ];
+  const repositoryDelta = deriveRepositoryDelta(repositoryBaseline, current, {
+    boundary: repositoryAttribution?.boundary ?? "create-plan",
+    reasonCodes: suppliedReasonCodes,
+  });
   let evidenceChangedPaths = repositoryDelta.changed_paths;
   let evidenceSnapshot = repositoryDelta.repository_snapshot;
   let effectiveReviewInput = reviewInput;
   let effectiveCheckEvidence = checkEvidence;
+  if (repositoryDelta.attribution_status !== "attributed") {
+    const reason = repositoryDelta.attribution_reason_codes.join(", ") || "attribution-unavailable";
+    const message = `Repository attribution is provisional (${reason}); current checks remain usable, but Workflow cannot claim an exclusive task delta.`;
+    effectiveReviewInput = attributionLimitation(effectiveReviewInput, message);
+    effectiveCheckEvidence = supportedOnBoundary(effectiveCheckEvidence, message);
+  }
   try {
     assertChangedPathAuthority(exact.rootFields, repositoryDelta.changed_paths, current.repository_root);
   } catch (error) {
     const message = `Current repository changes do not fit the native Plan authority: ${String(error?.message ?? error)}`;
-    effectiveReviewInput = repositoryLimitation(reviewInput, message);
-    effectiveCheckEvidence = supportedOnBoundary(checkEvidence, message);
+    effectiveReviewInput = authorityLimitation(effectiveReviewInput, message);
+    effectiveCheckEvidence = supportedOnBoundary(effectiveCheckEvidence, message);
     // Schema-5 Evidence may contain only Root-authorized changed paths. Keep
     // the complete dirty inventory in the Review limitation while recording
     // the safely attributable subset in Evidence.
@@ -133,8 +225,8 @@ export function buildManualReviewLifecycle({
   }
 
   // Reusing an Evidence tip is only honest when its declared changed_paths still
-  // equal the complete current dirty inventory. Otherwise Review must expose that
-  // inventory as a clarification rather than inherit a verified repository claim.
+  // equal the current baseline-derived delivery delta. Pre-existing unchanged
+  // dirty paths stay visible separately and never become attributed task work.
   const evidenceTip = evidenceTipId ? initial.inspected.effective.get(evidenceTipId) : null;
   if (
     evidenceTipId
@@ -142,15 +234,16 @@ export function buildManualReviewLifecycle({
     && evidenceTip?.fields?.artifact === "delivery-evidence"
     && !samePathSet(evidenceTip.fields.changed_paths, repositoryDelta.changed_paths)
   ) {
-    const observed = sortedPaths(repositoryDelta.changed_paths).join(", ") || "none";
-    const claimed = sortedPaths(evidenceTip.fields.changed_paths).join(", ") || "none";
-    const message = `Current repository dirty inventory (${observed}) does not match Evidence ${evidenceTipId} changed_paths (${claimed})`;
-    effectiveReviewInput = repositoryLimitation(effectiveReviewInput, message);
+    const observed = summarizedPaths(repositoryDelta.changed_paths);
+    const claimed = summarizedPaths(evidenceTip.fields.changed_paths);
+    const message = `Current repository delivery delta (${observed}) does not match Evidence ${evidenceTipId} changed_paths (${claimed})`;
+    effectiveReviewInput = authorityLimitation(effectiveReviewInput, message);
     effectiveCheckEvidence = supportedOnBoundary(effectiveCheckEvidence, message);
   }
 
   let evidence = null;
   let reviewArtifacts = exact.entries;
+  let chainUpdate = "reuse";
   if (!evidenceTipId || correctionPending) {
     evidence = buildDeliveryEvidence({
       rootPlanText,
@@ -160,6 +253,12 @@ export function buildManualReviewLifecycle({
       strategyRevision,
       effectiveProfile: "manual",
       repositorySnapshot: evidenceSnapshot,
+      repositoryAttribution: {
+        status: repositoryDelta.attribution_status,
+        boundary: repositoryDelta.attribution_boundary,
+        baseline_hash: repositoryDelta.baseline_hash,
+        reason_codes: repositoryDelta.attribution_reason_codes,
+      },
       summary,
       manualCheckReceipts: [],
       // Manual verification is the fresh reviewer observation. Certified
@@ -168,6 +267,38 @@ export function buildManualReviewLifecycle({
       pluginRoot,
     });
     reviewArtifacts = [...exact.entries, { label: evidence.fields.id, text: evidence.artifact }];
+    chainUpdate = "append";
+  } else {
+    const refreshBaseEntries = exact.entries.filter((entry) => ![evidenceTipId, reviewTipId].includes(entry.label));
+    const candidate = buildDeliveryEvidence({
+      rootPlanText,
+      artifacts: refreshBaseEntries,
+      checkEvidence: effectiveCheckEvidence,
+      changedPaths: evidenceChangedPaths,
+      strategyRevision,
+      effectiveProfile: "manual",
+      repositorySnapshot: evidenceSnapshot,
+      repositoryAttribution: {
+        status: repositoryDelta.attribution_status,
+        boundary: repositoryDelta.attribution_boundary,
+        baseline_hash: repositoryDelta.baseline_hash,
+        reason_codes: repositoryDelta.attribution_reason_codes,
+      },
+      summary,
+      manualCheckReceipts: [],
+      enforceManualCheckReceipts: false,
+      pluginRoot,
+    });
+    const currentEvidenceText = exact.entries.find((entry) => entry.label === evidenceTipId)?.text ?? null;
+    if (currentEvidenceText === candidate.artifact) {
+      evidence = { ...candidate, duplicate: true };
+      reviewArtifacts = exact.entries;
+      chainUpdate = "reuse";
+    } else {
+      evidence = candidate;
+      reviewArtifacts = [...refreshBaseEntries, { label: candidate.fields.id, text: candidate.artifact }];
+      chainUpdate = candidate.fields.representation === "delta" ? "replace-delta-suffix" : "replace-full-tip";
+    }
   }
 
   const review = buildWorkReview({
@@ -176,25 +307,23 @@ export function buildManualReviewLifecycle({
     reviewInput: effectiveReviewInput,
     pluginRoot,
   });
-  const effectiveEvidenceId = evidence?.fields?.id ?? review.fields.latest_evidence_id;
-  const effectiveEvidence = evidence ?? reviewArtifacts
-    .map((entry) => ({ entry, fields: inspectArtifactText(entry.text, pluginRoot).artifact?.fields }))
-    .find(({ fields }) => fields?.artifact === "delivery-evidence" && fields.id === effectiveEvidenceId)?.entry;
 
   return {
     artifact_kind: "work-review",
     root_plan_id: exact.rootFields.id,
     repository_snapshot: evidenceSnapshot,
+    repository_state_hash: repositorySnapshotHash(current),
+    chain_update: chainUpdate,
     changed_paths: evidenceChangedPaths,
-    observed_dirty_paths: repositoryDelta.changed_paths,
-    delivery_evidence: evidence ?? {
-      duplicate: true,
-      artifact: effectiveEvidence?.text ?? null,
-      artifact_hash: effectiveEvidence?.text
-        ? createHash("sha256").update(effectiveEvidence.text, "utf8").digest("hex")
-        : null,
-      fields: initial.inspected.effective.get(effectiveEvidenceId)?.fields ?? null,
+    observed_dirty_paths: repositoryDelta.observed_dirty_paths,
+    pre_existing_paths: repositoryDelta.pre_existing_paths,
+    repository_attribution: {
+      status: repositoryDelta.attribution_status,
+      boundary: repositoryDelta.attribution_boundary,
+      baseline_hash: repositoryDelta.baseline_hash,
+      reason_codes: repositoryDelta.attribution_reason_codes,
     },
+    delivery_evidence: evidence,
     review,
   };
 }

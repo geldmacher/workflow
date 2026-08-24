@@ -28,7 +28,12 @@ test("Codex discards legacy Manual state and initializes schema 2", () => {
 });
 
 test("Codex Plan mode validates exact Root without final closeout attestation", () => {
-  let value = step({}, { hook_event_name: "UserPromptSubmit", permission_mode: "plan", prompt: "$plan-work add retries" });
+  let value = step({}, {
+    hook_event_name: "UserPromptSubmit",
+    collaboration_mode: { mode: "plan" },
+    permission_mode: "default",
+    prompt: "$plan-work add retries",
+  });
   assert.equal(value.state.turn.phase, "planning");
   value = step(value.state, { hook_event_name: "Stop", last_assistant_message: proposedPlan });
   assert.deepEqual(value.output, {});
@@ -36,10 +41,34 @@ test("Codex Plan mode validates exact Root without final closeout attestation", 
   assert.equal(value.state.active_root_plan_id, undefined);
 });
 
-test("Codex requires native Plan mode only for planning", () => {
-  const value = step({}, { hook_event_name: "UserPromptSubmit", permission_mode: "default", prompt: "$plan-work add retries" });
-  assert.equal(value.output.decision, "block");
-  assert.match(value.output.reason, /Plan mode/i);
+test("Codex blocks planning only on explicit non-Plan collaboration-mode evidence", () => {
+  const unavailable = step({}, {
+    hook_event_name: "UserPromptSubmit",
+    permission_mode: "default",
+    prompt: "[$geldmacher-workflow:plan-work](plugin://geldmacher-workflow/skills/plan-work/SKILL.md) add retries",
+  });
+  assert.equal(unavailable.output.decision, undefined);
+  assert.equal(unavailable.state.turn.phase, "planning");
+  assert.match(unavailable.output.hookSpecificOutput.additionalContext, /does not infer that mode from permission_mode/i);
+  assert.match(unavailable.output.hookSpecificOutput.additionalContext, /stop without drafting a Root/i);
+
+  const plan = step({}, {
+    hook_event_name: "UserPromptSubmit",
+    collaboration_mode: { mode: "plan" },
+    permission_mode: "default",
+    prompt: "$plan-work add retries",
+  });
+  assert.equal(plan.output.decision, undefined);
+  assert.equal(plan.state.turn.phase, "planning");
+
+  const defaultMode = step({}, {
+    hook_event_name: "UserPromptSubmit",
+    collaboration_mode: { mode: "default" },
+    permission_mode: "plan",
+    prompt: "$plan-work add retries",
+  });
+  assert.equal(defaultMode.output.decision, "block");
+  assert.match(defaultMode.output.reason, /Plan mode/i);
 });
 
 test("Codex implementation needs no Workflow hook state and Stop emits no continuation", () => {
@@ -117,8 +146,8 @@ test("read-only shell classification is retained", () => {
 test("Codex classifies linked, ambiguous, continued, and ordinary prompts", () => {
   const linked = step({}, {
     hook_event_name: "UserPromptSubmit",
-    permission_mode: "plan",
-    prompt: "[$plan-work](plugin://geldmacher-workflow/skills/plan-work/SKILL.md)",
+    permission_mode: "default",
+    prompt: "[$geldmacher-workflow:plan-work](plugin://geldmacher-workflow/skills/plan-work/SKILL.md)",
   });
   assert.equal(linked.state.turn.phase, "planning");
 

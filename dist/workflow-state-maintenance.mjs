@@ -4,15 +4,15 @@ const require = __workflowCreateRequire(import.meta.url);
 import {
   ArtifactHandoffStore,
   quarantineContentAddressedHandoffArtifact
-} from "./chunks/chunk-G5KT3VHO.mjs";
-import "./chunks/chunk-4WJTGI5A.mjs";
+} from "./chunks/chunk-AJ3ZH6BQ.mjs";
+import "./chunks/chunk-ZDU7LLPP.mjs";
 import {
   PreparationStore,
   RunStore,
   defaultStateRoot
-} from "./chunks/chunk-QOWQ6ETR.mjs";
-import "./chunks/chunk-LFEO5XYI.mjs";
-import "./chunks/chunk-IQRLCJ3K.mjs";
+} from "./chunks/chunk-3N55QC7G.mjs";
+import "./chunks/chunk-7NHOTGTA.mjs";
+import "./chunks/chunk-WU6JOB3C.mjs";
 
 // scripts/state-maintenance.mjs
 import { realpathSync } from "node:fs";
@@ -24,28 +24,22 @@ import { createHash } from "node:crypto";
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 function stateInventory(root) {
-  const files = [];
-  let bytes = 0;
-  const visit = (path) => {
-    const stat = lstatSync(path);
+  let files = [], bytes = 0, visit = (path) => {
+    let stat = lstatSync(path);
     if (stat.isSymbolicLink()) throw new Error(`state archive refuses symlink ${path}`);
     if (stat.isDirectory()) return readdirSync(path).sort().forEach((entry) => visit(join(path, entry)));
     if (!stat.isFile()) throw new Error(`state archive refuses non-file ${path}`);
-    const content = readFileSync(path);
-    bytes += content.length;
-    files.push({ path: relative(root, path), size: content.length, hash: createHash("sha256").update(content).digest("hex") });
+    let content = readFileSync(path);
+    bytes += content.length, files.push({ path: relative(root, path), size: content.length, hash: createHash("sha256").update(content).digest("hex") });
   };
-  if (existsSync(root)) visit(root);
-  return { files, bytes, hash: createHash("sha256").update(JSON.stringify(files)).digest("hex") };
+  return existsSync(root) && visit(root), { files, bytes, hash: createHash("sha256").update(JSON.stringify(files)).digest("hex") };
 }
 function inspectState({ workspace: workspace2, stateRoot = defaultStateRoot(workspace2) }) {
-  const report2 = stateInventory(stateRoot);
+  let report2 = stateInventory(stateRoot);
   return { command: "inspect", workspace: workspace2, state_root: stateRoot, files: report2.files.length, bytes: report2.bytes, state_hash: report2.hash };
 }
 function rebuildStateIndexes({ workspace: workspace2, pluginRoot: pluginRoot2, stateRoot = defaultStateRoot(workspace2) }) {
-  const runs = new RunStore(stateRoot).rebuildIndex();
-  const preparations = new PreparationStore(stateRoot).rebuildIndex();
-  const handoff = new ArtifactHandoffStore(stateRoot, pluginRoot2).rebuildIndex();
+  let runs = new RunStore(stateRoot).rebuildIndex(), preparations = new PreparationStore(stateRoot).rebuildIndex(), handoff = new ArtifactHandoffStore(stateRoot, pluginRoot2).rebuildIndex();
   return { command: "rebuild-index", workspace: workspace2, runs: runs.subjects.length, preparations: preparations.subjects.length, handoff_artifacts: handoff.entries.length };
 }
 function quarantineHandoffReview({
@@ -53,7 +47,7 @@ function quarantineHandoffReview({
   artifactId,
   expectedTextHash,
   pluginRoot: pluginRoot2,
-  apply = false,
+  apply = !1,
   now,
   handoffOptions = {}
 }) {
@@ -67,54 +61,38 @@ function quarantineHandoffReview({
     options: handoffOptions
   });
 }
-function archiveStateSubject({ workspace: workspace2, subject, apply = false, stateRoot = defaultStateRoot(workspace2) }) {
-  const runStore = new RunStore(stateRoot);
-  const preparationStore = new PreparationStore(stateRoot);
-  let kind;
-  let source;
-  let terminal;
-  if (existsSync(runStore.runPath(subject))) {
-    kind = "runs";
-    source = runStore.runDirectory(subject);
-    terminal = ["achieved", "accepted-provisional", "blocked", "stopped", "failed"].includes(runStore.get(subject).lifecycle);
-  } else if (existsSync(preparationStore.preparationPath(subject))) {
-    kind = "preparations";
-    source = preparationStore.preparationDirectory(subject);
-    terminal = ["consumed", "expired", "failed", "stopped"].includes(preparationStore.get(subject).status);
-  } else throw new Error(`unknown Workflow subject ${subject}`);
+function archiveStateSubject({ workspace: workspace2, subject, apply = !1, stateRoot = defaultStateRoot(workspace2) }) {
+  let runStore = new RunStore(stateRoot), preparationStore = new PreparationStore(stateRoot), kind, source, terminal;
+  if (existsSync(runStore.runPath(subject)))
+    kind = "runs", source = runStore.runDirectory(subject), terminal = ["achieved", "accepted-provisional", "blocked", "stopped", "failed"].includes(runStore.get(subject).lifecycle);
+  else if (existsSync(preparationStore.preparationPath(subject)))
+    kind = "preparations", source = preparationStore.preparationDirectory(subject), terminal = ["consumed", "expired", "failed", "stopped"].includes(preparationStore.get(subject).status);
+  else throw new Error(`unknown Workflow subject ${subject}`);
   if (!terminal) throw new Error(`state archive accepts only terminal subjects: ${subject}`);
-  const contents = stateInventory(source);
-  const target = join(stateRoot, "archive", kind, subject);
+  let contents = stateInventory(source), target = join(stateRoot, "archive", kind, subject);
   if (existsSync(target)) throw new Error(`state archive target already exists: ${target}`);
-  const report2 = { command: "archive", workspace: workspace2, subject, kind, source, target, files: contents.files.length, bytes: contents.bytes, content_hash: contents.hash, applied: apply };
+  let report2 = { command: "archive", workspace: workspace2, subject, kind, source, target, files: contents.files.length, bytes: contents.bytes, content_hash: contents.hash, applied: apply };
   if (apply) {
-    mkdirSync(dirname(target), { recursive: true, mode: 448 });
-    renameSync(source, target);
+    mkdirSync(dirname(target), { recursive: !0, mode: 448 }), renameSync(source, target);
     try {
       writeFileSync(join(target, "archive-manifest.json"), `${JSON.stringify({ ...report2, archived_at: (/* @__PURE__ */ new Date()).toISOString(), files: contents.files }, null, 2)}
 `, { mode: 384, flag: "wx" });
     } catch (error) {
-      renameSync(target, source);
-      throw error;
+      throw renameSync(target, source), error;
     }
-    if (kind === "runs") runStore.rebuildIndex();
-    else preparationStore.rebuildIndex();
+    kind === "runs" ? runStore.rebuildIndex() : preparationStore.rebuildIndex();
   }
   return report2;
 }
 
 // scripts/state-maintenance.mjs
-var pluginRoot = dirname2(dirname2(fileURLToPath(import.meta.url)));
-var argument = (name) => {
-  const index = process.argv.indexOf(`--${name}`);
+var pluginRoot = dirname2(dirname2(fileURLToPath(import.meta.url))), argument = (name) => {
+  let index = process.argv.indexOf(`--${name}`);
   return index >= 0 ? process.argv[index + 1] : null;
-};
-var command = process.argv[2];
+}, command = process.argv[2];
 if (!["inspect", "rebuild-index", "archive", "quarantine-handoff"].includes(command)) throw new Error("usage: state:maintenance <inspect|rebuild-index|archive> --workspace <absolute-path> [--subject <id>] [--apply] | quarantine-handoff --root-hash <sha256> --artifact <wr|de-id> --expected-text-hash <sha256> [--apply]");
 if (command === "quarantine-handoff") {
-  const rootHash = argument("root-hash");
-  const artifactId = argument("artifact");
-  const expectedTextHash = argument("expected-text-hash");
+  let rootHash = argument("root-hash"), artifactId = argument("artifact"), expectedTextHash = argument("expected-text-hash");
   if (!rootHash || !artifactId || !expectedTextHash) throw new Error("quarantine-handoff requires --root-hash, --artifact, and --expected-text-hash");
   console.log(JSON.stringify(quarantineHandoffReview({
     rootHash,
@@ -122,17 +100,15 @@ if (command === "quarantine-handoff") {
     expectedTextHash,
     pluginRoot,
     apply: process.argv.includes("--apply")
-  }), null, 2));
-  process.exit(0);
+  }), null, 2)), process.exit(0);
 }
 var workspaceArgument = argument("workspace");
 if (!workspaceArgument) throw new Error("--workspace is required");
-var workspace = realpathSync(resolve(workspaceArgument));
-var report;
+var workspace = realpathSync(resolve(workspaceArgument)), report;
 if (command === "inspect") report = inspectState({ workspace });
 else if (command === "rebuild-index") report = rebuildStateIndexes({ workspace, pluginRoot });
 else {
-  const subject = argument("subject");
+  let subject = argument("subject");
   if (!subject) throw new Error("archive requires --subject <run-id|preparation-id>");
   report = archiveStateSubject({ workspace, subject, apply: process.argv.includes("--apply") });
 }

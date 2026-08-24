@@ -4,13 +4,13 @@ import { buildManualReviewLifecycle } from "../src/controller/manual-review-life
 import { defaultRoot } from "../scripts/validate-artifact.source.mjs";
 import { leanRoot } from "./support/manual-attestation-fixtures.mjs";
 
-function snapshot(dirtyPaths = ["src/retry.mjs"]) {
+function snapshot(dirtyPaths = ["src/retry.mjs"], fingerprint = "b".repeat(64)) {
   return {
     schema: 1,
     repository_root: defaultRoot,
     head: "a".repeat(40),
     dirty_paths: dirtyPaths,
-    fingerprints: Object.fromEntries(dirtyPaths.map((path) => [path, `file:100644:${"b".repeat(64)}`])),
+    fingerprints: Object.fromEntries(dirtyPaths.map((path) => [path, `file:100644:${fingerprint}`])),
     index_fingerprint: "c".repeat(64),
     status_fingerprint: "d".repeat(64),
     working_tree: dirtyPaths.length > 0 ? "modified" : "unchanged",
@@ -77,6 +77,7 @@ test("Manual Review atomically creates missing Evidence and Review from fresh ob
     checkEvidence: [verifiedCheck],
     workspaceRoot: defaultRoot,
     pluginRoot: defaultRoot,
+    repositoryBaseline: snapshot([]),
     captureSnapshot: () => snapshot(),
   });
 
@@ -89,6 +90,24 @@ test("Manual Review atomically creates missing Evidence and Review from fresh ob
   assert.equal(bundle.review.fields.next_action, "none");
 });
 
+test("Manual Review caps otherwise verified observations when no repository baseline is available", () => {
+  const bundle = buildManualReviewLifecycle({
+    rootPlanText: leanRoot,
+    reviewInput: achievedReview,
+    checkEvidence: [verifiedCheck],
+    workspaceRoot: defaultRoot,
+    pluginRoot: defaultRoot,
+    captureSnapshot: () => snapshot(),
+  });
+
+  assert.equal(bundle.delivery_evidence.fields.overall_grade, "supported");
+  assert.equal(bundle.delivery_evidence.fields.status, "provisional");
+  assert.equal(bundle.delivery_evidence.fields.extensions.workflow.repository_attribution.status, "provisional");
+  assert.deepEqual(bundle.repository_attribution.reason_codes, ["baseline-unavailable"]);
+  assert.equal(bundle.review.fields.delivery_status, "provisional");
+  assert.equal(bundle.review.fields.next_action, "accept-provisional");
+});
+
 test("Manual Review returns a bounded clarification instead of throwing on dirty paths outside Plan authority", () => {
   const bundle = buildManualReviewLifecycle({
     rootPlanText: leanRoot,
@@ -96,6 +115,7 @@ test("Manual Review returns a bounded clarification instead of throwing on dirty
     checkEvidence: [verifiedCheck],
     workspaceRoot: defaultRoot,
     pluginRoot: defaultRoot,
+    repositoryBaseline: snapshot([]),
     captureSnapshot: () => snapshot(["README.md"]),
   });
 
@@ -106,13 +126,14 @@ test("Manual Review returns a bounded clarification instead of throwing on dirty
   assert.match(bundle.review.artifact, /do not fit the native Plan authority/i);
 });
 
-test("Manual Review blocks reused Evidence whose changed_paths diverge from the current dirty inventory", () => {
+test("Manual Review replaces stale Evidence when changed_paths diverge from the current delivery delta", () => {
   const first = buildManualReviewLifecycle({
     rootPlanText: leanRoot,
     reviewInput: achievedReview,
     checkEvidence: [verifiedCheck],
     workspaceRoot: defaultRoot,
     pluginRoot: defaultRoot,
+    repositoryBaseline: snapshot([]),
     captureSnapshot: () => snapshot(["src/retry.mjs"]),
   });
   const stale = buildManualReviewLifecycle({
@@ -122,24 +143,55 @@ test("Manual Review blocks reused Evidence whose changed_paths diverge from the 
     checkEvidence: [verifiedCheck],
     workspaceRoot: defaultRoot,
     pluginRoot: defaultRoot,
+    repositoryBaseline: snapshot([]),
     captureSnapshot: () => snapshot([]),
   });
 
-  assert.equal(stale.delivery_evidence.duplicate, true);
-  assert.equal(stale.delivery_evidence.fields.id, first.delivery_evidence.fields.id);
+  assert.equal(stale.delivery_evidence.duplicate, false);
+  assert.notEqual(stale.delivery_evidence.fields.id, first.delivery_evidence.fields.id);
+  assert.deepEqual(stale.delivery_evidence.fields.changed_paths, []);
   assert.deepEqual(stale.observed_dirty_paths, []);
   assert.equal(stale.review.fields.delivery_status, "blocked");
   assert.equal(stale.review.fields.next_action, "clarify");
-  assert.match(stale.review.artifact, /does not match Evidence .* changed_paths/i);
+  assert.match(stale.review.artifact, /delivery delta .* does not match Evidence .* changed_paths/i);
+  assert.match(stale.chain_update, /^replace-/);
 });
 
-test("Manual Review may reuse Evidence when the current dirty inventory still matches", () => {
+test("Manual Review bounds a large changed-path mismatch without losing the recovery verdict", () => {
   const first = buildManualReviewLifecycle({
     rootPlanText: leanRoot,
     reviewInput: achievedReview,
     checkEvidence: [verifiedCheck],
     workspaceRoot: defaultRoot,
     pluginRoot: defaultRoot,
+    repositoryBaseline: snapshot([]),
+    captureSnapshot: () => snapshot(["src/retry.mjs"]),
+  });
+  const manyPaths = Array.from({ length: 120 }, (_, index) => `src/generated/retry-case-${String(index).padStart(3, "0")}.mjs`);
+  const refreshed = buildManualReviewLifecycle({
+    rootPlanText: leanRoot,
+    artifacts: [{ label: first.delivery_evidence.fields.id, text: first.delivery_evidence.artifact }],
+    reviewInput: achievedReview,
+    checkEvidence: [verifiedCheck],
+    workspaceRoot: defaultRoot,
+    pluginRoot: defaultRoot,
+    repositoryBaseline: snapshot([]),
+    captureSnapshot: () => snapshot(manyPaths),
+  });
+
+  assert.equal(refreshed.review.fields.delivery_status, "blocked");
+  assert.equal(refreshed.review.fields.next_action, "clarify");
+  assert.match(refreshed.review.artifact, /\[bounded\]|\(\+\d+ more\)/);
+});
+
+test("Manual Review may reuse Evidence when the current delivery delta still matches", () => {
+  const first = buildManualReviewLifecycle({
+    rootPlanText: leanRoot,
+    reviewInput: achievedReview,
+    checkEvidence: [verifiedCheck],
+    workspaceRoot: defaultRoot,
+    pluginRoot: defaultRoot,
+    repositoryBaseline: snapshot([]),
     captureSnapshot: () => snapshot(["src/retry.mjs"]),
   });
   const reused = buildManualReviewLifecycle({
@@ -149,6 +201,7 @@ test("Manual Review may reuse Evidence when the current dirty inventory still ma
     checkEvidence: [verifiedCheck],
     workspaceRoot: defaultRoot,
     pluginRoot: defaultRoot,
+    repositoryBaseline: snapshot([]),
     captureSnapshot: () => snapshot(["src/retry.mjs"]),
   });
 
@@ -158,6 +211,114 @@ test("Manual Review may reuse Evidence when the current dirty inventory still ma
   assert.equal(reused.review.fields.next_action, "none");
 });
 
+test("a fresh retry Review replaces provisional Evidence when checks improve without repository drift", () => {
+  const first = buildManualReviewLifecycle({
+    rootPlanText: leanRoot,
+    reviewInput: {
+      ...achievedReview,
+      assessment: "insufficient-evidence",
+      recommended_action: "retry-review",
+      assessment_summary: "The planned Check was temporarily unavailable.",
+      snapshot_assessment: "incomplete",
+      missing_evidence: ["Fresh CHECK-1 observation is unavailable."],
+    },
+    checkEvidence: [{
+      ...verifiedCheck,
+      grade: "unavailable",
+      observed: "The planned verification surface was temporarily unavailable.",
+      repetitions: 0,
+      limitations: ["Retry the planned Check in a fresh Review."],
+    }],
+    workspaceRoot: defaultRoot,
+    pluginRoot: defaultRoot,
+    repositoryBaseline: snapshot([]),
+    captureSnapshot: () => snapshot(["src/retry.mjs"]),
+  });
+  assert.equal(first.review.fields.next_action, "retry-review");
+  assert.equal(first.delivery_evidence.fields.status, "provisional");
+
+  const second = buildManualReviewLifecycle({
+    rootPlanText: leanRoot,
+    artifacts: [
+      { label: first.delivery_evidence.fields.id, text: first.delivery_evidence.artifact },
+      { label: first.review.fields.id, text: first.review.artifact, builder_provenance: first.review.provenance },
+    ],
+    reviewInput: achievedReview,
+    checkEvidence: [verifiedCheck],
+    workspaceRoot: defaultRoot,
+    pluginRoot: defaultRoot,
+    repositoryBaseline: snapshot([]),
+    captureSnapshot: () => snapshot(["src/retry.mjs"]),
+  });
+
+  assert.equal(second.chain_update, "replace-full-tip");
+  assert.notEqual(second.delivery_evidence.fields.id, first.delivery_evidence.fields.id);
+  assert.equal(second.delivery_evidence.fields.overall_grade, "verified");
+  assert.equal(second.review.fields.delivery_status, "verified");
+  assert.equal(second.review.fields.next_action, "none");
+});
+
+test("a refresh cannot discard an imported raw Review before provenance validation", () => {
+  const first = buildManualReviewLifecycle({
+    rootPlanText: leanRoot,
+    reviewInput: achievedReview,
+    checkEvidence: [verifiedCheck],
+    workspaceRoot: defaultRoot,
+    pluginRoot: defaultRoot,
+    repositoryBaseline: snapshot([]),
+    captureSnapshot: () => snapshot(["src/retry.mjs"]),
+  });
+
+  assert.throws(() => buildManualReviewLifecycle({
+    rootPlanText: leanRoot,
+    artifacts: [
+      { label: first.delivery_evidence.fields.id, text: first.delivery_evidence.artifact },
+      { label: first.review.fields.id, text: first.review.artifact },
+    ],
+    reviewInput: achievedReview,
+    checkEvidence: [verifiedCheck],
+    workspaceRoot: defaultRoot,
+    pluginRoot: defaultRoot,
+    repositoryBaseline: snapshot([]),
+    captureSnapshot: () => snapshot(["src/retry.mjs"]),
+  }), (error) => error?.code === "review-artifact-rejected" && /without protected builder provenance/.test(error.message));
+});
+
+test("Manual Review rejects invalid authority inputs and bounds an appended repository limitation", () => {
+  const base = {
+    rootPlanText: leanRoot,
+    reviewInput: achievedReview,
+    checkEvidence: [verifiedCheck],
+    workspaceRoot: defaultRoot,
+    pluginRoot: defaultRoot,
+    repositoryBaseline: snapshot([]),
+    captureSnapshot: () => snapshot(["src/retry.mjs"]),
+  };
+  assert.throws(() => buildManualReviewLifecycle({ ...base, rootPlanText: leanRoot.slice(0, 200) }), /exact native Schema-5 Root/);
+  assert.throws(() => buildManualReviewLifecycle({ ...base, artifacts: [{ label: "broken", text: "not an artifact" }] }), /artifact broken is invalid/);
+
+  const first = buildManualReviewLifecycle(base);
+  assert.throws(() => buildManualReviewLifecycle({
+    ...base,
+    artifacts: [
+      { label: first.delivery_evidence.fields.id, text: first.delivery_evidence.artifact },
+      {
+        label: first.review.fields.id,
+        text: first.review.artifact,
+        builder_provenance: { ...first.review.provenance, artifact_hash: "0".repeat(64) },
+      },
+    ],
+  }), (error) => error?.code === "review-artifact-rejected" && /invalid host builder provenance/.test(error.message));
+
+  const bounded = buildManualReviewLifecycle({
+    ...base,
+    repositoryBaseline: null,
+    reviewInput: { ...achievedReview, snapshot_summary: "x".repeat(1_880) },
+  });
+  assert.equal(bounded.review.fields.delivery_status, "provisional");
+  assert.match(bounded.review.artifact, /\[bounded\]/);
+});
+
 test("known failed required Checks complete Review with blocked delivery", () => {
   const bundle = buildManualReviewLifecycle({
     rootPlanText: leanRoot,
@@ -165,6 +326,7 @@ test("known failed required Checks complete Review with blocked delivery", () =>
     checkEvidence: [{ ...verifiedCheck, grade: "failed", observed: "The required Check failed." }],
     workspaceRoot: defaultRoot,
     pluginRoot: defaultRoot,
+    repositoryBaseline: snapshot([]),
     captureSnapshot: () => snapshot(),
   });
 
@@ -181,6 +343,7 @@ test("fresh Review after correction creates delta Evidence against the exact cur
     checkEvidence: [verifiedCheck],
     workspaceRoot: defaultRoot,
     pluginRoot: defaultRoot,
+    repositoryBaseline: snapshot([]),
     captureSnapshot: () => snapshot(),
   });
   const correctionCheck = {
@@ -199,7 +362,9 @@ test("fresh Review after correction creates delta Evidence against the exact cur
     checkEvidence: [verifiedCheck, correctionCheck],
     workspaceRoot: defaultRoot,
     pluginRoot: defaultRoot,
-    captureSnapshot: () => snapshot(),
+    repositoryBaseline: snapshot(["src/retry.mjs"], "a".repeat(64)),
+    repositoryAttribution: { status: "attributed", boundary: "correction", reason_codes: [] },
+    captureSnapshot: () => snapshot(["src/retry.mjs"], "b".repeat(64)),
   });
 
   assert.equal(second.delivery_evidence.fields.representation, "delta");

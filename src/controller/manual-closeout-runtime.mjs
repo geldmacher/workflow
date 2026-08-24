@@ -9,8 +9,11 @@ export {
   directMutationTargets,
 } from "../core/manual-path-authority.mjs";
 export {
+  HUMAN_WORKFLOW_PHASE_LABELS,
+  MANUAL_HOST_ACTION_INVOKES,
   MANUAL_JOURNEY_STATE_LABELS,
   MANUAL_PRIMARY_ACTIONS,
+  deriveHumanWorkflowPhase,
   deriveManualJourneyState,
   manualJourneyDecision,
   normalizeManualPrimaryAction,

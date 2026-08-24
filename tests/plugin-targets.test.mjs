@@ -99,6 +99,7 @@ test("deterministic target build isolates Codex and exposes exactly five Manual 
     assert.equal(preflight.isError, false);
     assert.equal(preflight.structuredContent.feasible, true);
     assert.equal(preflight.structuredContent.root_plan_id, "wp-adaptive-retry");
+    assert.equal(preflight.structuredContent.presentation.client_host, "codex");
     const mcp = JSON.parse(readFileSync(join(codex, ".mcp.json"), "utf8"));
     assert.deepEqual(Object.keys(mcp.mcpServers), ["geldmacher-workflow"]);
   } finally {

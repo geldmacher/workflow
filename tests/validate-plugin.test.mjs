@@ -15,15 +15,28 @@ async function createFixture(explicitPaths) {
   const manifest = { name: "fixture-plugin", hooks: "./hooks/hooks.json", ...(explicitPaths ? { commands: "./commands/", agents: "./agents/", skills: "./skills/" } : {}) };
   await write(join(root, ".cursor-plugin", "plugin.json"), JSON.stringify(manifest));
   const command = "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"";
+  const enforcementCommand = "node \"${CURSOR_PLUGIN_ROOT}/hooks/closeout-guard.mjs\" --enforce";
+  const closeoutCommand = "node \"${CURSOR_PLUGIN_ROOT}/hooks/closeout-guard.mjs\"";
   await write(join(root, "hooks", "hooks.json"), JSON.stringify({
     version: 1,
     hooks: {
       sessionStart: [{ type: "command", command, failClosed: false }],
-      beforeSubmitPrompt: [{ type: "command", command, failClosed: false }],
-      preToolUse: [{ type: "command", command, matcher: "CreatePlan|Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook|MCP:workflow_closeout", failClosed: false }],
+      beforeSubmitPrompt: [
+        { type: "command", command, failClosed: false },
+        { type: "command", command: closeoutCommand, failClosed: false },
+      ],
+      stop: [{ type: "command", command: closeoutCommand, failClosed: false }],
+      preToolUse: [
+        { type: "command", command, matcher: "CreatePlan|Task|Agent|spawn_agent", failClosed: false },
+        { type: "command", command: enforcementCommand, matcher: "CreatePlan|Write|Edit|Delete|Shell|Bash|Task|Agent|spawn_agent|ApplyPatch|apply_patch|DeleteFile|StrReplace|EditNotebook|Computer.*|Browser.*|MCP:.*", failClosed: true },
+      ],
       subagentStart: [{ type: "command", command, failClosed: false }],
       subagentStop: [{ type: "command", command, failClosed: false }],
-      postToolUse: [{ type: "command", command, matcher: "Task|CreatePlan|MCP:workflow_closeout", failClosed: false }],
+      postToolUse: [
+        { type: "command", command, matcher: "Task", failClosed: false },
+        { type: "command", command: closeoutCommand, matcher: "CreatePlan|MCP:workflow_closeout", failClosed: false },
+      ],
+      postToolUseFailure: [{ type: "command", command: closeoutCommand, matcher: "MCP:workflow_closeout", failClosed: false }],
     },
   }));
   await write(join(root, "hooks", "closeout-guard.mjs"), "process.stdout.write('{}');\n");
@@ -42,7 +55,7 @@ async function createFixture(explicitPaths) {
   for (const name of ["work-automation", "work-execution", "work-explanation", "work-learning", "work-planning", "work-review"]) {
     await write(join(root, "skills", name, "SKILL.md"), `---\nname: ${name}\ndescription: Skill.\n---\n`);
   }
-  for (const name of ["artifact-protocol", "automation-contract", "automation-preparation-contract", "closeout-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "host-approval-contract", "learning-contract", "manual-attestation-contract", "manual-subagent-policy", "manual-workflow-contract", "model-routing-contract", "plan-container-contract", "review-contract", "state-contract", "verification-profile-contract", "work-review-input-contract"]) {
+  for (const name of ["artifact-protocol", "automation-contract", "automation-preparation-contract", "closeout-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "host-approval-contract", "learning-contract", "manual-subagent-policy", "manual-workflow-contract", "model-routing-contract", "plan-container-contract", "review-contract", "state-contract", "verification-profile-contract", "work-review-input-contract"]) {
     await write(join(root, "references", `${name}.md`), `# ${name}\n`);
   }
   await write(join(root, "schemas", "cursor-plan-wrapper.schema.json"), JSON.stringify({
@@ -98,16 +111,20 @@ test("requires the exact bundled fail-quiet activation hook surface", async () =
   });
 });
 
-test("requires the scoped fail-quiet CreatePlan guard", async () => {
+test("requires the passive task observer and scoped fail-closed mutation guard", async () => {
   await withFixture(false, async (root) => {
     const path = join(root, "hooks", "hooks.json");
     const config = JSON.parse(await readFile(path, "utf8"));
-    config.hooks.preToolUse[0].matcher = "*";
-    config.hooks.preToolUse[0].failClosed = true;
+    config.hooks.stop[0].command = config.hooks.preToolUse[1].command;
+    config.hooks.stop[0].failClosed = true;
+    config.hooks.preToolUse[1].matcher = "*";
+    config.hooks.preToolUse[1].failClosed = false;
     await writeFile(path, JSON.stringify(config));
     const failures = validatePlugin(root).join("\n");
+    assert.match(failures, /stop hook 1 must use its bundled Node guard/);
+    assert.match(failures, /stop hook 1 must set failClosed false/);
     assert.match(failures, /must match CreatePlan\|Write/);
-    assert.match(failures, /failClosed false/);
+    assert.match(failures, /failClosed true/);
   });
 });
 

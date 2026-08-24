@@ -70,6 +70,9 @@ export const WORKFLOW_TOOL_CONTRACTS = Object.freeze({
     description: "For Cursor native Manual Review, atomically build paired Schema-5 delivery-evidence and work-review artifacts from the protected current-task receipt and fresh observations; delivery-evidence and portable clients retain exact Root inputs.",
     inputSchema: {
       workspace_root: workspaceRoot,
+      native_review_receipt: z.string().regex(/^[A-Za-z0-9_-]{43}$/)
+        .describe("Cursor host-injected opaque Review receipt. Models and users must never set this field.")
+        .optional(),
       root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/).optional(),
       root_plan: z.string().min(1).max(250_000).optional(),
       artifacts: z.array(artifact).min(1).max(32).optional(),

@@ -234,6 +234,7 @@ export function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot
     })
     : {};
   const legacyReceiptGap = (constraintProjection.constraint_summary?.legacy_unattested_verified_checks?.length ?? 0) > 0;
+  const repositoryAttribution = evidence?.fields.extensions?.workflow?.repository_attribution ?? null;
   const acceptanceEligible = root?.fields.profile_max === "manual"
     && evidence
     && review
@@ -285,6 +286,8 @@ export function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot
       receipt_ids: [...new Set((evidence?.fields.check_evidence ?? []).flatMap((check) => check.artifact_hashes ?? []))],
     }),
     diagnostics: unique([...chain.normalizations, ...chain.diagnostics]),
+    changed_paths: evidence?.fields.changed_paths ?? [],
+    ...(repositoryAttribution ? { repository_attribution: repositoryAttribution } : {}),
     ...constraintProjection,
   };
 }

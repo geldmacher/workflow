@@ -1,22 +1,31 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 import { defaultRoot } from "../scripts/validate-artifact.source.mjs";
 import {
   buildPresentation,
+  buildControllerPresentation,
+  controllerMcpResult,
   formatChangedPaths,
   formatManualToolContent,
+  HUMAN_PHASE_LABELS,
   isManualWorkflowTool,
   JOURNEY_STATE_LABELS,
   MANUAL_GUIDE_LABEL,
   MANUAL_GUIDE_URL,
+  MANUAL_PRIMARY_ACTIONS,
   manualMcpResult,
   resetManualPresentationDedupe,
   statusPresentationOutcome,
 } from "../src/mcp/manual-presentation.mjs";
 
-const chatGolden = JSON.parse(readFileSync(join(defaultRoot, "tests", "fixtures", "manual-chat-golden.json"), "utf8"));
+const humanPresentationGolden = JSON.parse(readFileSync(join(defaultRoot, "tests", "fixtures", "manual-chat-golden.json"), "utf8"));
+
+function renderedSha256(text) {
+  return createHash("sha256").update(text).digest("hex");
+}
 
 test("Manual presentation leads with outcome and next action without JSON content", () => {
   resetManualPresentationDedupe();
@@ -27,7 +36,7 @@ test("Manual presentation leads with outcome and next action without JSON conten
     advisories: [],
     required_checks: ["CHECK-1"],
     deferred_checks: [],
-  });
+  }, false, { clientHost: "cursor" });
   assert.equal(response.isError, false);
   assert.match(response.content[0].text, /## Workflow · Plan ready/);
   assert.match(response.content[0].text, /Technical traceability[\s\S]*workflow_plan_preflight — ready/);
@@ -42,6 +51,8 @@ test("Manual presentation leads with outcome and next action without JSON conten
   assert.equal(response.structuredContent.presentation.next_action, "implement-plan");
   assert.equal(response.structuredContent.presentation.journey_state, "plan-ready");
   assert.equal(response.structuredContent.presentation.enforcement_level, "explicit");
+  assert.equal(response.structuredContent.presentation.client_host, "cursor");
+  assert.equal(response.structuredContent.presentation.human_projection.phase, "plan-ready");
   assert.deepEqual(response.structuredContent.presentation.primary_action, {
     id: "implement-plan",
     label: "Implement the Plan",
@@ -195,7 +206,8 @@ test("Next-step footer covers task-local closeout, optional handoff loss, and bl
   assert.match(statusText, /Resolution: Resolve blocking issues/);
   assert.match(statusText, /Action blocker: Delivery Evidence is not available yet/);
   assert.doesNotMatch(statusText.split("<details>")[0], /Implement Plan/);
-  assert.match(status.next_action_invoke, /plan-work wp-x/);
+  assert.equal(status.next_action_invoke, "plan-work");
+  assert.doesNotMatch(status.next_action_invoke, /wp-x/);
 });
 
 test("Manual presentation separates blockers from advisories and warnings", () => {
@@ -224,6 +236,301 @@ test("Manual presentation separates blockers from advisories and warnings", () =
   assert.match(warning.advisories.join("\n"), /Task-local Evidence remains valid/);
   assert.equal(warning.gaps.length, 0);
   assert.doesNotMatch(formatManualToolContent(warning), /artifact: delivery-evidence/);
+});
+
+test("evidence limits remain limitations while failed transitions remain blockers", () => {
+  const limited = buildPresentation("workflow_closeout", {
+    delivery_evidence_id: "de-limited",
+    overall_grade: "supported",
+    status: "provisional",
+    evidence_mode: "lean",
+    handoff_persisted: true,
+    constraint_summary: { evidence_gap_checks: ["CHECK-1"] },
+    human_attention: {
+      required: true,
+      reasons: [{ check_id: "CHECK-1", message: "Live proof is unavailable." }],
+    },
+  });
+  assert.deepEqual(limited.severity.blockers, []);
+  assert.match(limited.severity.limitations.join("\n"), /Evidence gaps: CHECK-1|Live proof is unavailable/);
+  assert.doesNotMatch(formatManualToolContent(limited).split("### Details")[0], /Blocker:/);
+  assert.match(formatManualToolContent(limited).split("### Details")[0], /Limitation:/);
+
+  const failed = buildPresentation("workflow_closeout", {
+    delivery_evidence_id: "de-failed",
+    overall_grade: "failed",
+    status: "blocked",
+    handoff_persisted: true,
+  });
+  assert.match(failed.severity.blockers.join("\n"), /blocks delivery acceptance/);
+  assert.match(formatManualToolContent(failed).split("### Details")[0], /Blocker:/);
+});
+
+test("repository attribution is a visible limitation and pre-existing paths stay technical", () => {
+  const presentation = buildPresentation("workflow_closeout", {
+    root_plan_id: "wp-attribution",
+    delivery_evidence_id: "de-attribution",
+    overall_grade: "supported",
+    status: "provisional",
+    handoff_persisted: true,
+    changed_paths: ["src/owned.mjs"],
+    pre_existing_paths: ["notes/private-existing.txt"],
+    observed_dirty_paths: ["src/owned.mjs", "notes/private-existing.txt"],
+    implementation_authorization: "host-owned-unattested",
+    review_selection_source: "explicit-review-command",
+    repository_attribution: {
+      status: "provisional",
+      boundary: "create-plan-baseline",
+      baseline_hash: "a".repeat(64),
+      reason_codes: ["head-drift"],
+    },
+  }, { clientHost: "cursor" });
+  const text = formatManualToolContent(presentation);
+  const primary = text.split("<details>")[0];
+  assert.deepEqual(presentation.severity.blockers, []);
+  assert.match(primary, /Limitation: Repository change attribution is provisional/);
+  assert.doesNotMatch(primary, /notes\/private-existing\.txt/);
+  assert.match(text, /Pre-existing paths \(1\): notes\/private-existing\.txt/);
+  assert.match(text, /Implementation authorization: host-owned-unattested/);
+  assert.match(text, /Review selection source: explicit-review-command/);
+});
+
+test("native Plan-file Root binding is visibly provisional and technically traceable", () => {
+  const presentation = buildPresentation("workflow_closeout", {
+    artifact_kind: "work-review",
+    root_plan_id: "wp-plan-file-binding",
+    work_review_id: "wr-plan-file-binding",
+    latest_evidence_id: "de-plan-file-binding",
+    assessment: "achieved",
+    delivery_status: "provisional",
+    next_action: "accept-provisional",
+    review_route: "full",
+    check_evidence: [{ check_id: "CHECK-1", grade: "supported" }],
+    native_root_source: "cursor-plan-file",
+    native_root_binding: {
+      status: "provisional",
+      source: "recent-plan-file-stop",
+      reason_codes: ["native-plan-transcript-unavailable"],
+    },
+    review_enforcement: { status: "enforced", reason_codes: [] },
+    repository_attribution: {
+      status: "provisional",
+      boundary: "create-plan",
+      reason_codes: ["native-plan-transcript-unavailable"],
+    },
+    task_local_valid: true,
+    handoff_persisted: false,
+  }, { clientHost: "cursor" });
+  const text = formatManualToolContent(presentation);
+  const primary = text.split("<details>")[0];
+  assert.match(primary, /exact task transcript was unavailable/i);
+  assert.match(primary, /recent native Plan file/i);
+  assert.match(text, /Native Root source: cursor-plan-file/);
+  assert.match(text, /Native Root binding: .*recent-plan-file-stop/);
+});
+
+test("observer-unavailable Review is concrete, provisional, and keeps internal state secondary", () => {
+  const presentation = buildPresentation("workflow_closeout", {
+    artifact_kind: "work-review",
+    root_plan_id: "wp-observer-private",
+    work_review_id: "wr-observer-private",
+    latest_evidence_id: "de-observer-private",
+    assessment: "mostly-achieved",
+    delivery_status: "provisional",
+    next_action: "retry-review",
+    review_route: "targeted",
+    check_evidence: [{ check_id: "CHECK-1", grade: "supported" }],
+    review_enforcement: { status: "unavailable", reason_codes: ["review-observer-unavailable"] },
+    repository_attribution: { status: "provisional", boundary: "create-plan", reason_codes: ["review-observer-unavailable"] },
+    task_local_valid: true,
+    handoff_persisted: false,
+  }, { clientHost: "cursor" });
+  const text = formatManualToolContent(presentation);
+  const primary = text.split("<details>")[0];
+  assert.equal(presentation.outcome, "partial");
+  assert.equal(presentation.enforcement_level, "explicit");
+  assert.match(primary, /observer was unavailable/);
+  assert.match(primary, /Hook Trust/);
+  assert.match(primary, /exactly \/review-work/);
+  assert.doesNotMatch(primary, /review-observer-unavailable|wp-observer-private|wr-observer-private|de-observer-private/);
+  assert.doesNotMatch(primary, /No material evidence limitation was reported/);
+  assert.match(text, /Review enforcement: \{"status":"unavailable"/);
+});
+
+test("observer-unavailable and stopped full-text goldens cover disclosure and fallback", () => {
+  assert.deepEqual(humanPresentationGolden.manual_cases.map((entry) => entry.name), ["observer-unavailable", "stopped"]);
+  for (const entry of humanPresentationGolden.manual_cases) {
+    const presentation = entry.name === "observer-unavailable"
+      ? buildPresentation("workflow_closeout", {
+        artifact_kind: "work-review",
+        root_plan_id: "wp-observer-private",
+        work_review_id: "wr-observer-private",
+        latest_evidence_id: "de-observer-private",
+        assessment: "mostly-achieved",
+        delivery_status: "provisional",
+        next_action: "retry-review",
+        review_route: "targeted",
+        check_evidence: [{ check_id: "CHECK-1", grade: "supported" }],
+        review_enforcement: { status: "unavailable", reason_codes: ["review-observer-unavailable"] },
+        repository_attribution: { status: "provisional", boundary: "create-plan", reason_codes: ["review-observer-unavailable"] },
+        task_local_valid: true,
+        handoff_persisted: false,
+      }, { clientHost: "cursor" })
+      : buildPresentation("workflow_status", {
+        snapshot: {
+          root_plan_id: "wp-stopped-private",
+          snapshot_source: "artifact-chain",
+          state: "stopped",
+          required_actor: "none",
+          next_action: "none",
+          blockers: ["Historical Workflow subject has no current delivery."],
+        },
+      });
+    assert.equal(renderedSha256(formatManualToolContent(presentation)), entry.rendered_sha256);
+    assert.equal(renderedSha256(formatManualToolContent(presentation, { technicalDisclosure: false })), entry.fallback_sha256);
+  }
+});
+
+test("fresh work-review output summarizes required Checks and preserves paths and findings", () => {
+  const presentation = buildPresentation("workflow_closeout", {
+    artifact_kind: "work-review",
+    root_plan_id: "wp-review-trace",
+    work_review_id: "wr-review-trace",
+    latest_evidence_id: "de-review-trace",
+    assessment: "mostly-achieved",
+    delivery_status: "blocked",
+    next_action: "correct",
+    review_route: "targeted",
+    changed_paths: ["src/retry.mjs"],
+    finding_ids: ["retry-gap"],
+    check_evidence: [
+      { check_id: "CHECK-1", grade: "verified" },
+      { check_id: "CHECK-2", grade: "failed" },
+    ],
+    authoritative_fields: { inspected_checks: ["CHECK-1", "CHECK-2"] },
+    task_local_valid: true,
+    handoff_persisted: false,
+  }, { clientHost: "cursor" });
+  const text = formatManualToolContent(presentation);
+  assert.match(text, /Required Checks: 2; verified 1.*failed 1/);
+  assert.match(text, /changed paths \(1\): src\/retry\.mjs/);
+  assert.match(text, /Finding IDs: retry-gap/);
+  assert.match(text, /CHECK-1: verified/);
+});
+
+test("host CTA golden covers every public action for Cursor, Codex, and portable clients", () => {
+  const publicActionIds = Object.keys(MANUAL_PRIMARY_ACTIONS).filter((action) => action !== "none").sort();
+  assert.deepEqual(Object.keys(humanPresentationGolden.cta_matrix).sort(), ["codex", "cursor", "portable"]);
+  for (const [host, actions] of Object.entries(humanPresentationGolden.cta_matrix)) {
+    assert.deepEqual(Object.keys(actions).sort(), publicActionIds, `${host} must cover every public action`);
+    for (const [action, expectedInvoke] of Object.entries(actions)) {
+      const presentation = buildPresentation("workflow_status", {
+        snapshot: {
+          root_plan_id: "wp-host-cta",
+          snapshot_source: "artifact-chain",
+          state: "root-review",
+          journey_state: "clarification-required",
+          required_actor: "human",
+          next_action: action,
+          blockers: [],
+        },
+      }, { clientHost: host });
+      assert.equal(presentation.primary_action.id, action);
+      assert.equal(presentation.primary_action.invoke, expectedInvoke, `${host}:${action}`);
+      assert.doesNotMatch(presentation.primary_action.invoke, /wp-host-cta/);
+    }
+  }
+});
+
+test("controller projection shares human layers while preserving structuredContent exactly", () => {
+  const value = {
+    subject_kind: "run",
+    run: {
+      run_id: "run-human-output",
+      lifecycle: "waiting-human",
+      requested_profile: "autonomous",
+      effective_profile: "supervised",
+      delivery_status: "provisional",
+      evidence_grade: "supported",
+      next_action: "accept-provisional",
+      blockers: [],
+      delivered_paths: ["src/result.mjs"],
+      revision: 7,
+    },
+    snapshot: {
+      run_id: "run-human-output",
+      state: "delivery-ready-provisional",
+      requested_profile: "autonomous",
+      effective_profile: "supervised",
+      required_actor: "human",
+      next_action: "accept-provisional",
+      delivery_status: "provisional",
+      evidence_grade: "supported",
+      blockers: [],
+      revision: 7,
+    },
+  };
+  const expectedStructured = structuredClone(value);
+  const response = controllerMcpResult("workflow_status", value);
+  assert.deepEqual(response.structuredContent, expectedStructured);
+  assert.match(response.content[0].text, /## Workflow · Decision needed/);
+  assert.match(response.content[0].text, /- How: \/work-control run-human-output accept provisional/);
+  assert.match(response.content[0].text, /profile: autonomous → supervised/);
+  assert.doesNotMatch(response.content[0].text, /^\s*\{/);
+
+  const presentation = buildControllerPresentation("workflow_status", value);
+  assert.equal(presentation.client_host, "cursor");
+  assert.equal(presentation.primary_actor, "human");
+  assert.equal(presentation.primary_action.id, "accept-provisional");
+
+  const controllerAction = (state, nextAction) => buildControllerPresentation("workflow_status", {
+    run: { run_id: "run-copyable", lifecycle: state, next_action: nextAction, blockers: [] },
+    snapshot: { run_id: "run-copyable", state, next_action: nextAction, blockers: [] },
+  }).primary_action?.invoke;
+  assert.equal(controllerAction("delivery-ready-verified", "accept-verified"), "/work-control run-copyable accept verified");
+  assert.equal(controllerAction("waiting-human", "answer"), "/work-control run-copyable answer <text>");
+  assert.equal(controllerAction("paused", "resume"), "/work-control run-copyable resume");
+});
+
+test("controller human-output golden snapshots cover active, blocked, achieved, and failed", () => {
+  assert.deepEqual(humanPresentationGolden.controller_cases.map(({ name }) => name), [
+    "active",
+    "blocked",
+    "achieved",
+    "failed",
+  ]);
+  for (const entry of humanPresentationGolden.controller_cases) {
+    const response = controllerMcpResult(entry.tool, entry.value, entry.is_error === true);
+    assert.deepEqual(response.structuredContent, entry.value, `${entry.name} structured content must remain exact`);
+    assert.equal(response.isError, entry.is_error === true, `${entry.name} error status`);
+    assert.equal(
+      renderedSha256(response.content[0].text),
+      entry.rendered_sha256,
+      `${entry.name} complete rendered controller response`,
+    );
+  }
+});
+
+test("blocked and failed controller results always provide recovery and never render Done", () => {
+  const invalidModels = controllerMcpResult("workflow_validate_models", { verified: false, errors: ["route unavailable"] });
+  assert.match(invalidModels.content[0].text, /## Workflow · Blocked/);
+  assert.match(invalidModels.content[0].text, /- How: \/work-models/);
+  assert.doesNotMatch(invalidModels.content[0].text, /### Done/);
+
+  const failedPreparation = controllerMcpResult("workflow_prepare", { error: "preparation failed" }, true);
+  assert.match(failedPreparation.content[0].text, /## Workflow · Blocked/);
+  assert.match(failedPreparation.content[0].text, /Resolution:/);
+  assert.match(failedPreparation.content[0].text, /- How: \/work-status/);
+  assert.doesNotMatch(failedPreparation.content[0].text, /### Done/);
+
+  const blockedRun = controllerMcpResult("workflow_status", {
+    run: { run_id: "run-blocked", lifecycle: "blocked", blockers: ["required Check failed"] },
+    snapshot: { run_id: "run-blocked", state: "blocked", blockers: ["required Check failed"] },
+  });
+  assert.match(blockedRun.content[0].text, /Resolution:/);
+  assert.match(blockedRun.content[0].text, /Fix the named cause, then run \/work-status run-blocked again/);
+  assert.equal(buildControllerPresentation("workflow_status", blockedRun.structuredContent).primary_action.id, "resolve-blocker");
+  assert.doesNotMatch(blockedRun.content[0].text, /### Done/);
 });
 
 test("Manual presentation covers record, context, status, and error paths", () => {
@@ -396,7 +703,7 @@ test("Manual presentation covers record, context, status, and error paths", () =
   const customAction = buildPresentation("workflow_status", {
     snapshot: { state: "delivery-ready", next_action: "accept-provisional", blockers: [] },
   });
-  assert.equal(customAction.next_action_label, "Accept provisional delivery");
+  assert.equal(customAction.next_action_label, "Acknowledge the provisional gap");
   assert.match(customAction.next_action_invoke, /accept-work provisional/);
 
   const fallbackAction = buildPresentation("workflow_status", {
@@ -434,6 +741,7 @@ test("status presentation maps terminal and actionable states honestly", () => {
   assert.match(achievedText, /evidence: de-done/);
   assert.match(achievedText, /review: wr-done/);
   assert.match(achievedText, /### Done/);
+  assert.match(achievedText, /\*\*Final repository explanation\*\*/);
   assert.equal(achieved.primary_action, null);
   assert.equal(achieved.journey_state, "done");
   assert.doesNotMatch(achievedText.split("<details>")[0], /\/learn-from-work|\/explain-work/);
@@ -453,7 +761,7 @@ test("status presentation maps terminal and actionable states honestly", () => {
     },
   });
   const acceptedText = formatManualToolContent(accepted);
-  assert.match(acceptedText, /### Accepted provisionally/);
+  assert.match(acceptedText, /### Provisional gap acknowledged/);
   assert.match(acceptedText, /not persisted/);
   assert.doesNotMatch(acceptedText, /### Done/);
 
@@ -486,9 +794,13 @@ test("status presentation maps terminal and actionable states honestly", () => {
       evidence_tip: "de-tip",
       review_tip: "wr-tip",
     },
+    changed_paths: ["src/retry.mjs"],
   });
-  assert.match(formatManualToolContent(manualTips), /evidence: de-tip/);
-  assert.match(formatManualToolContent(manualTips), /review: wr-tip/);
+  const manualTipsText = formatManualToolContent(manualTips);
+  assert.match(manualTipsText, /evidence: de-tip/);
+  assert.match(manualTipsText, /review: wr-tip/);
+  assert.match(manualTipsText, /changed paths \(1\): src\/retry\.mjs/);
+  assert.match(manualTipsText, /\*\*Preliminary explanation\*\*/);
 
   const provisional = buildPresentation("workflow_status", {
     snapshot: {
@@ -502,6 +814,24 @@ test("status presentation maps terminal and actionable states honestly", () => {
   });
   assert.equal(provisional.outcome, "partial");
   assert.match(formatManualToolContent(provisional), /workflow_status — partial/);
+
+  const stopped = buildPresentation("workflow_status", {
+    snapshot: {
+      root_plan_id: "wp-stopped-private",
+      snapshot_source: "artifact-chain",
+      state: "stopped",
+      required_actor: "none",
+      next_action: "none",
+      blockers: ["Historical Workflow subject has no current delivery."],
+    },
+  });
+  const stoppedText = formatManualToolContent(stopped);
+  const stoppedPrimary = stoppedText.split("<details>")[0];
+  assert.equal(stopped.outcome, "blocked");
+  assert.equal(stopped.human_projection.phase, "completed");
+  assert.equal(stopped.primary_action, null);
+  assert.match(stoppedPrimary, /### Ended without delivery/);
+  assert.doesNotMatch(stoppedPrimary, /### Next step|- Now:|Blocker:|wp-stopped-private|\bstopped\b/i);
 
   const minimalAchieved = buildPresentation("workflow_status", {
     snapshot: { root_plan_id: "wp-x", state: "achieved", next_action: "none", blockers: [] },
@@ -559,8 +889,8 @@ test("Manual status help is state-specific and remains in secondary technical tr
     },
   });
   const acceptedText = formatManualToolContent(accepted);
-  assert.ok(acceptedText.indexOf("Learn more:") > acceptedText.indexOf("### Accepted provisionally"));
-  assert.match(acceptedText, /### Accepted provisionally\nThis one-time acceptance/);
+  assert.ok(acceptedText.indexOf("Learn more:") > acceptedText.indexOf("### Provisional gap acknowledged"));
+  assert.match(acceptedText, /### Provisional gap acknowledged\nThis acknowledgement applies only to this response/);
 });
 
 test("unknown Manual states fall back safely while controller states receive no Manual semantics", () => {
@@ -640,7 +970,7 @@ test("exceptional closeout, handoff, preflight, and error results select one rel
   assert.ok(failedText.indexOf("Learn more:") > failedText.indexOf("### Next step"));
 });
 
-test("two-layer chat exposes one primary action, keeps IDs secondary, and derives a stable deduplication key", () => {
+test("three-layer chat exposes one primary action, keeps IDs secondary, and derives a stable semantic key", () => {
   const value = {
     snapshot: {
       root_plan_id: "wp-chat",
@@ -661,7 +991,8 @@ test("two-layer chat exposes one primary action, keeps IDs secondary, and derive
   const text = formatManualToolContent(first);
   const primary = text.split("<details>")[0];
   assert.equal((primary.match(/^- Now:/gm) ?? []).length, 1);
-  assert.match(primary, /- How: review-work wp-chat/);
+  assert.match(primary, /- How: review-work/);
+  assert.doesNotMatch(primary, /review-work wp-chat/);
   assert.doesNotMatch(primary.replace(/- How:.*\n/, ""), /wp-chat|de-chat|workflow_status|MCP|```yaml/);
   assert.match(text, /Technical traceability[\s\S]*Root: wp-chat[\s\S]*Evidence: de-chat/);
   const normalized = buildPresentation("workflow_status", {
@@ -675,7 +1006,7 @@ test("two-layer chat exposes one primary action, keeps IDs secondary, and derive
   assert.notEqual(first.deduplication_key, changed.deduplication_key);
 });
 
-test("Manual presentation coalesces repeated root updates and re-emits new Evidence", () => {
+test("Manual presentation is stateless, always emits content, and hashes all visible semantics", () => {
   resetManualPresentationDedupe();
   const first = manualMcpResult("workflow_closeout", {
     root_plan_id: "wp-coalesce",
@@ -699,8 +1030,11 @@ test("Manual presentation coalesces repeated root updates and re-emits new Evide
       review_tip: null,
     },
   });
-  assert.equal(duplicateAcrossTool.content.length, 0);
-  assert.equal(duplicateAcrossTool.structuredContent.presentation.update_suppressed, true);
+  assert.equal(duplicateAcrossTool.content.length, 1);
+  assert.equal(duplicateAcrossTool.structuredContent.presentation.update_suppressed, false);
+  const repeated = manualMcpResult("workflow_status", duplicateAcrossTool.structuredContent);
+  assert.equal(repeated.content.length, 1);
+  assert.equal(repeated.structuredContent.presentation.update_suppressed, false);
   const newEvidence = manualMcpResult("workflow_status", {
     snapshot: {
       ...duplicateAcrossTool.structuredContent.snapshot,
@@ -709,9 +1043,21 @@ test("Manual presentation coalesces repeated root updates and re-emits new Evide
   });
   assert.equal(newEvidence.content.length, 1);
   assert.equal(newEvidence.structuredContent.presentation.update_suppressed, false);
+  const warningChanged = manualMcpResult("workflow_closeout", {
+    root_plan_id: "wp-coalesce",
+    delivery_evidence_id: "de-coalesce-1",
+    overall_grade: "verified",
+    status: "complete",
+    evidence_mode: "lean",
+    handoff_persisted: false,
+    warning: "handoff cache unavailable",
+    changed_paths: [],
+  });
+  assert.equal(warningChanged.content.length, 1);
+  assert.notEqual(warningChanged.structuredContent.presentation.deduplication_key, first.structuredContent.presentation.deduplication_key);
 });
 
-test("golden chat matrix covers every journey state, one action, terminal Done, and technical fallback", () => {
+test("golden chat snapshots cover every journey state, terminal Done, and both technical renderings", () => {
   const expectedStates = [
     "plan-ready",
     "implementation-active",
@@ -725,8 +1071,11 @@ test("golden chat matrix covers every journey state, one action, terminal Done, 
     "blocked",
     "done",
   ];
-  assert.deepEqual(chatGolden.map((entry) => entry.state), expectedStates);
-  for (const entry of chatGolden) {
+  assert.equal(humanPresentationGolden.schema, 2);
+  assert.match(humanPresentationGolden.snapshot_contract, /complete rendered UTF-8 response/);
+  assert.deepEqual(Object.keys(JOURNEY_STATE_LABELS), expectedStates);
+  assert.deepEqual(humanPresentationGolden.journey_states.map((entry) => entry.state), expectedStates);
+  for (const entry of humanPresentationGolden.journey_states) {
     const action = entry.action ?? "none";
     const presentation = entry.state === "plan-ready"
       ? buildPresentation("workflow_plan_preflight", {
@@ -764,9 +1113,12 @@ test("golden chat matrix covers every journey state, one action, terminal Done, 
     const disclosure = formatManualToolContent(presentation);
     const fallback = formatManualToolContent(presentation, { technicalDisclosure: false });
     const primary = disclosure.split("<details>")[0];
-    assert.match(primary, new RegExp(`Workflow · ${JOURNEY_STATE_LABELS[entry.state]}`));
+    assert.equal(renderedSha256(disclosure), entry.rendered_sha256, `${entry.state} complete disclosure output`);
+    assert.equal(renderedSha256(fallback), entry.fallback_sha256, `${entry.state} complete fallback output`);
+    assert.equal(presentation.human_projection.phase, entry.human_phase);
+    assert.match(primary, new RegExp(`Workflow · ${HUMAN_PHASE_LABELS[entry.human_phase]}`));
     assert.doesNotMatch(primary.replace(/- How:.*\n/, ""), /wp-golden-chat|```yaml|workflow_(?:closeout|status)|MCP/);
-    assert.match(fallback, /\n---\n\n### Technical traceability\n/);
+    assert.match(fallback, /\n---\n\n### Agent and machine contract \(authoritative\)[\s\S]*#### Technical traceability\n/);
     if (entry.action) {
       assert.equal(presentation.primary_action.id, entry.action);
       assert.equal((primary.match(/^- Now:/gm) ?? []).length, 1);

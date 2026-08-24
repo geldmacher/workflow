@@ -1,6 +1,9 @@
+import { createHash } from "node:crypto";
 import {
+  HUMAN_WORKFLOW_PHASE_LABELS,
   MANUAL_JOURNEY_STATE_LABELS,
   MANUAL_PRIMARY_ACTIONS,
+  deriveHumanWorkflowPhase,
   deriveManualJourneyState,
   normalizeManualPrimaryAction,
   taskBoundManualInvoke,
@@ -21,8 +24,7 @@ const MANUAL_GUIDE_URL = "https://github.com/geldmacher/workflow/blob/main/docs/
 const MANUAL_GUIDE_LABEL = "Manual Workflow guide";
 
 const JOURNEY_STATE_LABELS = MANUAL_JOURNEY_STATE_LABELS;
-const RECENT_PRESENTATION_UPDATES = new Map();
-const MAX_RECENT_PRESENTATION_UPDATES = 256;
+const HUMAN_PHASE_LABELS = HUMAN_WORKFLOW_PHASE_LABELS;
 
 function helpEntry(topic, anchor, meaning) {
   return Object.freeze({
@@ -90,7 +92,7 @@ const MANUAL_STATE_HELP = Object.freeze({
   "accepted-provisional": helpEntry(
     "manual-state-accepted-provisional",
     "manual-states",
-    "The human accepted this evidence gap once; the delivery is still not verified and the acceptance is not persisted.",
+    "The human acknowledged this evidence gap for one response; the delivery is still not verified and the acknowledgement is not persisted.",
   ),
   achieved: helpEntry(
     "manual-state-achieved",
@@ -192,11 +194,11 @@ const NEXT_STEP_CATALOG = {
     recovery: "Run Review in the current task; its atomic builder creates any missing Evidence together with the Review.",
   },
   "accept-provisional": {
-    label: "Accept provisional delivery",
-    invoke: "Ask/Agent: /accept-work provisional or $accept-work provisional only for an explicit provisional acceptance",
-    benefit: "Records a one-time human acceptance of an evidence gap.",
+    label: "Acknowledge the provisional gap",
+    invoke: "Ask/Agent: /accept-work provisional or $accept-work provisional only for an explicit provisional acknowledgement",
+    benefit: "Confirms this evidence gap for the current response without persisting acceptance.",
     blocked_when: "Current review is not provisional.",
-    recovery: "Run a fresh review before accepting.",
+    recovery: "Run a fresh review before acknowledging the gap.",
   },
   closeout: {
     label: "Portable Evidence build",
@@ -253,6 +255,13 @@ const NEXT_STEP_CATALOG = {
     benefit: "Restores Intent Readiness before a Root is presented.",
     blocked_when: "Goal or acceptance decisions remain open.",
     recovery: "Run /plan-work <goal> or $plan-work <goal> with decisive answers.",
+  },
+  "resolve-blocker": {
+    label: "Resolve the named blocker",
+    invoke: "Fix the named cause, then run status again",
+    benefit: "Removes the concrete blocker before status is inspected again.",
+    blocked_when: "The named cause has not been resolved yet.",
+    recovery: "Fix the blocker described above, then run status once to confirm the new state.",
   },
   none: {
     label: "Done",
@@ -364,14 +373,65 @@ function journeyStateFor(presentation, action) {
   return deriveManualJourneyState(presentation, action);
 }
 
-function firstProblem(presentation) {
-  return [
+function uniqueLines(values) {
+  return [...new Set(values.map((value) => firstLine(value, "")).filter(Boolean))];
+}
+
+function presentationSeverity(presentation) {
+  const gaps = asList(presentation.gaps);
+  const attention = asList(presentation.human_attention);
+  const problems = asList(presentation.problems);
+  const errors = asList(presentation.errors);
+  const transitionBlocked = ["blocked", "failed"].includes(presentation.outcome);
+  const blockers = uniqueLines([
     ...asList(presentation.blocker ? [presentation.blocker] : []),
-    ...asList(presentation.gaps),
-    ...asList(presentation.human_attention),
-    ...asList(presentation.problems),
-    ...asList(presentation.errors),
-  ][0] ?? null;
+    ...(transitionBlocked ? [...gaps, ...attention, ...problems, ...errors] : []),
+  ]);
+  const limitations = uniqueLines([
+    ...asList(presentation.limitations),
+    ...(!transitionBlocked ? [...gaps, ...attention, ...problems] : []),
+  ]);
+  return Object.freeze({
+    blockers,
+    limitations,
+    warnings: uniqueLines(asList(presentation.warnings)),
+    advisories: uniqueLines(asList(presentation.advisories)),
+  });
+}
+
+function firstBlocker(presentation) {
+  return presentation.severity?.blockers?.[0]
+    ?? presentationSeverity(presentation).blockers[0]
+    ?? null;
+}
+
+function firstLimitation(presentation) {
+  return presentation.severity?.limitations?.[0]
+    ?? presentationSeverity(presentation).limitations[0]
+    ?? null;
+}
+
+function canonicalValue(value) {
+  if (Array.isArray(value)) return value.map(canonicalValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.keys(value)
+      .filter((key) => value[key] !== undefined)
+      .sort()
+      .map((key) => [key, canonicalValue(value[key])]));
+  }
+  return value ?? null;
+}
+
+function semanticPresentationHash(presentation) {
+  const { deduplication_key: _key, update_suppressed: _suppressed, ...semantic } = presentation;
+  return createHash("sha256").update(JSON.stringify(canonicalValue(semantic))).digest("hex");
+}
+
+function primaryActorFor(action) {
+  if (action === "none") return "none";
+  if (["review-root", "retry-review"].includes(action)) return "reviewer";
+  if (["implement-plan", "accept-provisional", "approve-correction", "replan", "answer", "resolve-intent", "resolve-blocker"].includes(action)) return "human";
+  return "agent";
 }
 
 function defaultTechnicalTraceability(presentation) {
@@ -389,11 +449,63 @@ function defaultTechnicalTraceability(presentation) {
     artifact_set_hash: presentation.artifact_set_hash ?? null,
     repository_snapshot_hash: presentation.repository_snapshot_hash ?? null,
     receipt_ids: presentation.receipt_ids ?? [],
+    review_enforcement: presentation.review_enforcement ?? null,
   };
 }
 
 function normalizedEnforcementLevel(value) {
   return ["host-native", "explicit"].includes(value) ? value : "explicit";
+}
+
+function finalizePresentation(presentation, { clientHost = presentation.client_host ?? "portable", primaryAction = undefined } = {}) {
+  const host = ["cursor", "codex", "portable"].includes(clientHost) ? clientHost : "portable";
+  const hasPrimaryOverride = primaryAction !== undefined;
+  const normalizedAction = hasPrimaryOverride
+    ? primaryAction?.id ?? "none"
+    : normalizeManualPrimaryAction(presentation, presentation.next_action ?? "none");
+  const step = resolveNextStep(normalizedAction);
+  const technicalTraceability = presentation.technical_traceability ?? defaultTechnicalTraceability(presentation);
+  const journeyState = presentation.journey_state ?? journeyStateFor(presentation, normalizedAction);
+  const enforcementLevel = normalizedEnforcementLevel(presentation.enforcement_level);
+  const severity = presentationSeverity(presentation);
+  const humanPhase = deriveHumanWorkflowPhase({
+    journeyState,
+    workflowState: presentation.workflow_state,
+    outcome: presentation.outcome,
+  });
+  const actor = presentation.primary_actor ?? primaryAction?.actor ?? primaryActorFor(normalizedAction);
+  const primaryInvoke = primaryAction?.invoke ?? taskBoundManualInvoke(normalizedAction, technicalTraceability, host);
+  const actionValue = hasPrimaryOverride
+    ? primaryAction
+      ? { id: primaryAction.id, label: primaryAction.label, invoke: primaryAction.invoke, why: primaryAction.why }
+      : null
+    : normalizedAction === "none"
+      ? null
+      : { id: normalizedAction, label: step.label, invoke: primaryInvoke, why: step.benefit };
+  const { blocker: _legacyBlocker, ...base } = presentation;
+  const finalized = {
+    ...base,
+    ...(severity.blockers[0] ? { blocker: severity.blockers[0] } : {}),
+    journey_state: journeyState,
+    human_projection: {
+      phase: humanPhase,
+      label: HUMAN_PHASE_LABELS[humanPhase],
+      status: presentation.workflow_state ?? journeyState,
+    },
+    limitations: severity.limitations,
+    severity,
+    primary_actor: actor,
+    client_host: host,
+    enforcement_level: enforcementLevel,
+    primary_action: actionValue,
+    technical_traceability: { ...technicalTraceability, enforcement_level: enforcementLevel },
+    next_action: normalizedAction,
+    next_action_label: actionValue?.label ?? step.label,
+    next_action_invoke: actionValue?.invoke ?? taskBoundManualInvoke("none", technicalTraceability, host),
+    next_action_benefit: actionValue?.why ?? step.benefit,
+    update_suppressed: false,
+  };
+  return { ...finalized, deduplication_key: semanticPresentationHash(finalized) };
 }
 
 function withNextStepFields(presentation, action, overrides = {}) {
@@ -402,28 +514,14 @@ function withNextStepFields(presentation, action, overrides = {}) {
   const technicalTraceability = presentation.technical_traceability ?? defaultTechnicalTraceability(presentation);
   const journeyState = presentation.journey_state ?? journeyStateFor(presentation, normalizedAction);
   const enforcementLevel = normalizedEnforcementLevel(presentation.enforcement_level);
-  const problem = firstProblem(presentation) ?? step.blocked_reason ?? null;
-  const primaryInvoke = taskBoundManualInvoke(normalizedAction, technicalTraceability);
-  return {
+  return finalizePresentation({
     ...presentation,
-    ...(problem ? { blocker: problem } : {}),
     journey_state: journeyState,
     enforcement_level: enforcementLevel,
-    primary_action: normalizedAction === "none"
-      ? null
-      : { id: normalizedAction, label: step.label, invoke: primaryInvoke, why: step.benefit },
     technical_traceability: { ...technicalTraceability, enforcement_level: enforcementLevel },
-    deduplication_key: [
-      technicalTraceability.root_plan_id ?? "no-root",
-      technicalTraceability.evidence_id ?? "no-evidence",
-      technicalTraceability.review_id ?? "no-review",
-      journeyState,
-      problem ?? "no-problem",
-      normalizedAction,
-    ].join("|"),
     next_action: normalizedAction,
     next_action_label: step.label,
-    next_action_invoke: primaryInvoke,
+    next_action_invoke: taskBoundManualInvoke(normalizedAction, technicalTraceability),
     next_action_benefit: step.benefit,
     ...(step.blocked_reason
       ? {
@@ -431,7 +529,7 @@ function withNextStepFields(presentation, action, overrides = {}) {
         next_action_recovery: step.recovery,
       }
       : {}),
-  };
+  });
 }
 
 function withHelpFields(presentation, help) {
@@ -461,6 +559,71 @@ function receiptCoverageLine(summary) {
   const coverage = summary?.receipt_coverage;
   if (!coverage || !Number.isInteger(coverage.attested) || !Number.isInteger(coverage.eligible)) return null;
   return `host-attested machine Checks: ${coverage.attested}/${coverage.eligible}`;
+}
+
+function repositoryAttribution(value) {
+  const attribution = value?.repository_attribution;
+  if (!attribution || typeof attribution !== "object" || Array.isArray(attribution)) return null;
+  return {
+    status: attribution.status ?? "unknown",
+    boundary: attribution.boundary ?? null,
+    baseline_hash: attribution.baseline_hash ?? null,
+    reason_codes: asList(attribution.reason_codes),
+  };
+}
+
+function attributionLimitation(value) {
+  const attribution = repositoryAttribution(value);
+  if (attribution?.status !== "provisional") return null;
+  const reason = attribution.reason_codes.some((code) => /baseline/.test(code))
+    ? "a reliable pre-change baseline is unavailable"
+    : attribution.reason_codes.includes("native-plan-transcript-unavailable")
+      ? "the exact task transcript was unavailable and the Root came only from one recent native Plan file"
+    : attribution.reason_codes.some((code) => /concurrent|post-review|drift/.test(code))
+      ? "other repository activity overlaps the observed delivery"
+      : "the repository boundary could not be attributed completely";
+  return `Repository change attribution is provisional because ${reason}; verified behavior cannot prove that every observed change belongs to this delivery.`;
+}
+
+function reviewEnforcementLimitation(value) {
+  const enforcement = value?.review_enforcement;
+  if (enforcement?.status !== "unavailable") return null;
+  return "Cursor could not enforce the Review activation because its observer was unavailable; Evidence is capped at supported. Verify Hook Trust, reload Cursor, then submit exactly /review-work again.";
+}
+
+function concreteEvidenceLimitations(value, evidenceChecks = []) {
+  const missing = value?.constraint_summary?.evidence_gap_checks ?? [];
+  const limited = evidenceChecks.filter((entry) => ["supported", "partial", "unavailable"].includes(entry?.grade));
+  const enforcementUnavailable = value?.review_enforcement?.status === "unavailable";
+  return uniqueLines([
+    ...(missing.length > 0 ? [`Required proof is missing for ${missing.join(", ")}.`] : []),
+    ...(!enforcementUnavailable ? limited : []).map((entry) => {
+      const detail = asList(entry.limitations)[0];
+      return detail
+        ? `${entry.check_id}: ${detail}`
+        : `${entry.check_id}: the available observation reaches only ${entry.grade} evidence.`;
+    }),
+    reviewEnforcementLimitation(value),
+    attributionLimitation(value),
+  ].filter(Boolean));
+}
+
+function manualStatusSummary(state, requiredActor, blockers) {
+  const summaries = {
+    "delivery-ready-provisional": "Delivery has no known failed required Check, but it can be considered only provisionally because required proof is incomplete.",
+    "accepted-provisional": "The provisional evidence gap is acknowledged for this response only; delivery is not verified and no acceptance state was persisted.",
+    achieved: "Fresh review verified the required repository evidence; this Root is complete.",
+    stopped: "This Workflow subject ended without a repository delivery claim.",
+    blocked: "Delivery cannot proceed until the named blocking cause is resolved.",
+    failed: "Workflow could not produce a valid delivery result; the named failure must be repaired first.",
+    "root-review": "Implementation is complete and now needs one fresh read-only Review.",
+    "root-plan-review": "The plan is ready for a human implementation decision; no implementation Evidence exists yet.",
+  };
+  if (summaries[state]) return summaries[state];
+  if (blockers.length > 0) return "Workflow needs the named evidence or context problem resolved before delivery can continue.";
+  return requiredActor === "none"
+    ? "No further actor is required for the current Manual delivery."
+    : "The current Manual delivery has one concrete next actor and action.";
 }
 
 function humanAttentionLines(value) {
@@ -495,6 +658,13 @@ function closeoutPresentation(value) {
     const provisional = value.delivery_status === "provisional";
     const outcome = blocked ? "blocked" : provisional ? "partial" : "ready";
     const nextAction = value.next_action ?? "retry-review";
+    const evidenceChecks = Array.isArray(value.check_evidence) ? value.check_evidence : [];
+    const failedChecks = evidenceChecks.filter((entry) => entry?.grade === "failed").map((entry) => entry.check_id).filter(Boolean);
+    const gradeCounts = Object.fromEntries(["verified", "supported", "partial", "unavailable", "failed"]
+      .map((grade) => [grade, evidenceChecks.filter((entry) => entry?.grade === grade).length]));
+    const checkSummary = evidenceChecks.length > 0
+      ? `Required Checks: ${evidenceChecks.length}; verified ${gradeCounts.verified}, supported ${gradeCounts.supported}, partial ${gradeCounts.partial}, unavailable ${gradeCounts.unavailable}, failed ${gradeCounts.failed}.`
+      : "Required Check observations are unavailable in this response; inspect the exact Evidence artifact.";
     const recovery = nextAction === "retry-review"
       ? "Correct the named review_input field and repeat Review in this task; no repository work or new task is required."
       : `Continue with ${nextAction} in this task.`;
@@ -508,8 +678,8 @@ function closeoutPresentation(value) {
         : provisional
           ? "The host built a valid task-local provisional Review."
           : "The host built a valid task-local verified Review.",
-      check_summary: `Review input and exact Root/Evidence chain produced ${value.work_review_id ?? "one work-review"}.`,
-      enforcement_level: "host-native",
+      check_summary: checkSummary,
+      enforcement_level: value.review_enforcement?.status === "unavailable" ? "explicit" : "host-native",
       technical_traceability: {
         root_plan_id: value.root_plan_id ?? null,
         root_content_hash: value.root_content_hash ?? null,
@@ -518,19 +688,38 @@ function closeoutPresentation(value) {
         review_hash: value.artifact_hash ?? null,
         correction_id: value.correction_id ?? null,
         artifact_set_hash: value.artifact_set_hash ?? null,
-        check_ids: value.authoritative_fields?.inspected_checks ?? [],
-        finding_ids: [],
-        changed_paths: [],
+        check_ids: [...new Set([
+          ...(value.authoritative_fields?.inspected_checks ?? []),
+          ...evidenceChecks.map((entry) => entry.check_id).filter(Boolean),
+        ])],
+        finding_ids: value.finding_ids ?? [],
+        changed_paths: value.changed_paths ?? [],
         handoff_persisted: value.handoff_persisted !== false,
+        repository_attribution: repositoryAttribution(value),
+        pre_existing_paths: value.pre_existing_paths ?? [],
+        observed_dirty_paths: value.observed_dirty_paths ?? [],
+        implementation_authorization: value.implementation_authorization ?? null,
+        ...(value.native_root_binding ? {
+          native_root_source: value.native_root_source ?? null,
+          native_root_binding: value.native_root_binding,
+        } : {}),
+        review_selection_source: value.review_selection_source ?? null,
+        review_enforcement: value.review_enforcement ?? null,
       },
       checks: [
+        ...evidenceChecks.map((entry) => `${entry.check_id}: ${entry.grade}`),
         `assessment: ${value.assessment ?? "unknown"}`,
         `delivery status: ${value.delivery_status ?? "unknown"}`,
         `review route: ${value.review_route ?? "unknown"}`,
         `task-local valid: ${value.task_local_valid === true ? "yes" : "unknown"}`,
         `handoff persisted: ${value.handoff_persisted === true ? "yes" : "no"}`,
       ],
-      gaps: blocked ? [`Review selected ${nextAction}; only the Review/delivery route is blocked.`] : [],
+      gaps: blocked
+        ? failedChecks.length > 0
+          ? [`Required ${failedChecks.join(", ")} failed; delivery is blocked until the failure is corrected and reviewed again.`]
+          : [`Review found a delivery blocker that must be corrected before another Review.`]
+        : [],
+      limitations: concreteEvidenceLimitations(value, evidenceChecks),
       advisories: [
         "The exact task-local artifact is authoritative; optional handoff persistence is resilience only.",
         ...(value.handoff_persisted === false ? ["Handoff failure did not invalidate this Review."] : []),
@@ -625,6 +814,11 @@ function closeoutPresentation(value) {
       evidence_status: status,
       evidence_grade: grade,
       handoff_persisted: persisted,
+      repository_attribution: repositoryAttribution(value),
+      pre_existing_paths: value.pre_existing_paths ?? [],
+      observed_dirty_paths: value.observed_dirty_paths ?? [],
+      implementation_authorization: value.implementation_authorization ?? null,
+      review_selection_source: value.review_selection_source ?? null,
     },
     checks: [
       `evidence mode: ${value.evidence_mode ?? "unknown"}`,
@@ -638,6 +832,7 @@ function closeoutPresentation(value) {
         ? [`Evidence gaps: ${value.constraint_summary.evidence_gap_checks.join(", ")}.`]
         : []),
     ],
+    limitations: concreteEvidenceLimitations(value, value.check_evidence ?? []),
     human_attention: humanAttentionLines(value.human_attention),
     problems: problemLines(value.problem_details),
     advisories: persisted
@@ -713,7 +908,7 @@ function errorPresentation(toolName, value) {
   }), MANUAL_HELP_TOPICS["recovery-and-troubleshooting"]);
 }
 
-function buildPresentation(toolName, value, { isError = false } = {}) {
+function buildPresentationBase(toolName, value, { isError = false } = {}) {
   if (isError || value?.error) {
     return errorPresentation(toolName, value);
   }
@@ -748,7 +943,7 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
         correction_id: null,
         check_ids: value.required_checks ?? [],
         finding_ids: [],
-        changed_paths: [],
+        changed_paths: value.changed_paths ?? [],
       },
       checks: [
         `required: ${(value.required_checks ?? []).join(", ") || "none"}`,
@@ -823,7 +1018,7 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
         correction_id: null,
         check_ids: [],
         finding_ids: [],
-        changed_paths: [],
+        changed_paths: value.changed_paths ?? [],
         artifact_count: count,
       },
       checks: [
@@ -854,8 +1049,10 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
     const requiredActor = snapshot.required_actor ?? "unknown";
     const downgradeReason = snapshot.downgrade_reason ?? null;
     const outcome = statusPresentationOutcome(snapshot);
-    const safeAction = normalizeManualPrimaryAction({ outcome }, action);
-    const overrides = blockers.length > 0 && (outcome === "blocked" || outcome === "partial") && action !== "none"
+    const safeAction = normalizeManualPrimaryAction({ outcome, workflow_state: state }, action);
+    const overrides = state === "stopped"
+      ? {}
+      : blockers.length > 0 && (outcome === "blocked" || outcome === "partial") && action !== "none"
       ? {
         blocked_reason: humanBlocker(blockers[0] ?? `Manual state is ${state}.`, resolveNextStep(safeAction).recovery).reason,
         recovery: humanBlocker(blockers[0] ?? `Manual state is ${state}.`, resolveNextStep(safeAction).recovery).recovery,
@@ -871,12 +1068,13 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
       tool: toolName,
       phase: "status",
       workflow_state: state,
+      acceptance_persisted: state === "accepted-provisional" ? snapshot.acceptance_persisted === true : undefined,
       journey_state: snapshot.journey_state ?? null,
       outcome,
-      summary: requiredActor === "none"
-        ? `The Manual delivery is ${state}; no further actor is required.`
-        : `The Manual delivery is ${state}; ${requiredActor} acts next.`,
-      check_summary: state === "achieved"
+      summary: manualStatusSummary(state, requiredActor, blockers),
+      check_summary: state === "accepted-provisional"
+        ? "Evidence remains provisional; acceptance_persisted: false."
+        : state === "achieved"
         ? "Fresh review verified the required repository evidence."
         : state === "root-review"
           ? "Delivery Evidence is ready for fresh review."
@@ -896,11 +1094,18 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
         correction_id: snapshot.review?.correction_id ?? null,
         check_ids: value.constraint_summary?.required_checks ?? [],
         finding_ids: value.artifact_summary?.finding_ids ?? [],
-        changed_paths: [],
+        changed_paths: value.changed_paths ?? [],
         artifact_set_hash: snapshot.artifact_set_hash ?? value.artifact_summary?.artifact_set_hash ?? null,
         repository_snapshot_hash: value.repository_snapshot_hash ?? null,
         receipt_ids: value.receipt_ids ?? value.artifact_summary?.receipt_ids ?? [],
         workflow_state: state,
+        repository_attribution: repositoryAttribution(value),
+        pre_existing_paths: value.pre_existing_paths ?? [],
+        observed_dirty_paths: value.observed_dirty_paths ?? [],
+        implementation_authorization: value.implementation_authorization ?? null,
+        review_selection_source: value.review_selection_source ?? null,
+        review_enforcement: value.review_enforcement ?? null,
+        stopped_reasons: state === "stopped" ? blockers : [],
       },
       checks: [
         requestedProfile === effectiveProfile
@@ -911,7 +1116,13 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
         `review: ${snapshot.latest_review_id ?? snapshot.review_tip ?? "none"}`,
         receiptCoverageLine(value.constraint_summary),
       ].filter(Boolean),
-      gaps: blockers,
+      gaps: state === "stopped" ? [] : blockers,
+      limitations: [
+        ...concreteEvidenceLimitations(value, value.check_evidence ?? []),
+        ...(state === "accepted-provisional"
+          ? ["This acknowledgement is ephemeral, does not verify the delivery, and does not authorize qualification or Learning."]
+          : []),
+      ],
       advisories: asList([
         formatHostToolApproval(value.host_tool_approval),
         value.model_inheritance?.status ? `model_inheritance: ${value.model_inheritance.status}` : null,
@@ -943,6 +1154,280 @@ function buildPresentation(toolName, value, { isError = false } = {}) {
   }, "none");
 }
 
+function buildPresentation(toolName, value, options = {}) {
+  return finalizePresentation(buildPresentationBase(toolName, value, options), {
+    clientHost: options.clientHost ?? "portable",
+  });
+}
+
+function controllerSubject(value) {
+  const snapshot = value?.snapshot ?? null;
+  const run = value?.run ?? null;
+  const preparation = value?.preparation ?? null;
+  if (run || snapshot?.run_id) {
+    return {
+      kind: "run",
+      id: run?.run_id ?? snapshot?.run_id,
+      state: snapshot?.state ?? run?.lifecycle ?? "unknown",
+      nextAction: snapshot?.next_action ?? run?.next_action ?? "none",
+      actor: snapshot?.required_actor ?? "controller",
+      blockers: asList(snapshot?.blockers ?? run?.blockers),
+      requestedProfile: snapshot?.requested_profile ?? run?.requested_profile ?? null,
+      effectiveProfile: snapshot?.effective_profile ?? run?.effective_profile ?? null,
+      deliveryStatus: snapshot?.delivery_status ?? run?.delivery_status ?? null,
+      evidenceGrade: snapshot?.evidence_grade ?? run?.evidence_grade ?? null,
+      rootPlanId: snapshot?.root_plan_id ?? run?.plan?.fields?.id ?? null,
+      revision: snapshot?.revision ?? run?.revision ?? null,
+      acceptedAs: run?.accepted_as ?? null,
+      deliveryAccepted: run?.delivery_accepted === true,
+    };
+  }
+  if (preparation) {
+    return {
+      kind: "preparation",
+      id: preparation.preparation_id,
+      state: preparation.status ?? "unknown",
+      nextAction: preparation.status === "root-ready" ? "approve" : preparation.status === "planning" ? "watch" : "none",
+      actor: preparation.status === "root-ready" ? "human" : "controller",
+      blockers: asList(preparation.blockers),
+      requestedProfile: preparation.requested_profile ?? null,
+      effectiveProfile: null,
+      deliveryStatus: null,
+      evidenceGrade: null,
+      rootPlanId: preparation.root_plan_contract?.fields?.id ?? null,
+      revision: preparation.revision ?? null,
+      acceptedAs: null,
+      deliveryAccepted: false,
+    };
+  }
+  return null;
+}
+
+function controllerPrimaryAction(subject, toolName) {
+  if (!subject) return null;
+  const id = subject.id;
+  if (subject.kind === "preparation") {
+    if (subject.state === "root-ready") return {
+      id: "approve",
+      label: "Approve the prepared Root",
+      invoke: `/auto-work ${id} approve`,
+      why: "Starts only the exact prepared Root after human approval.",
+      actor: "human",
+    };
+    if (subject.state === "planning") return {
+      id: "watch",
+      label: "Watch preparation",
+      invoke: `/work-watch ${id}`,
+      why: "Shows planning progress without creating another preparation.",
+      actor: "human",
+    };
+    return null;
+  }
+  if (["achieved", "accepted-provisional", "stopped"].includes(subject.state)) return null;
+  if (subject.nextAction === "accept-verified") return {
+    id: "accept-verified",
+    label: "Accept verified delivery",
+    invoke: `/work-control ${id} accept verified`,
+    why: "Persists the required human acceptance for this supervised Run.",
+    actor: "human",
+  };
+  if (subject.nextAction === "accept-provisional") return {
+    id: "accept-provisional",
+    label: "Accept provisional delivery",
+    invoke: `/work-control ${id} accept provisional`,
+    why: "Persists this Run decision without calling the delivery verified or qualification-eligible.",
+    actor: "human",
+  };
+  if (["resume", "reconcile-and-resume"].includes(subject.nextAction) || ["paused", "interrupted"].includes(subject.state)) return {
+    id: "resume",
+    label: "Resume the Run",
+    invoke: `/work-control ${id} resume`,
+    why: "Continues the same approved Run from its recorded state.",
+    actor: "human",
+  };
+  if (subject.state === "waiting-human" || subject.nextAction === "answer") return {
+    id: "answer",
+    label: "Answer the open question",
+    invoke: `/work-control ${id} answer <text>`,
+    why: "Records the missing human decision without expanding Root authority.",
+    actor: "human",
+  };
+  if (["blocked", "failed"].includes(subject.state)) return {
+    id: toolName === "workflow_status" ? "resolve-blocker" : "inspect",
+    label: toolName === "workflow_status" ? "Resolve the named blocker" : "Inspect the blocker",
+    invoke: toolName === "workflow_status"
+      ? `Fix the named cause, then run /work-status ${id} again`
+      : `/work-status ${id}`,
+    why: toolName === "workflow_status"
+      ? "Moves the blocked subject forward before status is checked again."
+      : "Shows the exact reason and safe recovery before any new authorization.",
+    actor: "human",
+  };
+  return {
+    id: "watch",
+    label: "Watch the Run",
+    invoke: `/work-watch ${id}`,
+    why: "Shows progress and the next decision without starting another Run.",
+    actor: "human",
+  };
+}
+
+function controllerRecoveryAction(toolName, outcome) {
+  if (!["blocked", "failed"].includes(outcome)) return null;
+  if (toolName === "workflow_validate_models") return {
+    id: "retry-model-validation",
+    label: "Re-run model validation",
+    invoke: "/work-models",
+    why: "Rechecks the configured model routes without starting a Run.",
+    actor: "human",
+  };
+  if (toolName === "workflow_verification_profile") return {
+    id: "inspect-verification-profile",
+    label: "Inspect verification profile",
+    invoke: "/work-verification inspect",
+    why: "Shows the invalid profile detail before any approval or execution.",
+    actor: "human",
+  };
+  return {
+    id: "inspect-controller-state",
+    label: "Inspect controller state",
+    invoke: "/work-status",
+    why: "Shows the exact failure and safe recovery without creating or resuming a Run.",
+    actor: "human",
+  };
+}
+
+function controllerJourneyState(subject, outcome) {
+  if (!subject) return ["blocked", "failed"].includes(outcome) ? "blocked" : "done";
+  if (["achieved", "accepted-provisional", "stopped", "failed"].includes(subject.state)) return subject.state === "failed" ? "blocked" : "done";
+  if (outcome === "blocked" || subject.state === "blocked") return "blocked";
+  if (subject.kind === "preparation" && subject.state === "root-ready") return "plan-ready";
+  if (["waiting-human", "paused", "interrupted", "delivery-ready-verified", "delivery-ready-provisional"].includes(subject.state)) return "clarification-required";
+  if (["root-review", "slice-review"].includes(subject.state)) return "review-active";
+  return "implementation-active";
+}
+
+function controllerOutcome(subject, value, isError) {
+  if (isError || value?.error) return "failed";
+  if (value?.verified === false || value?.valid === false) return "blocked";
+  if (!subject) return "ready";
+  if (["blocked", "failed"].includes(subject.state)) return "blocked";
+  if (["achieved", "accepted-provisional", "stopped"].includes(subject.state)) return "ready";
+  if (subject.kind === "preparation" && ["failed", "expired"].includes(subject.state)) return "blocked";
+  return "partial";
+}
+
+export function buildControllerPresentation(toolName, value, { isError = false } = {}) {
+  const subject = controllerSubject(value);
+  const outcome = controllerOutcome(subject, value, isError);
+  const state = subject?.state ?? (value?.workflow_active === false
+    ? "inactive"
+    : outcome === "failed"
+      ? "failed"
+      : outcome === "blocked"
+        ? "validation-failed"
+        : "completed");
+  const action = controllerPrimaryAction(subject, toolName) ?? controllerRecoveryAction(toolName, outcome);
+  const profileLine = subject?.requestedProfile
+    ? subject.requestedProfile === subject.effectiveProfile || !subject.effectiveProfile
+      ? `profile: ${subject.requestedProfile}`
+      : `profile: ${subject.requestedProfile} → ${subject.effectiveProfile}`
+    : null;
+  const provisionalAccepted = subject?.state === "accepted-provisional" && subject.deliveryAccepted;
+  const summary = value?.error
+    ? humanBlocker(value.error).reason
+    : provisionalAccepted
+      ? "The human accepted this controller Run provisionally; the persisted decision does not verify the delivery or qualify future autonomy."
+      : value?.workflow_active === false
+        ? "No controller Run or preparation is active; native Manual work remains unaffected."
+        : subject?.kind === "preparation"
+          ? subject.state === "root-ready"
+            ? "The prepared Root is ready for explicit human approval."
+            : `Controller preparation is ${subject.state}.`
+          : subject
+            ? subject.state === "stopped"
+              ? "The controller subject ended without a repository delivery claim."
+              : subject.state === "blocked"
+                ? "The controller delivery is blocked by the named cause; resolve it before checking status again."
+                : subject.state === "failed"
+                  ? "The controller operation failed; repair the named cause before retrying."
+                  : subject.actor === "none"
+                    ? "The controller subject needs no further actor."
+                    : "The controller subject has one recorded next actor and action."
+            : toolName === "workflow_validate_models"
+              ? value?.verified === true ? "Configured model routes are verified." : "Configured model routes are not verified."
+              : "The controller operation completed.";
+  const limitations = uniqueLines([
+    ...(provisionalAccepted ? ["The persisted Run acceptance is provisional, unverified, and non-qualifying."] : []),
+    ...(subject && outcome !== "blocked" ? subject.blockers : []),
+    ...asList(value?.limitations),
+  ]);
+  const warnings = uniqueLines([
+    ...asList(value?.warnings),
+    ...asList(value?.integration_warnings),
+    ...(subject?.requestedProfile && subject.effectiveProfile && subject.requestedProfile !== subject.effectiveProfile
+      ? [`profile downgrade: ${subject.requestedProfile} → ${subject.effectiveProfile}`]
+      : []),
+  ]);
+  const presentation = {
+    schema: 1,
+    tool: toolName,
+    phase: subject?.kind ?? "controller",
+    workflow_state: state,
+    acceptance_persisted: provisionalAccepted ? true : undefined,
+    outcome,
+    summary,
+    check_summary: subject
+      ? [profileLine, subject.deliveryStatus ? `delivery: ${subject.deliveryStatus}` : null, subject.evidenceGrade ? `evidence: ${subject.evidenceGrade}` : null].filter(Boolean).join("; ") || "Controller state is recorded."
+      : value?.verified !== undefined
+        ? `verified: ${value.verified === true ? "yes" : "no"}`
+        : "Controller result is available in structured content.",
+    journey_state: controllerJourneyState(subject, outcome),
+    primary_actor: action?.actor ?? subject?.actor ?? "none",
+    enforcement_level: "explicit",
+    technical_traceability: {
+      root_plan_id: subject?.rootPlanId ?? null,
+      evidence_id: value?.snapshot?.evidence_tip ?? null,
+      review_id: value?.snapshot?.review_tip ?? null,
+      correction_id: null,
+      check_ids: [],
+      finding_ids: [],
+      changed_paths: value?.run?.delivered_paths ?? [],
+      subject_kind: subject?.kind ?? value?.subject_kind ?? "controller",
+      subject_id: subject?.id ?? null,
+      revision: subject?.revision ?? null,
+    },
+    checks: [profileLine, subject?.deliveryStatus ? `delivery: ${subject.deliveryStatus}` : null, subject?.evidenceGrade ? `evidence: ${subject.evidenceGrade}` : null].filter(Boolean),
+    gaps: outcome === "blocked" ? uniqueLines([...(subject?.blockers ?? []), ...asList(value?.errors), ...(value?.error ? [value.error] : [])]) : [],
+    limitations,
+    advisories: [],
+    warnings,
+    errors: isError ? uniqueLines([value?.error ?? "Controller operation failed."]) : [],
+    next_action: action?.id ?? "none",
+    ...(["blocked", "failed"].includes(outcome) && action ? {
+      next_action_blocked_reason: value?.error ?? subject?.blockers?.[0] ?? "The controller result is not ready for safe continuation.",
+      next_action_recovery: `${action.label}: ${action.invoke}`,
+    } : {}),
+  };
+  return finalizePresentation(presentation, { clientHost: "cursor", primaryAction: action });
+}
+
+export function controllerMcpResult(toolName, value, isError = false) {
+  if (process.env.GELDMACHER_WORKFLOW_LEGACY_MCP_TEXT === "1") {
+    return {
+      content: [{ type: "text", text: JSON.stringify(value, null, 2) }],
+      structuredContent: value,
+      isError,
+    };
+  }
+  const presentation = buildControllerPresentation(toolName, value, { isError });
+  return {
+    content: [{ type: "text", text: formatManualToolContent(presentation) }],
+    structuredContent: value,
+    isError,
+  };
+}
+
 function formatSection(title, items) {
   if (!items || items.length === 0) return null;
   return [`${title}:`, ...items.map((item) => `- ${item}`)].join("\n");
@@ -963,10 +1448,22 @@ function formatNextStepFooter(presentation) {
       "Repository delivery is complete for this Root.",
     ].join("\n");
   }
-  if (presentation.tool === "workflow_status" && presentation.workflow_state === "accepted-provisional" && presentation.next_action === "none") {
+  if (presentation.workflow_state === "accepted-provisional" && presentation.next_action === "none") {
+    if (presentation.acceptance_persisted === true) {
+      return [
+        "### Provisional controller delivery accepted",
+        "The Run decision is persisted, but the delivery remains unverified and does not qualify future autonomous work.",
+      ].join("\n");
+    }
     return [
-      "### Accepted provisionally",
-      "This one-time acceptance is not persisted; the next /work-status or $work-status returns delivery-ready-provisional.",
+      "### Provisional gap acknowledged",
+      "This acknowledgement applies only to this response. It is not persisted or verified; the next status returns delivery-ready-provisional.",
+    ].join("\n");
+  }
+  if (presentation.workflow_state === "stopped" && presentation.next_action === "none") {
+    return [
+      "### Ended without delivery",
+      "The Workflow subject is closed without a repository delivery claim.",
     ].join("\n");
   }
   const primary = presentation.primary_action;
@@ -985,6 +1482,12 @@ function traceValue(value) {
   return value === null || value === undefined || value === "" ? "none" : String(value);
 }
 
+function tracePaths(label, paths, max = 5) {
+  if (!Array.isArray(paths) || paths.length === 0) return `${label}: none`;
+  const shown = paths.slice(0, max).join(", ");
+  return `${label} (${paths.length}): ${shown}${paths.length > max ? `, … (+${paths.length - max} more)` : ""}`;
+}
+
 function formatTechnicalTraceability(presentation, { disclosure = true } = {}) {
   const trace = presentation.technical_traceability ?? {};
   const identity = [
@@ -997,10 +1500,25 @@ function formatTechnicalTraceability(presentation, { disclosure = true } = {}) {
     `Correction: ${trace.correction_id ?? "none"}`,
     `Artifact set hash: ${trace.artifact_set_hash ?? "none"}`,
     `Repository snapshot hash: ${trace.repository_snapshot_hash ?? "none"}`,
+    `Repository attribution: ${traceValue(trace.repository_attribution)}`,
+    tracePaths("Pre-existing paths", trace.pre_existing_paths),
+    tracePaths("Observed dirty paths", trace.observed_dirty_paths),
+    `Implementation authorization: ${trace.implementation_authorization ?? "none"}`,
+    ...(trace.native_root_binding ? [
+      `Native Root source: ${trace.native_root_source ?? "none"}`,
+      `Native Root binding: ${traceValue(trace.native_root_binding)}`,
+    ] : []),
+    `Review selection source: ${trace.review_selection_source ?? "none"}`,
+    `Review enforcement: ${traceValue(trace.review_enforcement)}`,
+    `Stopped reasons: ${traceValue(trace.stopped_reasons)}`,
     `Receipt IDs: ${traceValue(trace.receipt_ids)}`,
+    `Subject: ${trace.subject_kind ?? "manual"}${trace.subject_id ? ` ${trace.subject_id}` : ""}`,
+    `Revision: ${trace.revision ?? "none"}`,
     `Check IDs: ${traceValue(trace.check_ids)}`,
     `Finding IDs: ${traceValue(trace.finding_ids)}`,
     formatChangedPaths(trace.changed_paths),
+    `Client host: ${presentation.client_host ?? "portable"}`,
+    `Human phase: ${presentation.human_projection?.phase ?? "unknown"}`,
     `Enforcement: ${presentation.enforcement_level ?? trace.enforcement_level ?? "explicit"}`,
     `Update key: ${presentation.deduplication_key ?? "none"}`,
   ];
@@ -1008,31 +1526,86 @@ function formatTechnicalTraceability(presentation, { disclosure = true } = {}) {
     `${presentation.tool} — ${presentation.outcome}`,
     ...identity,
     formatSection("Checks", presentation.checks),
+    formatSection("Blockers", presentation.severity?.blockers),
+    formatSection("Limitations", presentation.severity?.limitations),
     formatSection("Gaps", presentation.gaps),
     formatSection("Human attention", presentation.human_attention),
     formatSection("Problems", presentation.problems),
     formatSection("Advisories", presentation.advisories),
     formatSection("Warnings", presentation.warnings),
     formatSection("Errors", presentation.errors),
-    presentation.next_action_blocked_reason ? `Action blocker: ${presentation.next_action_blocked_reason}` : null,
+    presentation.next_action_blocked_reason
+      ? `${firstBlocker(presentation) ? "Action blocker" : "Action limit"}: ${presentation.next_action_blocked_reason}`
+      : null,
     presentation.next_action_recovery ? `Recovery detail: ${presentation.next_action_recovery}` : null,
     formatHelp(presentation.help),
   ].filter((line) => line !== null && line !== undefined).join("\n").replace(/\n{3,}/g, "\n\n").trim();
   return disclosure
-    ? `<details><summary>Technical traceability</summary>\n\n${body}\n\n</details>`
-    : `---\n\n### Technical traceability\n\n${body}`;
+    ? `<details><summary>Agent and machine contract (authoritative) · Technical traceability</summary>\n\nStructured content is authoritative; this is a bounded human-readable index.\n\n${body}\n\n</details>`
+    : `---\n\n### Agent and machine contract (authoritative)\n\nStructured content is authoritative; this is a bounded human-readable index.\n\n#### Technical traceability\n\n${body}`;
+}
+
+function scopeBoundaryLine(presentation) {
+  const trace = presentation.technical_traceability ?? {};
+  if (["controller", "run", "preparation"].includes(presentation.phase) || trace.subject_kind === "controller") {
+    return "This result applies only to the displayed controller subject; it grants no new Root, deployment, publication, or host permission.";
+  }
+  if (!trace.root_plan_id || presentation.tool === "workflow_plan_preflight") {
+    return "This result does not establish repository authority or approve implementation, deployment, publication, or a host action.";
+  }
+  return "This result is bounded to the displayed Root's repository scope; it does not itself attest implementation approval or grant deployment, publication, or host permission.";
+}
+
+function presentationMeaning(presentation) {
+  if (presentation.workflow_state === "stopped") return "The subject is closed for history and makes no repository delivery claim; no follow-up action is expected.";
+  if (presentation.outcome === "blocked") return "A known failure or safety boundary prevents delivery; the named cause must be resolved before success can be reconsidered.";
+  if (presentation.help?.meaning) return presentation.help.meaning;
+  if (presentation.outcome === "partial") return "The result is usable only within the stated evidence limit and must not be described as verified delivery.";
+  if (presentation.phase === "review") return "A fresh read-only Review produced the repository delivery decision shown above.";
+  return "This result reports the current Workflow decision without granting any additional repository or host authority.";
 }
 
 export function formatManualToolContent(presentation, { technicalDisclosure = true } = {}) {
-  const journeyLabel = JOURNEY_STATE_LABELS[presentation.journey_state] ?? presentation.journey_state ?? "Manual state";
-  const blocker = firstProblem(presentation);
+  const humanLabel = presentation.human_projection?.label
+    ?? HUMAN_PHASE_LABELS[deriveHumanWorkflowPhase({
+      journeyState: presentation.journey_state,
+      workflowState: presentation.workflow_state,
+      outcome: presentation.outcome,
+    })]
+    ?? "Workflow state";
+  const blocker = firstBlocker(presentation);
+  const limitation = firstLimitation(presentation);
+  const warning = presentation.severity?.warnings?.[0] ?? null;
+  const limitations = presentation.severity?.limitations ?? [];
+  const reviewedOutput = presentation.phase === "review" || presentation.tool === "workflow_status";
+  const finalExplanation = presentation.workflow_state === "achieved"
+    || (presentation.phase === "review"
+      && presentation.outcome === "ready"
+      && presentation.next_action === "none");
+  const explanationLabel = reviewedOutput
+    ? finalExplanation ? "Final repository explanation" : "Preliminary explanation"
+    : null;
   const lines = [
-    `## Workflow · ${journeyLabel}`,
+    `## Workflow · ${humanLabel}`,
+    "### Quick decision",
     `What happened: ${presentation.summary}`,
     `Checks: ${presentation.check_summary ?? "See technical traceability for exact evidence."}`,
+    limitation ? `Limitation: ${limitation}` : null,
+    warning ? `Warning: ${warning}` : null,
     blocker ? `Blocker: ${blocker}` : null,
     blocker && presentation.next_action_recovery ? `Resolution: ${presentation.next_action_recovery}` : null,
     formatNextStepFooter(presentation),
+    "### Details",
+    "#### Outcome and meaning",
+    explanationLabel ? `**${explanationLabel}**` : null,
+    presentationMeaning(presentation),
+    "#### Scope and boundaries",
+    scopeBoundaryLine(presentation),
+    "#### Verification, limits, and recovery",
+    presentation.check_summary ?? "See technical traceability for exact evidence.",
+    limitations.length > 0 ? formatSection("Limitations", limitations) : "No material evidence limitation was reported.",
+    (presentation.severity?.warnings?.length ?? 0) > 0 ? formatSection("Warnings", presentation.severity.warnings) : null,
+    presentation.next_action_recovery ? `Recovery: ${presentation.next_action_recovery}` : null,
     formatTechnicalTraceability(presentation, { disclosure: technicalDisclosure }),
   ].filter((line) => line !== null && line !== undefined);
   return `${lines.join("\n").replace(/\n{3,}/g, "\n\n").trim()}\n`;
@@ -1043,26 +1616,14 @@ export function isManualWorkflowTool(toolName) {
 }
 
 export function resetManualPresentationDedupe() {
-  RECENT_PRESENTATION_UPDATES.clear();
+  // Retained as a compatibility no-op. Presentation is intentionally stateless.
 }
 
 export function coalesceManualPresentation(presentation) {
-  const trace = presentation.technical_traceability ?? {};
-  const subject = trace.root_plan_id
-    ? `root|${trace.root_plan_id}`
-    : [presentation.tool, "no-root", presentation.phase ?? "manual"].join("|");
-  const duplicate = RECENT_PRESENTATION_UPDATES.get(subject) === presentation.deduplication_key;
-  if (!duplicate) {
-    RECENT_PRESENTATION_UPDATES.delete(subject);
-    RECENT_PRESENTATION_UPDATES.set(subject, presentation.deduplication_key);
-    while (RECENT_PRESENTATION_UPDATES.size > MAX_RECENT_PRESENTATION_UPDATES) {
-      RECENT_PRESENTATION_UPDATES.delete(RECENT_PRESENTATION_UPDATES.keys().next().value);
-    }
-  }
-  return { ...presentation, update_suppressed: duplicate };
+  return { ...presentation, update_suppressed: false };
 }
 
-export function manualMcpResult(toolName, value, isError = false) {
+export function manualMcpResult(toolName, value, isError = false, { clientHost = "portable" } = {}) {
   if (process.env.GELDMACHER_WORKFLOW_LEGACY_MCP_TEXT === "1" || !isManualWorkflowTool(toolName)) {
     return {
       content: [{ type: "text", text: JSON.stringify(value, null, 2) }],
@@ -1070,10 +1631,10 @@ export function manualMcpResult(toolName, value, isError = false) {
       isError,
     };
   }
-  const presentation = coalesceManualPresentation(buildPresentation(toolName, value, { isError }));
+  const presentation = coalesceManualPresentation(buildPresentation(toolName, value, { isError, clientHost }));
   const structuredContent = { ...value, presentation };
   return {
-    content: presentation.update_suppressed ? [] : [{ type: "text", text: formatManualToolContent(presentation) }],
+    content: [{ type: "text", text: formatManualToolContent(presentation) }],
     structuredContent,
     isError,
   };
@@ -1087,6 +1648,7 @@ export {
   MANUAL_GUIDE_URL,
   MANUAL_HELP_TOPICS,
   MANUAL_STATE_HELP,
+  HUMAN_PHASE_LABELS,
   JOURNEY_STATE_LABELS,
   NEXT_STEP_CATALOG,
   MANUAL_PRIMARY_ACTIONS,

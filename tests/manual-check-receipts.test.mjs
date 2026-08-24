@@ -21,6 +21,8 @@ import {
   MANUAL_CHECK_RECEIPT_SURFACE,
   manualConstraintProjection,
   manualToolResultStatus,
+  manualReviewShellDecision,
+  manualShellSafetyDecision,
   normalizeManualCheckCommand,
 } from "../src/core/manual-check-receipts.mjs";
 import { captureRepositorySnapshot } from "../src/core/manual-repository-snapshot.mjs";
@@ -102,6 +104,33 @@ test("manual receipt matching accepts one exact optional rtk wrapper and rejects
     assert.equal(isReadOnlyShell("git status $(touch src/retry.mjs)"), false);
     assert.equal(isReadOnlyShell("git status & touch src/retry.mjs"), false);
     assert.equal(isReadOnlyShell("git status\ntouch src/retry.mjs"), false);
+    for (const command of [
+      "find . -delete",
+      "sed -n -i README.md",
+      "git diff --output=review.patch",
+      "git diff --ext-diff",
+      "rg --pre ./helper pattern .",
+      "node --test tests/codex-hook-policy.test.mjs --test-reporter-destination=result.txt",
+      "FOO=bar git status",
+      "rtk rtk git status",
+    ]) assert.equal(manualShellSafetyDecision(command).status, "denied", command);
+
+    assert.equal(manualReviewShellDecision({
+      rootPlanText: leanRoot,
+      pluginRoot: defaultRoot,
+      workspaceRoot: value.repository,
+      toolName: "Shell",
+      toolInput: { command: plannedCommand },
+    }).status, "allowed");
+    for (const command of ["node --test tests/other.test.mjs", "git status --short", `${plannedCommand} --test-only`]) {
+      assert.equal(manualReviewShellDecision({
+        rootPlanText: leanRoot,
+        pluginRoot: defaultRoot,
+        workspaceRoot: value.repository,
+        toolName: "Shell",
+        toolInput: { command },
+      }).status, "denied", command);
+    }
   } finally { value.cleanup(); }
 });
 

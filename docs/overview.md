@@ -4,7 +4,7 @@
 
 Workflow is a controlled delivery system with a full Cursor-native package plus Manual packages for Codex and Agent Plugins v1. It is for teams and developers who want the speed of AI-assisted engineering without surrendering control over intent, scope, quality, or repository boundaries. It connects planning, implementation, evidence, review, correction, and learning into one governed path. The human remains the authority; automation earns more freedom only through exact, inspectable proof.
 
-The plugin works with the way Cursor and Codex already feel. For normal Manual work, you approve a native plan, use **Implement Plan**, and request a fresh read-only review in the same task. Workflow adds an immutable Intent Root, adaptive execution inside a closed authority envelope, review-owned evidence, explicit provisional acceptance, and auditable replan lineage without an implementation closeout ceremony. The [Manual Workflow guide](manual-workflow.md) explains the flow and verdicts.
+The plugin works with the way Cursor and Codex already feel. For normal Manual work, you approve a native plan, use **Implement Plan**, and request a fresh read-only review in the same task. Workflow adds an immutable Intent Root, adaptive execution inside a closed authority envelope, review-owned evidence, honest provisional handling, and auditable replan lineage without an implementation closeout ceremony. The [Manual Workflow guide](manual-workflow.md) explains the flow and verdicts.
 
 ## AI coding is easy; trustworthy delivery is the hard part
 
@@ -39,7 +39,7 @@ What unites them is more important than the label: every profile preserves the s
 
 ### Manual: the familiar path, made dependable
 
-Manual is the default and requires no controller certification. The human selects the primary model in Cursor, approves the plan, starts implementation, and starts the fresh review that performs final verification. An `achieved/verified/none` verdict completes the Root; only provisional delivery needs a separate, one-time acceptance. Low- and medium-risk work without Hard Triggers can use Lean Evidence, keeping routine changes efficient while preserving the essential proof chain.
+Manual is the default and requires no controller certification. The human selects the primary model in Cursor, approves the plan, starts implementation, and starts the fresh review that performs final verification. An `achieved/verified/none` verdict completes the Root; only provisional delivery offers the separate `/accept-work provisional` acknowledgement. It applies to one response, is not persisted, and grants no Qualification or Learning authority. Low- and medium-risk work without Hard Triggers can use Lean Evidence, keeping routine changes efficient while preserving the essential proof chain.
 
 To start, you need only the installed plugin and Cursor's normal Plan, Agent, and Ask interaction. No User Config, Project Policy, Worker runtime, Capability Receipt, Verification Profile, or qualifying history is required.
 
@@ -88,13 +88,13 @@ More ceremony does not automatically create more trust. Workflow therefore calib
 Manual low- or medium-risk work without Hard Triggers can use Lean Evidence: compact, structured proof with meaningful changed paths and a clear summary. High-risk work, Hard Triggers, supervised runs, and autonomous runs require Full Evidence. In every profile, claims stay precise:
 
 - **Verified** means the required proof is present and supports the claim.
-- **Provisional** means a human knowingly accepts a delivery with an unavailable or incomplete proof surface.
+- **Provisional** means the proof surface is unavailable or incomplete and the human must make an explicit decision: an ephemeral acknowledgement in Manual, or a persisted but still unverified Run acceptance in Supervised.
 - **Unavailable** means evidence could not be obtained; it is not disguised as a failed or successful Check.
 - **Failed** means a required Check is known to have failed and the work remains blocked.
 
 Workflow considers correctness, security, maintainability, performance, efficiency, and comprehensibility, but selects only the dimensions material to the Root. Mutation tests, complexity gates, property checks, performance probes, and scanners are risk-driven options rather than mandatory ceremony.
 
-Provisional acceptance does not rewrite a failed Check, qualify automation history, or persist as if verification happened. This distinction keeps the evidence chain useful instead of turning it into documentation theater.
+A Manual provisional acknowledgement does not persist at all. A controller provisional acceptance persists only the Run decision. Neither rewrites a failed Check, verifies the delivery, qualifies automation history, or grants Learning authority. This distinction keeps the evidence chain useful instead of turning it into documentation theater.
 
 ## Model choice stays under explicit control
 
@@ -126,7 +126,7 @@ That boundary keeps the system useful in real repositories without coupling impl
 
 You begin with an outcome, not a pile of workflow paperwork. `/plan-work` turns the request into a compact Intent Root that is strict about meaning and tolerant about presentation. You approve it through the host's native plan interaction. Implementation adapts inside the agreed boundary and ends normally. A fresh `/review-work` observes the repository and planned Checks, creates Evidence, and evaluates delivery in one read-only boundary.
 
-From there, the result is explicit: every reviewed delivery first explains what was achieved, what it means, and the verification limits, then gives exact technical traceability. A verified Manual review completes the Root; a provisional gap needs conscious one-time acceptance, a bounded issue leads to correction, a material change to replan, and a failed Check to a stop. `/work-status` shows state, effective Profile, actor, downgrade, and Learning eligibility. `/explain-work` refreshes the explanation later. `/learn-from-work` remains separately human-invoked and requires its exact eligible current-task source.
+From there, the result is explicit: `Quick decision` uses one of six human phases and gives the outcome, Checks, honest limitation or blocker, and one host-correct action. `Details` explains meaning and recovery; the authoritative agent/machine layer retains exact technical traceability. A verified Manual review completes the Root; a provisional gap offers one conscious ephemeral acknowledgement, a bounded issue leads to correction, a material change to replan, and a failed Check to a stop. `/work-status` shows state, effective Profile, actor, downgrade, and Learning eligibility. `/explain-work` refreshes the explanation later. `/learn-from-work` remains separately human-invoked and requires its exact eligible current-task source.
 
 The experience stays lightweight for routine Manual work and becomes progressively stricter as risk and autonomy increase.
 

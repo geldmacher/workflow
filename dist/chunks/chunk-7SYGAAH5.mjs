@@ -3,10 +3,10 @@ import { createRequire as __workflowCreateRequire } from 'node:module';
 const require = __workflowCreateRequire(import.meta.url);
 import {
   runSandboxedProcess
-} from "./chunk-PKEO6PA3.mjs";
+} from "./chunk-FTS4RQ3D.mjs";
 import {
   PLUGIN_VERSION
-} from "./chunk-LFEO5XYI.mjs";
+} from "./chunk-7NHOTGTA.mjs";
 
 // src/controller/policy.mjs
 var riskRank = Object.freeze({ low: 1, medium: 2, high: 3 });
@@ -26,55 +26,31 @@ function evaluateEligibility({ requestedProfile, plan, project, capabilities = {
   if (requestedProfile === "manual") return {
     requested_profile: "manual",
     effective_profile: "manual",
-    eligible: true,
-    downgraded: false,
+    eligible: !0,
+    downgraded: !1,
     blockers: [],
     reasons: []
   };
-  const bounds = authority(plan);
-  const blockers = [...configErrors];
-  if (!project.supervised_enabled) blockers.push("project-supervised-disabled");
-  if (!completeBudgets(bounds)) blockers.push("authority-budgets-missing-or-incomplete");
-  if (bounds.external_effects !== "none") blockers.push("external-effects-not-none");
-  if (bounds.delivery !== "repository-only") blockers.push("delivery-not-repository-only");
-  if ((riskRank[plan.risk] ?? 99) > (riskRank[project.max_risk] ?? 0)) blockers.push("root-risk-exceeds-project-policy");
-  const ceiling = project.maximum_budgets;
-  if (ceiling) {
-    for (const key of ["max_active_minutes", "max_total_tokens", "max_cost_usd"]) {
-      if ((bounds[key] ?? Number.POSITIVE_INFINITY) > ceiling[key]) blockers.push(`root-${key}-exceeds-project-policy`);
-    }
-  }
-  for (const capability of ["model_catalog_verified", "sandbox_boundary_verified", "worker_network_isolated", "sdk_secret_isolated", "sdk_budget_cancel_verified", "planner_submission_verified"]) {
-    if (!capabilities[capability]) blockers.push(`${capability.replaceAll("_", "-")}-missing`);
-  }
-  const uniqueBlockers = [...new Set(blockers)];
+  let bounds = authority(plan), blockers = [...configErrors];
+  project.supervised_enabled || blockers.push("project-supervised-disabled"), completeBudgets(bounds) || blockers.push("authority-budgets-missing-or-incomplete"), bounds.external_effects !== "none" && blockers.push("external-effects-not-none"), bounds.delivery !== "repository-only" && blockers.push("delivery-not-repository-only"), (riskRank[plan.risk] ?? 99) > (riskRank[project.max_risk] ?? 0) && blockers.push("root-risk-exceeds-project-policy");
+  let ceiling = project.maximum_budgets;
+  if (ceiling)
+    for (let key of ["max_active_minutes", "max_total_tokens", "max_cost_usd"])
+      (bounds[key] ?? Number.POSITIVE_INFINITY) > ceiling[key] && blockers.push(`root-${key}-exceeds-project-policy`);
+  for (let capability of ["model_catalog_verified", "sandbox_boundary_verified", "worker_network_isolated", "sdk_secret_isolated", "sdk_budget_cancel_verified", "planner_submission_verified"])
+    capabilities[capability] || blockers.push(`${capability.replaceAll("_", "-")}-missing`);
+  let uniqueBlockers = [...new Set(blockers)];
   if (requestedProfile === "supervised") return {
     requested_profile: requestedProfile,
     effective_profile: "supervised",
     eligible: uniqueBlockers.length === 0,
-    downgraded: false,
+    downgraded: !1,
     blockers: uniqueBlockers,
     reasons: []
   };
-  const reasons = [];
-  if (plan.contract_level !== "certified") reasons.push("certified-contract-required");
-  if (!project.autonomous_enabled) reasons.push("project-autonomous-disabled");
-  if (!plan.certification?.task_recipe) reasons.push("task-recipe-not-bound");
-  if (plan.certification?.task_recipe && taskClass !== plan.certification.task_recipe) reasons.push("task-recipe-mismatch");
-  if (!plan.certification?.verification_profile_hash) reasons.push("verification-profile-not-bound");
-  if (plan.certification?.verification_profile_hash !== project.verification_profile?.activated_hash) reasons.push("verification-profile-hash-mismatch");
-  if (!capabilities.verification_profile_certified) reasons.push("verification-profile-not-certified");
-  if (capabilities.verification_profile_hash && plan.certification?.verification_profile_hash !== capabilities.verification_profile_hash) reasons.push("capability-verification-profile-mismatch");
-  if (!capabilities.route_pool_certified) reasons.push("route-pool-not-certified");
-  if (capabilities.attested_route_hash && plan.certification?.route_pool_hash !== capabilities.attested_route_hash) reasons.push("capability-route-pool-mismatch");
-  if (!capabilities.route_pool_models_certified) reasons.push("selected-model-not-certified");
-  if (!plan.certification?.certified_region || !project.certified_regions.includes(plan.certification.certified_region)) reasons.push("repository-region-not-certified");
-  if ((plan.hard_triggers ?? []).length > 0) reasons.push("hard-trigger-present");
-  if (plan.human_review_gates === true) reasons.push("planned-human-gate-present");
-  if (qualifyingRuns < (project.minimum_qualifying_runs ?? Number.POSITIVE_INFINITY)) reasons.push("qualification-history-insufficient");
-  const exactBinding = (capabilities.qualification_bindings ?? []).some((binding) => binding.task_class === taskClass && binding.verification_profile_hash === plan.certification?.verification_profile_hash && binding.route_pool_hash === plan.certification?.route_pool_hash && binding.certified_region === plan.certification?.certified_region);
-  if (!exactBinding) reasons.push("qualification-binding-missing");
-  const uniqueReasons = [...new Set(reasons)];
+  let reasons = [];
+  plan.contract_level !== "certified" && reasons.push("certified-contract-required"), project.autonomous_enabled || reasons.push("project-autonomous-disabled"), plan.certification?.task_recipe || reasons.push("task-recipe-not-bound"), plan.certification?.task_recipe && taskClass !== plan.certification.task_recipe && reasons.push("task-recipe-mismatch"), plan.certification?.verification_profile_hash || reasons.push("verification-profile-not-bound"), plan.certification?.verification_profile_hash !== project.verification_profile?.activated_hash && reasons.push("verification-profile-hash-mismatch"), capabilities.verification_profile_certified || reasons.push("verification-profile-not-certified"), capabilities.verification_profile_hash && plan.certification?.verification_profile_hash !== capabilities.verification_profile_hash && reasons.push("capability-verification-profile-mismatch"), capabilities.route_pool_certified || reasons.push("route-pool-not-certified"), capabilities.attested_route_hash && plan.certification?.route_pool_hash !== capabilities.attested_route_hash && reasons.push("capability-route-pool-mismatch"), capabilities.route_pool_models_certified || reasons.push("selected-model-not-certified"), (!plan.certification?.certified_region || !project.certified_regions.includes(plan.certification.certified_region)) && reasons.push("repository-region-not-certified"), (plan.hard_triggers ?? []).length > 0 && reasons.push("hard-trigger-present"), plan.human_review_gates === !0 && reasons.push("planned-human-gate-present"), qualifyingRuns < (project.minimum_qualifying_runs ?? Number.POSITIVE_INFINITY) && reasons.push("qualification-history-insufficient"), (capabilities.qualification_bindings ?? []).some((binding) => binding.task_class === taskClass && binding.verification_profile_hash === plan.certification?.verification_profile_hash && binding.route_pool_hash === plan.certification?.route_pool_hash && binding.certified_region === plan.certification?.certified_region) || reasons.push("qualification-binding-missing");
+  let uniqueReasons = [...new Set(reasons)];
   return {
     requested_profile: requestedProfile,
     effective_profile: uniqueReasons.length > 0 ? "supervised" : "autonomous",
@@ -85,37 +61,19 @@ function evaluateEligibility({ requestedProfile, plan, project, capabilities = {
     downgrade_reason: uniqueReasons.join(",")
   };
 }
-function evaluateAuthorization({ plan, changedPaths = [], changedDependencies = [], dependencyChanged = changedDependencies.length > 0, discoveredRisk = plan.risk, externalEffect = false, usage = {} }) {
-  const blockers = [];
-  const bounds = authority(plan);
-  if (!completeBudgets(bounds)) return { authorized: false, blockers: ["authority-bounds-missing"] };
-  for (const path of changedPaths) {
-    if (!pathInside(path, bounds.allowed_roots ?? [])) blockers.push(`out-of-envelope:${path}`);
-    if (pathInside(path, bounds.protected_paths ?? [])) blockers.push(`protected-path:${path}`);
-    if (pathInside(path, bounds.approval_required_paths ?? [])) blockers.push(`approval-required-path:${path}`);
-  }
-  if ((riskRank[discoveredRisk] ?? riskRank[plan.risk] ?? 3) > (riskRank[plan.risk] ?? 0)) blockers.push("risk-bound-exceeded");
-  if (dependencyChanged && bounds.dependencies !== "allow-listed") blockers.push("dependency-change-not-authorized");
-  if (bounds.dependencies === "allow-listed") {
-    for (const dependency of changedDependencies) if (!(bounds.allowed_dependencies ?? []).includes(dependency)) blockers.push(`dependency-not-allow-listed:${dependency}`);
-  }
-  if (externalEffect || bounds.external_effects !== "none") blockers.push("external-effect-not-authorized");
-  if ((usage.totalTokens ?? 0) > bounds.max_total_tokens) blockers.push("token-budget-exhausted");
-  if ((usage.costUsd ?? 0) > bounds.max_cost_usd) blockers.push("cost-budget-exhausted");
-  if ((usage.activeMinutes ?? 0) > bounds.max_active_minutes) blockers.push("time-budget-exhausted");
-  if ((usage.correctionCycles ?? 0) > (plan.max_correction_cycles ?? 3)) blockers.push("correction-budget-exhausted");
-  return { authorized: blockers.length === 0, blockers: [...new Set(blockers)] };
+function evaluateAuthorization({ plan, changedPaths = [], changedDependencies = [], dependencyChanged = changedDependencies.length > 0, discoveredRisk = plan.risk, externalEffect = !1, usage = {} }) {
+  let blockers = [], bounds = authority(plan);
+  if (!completeBudgets(bounds)) return { authorized: !1, blockers: ["authority-bounds-missing"] };
+  for (let path of changedPaths)
+    pathInside(path, bounds.allowed_roots ?? []) || blockers.push(`out-of-envelope:${path}`), pathInside(path, bounds.protected_paths ?? []) && blockers.push(`protected-path:${path}`), pathInside(path, bounds.approval_required_paths ?? []) && blockers.push(`approval-required-path:${path}`);
+  if ((riskRank[discoveredRisk] ?? riskRank[plan.risk] ?? 3) > (riskRank[plan.risk] ?? 0) && blockers.push("risk-bound-exceeded"), dependencyChanged && bounds.dependencies !== "allow-listed" && blockers.push("dependency-change-not-authorized"), bounds.dependencies === "allow-listed") for (let dependency of changedDependencies) (bounds.allowed_dependencies ?? []).includes(dependency) || blockers.push(`dependency-not-allow-listed:${dependency}`);
+  return (externalEffect || bounds.external_effects !== "none") && blockers.push("external-effect-not-authorized"), (usage.totalTokens ?? 0) > bounds.max_total_tokens && blockers.push("token-budget-exhausted"), (usage.costUsd ?? 0) > bounds.max_cost_usd && blockers.push("cost-budget-exhausted"), (usage.activeMinutes ?? 0) > bounds.max_active_minutes && blockers.push("time-budget-exhausted"), (usage.correctionCycles ?? 0) > (plan.max_correction_cycles ?? 3) && blockers.push("correction-budget-exhausted"), { authorized: blockers.length === 0, blockers: [...new Set(blockers)] };
 }
-function selectWriterRoute({ plan, correctionCycle = 0, findingRepeated = false, alreadyEscalated = false }) {
-  if (alreadyEscalated) return { role: "writer_escalated", escalated: true, reason: "writer-affinity-escalated" };
-  if (plan.contract_level === "certified" || plan.risk === "high" || (plan.hard_triggers ?? []).length > 0) return { role: "writer_escalated", escalated: true, reason: "root-complexity" };
-  if (findingRepeated || correctionCycle >= 2) return { role: "writer_escalated", escalated: true, reason: findingRepeated ? "repeated-finding" : "second-correction-cycle" };
-  return { role: "writer", escalated: false, reason: "economy-default" };
+function selectWriterRoute({ plan, correctionCycle = 0, findingRepeated = !1, alreadyEscalated = !1 }) {
+  return alreadyEscalated ? { role: "writer_escalated", escalated: !0, reason: "writer-affinity-escalated" } : plan.contract_level === "certified" || plan.risk === "high" || (plan.hard_triggers ?? []).length > 0 ? { role: "writer_escalated", escalated: !0, reason: "root-complexity" } : findingRepeated || correctionCycle >= 2 ? { role: "writer_escalated", escalated: !0, reason: findingRepeated ? "repeated-finding" : "second-correction-cycle" } : { role: "writer", escalated: !1, reason: "economy-default" };
 }
 function estimateCost(usage, pricing) {
-  if (!usage || !pricing) return null;
-  const total = (usage.inputTokens ?? 0) * pricing.input + (usage.outputTokens ?? 0) * pricing.output + (usage.cacheReadTokens ?? 0) * pricing.cache_read + (usage.cacheWriteTokens ?? 0) * pricing.cache_write;
-  return total / 1e6;
+  return !usage || !pricing ? null : ((usage.inputTokens ?? 0) * pricing.input + (usage.outputTokens ?? 0) * pricing.output + (usage.cacheReadTokens ?? 0) * pricing.cache_read + (usage.cacheWriteTokens ?? 0) * pricing.cache_write) / 1e6;
 }
 
 // src/controller/runtime.mjs
@@ -130,22 +88,24 @@ import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 var RELEASE_SURFACE_SCHEMA = 1;
 function isWithin(root, target) {
-  const item = relative(root, target);
+  let item = relative(root, target);
   return item === "" || !item.startsWith(`..${sep}`) && item !== ".." && !isAbsolute(item);
 }
 function loadReleaseSurface(pluginRoot) {
-  const root = resolve(pluginRoot);
-  const path = join(root, "release-surface.json");
-  const manifest = JSON.parse(readFileSync(path, "utf8"));
+  let root = resolve(pluginRoot), path = join(root, "release-surface.json"), manifest = JSON.parse(readFileSync(path, "utf8"));
   if (manifest.schema !== RELEASE_SURFACE_SCHEMA) throw new Error("release surface schema mismatch");
-  if (Object.keys(manifest).sort().join("\n") !== ["package_extras", "runtime_paths", "schema"].join("\n")) throw new Error("release surface contains unsupported fields");
-  for (const field of ["runtime_paths", "package_extras"]) {
-    const entries = manifest[field];
+  if (Object.keys(manifest).sort().join(`
+`) !== ["package_extras", "runtime_paths", "schema"].join(`
+`)) throw new Error("release surface contains unsupported fields");
+  for (let field of ["runtime_paths", "package_extras"]) {
+    let entries = manifest[field];
     if (!Array.isArray(entries) || field === "runtime_paths" && entries.length === 0 || new Set(entries).size !== entries.length) throw new Error(`release surface ${field} must be a unique array with a non-empty runtime surface`);
-    if (entries.join("\n") !== [...entries].sort().join("\n")) throw new Error(`release surface ${field} must be sorted`);
-    for (const entry of entries) {
-      if (typeof entry !== "string" || entry === "" || isAbsolute(entry) || entry.split(/[\\/]/).includes("..")) throw new Error(`invalid release surface path: ${entry}`);
-      const target = resolve(root, entry);
+    if (entries.join(`
+`) !== [...entries].sort().join(`
+`)) throw new Error(`release surface ${field} must be sorted`);
+    for (let entry of entries) {
+      if (typeof entry != "string" || entry === "" || isAbsolute(entry) || entry.split(/[\\/]/).includes("..")) throw new Error(`invalid release surface path: ${entry}`);
+      let target = resolve(root, entry);
       if (!isWithin(root, target) || !existsSync(target)) throw new Error(`release surface path is missing or escapes the plugin: ${entry}`);
     }
   }
@@ -153,30 +113,25 @@ function loadReleaseSurface(pluginRoot) {
   return manifest;
 }
 function enumerateReleaseSurface(pluginRoot, field = "runtime_paths") {
-  const root = resolve(pluginRoot);
-  const manifest = loadReleaseSurface(root);
+  let root = resolve(pluginRoot), manifest = loadReleaseSurface(root);
   if (!["runtime_paths", "package_paths"].includes(field)) throw new Error(`unsupported release surface field: ${field}`);
-  const files = /* @__PURE__ */ new Map();
-  const visit = (path) => {
-    const stat = lstatSync(path);
-    const item = relative(root, path);
+  let files = /* @__PURE__ */ new Map(), visit = (path) => {
+    let stat = lstatSync(path), item = relative(root, path);
     if (stat.isSymbolicLink()) throw new Error(`release surface may not contain symlinks: ${item}`);
     if (stat.isDirectory()) {
-      for (const entry of readdirSync(path).filter((name) => name !== ".DS_Store").sort()) visit(join(path, entry));
+      for (let entry of readdirSync(path).filter((name) => name !== ".DS_Store").sort()) visit(join(path, entry));
       return;
     }
     if (!stat.isFile()) throw new Error(`release surface accepts only regular files: ${item}`);
     files.set(item, { path, relative_path: item, mode: stat.mode & 511, size: stat.size });
-  };
-  const paths = field === "runtime_paths" ? manifest.runtime_paths : [...manifest.runtime_paths, ...manifest.package_extras];
-  for (const entry of paths) visit(resolve(root, entry));
+  }, paths = field === "runtime_paths" ? manifest.runtime_paths : [...manifest.runtime_paths, ...manifest.package_extras];
+  for (let entry of paths) visit(resolve(root, entry));
   return [...files.values()].sort((left, right) => left.relative_path.localeCompare(right.relative_path));
 }
 function hashReleaseSurface(pluginRoot) {
-  const entries = enumerateReleaseSurface(pluginRoot, "runtime_paths");
-  const digest = createHash("sha256");
-  for (const entry of entries) {
-    const contentHash = createHash("sha256").update(readFileSync(entry.path)).digest("hex");
+  let entries = enumerateReleaseSurface(pluginRoot, "runtime_paths"), digest = createHash("sha256");
+  for (let entry of entries) {
+    let contentHash = createHash("sha256").update(readFileSync(entry.path)).digest("hex");
     digest.update(`${entry.relative_path}\0${entry.mode}\0${contentHash}
 `);
   }
@@ -204,10 +159,10 @@ function workerRuntimeDirectory({ pluginVersion, sdkVersion: sdkVersion2, platfo
   return join2(resolve2(runtimeRoot), pluginVersion, sdkVersion2, platform);
 }
 function inventoryFromLock(lock) {
-  return Object.entries(lock.packages ?? {}).filter(([path]) => path !== "").map(([path, entry]) => ({ path, version: entry.version ?? null, integrity: entry.integrity ?? null, optional: entry.optional === true })).sort((left, right) => left.path.localeCompare(right.path));
+  return Object.entries(lock.packages ?? {}).filter(([path]) => path !== "").map(([path, entry]) => ({ path, version: entry.version ?? null, integrity: entry.integrity ?? null, optional: entry.optional === !0 })).sort((left, right) => left.path.localeCompare(right.path));
 }
 function lockInventoryHash(lockPath) {
-  const lock = JSON.parse(readFileSync2(lockPath, "utf8"));
+  let lock = JSON.parse(readFileSync2(lockPath, "utf8"));
   return sha256(JSON.stringify(inventoryFromLock(lock)));
 }
 function hashPluginTree(pluginRoot) {
@@ -217,31 +172,18 @@ function runtimeManifestPath(runtimeDirectory) {
   return join2(runtimeDirectory, "runtime-manifest.json");
 }
 function loadWorkerRuntimeManifest(runtimeDirectory, expected = {}) {
-  const directory = resolve2(runtimeDirectory);
-  const path = runtimeManifestPath(directory);
-  if (!existsSync2(path)) return { valid: false, reason: "runtime-manifest-missing", directory };
+  let directory = resolve2(runtimeDirectory), path = runtimeManifestPath(directory);
+  if (!existsSync2(path)) return { valid: !1, reason: "runtime-manifest-missing", directory };
   try {
-    const manifest = JSON.parse(readFileSync2(path, "utf8"));
-    const workerPath = join2(directory, "workflow-worker.mjs");
-    const lockPath = join2(directory, "npm-shrinkwrap.json");
-    const packagePath = join2(directory, "package.json");
-    const platformPackagePath = join2(directory, "node_modules", ...String(manifest.platform_package ?? "").split("/"), "package.json");
-    const sdkPackagePath = join2(directory, "node_modules", "@cursor", "sdk", "package.json");
-    const reasons = [];
-    if (manifest.schema !== WORKER_RUNTIME_SCHEMA) reasons.push("runtime-schema-mismatch");
-    if (manifest.generated_by !== "geldmacher-workflow-runtime-provisioner") reasons.push("runtime-producer-mismatch");
-    if (typeof manifest.marketplace_git_commit !== "string" || !/^[a-f0-9]{40}([a-f0-9]{24})?$/.test(manifest.marketplace_git_commit)) reasons.push("marketplace-git-commit-invalid");
-    for (const [field, value] of Object.entries(expected)) if (value !== void 0 && manifest[field] !== value) reasons.push(`${field}-mismatch`);
-    for (const candidate of [workerPath, lockPath, packagePath, platformPackagePath, sdkPackagePath]) if (!existsSync2(candidate)) reasons.push(`runtime-file-missing:${basename(candidate)}`);
-    if (reasons.length === 0 && manifest.worker_hash !== sha256File(workerPath)) reasons.push("worker-hash-mismatch");
-    if (reasons.length === 0 && manifest.lockfile_hash !== sha256File(lockPath)) reasons.push("lockfile-hash-mismatch");
-    if (reasons.length === 0 && manifest.lock_inventory_hash !== lockInventoryHash(lockPath)) reasons.push("lock-inventory-hash-mismatch");
-    if (reasons.length === 0) {
-      const sdkPackage = JSON.parse(readFileSync2(sdkPackagePath, "utf8"));
-      const platformPackage = JSON.parse(readFileSync2(platformPackagePath, "utf8"));
-      if (sdkPackage.version !== manifest.sdk_version || platformPackage.version !== manifest.sdk_version) reasons.push("installed-sdk-version-mismatch");
+    let manifest = JSON.parse(readFileSync2(path, "utf8")), workerPath = join2(directory, "workflow-worker.mjs"), lockPath = join2(directory, "npm-shrinkwrap.json"), packagePath = join2(directory, "package.json"), platformPackagePath = join2(directory, "node_modules", ...String(manifest.platform_package ?? "").split("/"), "package.json"), sdkPackagePath = join2(directory, "node_modules", "@cursor", "sdk", "package.json"), reasons = [];
+    manifest.schema !== WORKER_RUNTIME_SCHEMA && reasons.push("runtime-schema-mismatch"), manifest.generated_by !== "geldmacher-workflow-runtime-provisioner" && reasons.push("runtime-producer-mismatch"), (typeof manifest.marketplace_git_commit != "string" || !/^[a-f0-9]{40}([a-f0-9]{24})?$/.test(manifest.marketplace_git_commit)) && reasons.push("marketplace-git-commit-invalid");
+    for (let [field, value] of Object.entries(expected)) value !== void 0 && manifest[field] !== value && reasons.push(`${field}-mismatch`);
+    for (let candidate of [workerPath, lockPath, packagePath, platformPackagePath, sdkPackagePath]) existsSync2(candidate) || reasons.push(`runtime-file-missing:${basename(candidate)}`);
+    if (reasons.length === 0 && manifest.worker_hash !== sha256File(workerPath) && reasons.push("worker-hash-mismatch"), reasons.length === 0 && manifest.lockfile_hash !== sha256File(lockPath) && reasons.push("lockfile-hash-mismatch"), reasons.length === 0 && manifest.lock_inventory_hash !== lockInventoryHash(lockPath) && reasons.push("lock-inventory-hash-mismatch"), reasons.length === 0) {
+      let sdkPackage = JSON.parse(readFileSync2(sdkPackagePath, "utf8")), platformPackage = JSON.parse(readFileSync2(platformPackagePath, "utf8"));
+      (sdkPackage.version !== manifest.sdk_version || platformPackage.version !== manifest.sdk_version) && reasons.push("installed-sdk-version-mismatch");
     }
-    const runtimeHash = sha256(JSON.stringify({
+    let runtimeHash = sha256(JSON.stringify({
       schema: manifest.schema,
       generated_by: manifest.generated_by,
       plugin_version: manifest.plugin_version,
@@ -254,15 +196,14 @@ function loadWorkerRuntimeManifest(runtimeDirectory, expected = {}) {
       lockfile_hash: manifest.lockfile_hash,
       lock_inventory_hash: manifest.lock_inventory_hash
     }));
-    if (manifest.runtime_hash !== runtimeHash) reasons.push("runtime-hash-mismatch");
-    return { valid: reasons.length === 0, reasons, reason: reasons[0] ?? null, directory, manifest, workerPath };
+    return manifest.runtime_hash !== runtimeHash && reasons.push("runtime-hash-mismatch"), { valid: reasons.length === 0, reasons, reason: reasons[0] ?? null, directory, manifest, workerPath };
   } catch (error) {
-    return { valid: false, reason: "runtime-manifest-invalid", reasons: [error.message], directory };
+    return { valid: !1, reason: "runtime-manifest-invalid", reasons: [error.message], directory };
   }
 }
 function createRuntimeManifest({ pluginVersion, pluginHash, marketplaceGitCommit, sdkVersion: sdkVersion2, platform = currentPlatform(), workerPath, lockPath, provisionedAt = (/* @__PURE__ */ new Date()).toISOString() }) {
   if (!/^[a-f0-9]{40}([a-f0-9]{24})?$/.test(marketplaceGitCommit ?? "")) throw new Error("runtime manifest requires an exact Marketplace Git commit");
-  const base = {
+  let base = {
     schema: WORKER_RUNTIME_SCHEMA,
     generated_by: "geldmacher-workflow-runtime-provisioner",
     plugin_version: pluginVersion,
@@ -283,23 +224,16 @@ function createRuntimeManifest({ pluginVersion, pluginHash, marketplaceGitCommit
   };
 }
 function installRuntimeFiles({ stagingDirectory, pluginRoot }) {
-  mkdirSync(stagingDirectory, { recursive: true, mode: 448 });
-  cpSync(join2(pluginRoot, "package.json"), join2(stagingDirectory, "package.json"));
-  cpSync(join2(pluginRoot, "npm-shrinkwrap.json"), join2(stagingDirectory, "npm-shrinkwrap.json"));
-  cpSync(join2(pluginRoot, "dist", "workflow-worker.mjs"), join2(stagingDirectory, "workflow-worker.mjs"));
+  mkdirSync(stagingDirectory, { recursive: !0, mode: 448 }), cpSync(join2(pluginRoot, "package.json"), join2(stagingDirectory, "package.json")), cpSync(join2(pluginRoot, "npm-shrinkwrap.json"), join2(stagingDirectory, "npm-shrinkwrap.json")), cpSync(join2(pluginRoot, "dist", "workflow-worker.mjs"), join2(stagingDirectory, "workflow-worker.mjs"));
 }
 function publishStagedRuntime(stagingDirectory, targetDirectory) {
-  const target = resolve2(targetDirectory);
-  mkdirSync(dirname(target), { recursive: true, mode: 448 });
-  if (existsSync2(target)) throw new Error(`worker runtime already exists: ${target}`);
-  renameSync(stagingDirectory, target);
-  return target;
+  let target = resolve2(targetDirectory);
+  if (mkdirSync(dirname(target), { recursive: !0, mode: 448 }), existsSync2(target)) throw new Error(`worker runtime already exists: ${target}`);
+  return renameSync(stagingDirectory, target), target;
 }
 function createRuntimeStagingDirectory(targetDirectory) {
-  const staging = `${resolve2(targetDirectory)}.${process.pid}.${randomUUID()}.staging`;
-  rmSync(staging, { recursive: true, force: true });
-  mkdirSync(staging, { recursive: true, mode: 448 });
-  return staging;
+  let staging = `${resolve2(targetDirectory)}.${process.pid}.${randomUUID()}.staging`;
+  return rmSync(staging, { recursive: !0, force: !0 }), mkdirSync(staging, { recursive: !0, mode: 448 }), staging;
 }
 function writeRuntimeManifest(runtimeDirectory, manifest) {
   writeFileSync(runtimeManifestPath(runtimeDirectory), `${JSON.stringify(manifest, null, 2)}
@@ -308,27 +242,25 @@ function writeRuntimeManifest(runtimeDirectory, manifest) {
 
 // src/controller/worker-adapter.mjs
 import { existsSync as existsSync3, mkdirSync as mkdirSync2 } from "node:fs";
-import { dirname as dirname2, join as join3, resolve as resolve3 } from "node:path";
+import { join as join3, resolve as resolve3 } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash as createHash3 } from "node:crypto";
 import { spawnSync } from "node:child_process";
 var sdkVersion = "1.0.24";
 function bundledWorkerEntrypoint() {
-  const candidates = [
+  let entrypoint = [
     fileURLToPath(new URL("./workflow-worker.mjs", import.meta.url)),
     fileURLToPath(new URL("../../dist/workflow-worker.mjs", import.meta.url))
-  ];
-  const entrypoint = candidates.find(existsSync3);
+  ].find(existsSync3);
   if (!entrypoint) throw new Error("bundled workflow-worker.mjs is missing");
   return resolve3(entrypoint);
 }
 function fanoutEntrypoint() {
-  const candidates = [
+  let entrypoint = [
     fileURLToPath(new URL("./read-fanout-runner.mjs", import.meta.url)),
     fileURLToPath(new URL("../../dist/workflow-fanout.mjs", import.meta.url)),
     fileURLToPath(new URL("./workflow-fanout.mjs", import.meta.url))
-  ];
-  const entrypoint = candidates.find(existsSync3);
+  ].find(existsSync3);
   if (!entrypoint) throw new Error("bundled read-only fanout runner is missing");
   return resolve3(entrypoint);
 }
@@ -336,33 +268,31 @@ function resolveWorkerRuntime({ workerEntrypoint, runtimeRoot, pluginRoot } = {}
   if (workerEntrypoint) return {
     entrypoint: resolve3(workerEntrypoint),
     source: "explicit-development",
-    automation_eligible: false,
+    automation_eligible: !1,
     manifest: null
   };
   if (process.env.GELDMACHER_WORKFLOW_WORKER) return {
     entrypoint: resolve3(process.env.GELDMACHER_WORKFLOW_WORKER),
     source: "environment-override",
-    automation_eligible: false,
+    automation_eligible: !1,
     manifest: null
   };
-  const runtimeDirectory = workerRuntimeDirectory({ pluginVersion: PLUGIN_VERSION, sdkVersion, platform: currentPlatform(), runtimeRoot });
-  const provisioned = loadWorkerRuntimeManifest(runtimeDirectory, {
+  let runtimeDirectory = workerRuntimeDirectory({ pluginVersion: PLUGIN_VERSION, sdkVersion, platform: currentPlatform(), runtimeRoot }), provisioned = loadWorkerRuntimeManifest(runtimeDirectory, {
     plugin_version: PLUGIN_VERSION,
     sdk_version: sdkVersion,
     platform: currentPlatform(),
     ...pluginRoot ? { plugin_hash: hashPluginTree(pluginRoot) } : {}
   });
-  if (provisioned.valid) return {
+  return provisioned.valid ? {
     entrypoint: provisioned.workerPath,
     source: "provisioned",
-    automation_eligible: true,
+    automation_eligible: !0,
     manifest: provisioned.manifest,
     runtime_directory: runtimeDirectory
-  };
-  return {
+  } : {
     entrypoint: bundledWorkerEntrypoint(),
     source: "development",
-    automation_eligible: false,
+    automation_eligible: !1,
     manifest: null,
     reason: provisioned.reason,
     runtime_directory: runtimeDirectory
@@ -382,43 +312,31 @@ function workerEnvironment(home) {
     TMPDIR: process.env.TMPDIR,
     HOME: home,
     CURSOR_API_KEY: process.env.CURSOR_API_KEY
-  }).filter(([, value]) => typeof value === "string" && value !== ""));
+  }).filter(([, value]) => typeof value == "string" && value !== ""));
 }
 function validateRouteAgainstCatalog(route, catalog) {
-  const model = catalog.find((candidate) => candidate.id === route.model_id);
-  if (!model) return { valid: false, errors: [`model unavailable: ${route.model_id}`] };
-  const parameters = parameterMap(model);
-  const errors = [];
-  const params = [];
-  const effortId = reasoningParameter(parameters);
-  if (!effortId) errors.push(`model ${route.model_id} exposes no attestable reasoning-effort parameter`);
-  else {
-    const definition = parameters.get(effortId);
-    if (!definition.values.some((item) => item.value === route.reasoning_effort)) errors.push(`unsupported ${effortId}: ${route.reasoning_effort}`);
-    params.push({ id: effortId, value: route.reasoning_effort });
-  }
-  for (const [id, rawValue] of Object.entries(route.model_options ?? {})) {
+  let model = catalog.find((candidate) => candidate.id === route.model_id);
+  if (!model) return { valid: !1, errors: [`model unavailable: ${route.model_id}`] };
+  let parameters = parameterMap(model), errors = [], params = [], effortId = reasoningParameter(parameters);
+  effortId ? (parameters.get(effortId).values.some((item) => item.value === route.reasoning_effort) || errors.push(`unsupported ${effortId}: ${route.reasoning_effort}`), params.push({ id: effortId, value: route.reasoning_effort })) : errors.push(`model ${route.model_id} exposes no attestable reasoning-effort parameter`);
+  for (let [id, rawValue] of Object.entries(route.model_options ?? {})) {
     if (id === effortId) {
       errors.push(`${id} must be configured through reasoning_effort`);
       continue;
     }
-    const definition = parameters.get(id);
-    const value = String(rawValue);
-    if (!definition) errors.push(`unknown model option: ${id}`);
-    else if (!definition.values.some((item) => item.value === value)) errors.push(`unsupported ${id}: ${value}`);
-    else params.push({ id, value });
+    let definition = parameters.get(id), value = String(rawValue);
+    definition ? definition.values.some((item) => item.value === value) ? params.push({ id, value }) : errors.push(`unsupported ${id}: ${value}`) : errors.push(`unknown model option: ${id}`);
   }
   return { valid: errors.length === 0, errors, model: { id: route.model_id, params }, catalog_model: model };
 }
 function validatePoolAgainstCatalog(pool, catalog) {
-  const candidates = (pool?.candidates ?? []).map((candidate, index) => ({
+  let candidates = (pool?.candidates ?? []).map((candidate, index) => ({
     ...validateRouteAgainstCatalog(candidate, catalog),
     candidate,
     index
-  }));
-  const selected = candidates.find((candidate) => candidate.valid) ?? null;
+  })), selected = candidates.find((candidate) => candidate.valid) ?? null;
   return {
-    valid: Boolean(selected),
+    valid: !!selected,
     errors: selected ? [] : candidates.flatMap((candidate) => candidate.errors.map((error) => `candidate[${candidate.index}]: ${error}`)),
     candidates,
     selected_index: selected?.index ?? null,
@@ -429,18 +347,13 @@ function validatePoolAgainstCatalog(pool, catalog) {
   };
 }
 function configurationsMatch(requested, observed) {
-  if (!requested || !observed || requested.id !== observed.id) return false;
-  const normalize = (params = []) => [...params].map(({ id, value }) => [id, String(value)]).sort(([a], [b]) => a.localeCompare(b));
+  if (!requested || !observed || requested.id !== observed.id) return !1;
+  let normalize = (params = []) => [...params].map(({ id, value }) => [id, String(value)]).sort(([a], [b]) => a.localeCompare(b));
   return JSON.stringify(normalize(requested.params)) === JSON.stringify(normalize(observed.params));
 }
 var CursorWorkerAdapter = class {
   constructor({ runDirectory, workerEntrypoint, runtimeRoot, pluginRoot, sandbox = runSandboxedProcess, fanout = spawnSync } = {}) {
-    this.runDirectory = resolve3(runDirectory);
-    this.workerRuntime = resolveWorkerRuntime({ workerEntrypoint, runtimeRoot, pluginRoot });
-    this.workerEntrypoint = this.workerRuntime.entrypoint;
-    this.sandbox = sandbox;
-    this.fanout = fanout;
-    mkdirSync2(this.runDirectory, { recursive: true, mode: 448 });
+    this.runDirectory = resolve3(runDirectory), this.workerRuntime = resolveWorkerRuntime({ workerEntrypoint, runtimeRoot, pluginRoot }), this.workerEntrypoint = this.workerRuntime.entrypoint, this.sandbox = sandbox, this.fanout = fanout, mkdirSync2(this.runDirectory, { recursive: !0, mode: 448 });
   }
   controlPath() {
     return join3(this.runDirectory, "worker-control.json");
@@ -456,34 +369,31 @@ var CursorWorkerAdapter = class {
     };
   }
   workerHome() {
-    const path = join3(this.runDirectory, "worker-home");
-    mkdirSync2(path, { recursive: true, mode: 448 });
-    return path;
+    let path = join3(this.runDirectory, "worker-home");
+    return mkdirSync2(path, { recursive: !0, mode: 448 }), path;
   }
   controllerStatePaths() {
     return ["run.json", "preparation.json", "events.jsonl", ".lock"].map((name) => join3(this.runDirectory, name));
   }
   listModels() {
-    const home = this.workerHome();
+    let home = this.workerHome();
     return this.sandbox({
       entrypoint: this.workerEntrypoint,
       payload: { operation: "list-models", sdk_version: sdkVersion },
       writablePaths: [home],
       deniedReadPaths: this.controllerStatePaths(),
-      network: true,
+      network: !0,
       environment: workerEnvironment(home),
-      inheritEnvironment: false
+      inheritEnvironment: !1
     });
   }
   validateProfile(profile) {
-    const response = this.listModels();
-    if (!response.ok) return { verified: false, errors: [response.error?.message ?? "model catalog failed"], sdk_version: sdkVersion };
-    const routes = {};
-    const errors = [];
-    for (const [role, pool] of Object.entries(profile)) {
-      const validation = validatePoolAgainstCatalog(pool, response.models);
-      routes[role] = validation;
-      errors.push(...validation.errors.map((error) => `${role}: ${error}`));
+    let response = this.listModels();
+    if (!response.ok) return { verified: !1, errors: [response.error?.message ?? "model catalog failed"], sdk_version: sdkVersion };
+    let routes = {}, errors = [];
+    for (let [role, pool] of Object.entries(profile)) {
+      let validation = validatePoolAgainstCatalog(pool, response.models);
+      routes[role] = validation, errors.push(...validation.errors.map((error) => `${role}: ${error}`));
     }
     return {
       verified: errors.length === 0,
@@ -493,12 +403,10 @@ var CursorWorkerAdapter = class {
       catalog_hash: createHash3("sha256").update(JSON.stringify(response.models)).digest("hex")
     };
   }
-  runPhase({ role, route, routePoolHash = null, selectionReason = "primary-available", acceptedModel, prompt, cwd, mode = "agent", agentId = null, force = false, writerWritablePaths = [], writerDeniedPaths = [], verifierArtifactPaths = [], timeoutMs = 3e5, cancelGraceMs = 5e3, configurationHash = null, harnessHash = null, artifactProjectionHash = null }) {
-    const home = this.workerHome();
-    const storePath = join3(home, "cursor-store");
-    mkdirSync2(storePath, { recursive: true, mode: 448 });
-    const started = (/* @__PURE__ */ new Date()).toISOString();
-    const response = this.sandbox({
+  runPhase({ role, route, routePoolHash = null, selectionReason = "primary-available", acceptedModel, prompt, cwd, mode = "agent", agentId = null, force = !1, writerWritablePaths = [], writerDeniedPaths = [], verifierArtifactPaths = [], timeoutMs = 3e5, cancelGraceMs = 5e3, configurationHash = null, harnessHash = null, artifactProjectionHash = null }) {
+    let home = this.workerHome(), storePath = join3(home, "cursor-store");
+    mkdirSync2(storePath, { recursive: !0, mode: 448 });
+    let started = (/* @__PURE__ */ new Date()).toISOString(), response = this.sandbox({
       entrypoint: this.workerEntrypoint,
       payload: {
         operation: "run-phase",
@@ -518,12 +426,11 @@ var CursorWorkerAdapter = class {
       writablePaths: [home, ...role === "writer" || role === "writer_escalated" ? writerWritablePaths : [], ...role === "verifier" ? verifierArtifactPaths : []],
       deniedPaths: role === "writer" || role === "writer_escalated" ? writerDeniedPaths : [],
       deniedReadPaths: this.controllerStatePaths(),
-      network: true,
+      network: !0,
       timeoutMs,
       environment: workerEnvironment(home),
-      inheritEnvironment: false
-    });
-    const receipt = {
+      inheritEnvironment: !1
+    }), receipt = {
       phase: role,
       started_at: started,
       finished_at: (/* @__PURE__ */ new Date()).toISOString(),
@@ -554,13 +461,10 @@ var CursorWorkerAdapter = class {
   }
   runReadOnlyFanout(phases) {
     if (!Array.isArray(phases) || phases.length < 1 || phases.length > 2) throw new Error("read-only fanout requires one or two phases");
-    const started = (/* @__PURE__ */ new Date()).toISOString();
-    const tasks = phases.map((phase, index) => {
+    let started = (/* @__PURE__ */ new Date()).toISOString(), tasks = phases.map((phase, index) => {
       if (["writer", "writer_escalated"].includes(phase.role)) throw new Error("read-only fanout cannot contain a writer role");
-      const home = join3(this.runDirectory, `fanout-${index}`);
-      const storePath = join3(home, "cursor-store");
-      mkdirSync2(storePath, { recursive: true, mode: 448 });
-      return {
+      let home = join3(this.runDirectory, `fanout-${index}`), storePath = join3(home, "cursor-store");
+      return mkdirSync2(storePath, { recursive: !0, mode: 448 }), {
         entrypoint: this.workerEntrypoint,
         payload: {
           operation: "run-phase",
@@ -570,7 +474,7 @@ var CursorWorkerAdapter = class {
           cwd: phase.cwd,
           mode: "agent",
           agent_id: null,
-          force: false,
+          force: !1,
           store_path: storePath,
           sdk_version: sdkVersion,
           control_path: this.controlPath(),
@@ -580,20 +484,19 @@ var CursorWorkerAdapter = class {
         writablePaths: [home, ...phase.verifierArtifactPaths ?? []],
         deniedPaths: [],
         deniedReadPaths: this.controllerStatePaths(),
-        network: true,
+        network: !0,
         timeoutMs: phase.timeoutMs ?? 3e5,
         environment: workerEnvironment(home)
       };
-    });
-    const child = this.fanout(process.execPath, [fanoutEntrypoint()], { input: `${JSON.stringify({ tasks })}
+    }), child = this.fanout(process.execPath, [fanoutEntrypoint()], { input: `${JSON.stringify({ tasks })}
 `, encoding: "utf8", timeout: Math.max(...tasks.map((task) => task.timeoutMs)) + 1e4, maxBuffer: 32 * 1024 * 1024, env: process.env });
     if (child.error) throw child.error;
-    const marker = child.stdout.split("\n").findLast((line) => line.startsWith("WORKFLOW_FANOUT="));
+    let marker = child.stdout.split(`
+`).findLast((line) => line.startsWith("WORKFLOW_FANOUT="));
     if (!marker) throw new Error(`read-only fanout returned no result: ${child.stderr?.trim() || child.stdout?.trim()}`);
-    const responses = JSON.parse(marker.slice("WORKFLOW_FANOUT=".length));
+    let responses = JSON.parse(marker.slice(16));
     return phases.map((phase, index) => {
-      const response = responses[index];
-      const receipt = {
+      let response = responses[index], receipt = {
         phase: phase.role,
         started_at: started,
         finished_at: (/* @__PURE__ */ new Date()).toISOString(),
@@ -624,11 +527,9 @@ var CursorWorkerAdapter = class {
     });
   }
   runPlanningPhase({ route, routePoolHash = null, selectionReason = "primary-available", acceptedModel, prompt, cwd, agentId = null, timeoutMs = 3e5, cancelGraceMs = 5e3, configurationHash = null, harnessHash, artifactProjectionHash = null, deniedReadPaths = [] }) {
-    const home = this.workerHome();
-    const storePath = join3(home, "cursor-store");
-    mkdirSync2(storePath, { recursive: true, mode: 448 });
-    const started = (/* @__PURE__ */ new Date()).toISOString();
-    const response = this.sandbox({
+    let home = this.workerHome(), storePath = join3(home, "cursor-store");
+    mkdirSync2(storePath, { recursive: !0, mode: 448 });
+    let started = (/* @__PURE__ */ new Date()).toISOString(), response = this.sandbox({
       entrypoint: this.workerEntrypoint,
       payload: {
         operation: "run-planning",
@@ -638,7 +539,7 @@ var CursorWorkerAdapter = class {
         cwd,
         mode: "plan",
         agent_id: agentId,
-        force: false,
+        force: !1,
         store_path: storePath,
         sdk_version: sdkVersion,
         control_path: this.controlPath(),
@@ -648,12 +549,11 @@ var CursorWorkerAdapter = class {
       writablePaths: [home],
       deniedPaths: [cwd],
       deniedReadPaths: [...this.controllerStatePaths(), ...deniedReadPaths],
-      network: true,
+      network: !0,
       timeoutMs,
       environment: workerEnvironment(home),
-      inheritEnvironment: false
-    });
-    const receipt = {
+      inheritEnvironment: !1
+    }), receipt = {
       phase: "planner",
       started_at: started,
       finished_at: (/* @__PURE__ */ new Date()).toISOString(),
@@ -683,10 +583,8 @@ var CursorWorkerAdapter = class {
     return { response, receipt, planningOutput: response.planning_output ?? null };
   }
   runCapabilityProbe({ route, acceptedModel, cwd, probe, writerWritablePaths, writerDeniedPaths, timeoutMs = 12e4, cancelGraceMs = 5e3 }) {
-    const home = this.workerHome();
-    const storePath = join3(home, "cursor-store");
-    mkdirSync2(storePath, { recursive: true, mode: 448 });
-    return this.sandbox({
+    let home = this.workerHome(), storePath = join3(home, "cursor-store");
+    return mkdirSync2(storePath, { recursive: !0, mode: 448 }), this.sandbox({
       entrypoint: this.workerEntrypoint,
       payload: {
         operation: "run-capability-probe",
@@ -696,7 +594,7 @@ var CursorWorkerAdapter = class {
         cwd,
         mode: "agent",
         agent_id: null,
-        force: true,
+        force: !0,
         store_path: storePath,
         sdk_version: sdkVersion,
         control_path: this.controlPath(),
@@ -707,10 +605,10 @@ var CursorWorkerAdapter = class {
       writablePaths: [home, ...writerWritablePaths],
       deniedPaths: writerDeniedPaths,
       deniedReadPaths: this.controllerStatePaths(),
-      network: true,
+      network: !0,
       timeoutMs,
       environment: workerEnvironment(home),
-      inheritEnvironment: false
+      inheritEnvironment: !1
     });
   }
 };

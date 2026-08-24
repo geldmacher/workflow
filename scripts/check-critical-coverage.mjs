@@ -9,6 +9,20 @@ const groups = [
     name: "workspace roots",
     include: ["src/mcp/workspace-roots.mjs"],
     tests: ["tests/workspace-roots.test.mjs"],
+    lines: 90,
+    branches: 80,
+  },
+  {
+    name: "native Cursor authority",
+    include: ["hooks/native-review-receipt.mjs", "hooks/native-task-review-context.mjs", "src/core/native-task-review-state.mjs"],
+    tests: [
+      "tests/native-task-review-context.test.mjs",
+      "tests/cursor-native-review-regression.test.mjs",
+      "tests/cursor-closeout-hook.test.mjs",
+      "tests/mcp-closeout.test.mjs",
+    ],
+    lines: 90,
+    branches: 85,
   },
   {
     name: "Schema-5 CreatePlan guard",
@@ -37,13 +51,28 @@ const groups = [
     name: "Codex hook policy",
     include: ["src/core/codex-hook-policy.mjs"],
     tests: ["tests/codex-hook-policy.test.mjs"],
-    // Large host adapter; line coverage stays high while some shell/routing branches stay cold.
-    branches: 65,
+    // Large host adapter; keep the shared critical minimum even while shell/routing branches stay cold.
+    branches: 70,
   },
   {
-    name: "Cursor closeout guard",
+    name: "Cursor Review guard",
     include: ["hooks/closeout-guard.mjs"],
-    tests: ["tests/cursor-closeout-hook.test.mjs"],
+    tests: ["tests/cursor-closeout-hook.test.mjs", "tests/cursor-native-review-regression.test.mjs"],
+    lines: 90,
+    branches: 80,
+  },
+  {
+    name: "repository baseline and Manual Review lifecycle",
+    include: ["src/core/manual-repository-snapshot.mjs", "src/core/native-task-review-state.mjs", "src/controller/manual-review-lifecycle.mjs"],
+    tests: [
+      "tests/manual-review-lifecycle.test.mjs",
+      "tests/manual-repository-snapshot.test.mjs",
+      "tests/mcp-closeout.test.mjs",
+      "tests/cursor-native-review-regression.test.mjs",
+      "tests/native-task-review-context.test.mjs",
+    ],
+    lines: 90,
+    branches: 80,
   },
   {
     name: "capability receipt",
@@ -77,9 +106,16 @@ const groups = [
     ],
   },
   {
-    name: "manual MCP presentation",
-    include: ["src/mcp/manual-presentation.mjs"],
-    tests: ["tests/mcp-manual-presentation.test.mjs", "tests/mcp-closeout.test.mjs"],
+    name: "human projection and actions",
+    include: ["src/mcp/manual-presentation.mjs", "src/core/manual-journey.mjs"],
+    tests: [
+      "tests/mcp-manual-presentation.test.mjs",
+      "tests/manual-guidance.test.mjs",
+      "tests/manual-status.test.mjs",
+      "tests/mcp-closeout.test.mjs",
+    ],
+    lines: 90,
+    branches: 80,
   },
   {
     name: "controller learning lineage",
@@ -89,12 +125,13 @@ const groups = [
 ];
 
 for (const group of groups) {
+  const lineFloor = Number.isInteger(group.lines) ? group.lines : 80;
   const branchFloor = Number.isInteger(group.branches) ? group.branches : 70;
   const args = [
     "--test",
     "--test-reporter=dot",
     "--experimental-test-coverage",
-    "--test-coverage-lines=80",
+    `--test-coverage-lines=${lineFloor}`,
     `--test-coverage-branches=${branchFloor}`,
     ...group.include.map((path) => `--test-coverage-include=${path}`),
     ...group.tests,

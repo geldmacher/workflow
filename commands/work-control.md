@@ -5,7 +5,15 @@ description: Control one prepared or active Workflow run.
 
 # /work-control
 
-Read [work-automation](../skills/work-automation/SKILL.md). Accept `<id> <pause|resume|stop|answer|accept>`; a Preparation accepts only `stop`. `accept` additionally requires `acceptance: verified|provisional`, matching the displayed delivery state.
+Read [work-automation](../skills/work-automation/SKILL.md). Accept exactly one of these copyable forms:
+
+```text
+<id> pause|resume|stop
+<id> answer <text>
+<id> accept verified|provisional
+```
+
+A Preparation accepts only `<id> stop`. Run acceptance must match the displayed verified or provisional delivery state.
 
 Invocation authorizes only that transition. `answer` uses `workflow_answer`; all others use `workflow_control`. Never expand Root authorization.
 

@@ -4,7 +4,7 @@ The three profiles are not three different workflows. They use the same approved
 
 | Profile | Human responsibility | Agent or controller responsibility | Completion gate | Why this balance? |
 |---|---|---|---|---|
-| `manual` | Select the model, approve the Plan through **Implement Plan**, start the fresh review, and separately authorize corrections or replans. | Perform only the currently authorized planning, implementation, review, correction, or explanation phase. | The human-started fresh review completes on `achieved/verified/none`; only provisional delivery needs one explicit ephemeral acceptance. | Best for novel, interactive, or uncertified work where frequent human steering is more valuable than orchestration. |
+| `manual` | Select the model, approve the Plan through **Implement Plan**, start the fresh review, and separately authorize corrections or replans. | Perform only the currently authorized planning, implementation, review, correction, or explanation phase. | The human-started fresh review completes on `achieved/verified/none`; only provisional delivery needs one explicit ephemeral `/accept-work provisional` acknowledgement. It is not persisted and grants no Qualification or Learning authority. | Best for novel, interactive, or uncertified work where frequent human steering is more valuable than orchestration. |
 | `supervised` | Enable the repository and routing policy, approve the exact Root, answer boundary questions, and accept every delivery. | Own the longer inner loop—Strategy, writing, verification, review, and bounded correction—in an isolated worktree. | A human accepts verified or explicitly provisional delivery. | Removes execution babysitting while retaining human accountability for the delivered result. |
 | `autonomous` | Approve policy, Verification Profile, exact Qualification Key, and the prepared Root. | Run the same controller loop only inside the exactly certified task and repository region. | Complete verified evidence may reach `achieved`; a non-safety gap downgrades to supervised, while a failed Check or safety violation blocks. | Replaces per-delivery acceptance only where repeatability and prior supervised proof have earned it. |
 
@@ -16,20 +16,22 @@ Every profile also keeps claims tied to evidence. Missing evidence is not called
 
 Persistent handoff or controller Run records provide recovery, inspection, and optional continuation elsewhere. They do not require the human to split Plan, execution, review, correction, or supervised acceptance across tasks. A genuine block is presented as a plain-language reason plus one concrete resolution; IDs and raw errors stay in Technical traceability.
 
-Cursor exposes all three profiles. Codex exposes the complete Manual path only and contains no Controller automation. Both hosts use native Plans as the sole Manual plan authority, let implementation finish normally, and create Evidence plus Review atomically in one fresh read-only Review. Pre-5.5 Manual host state is ignored. The five Manual MCP tools remain wire-compatible for portable clients.
+Cursor exposes all three profiles. Codex exposes the complete Manual path only and contains no Controller automation. Both hosts use native Plans as the sole Manual plan authority, let implementation finish normally, and create Evidence plus Review atomically in one fresh read-only Review. Pre-5.5.1 Manual host state is ignored; after upgrading, start a fresh Plan and fresh Review instead of trusting stale internal state. The five Manual MCP tools remain wire-compatible for portable clients.
 
 ## Explanation in each profile
 
-The explanation always has two audiences. Its first three sections tell a person what was achieved, what it means, and how it was verified without requiring the implementation history. `Technical traceability` follows with exact Workflow IDs, Checks or Findings, and paths or symbols so another maintainer or agent can continue safely.
+The explanation always has two audiences and three layers. `Quick decision` gives a person the six-phase status, outcome, Checks, real limitations or blockers, and one host-correct action. `Details` explains meaning, scope, verification, limits, and recovery without requiring implementation history. `Agent and machine contract (authoritative)` then exposes bounded `Technical traceability` with exact Workflow IDs, Checks or Findings, and paths or symbols so another maintainer or agent can continue safely.
 
 | Profile and reviewed state | Trigger and producer | Human use | Agent use | Label |
 |---|---|---|---|---|
 | Manual `achieved` | The human starts fresh review; that reviewer explains directly. | Understand the completed repository result without replaying implementation. | Consume exact chain and change locations from technical traceability. | **Final repository explanation** |
 | Manual provisional or blocked | The same reviewer explains the completed verdict. | See proof gaps, blockers, and the next safe action. | Continue only through the named review action. | **Preliminary explanation** |
-| Supervised awaiting acceptance | Status, watch, or control returns the reviewed Run; the current outer agent explains from existing Run data. | Decide whether to accept verified/provisional delivery. | Use the technical layer without starting another controller phase. | **Preliminary explanation** until verified acceptance, then final |
+| Supervised awaiting acceptance | Status, watch, or control returns the reviewed Run; the shared presenter explains from existing structured Run data without changing it. | Decide whether to accept verified/provisional delivery. | Use the technical layer without starting another controller phase. | **Preliminary explanation** until verified acceptance, then final |
 | Autonomous `achieved` | The reviewed Run reaches `achieved`; the current outer agent explains from existing Run data. | Understand the result even though final acceptance was not required. | Use evidence and changed-path traceability for handoff. | **Final repository explanation**; downgraded or blocked Runs stay preliminary |
 
 No row invokes the configured `explainer` Pool or a separate model call. `/explain-work` remains a human- or agent-requested read-only refresh. Codex supports the two Manual rows only; Cursor supports all four.
+
+Manual and controller provisional decisions are deliberately different. Manual `/accept-work provisional` acknowledges one task-local response and disappears on the next status read. Controller `/work-control <id> accept provisional` persists the human Run decision, but still does not call the delivery verified or qualify future autonomous work.
 
 ## Manual
 

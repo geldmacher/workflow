@@ -52,7 +52,6 @@ const sharedReferences = [
   "host-approval-contract.md",
   "manual-subagent-policy.md",
   "manual-workflow-contract.md",
-  "manual-attestation-contract.md",
   "manual-mcp-output-contract.md",
   "plan-container-contract.md",
   "review-contract.md",
@@ -204,7 +203,7 @@ function buildAgentPlugins(destination, version) {
   }
   copyRelative(root, destination, "schemas/artifacts");
   copyRelative(root, destination, "scripts/validate-artifact.mjs");
-  copyRelative(root, destination, "dist/codex/workflow-mcp.mjs", "dist/workflow-mcp.mjs");
+  copyRelative(root, destination, "dist/portable/workflow-mcp.mjs", "dist/workflow-mcp.mjs");
   for (const item of ["LICENSE", "THIRD_PARTY_NOTICES.md"]) copyRelative(root, destination, item);
 
   const manifestPath = join(destination, "plugin.json");

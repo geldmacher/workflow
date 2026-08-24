@@ -2,7 +2,7 @@
 
 Fresh read-only Review stays task-local, separates executor claims from independently inspected evidence, and never upgrades proof. Cursor receives the exact approved Root/chain only through its protected same-conversation receipt; Codex and portable clients supply exact bytes. Legacy state, caches, handoff, byte-less IDs, and other tasks grant no authority.
 
-Missing, unapproved, invalid, or ambiguous Root—or an unavailable, expired, replayed, or mismatched Cursor receipt—blocks before substantive Review. Give one remedy: restore and approve this task's Plan or create and approve a new one.
+Missing, unapproved, invalid, or ambiguous Root—or an unavailable, expired, replayed, or mismatched Cursor receipt—blocks before substantive Review. Give one remedy: create one fresh Plan in this task, then repeat Review. `cursor-plan-file` is visibly provisional and never verified; no recovery command or historical backfill.
 
 The reviewer directly runs or inspects planned Checks and supplies closed [Schema-1 input](work-review-input-contract.md). Manual `verified` needs matching method, directory, expectation, result, and repetition. A repository-writing required command is a Plan defect: do not execute it; block with `replan`. High risk or Hard Triggers require delivery and risk auditors, plus material design review.
 

@@ -4,13 +4,15 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
-  readdirSync,
   renameSync,
   writeFileSync,
 } from "node:fs";
-import { basename, dirname, join } from "node:path";
+import { dirname, join } from "node:path";
+import { resolve } from "node:path";
+import { repositorySnapshotHash } from "../src/core/native-task-review-state.mjs";
 
 const MAX_RECEIPT_BYTES = 2 * 1024 * 1024;
+const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const sha256 = (value) => createHash("sha256").update(String(value), "utf8").digest("hex");
 
 function timestamp(options = {}) {
@@ -27,7 +29,7 @@ function ensureDirectory(path) {
   try { chmodSync(path, 0o700); } catch { /* best effort */ }
 }
 
-function atomicJson(path, value) {
+export function atomicNativeReviewReceipt(path, value) {
   ensureDirectory(dirname(path));
   const source = `${JSON.stringify(value, null, 2)}\n`;
   if (Buffer.byteLength(source) > MAX_RECEIPT_BYTES) throw new Error("native Review receipt exceeds size limit");
@@ -50,6 +52,18 @@ function canonicalValue(value) {
   return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalValue(value[key])]));
 }
 
+export function nativeReviewReceiptBindingHash(receipt) {
+  if (!receipt || typeof receipt !== "object" || Array.isArray(receipt)) return null;
+  const {
+    binding_hash: ignoredBindingHash,
+    consumed_at: ignoredConsumedAt,
+    expired_at: ignoredExpiredAt,
+    revoked_at: ignoredRevokedAt,
+    ...binding
+  } = receipt;
+  return sha256(JSON.stringify(canonicalValue(binding)));
+}
+
 export function nativeReviewRequestHash(input = {}) {
   const semantic = {
     artifact_kind: input.artifact_kind ?? "delivery-evidence",
@@ -62,76 +76,130 @@ export function nativeReviewRequestHash(input = {}) {
   return sha256(JSON.stringify(canonicalValue(semantic)));
 }
 
-export function nativeReviewReceiptDirectory(stateRoot, requestHash, bucket = "pending") {
-  return join(stateRoot, "manual-native-task-review", "receipts", bucket, requestHash);
+export function nativeReviewReceiptDirectory(stateRoot, bucket = "pending") {
+  return join(stateRoot, "manual-native-task-review", "receipts", bucket);
 }
 
-function receiptFiles(stateRoot, requestHash, bucket) {
-  const directory = nativeReviewReceiptDirectory(stateRoot, requestHash, bucket);
-  if (!existsSync(directory)) return [];
-  return readdirSync(directory).filter((name) => name.endsWith(".json")).sort().map((name) => join(directory, name));
+export function nativeReviewReceiptPath(stateRoot, token, bucket = "pending") {
+  if (typeof token !== "string" || !TOKEN_PATTERN.test(token)) return null;
+  return join(nativeReviewReceiptDirectory(stateRoot, bucket), `${sha256(token)}.json`);
 }
 
-function moveReceipt(path, stateRoot, requestHash, bucket, value) {
-  const target = join(nativeReviewReceiptDirectory(stateRoot, requestHash, bucket), basename(path));
-  ensureDirectory(dirname(target));
-  renameSync(path, target);
-  atomicJson(target, value);
-  return target;
-}
-
-function validReceipt(receipt, stateRoot, requestHash) {
-  return receipt?.schema === 1
+function validReceipt(receipt, stateRoot, tokenHash, requestHash) {
+  return receipt?.schema === 4
     && receipt?.kind === "cursor-native-review-receipt"
+    && /^[a-f0-9]{64}$/.test(String(receipt.binding_hash ?? ""))
+    && receipt.binding_hash === nativeReviewReceiptBindingHash(receipt)
+    && receipt.token_hash === tokenHash
     && receipt.request_hash === requestHash
     && receipt.workspace_hash === sha256(stateRoot).slice(0, 32)
     && /^[a-f0-9]{32}$/.test(String(receipt.conversation_hash ?? ""))
     && /^[a-f0-9]{32}$/.test(String(receipt.generation_hash ?? ""))
     && /^[a-f0-9]{32}$/.test(String(receipt.tool_hash ?? ""))
+    && Number.isInteger(receipt.context_revision)
+    && receipt.context_revision > 0
     && /^[a-f0-9]{64}$/.test(String(receipt.root_hash ?? ""))
     && typeof receipt.root_text === "string"
     && receipt.root_hash === sha256(receipt.root_text)
+    && validRootBinding(receipt.root_binding, receipt.root_source)
     && Array.isArray(receipt.artifacts)
     && ["task-chain", "full-rebuild"].includes(receipt.predecessor_mode)
     && (receipt.artifacts.length > 0) === (receipt.predecessor_mode === "task-chain")
+    && validBaselineBinding(receipt)
+    && validReviewEnforcement(receipt.review_enforcement)
     && Number.isFinite(Date.parse(receipt.expires_at));
 }
 
-export function consumeNativeReviewReceipt({ stateRoot, input, options = {} }) {
+function validRootBinding(value, rootSource) {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+    || !Array.isArray(value.reason_codes)
+    || value.reason_codes.some((reason) => typeof reason !== "string")) return false;
+  if (value.status === "enforced") {
+    return ["post-tool-use", "task-transcript-stop"].includes(value.source)
+      && value.reason_codes.length === 0
+      && rootSource === "cursor-create-plan";
+  }
+  return value.status === "provisional"
+    && value.source === "recent-plan-file-stop"
+    && value.reason_codes.includes("native-plan-transcript-unavailable")
+    && rootSource === "cursor-plan-file";
+}
+
+function validReviewEnforcement(value) {
+  return value
+    && ["enforced", "unavailable"].includes(value.status)
+    && Array.isArray(value.reason_codes)
+    && value.reason_codes.every((reason) => typeof reason === "string")
+    && (value.status === "enforced"
+      ? value.reason_codes.length === 0
+      : value.reason_codes.includes("review-observer-unavailable"));
+}
+
+function validBaselineBinding(receipt) {
+  const attribution = receipt?.repository_attribution;
+  const epoch = receipt?.mutation_epoch;
+  if (!attribution || typeof attribution !== "object" || !epoch || typeof epoch !== "object") return false;
+  if (!/^[a-f0-9]{64}$/.test(String(epoch.id ?? "")) || !["open", "closed"].includes(epoch.status)) return false;
+  const computed = repositorySnapshotHash(receipt.baseline);
+  if (!computed) {
+    return receipt.baseline === null
+      && receipt.baseline_hash === null
+      && epoch.baseline_hash === null
+      && attribution.baseline_available === false
+      && attribution.baseline_hash === null;
+  }
+  if (typeof receipt.workspace_root !== "string" || typeof receipt.baseline?.repository_root !== "string") return false;
+  return receipt.baseline_hash === computed
+    && epoch.baseline_hash === computed
+    && attribution.baseline_available === true
+    && attribution.baseline_hash === computed
+    && resolve(receipt.workspace_root) === resolve(receipt.baseline.repository_root);
+}
+
+function moveClaimedReceipt(source, target, receipt, field, options) {
+  ensureDirectory(dirname(target));
+  try {
+    renameSync(source, target);
+  } catch (error) {
+    if (error?.code === "ENOENT") return false;
+    throw error;
+  }
+  atomicNativeReviewReceipt(target, { ...receipt, [field]: timestamp(options) });
+  return true;
+}
+
+/** Consume exactly the opaque token injected by Cursor preToolUse. */
+export function consumeNativeReviewReceipt({ stateRoot, token, input = {}, options = {} }) {
+  if (typeof token !== "string" || !TOKEN_PATTERN.test(token)) return { status: "unavailable" };
+  const tokenHash = sha256(token);
   const requestHash = nativeReviewRequestHash(input);
+  const pendingPath = nativeReviewReceiptPath(stateRoot, token, "pending");
+  const consumedPath = nativeReviewReceiptPath(stateRoot, token, "consumed");
+  const expiredPath = nativeReviewReceiptPath(stateRoot, token, "expired");
   const currentMs = nowMs(options);
-  const pending = receiptFiles(stateRoot, requestHash, "pending");
-  const valid = [];
-  let expired = false;
-  for (const path of pending) {
-    const receipt = readJson(path);
-    if (!receipt && !existsSync(path)) {
-      const consumed = readJson(join(nativeReviewReceiptDirectory(stateRoot, requestHash, "consumed"), basename(path)));
-      if (validReceipt(consumed, stateRoot, requestHash) && Date.parse(consumed.expires_at) > currentMs) return { status: "replayed" };
+
+  if (!existsSync(pendingPath)) {
+    const consumed = readJson(consumedPath);
+    if (consumed) {
+      if (!validReceipt(consumed, stateRoot, tokenHash, consumed.request_hash)) return { status: "mismatch" };
+      return consumed.request_hash === requestHash ? { status: "replayed" } : { status: "mismatch" };
     }
-    if (!validReceipt(receipt, stateRoot, requestHash)) {
-      return { status: "mismatch" };
+    const expired = readJson(expiredPath);
+    if (expired) {
+      if (!validReceipt(expired, stateRoot, tokenHash, expired.request_hash)) return { status: "mismatch" };
+      return expired.request_hash === requestHash ? { status: "expired" } : { status: "mismatch" };
     }
-    if (Date.parse(receipt.expires_at) <= currentMs) {
-      expired = true;
-      try { moveReceipt(path, stateRoot, requestHash, "expired", { ...receipt, expired_at: timestamp(options) }); }
-      catch (error) { if (error?.code !== "ENOENT") throw error; }
-      continue;
-    }
-    valid.push({ path, receipt });
+    return { status: "unavailable" };
   }
-  if (valid.length > 1) return { status: "mismatch" };
-  if (valid.length === 1) {
-    const [{ path, receipt }] = valid;
-    try { moveReceipt(path, stateRoot, requestHash, "consumed", { ...receipt, consumed_at: timestamp(options) }); }
-    catch (error) {
-      if (error?.code === "ENOENT") return { status: "replayed" };
-      throw error;
-    }
-    return { status: "resolved", receipt };
+
+  const receipt = readJson(pendingPath);
+  if (!validReceipt(receipt, stateRoot, tokenHash, requestHash)) return { status: "mismatch" };
+  if (Date.parse(receipt.expires_at) <= currentMs) {
+    moveClaimedReceipt(pendingPath, expiredPath, receipt, "expired_at", options);
+    return { status: "expired" };
   }
-  const consumed = receiptFiles(stateRoot, requestHash, "consumed").map(readJson).filter(Boolean);
-  if (consumed.some((receipt) => Date.parse(receipt.expires_at) > currentMs)) return { status: "replayed" };
-  const expiredReceipts = receiptFiles(stateRoot, requestHash, "expired").map(readJson).filter(Boolean);
-  return { status: expired || expiredReceipts.length > 0 ? "expired" : "unavailable" };
+  if (!moveClaimedReceipt(pendingPath, consumedPath, receipt, "consumed_at", options)) {
+    return existsSync(consumedPath) ? { status: "replayed" } : { status: "unavailable" };
+  }
+  return { status: "resolved", receipt };
 }

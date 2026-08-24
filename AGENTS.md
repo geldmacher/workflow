@@ -14,7 +14,7 @@ Workflow turns AI output into trustworthy repository delivery. Preserve human au
 
 **For:** interactive Cursor/Codex work and all development without controller certification.
 **Tasks:** plan, implement, correct, review, explain, learn.
-**Achieve:** Plan → Implement Plan → deterministic closeout → fresh review; human selects the model; Lean Evidence for low/medium risk without Hard Triggers.
+**Achieve:** Plan → Implement Plan → fresh read-only Review (atomic Evidence + Review); human selects the model; Lean Evidence for low/medium risk without Hard Triggers.
 **Not required:** User Config, Project Policy, Capability Receipt, Verification Profile, or qualifying history. Do not impose controller ceremony on Manual.
 
 ## Supervised — orchestrated, human acceptance

@@ -241,7 +241,21 @@ function evidenceMode(fields, effectiveProfile) {
   return effectiveProfile === "manual" && fields.profile_max === "manual" && fields.risk !== "high" && (fields.hard_triggers ?? []).length === 0 ? "lean" : "full";
 }
 
-function evidenceSeed({ contract, subjectId, sourceReviewId, predecessorEvidenceId, strategyRevision, mode, paths, entries, repositorySnapshot, summary }) {
+function repositoryAttribution(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const reasonCodes = unique((value.reason_codes ?? []).map(String).map((entry) => entry.trim()).filter(Boolean)).sort();
+  const status = value.status === "attributed" ? "attributed" : "provisional";
+  const boundary = String(value.boundary ?? "create-plan").trim() || "create-plan";
+  const baselineHash = /^[a-f0-9]{64}$/.test(String(value.baseline_hash ?? "")) ? value.baseline_hash : null;
+  return {
+    status,
+    boundary,
+    baseline_hash: baselineHash,
+    reason_codes: reasonCodes,
+  };
+}
+
+function evidenceSeed({ contract, subjectId, sourceReviewId, predecessorEvidenceId, strategyRevision, mode, paths, entries, repositorySnapshot, repositoryAttribution: attribution, summary }) {
   return sha256(JSON.stringify(stable({
     root: contract.authoritative_projection_hash,
     subjectId,
@@ -252,6 +266,7 @@ function evidenceSeed({ contract, subjectId, sourceReviewId, predecessorEvidence
     paths,
     entries,
     repositorySnapshot: repositorySnapshot ?? null,
+    repositoryAttribution: attribution ?? null,
     summary: summary ?? null,
   })));
 }
@@ -317,6 +332,7 @@ export function buildDeliveryEvidence({
   strategyRevision = 0,
   effectiveProfile = null,
   repositorySnapshot = null,
+  repositoryAttribution: suppliedRepositoryAttribution = null,
   summary = null,
   manualCheckReceipts = [],
   enforceManualCheckReceipts = null,
@@ -340,6 +356,7 @@ export function buildDeliveryEvidence({
   const requireManualReceipts = enforceManualCheckReceipts ?? (effectiveProfile ?? contract.fields.profile_max) === "manual";
   const effectiveStrategyRevision = mode === "full" ? strategyRevision : 0;
   const effectiveRepositorySnapshot = mode === "full" ? repositorySnapshot : null;
+  const effectiveRepositoryAttribution = repositoryAttribution(suppliedRepositoryAttribution);
   if (evidenceTipId) {
     if (!review || review.fields.latest_evidence_id !== evidenceTipId || review.fields.next_action !== "correct" || !review.fields.correction_id || !review.correction) {
       const existing = normalized.entries.find((entry) => inspectArtifactText(entry.text, pluginRoot).artifact?.fields?.id === evidenceTipId);
@@ -361,6 +378,7 @@ export function buildDeliveryEvidence({
           paths: suppliedPaths,
           entries,
           repositorySnapshot: effectiveRepositorySnapshot,
+          repositoryAttribution: effectiveRepositoryAttribution,
           summary,
         });
         const expectedId = `de-${normalized.rootId.replace(/^wp-/, "")}-${expectedSeed.slice(0, 12)}`;
@@ -432,6 +450,7 @@ export function buildDeliveryEvidence({
     paths,
     entries,
     repositorySnapshot: effectiveRepositorySnapshot,
+    repositoryAttribution: effectiveRepositoryAttribution,
     summary,
   });
   const id = `de-${subjectId.replace(/^(?:wp|cp)-/, "")}-${seed.slice(0, 12)}`;
@@ -455,6 +474,13 @@ export function buildDeliveryEvidence({
     executed_checks: executedChecks,
     reused_checks: reusedChecks,
     check_evidence: entries,
+    ...(effectiveRepositoryAttribution ? {
+      extensions: {
+        workflow: {
+          repository_attribution: effectiveRepositoryAttribution,
+        },
+      },
+    } : {}),
   };
   const renderedSummary = summaryText(summary, status, grade);
   const body = mode === "lean"

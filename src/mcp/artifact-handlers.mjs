@@ -14,6 +14,11 @@ import {
 } from "../core/manual-check-receipts.mjs";
 import { boundaryReceiptVerifier } from "../core/manual-boundary-receipts.mjs";
 import { resolveNativePlan } from "../core/native-plan-resolution.mjs";
+import {
+  captureRepositorySnapshot,
+  repositorySnapshotHash,
+  validateConsumedNativeReviewReceipt,
+} from "../core/native-task-review-state.mjs";
 import { inspectArtifactText } from "../../scripts/validate-artifact.source.mjs";
 import { modelInheritanceSummary } from "../../hooks/model-inheritance-state.mjs";
 import { consumeNativeReviewReceipt } from "../../hooks/native-review-receipt.mjs";
@@ -234,6 +239,9 @@ export function createArtifactHandlers({
     predecessor_evidence_id: persisted.fields.predecessor_evidence_id ?? null,
     changed_paths: persisted.fields.changed_paths ?? input.changed_paths ?? [],
     check_evidence: persisted.fields.check_evidence ?? [],
+    ...(persisted.fields.extensions?.workflow?.repository_attribution
+      ? { repository_attribution: persisted.fields.extensions.workflow.repository_attribution }
+      : {}),
     duplicate: persisted.duplicate,
     handoff_persisted: persisted.handoff_persisted,
     handoff_authoritative: false,
@@ -303,6 +311,10 @@ export function createArtifactHandlers({
     authoritative_fields: bundle.review.fields,
     assessment: bundle.review.fields.assessment,
     delivery_status: bundle.review.fields.delivery_status,
+    evidence_status: bundle.delivery_evidence.fields.status,
+    evidence_grade: bundle.delivery_evidence.fields.overall_grade,
+    check_evidence: bundle.delivery_evidence.fields.check_evidence ?? [],
+    finding_ids: (bundle.review.normalized_review_input?.findings ?? []).map((finding) => finding.key).filter(Boolean),
     next_action: bundle.review.fields.next_action,
     review_route: bundle.review.fields.review_route,
     latest_evidence_id: bundle.review.fields.latest_evidence_id,
@@ -310,7 +322,16 @@ export function createArtifactHandlers({
     correction_id: bundle.review.fields.correction_id ?? null,
     changed_paths: bundle.changed_paths,
     observed_dirty_paths: bundle.observed_dirty_paths,
+    pre_existing_paths: bundle.pre_existing_paths ?? [],
     repository_snapshot: bundle.repository_snapshot,
+    repository_state_hash: bundle.repository_state_hash,
+    chain_update: bundle.chain_update,
+    repository_attribution: bundle.repository_attribution ?? {
+      status: "provisional",
+      boundary: "unknown",
+      baseline_hash: null,
+      reason_codes: ["attribution-unavailable"],
+    },
     duplicate: bundle.review.duplicate && bundle.delivery_evidence.duplicate,
     task_local_valid: true,
     handoff_persisted: false,
@@ -319,7 +340,11 @@ export function createArtifactHandlers({
     ...(nativeBinding ? {
       native_task_binding: nativeBinding.binding_source,
       native_root_source: nativeBinding.root_source,
+      native_root_binding: nativeBinding.root_binding,
       predecessor_mode: nativeBinding.predecessor_mode,
+      implementation_authorization: "host-owned-unattested",
+      review_selection_source: nativeBinding.review_selection_source ?? "explicit-review-command",
+      review_enforcement: nativeBinding.review_enforcement ?? { status: "enforced", reason_codes: [] },
     } : {}),
   });
 
@@ -460,12 +485,23 @@ export function createArtifactHandlers({
           if (!operational.workspace || !operational.stateRoot) {
             throw codedError("native-task-receipt-unavailable", "Cursor work-review could not establish the trusted workspace needed for its native task receipt");
           }
-          const consumed = consumeReviewReceipt({ stateRoot: operational.stateRoot, input, options: receiptOptions });
+          if (!input.native_review_receipt) {
+            throw codedError("native-task-receipt-unavailable", "Cursor work-review requires the opaque receipt injected by the native preToolUse hook. Repeat /review-work in the same task; do not set native_review_receipt yourself.");
+          }
+          const consumed = consumeReviewReceipt({
+            stateRoot: operational.stateRoot,
+            token: input.native_review_receipt,
+            input,
+            options: receiptOptions,
+          });
           const receiptFailures = {
             unavailable: ["native-task-receipt-unavailable", "No protected Cursor task receipt matched this work-review call. Repeat /review-work in the same approved native Plan task."],
             expired: ["native-task-receipt-expired", "The protected Cursor task receipt expired before workflow_closeout consumed it. Repeat /review-work to create a fresh receipt."],
             replayed: ["native-task-receipt-replayed", "This protected Cursor task receipt was already consumed. Repeat /review-work to create a fresh receipt."],
             mismatch: ["native-task-receipt-mismatch", "The protected Cursor task receipt does not match this work-review call. Repeat /review-work without model-supplied Root transport."],
+            stale: ["native-task-receipt-stale", "The Cursor Root, repository epoch, or native Review turn changed before workflow_closeout consumed its receipt. Start a fresh /review-work turn."],
+            busy: ["native-review-busy", "Another Cursor Review call is already active for this Root. Wait for it to finish or repeat /review-work after its failure."],
+            invalid: ["native-task-receipt-invalid", "The protected Cursor task receipt is invalid. Create a fresh Plan and repeat /review-work."],
           };
           if (consumed.status !== "resolved") {
             const [code, message] = receiptFailures[consumed.status] ?? receiptFailures.unavailable;
@@ -480,8 +516,11 @@ export function createArtifactHandlers({
           nativeReceipt = consumed.receipt;
           nativeBinding = {
             binding_source: "cursor-receipt",
-            root_source: "cursor-create-plan",
+            root_source: consumed.receipt.root_source,
+            root_binding: consumed.receipt.root_binding,
             predecessor_mode: consumed.receipt.predecessor_mode ?? "full-rebuild",
+            review_selection_source: consumed.receipt.review_selection_source,
+            review_enforcement: consumed.receipt.review_enforcement,
           };
         }
         const nativePlan = resolveNativePlan({
@@ -516,9 +555,43 @@ export function createArtifactHandlers({
           summary: input.summary ?? null,
           workspaceRoot: operational.workspace,
           pluginRoot,
+          repositoryBaseline: nativeReceipt?.baseline ?? null,
+          repositoryAttribution: nativeReceipt?.repository_attribution ? {
+            status: nativeReceipt.repository_attribution.status === "bounded"
+              && nativeReceipt.review_enforcement?.status === "enforced"
+              && nativeReceipt.root_binding?.status === "enforced"
+              ? "attributed"
+              : "provisional",
+            boundary: nativeReceipt.repository_attribution.boundary,
+            reason_codes: [...new Set([
+              ...(nativeReceipt.repository_attribution.reason_codes ?? []),
+              ...(nativeReceipt.review_enforcement?.reason_codes ?? []),
+              ...(nativeReceipt.root_binding?.reason_codes ?? []),
+            ])],
+          } : null,
         });
         if (!rootPlanId || nativePlan.root_id !== rootPlanId || bundle.root_plan_id !== rootPlanId) {
           throw new Error(`workflow_closeout Root ID mismatch: expected ${rootPlanId ?? "<unavailable>"}, received ${bundle.root_plan_id}`);
+        }
+        if (nativeReceipt) {
+          const postBuildRepositoryHash = repositorySnapshotHash(captureRepositorySnapshot(operational.workspace));
+          if (!bundle.repository_state_hash || postBuildRepositoryHash !== bundle.repository_state_hash) {
+            throw codedError(
+              "native-task-receipt-stale",
+              "Cursor work-review repository state changed during repository observation. Start a fresh /review-work turn.",
+            );
+          }
+          const revalidated = validateConsumedNativeReviewReceipt({
+            stateRoot: operational.stateRoot,
+            receipt: nativeReceipt,
+            options: receiptOptions,
+          });
+          if (revalidated.status !== "valid") {
+            throw codedError(
+              "native-task-receipt-stale",
+              `Cursor work-review authority changed during repository observation (${revalidated.reason ?? revalidated.status}). Start a fresh /review-work turn.`,
+            );
+          }
         }
         return toolResult("workflow_closeout", reviewBundlePayload({
           input,

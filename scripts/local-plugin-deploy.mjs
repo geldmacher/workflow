@@ -227,6 +227,23 @@ function copyPreviewFile(sourceRoot, snapshotRoot, item, { inspectSecrets }) {
   chmodSync(destination, stat.mode & 0o777);
 }
 
+function initializePreviewRepository(snapshotRoot) {
+  run("git", ["init", "--quiet"], { cwd: snapshotRoot });
+  run("git", ["config", "--local", "user.name", "Workflow Deployment Preview"], { cwd: snapshotRoot });
+  run("git", ["config", "--local", "user.email", "workflow-preview@invalid.local"], { cwd: snapshotRoot });
+  writeFileSync(join(snapshotRoot, ".git", "info", "exclude"), ".build/\nnode_modules/\n");
+  run("git", ["add", "--all", "--force"], { cwd: snapshotRoot });
+  const commitEnv = {
+    ...process.env,
+    GIT_AUTHOR_DATE: "2000-01-01T00:00:00Z",
+    GIT_COMMITTER_DATE: "2000-01-01T00:00:00Z",
+  };
+  run("git", ["commit", "--quiet", "--no-gpg-sign", "-m", "Workflow deployment preview snapshot"], {
+    cwd: snapshotRoot,
+    env: commitEnv,
+  });
+}
+
 function createDeploymentPreviewSnapshot(root) {
   const sourceRoot = resolve(root);
   const dependencyRoot = join(sourceRoot, "node_modules");
@@ -250,6 +267,7 @@ function createDeploymentPreviewSnapshot(root) {
       if (copied.has(item)) continue;
       copyPreviewFile(sourceRoot, snapshotRoot, item, { inspectSecrets: true });
     }
+    initializePreviewRepository(snapshotRoot);
     cpSync(physicalDependencyRoot, join(snapshotRoot, "node_modules"), {
       recursive: true,
       dereference: false,

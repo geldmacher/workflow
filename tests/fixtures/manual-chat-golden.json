@@ -1,13 +1,262 @@
-[
-  { "state": "plan-ready", "action": "implement-plan", "outcome": "ready" },
-  { "state": "implementation-active", "action": "closeout", "outcome": "partial" },
-  { "state": "closeout-recovery-required", "action": "closeout", "outcome": "partial" },
-  { "state": "review-ready", "action": "review-root", "outcome": "ready" },
-  { "state": "review-active", "action": "retry-review", "outcome": "partial" },
-  { "state": "correction-approval-required", "action": "approve-correction", "outcome": "partial" },
-  { "state": "replan-approval-required", "action": "replan", "outcome": "blocked", "blocker": "The current Root boundary is insufficient." },
-  { "state": "provisional-acceptance-required", "action": "accept-provisional", "outcome": "partial" },
-  { "state": "clarification-required", "action": "answer", "outcome": "partial" },
-  { "state": "blocked", "action": "repair-root", "outcome": "blocked", "blocker": "Authority validation failed." },
-  { "state": "done", "action": null, "outcome": "ready" }
-]
+{
+  "schema": 2,
+  "snapshot_contract": "SHA-256 covers the complete rendered UTF-8 response, including technical traceability and the non-disclosure fallback.",
+  "journey_states": [
+    {
+      "state": "plan-ready",
+      "human_phase": "plan-ready",
+      "action": "implement-plan",
+      "outcome": "ready",
+      "rendered_sha256": "27ac2095872e482a20a6594652de816f0ed0d82bc6ea61576a388a78ae7fc191",
+      "fallback_sha256": "6e86c14e179edfa15716c9e9a5a1f1d40f07ddc9cc9043780703c92e93afcb84"
+    },
+    {
+      "state": "implementation-active",
+      "human_phase": "in-progress",
+      "action": "closeout",
+      "outcome": "partial",
+      "rendered_sha256": "a3bd2d4423c3e74438f06bdc0ab44f6a97ddf83bb909830c26cedb2589e50696",
+      "fallback_sha256": "de667530066f73a7f7b7fdf2f5e418a6dfad670cdf0f78b184a3956e027c100f"
+    },
+    {
+      "state": "closeout-recovery-required",
+      "human_phase": "review-needed",
+      "action": "closeout",
+      "outcome": "partial",
+      "rendered_sha256": "00dd95930e6bb7182c32df030ee2966cdbb9b92c6f170f02618206bbceb515aa",
+      "fallback_sha256": "c3e7aedd60aceef54b340e9da9be69bafc82ef807c8338df3fb8c47abd3023a0"
+    },
+    {
+      "state": "review-ready",
+      "human_phase": "review-needed",
+      "action": "review-root",
+      "outcome": "ready",
+      "rendered_sha256": "1199f76ceffb3f6b86d419bd1c7d56ffce90a2168ee441654b97b1121a1e1042",
+      "fallback_sha256": "fd8b465ccfb74119eaf46bbf4b4ad1571d0281faba1e951042b9ebc9746bae58"
+    },
+    {
+      "state": "review-active",
+      "human_phase": "review-needed",
+      "action": "retry-review",
+      "outcome": "partial",
+      "rendered_sha256": "f074cd252db6f05b868b64e683684bb3e9770b3f7dc472bab80189b8a0f93992",
+      "fallback_sha256": "a8c27a7a9332b8bfdfc261ba30ed0b9611990e9cab0d8b55204ab8b9ab83c4d6"
+    },
+    {
+      "state": "correction-approval-required",
+      "human_phase": "decision-needed",
+      "action": "approve-correction",
+      "outcome": "partial",
+      "rendered_sha256": "4db198f3c7e52d7a55cc5ecad8f25b5ed56c0d9470b43078846c6d81ba0f300e",
+      "fallback_sha256": "39dd33d86539ca10f121b9676f84aaeadd5978d796c40443d80cf354fc902c73"
+    },
+    {
+      "state": "replan-approval-required",
+      "human_phase": "decision-needed",
+      "action": "replan",
+      "outcome": "blocked",
+      "blocker": "The current Root boundary is insufficient.",
+      "rendered_sha256": "37f37f29d16c243895e289363977268a8ea2d91b4c15bb701830f40060c1ae91",
+      "fallback_sha256": "3a2a8e43beafdb88685ea80125230fc508d2495a622d271940fb511fdcc45a4d"
+    },
+    {
+      "state": "provisional-acceptance-required",
+      "human_phase": "decision-needed",
+      "action": "accept-provisional",
+      "outcome": "partial",
+      "rendered_sha256": "8ac7f2124f5eeeecee608d013f737fe8c6551d0d8f5ea364ac25f4cdc791ab73",
+      "fallback_sha256": "37f40e0555efbd1ea0669bc8b4ec8240f3a5ddfb2cf0ab2eccd924b8a91c7b11"
+    },
+    {
+      "state": "clarification-required",
+      "human_phase": "decision-needed",
+      "action": "answer",
+      "outcome": "partial",
+      "rendered_sha256": "e76015a0c79997d674f910a3fc3a1d18cd47d5d7511c1b401f88be1cb774ac50",
+      "fallback_sha256": "864f9ed4d309e5000495137b0697f0fa3a29fc2202f72b204a763b2bd0e29af8"
+    },
+    {
+      "state": "blocked",
+      "human_phase": "blocked",
+      "action": "repair-root",
+      "outcome": "blocked",
+      "blocker": "Authority validation failed.",
+      "rendered_sha256": "29b244af243bd49902399c75c987fcc72a8e6fcff27fe195f3f1ab0ebbbe56a8",
+      "fallback_sha256": "9a2a9610cac20239ae46bf1aac9f8b7386c3e22506addf30c0065955f7911a4b"
+    },
+    {
+      "state": "done",
+      "human_phase": "completed",
+      "action": null,
+      "outcome": "ready",
+      "rendered_sha256": "bc39366733915f569c8e94d4f18f43d10ac7ec7909a5f81669b6cfcfa84dd27f",
+      "fallback_sha256": "dab3239028ab4060579a93432e576218c83751dd86990afb338f54a1a9aa0700"
+    }
+  ],
+  "manual_cases": [
+    {
+      "name": "observer-unavailable",
+      "rendered_sha256": "1445b48950dcd3cf61fdb7d96520459d576e41c43c4e6a26cb27eaf9abf5bea7",
+      "fallback_sha256": "e7d54578367b3de71c1501f1d61c646af1fab224be49b3317fdb4191a8878173"
+    },
+    {
+      "name": "stopped",
+      "rendered_sha256": "01e7ca7e4ecb3247cae37af2e84560dd5e82c564d37baddc118ef2c679f8f757",
+      "fallback_sha256": "0fb967f227e09de950e0adc5aa9803afa7ed74ad2fc6ed39b50a2ba311821c2c"
+    }
+  ],
+  "cta_matrix": {
+    "cursor": {
+      "repair-root": "/plan-work",
+      "implement-plan": "Implement Plan",
+      "attach-artifact": "Attach the exact artifact",
+      "review-root": "/review-work",
+      "accept-provisional": "/accept-work provisional",
+      "closeout": "/review-work",
+      "correct": "/correct-work",
+      "approve-correction": "/correct-work",
+      "provide-artifacts": "/work-status",
+      "replan": "/plan-work replan",
+      "retry-review": "/review-work",
+      "answer": "Reply with the requested answer",
+      "resolve-blocker": "Fix the named cause, then run /work-status again",
+      "resolve-intent": "/plan-work",
+      "learn": "/learn-from-work",
+      "explain": "/explain-work"
+    },
+    "codex": {
+      "repair-root": "$plan-work",
+      "implement-plan": "Implement Plan",
+      "attach-artifact": "Attach the exact artifact",
+      "review-root": "$review-work",
+      "accept-provisional": "$accept-work provisional",
+      "closeout": "$review-work",
+      "correct": "$correct-work",
+      "approve-correction": "$correct-work",
+      "provide-artifacts": "$work-status",
+      "replan": "$plan-work replan",
+      "retry-review": "$review-work",
+      "answer": "Reply with the requested answer",
+      "resolve-blocker": "Fix the named cause, then run $work-status again",
+      "resolve-intent": "$plan-work",
+      "learn": "$learn-from-work",
+      "explain": "$explain-work"
+    },
+    "portable": {
+      "repair-root": "plan-work",
+      "implement-plan": "implement-work",
+      "attach-artifact": "attach-artifact",
+      "review-root": "review-work",
+      "accept-provisional": "accept-work provisional",
+      "closeout": "workflow_closeout",
+      "correct": "correct-work",
+      "approve-correction": "correct-work",
+      "provide-artifacts": "work-status",
+      "replan": "plan-work replan",
+      "retry-review": "review-work",
+      "answer": "Reply with the requested answer",
+      "resolve-blocker": "Fix the named cause, then run work-status again",
+      "resolve-intent": "plan-work",
+      "learn": "learn-from-work",
+      "explain": "explain-work"
+    }
+  },
+  "controller_cases": [
+    {
+      "name": "active",
+      "tool": "workflow_status",
+      "value": {
+        "subject_kind": "run",
+        "run": {
+          "run_id": "run-golden-active",
+          "lifecycle": "executing",
+          "requested_profile": "supervised",
+          "effective_profile": "supervised",
+          "next_action": "watch",
+          "blockers": [],
+          "delivered_paths": ["src/active.mjs"],
+          "revision": 3
+        },
+        "snapshot": {
+          "run_id": "run-golden-active",
+          "state": "executing",
+          "requested_profile": "supervised",
+          "effective_profile": "supervised",
+          "required_actor": "controller",
+          "next_action": "watch",
+          "blockers": [],
+          "revision": 3
+        }
+      },
+      "rendered_sha256": "08e50178e89b7d402155c5bbacdcc180f726c7bd3c7d834e5b942d4654b4c74e"
+    },
+    {
+      "name": "blocked",
+      "tool": "workflow_status",
+      "value": {
+        "subject_kind": "run",
+        "run": {
+          "run_id": "run-golden-blocked",
+          "lifecycle": "blocked",
+          "requested_profile": "supervised",
+          "effective_profile": "supervised",
+          "next_action": "inspect",
+          "blockers": ["required Check failed"],
+          "revision": 4
+        },
+        "snapshot": {
+          "run_id": "run-golden-blocked",
+          "state": "blocked",
+          "requested_profile": "supervised",
+          "effective_profile": "supervised",
+          "required_actor": "human",
+          "next_action": "inspect",
+          "blockers": ["required Check failed"],
+          "revision": 4
+        }
+      },
+      "rendered_sha256": "395b4cb2386d9921d23f59428190a3b3722041d566dc88f768ce3ebb33fd88f1"
+    },
+    {
+      "name": "achieved",
+      "tool": "workflow_status",
+      "value": {
+        "subject_kind": "run",
+        "run": {
+          "run_id": "run-golden-achieved",
+          "lifecycle": "achieved",
+          "requested_profile": "autonomous",
+          "effective_profile": "autonomous",
+          "delivery_status": "verified",
+          "evidence_grade": "verified",
+          "next_action": "none",
+          "blockers": [],
+          "delivered_paths": ["src/done.mjs"],
+          "revision": 8
+        },
+        "snapshot": {
+          "run_id": "run-golden-achieved",
+          "state": "achieved",
+          "requested_profile": "autonomous",
+          "effective_profile": "autonomous",
+          "required_actor": "none",
+          "next_action": "none",
+          "delivery_status": "verified",
+          "evidence_grade": "verified",
+          "blockers": [],
+          "evidence_tip": "de-golden-achieved",
+          "review_tip": "wr-golden-achieved",
+          "revision": 8
+        }
+      },
+      "rendered_sha256": "6cc2a8d6c18173726a7d491f0cd26d5f7e215ed35d8e6d8a924e67de160efa39"
+    },
+    {
+      "name": "failed",
+      "tool": "workflow_prepare",
+      "is_error": true,
+      "value": { "error": "preparation failed" },
+      "rendered_sha256": "cf8b6d8a2c972916cffccdcc073c6240524c869f668878f01ca3f3f2fb83525f"
+    }
+  ]
+}

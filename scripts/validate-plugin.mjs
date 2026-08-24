@@ -26,7 +26,7 @@ const expected = Object.freeze({
   skills: ["work-automation", "work-execution", "work-explanation", "work-learning", "work-planning", "work-review"],
   rules: [],
   artifacts: ["delivery-evidence", "work-plan", "work-review"],
-  references: ["artifact-protocol", "automation-contract", "automation-preparation-contract", "closeout-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "host-approval-contract", "learning-contract", "manual-attestation-contract", "manual-subagent-policy", "manual-workflow-contract", "model-routing-contract", "plan-container-contract", "review-contract", "state-contract", "verification-profile-contract", "work-review-input-contract"],
+  references: ["artifact-protocol", "automation-contract", "automation-preparation-contract", "closeout-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "host-approval-contract", "learning-contract", "manual-subagent-policy", "manual-workflow-contract", "model-routing-contract", "plan-container-contract", "review-contract", "state-contract", "verification-profile-contract", "work-review-input-contract"],
 });
 
 const readText = (path) => readFileSync(path, "utf8");
@@ -186,6 +186,8 @@ function validateRelease(root, manifest, failures) {
 function validateHookSurface(root, manifest, failures) {
   const expectedPath = "./hooks/hooks.json";
   const expectedCommand = "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"";
+  const expectedEnforcementCommand = "node \"${CURSOR_PLUGIN_ROOT}/hooks/closeout-guard.mjs\" --enforce";
+  const expectedCloseoutCommand = "node \"${CURSOR_PLUGIN_ROOT}/hooks/closeout-guard.mjs\"";
   if (manifest.hooks !== expectedPath) failures.push(`plugin.json hooks must reference ${expectedPath}`);
   const directory = join(root, "hooks");
   const configPath = join(directory, "hooks.json");
@@ -223,20 +225,33 @@ function validateHookSurface(root, manifest, failures) {
     const expectedEvents = [
       "sessionStart",
       "beforeSubmitPrompt",
+      "stop",
       "preToolUse",
       "subagentStart",
       "subagentStop",
       "postToolUse",
+      "postToolUseFailure",
     ];
     const eventNames = Object.keys(config.hooks ?? {});
     if (eventNames.join("\n") !== expectedEvents.join("\n")) failures.push(`hooks/hooks.json must declare ${expectedEvents.join(", ")} in order`);
     const expectedByEvent = {
       sessionStart: [{ command: expectedCommand, failClosed: false }],
-      beforeSubmitPrompt: [{ command: expectedCommand, failClosed: false }],
-      preToolUse: [{ command: expectedCommand, matcher: "CreatePlan|Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook|MCP:workflow_closeout", failClosed: false }],
+      beforeSubmitPrompt: [
+        { command: expectedCommand, failClosed: false },
+        { command: expectedCloseoutCommand, failClosed: false },
+      ],
+      stop: [{ command: expectedCloseoutCommand, failClosed: false }],
+      preToolUse: [
+        { command: expectedCommand, matcher: "CreatePlan|Task|Agent|spawn_agent", failClosed: false },
+        { command: expectedEnforcementCommand, matcher: "CreatePlan|Write|Edit|Delete|Shell|Bash|Task|Agent|spawn_agent|ApplyPatch|apply_patch|DeleteFile|StrReplace|EditNotebook|Computer.*|Browser.*|MCP:.*", failClosed: true },
+      ],
       subagentStart: [{ command: expectedCommand, failClosed: false }],
       subagentStop: [{ command: expectedCommand, failClosed: false }],
-      postToolUse: [{ command: expectedCommand, matcher: "Task|CreatePlan|MCP:workflow_closeout", failClosed: false }],
+      postToolUse: [
+        { command: expectedCommand, matcher: "Task", failClosed: false },
+        { command: expectedCloseoutCommand, matcher: "CreatePlan|MCP:workflow_closeout", failClosed: false },
+      ],
+      postToolUseFailure: [{ command: expectedCloseoutCommand, matcher: "MCP:workflow_closeout", failClosed: false }],
     };
     for (const eventName of expectedEvents) {
       const entries = config.hooks?.[eventName];

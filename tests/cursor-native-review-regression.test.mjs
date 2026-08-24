@@ -64,18 +64,30 @@ test("diagnosed Cursor chat shape binds exact CreatePlan bytes instead of the 36
   const options = { home, pluginRoot: defaultRoot };
   assert.deepEqual(evaluateCloseoutGuard({
     ...hookBase,
+    cwd: defaultRoot,
+    hook_event_name: "postToolUse",
+    generation_id: "plan-generation",
+    tool_use_id: "create-plan-call",
+    tool_name: "CreatePlan",
+    tool_input: { name: "Adaptive retry", plan: exactRoot },
+  }, options), {});
+  assert.deepEqual(evaluateCloseoutGuard({
+    ...hookBase,
+    cwd: defaultRoot,
     hook_event_name: "beforeSubmitPrompt",
     generation_id: "review-generation",
     prompt: "/review-work",
   }, options), {});
-  assert.deepEqual(evaluateCloseoutGuard({
+  const prepared = evaluateCloseoutGuard({
     ...hookBase,
+    cwd: defaultRoot,
     hook_event_name: "preToolUse",
     generation_id: "review-generation",
     tool_use_id: "review-closeout-call",
     tool_name: "MCP:workflow_closeout",
     tool_input: toolInput,
-  }, options), {});
+  }, options);
+  assert.match(prepared.updated_input.native_review_receipt, /^[A-Za-z0-9_-]{43}$/);
 
   const transport = new StdioClientTransport({
     command: process.execPath,
@@ -92,7 +104,7 @@ test("diagnosed Cursor chat shape binds exact CreatePlan bytes instead of the 36
   const client = workflowClient("cursor-native-review-regression", [defaultRoot]);
   try {
     await client.connect(transport);
-    const result = await client.callTool({ name: "workflow_closeout", arguments: toolInput });
+    const result = await client.callTool({ name: "workflow_closeout", arguments: prepared.updated_input });
     assert.equal(result.isError, false, JSON.stringify(result.structuredContent));
     assert.equal(result.structuredContent.native_task_binding, "cursor-receipt");
     assert.equal(result.structuredContent.root_content_hash, rootHash);

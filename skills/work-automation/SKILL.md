@@ -7,8 +7,8 @@ Use bundled `workflow_*` tools; never hand-edit state. Load only: `/auto-work` [
 
 Before mutation read fresh status, revision, and idempotency key. No result grants unstated authority. Never push, PR, merge, deploy, integrate, or auto-learn. Replan passes exact predecessor/review `root_artifacts`; invalid lineage stops.
 
-Manual status/acceptance sends exact task artifacts; omit `root_plan_id` only for their unique active lineage tip. Never infer authority/evidence. Missing/ambiguous waits; invalid replans. Send `manual_acceptance: provisional` only after explicit `/accept-work`; never persist it. Workflow-3/4 is status-only.
+Manual status/provisional acknowledgement sends exact task artifacts; omit `root_plan_id` only for the unique active tip. Never infer authority/evidence. Missing/ambiguous waits; invalid replans. Send `manual_acceptance: provisional` only after explicit `/accept-work`; report one-response-only, unverified, unpersisted, no Qualification/Learning, and later `delivery-ready-provisional`. Workflow-3/4 is status-only.
 
-A reviewed Run is explained by the outer agent from Root, Strategy, Evidence, receipts, paths, and snapshot—never an extra phase or model call. Order `What was achieved`, `What this means`, `Verification and limits`, then `Technical traceability`. Only `achieved` is **Final repository explanation**; every other state is **Preliminary explanation** with blocker and recovery. Verified acceptance becomes final.
+The outer agent renders unchanged structured Root, Strategy, Evidence, receipts, paths, and snapshot; no extra phase or model call. Use `Quick decision` → `Details` → authoritative contract, six human phases, one action, and distinguish Limitation from Blocker. Only `achieved` is **Final repository explanation**; every other state is **Preliminary explanation**. Verified controller acceptance is final; provisional is persisted but unverified and non-qualifying.
 
 Keep journey task-local; Runs aid recovery. Blockers state reason and resolution.

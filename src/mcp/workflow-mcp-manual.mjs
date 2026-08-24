@@ -34,6 +34,9 @@ function resolvePluginRoot(sourceDirectory) {
 
 const sourceDirectory = dirname(fileURLToPath(import.meta.url));
 const pluginRoot = resolvePluginRoot(sourceDirectory);
+const manualClientHost = typeof __GELDMACHER_WORKFLOW_MANUAL_CLIENT_HOST__ === "string"
+  ? __GELDMACHER_WORKFLOW_MANUAL_CLIENT_HOST__
+  : "codex";
 const server = new McpServer({ name: "geldmacher-workflow-manual", version: PLUGIN_VERSION });
 const workspaceAuthority = new WorkspaceRootAuthority(() => server.server.listRoots());
 server.server.setNotificationHandler(RootsListChangedNotificationSchema, async () => workspaceAuthority.invalidate());
@@ -57,6 +60,7 @@ registerManualWorkflowTools({
   handoffStateRoot: sharedArtifactStateRoot,
   result,
   failure,
+  clientHost: manualClientHost,
 });
 
 await server.connect(new StdioServerTransport());

@@ -56,6 +56,13 @@ function explicitWorkflowCommand(prompt) {
   return { command: unique.length === 1 ? unique[0] : null, ambiguous: unique.length > 1 };
 }
 
+function explicitCodexCollaborationMode(input) {
+  const collaborationMode = input?.collaboration_mode;
+  if (!collaborationMode || typeof collaborationMode !== "object" || Array.isArray(collaborationMode)) return null;
+  if (typeof collaborationMode.mode !== "string" || !collaborationMode.mode.trim()) return null;
+  return collaborationMode.mode.trim().toLowerCase();
+}
+
 export function classifyCodexWorkflowPrompt(prompt) {
   if (hookContinuation(prompt)) return { kind: "hook-continuation", phase: null };
   const explicit = explicitWorkflowCommand(prompt);
@@ -220,7 +227,9 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
     }
     const phase = classification.phase;
     if (!phase) return { output: {}, state };
-    if (phase === "planning" && input.permission_mode !== "plan") {
+    // Codex permission_mode describes tool permissions, not the native collaboration mode.
+    const collaborationMode = explicitCodexCollaborationMode(input);
+    if (phase === "planning" && collaborationMode && collaborationMode !== "plan") {
       return { output: { decision: "block", reason: "$plan-work requires Codex Plan mode." }, state };
     }
     state.turn = beginTurn(phase, input, policy, state);
@@ -234,11 +243,14 @@ export function evaluateCodexHook(input, priorState = {}, options = {}) {
     const routingNote = routingEnabled(policy)
       ? "Codex may use configured approved Manual candidates with parent fallback."
       : "Subagents inherit the parent model; do not request a concrete model.";
+    const planningSafety = phase === "planning"
+      ? " $plan-work remains valid only in active Codex Plan mode. This hook does not infer that mode from permission_mode; if Plan mode is not active, stop without drafting a Root."
+      : "";
     return {
       output: {
         hookSpecificOutput: {
           hookEventName: "UserPromptSubmit",
-          additionalContext: `${marker} ${MODEL_INHERIT_MARKER} Native task plans are the only Manual plan authority. Implementation ends normally; fresh Review owns Evidence. ${routingNote}`,
+          additionalContext: `${marker} ${MODEL_INHERIT_MARKER} Native task plans are the only Manual plan authority. Implementation ends normally; fresh Review owns Evidence. ${routingNote}${planningSafety}`,
         },
       },
       state,

@@ -201,7 +201,10 @@ test("dry-run preparation uses a Git-visible snapshot, preserves modes, and alwa
       assert.equal(lstatSync(join(root, "tracked.sh")).mode & 0o111, 0o111);
       assert.equal(existsSync(join(root, "ignored.txt")), false);
       assert.equal(existsSync(join(root, ".build")), false);
-      assert.equal(existsSync(join(root, ".git")), false);
+      assert.equal(existsSync(join(root, ".git")), true);
+      assert.equal(git(root, "rev-parse", "--is-inside-work-tree").trim(), "true");
+      assert.equal(git(root, "log", "-1", "--pretty=%an <%ae>").trim(), "Workflow Deployment Preview <workflow-preview@invalid.local>");
+      assert.equal(git(root, "status", "--porcelain", "--untracked-files=normal").trim(), "");
       assert.equal(lstatSync(join(root, "node_modules")).isDirectory(), true);
       assert.notEqual(realpathSync(join(root, "node_modules")), realpathSync(join(item.repository, "node_modules")));
       writeFileSync(join(root, "node_modules", "dependency.txt"), "snapshot dependency\n");

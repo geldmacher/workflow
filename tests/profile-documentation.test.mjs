@@ -19,7 +19,7 @@ test("profile guide explains the shared core, differences, and prerequisites", (
   assert.match(guide, /repeatability.*supervised proof.*earned/is);
   assert.match(guide, /Cursor exposes all three profiles.*Codex exposes the complete Manual path only/is);
   assert.match(guide, /native Plans as the sole Manual plan authority.*implementation finish normally.*Evidence plus Review atomically/is);
-  assert.match(guide, /Pre-5\.5 Manual host state is ignored/is);
+  assert.match(guide, /Pre-5\.5\.1 Manual host state is ignored.*fresh Plan and fresh Review/is);
   assert.match(guide, /Capability Receipt/i);
   assert.match(guide, /Verification Profile/i);
   assert.match(guide, /fully verified, human-accepted supervised Runs/i);
@@ -52,7 +52,7 @@ test("profile guide assigns human-first and agent-facing explanations across all
   for (const state of ["Manual `achieved`", "Manual provisional or blocked", "Supervised awaiting acceptance", "Autonomous `achieved`"]) {
     assert.match(guide, new RegExp(state.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
   }
-  assert.match(guide, /first three sections tell a person.*Technical traceability.*maintainer or agent/is);
+  assert.match(guide, /Quick decision.*Details.*Agent and machine contract \(authoritative\).*Technical traceability.*maintainer or agent/is);
   assert.match(guide, /Supervised awaiting acceptance.*Preliminary explanation.*verified acceptance.*final/is);
   assert.match(guide, /Autonomous `achieved`.*Final repository explanation/is);
   assert.match(guide, /No row invokes.*`explainer` Pool.*separate model call/is);

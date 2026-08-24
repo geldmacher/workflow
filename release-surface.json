@@ -22,7 +22,8 @@
     "release-surface.json",
     "schemas",
     "scripts/validate-artifact.mjs",
-    "skills"
+    "skills",
+    "src/core/native-task-review-state.mjs"
   ],
   "package_extras": [
     ".cursor-plugin/marketplace.json",

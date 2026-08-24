@@ -6,8 +6,10 @@ import { fileURLToPath } from "node:url";
 import {
   inspectArtifactText,
   preflightRootPlan,
+  requiredManualCheckSafetyIssues,
   validateArtifactText,
 } from "../scripts/validate-artifact.mjs";
+import { canonicalRepositoryRoot } from "../src/core/native-task-review-state.mjs";
 
 const MAX_INPUT_BYTES = 1024 * 1024;
 const pluginRoot = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -36,6 +38,22 @@ function nativePlanText(input) {
   return `---\n${JSON.stringify(wrapper)}\n---\n${input.plan}`;
 }
 
+function workspaceForInput(input, options = {}) {
+  const candidates = [
+    ...(typeof options.workspaceRoot === "string" ? [options.workspaceRoot] : []),
+    ...(Array.isArray(input.workspace_roots) ? input.workspace_roots : []),
+    ...(typeof input.cwd === "string" ? [input.cwd] : []),
+  ];
+  const roots = [];
+  for (const candidate of candidates) {
+    try {
+      const root = canonicalRepositoryRoot(candidate, options);
+      if (root && !roots.includes(root)) roots.push(root);
+    } catch { /* unavailable candidates do not become repository authority */ }
+  }
+  return roots.length === 1 ? roots[0] : null;
+}
+
 function validateNativeCreatePlan(input, options = {}) {
   if (input.tool_name !== "CreatePlan") return {};
   const toolInput = input.tool_input;
@@ -60,6 +78,15 @@ function validateNativeCreatePlan(input, options = {}) {
       .map((issue) => String(issue.message ?? issue).replace(/\s+/g, " ").slice(0, 300))
       .join("; ");
     return deny(`Workflow Schema-5 CreatePlan denied: Root validation failed${detail ? `: ${detail}` : ""}. Repair the Root and call CreatePlan again.`);
+  }
+  const unsafeChecks = requiredManualCheckSafetyIssues({
+    rootPlanText: rootText,
+    pluginRoot: root,
+    workspaceRoot: workspaceForInput(input, options),
+  });
+  if (unsafeChecks.length > 0) {
+    const detail = unsafeChecks.slice(0, 8).map((issue) => `${issue.check_id}: ${issue.reason}`).join("; ");
+    return deny(`Workflow Schema-5 CreatePlan denied: required machine Check is not a uniquely classifiable Review command (${detail}). Repair the Root and call CreatePlan again.`);
   }
   return {};
 }

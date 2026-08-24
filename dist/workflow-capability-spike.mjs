@@ -38,7 +38,7 @@ import {
   safeParse,
   serializeMessage,
   writeWorkerControl
-} from "./chunks/chunk-LQ5E6D5U.mjs";
+} from "./chunks/chunk-4NWEJD7T.mjs";
 import {
   CAPABILITY_RECEIPT_SCHEMA,
   REQUIRED_OBSERVATIONS,
@@ -47,13 +47,13 @@ import {
   receiptAutomationSafe,
   receiptProfileEligibility,
   writeCapabilityReceipt
-} from "./chunks/chunk-VSOEKQMF.mjs";
+} from "./chunks/chunk-Q3DGKPN2.mjs";
 import {
   createRunWorktree,
   loadWorkflowConfig,
   repositoryBaseline,
   resolveRouteProfile
-} from "./chunks/chunk-JXD44M5H.mjs";
+} from "./chunks/chunk-6NZHJGJ7.mjs";
 import {
   CursorWorkerAdapter,
   currentPlatform,
@@ -63,26 +63,24 @@ import {
   sdkVersion,
   sha256File,
   workerRuntimeDirectory
-} from "./chunks/chunk-2YTKS64M.mjs";
+} from "./chunks/chunk-7SYGAAH5.mjs";
 import {
   probeSandboxBoundary
-} from "./chunks/chunk-PKEO6PA3.mjs";
-import "./chunks/chunk-4WJTGI5A.mjs";
+} from "./chunks/chunk-FTS4RQ3D.mjs";
+import "./chunks/chunk-ZDU7LLPP.mjs";
 import {
   PreparationStore,
   RunStore,
   defaultStateRoot
-} from "./chunks/chunk-QOWQ6ETR.mjs";
+} from "./chunks/chunk-3N55QC7G.mjs";
 import {
-  ARTIFACT_SCHEMA,
-  CONTROLLER_PROTOCOL,
   PLUGIN_VERSION
-} from "./chunks/chunk-LFEO5XYI.mjs";
+} from "./chunks/chunk-7NHOTGTA.mjs";
 import {
   __commonJS,
   __require,
   __toESM
-} from "./chunks/chunk-IQRLCJ3K.mjs";
+} from "./chunks/chunk-WU6JOB3C.mjs";
 
 // node_modules/isexe/windows.js
 var require_windows = __commonJS({
@@ -92,30 +90,21 @@ var require_windows = __commonJS({
     var fs = __require("fs");
     function checkPathExt(path, options) {
       var pathext = options.pathExt !== void 0 ? options.pathExt : process.env.PATHEXT;
-      if (!pathext) {
-        return true;
-      }
-      pathext = pathext.split(";");
-      if (pathext.indexOf("") !== -1) {
-        return true;
-      }
+      if (!pathext || (pathext = pathext.split(";"), pathext.indexOf("") !== -1))
+        return !0;
       for (var i = 0; i < pathext.length; i++) {
         var p = pathext[i].toLowerCase();
-        if (p && path.substr(-p.length).toLowerCase() === p) {
-          return true;
-        }
+        if (p && path.substr(-p.length).toLowerCase() === p)
+          return !0;
       }
-      return false;
+      return !1;
     }
     function checkStat(stat, path, options) {
-      if (!stat.isSymbolicLink() && !stat.isFile()) {
-        return false;
-      }
-      return checkPathExt(path, options);
+      return !stat.isSymbolicLink() && !stat.isFile() ? !1 : checkPathExt(path, options);
     }
     function isexe(path, options, cb) {
       fs.stat(path, function(er, stat) {
-        cb(er, er ? false : checkStat(stat, path, options));
+        cb(er, er ? !1 : checkStat(stat, path, options));
       });
     }
     function sync(path, options) {
@@ -132,7 +121,7 @@ var require_mode = __commonJS({
     var fs = __require("fs");
     function isexe(path, options, cb) {
       fs.stat(path, function(er, stat) {
-        cb(er, er ? false : checkStat(stat, options));
+        cb(er, er ? !1 : checkStat(stat, options));
       });
     }
     function sync(path, options) {
@@ -142,16 +131,7 @@ var require_mode = __commonJS({
       return stat.isFile() && checkMode(stat, options);
     }
     function checkMode(stat, options) {
-      var mod = stat.mode;
-      var uid = stat.uid;
-      var gid = stat.gid;
-      var myUid = options.uid !== void 0 ? options.uid : process.getuid && process.getuid();
-      var myGid = options.gid !== void 0 ? options.gid : process.getgid && process.getgid();
-      var u = parseInt("100", 8);
-      var g = parseInt("010", 8);
-      var o = parseInt("001", 8);
-      var ug = u | g;
-      var ret = mod & o || mod & g && gid === myGid || mod & u && uid === myUid || mod & ug && myUid === 0;
+      var mod = stat.mode, uid = stat.uid, gid = stat.gid, myUid = options.uid !== void 0 ? options.uid : process.getuid && process.getuid(), myGid = options.gid !== void 0 ? options.gid : process.getgid && process.getgid(), u = parseInt("100", 8), g = parseInt("010", 8), o = parseInt("001", 8), ug = u | g, ret = mod & o || mod & g && gid === myGid || mod & u && uid === myUid || mod & ug && myUid === 0;
       return ret;
     }
   }
@@ -160,53 +140,31 @@ var require_mode = __commonJS({
 // node_modules/isexe/index.js
 var require_isexe = __commonJS({
   "node_modules/isexe/index.js"(exports, module) {
-    var fs = __require("fs");
-    var core;
-    if (process.platform === "win32" || global.TESTING_WINDOWS) {
-      core = require_windows();
-    } else {
-      core = require_mode();
-    }
+    var fs = __require("fs"), core;
+    process.platform === "win32" || global.TESTING_WINDOWS ? core = require_windows() : core = require_mode();
     module.exports = isexe;
     isexe.sync = sync;
     function isexe(path, options, cb) {
-      if (typeof options === "function") {
-        cb = options;
-        options = {};
-      }
-      if (!cb) {
-        if (typeof Promise !== "function") {
+      if (typeof options == "function" && (cb = options, options = {}), !cb) {
+        if (typeof Promise != "function")
           throw new TypeError("callback not provided");
-        }
         return new Promise(function(resolve2, reject) {
           isexe(path, options || {}, function(er, is) {
-            if (er) {
-              reject(er);
-            } else {
-              resolve2(is);
-            }
+            er ? reject(er) : resolve2(is);
           });
         });
       }
       core(path, options || {}, function(er, is) {
-        if (er) {
-          if (er.code === "EACCES" || options && options.ignoreErrors) {
-            er = null;
-            is = false;
-          }
-        }
-        cb(er, is);
+        er && (er.code === "EACCES" || options && options.ignoreErrors) && (er = null, is = !1), cb(er, is);
       });
     }
     function sync(path, options) {
       try {
         return core.sync(path, options || {});
       } catch (er) {
-        if (options && options.ignoreErrors || er.code === "EACCES") {
-          return false;
-        } else {
-          throw er;
-        }
+        if (options && options.ignoreErrors || er.code === "EACCES")
+          return !1;
+        throw er;
       }
     }
   }
@@ -215,85 +173,53 @@ var require_isexe = __commonJS({
 // node_modules/which/which.js
 var require_which = __commonJS({
   "node_modules/which/which.js"(exports, module) {
-    var isWindows = process.platform === "win32" || process.env.OSTYPE === "cygwin" || process.env.OSTYPE === "msys";
-    var path = __require("path");
-    var COLON = isWindows ? ";" : ":";
-    var isexe = require_isexe();
-    var getNotFoundError = (cmd) => Object.assign(new Error(`not found: ${cmd}`), { code: "ENOENT" });
-    var getPathInfo = (cmd, opt) => {
-      const colon = opt.colon || COLON;
-      const pathEnv = cmd.match(/\//) || isWindows && cmd.match(/\\/) ? [""] : [
+    var isWindows = process.platform === "win32" || process.env.OSTYPE === "cygwin" || process.env.OSTYPE === "msys", path = __require("path"), COLON = isWindows ? ";" : ":", isexe = require_isexe(), getNotFoundError = (cmd) => Object.assign(new Error(`not found: ${cmd}`), { code: "ENOENT" }), getPathInfo = (cmd, opt) => {
+      let colon = opt.colon || COLON, pathEnv = cmd.match(/\//) || isWindows && cmd.match(/\\/) ? [""] : [
         // windows always checks the cwd first
         ...isWindows ? [process.cwd()] : [],
         ...(opt.path || process.env.PATH || /* istanbul ignore next: very unusual */
         "").split(colon)
-      ];
-      const pathExtExe = isWindows ? opt.pathExt || process.env.PATHEXT || ".EXE;.CMD;.BAT;.COM" : "";
-      const pathExt = isWindows ? pathExtExe.split(colon) : [""];
-      if (isWindows) {
-        if (cmd.indexOf(".") !== -1 && pathExt[0] !== "")
-          pathExt.unshift("");
-      }
-      return {
+      ], pathExtExe = isWindows ? opt.pathExt || process.env.PATHEXT || ".EXE;.CMD;.BAT;.COM" : "", pathExt = isWindows ? pathExtExe.split(colon) : [""];
+      return isWindows && cmd.indexOf(".") !== -1 && pathExt[0] !== "" && pathExt.unshift(""), {
         pathEnv,
         pathExt,
         pathExtExe
       };
-    };
-    var which = (cmd, opt, cb) => {
-      if (typeof opt === "function") {
-        cb = opt;
-        opt = {};
-      }
-      if (!opt)
-        opt = {};
-      const { pathEnv, pathExt, pathExtExe } = getPathInfo(cmd, opt);
-      const found = [];
-      const step = (i) => new Promise((resolve2, reject) => {
+    }, which = (cmd, opt, cb) => {
+      typeof opt == "function" && (cb = opt, opt = {}), opt || (opt = {});
+      let { pathEnv, pathExt, pathExtExe } = getPathInfo(cmd, opt), found = [], step = (i) => new Promise((resolve2, reject) => {
         if (i === pathEnv.length)
           return opt.all && found.length ? resolve2(found) : reject(getNotFoundError(cmd));
-        const ppRaw = pathEnv[i];
-        const pathPart = /^".*"$/.test(ppRaw) ? ppRaw.slice(1, -1) : ppRaw;
-        const pCmd = path.join(pathPart, cmd);
-        const p = !pathPart && /^\.[\\\/]/.test(cmd) ? cmd.slice(0, 2) + pCmd : pCmd;
+        let ppRaw = pathEnv[i], pathPart = /^".*"$/.test(ppRaw) ? ppRaw.slice(1, -1) : ppRaw, pCmd = path.join(pathPart, cmd), p = !pathPart && /^\.[\\\/]/.test(cmd) ? cmd.slice(0, 2) + pCmd : pCmd;
         resolve2(subStep(p, i, 0));
-      });
-      const subStep = (p, i, ii) => new Promise((resolve2, reject) => {
+      }), subStep = (p, i, ii) => new Promise((resolve2, reject) => {
         if (ii === pathExt.length)
           return resolve2(step(i + 1));
-        const ext = pathExt[ii];
+        let ext = pathExt[ii];
         isexe(p + ext, { pathExt: pathExtExe }, (er, is) => {
-          if (!er && is) {
+          if (!er && is)
             if (opt.all)
               found.push(p + ext);
             else
               return resolve2(p + ext);
-          }
           return resolve2(subStep(p, i, ii + 1));
         });
       });
       return cb ? step(0).then((res) => cb(null, res), cb) : step(0);
-    };
-    var whichSync = (cmd, opt) => {
+    }, whichSync = (cmd, opt) => {
       opt = opt || {};
-      const { pathEnv, pathExt, pathExtExe } = getPathInfo(cmd, opt);
-      const found = [];
+      let { pathEnv, pathExt, pathExtExe } = getPathInfo(cmd, opt), found = [];
       for (let i = 0; i < pathEnv.length; i++) {
-        const ppRaw = pathEnv[i];
-        const pathPart = /^".*"$/.test(ppRaw) ? ppRaw.slice(1, -1) : ppRaw;
-        const pCmd = path.join(pathPart, cmd);
-        const p = !pathPart && /^\.[\\\/]/.test(cmd) ? cmd.slice(0, 2) + pCmd : pCmd;
+        let ppRaw = pathEnv[i], pathPart = /^".*"$/.test(ppRaw) ? ppRaw.slice(1, -1) : ppRaw, pCmd = path.join(pathPart, cmd), p = !pathPart && /^\.[\\\/]/.test(cmd) ? cmd.slice(0, 2) + pCmd : pCmd;
         for (let j = 0; j < pathExt.length; j++) {
-          const cur = p + pathExt[j];
+          let cur = p + pathExt[j];
           try {
-            const is = isexe.sync(cur, { pathExt: pathExtExe });
-            if (is) {
+            if (isexe.sync(cur, { pathExt: pathExtExe }))
               if (opt.all)
                 found.push(cur);
               else
                 return cur;
-            }
-          } catch (ex) {
+          } catch {
           }
         }
       }
@@ -313,12 +239,8 @@ var require_path_key = __commonJS({
   "node_modules/path-key/index.js"(exports, module) {
     "use strict";
     var pathKey = (options = {}) => {
-      const environment = options.env || process.env;
-      const platform = options.platform || process.platform;
-      if (platform !== "win32") {
-        return "PATH";
-      }
-      return Object.keys(environment).reverse().find((key) => key.toUpperCase() === "PATH") || "Path";
+      let environment = options.env || process.env;
+      return (options.platform || process.platform) !== "win32" ? "PATH" : Object.keys(environment).reverse().find((key) => key.toUpperCase() === "PATH") || "Path";
     };
     module.exports = pathKey;
     module.exports.default = pathKey;
@@ -329,39 +251,28 @@ var require_path_key = __commonJS({
 var require_resolveCommand = __commonJS({
   "node_modules/cross-spawn/lib/util/resolveCommand.js"(exports, module) {
     "use strict";
-    var path = __require("path");
-    var which = require_which();
-    var getPathKey = require_path_key();
+    var path = __require("path"), which = require_which(), getPathKey = require_path_key();
     function resolveCommandAttempt(parsed, withoutPathExt) {
-      const env = parsed.options.env || process.env;
-      const cwd = process.cwd();
-      const hasCustomCwd = parsed.options.cwd != null;
-      const shouldSwitchCwd = hasCustomCwd && process.chdir !== void 0 && !process.chdir.disabled;
-      if (shouldSwitchCwd) {
+      let env = parsed.options.env || process.env, cwd = process.cwd(), hasCustomCwd = parsed.options.cwd != null, shouldSwitchCwd = hasCustomCwd && process.chdir !== void 0 && !process.chdir.disabled;
+      if (shouldSwitchCwd)
         try {
           process.chdir(parsed.options.cwd);
-        } catch (err) {
+        } catch {
         }
-      }
       let resolved;
       try {
         resolved = which.sync(parsed.command, {
           path: env[getPathKey({ env })],
           pathExt: withoutPathExt ? path.delimiter : void 0
         });
-      } catch (e) {
+      } catch {
       } finally {
-        if (shouldSwitchCwd) {
-          process.chdir(cwd);
-        }
+        shouldSwitchCwd && process.chdir(cwd);
       }
-      if (resolved) {
-        resolved = path.resolve(hasCustomCwd ? parsed.options.cwd : "", resolved);
-      }
-      return resolved;
+      return resolved && (resolved = path.resolve(hasCustomCwd ? parsed.options.cwd : "", resolved)), resolved;
     }
     function resolveCommand(parsed) {
-      return resolveCommandAttempt(parsed) || resolveCommandAttempt(parsed, true);
+      return resolveCommandAttempt(parsed) || resolveCommandAttempt(parsed, !0);
     }
     module.exports = resolveCommand;
   }
@@ -373,19 +284,10 @@ var require_escape = __commonJS({
     "use strict";
     var metaCharsRegExp = /([()\][%!^"`<>&|;, *?])/g;
     function escapeCommand(arg) {
-      arg = arg.replace(metaCharsRegExp, "^$1");
-      return arg;
+      return arg = arg.replace(metaCharsRegExp, "^$1"), arg;
     }
     function escapeArgument(arg, doubleEscapeMetaChars) {
-      arg = `${arg}`;
-      arg = arg.replace(/(?=(\\+?)?)\1"/g, '$1$1\\"');
-      arg = arg.replace(/(?=(\\+?)?)\1$/, "$1$1");
-      arg = `"${arg}"`;
-      arg = arg.replace(metaCharsRegExp, "^$1");
-      if (doubleEscapeMetaChars) {
-        arg = arg.replace(metaCharsRegExp, "^$1");
-      }
-      return arg;
+      return arg = `${arg}`, arg = arg.replace(/(?=(\\+?)?)\1"/g, '$1$1\\"'), arg = arg.replace(/(?=(\\+?)?)\1$/, "$1$1"), arg = `"${arg}"`, arg = arg.replace(metaCharsRegExp, "^$1"), doubleEscapeMetaChars && (arg = arg.replace(metaCharsRegExp, "^$1")), arg;
     }
     module.exports.command = escapeCommand;
     module.exports.argument = escapeArgument;
@@ -406,16 +308,11 @@ var require_shebang_command = __commonJS({
     "use strict";
     var shebangRegex = require_shebang_regex();
     module.exports = (string = "") => {
-      const match = string.match(shebangRegex);
-      if (!match) {
+      let match = string.match(shebangRegex);
+      if (!match)
         return null;
-      }
-      const [path, argument2] = match[0].replace(/#! ?/, "").split(" ");
-      const binary = path.split("/").pop();
-      if (binary === "env") {
-        return argument2;
-      }
-      return argument2 ? `${binary} ${argument2}` : binary;
+      let [path, argument2] = match[0].replace(/#! ?/, "").split(" "), binary = path.split("/").pop();
+      return binary === "env" ? argument2 : argument2 ? `${binary} ${argument2}` : binary;
     };
   }
 });
@@ -424,17 +321,12 @@ var require_shebang_command = __commonJS({
 var require_readShebang = __commonJS({
   "node_modules/cross-spawn/lib/util/readShebang.js"(exports, module) {
     "use strict";
-    var fs = __require("fs");
-    var shebangCommand = require_shebang_command();
+    var fs = __require("fs"), shebangCommand = require_shebang_command();
     function readShebang(command) {
-      const size = 150;
-      const buffer = Buffer.alloc(size);
-      let fd;
+      let buffer = Buffer.alloc(150), fd;
       try {
-        fd = fs.openSync(command, "r");
-        fs.readSync(fd, buffer, 0, size, 0);
-        fs.closeSync(fd);
-      } catch (e) {
+        fd = fs.openSync(command, "r"), fs.readSync(fd, buffer, 0, 150, 0), fs.closeSync(fd);
+      } catch {
       }
       return shebangCommand(buffer.toString());
     }
@@ -446,49 +338,27 @@ var require_readShebang = __commonJS({
 var require_parse = __commonJS({
   "node_modules/cross-spawn/lib/parse.js"(exports, module) {
     "use strict";
-    var path = __require("path");
-    var resolveCommand = require_resolveCommand();
-    var escape = require_escape();
-    var readShebang = require_readShebang();
-    var isWin = process.platform === "win32";
-    var isExecutableRegExp = /\.(?:com|exe)$/i;
-    var isCmdShimRegExp = /node_modules[\\/].bin[\\/][^\\/]+\.cmd$/i;
+    var path = __require("path"), resolveCommand = require_resolveCommand(), escape = require_escape(), readShebang = require_readShebang(), isWin = process.platform === "win32", isExecutableRegExp = /\.(?:com|exe)$/i, isCmdShimRegExp = /node_modules[\\/].bin[\\/][^\\/]+\.cmd$/i;
     function detectShebang(parsed) {
       parsed.file = resolveCommand(parsed);
-      const shebang = parsed.file && readShebang(parsed.file);
-      if (shebang) {
-        parsed.args.unshift(parsed.file);
-        parsed.command = shebang;
-        return resolveCommand(parsed);
-      }
-      return parsed.file;
+      let shebang = parsed.file && readShebang(parsed.file);
+      return shebang ? (parsed.args.unshift(parsed.file), parsed.command = shebang, resolveCommand(parsed)) : parsed.file;
     }
     function parseNonShell(parsed) {
-      if (!isWin) {
+      if (!isWin)
         return parsed;
-      }
-      const commandFile = detectShebang(parsed);
-      const needsShell = !isExecutableRegExp.test(commandFile);
+      let commandFile = detectShebang(parsed), needsShell = !isExecutableRegExp.test(commandFile);
       if (parsed.options.forceShell || needsShell) {
-        const needsDoubleEscapeMetaChars = isCmdShimRegExp.test(commandFile);
-        parsed.command = path.normalize(parsed.command);
-        parsed.command = escape.command(parsed.command);
-        parsed.args = parsed.args.map((arg) => escape.argument(arg, needsDoubleEscapeMetaChars));
-        const shellCommand = [parsed.command].concat(parsed.args).join(" ");
-        parsed.args = ["/d", "/s", "/c", `"${shellCommand}"`];
-        parsed.command = process.env.comspec || "cmd.exe";
-        parsed.options.windowsVerbatimArguments = true;
+        let needsDoubleEscapeMetaChars = isCmdShimRegExp.test(commandFile);
+        parsed.command = path.normalize(parsed.command), parsed.command = escape.command(parsed.command), parsed.args = parsed.args.map((arg) => escape.argument(arg, needsDoubleEscapeMetaChars));
+        let shellCommand = [parsed.command].concat(parsed.args).join(" ");
+        parsed.args = ["/d", "/s", "/c", `"${shellCommand}"`], parsed.command = process.env.comspec || "cmd.exe", parsed.options.windowsVerbatimArguments = !0;
       }
       return parsed;
     }
     function parse(command, args, options) {
-      if (args && !Array.isArray(args)) {
-        options = args;
-        args = null;
-      }
-      args = args ? args.slice(0) : [];
-      options = Object.assign({}, options);
-      const parsed = {
+      args && !Array.isArray(args) && (options = args, args = null), args = args ? args.slice(0) : [], options = Object.assign({}, options);
+      let parsed = {
         command,
         args,
         options,
@@ -519,31 +389,23 @@ var require_enoent = __commonJS({
       });
     }
     function hookChildProcess(cp, parsed) {
-      if (!isWin) {
+      if (!isWin)
         return;
-      }
-      const originalEmit = cp.emit;
+      let originalEmit = cp.emit;
       cp.emit = function(name, arg1) {
         if (name === "exit") {
-          const err = verifyENOENT(arg1, parsed);
-          if (err) {
+          let err = verifyENOENT(arg1, parsed);
+          if (err)
             return originalEmit.call(cp, "error", err);
-          }
         }
         return originalEmit.apply(cp, arguments);
       };
     }
     function verifyENOENT(status, parsed) {
-      if (isWin && status === 1 && !parsed.file) {
-        return notFoundError(parsed.original, "spawn");
-      }
-      return null;
+      return isWin && status === 1 && !parsed.file ? notFoundError(parsed.original, "spawn") : null;
     }
     function verifyENOENTSync(status, parsed) {
-      if (isWin && status === 1 && !parsed.file) {
-        return notFoundError(parsed.original, "spawnSync");
-      }
-      return null;
+      return isWin && status === 1 && !parsed.file ? notFoundError(parsed.original, "spawnSync") : null;
     }
     module.exports = {
       hookChildProcess,
@@ -558,20 +420,14 @@ var require_enoent = __commonJS({
 var require_cross_spawn = __commonJS({
   "node_modules/cross-spawn/index.js"(exports, module) {
     "use strict";
-    var cp = __require("child_process");
-    var parse = require_parse();
-    var enoent = require_enoent();
+    var cp = __require("child_process"), parse = require_parse(), enoent = require_enoent();
     function spawn3(command, args, options) {
-      const parsed = parse(command, args, options);
-      const spawned = cp.spawn(parsed.command, parsed.args, parsed.options);
-      enoent.hookChildProcess(spawned, parsed);
-      return spawned;
+      let parsed = parse(command, args, options), spawned = cp.spawn(parsed.command, parsed.args, parsed.options);
+      return enoent.hookChildProcess(spawned, parsed), spawned;
     }
     function spawnSync2(command, args, options) {
-      const parsed = parse(command, args, options);
-      const result = cp.spawnSync(parsed.command, parsed.args, parsed.options);
-      result.error = result.error || enoent.verifyENOENTSync(result.status, parsed);
-      return result;
+      let parsed = parse(command, args, options), result = cp.spawnSync(parsed.command, parsed.args, parsed.options);
+      return result.error = result.error || enoent.verifyENOENTSync(result.status, parsed), result;
     }
     module.exports = spawn3;
     module.exports.spawn = spawn3;
@@ -631,18 +487,15 @@ var ExperimentalClientTasks = class {
    * @experimental
    */
   async *callToolStream(params, resultSchema = CallToolResultSchema, options) {
-    const clientInternal = this._client;
-    const optionsWithTask = {
+    let clientInternal = this._client, optionsWithTask = {
       ...options,
       // We check if the tool is known to be a task during auto-configuration, but assume
       // the caller knows what they're doing if they pass this explicitly
       task: options?.task ?? (clientInternal.isToolTask(params.name) ? {} : void 0)
-    };
-    const stream = clientInternal.requestStream({ method: "tools/call", params }, resultSchema, optionsWithTask);
-    const validator = clientInternal.getToolOutputValidator(params.name);
-    for await (const message of stream) {
+    }, stream = clientInternal.requestStream({ method: "tools/call", params }, resultSchema, optionsWithTask), validator = clientInternal.getToolOutputValidator(params.name);
+    for await (let message of stream) {
       if (message.type === "result" && validator) {
-        const result = message.result;
+        let result = message.result;
         if (!result.structuredContent && !result.isError) {
           yield {
             type: "error",
@@ -650,9 +503,9 @@ var ExperimentalClientTasks = class {
           };
           return;
         }
-        if (result.structuredContent) {
+        if (result.structuredContent)
           try {
-            const validationResult = validator(result.structuredContent);
+            let validationResult = validator(result.structuredContent);
             if (!validationResult.valid) {
               yield {
                 type: "error",
@@ -671,7 +524,6 @@ var ExperimentalClientTasks = class {
             };
             return;
           }
-        }
       }
       yield message;
     }
@@ -745,62 +597,34 @@ var ExperimentalClientTasks = class {
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/client/index.js
 function applyElicitationDefaults(schema, data) {
-  if (!schema || data === null || typeof data !== "object")
-    return;
-  if (schema.type === "object" && schema.properties && typeof schema.properties === "object") {
-    const obj = data;
-    const props = schema.properties;
-    for (const key of Object.keys(props)) {
-      const propSchema = props[key];
-      if (obj[key] === void 0 && Object.prototype.hasOwnProperty.call(propSchema, "default")) {
-        obj[key] = propSchema.default;
-      }
-      if (obj[key] !== void 0) {
-        applyElicitationDefaults(propSchema, obj[key]);
+  if (!(!schema || data === null || typeof data != "object")) {
+    if (schema.type === "object" && schema.properties && typeof schema.properties == "object") {
+      let obj = data, props = schema.properties;
+      for (let key of Object.keys(props)) {
+        let propSchema = props[key];
+        obj[key] === void 0 && Object.prototype.hasOwnProperty.call(propSchema, "default") && (obj[key] = propSchema.default), obj[key] !== void 0 && applyElicitationDefaults(propSchema, obj[key]);
       }
     }
-  }
-  if (Array.isArray(schema.anyOf)) {
-    for (const sub of schema.anyOf) {
-      if (typeof sub !== "boolean") {
-        applyElicitationDefaults(sub, data);
-      }
-    }
-  }
-  if (Array.isArray(schema.oneOf)) {
-    for (const sub of schema.oneOf) {
-      if (typeof sub !== "boolean") {
-        applyElicitationDefaults(sub, data);
-      }
-    }
+    if (Array.isArray(schema.anyOf))
+      for (let sub of schema.anyOf)
+        typeof sub != "boolean" && applyElicitationDefaults(sub, data);
+    if (Array.isArray(schema.oneOf))
+      for (let sub of schema.oneOf)
+        typeof sub != "boolean" && applyElicitationDefaults(sub, data);
   }
 }
 function getSupportedElicitationModes(capabilities) {
-  if (!capabilities) {
-    return { supportsFormMode: false, supportsUrlMode: false };
-  }
-  const hasFormCapability = capabilities.form !== void 0;
-  const hasUrlCapability = capabilities.url !== void 0;
-  const supportsFormMode = hasFormCapability || !hasFormCapability && !hasUrlCapability;
-  const supportsUrlMode = hasUrlCapability;
-  return { supportsFormMode, supportsUrlMode };
+  if (!capabilities)
+    return { supportsFormMode: !1, supportsUrlMode: !1 };
+  let hasFormCapability = capabilities.form !== void 0, hasUrlCapability = capabilities.url !== void 0;
+  return { supportsFormMode: hasFormCapability || !hasFormCapability && !hasUrlCapability, supportsUrlMode: hasUrlCapability };
 }
 var Client = class extends Protocol {
   /**
    * Initializes this client with the given name and version information.
    */
   constructor(_clientInfo, options) {
-    super(options);
-    this._clientInfo = _clientInfo;
-    this._cachedToolOutputValidators = /* @__PURE__ */ new Map();
-    this._cachedKnownTaskTools = /* @__PURE__ */ new Set();
-    this._cachedRequiredTaskTools = /* @__PURE__ */ new Set();
-    this._listChangedDebounceTimers = /* @__PURE__ */ new Map();
-    this._capabilities = options?.capabilities ?? {};
-    this._jsonSchemaValidator = options?.jsonSchemaValidator ?? new AjvJsonSchemaValidator();
-    if (options?.listChanged) {
-      this._pendingListChangedConfig = options.listChanged;
-    }
+    super(options), this._clientInfo = _clientInfo, this._cachedToolOutputValidators = /* @__PURE__ */ new Map(), this._cachedKnownTaskTools = /* @__PURE__ */ new Set(), this._cachedRequiredTaskTools = /* @__PURE__ */ new Set(), this._listChangedDebounceTimers = /* @__PURE__ */ new Map(), this._capabilities = options?.capabilities ?? {}, this._jsonSchemaValidator = options?.jsonSchemaValidator ?? new AjvJsonSchemaValidator(), options?.listChanged && (this._pendingListChangedConfig = options.listChanged);
   }
   /**
    * Set up handlers for list changed notifications based on config and server capabilities.
@@ -809,24 +633,7 @@ var Client = class extends Protocol {
    * @internal
    */
   _setupListChangedHandlers(config) {
-    if (config.tools && this._serverCapabilities?.tools?.listChanged) {
-      this._setupListChangedHandler("tools", ToolListChangedNotificationSchema, config.tools, async () => {
-        const result = await this.listTools();
-        return result.tools;
-      });
-    }
-    if (config.prompts && this._serverCapabilities?.prompts?.listChanged) {
-      this._setupListChangedHandler("prompts", PromptListChangedNotificationSchema, config.prompts, async () => {
-        const result = await this.listPrompts();
-        return result.prompts;
-      });
-    }
-    if (config.resources && this._serverCapabilities?.resources?.listChanged) {
-      this._setupListChangedHandler("resources", ResourceListChangedNotificationSchema, config.resources, async () => {
-        const result = await this.listResources();
-        return result.resources;
-      });
-    }
+    config.tools && this._serverCapabilities?.tools?.listChanged && this._setupListChangedHandler("tools", ToolListChangedNotificationSchema, config.tools, async () => (await this.listTools()).tools), config.prompts && this._serverCapabilities?.prompts?.listChanged && this._setupListChangedHandler("prompts", PromptListChangedNotificationSchema, config.prompts, async () => (await this.listPrompts()).prompts), config.resources && this._serverCapabilities?.resources?.listChanged && this._setupListChangedHandler("resources", ResourceListChangedNotificationSchema, config.resources, async () => (await this.listResources()).resources);
   }
   /**
    * Access experimental features.
@@ -836,12 +643,9 @@ var Client = class extends Protocol {
    * @experimental
    */
   get experimental() {
-    if (!this._experimental) {
-      this._experimental = {
-        tasks: new ExperimentalClientTasks(this)
-      };
-    }
-    return this._experimental;
+    return this._experimental || (this._experimental = {
+      tasks: new ExperimentalClientTasks(this)
+    }), this._experimental;
   }
   /**
    * Registers new capabilities. This can only be called before connecting to a transport.
@@ -849,91 +653,78 @@ var Client = class extends Protocol {
    * The new capabilities will be merged with any existing capabilities previously given (e.g., at initialization).
    */
   registerCapabilities(capabilities) {
-    if (this.transport) {
+    if (this.transport)
       throw new Error("Cannot register capabilities after connecting to transport");
-    }
     this._capabilities = mergeCapabilities(this._capabilities, capabilities);
   }
   /**
    * Override request handler registration to enforce client-side validation for elicitation.
    */
   setRequestHandler(requestSchema, handler) {
-    const shape = getObjectShape(requestSchema);
-    const methodSchema = shape?.method;
-    if (!methodSchema) {
+    let methodSchema = getObjectShape(requestSchema)?.method;
+    if (!methodSchema)
       throw new Error("Schema is missing a method literal");
-    }
-    const methodValue = getLiteralValue(methodSchema);
-    if (typeof methodValue !== "string") {
+    let methodValue = getLiteralValue(methodSchema);
+    if (typeof methodValue != "string")
       throw new Error("Schema method literal must be a string");
-    }
-    const method = methodValue;
+    let method = methodValue;
     if (method === "elicitation/create") {
-      const wrappedHandler = async (request, extra) => {
-        const validatedRequest = safeParse(ElicitRequestSchema, request);
+      let wrappedHandler = async (request, extra) => {
+        let validatedRequest = safeParse(ElicitRequestSchema, request);
         if (!validatedRequest.success) {
-          const errorMessage = validatedRequest.error instanceof Error ? validatedRequest.error.message : String(validatedRequest.error);
+          let errorMessage = validatedRequest.error instanceof Error ? validatedRequest.error.message : String(validatedRequest.error);
           throw new McpError(ErrorCode.InvalidParams, `Invalid elicitation request: ${errorMessage}`);
         }
-        const { params } = validatedRequest.data;
+        let { params } = validatedRequest.data;
         params.mode = params.mode ?? "form";
-        const { supportsFormMode, supportsUrlMode } = getSupportedElicitationModes(this._capabilities.elicitation);
-        if (params.mode === "form" && !supportsFormMode) {
+        let { supportsFormMode, supportsUrlMode } = getSupportedElicitationModes(this._capabilities.elicitation);
+        if (params.mode === "form" && !supportsFormMode)
           throw new McpError(ErrorCode.InvalidParams, "Client does not support form-mode elicitation requests");
-        }
-        if (params.mode === "url" && !supportsUrlMode) {
+        if (params.mode === "url" && !supportsUrlMode)
           throw new McpError(ErrorCode.InvalidParams, "Client does not support URL-mode elicitation requests");
-        }
-        const result = await Promise.resolve(handler(request, extra));
+        let result = await Promise.resolve(handler(request, extra));
         if (params.task) {
-          const taskValidationResult = safeParse(CreateTaskResultSchema, result);
+          let taskValidationResult = safeParse(CreateTaskResultSchema, result);
           if (!taskValidationResult.success) {
-            const errorMessage = taskValidationResult.error instanceof Error ? taskValidationResult.error.message : String(taskValidationResult.error);
+            let errorMessage = taskValidationResult.error instanceof Error ? taskValidationResult.error.message : String(taskValidationResult.error);
             throw new McpError(ErrorCode.InvalidParams, `Invalid task creation result: ${errorMessage}`);
           }
           return taskValidationResult.data;
         }
-        const validationResult = safeParse(ElicitResultSchema, result);
+        let validationResult = safeParse(ElicitResultSchema, result);
         if (!validationResult.success) {
-          const errorMessage = validationResult.error instanceof Error ? validationResult.error.message : String(validationResult.error);
+          let errorMessage = validationResult.error instanceof Error ? validationResult.error.message : String(validationResult.error);
           throw new McpError(ErrorCode.InvalidParams, `Invalid elicitation result: ${errorMessage}`);
         }
-        const validatedResult = validationResult.data;
-        const requestedSchema = params.mode === "form" ? params.requestedSchema : void 0;
-        if (params.mode === "form" && validatedResult.action === "accept" && validatedResult.content && requestedSchema) {
-          if (this._capabilities.elicitation?.form?.applyDefaults) {
-            try {
-              applyElicitationDefaults(requestedSchema, validatedResult.content);
-            } catch {
-            }
+        let validatedResult = validationResult.data, requestedSchema = params.mode === "form" ? params.requestedSchema : void 0;
+        if (params.mode === "form" && validatedResult.action === "accept" && validatedResult.content && requestedSchema && this._capabilities.elicitation?.form?.applyDefaults)
+          try {
+            applyElicitationDefaults(requestedSchema, validatedResult.content);
+          } catch {
           }
-        }
         return validatedResult;
       };
       return super.setRequestHandler(requestSchema, wrappedHandler);
     }
     if (method === "sampling/createMessage") {
-      const wrappedHandler = async (request, extra) => {
-        const validatedRequest = safeParse(CreateMessageRequestSchema, request);
+      let wrappedHandler = async (request, extra) => {
+        let validatedRequest = safeParse(CreateMessageRequestSchema, request);
         if (!validatedRequest.success) {
-          const errorMessage = validatedRequest.error instanceof Error ? validatedRequest.error.message : String(validatedRequest.error);
+          let errorMessage = validatedRequest.error instanceof Error ? validatedRequest.error.message : String(validatedRequest.error);
           throw new McpError(ErrorCode.InvalidParams, `Invalid sampling request: ${errorMessage}`);
         }
-        const { params } = validatedRequest.data;
-        const result = await Promise.resolve(handler(request, extra));
+        let { params } = validatedRequest.data, result = await Promise.resolve(handler(request, extra));
         if (params.task) {
-          const taskValidationResult = safeParse(CreateTaskResultSchema, result);
+          let taskValidationResult = safeParse(CreateTaskResultSchema, result);
           if (!taskValidationResult.success) {
-            const errorMessage = taskValidationResult.error instanceof Error ? taskValidationResult.error.message : String(taskValidationResult.error);
+            let errorMessage = taskValidationResult.error instanceof Error ? taskValidationResult.error.message : String(taskValidationResult.error);
             throw new McpError(ErrorCode.InvalidParams, `Invalid task creation result: ${errorMessage}`);
           }
           return taskValidationResult.data;
         }
-        const hasTools = params.tools || params.toolChoice;
-        const resultSchema = hasTools ? CreateMessageResultWithToolsSchema : CreateMessageResultSchema;
-        const validationResult = safeParse(resultSchema, result);
+        let resultSchema = params.tools || params.toolChoice ? CreateMessageResultWithToolsSchema : CreateMessageResultSchema, validationResult = safeParse(resultSchema, result);
         if (!validationResult.success) {
-          const errorMessage = validationResult.error instanceof Error ? validationResult.error.message : String(validationResult.error);
+          let errorMessage = validationResult.error instanceof Error ? validationResult.error.message : String(validationResult.error);
           throw new McpError(ErrorCode.InvalidParams, `Invalid sampling result: ${errorMessage}`);
         }
         return validationResult.data;
@@ -943,47 +734,30 @@ var Client = class extends Protocol {
     return super.setRequestHandler(requestSchema, handler);
   }
   assertCapability(capability, method) {
-    if (!this._serverCapabilities?.[capability]) {
+    if (!this._serverCapabilities?.[capability])
       throw new Error(`Server does not support ${capability} (required for ${method})`);
-    }
   }
   async connect(transport, options) {
-    await super.connect(transport);
-    if (transport.sessionId !== void 0) {
-      return;
-    }
-    try {
-      const result = await this.request({
-        method: "initialize",
-        params: {
-          protocolVersion: LATEST_PROTOCOL_VERSION,
-          capabilities: this._capabilities,
-          clientInfo: this._clientInfo
-        }
-      }, InitializeResultSchema, options);
-      if (result === void 0) {
-        throw new Error(`Server sent invalid initialize result: ${result}`);
+    if (await super.connect(transport), transport.sessionId === void 0)
+      try {
+        let result = await this.request({
+          method: "initialize",
+          params: {
+            protocolVersion: LATEST_PROTOCOL_VERSION,
+            capabilities: this._capabilities,
+            clientInfo: this._clientInfo
+          }
+        }, InitializeResultSchema, options);
+        if (result === void 0)
+          throw new Error(`Server sent invalid initialize result: ${result}`);
+        if (!SUPPORTED_PROTOCOL_VERSIONS.includes(result.protocolVersion))
+          throw new Error(`Server's protocol version is not supported: ${result.protocolVersion}`);
+        this._serverCapabilities = result.capabilities, this._serverVersion = result.serverInfo, transport.setProtocolVersion && transport.setProtocolVersion(result.protocolVersion), this._instructions = result.instructions, await this.notification({
+          method: "notifications/initialized"
+        }), this._pendingListChangedConfig && (this._setupListChangedHandlers(this._pendingListChangedConfig), this._pendingListChangedConfig = void 0);
+      } catch (error) {
+        throw this.close(), error;
       }
-      if (!SUPPORTED_PROTOCOL_VERSIONS.includes(result.protocolVersion)) {
-        throw new Error(`Server's protocol version is not supported: ${result.protocolVersion}`);
-      }
-      this._serverCapabilities = result.capabilities;
-      this._serverVersion = result.serverInfo;
-      if (transport.setProtocolVersion) {
-        transport.setProtocolVersion(result.protocolVersion);
-      }
-      this._instructions = result.instructions;
-      await this.notification({
-        method: "notifications/initialized"
-      });
-      if (this._pendingListChangedConfig) {
-        this._setupListChangedHandlers(this._pendingListChangedConfig);
-        this._pendingListChangedConfig = void 0;
-      }
-    } catch (error) {
-      void this.close();
-      throw error;
-    }
   }
   /**
    * After initialization has completed, this will be populated with the server's reported capabilities.
@@ -1006,38 +780,32 @@ var Client = class extends Protocol {
   assertCapabilityForMethod(method) {
     switch (method) {
       case "logging/setLevel":
-        if (!this._serverCapabilities?.logging) {
+        if (!this._serverCapabilities?.logging)
           throw new Error(`Server does not support logging (required for ${method})`);
-        }
         break;
       case "prompts/get":
       case "prompts/list":
-        if (!this._serverCapabilities?.prompts) {
+        if (!this._serverCapabilities?.prompts)
           throw new Error(`Server does not support prompts (required for ${method})`);
-        }
         break;
       case "resources/list":
       case "resources/templates/list":
       case "resources/read":
       case "resources/subscribe":
       case "resources/unsubscribe":
-        if (!this._serverCapabilities?.resources) {
+        if (!this._serverCapabilities?.resources)
           throw new Error(`Server does not support resources (required for ${method})`);
-        }
-        if (method === "resources/subscribe" && !this._serverCapabilities.resources.subscribe) {
+        if (method === "resources/subscribe" && !this._serverCapabilities.resources.subscribe)
           throw new Error(`Server does not support resource subscriptions (required for ${method})`);
-        }
         break;
       case "tools/call":
       case "tools/list":
-        if (!this._serverCapabilities?.tools) {
+        if (!this._serverCapabilities?.tools)
           throw new Error(`Server does not support tools (required for ${method})`);
-        }
         break;
       case "completion/complete":
-        if (!this._serverCapabilities?.completions) {
+        if (!this._serverCapabilities?.completions)
           throw new Error(`Server does not support completions (required for ${method})`);
-        }
         break;
       case "initialize":
         break;
@@ -1048,9 +816,8 @@ var Client = class extends Protocol {
   assertNotificationCapability(method) {
     switch (method) {
       case "notifications/roots/list_changed":
-        if (!this._capabilities.roots?.listChanged) {
+        if (!this._capabilities.roots?.listChanged)
           throw new Error(`Client does not support roots list changed notifications (required for ${method})`);
-        }
         break;
       case "notifications/initialized":
         break;
@@ -1061,45 +828,36 @@ var Client = class extends Protocol {
     }
   }
   assertRequestHandlerCapability(method) {
-    if (!this._capabilities) {
-      return;
-    }
-    switch (method) {
-      case "sampling/createMessage":
-        if (!this._capabilities.sampling) {
-          throw new Error(`Client does not support sampling capability (required for ${method})`);
-        }
-        break;
-      case "elicitation/create":
-        if (!this._capabilities.elicitation) {
-          throw new Error(`Client does not support elicitation capability (required for ${method})`);
-        }
-        break;
-      case "roots/list":
-        if (!this._capabilities.roots) {
-          throw new Error(`Client does not support roots capability (required for ${method})`);
-        }
-        break;
-      case "tasks/get":
-      case "tasks/list":
-      case "tasks/result":
-      case "tasks/cancel":
-        if (!this._capabilities.tasks) {
-          throw new Error(`Client does not support tasks capability (required for ${method})`);
-        }
-        break;
-      case "ping":
-        break;
-    }
+    if (this._capabilities)
+      switch (method) {
+        case "sampling/createMessage":
+          if (!this._capabilities.sampling)
+            throw new Error(`Client does not support sampling capability (required for ${method})`);
+          break;
+        case "elicitation/create":
+          if (!this._capabilities.elicitation)
+            throw new Error(`Client does not support elicitation capability (required for ${method})`);
+          break;
+        case "roots/list":
+          if (!this._capabilities.roots)
+            throw new Error(`Client does not support roots capability (required for ${method})`);
+          break;
+        case "tasks/get":
+        case "tasks/list":
+        case "tasks/result":
+        case "tasks/cancel":
+          if (!this._capabilities.tasks)
+            throw new Error(`Client does not support tasks capability (required for ${method})`);
+          break;
+        case "ping":
+          break;
+      }
   }
   assertTaskCapability(method) {
     assertToolsCallTaskCapability(this._serverCapabilities?.tasks?.requests, method, "Server");
   }
   assertTaskHandlerCapability(method) {
-    if (!this._capabilities) {
-      return;
-    }
-    assertClientRequestTaskCapability(this._capabilities.tasks?.requests, method, "Client");
+    this._capabilities && assertClientRequestTaskCapability(this._capabilities.tasks?.requests, method, "Client");
   }
   async ping(options) {
     return this.request({ method: "ping" }, EmptyResultSchema, options);
@@ -1137,36 +895,25 @@ var Client = class extends Protocol {
    * For task-based execution with streaming behavior, use client.experimental.tasks.callToolStream() instead.
    */
   async callTool(params, resultSchema = CallToolResultSchema, options) {
-    if (this.isToolTaskRequired(params.name)) {
+    if (this.isToolTaskRequired(params.name))
       throw new McpError(ErrorCode.InvalidRequest, `Tool "${params.name}" requires task-based execution. Use client.experimental.tasks.callToolStream() instead.`);
-    }
-    const result = await this.request({ method: "tools/call", params }, resultSchema, options);
-    const validator = this.getToolOutputValidator(params.name);
+    let result = await this.request({ method: "tools/call", params }, resultSchema, options), validator = this.getToolOutputValidator(params.name);
     if (validator) {
-      if (!result.structuredContent && !result.isError) {
+      if (!result.structuredContent && !result.isError)
         throw new McpError(ErrorCode.InvalidRequest, `Tool ${params.name} has an output schema but did not return structured content`);
-      }
-      if (result.structuredContent) {
+      if (result.structuredContent)
         try {
-          const validationResult = validator(result.structuredContent);
-          if (!validationResult.valid) {
+          let validationResult = validator(result.structuredContent);
+          if (!validationResult.valid)
             throw new McpError(ErrorCode.InvalidParams, `Structured content does not match the tool's output schema: ${validationResult.errorMessage}`);
-          }
         } catch (error) {
-          if (error instanceof McpError) {
-            throw error;
-          }
-          throw new McpError(ErrorCode.InvalidParams, `Failed to validate structured content: ${error instanceof Error ? error.message : String(error)}`);
+          throw error instanceof McpError ? error : new McpError(ErrorCode.InvalidParams, `Failed to validate structured content: ${error instanceof Error ? error.message : String(error)}`);
         }
-      }
     }
     return result;
   }
   isToolTask(toolName) {
-    if (!this._serverCapabilities?.tasks?.requests?.tools?.call) {
-      return false;
-    }
-    return this._cachedKnownTaskTools.has(toolName);
+    return this._serverCapabilities?.tasks?.requests?.tools?.call ? this._cachedKnownTaskTools.has(toolName) : !1;
   }
   /**
    * Check if a tool requires task-based execution.
@@ -1180,21 +927,14 @@ var Client = class extends Protocol {
    * Called after listTools() to pre-compile validators for better performance.
    */
   cacheToolMetadata(tools) {
-    this._cachedToolOutputValidators.clear();
-    this._cachedKnownTaskTools.clear();
-    this._cachedRequiredTaskTools.clear();
-    for (const tool of tools) {
+    this._cachedToolOutputValidators.clear(), this._cachedKnownTaskTools.clear(), this._cachedRequiredTaskTools.clear();
+    for (let tool of tools) {
       if (tool.outputSchema) {
-        const toolValidator = this._jsonSchemaValidator.getValidator(tool.outputSchema);
+        let toolValidator = this._jsonSchemaValidator.getValidator(tool.outputSchema);
         this._cachedToolOutputValidators.set(tool.name, toolValidator);
       }
-      const taskSupport = tool.execution?.taskSupport;
-      if (taskSupport === "required" || taskSupport === "optional") {
-        this._cachedKnownTaskTools.add(tool.name);
-      }
-      if (taskSupport === "required") {
-        this._cachedRequiredTaskTools.add(tool.name);
-      }
+      let taskSupport = tool.execution?.taskSupport;
+      (taskSupport === "required" || taskSupport === "optional") && this._cachedKnownTaskTools.add(tool.name), taskSupport === "required" && this._cachedRequiredTaskTools.add(tool.name);
     }
   }
   /**
@@ -1204,48 +944,39 @@ var Client = class extends Protocol {
     return this._cachedToolOutputValidators.get(toolName);
   }
   async listTools(params, options) {
-    const result = await this.request({ method: "tools/list", params }, ListToolsResultSchema, options);
-    this.cacheToolMetadata(result.tools);
-    return result;
+    let result = await this.request({ method: "tools/list", params }, ListToolsResultSchema, options);
+    return this.cacheToolMetadata(result.tools), result;
   }
   /**
    * Set up a single list changed handler.
    * @internal
    */
   _setupListChangedHandler(listType, notificationSchema, options, fetcher) {
-    const parseResult = ListChangedOptionsBaseSchema.safeParse(options);
-    if (!parseResult.success) {
+    let parseResult = ListChangedOptionsBaseSchema.safeParse(options);
+    if (!parseResult.success)
       throw new Error(`Invalid ${listType} listChanged options: ${parseResult.error.message}`);
-    }
-    if (typeof options.onChanged !== "function") {
+    if (typeof options.onChanged != "function")
       throw new Error(`Invalid ${listType} listChanged options: onChanged must be a function`);
-    }
-    const { autoRefresh, debounceMs } = parseResult.data;
-    const { onChanged } = options;
-    const refresh = async () => {
+    let { autoRefresh, debounceMs } = parseResult.data, { onChanged } = options, refresh = async () => {
       if (!autoRefresh) {
         onChanged(null, null);
         return;
       }
       try {
-        const items = await fetcher();
+        let items = await fetcher();
         onChanged(null, items);
       } catch (e) {
-        const error = e instanceof Error ? e : new Error(String(e));
+        let error = e instanceof Error ? e : new Error(String(e));
         onChanged(error, null);
       }
-    };
-    const handler = () => {
+    }, handler = () => {
       if (debounceMs) {
-        const existingTimer = this._listChangedDebounceTimers.get(listType);
-        if (existingTimer) {
-          clearTimeout(existingTimer);
-        }
-        const timer = setTimeout(refresh, debounceMs);
+        let existingTimer = this._listChangedDebounceTimers.get(listType);
+        existingTimer && clearTimeout(existingTimer);
+        let timer = setTimeout(refresh, debounceMs);
         this._listChangedDebounceTimers.set(listType, timer);
-      } else {
+      } else
         refresh();
-      }
     };
     this.setNotificationHandler(notificationSchema, handler);
   }
@@ -1276,35 +1007,23 @@ var DEFAULT_INHERITED_ENV_VARS = process2.platform === "win32" ? [
   ["HOME", "LOGNAME", "PATH", "SHELL", "TERM", "USER"]
 );
 function getDefaultEnvironment() {
-  const env = {};
-  for (const key of DEFAULT_INHERITED_ENV_VARS) {
-    const value = process2.env[key];
-    if (value === void 0) {
-      continue;
-    }
-    if (value.startsWith("()")) {
-      continue;
-    }
-    env[key] = value;
+  let env = {};
+  for (let key of DEFAULT_INHERITED_ENV_VARS) {
+    let value = process2.env[key];
+    value !== void 0 && (value.startsWith("()") || (env[key] = value));
   }
   return env;
 }
 var StdioClientTransport = class {
   constructor(server) {
-    this._stderrStream = null;
-    this._serverParams = server;
-    this._readBuffer = new ReadBuffer({ maxBufferSize: server.maxBufferSize });
-    if (server.stderr === "pipe" || server.stderr === "overlapped") {
-      this._stderrStream = new PassThrough();
-    }
+    this._stderrStream = null, this._serverParams = server, this._readBuffer = new ReadBuffer({ maxBufferSize: server.maxBufferSize }), (server.stderr === "pipe" || server.stderr === "overlapped") && (this._stderrStream = new PassThrough());
   }
   /**
    * Starts the server process and prepares to communicate with it.
    */
   async start() {
-    if (this._process) {
+    if (this._process)
       throw new Error("StdioClientTransport already started! If using Client class, note that connect() calls start() automatically.");
-    }
     return new Promise((resolve2, reject) => {
       this._process = (0, import_cross_spawn.default)(this._serverParams.command, this._serverParams.args ?? [], {
         // merge default env with server env because mcp server needs some env vars
@@ -1313,40 +1032,27 @@ var StdioClientTransport = class {
           ...this._serverParams.env
         },
         stdio: ["pipe", "pipe", this._serverParams.stderr ?? "inherit"],
-        shell: false,
+        shell: !1,
         windowsHide: process2.platform === "win32",
         cwd: this._serverParams.cwd
-      });
-      this._process.on("error", (error) => {
-        reject(error);
-        this.onerror?.(error);
-      });
-      this._process.on("spawn", () => {
+      }), this._process.on("error", (error) => {
+        reject(error), this.onerror?.(error);
+      }), this._process.on("spawn", () => {
         resolve2();
-      });
-      this._process.on("close", (_code) => {
-        this._process = void 0;
-        this.onclose?.();
-      });
-      this._process.stdin?.on("error", (error) => {
+      }), this._process.on("close", (_code) => {
+        this._process = void 0, this.onclose?.();
+      }), this._process.stdin?.on("error", (error) => {
         this.onerror?.(error);
-      });
-      this._process.stdout?.on("data", (chunk) => {
+      }), this._process.stdout?.on("data", (chunk) => {
         try {
-          this._readBuffer.append(chunk);
-          this.processReadBuffer();
+          this._readBuffer.append(chunk), this.processReadBuffer();
         } catch (error) {
-          this.onerror?.(error);
-          this.close().catch(() => {
+          this.onerror?.(error), this.close().catch(() => {
           });
         }
-      });
-      this._process.stdout?.on("error", (error) => {
+      }), this._process.stdout?.on("error", (error) => {
         this.onerror?.(error);
-      });
-      if (this._stderrStream && this._process.stderr) {
-        this._process.stderr.pipe(this._stderrStream);
-      }
+      }), this._stderrStream && this._process.stderr && this._process.stderr.pipe(this._stderrStream);
     });
   }
   /**
@@ -1357,10 +1063,7 @@ var StdioClientTransport = class {
    * error output emitted by the child process.
    */
   get stderr() {
-    if (this._stderrStream) {
-      return this._stderrStream;
-    }
-    return this._process?.stderr ?? null;
+    return this._stderrStream ? this._stderrStream : this._process?.stderr ?? null;
   }
   /**
    * The child process pid spawned by this transport.
@@ -1371,23 +1074,21 @@ var StdioClientTransport = class {
     return this._process?.pid ?? null;
   }
   processReadBuffer() {
-    while (true) {
+    for (; ; )
       try {
-        const message = this._readBuffer.readMessage();
-        if (message === null) {
+        let message = this._readBuffer.readMessage();
+        if (message === null)
           break;
-        }
         this.onmessage?.(message);
       } catch (error) {
         this.onerror?.(error);
       }
-    }
   }
   async close() {
     if (this._process) {
-      const processToClose = this._process;
+      let processToClose = this._process;
       this._process = void 0;
-      const closePromise = new Promise((resolve2) => {
+      let closePromise = new Promise((resolve2) => {
         processToClose.once("close", () => {
           resolve2();
         });
@@ -1396,104 +1097,78 @@ var StdioClientTransport = class {
         processToClose.stdin?.end();
       } catch {
       }
-      await Promise.race([closePromise, new Promise((resolve2) => setTimeout(resolve2, 2e3).unref())]);
-      if (processToClose.exitCode === null) {
+      if (await Promise.race([closePromise, new Promise((resolve2) => setTimeout(resolve2, 2e3).unref())]), processToClose.exitCode === null) {
         try {
           processToClose.kill("SIGTERM");
         } catch {
         }
         await Promise.race([closePromise, new Promise((resolve2) => setTimeout(resolve2, 2e3).unref())]);
       }
-      if (processToClose.exitCode === null) {
+      if (processToClose.exitCode === null)
         try {
           processToClose.kill("SIGKILL");
         } catch {
         }
-      }
     }
     this._readBuffer.clear();
   }
   send(message) {
     return new Promise((resolve2) => {
-      if (!this._process?.stdin) {
+      if (!this._process?.stdin)
         throw new Error("Not connected");
-      }
-      const json = serializeMessage(message);
-      if (this._process.stdin.write(json)) {
-        resolve2();
-      } else {
-        this._process.stdin.once("drain", resolve2);
-      }
+      let json = serializeMessage(message);
+      this._process.stdin.write(json) ? resolve2() : this._process.stdin.once("drain", resolve2);
     });
   }
 };
 
 // scripts/capability-spike.mjs
-var root = dirname(dirname(fileURLToPath(import.meta.url)));
-var temporary = mkdtempSync(join(tmpdir(), "workflow-capability-spike-"));
-var paidCostLedger = null;
-var paidExecutionAllowed = false;
-var paidExecutionBlocker = "requires explicit --approve-sdk-cost";
+var root = dirname(dirname(fileURLToPath(import.meta.url))), temporary = mkdtempSync(join(tmpdir(), "workflow-capability-spike-")), paidCostLedger = null, paidExecutionAllowed = !1, paidExecutionBlocker = "requires explicit --approve-sdk-cost";
 function argument(name) {
-  const index = process.argv.indexOf(`--${name}`);
+  let index = process.argv.indexOf(`--${name}`);
   return index >= 0 ? process.argv[index + 1] : null;
 }
 function git(cwd, args) {
-  const result = spawnSync("git", ["-C", cwd, ...args], { encoding: "utf8" });
+  let result = spawnSync("git", ["-C", cwd, ...args], { encoding: "utf8" });
   if (result.status !== 0) throw new Error(result.stderr.trim() || result.stdout.trim());
 }
 function hash(value) {
-  return createHash("sha256").update(typeof value === "string" ? value : JSON.stringify(value)).digest("hex");
+  return createHash("sha256").update(typeof value == "string" ? value : JSON.stringify(value)).digest("hex");
 }
 function skipped(reason) {
-  return { verified: false, skipped: true, reason };
+  return { verified: !1, skipped: !0, reason };
 }
 function observation(value, repetitions = 1) {
-  return { verified: value?.verified === true, repetitions: value?.verified === true ? repetitions : 0, evidence_hash: hash(value) };
+  return { verified: value?.verified === !0, repetitions: value?.verified === !0 ? repetitions : 0, evidence_hash: hash(value) };
 }
 function recordPaidCost(label, cost) {
-  if (!paidCostLedger) return;
-  if (!Number.isFinite(cost)) throw new Error(`paid capability phase ${label} returned no attestable usage/pricing; refusing the next paid call`);
-  paidCostLedger.spent_usd += cost;
-  paidCostLedger.entries.push({ label, cost_usd: cost });
-  if (paidCostLedger.spent_usd > paidCostLedger.max_cost_usd) throw new Error(`paid capability cost cap exceeded after ${label}: ${paidCostLedger.spent_usd} > ${paidCostLedger.max_cost_usd}`);
+  if (paidCostLedger) {
+    if (!Number.isFinite(cost)) throw new Error(`paid capability phase ${label} returned no attestable usage/pricing; refusing the next paid call`);
+    if (paidCostLedger.spent_usd += cost, paidCostLedger.entries.push({ label, cost_usd: cost }), paidCostLedger.spent_usd > paidCostLedger.max_cost_usd) throw new Error(`paid capability cost cap exceeded after ${label}: ${paidCostLedger.spent_usd} > ${paidCostLedger.max_cost_usd}`);
+  }
 }
 function assertPaidBudgetRemaining(label) {
   if (paidCostLedger && paidCostLedger.spent_usd >= paidCostLedger.max_cost_usd) throw new Error(`no paid capability budget remains before ${label}`);
 }
 function archiveExternalEvidence(stateRoot, name, value) {
-  const directory = join(stateRoot, "certification", (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-"));
-  mkdirSync(directory, { recursive: true, mode: 448 });
-  const path = join(directory, name);
-  const temporary2 = `${path}.${process.pid}.${randomUUID()}.tmp`;
-  writeFileSync(temporary2, `${JSON.stringify(value, null, 2)}
-`, { mode: 384 });
-  renameSync(temporary2, path);
-  return path;
+  let directory = join(stateRoot, "certification", (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-"));
+  mkdirSync(directory, { recursive: !0, mode: 448 });
+  let path = join(directory, name), temporary2 = `${path}.${process.pid}.${randomUUID()}.tmp`;
+  return writeFileSync(temporary2, `${JSON.stringify(value, null, 2)}
+`, { mode: 384 }), renameSync(temporary2, path), path;
 }
 async function startNetworkCanary() {
-  const source = "const http=require('node:http');let hits=0;const server=http.createServer((q,s)=>{if(q.url==='/status'){s.writeHead(200,{'content-type':'application/json'});s.end(JSON.stringify({hits}));return}hits+=1;s.writeHead(204);s.end()});server.listen(0,'127.0.0.1',()=>process.stdout.write(String(server.address().port)+'\\n'));process.on('SIGTERM',()=>server.close(()=>process.exit(0)));";
-  const child = spawn2(process.execPath, ["-e", source], { stdio: ["ignore", "pipe", "pipe"] });
-  const port = await new Promise((resolvePort, reject) => {
-    let output = "";
-    const timer = setTimeout(() => reject(new Error("network canary startup timed out")), 5e3);
+  let child = spawn2(process.execPath, ["-e", "const http=require('node:http');let hits=0;const server=http.createServer((q,s)=>{if(q.url==='/status'){s.writeHead(200,{'content-type':'application/json'});s.end(JSON.stringify({hits}));return}hits+=1;s.writeHead(204);s.end()});server.listen(0,'127.0.0.1',()=>process.stdout.write(String(server.address().port)+'\\n'));process.on('SIGTERM',()=>server.close(()=>process.exit(0)));"], { stdio: ["ignore", "pipe", "pipe"] }), port = await new Promise((resolvePort, reject) => {
+    let output = "", timer = setTimeout(() => reject(new Error("network canary startup timed out")), 5e3);
     child.stdout.on("data", (chunk) => {
       output += chunk;
-      const line = output.split("\n")[0];
-      if (/^\d+$/.test(line)) {
-        clearTimeout(timer);
-        resolvePort(Number(line));
-      }
-    });
-    child.once("error", (error) => {
-      clearTimeout(timer);
-      reject(error);
-    });
-    child.once("exit", (code) => {
-      if (!/^\d+\n/.test(output)) {
-        clearTimeout(timer);
-        reject(new Error(`network canary exited ${code}`));
-      }
+      let line = output.split(`
+`)[0];
+      /^\d+$/.test(line) && (clearTimeout(timer), resolvePort(Number(line)));
+    }), child.once("error", (error) => {
+      clearTimeout(timer), reject(error);
+    }), child.once("exit", (code) => {
+      /^\d+\n/.test(output) || (clearTimeout(timer), reject(new Error(`network canary exited ${code}`)));
     });
   });
   return {
@@ -1505,48 +1180,38 @@ async function startNetworkCanary() {
   };
 }
 async function mcpSmoke(pluginRoot) {
-  const entrypoint = join(pluginRoot, "dist", "workflow-mcp.mjs");
-  const transport = new StdioClientTransport({ command: process.execPath, args: [entrypoint], cwd: pluginRoot, env: { ...process.env, CURSOR_PLUGIN_ROOT: pluginRoot }, stderr: "pipe" });
-  const client = new Client({ name: "workflow-capability-spike", version: "1.0.0" });
+  let entrypoint = join(pluginRoot, "dist", "workflow-mcp.mjs"), transport = new StdioClientTransport({ command: process.execPath, args: [entrypoint], cwd: pluginRoot, env: { ...process.env, CURSOR_PLUGIN_ROOT: pluginRoot }, stderr: "pipe" }), client = new Client({ name: "workflow-capability-spike", version: "1.0.0" });
   try {
     await client.connect(transport);
-    const tools = (await client.listTools()).tools.map((tool) => tool.name).sort();
-    const expected = [...WORKFLOW_TOOL_NAMES];
+    let tools = (await client.listTools()).tools.map((tool) => tool.name).sort(), expected = [...WORKFLOW_TOOL_NAMES];
     return { verified: JSON.stringify(tools) === JSON.stringify(expected), tools };
   } catch (error) {
-    return { verified: false, error: error.message };
+    return { verified: !1, error: error.message };
   } finally {
     await client.close().catch(() => {
     });
   }
 }
 function stateAndWorktreeSmoke() {
-  const repo = join(temporary, "repo");
-  const init = spawnSync("git", ["init", repo], { encoding: "utf8" });
+  let repo = join(temporary, "repo"), init = spawnSync("git", ["init", repo], { encoding: "utf8" });
   if (init.status !== 0) throw new Error(init.stderr.trim());
-  writeFileSync(join(repo, "README.md"), "capability spike\n");
-  git(repo, ["add", "README.md"]);
-  git(repo, ["-c", "user.name=Workflow Spike", "-c", "user.email=spike@local.invalid", "commit", "-m", "baseline"]);
-  const stateRoot = join(temporary, "state");
-  const store = new RunStore(stateRoot);
-  const preparationStore = new PreparationStore(stateRoot);
-  let preparation = preparationStore.create({ status: "planning", source_kind: "goal", requested_profile: "supervised", expires_at: new Date(Date.now() + 6e4).toISOString() });
+  writeFileSync(join(repo, "README.md"), `capability spike
+`), git(repo, ["add", "README.md"]), git(repo, ["-c", "user.name=Workflow Spike", "-c", "user.email=spike@local.invalid", "commit", "-m", "baseline"]);
+  let stateRoot = join(temporary, "state"), store = new RunStore(stateRoot), preparationStore = new PreparationStore(stateRoot), preparation = preparationStore.create({ status: "planning", source_kind: "goal", requested_profile: "supervised", expires_at: new Date(Date.now() + 6e4).toISOString() });
   preparation = preparationStore.update(preparation.preparation_id, preparation.revision, "spike-preparation", (draft) => ({ ...draft, status: "interrupted", runner_pid: null }), "spike-preparation-interrupted");
   let run = store.create({ requested_profile: "supervised", lifecycle: "waiting-human" });
   run = store.update(run.run_id, run.revision, "spike-update", (draft) => ({ ...draft, lifecycle: "paused" }), "spike-paused");
-  const reopened = new RunStore(stateRoot).get(run.run_id);
-  const worktree = createRunWorktree(repo, run.run_id, { root: join(temporary, "worktrees") });
-  const reopenedPreparation = new PreparationStore(stateRoot).get(preparation.preparation_id);
+  let reopened = new RunStore(stateRoot).get(run.run_id), worktree = createRunWorktree(repo, run.run_id, { root: join(temporary, "worktrees") }), reopenedPreparation = new PreparationStore(stateRoot).get(preparation.preparation_id);
   return { verified: reopened.lifecycle === "paused" && reopenedPreparation.status === "interrupted" && worktree.baseline.status === "", revision: reopened.revision, preparation_revision: reopenedPreparation.revision, branch: worktree.branch };
 }
 function workerRuntimeSmoke(pluginRoot) {
-  const result = spawnSync(process.execPath, [join(pluginRoot, "dist", "workflow-worker.mjs")], {
+  let result = spawnSync(process.execPath, [join(pluginRoot, "dist", "workflow-worker.mjs")], {
     cwd: pluginRoot,
-    input: "{}\n",
+    input: `{}
+`,
     encoding: "utf8",
     env: { ...process.env, CURSOR_API_KEY: "" }
-  });
-  const dependencyMissing = /ERR_MODULE_NOT_FOUND|Cannot find package/.test(result.stderr);
+  }), dependencyMissing = /ERR_MODULE_NOT_FOUND|Cannot find package/.test(result.stderr);
   return {
     verified: result.stdout.includes("WORKFLOW_RESULT=") && !dependencyMissing,
     expected_fatal_without_job: !dependencyMissing,
@@ -1554,47 +1219,39 @@ function workerRuntimeSmoke(pluginRoot) {
   };
 }
 function isolatedWorkerSmoke() {
-  const isolatedRoot = join(temporary, "isolated-plugin");
-  mkdirSync(join(isolatedRoot, "dist"), { recursive: true });
-  cpSync(join(root, "dist", "workflow-worker.mjs"), join(isolatedRoot, "dist", "workflow-worker.mjs"));
-  return workerRuntimeSmoke(isolatedRoot);
+  let isolatedRoot = join(temporary, "isolated-plugin");
+  return mkdirSync(join(isolatedRoot, "dist"), { recursive: !0 }), cpSync(join(root, "dist", "workflow-worker.mjs"), join(isolatedRoot, "dist", "workflow-worker.mjs")), workerRuntimeSmoke(isolatedRoot);
 }
 function provisionedWorkerRuntimeSmoke(pluginRoot) {
-  const pluginHash = hashPluginTree(pluginRoot);
-  const runtimeDirectory = workerRuntimeDirectory({ pluginVersion: PLUGIN_VERSION, sdkVersion });
-  const runtime = loadWorkerRuntimeManifest(runtimeDirectory, {
+  let pluginHash = hashPluginTree(pluginRoot), runtimeDirectory = workerRuntimeDirectory({ pluginVersion: PLUGIN_VERSION, sdkVersion }), runtime = loadWorkerRuntimeManifest(runtimeDirectory, {
     plugin_version: PLUGIN_VERSION,
     plugin_hash: pluginHash,
     sdk_version: sdkVersion,
     platform: currentPlatform()
   });
-  if (!runtime.valid) return { verified: false, reason: runtime.reason, reasons: runtime.reasons ?? [] };
-  const workerMatches = runtime.manifest.worker_hash === sha256File(join(pluginRoot, "dist", "workflow-worker.mjs"));
+  if (!runtime.valid) return { verified: !1, reason: runtime.reason, reasons: runtime.reasons ?? [] };
+  let workerMatches = runtime.manifest.worker_hash === sha256File(join(pluginRoot, "dist", "workflow-worker.mjs"));
   return { verified: workerMatches, reason: workerMatches ? null : "marketplace-worker-hash-mismatch", manifest: runtime.manifest };
 }
 async function liveModelsSmoke(workspace) {
-  if (!process.argv.includes("--live-models")) return { verified: false, skipped: true, reason: "requires --live-models" };
-  if (!process.env.CURSOR_API_KEY) return { verified: false, skipped: true, reason: "CURSOR_API_KEY missing" };
-  const config = loadWorkflowConfig(workspace);
-  if (config.errors.length > 0) return { verified: false, errors: config.errors };
-  const profile = resolveRouteProfile(config, argument("route-profile") ?? "default");
+  if (!process.argv.includes("--live-models")) return { verified: !1, skipped: !0, reason: "requires --live-models" };
+  if (!process.env.CURSOR_API_KEY) return { verified: !1, skipped: !0, reason: "CURSOR_API_KEY missing" };
+  let config = loadWorkflowConfig(workspace);
+  if (config.errors.length > 0) return { verified: !1, errors: config.errors };
+  let profile = resolveRouteProfile(config, argument("route-profile") ?? "default");
   return new CursorWorkerAdapter({ runDirectory: join(temporary, "live-models"), pluginRoot: root }).validateProfile(profile);
 }
 async function paidReadOnlyAgentSmoke(workspace) {
   if (!paidExecutionAllowed) return skipped(paidExecutionBlocker);
-  if (!process.argv.includes("--approve-sdk-cost")) return { verified: false, skipped: true, reason: "requires explicit --approve-sdk-cost" };
-  if (!process.env.CURSOR_API_KEY) return { verified: false, skipped: true, reason: "CURSOR_API_KEY missing" };
-  const config = loadWorkflowConfig(workspace);
-  if (config.errors.length > 0) return { verified: false, errors: config.errors };
-  const profile = resolveRouteProfile(config, argument("route-profile") ?? "default");
-  const runDirectory = join(temporary, "live-agent");
-  const firstAdapter = new CursorWorkerAdapter({ runDirectory, pluginRoot: root });
-  const validation = firstAdapter.validateProfile(profile);
-  if (!validation.verified) return { verified: false, errors: validation.errors };
-  const before = repositoryBaseline(workspace);
-  const acceptedModel = validation.routes.explainer.model;
+  if (!process.argv.includes("--approve-sdk-cost")) return { verified: !1, skipped: !0, reason: "requires explicit --approve-sdk-cost" };
+  if (!process.env.CURSOR_API_KEY) return { verified: !1, skipped: !0, reason: "CURSOR_API_KEY missing" };
+  let config = loadWorkflowConfig(workspace);
+  if (config.errors.length > 0) return { verified: !1, errors: config.errors };
+  let profile = resolveRouteProfile(config, argument("route-profile") ?? "default"), runDirectory = join(temporary, "live-agent"), firstAdapter = new CursorWorkerAdapter({ runDirectory, pluginRoot: root }), validation = firstAdapter.validateProfile(profile);
+  if (!validation.verified) return { verified: !1, errors: validation.errors };
+  let before = repositoryBaseline(workspace), acceptedModel = validation.routes.explainer.model;
   assertPaidBudgetRemaining("read-only-create");
-  const first = firstAdapter.runPhase({
+  let first = firstAdapter.runPhase({
     role: "explainer",
     route: validation.routes.explainer.selected_candidate,
     routePoolHash: validation.routes.explainer.pool_hash,
@@ -1604,9 +1261,9 @@ async function paidReadOnlyAgentSmoke(workspace) {
     prompt: "Read package.json and return only its package name. Do not modify any file or perform any external effect."
   });
   recordPaidCost("read-only-create", first.receipt.cost_usd);
-  const resumedAdapter = new CursorWorkerAdapter({ runDirectory, pluginRoot: root });
+  let resumedAdapter = new CursorWorkerAdapter({ runDirectory, pluginRoot: root });
   assertPaidBudgetRemaining("read-only-resume");
-  const second = resumedAdapter.runPhase({
+  let second = resumedAdapter.runPhase({
     role: "explainer",
     route: validation.routes.explainer.selected_candidate,
     routePoolHash: validation.routes.explainer.pool_hash,
@@ -1617,7 +1274,7 @@ async function paidReadOnlyAgentSmoke(workspace) {
     prompt: "Return the same package name again. Do not modify any file or perform any external effect."
   });
   recordPaidCost("read-only-resume", second.receipt.cost_usd);
-  const after = repositoryBaseline(workspace);
+  let after = repositoryBaseline(workspace);
   return {
     verified: first.response.ok && second.response.ok && first.receipt.model_attested && second.receipt.model_attested && before.head === after.head && before.status === after.status,
     first_receipt: first.receipt,
@@ -1627,21 +1284,15 @@ async function paidReadOnlyAgentSmoke(workspace) {
 }
 async function paidPlanningAgentSmoke(workspace) {
   if (!paidExecutionAllowed) return skipped(paidExecutionBlocker);
-  if (!process.argv.includes("--approve-sdk-cost")) return { verified: false, skipped: true, reason: "requires explicit --approve-sdk-cost" };
-  if (!process.env.CURSOR_API_KEY) return { verified: false, skipped: true, reason: "CURSOR_API_KEY missing" };
-  const config = loadWorkflowConfig(workspace);
-  if (config.errors.length > 0) return { verified: false, errors: config.errors };
-  const profile = resolveRouteProfile(config, argument("route-profile") ?? "default");
-  const runDirectory = join(temporary, "live-planner");
-  const adapter = new CursorWorkerAdapter({ runDirectory, pluginRoot: root });
-  const validation = adapter.validateProfile(profile);
-  if (!validation.verified) return { verified: false, errors: validation.errors };
-  const rootPlan = readFileSync(join(root, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
-  const routeHash = createHash("sha256").update(JSON.stringify(profile)).digest("hex");
-  const harnessHash = createHash("sha256").update("capability-spike-create-plan-capture-v1").digest("hex");
-  const before = repositoryBaseline(workspace);
+  if (!process.argv.includes("--approve-sdk-cost")) return { verified: !1, skipped: !0, reason: "requires explicit --approve-sdk-cost" };
+  if (!process.env.CURSOR_API_KEY) return { verified: !1, skipped: !0, reason: "CURSOR_API_KEY missing" };
+  let config = loadWorkflowConfig(workspace);
+  if (config.errors.length > 0) return { verified: !1, errors: config.errors };
+  let profile = resolveRouteProfile(config, argument("route-profile") ?? "default"), runDirectory = join(temporary, "live-planner"), adapter = new CursorWorkerAdapter({ runDirectory, pluginRoot: root }), validation = adapter.validateProfile(profile);
+  if (!validation.verified) return { verified: !1, errors: validation.errors };
+  let rootPlan = readFileSync(join(root, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8"), routeHash = createHash("sha256").update(JSON.stringify(profile)).digest("hex"), harnessHash = createHash("sha256").update("capability-spike-create-plan-capture-v1").digest("hex"), before = repositoryBaseline(workspace);
   assertPaidBudgetRemaining("planner-create-plan");
-  const first = adapter.runPlanningPhase({
+  let first = adapter.runPlanningPhase({
     route: validation.routes.planner.selected_candidate,
     routePoolHash: validation.routes.planner.pool_hash,
     selectionReason: validation.routes.planner.selection_reason,
@@ -1654,9 +1305,8 @@ async function paidPlanningAgentSmoke(workspace) {
 
 ${rootPlan}`
   });
-  recordPaidCost("planner-create-plan", first.receipt.cost_usd);
-  if (first.response.ok) assertPaidBudgetRemaining("planner-technical-resume");
-  const second = first.response.ok ? adapter.runPlanningPhase({
+  recordPaidCost("planner-create-plan", first.receipt.cost_usd), first.response.ok && assertPaidBudgetRemaining("planner-technical-resume");
+  let second = first.response.ok ? adapter.runPlanningPhase({
     route: validation.routes.planner.selected_candidate,
     routePoolHash: validation.routes.planner.pool_hash,
     selectionReason: validation.routes.planner.selection_reason,
@@ -1670,9 +1320,8 @@ ${rootPlan}`
 
 ${rootPlan}`
   }) : null;
-  if (second) recordPaidCost("planner-technical-resume", second.receipt.cost_usd);
-  const after = repositoryBaseline(workspace);
-  const unchanged = before.head === after.head && before.branch === after.branch && before.status === after.status;
+  second && recordPaidCost("planner-technical-resume", second.receipt.cost_usd);
+  let after = repositoryBaseline(workspace), unchanged = before.head === after.head && before.branch === after.branch && before.status === after.status;
   return {
     verified: first.response.ok && second?.response.ok && first.planningOutput?.kind === "root" && second.planningOutput?.kind === "root" && first.receipt.model_attested && second.receipt.model_attested && first.receipt.agent_id === second.receipt.agent_id && unchanged,
     first_receipt: first.receipt,
@@ -1686,18 +1335,15 @@ async function paidRemainingRouteSmokes(workspace) {
   if (!paidExecutionAllowed) return skipped(paidExecutionBlocker);
   if (!process.argv.includes("--approve-sdk-cost")) return skipped("requires explicit --approve-sdk-cost");
   if (!process.env.CURSOR_API_KEY) return skipped("CURSOR_API_KEY missing");
-  const config = loadWorkflowConfig(workspace);
-  if (config.errors.length > 0) return { verified: false, errors: config.errors };
-  const profile = resolveRouteProfile(config, argument("route-profile") ?? "default");
-  const adapter = new CursorWorkerAdapter({ runDirectory: join(temporary, "remaining-routes"), pluginRoot: root });
-  const validation = adapter.validateProfile(profile);
-  if (!validation.verified) return { verified: false, errors: validation.errors };
-  const before = repositoryBaseline(workspace);
-  const repetitions = [];
-  for (const role of ["investigator", "writer_escalated", "verifier", "reviewer"]) {
+  let config = loadWorkflowConfig(workspace);
+  if (config.errors.length > 0) return { verified: !1, errors: config.errors };
+  let profile = resolveRouteProfile(config, argument("route-profile") ?? "default"), adapter = new CursorWorkerAdapter({ runDirectory: join(temporary, "remaining-routes"), pluginRoot: root }), validation = adapter.validateProfile(profile);
+  if (!validation.verified) return { verified: !1, errors: validation.errors };
+  let before = repositoryBaseline(workspace), repetitions = [];
+  for (let role of ["investigator", "writer_escalated", "verifier", "reviewer"])
     for (let index = 0; index < 3; index += 1) {
       assertPaidBudgetRemaining(`${role}-attestation-${index}`);
-      const phase = adapter.runPhase({
+      let phase = adapter.runPhase({
         role,
         route: validation.routes[role].selected_candidate,
         routePoolHash: validation.routes[role].pool_hash,
@@ -1706,11 +1352,9 @@ async function paidRemainingRouteSmokes(workspace) {
         cwd: workspace,
         prompt: "Read package.json and return only its package name. Do not modify any file or perform any external effect."
       });
-      recordPaidCost(`${role}-attestation-${index}`, phase.receipt.cost_usd);
-      repetitions.push({ role, phase });
+      recordPaidCost(`${role}-attestation-${index}`, phase.receipt.cost_usd), repetitions.push({ role, phase });
     }
-  }
-  const after = repositoryBaseline(workspace);
+  let after = repositoryBaseline(workspace);
   return {
     verified: repetitions.length === 12 && repetitions.every((item) => item.phase.response.ok && item.phase.receipt.model_attested) && before.head === after.head && before.status === after.status,
     repetitions,
@@ -1721,30 +1365,20 @@ async function paidBoundarySmokes(workspace) {
   if (!paidExecutionAllowed) return skipped(paidExecutionBlocker);
   if (!process.argv.includes("--approve-sdk-cost")) return skipped("requires explicit --approve-sdk-cost");
   if (!process.env.CURSOR_API_KEY) return skipped("CURSOR_API_KEY missing");
-  const config = loadWorkflowConfig(workspace);
-  if (config.errors.length > 0) return { verified: false, errors: config.errors };
-  const profile = resolveRouteProfile(config, argument("route-profile") ?? "default");
-  const validationAdapter = new CursorWorkerAdapter({ runDirectory: join(temporary, "boundary-validation"), pluginRoot: root });
-  const validation = validationAdapter.validateProfile(profile);
-  if (!validation.verified) return { verified: false, errors: validation.errors };
-  const canary = await startNetworkCanary();
-  const secret = `WORKFLOW_SECRET_CANARY_${createHash("sha256").update(String(Date.now())).digest("hex")}`;
-  const previousSecret = process.env.WORKFLOW_CAPABILITY_SECRET_CANARY;
+  let config = loadWorkflowConfig(workspace);
+  if (config.errors.length > 0) return { verified: !1, errors: config.errors };
+  let profile = resolveRouteProfile(config, argument("route-profile") ?? "default"), validation = new CursorWorkerAdapter({ runDirectory: join(temporary, "boundary-validation"), pluginRoot: root }).validateProfile(profile);
+  if (!validation.verified) return { verified: !1, errors: validation.errors };
+  let canary = await startNetworkCanary(), secret = `WORKFLOW_SECRET_CANARY_${createHash("sha256").update(String(Date.now())).digest("hex")}`, previousSecret = process.env.WORKFLOW_CAPABILITY_SECRET_CANARY;
   process.env.WORKFLOW_CAPABILITY_SECRET_CANARY = secret;
-  const repetitions = [];
+  let repetitions = [];
   try {
     for (let index = 0; index < 3; index += 1) {
-      const probeRoot = join(temporary, `boundary-${index}`);
-      const allowed = join(probeRoot, "allowed");
-      const protectedRoot = join(probeRoot, "protected");
-      const foreignRoot = join(temporary, `foreign-${index}`);
-      mkdirSync(allowed, { recursive: true });
-      mkdirSync(protectedRoot, { recursive: true });
-      mkdirSync(foreignRoot, { recursive: true });
-      const adapter = new CursorWorkerAdapter({ runDirectory: join(probeRoot, "run"), pluginRoot: root });
+      let probeRoot = join(temporary, `boundary-${index}`), allowed = join(probeRoot, "allowed"), protectedRoot = join(probeRoot, "protected"), foreignRoot = join(temporary, `foreign-${index}`);
+      mkdirSync(allowed, { recursive: !0 }), mkdirSync(protectedRoot, { recursive: !0 }), mkdirSync(foreignRoot, { recursive: !0 });
+      let adapter = new CursorWorkerAdapter({ runDirectory: join(probeRoot, "run"), pluginRoot: root });
       assertPaidBudgetRemaining(`boundary-probe-${index}`);
-      const networkHitsBefore = await canary.hits();
-      const response = adapter.runCapabilityProbe({
+      let networkHitsBefore = await canary.hits(), response = adapter.runCapabilityProbe({
         route: validation.routes.writer.selected_candidate,
         acceptedModel: validation.routes.writer.model,
         cwd: probeRoot,
@@ -1757,27 +1391,23 @@ async function paidBoundarySmokes(workspace) {
           network_canary_url: canary.url,
           secret_hash: hash(secret)
         }
-      });
-      const networkHitsAfter = await canary.hits();
+      }), networkHitsAfter = await canary.hits();
       recordPaidCost(`boundary-probe-${index}`, estimateCost(response.usage, validation.routes.writer.selected_candidate.pricing_usd_per_million));
-      const report = response.capability_probe;
-      const serialized = JSON.stringify(response);
+      let report = response.capability_probe, serialized = JSON.stringify(response);
       repetitions.push({
         response,
         role: "writer",
         accepted_model: validation.routes.writer.model,
-        write_verified: response.ok === true && response.capability_write_attempt_observed === true && existsSync(join(allowed, "canary.txt")) && !existsSync(join(protectedRoot, "canary.txt")) && !existsSync(join(foreignRoot, "canary.txt")),
-        network_verified: response.ok === true && response.capability_network_attempt_observed === true && networkHitsAfter === networkHitsBefore,
+        write_verified: response.ok === !0 && response.capability_write_attempt_observed === !0 && existsSync(join(allowed, "canary.txt")) && !existsSync(join(protectedRoot, "canary.txt")) && !existsSync(join(foreignRoot, "canary.txt")),
+        network_verified: response.ok === !0 && response.capability_network_attempt_observed === !0 && networkHitsAfter === networkHitsBefore,
         network_hits_before: networkHitsBefore,
         network_hits_after: networkHitsAfter,
-        secret_verified: response.ok === true && response.capability_secret_attempt_observed === true && report?.environment_secret_present === false && !serialized.includes(secret),
-        model_verified: response.ok === true && JSON.stringify(response.observed_model) === JSON.stringify(validation.routes.writer.model)
+        secret_verified: response.ok === !0 && response.capability_secret_attempt_observed === !0 && report?.environment_secret_present === !1 && !serialized.includes(secret),
+        model_verified: response.ok === !0 && JSON.stringify(response.observed_model) === JSON.stringify(validation.routes.writer.model)
       });
     }
   } finally {
-    canary.stop();
-    if (previousSecret === void 0) delete process.env.WORKFLOW_CAPABILITY_SECRET_CANARY;
-    else process.env.WORKFLOW_CAPABILITY_SECRET_CANARY = previousSecret;
+    canary.stop(), previousSecret === void 0 ? delete process.env.WORKFLOW_CAPABILITY_SECRET_CANARY : process.env.WORKFLOW_CAPABILITY_SECRET_CANARY = previousSecret;
   }
   return {
     verified: repetitions.length === 3 && repetitions.every((item) => item.write_verified && item.network_verified && item.secret_verified && item.model_verified),
@@ -1792,19 +1422,17 @@ async function paidCancelSmokes(workspace) {
   if (!paidExecutionAllowed) return skipped(paidExecutionBlocker);
   if (!process.argv.includes("--approve-sdk-cost")) return skipped("requires explicit --approve-sdk-cost");
   if (!process.env.CURSOR_API_KEY) return skipped("CURSOR_API_KEY missing");
-  const config = loadWorkflowConfig(workspace);
-  if (config.errors.length > 0) return { verified: false, errors: config.errors };
-  const profile = resolveRouteProfile(config, argument("route-profile") ?? "default");
-  const validation = new CursorWorkerAdapter({ runDirectory: join(temporary, "cancel-validation"), pluginRoot: root }).validateProfile(profile);
-  if (!validation.verified) return { verified: false, errors: validation.errors };
-  const repetitions = [];
+  let config = loadWorkflowConfig(workspace);
+  if (config.errors.length > 0) return { verified: !1, errors: config.errors };
+  let profile = resolveRouteProfile(config, argument("route-profile") ?? "default"), validation = new CursorWorkerAdapter({ runDirectory: join(temporary, "cancel-validation"), pluginRoot: root }).validateProfile(profile);
+  if (!validation.verified) return { verified: !1, errors: validation.errors };
+  let repetitions = [];
   for (let index = 0; index < 3; index += 1) {
-    const runDirectory = join(temporary, `cancel-${index}`);
-    mkdirSync(runDirectory, { recursive: true });
-    writeWorkerControl(runDirectory, "budget", { reason: "capability-probe" });
-    const adapter = new CursorWorkerAdapter({ runDirectory, pluginRoot: root });
+    let runDirectory = join(temporary, `cancel-${index}`);
+    mkdirSync(runDirectory, { recursive: !0 }), writeWorkerControl(runDirectory, "budget", { reason: "capability-probe" });
+    let adapter = new CursorWorkerAdapter({ runDirectory, pluginRoot: root });
     assertPaidBudgetRemaining(`cancel-probe-${index}`);
-    const phase = adapter.runPhase({
+    let phase = adapter.runPhase({
       role: "explainer",
       route: validation.routes.explainer.selected_candidate,
       routePoolHash: validation.routes.explainer.pool_hash,
@@ -1815,28 +1443,24 @@ async function paidCancelSmokes(workspace) {
       timeoutMs: 6e4,
       cancelGraceMs: 5e3
     });
-    recordPaidCost(`cancel-probe-${index}`, phase.receipt.cost_usd);
-    repetitions.push(phase);
+    recordPaidCost(`cancel-probe-${index}`, phase.receipt.cost_usd), repetitions.push(phase);
   }
   return {
-    verified: repetitions.every((phase) => phase.response.status === "cancelled" && phase.receipt.cancel?.sdk_cancel_called === true && phase.receipt.cancel?.within_grace_period === true),
+    verified: repetitions.every((phase) => phase.response.status === "cancelled" && phase.receipt.cancel?.sdk_cancel_called === !0 && phase.receipt.cancel?.within_grace_period === !0),
     repetitions
   };
 }
 function dependencyAuditForReceipt() {
   if (!process.argv.includes("--issue-receipt")) return skipped("audit runs only for explicit --issue-receipt");
-  const cache = join(temporary, "npm-cache");
-  const result = spawnSync("npm", ["audit", "--omit=dev", "--json", "--cache", cache], { cwd: root, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
-  let report;
+  let cache = join(temporary, "npm-cache"), result = spawnSync("npm", ["audit", "--omit=dev", "--json", "--cache", cache], { cwd: root, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 }), report;
   try {
     report = JSON.parse(result.stdout);
   } catch {
-    return { verified: false, error: result.stderr.trim() || "npm audit returned invalid JSON" };
+    return { verified: !1, error: result.stderr.trim() || "npm audit returned invalid JSON" };
   }
-  const vulnerabilities = report.metadata?.vulnerabilities ?? {};
-  const riskAcceptance = argument("risk-acceptance");
+  let vulnerabilities = report.metadata?.vulnerabilities ?? {}, riskAcceptance = argument("risk-acceptance");
   return {
-    verified: (vulnerabilities.high ?? 0) === 0 && (vulnerabilities.critical ?? 0) === 0 && ((vulnerabilities.moderate ?? 0) === 0 || Boolean(riskAcceptance && existsSync(resolve(riskAcceptance)))),
+    verified: (vulnerabilities.high ?? 0) === 0 && (vulnerabilities.critical ?? 0) === 0 && ((vulnerabilities.moderate ?? 0) === 0 || !!(riskAcceptance && existsSync(resolve(riskAcceptance)))),
     report,
     evidence_hash: hash(report),
     production_packages: report.metadata?.dependencies?.prod ?? 0,
@@ -1847,92 +1471,64 @@ function dependencyAuditForReceipt() {
 }
 function verifiedExternalReport(path, label) {
   if (!path) return skipped(`no --${label}`);
-  const absolute = resolve(path);
-  if (!existsSync(absolute)) return { verified: false, reason: `${label}-missing` };
+  let absolute = resolve(path);
+  if (!existsSync(absolute)) return { verified: !1, reason: `${label}-missing` };
   try {
-    const report = JSON.parse(readFileSync(absolute, "utf8"));
-    return { verified: report.verified === true, report, evidence_hash: sha256File(absolute) };
+    let report = JSON.parse(readFileSync(absolute, "utf8"));
+    return { verified: report.verified === !0, report, evidence_hash: sha256File(absolute) };
   } catch (error) {
-    return { verified: false, reason: `${label}-invalid`, error: error.message };
+    return { verified: !1, reason: `${label}-invalid`, error: error.message };
   }
 }
 function verifiedCrashReport(path, pluginRoot) {
-  const source = verifiedExternalReport(path, "crash-probe-report");
+  let source = verifiedExternalReport(path, "crash-probe-report");
   if (!source.report) return source;
-  const runtime = loadWorkerRuntimeManifest(workerRuntimeDirectory({ pluginVersion: PLUGIN_VERSION, sdkVersion }), {
+  let runtime = loadWorkerRuntimeManifest(workerRuntimeDirectory({ pluginVersion: PLUGIN_VERSION, sdkVersion }), {
     plugin_version: PLUGIN_VERSION,
     plugin_hash: hashPluginTree(pluginRoot),
     sdk_version: sdkVersion,
     platform: currentPlatform()
-  });
-  const report = source.report;
-  const repetitions = Array.isArray(report.repetitions) ? report.repetitions : [];
-  const verified = source.verified === true && report.schema === 1 && report.generated_by === "geldmacher-workflow-sdk-crash-probe" && runtime.valid && report.plugin_hash === runtime.manifest.plugin_hash && report.worker_hash === runtime.manifest.worker_hash && report.runtime_hash === runtime.manifest.runtime_hash && repetitions.length === 3 && repetitions.every((item) => item.crash_state === "interrupted" && item.explicit_resume === true && item.initial_agent_id === item.resumed_agent_id && item.resumed_status === "finished" && item.model_attested === true && typeof item.request_id === "string" && typeof item.worker_run_id === "string" && /^[a-f0-9]{64}$/.test(item.store_hash));
+  }), report = source.report, repetitions = Array.isArray(report.repetitions) ? report.repetitions : [], verified = source.verified === !0 && report.schema === 1 && report.generated_by === "geldmacher-workflow-sdk-crash-probe" && runtime.valid && report.plugin_hash === runtime.manifest.plugin_hash && report.worker_hash === runtime.manifest.worker_hash && report.runtime_hash === runtime.manifest.runtime_hash && repetitions.length === 3 && repetitions.every((item) => item.crash_state === "interrupted" && item.explicit_resume === !0 && item.initial_agent_id === item.resumed_agent_id && item.resumed_status === "finished" && item.model_attested === !0 && typeof item.request_id == "string" && typeof item.worker_run_id == "string" && /^[a-f0-9]{64}$/.test(item.store_hash));
   return { ...source, verified, repetitions: repetitions.length, reason: verified ? null : "crash-probe-contract-invalid" };
 }
 function verifiedCursorHarnessReport(path, pluginRoot, expectedCursorVersion) {
-  const source = verifiedExternalReport(path, "cursor-harness-report");
+  let source = verifiedExternalReport(path, "cursor-harness-report");
   if (!source.report) return source;
-  const runtime = loadWorkerRuntimeManifest(workerRuntimeDirectory({ pluginVersion: PLUGIN_VERSION, sdkVersion }), {
+  let runtime = loadWorkerRuntimeManifest(workerRuntimeDirectory({ pluginVersion: PLUGIN_VERSION, sdkVersion }), {
     plugin_version: PLUGIN_VERSION,
     plugin_hash: hashPluginTree(pluginRoot),
     sdk_version: sdkVersion,
     platform: currentPlatform()
-  });
-  const report = source.report;
-  const requiredCases = ["clear-plan", "ambiguous-plan", "implement-plan", "fresh-review", "approved-correction", "repeat-review", "work-status", "explain-work", "learn-from-work", "schema-2-rejection", "mixed-chain-rejection", "cli", "editor"];
-  const cases = Array.isArray(report.cases) ? report.cases : [];
-  const verified = source.verified === true && report.schema === 1 && report.generated_by === "geldmacher-workflow-cursor-harness" && runtime.valid && report.plugin_hash === runtime.manifest.plugin_hash && report.marketplace_git_commit === runtime.manifest.marketplace_git_commit && report.cursor_version === expectedCursorVersion && requiredCases.every((id) => cases.some((item) => item.id === id && item.passed === true && /^[a-f0-9]{64}$/.test(item.evidence_hash))) && Array.isArray(report.artifact_ids) && report.artifact_ids.length > 0 && report.file_hashes && Object.keys(report.file_hashes).length > 0 && Object.values(report.file_hashes).every((value) => /^[a-f0-9]{64}$/.test(value)) && Array.isArray(report.model_usage) && report.model_usage.length > 0 && /^[a-f0-9]{64}$/.test(report.git_before_hash) && /^[a-f0-9]{64}$/.test(report.git_after_hash);
+  }), report = source.report, requiredCases = ["clear-plan", "ambiguous-plan", "implement-plan", "fresh-review", "approved-correction", "repeat-review", "work-status", "explain-work", "learn-from-work", "schema-2-rejection", "mixed-chain-rejection", "cli", "editor"], cases = Array.isArray(report.cases) ? report.cases : [], verified = source.verified === !0 && report.schema === 1 && report.generated_by === "geldmacher-workflow-cursor-harness" && runtime.valid && report.plugin_hash === runtime.manifest.plugin_hash && report.marketplace_git_commit === runtime.manifest.marketplace_git_commit && report.cursor_version === expectedCursorVersion && requiredCases.every((id) => cases.some((item) => item.id === id && item.passed === !0 && /^[a-f0-9]{64}$/.test(item.evidence_hash))) && Array.isArray(report.artifact_ids) && report.artifact_ids.length > 0 && report.file_hashes && Object.keys(report.file_hashes).length > 0 && Object.values(report.file_hashes).every((value) => /^[a-f0-9]{64}$/.test(value)) && Array.isArray(report.model_usage) && report.model_usage.length > 0 && /^[a-f0-9]{64}$/.test(report.git_before_hash) && /^[a-f0-9]{64}$/.test(report.git_after_hash);
   return { ...source, verified, reason: verified ? null : "cursor-harness-contract-invalid" };
 }
 try {
-  const workspace = resolve(argument("workspace") ?? root);
-  const marketplaceRootArgument = argument("marketplace-root");
-  const marketplaceRoot = marketplaceRootArgument ? resolve(marketplaceRootArgument) : null;
-  const crashResume = verifiedCrashReport(argument("crash-probe-report"), marketplaceRoot ?? root);
-  const maxCost = Number(argument("max-cost-usd"));
+  let workspace = resolve(argument("workspace") ?? root), marketplaceRootArgument = argument("marketplace-root"), marketplaceRoot = marketplaceRootArgument ? resolve(marketplaceRootArgument) : null, crashResume = verifiedCrashReport(argument("crash-probe-report"), marketplaceRoot ?? root), maxCost = Number(argument("max-cost-usd"));
   if (process.argv.includes("--approve-sdk-cost") && (!Number.isFinite(maxCost) || maxCost <= 0 || maxCost > 6)) throw new Error("--approve-sdk-cost requires --max-cost-usd greater than 0 and no more than 6 for the capability phase");
-  const audit = dependencyAuditForReceipt();
-  if (process.argv.includes("--issue-receipt") && audit.report) audit.archive_path = archiveExternalEvidence(defaultStateRoot(workspace), "npm-audit.json", {
+  let audit = dependencyAuditForReceipt();
+  if (process.argv.includes("--issue-receipt") && audit.report && (audit.archive_path = archiveExternalEvidence(defaultStateRoot(workspace), "npm-audit.json", {
     lockfile_hash: sha256File(join(root, "npm-shrinkwrap.json")),
     report: audit.report
-  });
-  const paidRequested = process.argv.includes("--approve-sdk-cost");
-  if (!paidRequested) paidExecutionBlocker = "requires explicit --approve-sdk-cost";
-  else if (!process.env.CURSOR_API_KEY) paidExecutionBlocker = "CURSOR_API_KEY missing";
-  else if (process.argv.includes("--issue-receipt") && audit.verified !== true) paidExecutionBlocker = "dependency audit gate failed before paid probes";
-  else if (process.argv.includes("--issue-receipt") && !crashResume.verified) paidExecutionBlocker = "valid three-run crash report required before paid receipt probes";
-  else paidExecutionAllowed = true;
-  if (paidExecutionAllowed) {
-    const priorCrashCost = process.argv.includes("--issue-receipt") && crashResume.verified ? crashResume.report.spent_usd : 0;
+  })), process.argv.includes("--approve-sdk-cost") ? process.env.CURSOR_API_KEY ? process.argv.includes("--issue-receipt") && audit.verified !== !0 ? paidExecutionBlocker = "dependency audit gate failed before paid probes" : process.argv.includes("--issue-receipt") && !crashResume.verified ? paidExecutionBlocker = "valid three-run crash report required before paid receipt probes" : paidExecutionAllowed = !0 : paidExecutionBlocker = "CURSOR_API_KEY missing" : paidExecutionBlocker = "requires explicit --approve-sdk-cost", paidExecutionAllowed) {
+    let priorCrashCost = process.argv.includes("--issue-receipt") && crashResume.verified ? crashResume.report.spent_usd : 0;
     if (!Number.isFinite(priorCrashCost) || priorCrashCost < 0 || priorCrashCost >= maxCost) throw new Error("crash-probe cost leaves no valid capability budget");
     paidCostLedger = { max_cost_usd: maxCost, spent_usd: priorCrashCost, entries: priorCrashCost > 0 ? [{ label: "prior-crash-probe", cost_usd: priorCrashCost }] : [] };
   }
-  const paidAgentRuns = [];
-  const paidPlannerRuns = [];
+  let paidAgentRuns = [], paidPlannerRuns = [];
   if (paidExecutionAllowed) {
     for (let index = 0; index < 3; index += 1) paidAgentRuns.push(await paidReadOnlyAgentSmoke(workspace));
     for (let index = 0; index < 3; index += 1) paidPlannerRuns.push(await paidPlanningAgentSmoke(workspace));
   }
-  const paidAgent = paidAgentRuns.length === 3 ? { verified: paidAgentRuns.every((item) => item.verified), repetitions: paidAgentRuns } : skipped(paidExecutionBlocker);
-  const paidPlanner = paidPlannerRuns.length === 3 ? { verified: paidPlannerRuns.every((item) => item.verified), repetitions: paidPlannerRuns } : skipped(paidExecutionBlocker);
-  const remainingRoutes = await paidRemainingRouteSmokes(workspace);
-  const boundaries = await paidBoundarySmokes(workspace);
-  const cancellation = await paidCancelSmokes(workspace);
-  const cursorHarness = verifiedCursorHarnessReport(argument("cursor-harness-report"), marketplaceRoot ?? root, argument("cursor-version") ?? "");
-  const workflowConfig = loadWorkflowConfig(workspace);
-  const verificationAudit = workflowConfig.errors.length === 0 && workflowConfig.project.verification_profile ? auditVerificationProfile(
+  let paidAgent = paidAgentRuns.length === 3 ? { verified: paidAgentRuns.every((item) => item.verified), repetitions: paidAgentRuns } : skipped(paidExecutionBlocker), paidPlanner = paidPlannerRuns.length === 3 ? { verified: paidPlannerRuns.every((item) => item.verified), repetitions: paidPlannerRuns } : skipped(paidExecutionBlocker), remainingRoutes = await paidRemainingRouteSmokes(workspace), boundaries = await paidBoundarySmokes(workspace), cancellation = await paidCancelSmokes(workspace), cursorHarness = verifiedCursorHarnessReport(argument("cursor-harness-report"), marketplaceRoot ?? root, argument("cursor-version") ?? ""), workflowConfig = loadWorkflowConfig(workspace), verificationAudit = workflowConfig.errors.length === 0 && workflowConfig.project.verification_profile ? auditVerificationProfile(
     workspace,
     workflowConfig.project.verification_profile.manifest_path,
     root,
     defaultStateRoot(workspace)
-  ) : { status: "blocked", errors: workflowConfig.errors.length > 0 ? workflowConfig.errors : ["verification profile is not configured"] };
-  const costTracking = process.argv.includes("--approve-sdk-cost") ? paidCostLedger ? { verified: paidCostLedger.entries.length > 0, blocker: null, ...paidCostLedger } : { verified: false, blocker: paidExecutionBlocker, spent_usd: 0, max_cost_usd: maxCost, entries: [] } : { verified: true, spent_usd: 0, max_cost_usd: null, entries: [] };
-  const observations = {
+  ) : { status: "blocked", errors: workflowConfig.errors.length > 0 ? workflowConfig.errors : ["verification profile is not configured"] }, costTracking = process.argv.includes("--approve-sdk-cost") ? paidCostLedger ? { verified: paidCostLedger.entries.length > 0, blocker: null, ...paidCostLedger } : { verified: !1, blocker: paidExecutionBlocker, spent_usd: 0, max_cost_usd: maxCost, entries: [] } : { verified: !0, spent_usd: 0, max_cost_usd: null, entries: [] }, observations = {
     schema: CAPABILITY_RECEIPT_SCHEMA,
     plugin_version: PLUGIN_VERSION,
-    artifact_schema: ARTIFACT_SCHEMA,
-    controller_protocol: CONTROLLER_PROTOCOL,
+    artifact_schema: 5,
+    controller_protocol: 5,
     sdk_version: sdkVersion,
     platform: `${process.platform}-${process.arch}`,
     local_mcp: await mcpSmoke(root),
@@ -1953,35 +1549,23 @@ try {
     verification_profile: verificationAudit,
     dependency_audit: audit,
     cost_tracking: costTracking,
-    sdk_write_boundary_verified: boundaries.write_verified === true,
-    worker_network_isolated: boundaries.network_verified === true,
-    sdk_secret_isolated: boundaries.secret_verified === true,
-    sdk_budget_cancel_verified: cancellation.verified === true,
-    planner_submission_verified: paidPlanner.verified === true,
-    restart_resume_verified: paidAgent.verified === true,
-    crash_interrupt_resume_verified: crashResume.verified === true && crashResume.repetitions >= 3,
-    model_configuration_exact_verified: boundaries.model_verified === true && paidAgent.verified === true && paidPlanner.verified === true && remainingRoutes.verified === true,
-    cursor_harness_verified: cursorHarness.verified === true
+    sdk_write_boundary_verified: boundaries.write_verified === !0,
+    worker_network_isolated: boundaries.network_verified === !0,
+    sdk_secret_isolated: boundaries.secret_verified === !0,
+    sdk_budget_cancel_verified: cancellation.verified === !0,
+    planner_submission_verified: paidPlanner.verified === !0,
+    restart_resume_verified: paidAgent.verified === !0,
+    crash_interrupt_resume_verified: crashResume.verified === !0 && crashResume.repetitions >= 3,
+    model_configuration_exact_verified: boundaries.model_verified === !0 && paidAgent.verified === !0 && paidPlanner.verified === !0 && remainingRoutes.verified === !0,
+    cursor_harness_verified: cursorHarness.verified === !0
   };
-  observations.automation_safe = observations.local_mcp.verified && observations.marketplace_mcp.verified && observations.marketplace_worker_runtime.verified && observations.outer_sandbox.verified && observations.state_worktree_restart.verified && observations.model_catalog.verified && observations.sdk_write_boundary_verified && observations.worker_network_isolated && observations.sdk_secret_isolated && observations.sdk_budget_cancel_verified && observations.planner_submission_verified && observations.restart_resume_verified && observations.crash_interrupt_resume_verified && observations.model_configuration_exact_verified && observations.cursor_harness_verified && verificationAudit.status === "clean" && audit.verified === true && costTracking.verified === true;
-  if (process.argv.includes("--issue-receipt")) {
-    const certifiedPluginRoot = marketplaceRoot ?? root;
-    const runtime = loadWorkerRuntimeManifest(workerRuntimeDirectory({ pluginVersion: PLUGIN_VERSION, sdkVersion }), {
+  if (observations.automation_safe = observations.local_mcp.verified && observations.marketplace_mcp.verified && observations.marketplace_worker_runtime.verified && observations.outer_sandbox.verified && observations.state_worktree_restart.verified && observations.model_catalog.verified && observations.sdk_write_boundary_verified && observations.worker_network_isolated && observations.sdk_secret_isolated && observations.sdk_budget_cancel_verified && observations.planner_submission_verified && observations.restart_resume_verified && observations.crash_interrupt_resume_verified && observations.model_configuration_exact_verified && observations.cursor_harness_verified && verificationAudit.status === "clean" && audit.verified === !0 && costTracking.verified === !0, process.argv.includes("--issue-receipt")) {
+    let certifiedPluginRoot = marketplaceRoot ?? root, runtime = loadWorkerRuntimeManifest(workerRuntimeDirectory({ pluginVersion: PLUGIN_VERSION, sdkVersion }), {
       plugin_version: PLUGIN_VERSION,
       plugin_hash: hashPluginTree(certifiedPluginRoot),
       sdk_version: sdkVersion,
       platform: currentPlatform()
-    });
-    const planningHarness = loadPlanningHarness(certifiedPluginRoot);
-    const routeProfile = argument("route-profile") ?? "default";
-    const config = workflowConfig;
-    const route = config.errors.length === 0 ? resolveRouteProfile(config, routeProfile) : null;
-    const routeHash = route ? hash(route) : null;
-    const verificationProfileHash = verificationAudit.profile_hash ?? hash("verification-profile-unapproved");
-    const requestedTaskClass = argument("task-class");
-    const requestedRegion = argument("certified-region");
-    const qualificationBindings = requestedTaskClass && requestedRegion && ["bugfix", "refactor", "performance", "feature", "investigation", "verify-existing"].includes(requestedTaskClass) && config.project.certified_regions.includes(requestedRegion) && verificationAudit.status === "clean" && routeHash ? [{ task_class: requestedTaskClass, verification_profile_hash: verificationProfileHash, route_pool_hash: routeHash, certified_region: requestedRegion }] : [];
-    const allPhaseReceipts = [
+    }), planningHarness = loadPlanningHarness(certifiedPluginRoot), routeProfile = argument("route-profile") ?? "default", config = workflowConfig, route = config.errors.length === 0 ? resolveRouteProfile(config, routeProfile) : null, routeHash = route ? hash(route) : null, verificationProfileHash = verificationAudit.profile_hash ?? hash("verification-profile-unapproved"), requestedTaskClass = argument("task-class"), requestedRegion = argument("certified-region"), qualificationBindings = requestedTaskClass && requestedRegion && ["bugfix", "refactor", "performance", "feature", "investigation", "verify-existing"].includes(requestedTaskClass) && config.project.certified_regions.includes(requestedRegion) && verificationAudit.status === "clean" && routeHash ? [{ task_class: requestedTaskClass, verification_profile_hash: verificationProfileHash, route_pool_hash: routeHash, certified_region: requestedRegion }] : [], allPhaseReceipts = [
       ...paidAgentRuns.flatMap((item) => [item.first_receipt, item.resumed_receipt]),
       ...paidPlannerRuns.flatMap((item) => [item.first_receipt, item.resumed_receipt]),
       ...(remainingRoutes.repetitions ?? []).map((item) => item.phase.receipt),
@@ -1993,13 +1577,7 @@ try {
         agent_id: item.response?.agent_id,
         worker_run_id: item.response?.run_id
       }))
-    ].filter(Boolean);
-    const canonicalModel = (role, model) => ({ role, id: model?.id ?? "", params: model?.params ?? [] });
-    const requested = allPhaseReceipts.map((receipt2) => canonicalModel(receipt2.phase, receipt2.accepted_model));
-    const accepted = allPhaseReceipts.map((receipt2) => canonicalModel(receipt2.phase, receipt2.accepted_model));
-    const observed = allPhaseReceipts.map((receipt2) => canonicalModel(receipt2.phase, receipt2.observed_model));
-    const certifiedModels = [...new Map(accepted.map((model) => [`${model.role}:${model.id}:${JSON.stringify(model.params)}`, model])).values()];
-    const receiptObservations = {
+    ].filter(Boolean), canonicalModel = (role, model) => ({ role, id: model?.id ?? "", params: model?.params ?? [] }), requested = allPhaseReceipts.map((receipt2) => canonicalModel(receipt2.phase, receipt2.accepted_model)), accepted = allPhaseReceipts.map((receipt2) => canonicalModel(receipt2.phase, receipt2.accepted_model)), observed = allPhaseReceipts.map((receipt2) => canonicalModel(receipt2.phase, receipt2.observed_model)), certifiedModels = [...new Map(accepted.map((model) => [`${model.role}:${model.id}:${JSON.stringify(model.params)}`, model])).values()], receiptObservations = {
       local_mcp: observation(observations.local_mcp),
       marketplace_mcp: observation(observations.marketplace_mcp),
       marketplace_worker_runtime: observation(observations.marketplace_worker_runtime),
@@ -2012,16 +1590,14 @@ try {
       planner_submission: observation(paidPlanner, 3),
       model_configuration_exact: observation({ verified: observations.model_configuration_exact_verified, evidence: { boundaries, paidAgent, paidPlanner, remainingRoutes } }, 3),
       cursor_harness: observation(cursorHarness)
-    };
-    const issuedAt = /* @__PURE__ */ new Date();
-    const receipt = {
+    }, issuedAt = /* @__PURE__ */ new Date(), receipt = {
       schema: CAPABILITY_RECEIPT_SCHEMA,
       generated_by: "geldmacher-workflow-capability-spike",
       issued_at: issuedAt.toISOString(),
-      expires_at: new Date(issuedAt.getTime() + 30 * 24 * 60 * 60 * 1e3).toISOString(),
+      expires_at: new Date(issuedAt.getTime() + 720 * 60 * 60 * 1e3).toISOString(),
       plugin_version: PLUGIN_VERSION,
-      artifact_schema: ARTIFACT_SCHEMA,
-      controller_protocol: CONTROLLER_PROTOCOL,
+      artifact_schema: 5,
+      controller_protocol: 5,
       sdk_version: sdkVersion,
       platform: currentPlatform(),
       node_version: process.version,
@@ -2066,18 +1642,14 @@ try {
         route_pool: observations.model_configuration_exact_verified
       },
       qualification_bindings: qualificationBindings,
-      profile_eligibility: { supervised: false, autonomous: false },
+      profile_eligibility: { supervised: !1, autonomous: !1 },
       evidence_hashes: Object.fromEntries(REQUIRED_OBSERVATIONS.map((key) => [key, receiptObservations[key].evidence_hash])),
-      automation_safe: false
+      automation_safe: !1
     };
-    receipt.profile_eligibility = receiptProfileEligibility(receipt);
-    receipt.automation_safe = receiptAutomationSafe(receipt);
-    observations.receipt_candidate = receipt;
-    if (!observations.automation_safe || !receipt.automation_safe) {
-      observations.receipt_issued = false;
-      observations.receipt_blocker = "capability-observations-or-dependency-gate-failed";
-    } else {
-      const stateRoot = defaultStateRoot(workspace);
+    if (receipt.profile_eligibility = receiptProfileEligibility(receipt), receipt.automation_safe = receiptAutomationSafe(receipt), observations.receipt_candidate = receipt, !observations.automation_safe || !receipt.automation_safe)
+      observations.receipt_issued = !1, observations.receipt_blocker = "capability-observations-or-dependency-gate-failed";
+    else {
+      let stateRoot = defaultStateRoot(workspace);
       observations.receipt_path = writeCapabilityReceipt(stateRoot, receipt, {
         plugin_hash: receipt.plugin_hash,
         worker_hash: receipt.worker_hash,
@@ -2085,12 +1657,10 @@ try {
         lockfile_hash: receipt.lockfile_hash,
         attested_route_pool_hash: receipt.attested_route_pool_hash,
         planning_harness_hash: receipt.planning_harness_hash
-      });
-      observations.receipt_issued = true;
+      }), observations.receipt_issued = !0;
     }
   }
-  console.log(JSON.stringify(observations, null, 2));
-  if (process.argv.includes("--require-automation-safe") && !observations.automation_safe) process.exitCode = 1;
+  console.log(JSON.stringify(observations, null, 2)), process.argv.includes("--require-automation-safe") && !observations.automation_safe && (process.exitCode = 1);
 } finally {
-  rmSync(temporary, { recursive: true, force: true });
+  rmSync(temporary, { recursive: !0, force: !0 });
 }

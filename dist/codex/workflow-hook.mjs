@@ -3994,10 +3994,10 @@ var require_resolve_block_map = __commonJS({
       let offset = bm.offset;
       let commentEnd = null;
       for (const collItem of bm.items) {
-        const { start, key, sep, value } = collItem;
+        const { start, key, sep: sep2, value } = collItem;
         const keyProps = resolveProps.resolveProps(start, {
           indicator: "explicit-key-ind",
-          next: key ?? sep?.[0],
+          next: key ?? sep2?.[0],
           offset,
           onError,
           parentIndent: bm.indent,
@@ -4011,7 +4011,7 @@ var require_resolve_block_map = __commonJS({
             else if ("indent" in key && key.indent !== bm.indent)
               onError(offset, "BAD_INDENT", startColMsg);
           }
-          if (!keyProps.anchor && !keyProps.tag && !sep) {
+          if (!keyProps.anchor && !keyProps.tag && !sep2) {
             commentEnd = keyProps.end;
             if (keyProps.comment) {
               if (map.comment)
@@ -4035,7 +4035,7 @@ var require_resolve_block_map = __commonJS({
         ctx.atKey = false;
         if (utilMapIncludes.mapIncludes(ctx, map.items, keyNode))
           onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
-        const valueProps = resolveProps.resolveProps(sep ?? [], {
+        const valueProps = resolveProps.resolveProps(sep2 ?? [], {
           indicator: "map-value-ind",
           next: value,
           offset: keyNode.range[2],
@@ -4051,7 +4051,7 @@ var require_resolve_block_map = __commonJS({
             if (ctx.options.strict && keyProps.start < valueProps.found.offset - 1024)
               onError(keyNode.range, "KEY_OVER_1024_CHARS", "The : indicator must be at most 1024 chars after the start of an implicit block mapping key");
           }
-          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep, null, valueProps, onError);
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep2, null, valueProps, onError);
           if (ctx.schema.compat)
             utilFlowIndentCheck.flowIndentCheck(bm.indent, value, onError);
           offset = valueNode.range[2];
@@ -4142,7 +4142,7 @@ var require_resolve_end = __commonJS({
       let comment = "";
       if (end) {
         let hasSpace = false;
-        let sep = "";
+        let sep2 = "";
         for (const token of end) {
           const { source, type } = token;
           switch (type) {
@@ -4156,13 +4156,13 @@ var require_resolve_end = __commonJS({
               if (!comment)
                 comment = cb;
               else
-                comment += sep + cb;
-              sep = "";
+                comment += sep2 + cb;
+              sep2 = "";
               break;
             }
             case "newline":
               if (comment)
-                sep += source;
+                sep2 += source;
               hasSpace = true;
               break;
             default:
@@ -4205,18 +4205,18 @@ var require_resolve_flow_collection = __commonJS({
       let offset = fc.offset + fc.start.source.length;
       for (let i = 0; i < fc.items.length; ++i) {
         const collItem = fc.items[i];
-        const { start, key, sep, value } = collItem;
+        const { start, key, sep: sep2, value } = collItem;
         const props = resolveProps.resolveProps(start, {
           flow: fcName,
           indicator: "explicit-key-ind",
-          next: key ?? sep?.[0],
+          next: key ?? sep2?.[0],
           offset,
           onError,
           parentIndent: fc.indent,
           startOnNewline: false
         });
         if (!props.found) {
-          if (!props.anchor && !props.tag && !sep && !value) {
+          if (!props.anchor && !props.tag && !sep2 && !value) {
             if (i === 0 && props.comma)
               onError(props.comma, "UNEXPECTED_TOKEN", `Unexpected , in ${fcName}`);
             else if (i < fc.items.length - 1)
@@ -4270,8 +4270,8 @@ var require_resolve_flow_collection = __commonJS({
             }
           }
         }
-        if (!isMap && !sep && !props.found) {
-          const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep, null, props, onError);
+        if (!isMap && !sep2 && !props.found) {
+          const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep2, null, props, onError);
           coll.items.push(valueNode);
           offset = valueNode.range[2];
           if (isBlock(value))
@@ -4283,7 +4283,7 @@ var require_resolve_flow_collection = __commonJS({
           if (isBlock(key))
             onError(keyNode.range, "BLOCK_IN_FLOW", blockMsg);
           ctx.atKey = false;
-          const valueProps = resolveProps.resolveProps(sep ?? [], {
+          const valueProps = resolveProps.resolveProps(sep2 ?? [], {
             flow: fcName,
             indicator: "map-value-ind",
             next: value,
@@ -4294,8 +4294,8 @@ var require_resolve_flow_collection = __commonJS({
           });
           if (valueProps.found) {
             if (!isMap && !props.found && ctx.options.strict) {
-              if (sep)
-                for (const st of sep) {
+              if (sep2)
+                for (const st of sep2) {
                   if (st === valueProps.found)
                     break;
                   if (st.type === "newline") {
@@ -4312,7 +4312,7 @@ var require_resolve_flow_collection = __commonJS({
             else
               onError(valueProps.start, "MISSING_CHAR", `Missing , or : between ${fcName} items`);
           }
-          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep, null, valueProps, onError) : null;
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep2, null, valueProps, onError) : null;
           if (valueNode) {
             if (isBlock(value))
               onError(valueNode.range, "BLOCK_IN_FLOW", blockMsg);
@@ -4492,7 +4492,7 @@ var require_resolve_block_scalar = __commonJS({
           chompStart = i + 1;
       }
       let value = "";
-      let sep = "";
+      let sep2 = "";
       let prevMoreIndented = false;
       for (let i = 0; i < contentStart; ++i)
         value += lines[i][0].slice(trimIndent) + "\n";
@@ -4509,24 +4509,24 @@ var require_resolve_block_scalar = __commonJS({
           indent = "";
         }
         if (type === Scalar.Scalar.BLOCK_LITERAL) {
-          value += sep + indent.slice(trimIndent) + content;
-          sep = "\n";
+          value += sep2 + indent.slice(trimIndent) + content;
+          sep2 = "\n";
         } else if (indent.length > trimIndent || content[0] === "	") {
-          if (sep === " ")
-            sep = "\n";
-          else if (!prevMoreIndented && sep === "\n")
-            sep = "\n\n";
-          value += sep + indent.slice(trimIndent) + content;
-          sep = "\n";
+          if (sep2 === " ")
+            sep2 = "\n";
+          else if (!prevMoreIndented && sep2 === "\n")
+            sep2 = "\n\n";
+          value += sep2 + indent.slice(trimIndent) + content;
+          sep2 = "\n";
           prevMoreIndented = true;
         } else if (content === "") {
-          if (sep === "\n")
+          if (sep2 === "\n")
             value += "\n";
           else
-            sep = "\n";
+            sep2 = "\n";
         } else {
-          value += sep + content;
-          sep = " ";
+          value += sep2 + content;
+          sep2 = " ";
           prevMoreIndented = false;
         }
       }
@@ -4708,25 +4708,25 @@ var require_resolve_flow_scalar = __commonJS({
       if (!match)
         return source;
       let res = match[1];
-      let sep = " ";
+      let sep2 = " ";
       let pos = first.lastIndex;
       line.lastIndex = pos;
       while (match = line.exec(source)) {
         if (match[1] === "") {
-          if (sep === "\n")
-            res += sep;
+          if (sep2 === "\n")
+            res += sep2;
           else
-            sep = "\n";
+            sep2 = "\n";
         } else {
-          res += sep + match[1];
-          sep = " ";
+          res += sep2 + match[1];
+          sep2 = " ";
         }
         pos = line.lastIndex;
       }
       const last = /[ \t]*(.*)/sy;
       last.lastIndex = pos;
       match = last.exec(source);
-      return res + sep + (match?.[1] ?? "");
+      return res + sep2 + (match?.[1] ?? "");
     }
     function doubleQuotedValue(source, onError) {
       let res = "";
@@ -5536,14 +5536,14 @@ var require_cst_stringify = __commonJS({
         }
       }
     }
-    function stringifyItem({ start, key, sep, value }) {
+    function stringifyItem({ start, key, sep: sep2, value }) {
       let res = "";
       for (const st of start)
         res += st.source;
       if (key)
         res += stringifyToken(key);
-      if (sep)
-        for (const st of sep)
+      if (sep2)
+        for (const st of sep2)
           res += st.source;
       if (value)
         res += stringifyToken(value);
@@ -6710,18 +6710,18 @@ var require_parser = __commonJS({
         if (this.type === "map-value-ind") {
           const prev = getPrevProps(this.peek(2));
           const start = getFirstKeyStartProps(prev);
-          let sep;
+          let sep2;
           if (scalar.end) {
-            sep = scalar.end;
-            sep.push(this.sourceToken);
+            sep2 = scalar.end;
+            sep2.push(this.sourceToken);
             delete scalar.end;
           } else
-            sep = [this.sourceToken];
+            sep2 = [this.sourceToken];
           const map = {
             type: "block-map",
             offset: scalar.offset,
             indent: scalar.indent,
-            items: [{ start, key: scalar, sep }]
+            items: [{ start, key: scalar, sep: sep2 }]
           };
           this.onKeyLine = true;
           this.stack[this.stack.length - 1] = map;
@@ -6874,15 +6874,15 @@ var require_parser = __commonJS({
                 } else if (isFlowToken(it.key) && !includesToken(it.sep, "newline")) {
                   const start2 = getFirstKeyStartProps(it.start);
                   const key = it.key;
-                  const sep = it.sep;
-                  sep.push(this.sourceToken);
+                  const sep2 = it.sep;
+                  sep2.push(this.sourceToken);
                   delete it.key;
                   delete it.sep;
                   this.stack.push({
                     type: "block-map",
                     offset: this.offset,
                     indent: this.indent,
-                    items: [{ start: start2, key, sep }]
+                    items: [{ start: start2, key, sep: sep2 }]
                   });
                 } else if (start.length > 0) {
                   it.sep = it.sep.concat(start, this.sourceToken);
@@ -7076,13 +7076,13 @@ var require_parser = __commonJS({
             const prev = getPrevProps(parent);
             const start = getFirstKeyStartProps(prev);
             fixFlowSeqItems(fc);
-            const sep = fc.end.splice(1, fc.end.length);
-            sep.push(this.sourceToken);
+            const sep2 = fc.end.splice(1, fc.end.length);
+            sep2.push(this.sourceToken);
             const map = {
               type: "block-map",
               offset: fc.offset,
               indent: fc.indent,
-              items: [{ start, key: fc, sep }]
+              items: [{ start, key: fc, sep: sep2 }]
             };
             this.onKeyLine = true;
             this.stack[this.stack.length - 1] = map;
@@ -10311,7 +10311,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve5.call(this, root, ref);
+      let _sch = resolve6.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a = root.localRefs) === null || _a === void 0 ? void 0 : _a[ref];
         const { schemaId } = this.opts;
@@ -10338,7 +10338,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve5(root, ref) {
+    function resolve6(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -10969,55 +10969,55 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve5(baseURI, relativeURI, options) {
+    function resolve6(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const resolved = resolveComponent(parse3(baseURI, schemelessOptions), parse3(relativeURI, schemelessOptions), schemelessOptions, true);
       schemelessOptions.skipEscape = true;
       return serialize(resolved, schemelessOptions);
     }
-    function resolveComponent(base, relative, options, skipNormalization) {
+    function resolveComponent(base, relative2, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
         base = parse3(serialize(base, options), options);
-        relative = parse3(serialize(relative, options), options);
+        relative2 = parse3(serialize(relative2, options), options);
       }
       options = options || {};
-      if (!options.tolerant && relative.scheme) {
-        target.scheme = relative.scheme;
-        target.userinfo = relative.userinfo;
-        target.host = relative.host;
-        target.port = relative.port;
-        target.path = removeDotSegments(relative.path || "");
-        target.query = relative.query;
+      if (!options.tolerant && relative2.scheme) {
+        target.scheme = relative2.scheme;
+        target.userinfo = relative2.userinfo;
+        target.host = relative2.host;
+        target.port = relative2.port;
+        target.path = removeDotSegments(relative2.path || "");
+        target.query = relative2.query;
       } else {
-        if (relative.userinfo !== void 0 || relative.host !== void 0 || relative.port !== void 0) {
-          target.userinfo = relative.userinfo;
-          target.host = relative.host;
-          target.port = relative.port;
-          target.path = removeDotSegments(relative.path || "");
-          target.query = relative.query;
+        if (relative2.userinfo !== void 0 || relative2.host !== void 0 || relative2.port !== void 0) {
+          target.userinfo = relative2.userinfo;
+          target.host = relative2.host;
+          target.port = relative2.port;
+          target.path = removeDotSegments(relative2.path || "");
+          target.query = relative2.query;
         } else {
-          if (!relative.path) {
+          if (!relative2.path) {
             target.path = base.path;
-            if (relative.query !== void 0) {
-              target.query = relative.query;
+            if (relative2.query !== void 0) {
+              target.query = relative2.query;
             } else {
               target.query = base.query;
             }
           } else {
-            if (relative.path[0] === "/") {
-              target.path = removeDotSegments(relative.path);
+            if (relative2.path[0] === "/") {
+              target.path = removeDotSegments(relative2.path);
             } else {
               if ((base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0) && !base.path) {
-                target.path = "/" + relative.path;
+                target.path = "/" + relative2.path;
               } else if (!base.path) {
-                target.path = relative.path;
+                target.path = relative2.path;
               } else {
-                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative.path;
+                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative2.path;
               }
               target.path = removeDotSegments(target.path);
             }
-            target.query = relative.query;
+            target.query = relative2.query;
           }
           target.userinfo = base.userinfo;
           target.host = base.host;
@@ -11025,7 +11025,7 @@ var require_fast_uri = __commonJS({
         }
         target.scheme = base.scheme;
       }
-      target.fragment = relative.fragment;
+      target.fragment = relative2.fragment;
       return target;
     }
     function equal(uriA, uriB, options) {
@@ -11233,7 +11233,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve5,
+      resolve: resolve6,
       resolveComponent,
       equal,
       serialize,
@@ -14224,9 +14224,9 @@ var require_dist2 = __commonJS({
 
 // src/hosts/codex/workflow-hook.mjs
 import { createHash as createHash4, randomUUID } from "node:crypto";
-import { existsSync as existsSync4, mkdirSync, readFileSync as readFileSync4, renameSync, writeFileSync } from "node:fs";
+import { existsSync as existsSync5, mkdirSync as mkdirSync2, readFileSync as readFileSync5, renameSync as renameSync2, writeFileSync as writeFileSync2 } from "node:fs";
 import { homedir as homedir2 } from "node:os";
-import { dirname as dirname2, join as join4, resolve as resolve4 } from "node:path";
+import { dirname as dirname3, join as join5, resolve as resolve5 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 
 // src/core/manual-subagent-policy.mjs
@@ -14446,6 +14446,21 @@ function selectCodexCandidate({ hostPolicy, mode, unavailable = [], parentModel 
   return null;
 }
 
+// src/core/manual-check-receipts.mjs
+import {
+  chmodSync,
+  existsSync as existsSync4,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync as readFileSync4,
+  realpathSync as realpathSync2,
+  renameSync,
+  rmSync,
+  writeFileSync
+} from "node:fs";
+import { dirname as dirname2, join as join4, relative, resolve as resolve4, sep } from "node:path";
+
 // scripts/validate-artifact.source.mjs
 import { existsSync as existsSync3, readFileSync as readFileSync3, realpathSync } from "node:fs";
 import { createHash as createHash2 } from "node:crypto";
@@ -14526,17 +14541,62 @@ function yamlObject(source, label, failures) {
   }
   return value;
 }
+function visibleH2Headings(source) {
+  const headings = [];
+  let fenced = false;
+  for (const line of String(source).split(/\r?\n/)) {
+    if (/^```/.test(line)) {
+      fenced = !fenced;
+      continue;
+    }
+    if (fenced) continue;
+    const match = line.match(/^## ([^#].*)$/);
+    if (match) headings.push(match[1].trim());
+  }
+  return headings;
+}
+function validateHumanFirstNextStep(projection, failures) {
+  const source = String(projection);
+  const headings = [...source.matchAll(/^### Next step\s*$/gm)];
+  if (headings.length !== 1) {
+    failures.push("human-first native plan projection requires exactly one complete ### Next step block");
+    return;
+  }
+  const quick = source.match(/^## Quick decision\s*$([\s\S]*?)(?=^## Details\s*$)/m)?.[1] ?? "";
+  const block = quick.match(/^### Next step\s*$([\s\S]*)$/m);
+  if (!block || !quick.trimEnd().endsWith(block[0].trimEnd())) {
+    failures.push("human-first native plan projection requires ### Next step at the end of Quick decision");
+    return;
+  }
+  const lines = block[1].trim().split(/\r?\n/).filter(Boolean);
+  const expected = ["Now", "How", "Why"];
+  if (lines.length !== expected.length || expected.some((label, index) => !new RegExp(`^- ${label}:\\s*\\S`).test(lines[index]))) {
+    failures.push("human-first native plan projection requires complete Now, How, and Why lines in ### Next step");
+  }
+}
 function parsePlanContainer(text, wrapper, failures, normalizations = []) {
-  const match = String(text).match(/(?:^|\n)# ([^\r\n]+)\r?\n(?:[ \t]*\r?\n)*```yaml artifact-envelope\r?\n([\s\S]*?)\r?\n```(?:\r?\n|$)/);
+  const match = String(text).match(/(?:^|\n)# ([^\r\n]+)\r?\n([\s\S]*?)```yaml artifact-envelope\r?\n([\s\S]*?)\r?\n```(?:\r?\n|$)/);
   if (!match) {
-    failures.push("native plan must contain one H1 followed by a yaml artifact-envelope");
+    failures.push("native plan must contain one H1 and one yaml artifact-envelope");
     return null;
   }
-  const fields = yamlObject(match[2], "artifact envelope", failures);
+  const projection = match[2].trim();
+  if (projection) {
+    const headings = visibleH2Headings(projection);
+    const expected = ["Quick decision", "Details", "Agent and machine contract (authoritative)"];
+    if (headings.length !== expected.length || headings.some((heading, index) => heading !== expected[index])) {
+      failures.push("human-first native plan projection must order Quick decision, Details, then Agent and machine contract (authoritative)");
+      return null;
+    }
+    validateHumanFirstNextStep(projection, failures);
+    if (failures.length > 0) return null;
+  }
+  const fields = yamlObject(match[3], "artifact envelope", failures);
   if (!fields) return null;
   if (fields.artifact !== "work-plan") failures.push("native plan containers may contain only work-plan");
   const offset = match.index + (match[0].startsWith("\n") ? 1 : 0);
   if (offset > 0) normalizations.push("ignored Cursor progress text before native plan");
+  if (projection) normalizations.push("validated human-first native plan projection");
   return { fields, body: String(text).slice(match.index + match[0].length), wrapper, container: "cursor-plan", title: match[1], normalizations };
 }
 function parseArtifact(text, failures = [], normalizations = []) {
@@ -14572,6 +14632,10 @@ function parseArtifact(text, failures = [], normalizations = []) {
     return null;
   }
   if (candidates.length > 1) {
+    failures.push("response contains multiple workflow artifact candidates");
+    return null;
+  }
+  if (envelopes.length > 1) {
     failures.push("response contains multiple workflow artifact candidates");
     return null;
   }
@@ -16256,14 +16320,110 @@ if (process.argv[1] && ["validate-artifact.source.mjs", "validate-artifact.mjs"]
 
 // src/core/manual-check-receipts.mjs
 var MANUAL_CHECK_RECEIPT_TTL_MS = 24 * 60 * 60 * 1e3;
-function readOnlyShellSegment(segment) {
-  const cleaned = String(segment ?? "").trim().replace(/^(?:[A-Za-z_][A-Za-z0-9_]*=[^\s]+\s+)*/, "").replace(/^rtk\s+/, "");
-  return /^(?:pwd|ls|rg|grep|head|tail|wc|stat|find|readlink|which|type|file|test)(?:\s|$)/.test(cleaned) || /^sed\s+-n(?:\s|$)/.test(cleaned) || /^git\s+(?:status|diff|show|log|rev-parse|ls-files|check-ignore)(?:\s|$)/.test(cleaned) || /^node\s+--test(?:\s|$)/.test(cleaned) || /^node\s+[^\s]*(?:validate|check|inspect)[^\s]*\.mjs(?:\s|$)/.test(cleaned) || /^npm\s+(?:test|run\s+(?:test|check|validate|release-check))(?:\s|$)/.test(cleaned);
+function shellTokens(command) {
+  const source = String(command ?? "").trim();
+  if (!source || /[\r\n\0]/.test(source)) return { status: "denied", reason: "empty-or-multiline" };
+  const tokens = [];
+  let token = "";
+  let quote = null;
+  let escaped = false;
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index];
+    if (escaped) {
+      token += character;
+      escaped = false;
+      continue;
+    }
+    if (character === "\\" && quote !== "'") {
+      escaped = true;
+      continue;
+    }
+    if (quote) {
+      if (character === quote) {
+        quote = null;
+        continue;
+      }
+      if (quote === '"' && (character === "`" || character === "$")) return { status: "denied", reason: "substitution" };
+      token += character;
+      continue;
+    }
+    if (character === "'" || character === '"') {
+      quote = character;
+      continue;
+    }
+    if (";&|<>`".includes(character) || character === "$") return { status: "denied", reason: "shell-operator-or-substitution" };
+    if (/\s/.test(character)) {
+      if (token) {
+        tokens.push(token);
+        token = "";
+      }
+      continue;
+    }
+    token += character;
+  }
+  if (quote || escaped) return { status: "denied", reason: "unterminated-shell-token" };
+  if (token) tokens.push(token);
+  if (tokens.length === 0) return { status: "denied", reason: "empty-command" };
+  let wrapper = null;
+  if (tokens[0] === "rtk") {
+    wrapper = "rtk";
+    tokens.shift();
+  }
+  if (tokens.length === 0 || tokens[0] === "rtk") return { status: "denied", reason: "invalid-wrapper" };
+  if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[0])) return { status: "denied", reason: "environment-prefix" };
+  return { status: "parsed", wrapper, tokens };
+}
+function optionPresent(tokens, options) {
+  return tokens.some((token) => options.some((option) => token === option || token.startsWith(`${option}=`)));
+}
+function manualShellSafetyDecision(command, options = {}) {
+  const parsed = shellTokens(command);
+  if (parsed.status !== "parsed") return parsed;
+  const [program, ...args] = parsed.tokens;
+  const allow = () => ({ status: "allowed", wrapper: parsed.wrapper, program, args });
+  const deny = (reason) => ({ status: "denied", reason, wrapper: parsed.wrapper, program, args });
+  if (["pwd", "ls", "head", "tail", "wc", "stat", "readlink", "which", "type", "file", "test"].includes(program)) return allow();
+  if (["rg", "grep"].includes(program)) {
+    return optionPresent(args, ["--pre", "--pre-glob"]) ? deny("search-execution-option") : allow();
+  }
+  if (program === "find") {
+    return optionPresent(args, ["-delete", "-exec", "-execdir", "-ok", "-okdir", "-fls", "-fprint", "-fprintf"]) ? deny("find-mutation-or-execution") : allow();
+  }
+  if (program === "sed") {
+    if (args[0] !== "-n" || optionPresent(args, ["-i", "--in-place", "-e", "--expression"])) return deny("sed-not-inspection-only");
+    return allow();
+  }
+  if (program === "git") {
+    const subcommand = args[0];
+    if (!["status", "diff", "show", "log", "rev-parse", "ls-files", "check-ignore"].includes(subcommand)) return deny("git-subcommand-not-read-only");
+    if (optionPresent(args, ["-c", "--config-env", "--git-dir", "--work-tree", "--output", "--ext-diff", "--textconv"])) return deny("git-external-or-output-option");
+    return allow();
+  }
+  if (program === "node") {
+    if (args[0] === "--test") {
+      return optionPresent(args, ["--test-reporter-destination"]) ? deny("node-test-output-option") : allow();
+    }
+    if (args.length > 0 && /(?:^|\/)[^/]*(?:validate|check|inspect)[^/]*\.mjs$/.test(args[0])) return allow();
+    return deny("node-program-not-classified");
+  }
+  if (program === "npm") {
+    const script = args[0] === "test" ? "test" : args[0] === "run" ? args[1] : null;
+    if (!script) return deny("npm-command-not-script");
+    if (options.workspaceRoot) {
+      const packagePath = join4(options.workspaceRoot, options.workingDirectory ?? ".", "package.json");
+      try {
+        const manifest = JSON.parse(readFileSync4(packagePath, "utf8"));
+        if (typeof manifest?.scripts?.[script] !== "string") return deny("npm-script-unavailable");
+      } catch {
+        return deny("npm-script-unavailable");
+      }
+    }
+    return allow();
+  }
+  return deny("program-not-classified");
 }
 function isReadOnlyShell(command) {
-  const source = String(command ?? "");
-  if (!source.trim() || /[\r\n`]|\$\(|<|(?:^|[^<])>(?:>|&)?|(?:^|[^&])&(?!&)|\btee\b|\bsed\s+-i\b|\bperl\s+-i\b/.test(source)) return false;
-  return source.split(/\s*(?:&&|\|\||;|\|)\s*/).filter(Boolean).every(readOnlyShellSegment);
+  return manualShellSafetyDecision(command).status === "allowed";
 }
 
 // src/core/manual-journey.mjs
@@ -16280,12 +16440,20 @@ var MANUAL_JOURNEY_STATE_LABELS = Object.freeze({
   blocked: "Blocked",
   done: "Done"
 });
+var HUMAN_WORKFLOW_PHASE_LABELS = Object.freeze({
+  "plan-ready": "Plan ready",
+  "in-progress": "In progress",
+  "review-needed": "Review needed",
+  "decision-needed": "Decision needed",
+  blocked: "Blocked",
+  completed: "Completed"
+});
 var MANUAL_PRIMARY_ACTIONS = Object.freeze({
   "repair-root": Object.freeze({ label: "Repair the Root", command: "plan-work" }),
   "implement-plan": Object.freeze({ label: "Implement the Plan", command: "Implement Plan" }),
   "attach-artifact": Object.freeze({ label: "Export the exact artifact", command: "attach-artifact" }),
   "review-root": Object.freeze({ label: "Review delivery", command: "review-work" }),
-  "accept-provisional": Object.freeze({ label: "Accept provisional delivery", command: "accept-work" }),
+  "accept-provisional": Object.freeze({ label: "Acknowledge the provisional gap", command: "accept-work" }),
   closeout: Object.freeze({ label: "Portable Evidence build", command: "workflow_closeout" }),
   correct: Object.freeze({ label: "Fix failing Checks", command: "correct-work" }),
   "approve-correction": Object.freeze({ label: "Apply bounded correction", command: "correct-work" }),
@@ -16294,9 +16462,69 @@ var MANUAL_PRIMARY_ACTIONS = Object.freeze({
   "retry-review": Object.freeze({ label: "Retry review", command: "review-work" }),
   answer: Object.freeze({ label: "Answer clarification", command: "answer clarification" }),
   "resolve-intent": Object.freeze({ label: "Resolve intent", command: "plan-work" }),
+  "resolve-blocker": Object.freeze({ label: "Resolve the named blocker", command: "resolve blocker, then work-status" }),
   none: Object.freeze({ label: "Done", command: "none" }),
   learn: Object.freeze({ label: "Persist learnings", command: "learn-from-work" }),
   explain: Object.freeze({ label: "Explain the chain", command: "explain-work" })
+});
+var MANUAL_HOST_ACTION_INVOKES = Object.freeze({
+  cursor: Object.freeze({
+    "repair-root": "/plan-work",
+    "implement-plan": "Implement Plan",
+    "attach-artifact": "Attach the exact artifact",
+    "review-root": "/review-work",
+    "accept-provisional": "/accept-work provisional",
+    closeout: "/review-work",
+    correct: "/correct-work",
+    "approve-correction": "/correct-work",
+    "provide-artifacts": "/work-status",
+    replan: "/plan-work replan",
+    "retry-review": "/review-work",
+    answer: "Reply with the requested answer",
+    "resolve-intent": "/plan-work",
+    "resolve-blocker": "Fix the named cause, then run /work-status again",
+    none: "No further Workflow action required",
+    learn: "/learn-from-work",
+    explain: "/explain-work"
+  }),
+  codex: Object.freeze({
+    "repair-root": "$plan-work",
+    "implement-plan": "Implement Plan",
+    "attach-artifact": "Attach the exact artifact",
+    "review-root": "$review-work",
+    "accept-provisional": "$accept-work provisional",
+    closeout: "$review-work",
+    correct: "$correct-work",
+    "approve-correction": "$correct-work",
+    "provide-artifacts": "$work-status",
+    replan: "$plan-work replan",
+    "retry-review": "$review-work",
+    answer: "Reply with the requested answer",
+    "resolve-intent": "$plan-work",
+    "resolve-blocker": "Fix the named cause, then run $work-status again",
+    none: "No further Workflow action required",
+    learn: "$learn-from-work",
+    explain: "$explain-work"
+  }),
+  portable: Object.freeze({
+    "repair-root": "plan-work",
+    "implement-plan": "implement-work",
+    "attach-artifact": "attach-artifact",
+    "review-root": "review-work",
+    "accept-provisional": "accept-work provisional",
+    closeout: "workflow_closeout",
+    correct: "correct-work",
+    "approve-correction": "correct-work",
+    "provide-artifacts": "work-status",
+    replan: "plan-work replan",
+    "retry-review": "review-work",
+    answer: "Reply with the requested answer",
+    "resolve-intent": "plan-work",
+    "resolve-blocker": "Fix the named cause, then run work-status again",
+    none: "No further Workflow action required",
+    learn: "learn-from-work",
+    explain: "explain-work"
+  })
 });
 var SAFE_BLOCKED_ACTIONS = /* @__PURE__ */ new Set([
   "repair-root",
@@ -16307,32 +16535,26 @@ var SAFE_BLOCKED_ACTIONS = /* @__PURE__ */ new Set([
   "replan",
   "retry-review",
   "answer",
-  "resolve-intent"
+  "resolve-intent",
+  "resolve-blocker"
 ]);
 function normalizeManualPrimaryAction(presentation, action) {
+  if (action === "none" && presentation?.workflow_state === "stopped") return "none";
   if (!["blocked", "failed"].includes(presentation?.outcome)) return action;
   if (SAFE_BLOCKED_ACTIONS.has(action)) return action;
   if (action === "implement-plan") return "repair-root";
   if (["accept-provisional", "approve-correction", "correct"].includes(action)) return "retry-review";
   return "provide-artifacts";
 }
-function taskBoundManualInvoke(action, trace = {}) {
-  const catalog = MANUAL_PRIMARY_ACTIONS[action] ?? { command: String(action), label: String(action) };
-  const root = trace.root_plan_id ?? null;
-  const evidence = trace.evidence_id ?? null;
-  const review = trace.review_id ?? null;
-  if (action === "none") return "No further Workflow action required";
-  if (action === "implement-plan") return catalog.command;
-  if (action === "accept-provisional") return [catalog.command, root, "provisional"].filter(Boolean).join(" ");
-  if (action === "attach-artifact") return [catalog.command, evidence ?? root].filter(Boolean).join(" ");
-  if (action === "answer") return [catalog.command, review ?? root].filter(Boolean).join(" ");
-  return [catalog.command, root].filter(Boolean).join(" ");
+function taskBoundManualInvoke(action, _trace = {}, clientHost = "portable") {
+  const host = MANUAL_HOST_ACTION_INVOKES[clientHost] ? clientHost : "portable";
+  return MANUAL_HOST_ACTION_INVOKES[host][action] ?? MANUAL_PRIMARY_ACTIONS[action]?.command ?? String(action);
 }
-function manualJourneyDecision({ state = "blocked", blocker, action, trace = {} }) {
+function manualJourneyDecision({ state = "blocked", blocker, action, trace = {}, clientHost = "portable" }) {
   const normalizedAction = normalizeManualPrimaryAction({ outcome: state === "blocked" ? "blocked" : "partial" }, action);
   const label = MANUAL_JOURNEY_STATE_LABELS[state] ?? state;
   const catalog = MANUAL_PRIMARY_ACTIONS[normalizedAction] ?? { label: normalizedAction };
-  return `Workflow \xB7 ${label}. Reason: ${blocker} Resolution: ${catalog.label} \u2014 ${taskBoundManualInvoke(normalizedAction, trace)}.`;
+  return `Workflow \xB7 ${label}. Reason: ${blocker} Resolution: ${catalog.label} \u2014 ${taskBoundManualInvoke(normalizedAction, trace, clientHost)}.`;
 }
 
 // src/core/root-plan-attestation.mjs
@@ -16494,6 +16716,12 @@ function explicitWorkflowCommand(prompt) {
   const unique2 = [...new Set(commands)];
   return { command: unique2.length === 1 ? unique2[0] : null, ambiguous: unique2.length > 1 };
 }
+function explicitCodexCollaborationMode(input) {
+  const collaborationMode = input?.collaboration_mode;
+  if (!collaborationMode || typeof collaborationMode !== "object" || Array.isArray(collaborationMode)) return null;
+  if (typeof collaborationMode.mode !== "string" || !collaborationMode.mode.trim()) return null;
+  return collaborationMode.mode.trim().toLowerCase();
+}
 function classifyCodexWorkflowPrompt(prompt) {
   if (hookContinuation(prompt)) return { kind: "hook-continuation", phase: null };
   const explicit = explicitWorkflowCommand(prompt);
@@ -16635,17 +16863,19 @@ function evaluateCodexHook(input, priorState = {}, options = {}) {
     }
     const phase = classification.phase;
     if (!phase) return { output: {}, state };
-    if (phase === "planning" && input.permission_mode !== "plan") {
+    const collaborationMode = explicitCodexCollaborationMode(input);
+    if (phase === "planning" && collaborationMode && collaborationMode !== "plan") {
       return { output: { decision: "block", reason: "$plan-work requires Codex Plan mode." }, state };
     }
     state.turn = beginTurn(phase, input, policy, state);
     const marker = phase === "planning" ? CODEX_PLAN_MARKER : phase === "review" ? CODEX_REVIEW_MARKER : ["implementation", "correction"].includes(phase) ? CODEX_IMPLEMENTATION_MARKER : "[workflow-codex-manual-v1]";
     const routingNote = routingEnabled(policy) ? "Codex may use configured approved Manual candidates with parent fallback." : "Subagents inherit the parent model; do not request a concrete model.";
+    const planningSafety = phase === "planning" ? " $plan-work remains valid only in active Codex Plan mode. This hook does not infer that mode from permission_mode; if Plan mode is not active, stop without drafting a Root." : "";
     return {
       output: {
         hookSpecificOutput: {
           hookEventName: "UserPromptSubmit",
-          additionalContext: `${marker} ${MODEL_INHERIT_MARKER} Native task plans are the only Manual plan authority. Implementation ends normally; fresh Review owns Evidence. ${routingNote}`
+          additionalContext: `${marker} ${MODEL_INHERIT_MARKER} Native task plans are the only Manual plan authority. Implementation ends normally; fresh Review owns Evidence. ${routingNote}${planningSafety}`
         }
       },
       state
@@ -16771,36 +17001,36 @@ function evaluateCodexHook(input, priorState = {}, options = {}) {
 // src/hosts/codex/workflow-hook.mjs
 var MAX_INPUT_BYTES = 1024 * 1024;
 var digest = (value) => createHash4("sha256").update(String(value)).digest("hex");
-function resolveCodexPluginRoot(here = dirname2(fileURLToPath2(import.meta.url))) {
-  let current = resolve4(here);
+function resolveCodexPluginRoot(here = dirname3(fileURLToPath2(import.meta.url))) {
+  let current = resolve5(here);
   for (let i = 0; i < 8; i += 1) {
-    if (existsSync4(join4(current, "references", "artifact-protocol.md")) || existsSync4(join4(current, "scripts", "validate-artifact.mjs")) || existsSync4(join4(current, "scripts", "validate-artifact.source.mjs"))) {
+    if (existsSync5(join5(current, "references", "artifact-protocol.md")) || existsSync5(join5(current, "scripts", "validate-artifact.mjs")) || existsSync5(join5(current, "scripts", "validate-artifact.source.mjs"))) {
       return current;
     }
-    const parent = dirname2(current);
+    const parent = dirname3(current);
     if (parent === current) break;
     current = parent;
   }
-  return resolve4(here, "../..");
+  return resolve5(here, "../..");
 }
 function statePath(input, root = null) {
-  const base = resolve4(root ?? process.env.PLUGIN_DATA ?? join4(homedir2(), ".codex", "geldmacher-workflow"));
-  const repository = digest(resolve4(input.cwd ?? process.cwd())).slice(0, 20);
+  const base = resolve5(root ?? process.env.PLUGIN_DATA ?? join5(homedir2(), ".codex", "geldmacher-workflow"));
+  const repository = digest(resolve5(input.cwd ?? process.cwd())).slice(0, 20);
   const session = digest(input.session_id ?? "missing-session").slice(0, 32);
-  return join4(base, "hooks", repository, "sessions", `${session}.json`);
+  return join5(base, "hooks", repository, "sessions", `${session}.json`);
 }
 function readState(path) {
-  if (!existsSync4(path)) return {};
-  const value = JSON.parse(readFileSync4(path, "utf8"));
+  if (!existsSync5(path)) return {};
+  const value = JSON.parse(readFileSync5(path, "utf8"));
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid Workflow Codex hook state");
   return value.schema === 2 && value.kind === "manual-native-plan-review" ? value : {};
 }
 function writeState(path, value) {
-  mkdirSync(dirname2(path), { recursive: true, mode: 448 });
+  mkdirSync2(dirname3(path), { recursive: true, mode: 448 });
   const temporary = `${path}.${process.pid}.${randomUUID()}.tmp`;
-  writeFileSync(temporary, `${JSON.stringify(value, null, 2)}
+  writeFileSync2(temporary, `${JSON.stringify(value, null, 2)}
 `, { mode: 384 });
-  renameSync(temporary, path);
+  renameSync2(temporary, path);
 }
 function failureOutput(input, error) {
   const reason = `Workflow hook failed closed: ${String(error?.message ?? error).slice(0, 400)}`;
@@ -16816,7 +17046,7 @@ function inactivePrompt(classification) {
 function deactivateBestEffort(input, options) {
   try {
     const path = statePath(input, options.stateRoot);
-    if (!existsSync4(path)) return;
+    if (!existsSync5(path)) return;
     const state = readState(path);
     state.turn = null;
     writeState(path, state);
@@ -16867,7 +17097,7 @@ function runCodexHook(input, options = {}) {
     return failureOutput(input, error);
   }
 }
-if (process.argv[1] && resolve4(process.argv[1]) === resolve4(new URL(import.meta.url).pathname)) {
+if (process.argv[1] && resolve5(process.argv[1]) === resolve5(new URL(import.meta.url).pathname)) {
   let source = "";
   let oversized = false;
   for await (const chunk of process.stdin) {

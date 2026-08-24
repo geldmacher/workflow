@@ -397,6 +397,7 @@ test("portable MCP expands standard variables, exposes five tools, and writes on
     assert.equal(preflight.isError, false);
     assert.equal(preflight.structuredContent.feasible, true);
     assert.equal(preflight.structuredContent.root_plan_id, "wp-adaptive-retry");
+    assert.equal(preflight.structuredContent.presentation.client_host, "portable");
 
     const recorded = await client.callTool({
       name: "workflow_artifact_record",

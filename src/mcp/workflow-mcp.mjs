@@ -18,6 +18,7 @@ import { approveVerificationProfile, auditVerificationProfile, draftVerification
 import { awaitCooperativeExit, clearWorkerControl, writeWorkerControl } from "../controller/control.mjs";
 import { sharedArtifactStateRoot } from "../core/state-paths.mjs";
 import { registerManualWorkflowTools } from "./manual-tools.mjs";
+import { controllerMcpResult } from "./manual-presentation.mjs";
 import { WorkspaceRootAuthority, WorkspaceRootError } from "./workspace-roots.mjs";
 import { proofArtifacts } from "./proof-artifacts.mjs";
 import { toolContract } from "./tool-contracts.mjs";
@@ -41,6 +42,17 @@ function result(value, isError = false) {
 
 function failure(error) {
   return result({
+    error: error.message,
+    ...(error instanceof WorkspaceRootError ? { error_code: error.code } : {}),
+  }, true);
+}
+
+function controllerResult(toolName, value, isError = false) {
+  return controllerMcpResult(toolName, value, isError);
+}
+
+function controllerFailure(toolName, error) {
+  return controllerResult(toolName, {
     error: error.message,
     ...(error instanceof WorkspaceRootError ? { error_code: error.code } : {}),
   }, true);
@@ -135,8 +147,8 @@ server.registerTool("workflow_prepare", toolContract("workflow_prepare"), async 
       const pid = launchRunner({ action: "prepare", workspace, stateRoot, preparationId: preparation.preparation_id });
       preparation = preparationStore.update(preparation.preparation_id, preparation.revision, null, (draft) => ({ ...draft, runner_pid: pid }), "planner-runner-launched");
     }
-    return result({ preparation: preparationView(preparation), duplicate: created.duplicate });
-  } catch (error) { return failure(error); }
+    return controllerResult("workflow_prepare", { preparation: preparationView(preparation), duplicate: created.duplicate });
+  } catch (error) { return controllerFailure("workflow_prepare", error); }
 });
 
 server.registerTool("workflow_start", toolContract("workflow_start"), async (input) => {
@@ -153,14 +165,14 @@ server.registerTool("workflow_start", toolContract("workflow_start"), async (inp
       const pid = launchRunner({ action: "execute", workspace, stateRoot, runId: run.run_id });
       run = store.update(run.run_id, run.revision, null, (draft) => ({ ...draft, runner_pid: pid }), "runner-launched");
     }
-    return result({
+    return controllerResult("workflow_start", {
       run: runView(run),
       snapshot: engine.snapshot(run),
       preparation: preparationView(started.preparation),
       learning_source_receipt: learningSourceReceipts.issue(run),
       duplicate: started.duplicate,
     });
-  } catch (error) { return failure(error); }
+  } catch (error) { return controllerFailure("workflow_start", error); }
 });
 
 server.registerTool("workflow_status", toolContract("workflow_status"), async (input) => {
@@ -177,7 +189,7 @@ server.registerTool("workflow_status", toolContract("workflow_status"), async (i
     if (input.run_id) {
       const run = store.get(input.run_id);
       const sourceBinding = learningSourceReceipts.verify(input.learning_source_receipt, run);
-      return result({
+      return controllerResult("workflow_status", {
         subject_kind: "run",
         run: runView(run),
         snapshot: engine.snapshot(run),
@@ -187,14 +199,14 @@ server.registerTool("workflow_status", toolContract("workflow_status"), async (i
     }
     if (input.preparation_id) {
       const preparation = preparationStore.get(input.preparation_id);
-      return result({ subject_kind: "preparation", preparation: preparationView(preparation), learning: derivePreparationLearningContext(preparation), model_inheritance });
+      return controllerResult("workflow_status", { subject_kind: "preparation", preparation: preparationView(preparation), learning: derivePreparationLearningContext(preparation), model_inheritance });
     }
     const active = [
       ...store.active().map((run) => ({ kind: "run", value: run })),
       ...preparationStore.active().map((preparation) => ({ kind: "preparation", value: preparation })),
     ];
     if (active.length === 0) {
-      return result({
+      return controllerResult("workflow_status", {
         subject_kind: "none",
         workflow_active: false,
         message: "Workflow is inactive. This status is informational and never gates native Manual implementation.",
@@ -204,7 +216,7 @@ server.registerTool("workflow_status", toolContract("workflow_status"), async (i
     if (active.length > 1) throw new Error("multiple active Workflow subjects require an explicit ID");
     if (active[0].kind === "run") {
       const sourceBinding = learningSourceReceipts.verify(input.learning_source_receipt, active[0].value);
-      return result({
+      return controllerResult("workflow_status", {
         subject_kind: "run",
         run: runView(active[0].value),
         snapshot: engine.snapshot(active[0].value),
@@ -212,8 +224,8 @@ server.registerTool("workflow_status", toolContract("workflow_status"), async (i
         model_inheritance,
       });
     }
-    return result({ subject_kind: "preparation", preparation: preparationView(active[0].value), learning: derivePreparationLearningContext(active[0].value), model_inheritance });
-  } catch (error) { return failure(error); }
+    return controllerResult("workflow_status", { subject_kind: "preparation", preparation: preparationView(active[0].value), learning: derivePreparationLearningContext(active[0].value), model_inheritance });
+  } catch (error) { return controllerFailure("workflow_status", error); }
 });
 
 server.registerTool("workflow_watch", toolContract("workflow_watch"), async (input) => {
@@ -223,12 +235,12 @@ server.registerTool("workflow_watch", toolContract("workflow_watch"), async (inp
     if (input.run_id) {
       const events = await watchEvents((after) => store.events(input.run_id, after), input.after_event, input.timeout_ms);
       const run = store.get(input.run_id);
-      return result({ subject_kind: "run", events, next_event: input.after_event + events.length, run: runView(run), snapshot: engine.snapshot(run) });
+      return controllerResult("workflow_watch", { subject_kind: "run", events, next_event: input.after_event + events.length, run: runView(run), snapshot: engine.snapshot(run) });
     }
     const events = await watchEvents((after) => preparationStore.events(input.preparation_id, after), input.after_event, input.timeout_ms);
     const preparation = preparationStore.get(input.preparation_id);
-    return result({ subject_kind: "preparation", events, next_event: input.after_event + events.length, preparation: preparationView(preparation) });
-  } catch (error) { return failure(error); }
+    return controllerResult("workflow_watch", { subject_kind: "preparation", events, next_event: input.after_event + events.length, preparation: preparationView(preparation) });
+  } catch (error) { return controllerFailure("workflow_watch", error); }
 });
 
 server.registerTool("workflow_control", toolContract("workflow_control"), async (input) => {
@@ -253,7 +265,7 @@ server.registerTool("workflow_control", toolContract("workflow_control"), async 
           preparationStore.update(input.preparation_id, latest.revision, null, (draft) => ({ ...draft, status: "interrupted", runner_pid: null, blockers: [...new Set([...(draft.blockers ?? []), "cooperative-cancel-grace-exceeded"])] }), "planner-cancel-interrupted");
         } else preparationStore.appendEvent(input.preparation_id, "planner-cooperatively-cancelled", cooperative);
       }
-      return result({ subject_kind: "preparation", preparation: preparationView(mutation.preparation), duplicate: mutation.duplicate });
+      return controllerResult("workflow_control", { subject_kind: "preparation", preparation: preparationView(mutation.preparation), duplicate: mutation.duplicate });
     }
 
     let controlledRunnerPid = null;
@@ -290,8 +302,8 @@ server.registerTool("workflow_control", toolContract("workflow_control"), async 
       const pid = launchRunner({ action: "execute", workspace, stateRoot, runId: run.run_id });
       run = store.update(run.run_id, run.revision, null, (draft) => ({ ...draft, runner_pid: pid }), "runner-launched");
     }
-    return result({ subject_kind: "run", run: runView(run), snapshot: engine.snapshot(run), learning_source_receipt: learningSourceReceipts.issue(run), duplicate: mutation.duplicate });
-  } catch (error) { return failure(error); }
+    return controllerResult("workflow_control", { subject_kind: "run", run: runView(run), snapshot: engine.snapshot(run), learning_source_receipt: learningSourceReceipts.issue(run), duplicate: mutation.duplicate });
+  } catch (error) { return controllerFailure("workflow_control", error); }
 });
 
 server.registerTool("workflow_answer", toolContract("workflow_answer"), async (input) => {
@@ -301,20 +313,20 @@ server.registerTool("workflow_answer", toolContract("workflow_answer"), async (i
       if (before.lifecycle !== "waiting-human") throw new Error("run is not waiting for a human answer");
       engine.update(input.run_id, (draft) => ({ ...draft, answers: [...(draft.answers ?? []), { at: new Date().toISOString(), answer: input.answer }], blockers: [], next_action: "replan" }), "answer-recorded");
     });
-    return result({ run: runView(mutation.value), snapshot: engine.snapshot(mutation.value), learning_source_receipt: learningSourceReceipts.issue(mutation.value), duplicate: mutation.duplicate });
-  } catch (error) { return failure(error); }
+    return controllerResult("workflow_answer", { run: runView(mutation.value), snapshot: engine.snapshot(mutation.value), learning_source_receipt: learningSourceReceipts.issue(mutation.value), duplicate: mutation.duplicate });
+  } catch (error) { return controllerFailure("workflow_answer", error); }
 });
 
 server.registerTool("workflow_validate_models", toolContract("workflow_validate_models"), async ({ workspace_root, route_profile }) => {
   try {
     const { workspace, stateRoot } = await context(workspace_root);
     const config = loadWorkflowConfig(workspace);
-    if (config.errors.length > 0) return result({ verified: false, errors: config.errors, capabilities: resolveCapabilities(stateRoot, {}, { pluginRoot }) });
+    if (config.errors.length > 0) return controllerResult("workflow_validate_models", { verified: false, errors: config.errors, capabilities: resolveCapabilities(stateRoot, {}, { pluginRoot }) });
     const profile = resolveRouteProfile(config, route_profile);
     const validation = new CursorWorkerAdapter({ runDirectory: resolve(stateRoot, "model-validation"), pluginRoot }).validateProfile(profile);
-    return result({ ...validation, capabilities: resolveCapabilities(stateRoot, { model_catalog_verified: validation.verified }, { pluginRoot }) });
+    return controllerResult("workflow_validate_models", { ...validation, capabilities: resolveCapabilities(stateRoot, { model_catalog_verified: validation.verified }, { pluginRoot }) });
   } catch (error) {
-    return result({
+    return controllerResult("workflow_validate_models", {
       verified: false,
       errors: [error.message],
       ...(error instanceof WorkspaceRootError ? { error_code: error.code } : {}),
@@ -329,11 +341,11 @@ server.registerTool("workflow_verification_profile", toolContract("workflow_veri
     const { workspace, stateRoot } = await context(input.workspace_root);
     if (input.action === "draft") {
       if (!input.surface) throw new Error("draft requires surface");
-      return result(draftVerificationProfile(workspace, input.surface, pluginRoot, input.manifest_path));
+      return controllerResult("workflow_verification_profile", draftVerificationProfile(workspace, input.surface, pluginRoot, input.manifest_path));
     }
     const inspection = inspectVerificationProfile(workspace, input.manifest_path, pluginRoot);
-    if (input.action === "inspect") return result(inspection, !inspection.valid);
-    if (input.action === "audit") return result(auditVerificationProfile(workspace, input.manifest_path, pluginRoot, stateRoot));
+    if (input.action === "inspect") return controllerResult("workflow_verification_profile", inspection, !inspection.valid);
+    if (input.action === "audit") return controllerResult("workflow_verification_profile", auditVerificationProfile(workspace, input.manifest_path, pluginRoot, stateRoot));
     if (input.action === "prove") {
       if (!inspection.valid) throw new Error(`verification profile invalid: ${inspection.errors.join("; ")}`);
       const config = loadWorkflowConfig(workspace);
@@ -373,12 +385,12 @@ server.registerTool("workflow_verification_profile", toolContract("workflow_veri
         actor_receipt: phase.receipt,
       });
       retainProof = true;
-      return result(recorded);
+      return controllerResult("workflow_verification_profile", recorded);
     }
     if (!input.approved_hash) throw new Error("approve requires approved_hash");
     if (!inspection.valid || inspection.profile_hash !== input.approved_hash) throw new Error("current verification profile does not match approved_hash");
-    return result(approveVerificationProfile(stateRoot, inspection.manifest.profile_id, input.approved_hash));
-  } catch (error) { return failure(error); }
+    return controllerResult("workflow_verification_profile", approveVerificationProfile(stateRoot, inspection.manifest.profile_id, input.approved_hash));
+  } catch (error) { return controllerFailure("workflow_verification_profile", error); }
   finally { if (ownedProofRoot && !retainProof) rmSync(ownedProofRoot, { recursive: true, force: true }); }
 });
 

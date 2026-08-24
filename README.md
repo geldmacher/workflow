@@ -13,6 +13,26 @@ The result: faster repository work with a clear answer to **what changed, why it
 
 [Manual Workflow guide](docs/manual-workflow.md) · [Product overview](docs/overview.md) · [Usage example](docs/usage-example.md) · [Profile guide](docs/profiles.md)
 
+## Quick starts
+
+Use the entrypoint for the host you are already working in:
+
+| Host | Copyable happy path |
+|---|---|
+| Cursor | `/plan-work <goal>` → **Implement Plan** → `/review-work` |
+| Codex Plan mode | `$plan-work <goal>` → **Implement Plan** → `$review-work` |
+| Agent Plugins | `plan-work` → `implement-work` → `review-work` |
+
+The review result always names one outcome and one next action:
+
+| Result | Human meaning |
+|---|---|
+| Verified | Repository delivery is complete for this Root. |
+| Provisional | Improve the named evidence or acknowledge the gap once; Manual acknowledgement is not persisted. |
+| Correct | Authorize the bounded correction separately, let it finish normally, then start a fresh Review. |
+| Replan | Approve a replacement Root before changing Intent or authority. |
+| Blocked | Resolve the named failure; provisional acknowledgement cannot bypass it. |
+
 ## How it works
 
 The default Manual path needs three human actions:
@@ -21,7 +41,13 @@ The default Manual path needs three human actions:
 2. **Implement** inside that approved boundary.
 3. **Review and understand** the delivery in a fresh read-only phase of the same task; the result is explained before its technical evidence and traceability.
 
-Correct, replan, accept provisional delivery, or learn only when you explicitly ask for it. After implementation, Workflow presents one compact next action at a time and keeps exact Root, Evidence, Review, path, receipt, and enforcement details in secondary Technical traceability. A correction closes out automatically and returns to fresh review; two correction rounds without measurable progress stop for clarification or a separately approved replan.
+Correct, replan, acknowledge provisional delivery, or learn only when you explicitly ask for it. After implementation, Workflow presents one compact next action at a time and keeps exact Root, Evidence, Review, path, receipt, and enforcement details in the authoritative machine layer. A correction finishes normally and creates no Evidence itself; the following fresh Review builds Evidence and Review atomically. Two correction rounds without measurable progress stop for clarification or a separately approved replan.
+
+The machine contract retains its detailed internal states. Human-facing output uses only six phases: **Plan ready**, **In progress**, **Review needed**, **Decision needed**, **Blocked**, and **Completed**. A stopped subject says explicitly that it ended without delivery, and a provisional Manual acknowledgement is never presented as verified or persisted.
+
+Cursor keeps ordinary prompts available even if a prompt observer is unavailable. An active Review is still fail-closed against mutation: Shell can execute only an exact approved Root Check in its canonical Git repository. A strictly reconstructed final `/review-work` transcript command can recover Review activation only provisionally; it never recovers Root authority, and the output explains Hook Trust/reload recovery.
+
+Cursor also binds a future `/plan-work` Root passively when the host omits its native `CreatePlan` tool hooks: the planning `stop` event reads exactly one structured CreatePlan from the latest completed task turn and adds no command or extra turn to the human journey. If that transcript is completely unavailable, one unique recent native Plan file may keep Review usable only provisionally; the result names that limitation and can never be verified.
 
 Workflow keeps the approved Intent fixed, lets Strategy adapt inside the envelope, and connects the final verdict to the exact Plan and Evidence that produced it.
 
@@ -120,7 +146,7 @@ Inspect a dirty status before pulling; commit or stash intentional local changes
 | Check status | `/work-status` | `$work-status` | `work-status` |
 | Refresh the explanation | `/explain-work` | `$explain-work` | `explain-work` |
 
-Use `/correct-work` or `$correct-work` only after separately authorizing a correction. Reviews explain automatically; refreshing that explanation, provisional acceptance, and confirmed learning remain explicit actions—not background automation.
+Use `/correct-work` or `$correct-work` only after separately authorizing a correction. Reviews explain automatically; refreshing that explanation, the ephemeral `/accept-work provisional` acknowledgement, and confirmed learning remain explicit actions—not background automation. That acknowledgement is not persisted, does not verify delivery, and grants no Qualification or Learning authority.
 
 Cursor additionally exposes the gated supervised and autonomous controller commands. Codex intentionally provides the native Manual path with seven skills and five compatible Manual MCP tools. The Agent Plugins target provides nine portable Manual skills—including explicit `implement-work` and compatibility closeout—and requires MCP preflight/closeout where native hooks are unavailable. Neither Manual-only target contains the Cursor controller runtime, hidden model routing, background Runs, worktree manager, or publication automation.
 
@@ -144,7 +170,7 @@ Task artifacts remain authoritative. A content-addressed Handoff Store can optio
 
 ### Versions
 
-- Plugin 5.5.0
+- Plugin 5.5.1
 - Artifact Schema 5
 - Controller Protocol 5
 - Capability Receipt Schema 4

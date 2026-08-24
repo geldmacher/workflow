@@ -49,25 +49,98 @@ export function normalizeManualCheckCommand(value) {
   return trimmed.startsWith("rtk ") ? trimmed.slice(4) : trimmed;
 }
 
-function readOnlyShellSegment(segment) {
-  const cleaned = String(segment ?? "").trim()
-    .replace(/^(?:[A-Za-z_][A-Za-z0-9_]*=[^\s]+\s+)*/, "")
-    .replace(/^rtk\s+/, "");
-  return /^(?:pwd|ls|rg|grep|head|tail|wc|stat|find|readlink|which|type|file|test)(?:\s|$)/.test(cleaned)
-    || /^sed\s+-n(?:\s|$)/.test(cleaned)
-    || /^git\s+(?:status|diff|show|log|rev-parse|ls-files|check-ignore)(?:\s|$)/.test(cleaned)
-    || /^node\s+--test(?:\s|$)/.test(cleaned)
-    || /^node\s+[^\s]*(?:validate|check|inspect)[^\s]*\.mjs(?:\s|$)/.test(cleaned)
-    || /^npm\s+(?:test|run\s+(?:test|check|validate|release-check))(?:\s|$)/.test(cleaned);
+function shellTokens(command) {
+  const source = String(command ?? "").trim();
+  if (!source || /[\r\n\0]/.test(source)) return { status: "denied", reason: "empty-or-multiline" };
+  const tokens = [];
+  let token = "";
+  let quote = null;
+  let escaped = false;
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index];
+    if (escaped) { token += character; escaped = false; continue; }
+    if (character === "\\" && quote !== "'") { escaped = true; continue; }
+    if (quote) {
+      if (character === quote) { quote = null; continue; }
+      if (quote === '"' && (character === "`" || character === "$")) return { status: "denied", reason: "substitution" };
+      token += character;
+      continue;
+    }
+    if (character === "'" || character === '"') { quote = character; continue; }
+    if (";&|<>`".includes(character) || character === "$") return { status: "denied", reason: "shell-operator-or-substitution" };
+    if (/\s/.test(character)) {
+      if (token) { tokens.push(token); token = ""; }
+      continue;
+    }
+    token += character;
+  }
+  if (quote || escaped) return { status: "denied", reason: "unterminated-shell-token" };
+  if (token) tokens.push(token);
+  if (tokens.length === 0) return { status: "denied", reason: "empty-command" };
+  let wrapper = null;
+  if (tokens[0] === "rtk") {
+    wrapper = "rtk";
+    tokens.shift();
+  }
+  if (tokens.length === 0 || tokens[0] === "rtk") return { status: "denied", reason: "invalid-wrapper" };
+  if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[0])) return { status: "denied", reason: "environment-prefix" };
+  return { status: "parsed", wrapper, tokens };
+}
+
+function optionPresent(tokens, options) {
+  return tokens.some((token) => options.some((option) => token === option || token.startsWith(`${option}=`)));
+}
+
+/** Structural decision only. Active Review additionally requires one exact Root Check. */
+export function manualShellSafetyDecision(command, options = {}) {
+  const parsed = shellTokens(command);
+  if (parsed.status !== "parsed") return parsed;
+  const [program, ...args] = parsed.tokens;
+  const allow = () => ({ status: "allowed", wrapper: parsed.wrapper, program, args });
+  const deny = (reason) => ({ status: "denied", reason, wrapper: parsed.wrapper, program, args });
+  if (["pwd", "ls", "head", "tail", "wc", "stat", "readlink", "which", "type", "file", "test"].includes(program)) return allow();
+  if (["rg", "grep"].includes(program)) {
+    return optionPresent(args, ["--pre", "--pre-glob"]) ? deny("search-execution-option") : allow();
+  }
+  if (program === "find") {
+    return optionPresent(args, ["-delete", "-exec", "-execdir", "-ok", "-okdir", "-fls", "-fprint", "-fprintf"])
+      ? deny("find-mutation-or-execution")
+      : allow();
+  }
+  if (program === "sed") {
+    if (args[0] !== "-n" || optionPresent(args, ["-i", "--in-place", "-e", "--expression"])) return deny("sed-not-inspection-only");
+    return allow();
+  }
+  if (program === "git") {
+    const subcommand = args[0];
+    if (!["status", "diff", "show", "log", "rev-parse", "ls-files", "check-ignore"].includes(subcommand)) return deny("git-subcommand-not-read-only");
+    if (optionPresent(args, ["-c", "--config-env", "--git-dir", "--work-tree", "--output", "--ext-diff", "--textconv"])) return deny("git-external-or-output-option");
+    return allow();
+  }
+  if (program === "node") {
+    if (args[0] === "--test") {
+      return optionPresent(args, ["--test-reporter-destination"]) ? deny("node-test-output-option") : allow();
+    }
+    if (args.length > 0 && /(?:^|\/)[^/]*(?:validate|check|inspect)[^/]*\.mjs$/.test(args[0])) return allow();
+    return deny("node-program-not-classified");
+  }
+  if (program === "npm") {
+    const script = args[0] === "test" ? "test" : args[0] === "run" ? args[1] : null;
+    if (!script) return deny("npm-command-not-script");
+    if (options.workspaceRoot) {
+      const packagePath = join(options.workspaceRoot, options.workingDirectory ?? ".", "package.json");
+      try {
+        const manifest = JSON.parse(readFileSync(packagePath, "utf8"));
+        if (typeof manifest?.scripts?.[script] !== "string") return deny("npm-script-unavailable");
+      } catch { return deny("npm-script-unavailable"); }
+    }
+    return allow();
+  }
+  return deny("program-not-classified");
 }
 
 export function isReadOnlyShell(command) {
-  const source = String(command ?? "");
-  if (
-    !source.trim()
-    || /[\r\n`]|\$\(|<|(?:^|[^<])>(?:>|&)?|(?:^|[^&])&(?!&)|\btee\b|\bsed\s+-i\b|\bperl\s+-i\b/.test(source)
-  ) return false;
-  return source.split(/\s*(?:&&|\|\||;|\|)\s*/).filter(Boolean).every(readOnlyShellSegment);
+  return manualShellSafetyDecision(command).status === "allowed";
 }
 
 function normalizedWorkingDirectory(workspaceRoot, value) {
@@ -97,17 +170,57 @@ function manualMachineChecks(rootPlanText, pluginRoot) {
   return {
     root_plan_id: contract.fields.id,
     root_hash: rootContentHash(rootPlanText),
-    checks: contract.checks.filter((check) => (
-      check.Required === "yes" && check["Evidence Class"] === "machine-verifiable"
-    )).map((check) => ({
+    checks: contract.checks.filter((check) => check["Evidence Class"] === "machine-verifiable").map((check) => ({
       check_id: check["Check ID"],
       command: normalizeManualCheckCommand(check["Command or Inspection"]),
       command_hash: sha256(normalizeManualCheckCommand(check["Command or Inspection"])),
       working_directory: plannedWorkingDirectory(check["Working Directory"]),
       expected: check["Expected Result"],
+      required: check.Required === "yes",
       required_repetitions: 1,
     })),
     all_checks: contract.checks.filter((check) => check.Required === "yes"),
+  };
+}
+
+export function requiredManualCheckSafetyIssues({ rootPlanText, pluginRoot, workspaceRoot = null }) {
+  const plan = manualMachineChecks(rootPlanText, pluginRoot);
+  return plan.checks.filter((check) => check.required).flatMap((check) => {
+    const decision = manualShellSafetyDecision(check.command, {
+      ...(workspaceRoot ? { workspaceRoot } : {}),
+      workingDirectory: check.working_directory ?? ".",
+    });
+    return decision.status === "allowed" && check.working_directory !== null
+      ? []
+      : [{ check_id: check.check_id, reason: check.working_directory === null ? "working-directory-outside-repository" : decision.reason }];
+  });
+}
+
+export function manualReviewShellDecision({ rootPlanText, pluginRoot, workspaceRoot, expectedRootHash = null, toolName, toolInput }) {
+  if (typeof rootPlanText !== "string" || !rootPlanText.trim()) return { status: "denied", reason: "root-unavailable" };
+  const rootHash = rootContentHash(rootPlanText);
+  if (expectedRootHash && expectedRootHash !== rootHash) return { status: "denied", reason: "root-hash-mismatch" };
+  const invocation = shellToolInput(toolName, toolInput, workspaceRoot);
+  if (!invocation) return { status: "denied", reason: "invalid-shell-invocation" };
+  const safety = manualShellSafetyDecision(invocation.command, {
+    workspaceRoot,
+    workingDirectory: invocation.working_directory,
+  });
+  if (safety.status !== "allowed") return safety;
+  const plan = manualMachineChecks(rootPlanText, pluginRoot);
+  const matches = plan.checks.filter((check) => (
+    check.command === invocation.command
+    && check.working_directory !== null
+    && check.working_directory === invocation.working_directory
+  ));
+  if (matches.length !== 1) return { status: "denied", reason: matches.length > 1 ? "ambiguous-root-check" : "unapproved-root-check" };
+  return {
+    status: "allowed",
+    root_plan_id: plan.root_plan_id,
+    root_hash: plan.root_hash,
+    check_id: matches[0].check_id,
+    command_hash: matches[0].command_hash,
+    working_directory: matches[0].working_directory,
   };
 }
 
@@ -150,6 +263,8 @@ export function beginManualCheckReceipt({
   if (!invocation) return null;
   const plan = manualMachineChecks(rootPlanText, pluginRoot);
   const matches = plan.checks.filter((check) => (
+    check.required
+    &&
     check.command === invocation.command
     && check.working_directory !== null
     && check.working_directory === invocation.working_directory

@@ -90,6 +90,16 @@ export function nativeCloseoutStructuredContent(closeout, rootPlanText, reposito
     ...(repositoryDelta?.repository_snapshot
       ? { repository_snapshot_hash: repositorySnapshotFingerprint(repositoryDelta.repository_snapshot) }
       : {}),
+    ...(repositoryDelta ? {
+      observed_dirty_paths: repositoryDelta.observed_dirty_paths ?? repositoryDelta.changed_paths ?? [],
+      pre_existing_paths: repositoryDelta.pre_existing_paths ?? [],
+      repository_attribution: {
+        status: repositoryDelta.attribution_status ?? (repositoryDelta.baseline_available ? "attributed" : "provisional"),
+        boundary: repositoryDelta.attribution_boundary ?? "create-plan",
+        baseline_hash: repositoryDelta.baseline_hash ?? null,
+        reason_codes: repositoryDelta.attribution_reason_codes ?? (repositoryDelta.baseline_available ? [] : ["baseline-unavailable"]),
+      },
+    } : {}),
     ...(closeout.constraint_summary ? { constraint_summary: closeout.constraint_summary } : {}),
     ...(closeout.human_attention ? { human_attention: closeout.human_attention } : {}),
     ...(closeout.problem_details ? { problem_details: closeout.problem_details } : {}),
@@ -179,6 +189,12 @@ export function performNativeCloseout({
     strategyRevision: effectiveReport.strategy_revision,
     effectiveProfile: "manual",
     repositorySnapshot: repositoryDelta.repository_snapshot,
+    repositoryAttribution: {
+      status: repositoryDelta.attribution_status ?? (repositoryDelta.baseline_available ? "attributed" : "provisional"),
+      boundary: repositoryDelta.attribution_boundary ?? "create-plan",
+      baseline_hash: repositoryDelta.baseline_hash ?? null,
+      reason_codes: repositoryDelta.attribution_reason_codes ?? (repositoryDelta.baseline_available ? [] : ["baseline-unavailable"]),
+    },
     summary: effectiveReport.summary,
     manualCheckReceipts,
     enforceManualCheckReceipts: true,

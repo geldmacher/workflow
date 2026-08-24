@@ -13,14 +13,32 @@
         "type": "command",
         "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"",
         "failClosed": false
+      },
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/closeout-guard.mjs\"",
+        "failClosed": false
+      }
+    ],
+    "stop": [
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/closeout-guard.mjs\"",
+        "failClosed": false
       }
     ],
     "preToolUse": [
       {
         "type": "command",
         "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"",
-        "matcher": "CreatePlan|Write|Edit|Delete|Shell|Task|ApplyPatch|DeleteFile|StrReplace|EditNotebook|MCP:workflow_closeout",
+        "matcher": "CreatePlan|Task|Agent|spawn_agent",
         "failClosed": false
+      },
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/closeout-guard.mjs\" --enforce",
+        "matcher": "CreatePlan|Write|Edit|Delete|Shell|Bash|Task|Agent|spawn_agent|ApplyPatch|apply_patch|DeleteFile|StrReplace|EditNotebook|Computer.*|Browser.*|MCP:.*",
+        "failClosed": true
       }
     ],
     "subagentStart": [
@@ -41,7 +59,21 @@
       {
         "type": "command",
         "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"",
-        "matcher": "Task|CreatePlan|MCP:workflow_closeout",
+        "matcher": "Task",
+        "failClosed": false
+      },
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/closeout-guard.mjs\"",
+        "matcher": "CreatePlan|MCP:workflow_closeout",
+        "failClosed": false
+      }
+    ],
+    "postToolUseFailure": [
+      {
+        "type": "command",
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/closeout-guard.mjs\"",
+        "matcher": "MCP:workflow_closeout",
         "failClosed": false
       }
     ]
