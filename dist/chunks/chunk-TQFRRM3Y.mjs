@@ -5,7 +5,7 @@ import {
   effectiveCliSummary,
   inspectArtifactSet,
   inspectArtifactText
-} from "./chunk-ZDU7LLPP.mjs";
+} from "./chunk-3CKZRPWU.mjs";
 import {
   contentAddressedHandoffRoot,
   contentAddressedHandoffRootByHash,
@@ -13,7 +13,7 @@ import {
   handoffTipPath,
   legacyHandoffTipPath,
   rootContentHash
-} from "./chunk-3N55QC7G.mjs";
+} from "./chunk-7JUFD6FK.mjs";
 import {
   PLUGIN_VERSION
 } from "./chunk-7NHOTGTA.mjs";

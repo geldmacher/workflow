@@ -28,7 +28,7 @@ async function createFixture(explicitPaths) {
       stop: [{ type: "command", command: closeoutCommand, failClosed: false }],
       preToolUse: [
         { type: "command", command, matcher: "CreatePlan|Task|Agent|spawn_agent", failClosed: false },
-        { type: "command", command: enforcementCommand, matcher: "CreatePlan|Write|Edit|Delete|Shell|Bash|Task|Agent|spawn_agent|ApplyPatch|apply_patch|DeleteFile|StrReplace|EditNotebook|Computer.*|Browser.*|MCP:.*", failClosed: true },
+        { type: "command", command: enforcementCommand, matcher: "CreatePlan|Write|Edit|Delete|Shell|Bash|Task|Agent|spawn_agent|ApplyPatch|apply_patch|DeleteFile|StrReplace|EditNotebook|Computer.*|Browser.*|MCP:.*", failClosed: false },
       ],
       subagentStart: [{ type: "command", command, failClosed: false }],
       subagentStop: [{ type: "command", command, failClosed: false }],
@@ -111,20 +111,20 @@ test("requires the exact bundled fail-quiet activation hook surface", async () =
   });
 });
 
-test("requires the passive task observer and scoped fail-closed mutation guard", async () => {
+test("requires passive observers and a fail-open host mutation guard", async () => {
   await withFixture(false, async (root) => {
     const path = join(root, "hooks", "hooks.json");
     const config = JSON.parse(await readFile(path, "utf8"));
     config.hooks.stop[0].command = config.hooks.preToolUse[1].command;
     config.hooks.stop[0].failClosed = true;
     config.hooks.preToolUse[1].matcher = "*";
-    config.hooks.preToolUse[1].failClosed = false;
+    config.hooks.preToolUse[1].failClosed = true;
     await writeFile(path, JSON.stringify(config));
     const failures = validatePlugin(root).join("\n");
     assert.match(failures, /stop hook 1 must use its bundled Node guard/);
     assert.match(failures, /stop hook 1 must set failClosed false/);
     assert.match(failures, /must match CreatePlan\|Write/);
-    assert.match(failures, /failClosed true/);
+    assert.match(failures, /failClosed false/);
   });
 });
 

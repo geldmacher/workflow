@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -49,6 +50,41 @@ test("deterministic target build isolates Codex and exposes exactly five Manual 
         assert.match(manualRuntime, new RegExp(action.replace(" ", "\\s+")), `${target} misses shared action ${action}`);
       }
     }
+    const cursorHookConfig = JSON.parse(readFileSync(join(first.cursor.path, "hooks", "hooks.json"), "utf8"));
+    assert.ok(Object.values(cursorHookConfig.hooks).flat().every((entry) => entry.failClosed === false));
+    const cursorHook = spawnSync(process.execPath, [join(first.cursor.path, "hooks", "closeout-guard.mjs"), "--enforce"], {
+      cwd: defaultRoot,
+      input: JSON.stringify({
+        hook_event_name: "preToolUse",
+        conversation_id: "installed-cursor-smoke",
+        generation_id: "installed-cursor-generation",
+        tool_use_id: "installed-cursor-write",
+        tool_name: "Write",
+        tool_input: { path: "src/example.mjs" },
+        cwd: defaultRoot,
+        workspace_roots: [defaultRoot],
+      }),
+      encoding: "utf8",
+      env: { ...process.env, HOME: pluginData },
+    });
+    assert.equal(cursorHook.status, 0, cursorHook.stderr || cursorHook.stdout);
+    assert.deepEqual(JSON.parse(cursorHook.stdout || "{}"), {});
+
+    const codexHook = spawnSync(process.execPath, [join(first.codex.path, "dist", "workflow-hook.mjs")], {
+      cwd: defaultRoot,
+      input: JSON.stringify({
+        hook_event_name: "PreToolUse",
+        session_id: "installed-codex-smoke",
+        turn_id: "installed-codex-turn",
+        tool_name: "apply_patch",
+        tool_input: { patch: "x" },
+        cwd: defaultRoot,
+      }),
+      encoding: "utf8",
+      env: { ...process.env, HOME: pluginData, PLUGIN_DATA: pluginData },
+    });
+    assert.equal(codexHook.status, 0, codexHook.stderr || codexHook.stdout);
+    assert.deepEqual(JSON.parse(codexHook.stdout || "{}"), {});
     const codexReleaseSurface = JSON.parse(readFileSync(join(first.codex.path, "release-surface.json"), "utf8"));
     assert.ok(codexReleaseSurface.runtime_paths.includes("docs"));
     const codex = first.codex.path;

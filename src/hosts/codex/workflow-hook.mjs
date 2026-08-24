@@ -52,12 +52,11 @@ function writeState(path, value) {
   renameSync(temporary, path);
 }
 
-function failureOutput(input, error) {
-  const reason = `Workflow hook failed closed: ${String(error?.message ?? error).slice(0, 400)}`;
-  if (input?.hook_event_name === "PreToolUse") return {
-    hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: reason },
+function unavailableOutput(input, error) {
+  const reason = `Workflow hook unavailable: ${String(error?.message ?? error).slice(0, 400)}. Host-native tools remain available; do not claim verified Workflow evidence from this turn.`;
+  if (input?.hook_event_name === "UserPromptSubmit") return {
+    hookSpecificOutput: { hookEventName: "UserPromptSubmit", additionalContext: reason },
   };
-  if (["UserPromptSubmit", "Stop"].includes(input?.hook_event_name)) return { decision: "block", reason };
   return { systemMessage: reason };
 }
 
@@ -108,7 +107,7 @@ export function runCodexHook(input, options = {}) {
     path = statePath(input, options.stateRoot);
     state = readStateOrEmpty(path);
   } catch (error) {
-    return event === "UserPromptSubmit" ? failureOutput(input, error) : {};
+    return event === "UserPromptSubmit" ? unavailableOutput(input, error) : {};
   }
   if (event !== "UserPromptSubmit" && !sameTurn(state, input) && !markedWorkflowAgent(input)) return {};
 
@@ -118,7 +117,7 @@ export function runCodexHook(input, options = {}) {
     writeState(path, evaluated.state);
     return evaluated.output;
   } catch (error) {
-    return failureOutput(input, error);
+    return unavailableOutput(input, error);
   }
 }
 

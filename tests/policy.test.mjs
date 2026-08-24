@@ -210,7 +210,7 @@ test("runtime surface has one bundled controller and no automatic publication", 
   assert.match(hooks, /subagent-guard\.mjs/);
   assert.match(hooks, /"matcher": "CreatePlan\|Write/);
   assert.match(hooks, /closeout-guard\.mjs.*--enforce/);
-  assert.match(hooks, /"failClosed": true/);
+  assert.ok(Object.values(hookConfig.hooks).flat().every((entry) => entry.failClosed === false));
   assert.equal(manifest.mcpServers, "mcp.json");
   assert.match(read("mcp.json"), /\$\{CURSOR_PLUGIN_ROOT\}\/dist\/workflow-mcp\.mjs/);
   assert.match(read("mcp.json"), /GELDMACHER_WORKFLOW_WORKSPACE_ROOT/);

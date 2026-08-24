@@ -38,7 +38,7 @@
         "type": "command",
         "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/closeout-guard.mjs\" --enforce",
         "matcher": "CreatePlan|Write|Edit|Delete|Shell|Bash|Task|Agent|spawn_agent|ApplyPatch|apply_patch|DeleteFile|StrReplace|EditNotebook|Computer.*|Browser.*|MCP:.*",
-        "failClosed": true
+        "failClosed": false
       }
     ],
     "subagentStart": [

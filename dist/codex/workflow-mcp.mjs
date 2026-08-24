@@ -29246,8 +29246,11 @@ import { join, resolve } from "node:path";
 
 // src/core/preference-yaml.mjs
 var import_yaml = __toESM(require_dist2(), 1);
-function parsePreferenceYaml(source) {
+function parseWorkflowYaml(source) {
   return (0, import_yaml.parse)(String(source));
+}
+function parsePreferenceYaml(source) {
+  return parseWorkflowYaml(source);
 }
 
 // src/core/host-preferences.mjs

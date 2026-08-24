@@ -5,7 +5,7 @@ import {
   loadWorkflowConfig,
   repositoryBaseline,
   resolveRouteProfile
-} from "./chunk-6NZHJGJ7.mjs";
+} from "./chunk-QB5KAHPL.mjs";
 import {
   CursorWorkerAdapter,
   currentPlatform,
@@ -26,10 +26,10 @@ import {
   preflightRootPlan,
   replaceOpaqueExtensions,
   require_ajv
-} from "./chunk-ZDU7LLPP.mjs";
+} from "./chunk-3CKZRPWU.mjs";
 import {
   require_dist
-} from "./chunk-3N55QC7G.mjs";
+} from "./chunk-7JUFD6FK.mjs";
 import {
   PLUGIN_VERSION,
   assertCompatiblePreparation

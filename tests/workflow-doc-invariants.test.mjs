@@ -44,9 +44,10 @@ test("native Plans are human-first without duplicating or overstating authority"
   }
 });
 
-test("fail-closed availability and upgrade recovery are documented honestly", () => {
-  assert.match(manual, /failClosed:true[\s\S]{0,500}(?:crash|timeout|invalid JSON)[\s\S]{0,300}block/i);
-  assert.match(manual, /(?:reads|read-only tools)[^.]{0,160}(?:prompts)[^.]{0,160}(?:remain|stay)[^.]{0,80}(?:available|usable)/i);
+test("host availability and upgrade recovery are documented honestly", () => {
+  assert.match(manual, /fail-open[\s\S]{0,500}(?:crash|timeout|missing runtime dependency|corrupt state)[\s\S]{0,300}cannot block/i);
+  assert.match(manual, /Write, Shell, Task[\s\S]{0,180}(?:remain|stay)[^.]{0,80}(?:available|usable)|cannot block Write, Shell, Task/i);
+  assert.match(manual, /enforcement[^.]{0,120}unavailable[\s\S]{0,220}(?:must not|cannot)[^.]{0,100}verified delivery/i);
   assert.match(manual, /5\.5\.1[\s\S]{0,500}(?:fresh|new) (?:Plan|Review)/i);
 });
 

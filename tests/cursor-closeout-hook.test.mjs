@@ -175,7 +175,7 @@ test("Cursor Review remains repository-read-only while allowing marked auditors"
   }
 });
 
-test("corrupt active Review state fails closed while absent state remains passive", () => {
+test("corrupt or absent Review state cannot block host-native mutation", () => {
   const stateRoot = mkdtempSync(join(tmpdir(), "cursor-review-corrupt-state-"));
   try {
     const options = { stateRoot, enforcementMode: true };
@@ -187,9 +187,17 @@ test("corrupt active Review state fails closed while absent state remains passiv
       `${hashWorkflowIdentifier("generation", "generation-1")}.json`,
     );
     writeFileSync(turn, "{broken\n");
-    const denied = evaluateCloseoutGuard(input({ hook_event_name: "preToolUse", tool_name: "Write", tool_input: { path: "src/a.mjs" } }), options);
-    assert.equal(denied.permission, "deny");
-    assert.match(denied.user_message, /native-review-state-invalid/);
+    assert.deepEqual(
+      evaluateCloseoutGuard(input({ hook_event_name: "preToolUse", tool_name: "Write", tool_input: { path: "src/a.mjs" } }), options),
+      {},
+    );
+    const closeout = evaluateCloseoutGuard(input({
+      hook_event_name: "preToolUse",
+      tool_name: "MCP:workflow_closeout",
+      tool_input: { artifact_kind: "work-review" },
+    }), options);
+    assert.equal(closeout.permission, "deny");
+    assert.match(closeout.user_message, /review-observer-unavailable|native-task-root/i);
 
     const absent = mkdtempSync(join(tmpdir(), "cursor-review-absent-state-"));
     try {
@@ -670,7 +678,7 @@ test("registered Cursor lifecycle hook is passive outside explicit Workflow and 
   }
 });
 
-test("dedicated mutation hook fails closed on internal input failure", () => {
+test("dedicated mutation hook cannot turn an internal failure into a host blockade", () => {
   const script = join(new URL("..", import.meta.url).pathname, "hooks", "closeout-guard.mjs");
   const healthy = spawnSync(process.execPath, [script, "--enforce"], {
     input: JSON.stringify(input({ hook_event_name: "preToolUse", tool_name: "Write", tool_input: { path: "src/a.mjs" } })),
@@ -679,12 +687,13 @@ test("dedicated mutation hook fails closed on internal input failure", () => {
   assert.equal(healthy.status, 0, healthy.stderr);
   assert.deepEqual(JSON.parse(healthy.stdout), {});
   const failed = spawnSync(process.execPath, [script, "--enforce"], { input: "not-json", encoding: "utf8" });
-  assert.notEqual(failed.status, 0);
-  assert.match(failed.stderr, /fail-closed enforcement unavailable/i);
+  assert.equal(failed.status, 0, failed.stderr);
+  assert.deepEqual(JSON.parse(failed.stdout), {});
+  assert.match(failed.stderr, /host action remains available/i);
 
   const hooks = JSON.parse(readFileSync(join(new URL("..", import.meta.url).pathname, "hooks", "hooks.json"), "utf8"));
   const enforcement = hooks.hooks.preToolUse.find((entry) => entry.command.includes("closeout-guard.mjs"));
-  assert.equal(enforcement.failClosed, true);
+  assert.equal(enforcement.failClosed, false);
   assert.match(enforcement.matcher, /MCP:\.\*/);
   assert.equal(hooks.hooks.beforeSubmitPrompt.length, 2);
   assert.ok(hooks.hooks.beforeSubmitPrompt.every((entry) => entry.failClosed === false));

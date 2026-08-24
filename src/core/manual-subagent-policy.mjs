@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { defaultHostPreferencesPath } from "./host-preferences.mjs";
-import { parsePreferenceYaml } from "./preference-yaml.mjs";
+import { parsePreferenceYaml, parseWorkflowYaml } from "./preference-yaml.mjs";
 
 export const MANUAL_SUBAGENT_POLICY_SCHEMA = 1;
 export const MANUAL_SUBAGENT_MODES = Object.freeze(["parent-only", "parent-or-approved"]);
@@ -32,7 +32,7 @@ const cleanId = (value) => typeof value === "string" && value.trim() !== ""
   ? value.trim().replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 256)
   : null;
 
-export { parsePreferenceYaml };
+export { parsePreferenceYaml, parseWorkflowYaml };
 
 function parentOnlyResolution(source, path, issues = []) {
   return Object.freeze({

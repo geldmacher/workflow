@@ -243,7 +243,7 @@ function validateHookSurface(root, manifest, failures) {
       stop: [{ command: expectedCloseoutCommand, failClosed: false }],
       preToolUse: [
         { command: expectedCommand, matcher: "CreatePlan|Task|Agent|spawn_agent", failClosed: false },
-        { command: expectedEnforcementCommand, matcher: "CreatePlan|Write|Edit|Delete|Shell|Bash|Task|Agent|spawn_agent|ApplyPatch|apply_patch|DeleteFile|StrReplace|EditNotebook|Computer.*|Browser.*|MCP:.*", failClosed: true },
+        { command: expectedEnforcementCommand, matcher: "CreatePlan|Write|Edit|Delete|Shell|Bash|Task|Agent|spawn_agent|ApplyPatch|apply_patch|DeleteFile|StrReplace|EditNotebook|Computer.*|Browser.*|MCP:.*", failClosed: false },
       ],
       subagentStart: [{ command: expectedCommand, failClosed: false }],
       subagentStop: [{ command: expectedCommand, failClosed: false }],

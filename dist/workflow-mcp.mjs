@@ -23,7 +23,7 @@ import {
   repositorySnapshotHash,
   stableManualReceiptJson,
   validateConsumedNativeReviewReceipt
-} from "./chunks/chunk-AQ5RBRJR.mjs";
+} from "./chunks/chunk-2WPDU2XE.mjs";
 import {
   AjvJsonSchemaValidator,
   CallToolRequestSchema,
@@ -84,7 +84,7 @@ import {
   union,
   unknown,
   writeWorkerControl
-} from "./chunks/chunk-4NWEJD7T.mjs";
+} from "./chunks/chunk-5NFZA76G.mjs";
 import {
   PlanningEngine,
   approveVerificationProfile,
@@ -93,11 +93,11 @@ import {
   inspectVerificationProfile,
   recordVerificationProof,
   resolveCapabilities
-} from "./chunks/chunk-Q3DGKPN2.mjs";
+} from "./chunks/chunk-M7ERKP7Q.mjs";
 import {
   loadWorkflowConfig,
   resolveRouteProfile
-} from "./chunks/chunk-6NZHJGJ7.mjs";
+} from "./chunks/chunk-QB5KAHPL.mjs";
 import {
   CursorWorkerAdapter
 } from "./chunks/chunk-7SYGAAH5.mjs";
@@ -107,14 +107,14 @@ import {
   createContentAddressedHandoffStore,
   rememberContentAddressedRoot,
   resolveRootPlanText
-} from "./chunks/chunk-AJ3ZH6BQ.mjs";
+} from "./chunks/chunk-TQFRRM3Y.mjs";
 import {
   effectiveCliSummary,
   executionContractFromArtifactText,
   inspectArtifactSet,
   inspectArtifactText,
   preflightRootPlan
-} from "./chunks/chunk-ZDU7LLPP.mjs";
+} from "./chunks/chunk-3CKZRPWU.mjs";
 import {
   PreparationStore,
   RunStore,
@@ -124,7 +124,7 @@ import {
   resolveHostToolApproval,
   rootContentHash,
   sharedArtifactStateRoot
-} from "./chunks/chunk-3N55QC7G.mjs";
+} from "./chunks/chunk-7JUFD6FK.mjs";
 import {
   PLUGIN_VERSION,
   assertCompatibleRun,

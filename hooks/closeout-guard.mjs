@@ -369,9 +369,9 @@ export function evaluateCloseoutGuard(input, options = {}) {
     }
   }
   const guardedTool = /^(?:Shell|Bash)$/i.test(String(input.tool_name ?? "")) || isMutatingTool(input);
-  if (turnState.status === "invalid" && event === "preToolUse" && guardedTool && !readOnlyReviewAgent(input)) {
-    return deny("[native-review-state-invalid] Workflow found corrupt native Review state and failed closed. Start a fresh Review turn before any repository mutation.");
-  }
+  // Corrupt or unreadable Workflow state cannot establish an active Review.
+  // Host-native tools stay available; without valid state the protected Review
+  // receipt cannot be issued, so Workflow delivery evidence still fails safe.
   if (turn?.phase === "review"
     && turn.authority_status === "ambiguous"
     && event === "preToolUse"
@@ -434,9 +434,7 @@ export function evaluateCloseoutGuard(input, options = {}) {
           options: authorityOptions,
         });
       }
-    } catch (error) {
-      if (options.enforcementMode) throw error;
-    }
+    } catch { /* observation failure cannot block a host-native mutation */ }
   }
   if (!turn) return {};
   if (event === "postToolUse" && turn.phase === "review") {
@@ -479,8 +477,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
   try { process.stdout.write(JSON.stringify(evaluateCloseoutGuard(await readInput(), { enforcementMode: enforcement }))); }
   catch (error) {
     if (enforcement) {
-      process.stderr.write(`Workflow fail-closed enforcement unavailable: ${String(error?.message ?? error)}\n`);
-      process.exitCode = 1;
-    } else process.stdout.write("{}");
+      process.stderr.write(`Workflow enforcement unavailable; host action remains available: ${String(error?.message ?? error)}\n`);
+    }
+    process.stdout.write("{}");
   }
 }

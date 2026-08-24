@@ -14,7 +14,7 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
-import { parse } from "yaml";
+import { parseWorkflowYaml } from "./manual-subagent-policy.mjs";
 import {
   effectiveCliSummary,
   inspectArtifactSet,
@@ -450,7 +450,7 @@ function nativePlanFileInput(source) {
   const match = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]+)$/);
   if (!match) return null;
   let header;
-  try { header = parse(match[1]); } catch { return null; }
+  try { header = parseWorkflowYaml(match[1]); } catch { return null; }
   if (!header || typeof header !== "object" || Array.isArray(header)
     || typeof header.name !== "string" || !header.name.trim()
     || (header.overview !== undefined && typeof header.overview !== "string")

@@ -77,10 +77,39 @@ test("built Codex hook cannot turn unavailable inactive state into a host blocka
     assert.deepEqual(runHook({ hook_event_name: "Stop", last_assistant_message: "Done." }, unavailable), {});
 
     const active = runHook({ hook_event_name: "UserPromptSubmit", prompt: "$review-work" }, unavailable);
-    assert.equal(active.decision, "block");
-    assert.match(active.reason, /Workflow hook failed closed/);
+    assert.equal(active.decision, undefined);
+    assert.match(active.hookSpecificOutput.additionalContext, /Host-native tools remain available/);
+    assert.match(active.hookSpecificOutput.additionalContext, /do not claim verified Workflow evidence/);
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("built Codex hook cannot turn corrupt active state or malformed input into a host blockade", () => {
+  const stateRoot = mkdtempSync(join(tmpdir(), "codex-bundle-corrupt-"));
+  try {
+    runHook({ hook_event_name: "UserPromptSubmit", prompt: "$review-work" }, stateRoot);
+    writeFileSync(stateFiles(stateRoot)[0], "{not-json");
+
+    const preToolUse = runHook({
+      hook_event_name: "PreToolUse",
+      tool_name: "apply_patch",
+      tool_input: { patch: "x" },
+    }, stateRoot);
+    assert.deepEqual(preToolUse, {});
+    assert.equal(preToolUse.decision, undefined);
+    assert.equal(preToolUse.hookSpecificOutput, undefined);
+
+    const malformed = spawnSync(process.execPath, [hookPath], {
+      cwd: defaultRoot,
+      input: "{not-json",
+      encoding: "utf8",
+      env: { ...process.env, PLUGIN_DATA: stateRoot },
+    });
+    assert.equal(malformed.status, 0, malformed.stderr || malformed.stdout);
+    assert.deepEqual(JSON.parse(malformed.stdout), {});
+  } finally {
+    rmSync(stateRoot, { recursive: true, force: true });
   }
 });
 

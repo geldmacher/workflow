@@ -11,7 +11,7 @@ import {
   planningUsage,
   resolveCapabilities,
   validateRootPlanLineage
-} from "./chunk-Q3DGKPN2.mjs";
+} from "./chunk-M7ERKP7Q.mjs";
 import {
   assertContainedPath,
   changedPaths,
@@ -25,7 +25,7 @@ import {
   rollbackToCheckpoint,
   runHostCheck,
   workspaceDeliveryMatch
-} from "./chunk-6NZHJGJ7.mjs";
+} from "./chunk-QB5KAHPL.mjs";
 import {
   CursorWorkerAdapter,
   evaluateAuthorization,
@@ -37,19 +37,19 @@ import {
   ArtifactHandoffStore,
   createContentAddressedHandoffStore,
   rememberContentAddressedRoot
-} from "./chunk-AJ3ZH6BQ.mjs";
+} from "./chunk-TQFRRM3Y.mjs";
 import {
   effectiveCliSummary,
   executionContractFromArtifactText,
   inspectArtifactSet,
   inspectArtifactText
-} from "./chunk-ZDU7LLPP.mjs";
+} from "./chunk-3CKZRPWU.mjs";
 import {
   repositoryKey,
   require_dist,
   rootContentHash,
   sharedArtifactStateRoot
-} from "./chunk-3N55QC7G.mjs";
+} from "./chunk-7JUFD6FK.mjs";
 import {
   assertCompatiblePreparation,
   classifyPreparationCompatibility,
