@@ -5,54 +5,51 @@ import test from "node:test";
 import { defaultRoot } from "../scripts/validate-artifact.source.mjs";
 
 const read = (path) => readFileSync(join(defaultRoot, path), "utf8");
-const agents = read("AGENTS.md");
-const readme = read("README.md");
-const manual = read("docs/manual-workflow.md");
-const manualContract = read("references/manual-workflow-contract.md");
-const correctionContract = read("references/correction-contract.md");
-const planContract = read("references/plan-container-contract.md");
-const planningSkill = read("skills/work-planning/SKILL.md");
-const workControl = read("commands/work-control.md");
+const sources = [
+  "README.md",
+  "docs/overview.md",
+  "docs/profiles.md",
+  "docs/manual-workflow.md",
+  "docs/configuration.md",
+  "references/artifact-protocol.md",
+  "references/manual-workflow-contract.md",
+  "references/automation-contract.md",
+].map(read);
 
-test("Manual lifecycle documentation has one correction and Review invariant", () => {
-  assert.match(agents, /Plan → Implement Plan → fresh read-only Review \(atomic Evidence \+ Review\)/);
-  assert.match(readme, /correction[\s\S]{0,300}finish(?:es)? normally[\s\S]{0,300}fresh Review/i);
-  assert.match(manual, /correction finish(?:es)? normally[\s\S]{0,300}fresh Review/i);
-  assert.match(correctionContract, /finishes normally without Evidence[\s\S]{0,300}next fresh Review/i);
-  for (const source of [agents, readme, manual, manualContract, correctionContract]) {
-    assert.doesNotMatch(source, /correction (?:closes out|closeout runs) automatically/i);
+test("public documentation shares the Workflow-6 ownership boundary", () => {
+  const joined = sources.join("\n");
+  assert.match(joined, /Schema 6|Schema-6/);
+  assert.match(joined, /project harness/i);
+  assert.match(joined, /commands, tools, models|command, tool, model/i);
+  assert.match(joined, /Plan → Implement →.*Review/i);
+  assert.match(joined, /repository-only/i);
+  assert.match(joined, /Shadow Mode/i);
+});
+
+test("authoritative protocol is intent-only and Schema-6-only", () => {
+  const protocol = read("references/artifact-protocol.md");
+  assert.match(protocol, /Verification Intent/);
+  assert.match(protocol, /Expected Evidence/);
+  assert.match(protocol, /only supported Workflow contract/i);
+  assert.match(protocol, /Every other artifact schema is rejected/i);
+  assert.doesNotMatch(protocol, /Working Directory|Command or Inspection|host_commands|route pool|task recipe|repetition count/i);
+});
+
+test("Manual Review preserves human gates and honest evidence", () => {
+  const manual = `${read("docs/manual-workflow.md")}\n${read("references/manual-workflow-contract.md")}\n${read("references/review-contract.md")}`;
+  assert.match(manual, /repository-read-only|read-only repository/i);
+  assert.match(manual, /Root/i);
+  assert.match(manual, /canonical workspace|workspace binding/i);
+  assert.match(manual, /missing attestation|without.*attestation/i);
+  assert.match(manual, /provisional/i);
+  assert.match(manual, /explicit human/i);
+});
+
+test("removed execution-engine surfaces stay absent from current guidance", () => {
+  const current = sources.join("\n");
+  for (const removed of ["/work-models", "/work-verification", "/work-watch", "/work-control"]) {
+    const mentions = current.split(removed).length - 1;
+    assert.ok(mentions <= 2, `${removed} may appear only in removal notices`);
   }
-});
-
-test("Manual host trust and provisional acceptance boundaries stay explicit", () => {
-  assert.match(manual, /Implement Plan[\s\S]{0,500}host-owned-unattested/i);
-  assert.match(manual, /In Cursor[\s\S]{0,500}opaque single-use receipt/i);
-  assert.match(manual, /In Codex and portable clients[^.]*exact Root and predecessor bytes/i);
-  assert.doesNotMatch(manual, /Implement Plan choice binds the exact approved Root/i);
-  assert.doesNotMatch(manual, /^\s*- `unapproved`:/m);
-
-  const acceptance = `${manual}\n${manualContract}`;
-  assert.match(acceptance, /accept-work provisional[\s\S]{0,500}(?:ephemeral|not persisted|not saved)/i);
-  assert.match(acceptance, /provisional[\s\S]{0,500}(?:no|not)[^.]{0,120}(?:Qualification|Learning)/i);
-});
-
-test("native Plans are human-first without duplicating or overstating authority", () => {
-  for (const source of [planContract, planningSkill]) {
-    assert.match(source, /Quick decision[\s\S]*Details[\s\S]*Agent and machine contract \(authoritative\)/);
-    assert.match(source, /(?:sole|one exact)[\s\S]{0,160}(?:Root|artifact-envelope)/i);
-    assert.match(source, /(?:host-owned|host-native)[\s\S]{0,180}(?:unattested|does not claim|does not attest)/i);
-  }
-});
-
-test("host availability and upgrade recovery are documented honestly", () => {
-  assert.match(manual, /fail-open[\s\S]{0,500}(?:crash|timeout|missing runtime dependency|corrupt state)[\s\S]{0,300}cannot block/i);
-  assert.match(manual, /Write, Shell, Task[\s\S]{0,180}(?:remain|stay)[^.]{0,80}(?:available|usable)|cannot block Write, Shell, Task/i);
-  assert.match(manual, /enforcement[^.]{0,120}unavailable[\s\S]{0,220}(?:must not|cannot)[^.]{0,100}verified delivery/i);
-  assert.match(manual, /5\.5\.1[\s\S]{0,500}(?:fresh|new) (?:Plan|Review)/i);
-});
-
-test("work-control documents complete copyable invocation forms", () => {
-  assert.match(workControl, /<id> pause\|resume\|stop/);
-  assert.match(workControl, /<id> answer <text>/);
-  assert.match(workControl, /<id> accept verified\|provisional/);
+  assert.doesNotMatch(current, /Workflow (?:runs|selects|allowlists|classifies) (?:the )?(?:command|tool|model)/i);
 });

@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "geldmacher-workflow",
-  "version": "5.5.1",
-  "description": "Portable human-authorized Manual Workflow planning, implementation, evidence, review, status, and learning.",
+  "version": "6.0.0",
+  "description": "Portable Workflow 6 lifecycle, protected evidence, human gates, and harness-owned execution.",
   "author": {
     "name": "Geldmacher"
   },

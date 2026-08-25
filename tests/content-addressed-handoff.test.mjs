@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -8,13 +7,12 @@ import { defaultRoot } from "../scripts/validate-artifact.source.mjs";
 import {
   ArtifactHandoffStore,
   createContentAddressedHandoffStore,
+  readHandoffTip,
   rememberContentAddressedRoot,
   resolveRootPlanText,
 } from "../src/controller/artifact-handoff.mjs";
-import { migrateCursorHandoff } from "../src/core/handoff-migration.mjs";
 import {
   handoffTipPath,
-  legacyHandoffTipPath,
   rootContentHash,
 } from "../src/core/state-paths.mjs";
 
@@ -26,7 +24,7 @@ test("content-addressed handoff isolates identical artifact IDs with different R
   process.env.GELDMACHER_WORKFLOW_HOME = home;
   try {
     const rootA = fixture("work-plan.valid.md");
-    const rootB = rootA.replace("Make retry handling deterministic", "Make retry handling observable");
+    const rootB = rootA.replace("Make transient retry behavior deterministic and observable.", "Make transient retry behavior observable and bounded.");
     assert.notEqual(rootContentHash(rootA), rootContentHash(rootB));
     const storeA = createContentAddressedHandoffStore(rootA, defaultRoot);
     const storeB = createContentAddressedHandoffStore(rootB, defaultRoot);
@@ -42,69 +40,6 @@ test("content-addressed handoff isolates identical artifact IDs with different R
     assert.throws(() => resolveRootPlanText(defaultRoot, { rootPlanId: "wp-adaptive-retry" }), /ambiguous/);
     assert.equal(resolveRootPlanText(defaultRoot, { rootPlanId: "wp-adaptive-retry", rootPlan: rootA }), rootA);
     assert.equal(resolveRootPlanText(defaultRoot, { rootPlanId: "wp-adaptive-retry", rootPlan: rootB }), rootB);
-  } finally {
-    if (previousHome === undefined) delete process.env.GELDMACHER_WORKFLOW_HOME;
-    else process.env.GELDMACHER_WORKFLOW_HOME = previousHome;
-    rmSync(home, { recursive: true, force: true });
-  }
-});
-
-test("unique Multi-Tip and legacy single-tip remain readable for ID-only lookup", () => {
-  const previousHome = process.env.GELDMACHER_WORKFLOW_HOME;
-  const homes = [];
-  try {
-    const root = fixture("work-plan.valid.md");
-    const uniqueHome = mkdtempSync(join(tmpdir(), "workflow-content-tip-"));
-    homes.push(uniqueHome);
-    process.env.GELDMACHER_WORKFLOW_HOME = uniqueHome;
-    const uniqueStore = createContentAddressedHandoffStore(root, defaultRoot);
-    uniqueStore.record([{ label: "root", text: root }]);
-    rememberContentAddressedRoot(root, defaultRoot);
-    assert.equal(resolveRootPlanText(defaultRoot, { rootPlanId: "wp-adaptive-retry" }), root);
-
-    const legacyHome = mkdtempSync(join(tmpdir(), "workflow-legacy-tip-"));
-    homes.push(legacyHome);
-    process.env.GELDMACHER_WORKFLOW_HOME = legacyHome;
-    const store = createContentAddressedHandoffStore(root, defaultRoot);
-    store.record([{ label: "root", text: root }]);
-    mkdirSync(join(legacyHome, "handoff", "tips"), { recursive: true, mode: 0o700 });
-    writeFileSync(legacyHandoffTipPath("wp-adaptive-retry"), `${JSON.stringify({
-      handoff_tip_schema: 1,
-      root_plan_id: "wp-adaptive-retry",
-      root_content_hash: rootContentHash(root),
-      text_hash: createHash("sha256").update(root).digest("hex"),
-      updated_at: "2026-08-01T00:00:00.000Z",
-    }, null, 2)}\n`);
-    assert.equal(resolveRootPlanText(defaultRoot, { rootPlanId: "wp-adaptive-retry" }), root);
-    assert.equal(existsSync(legacyHandoffTipPath("wp-adaptive-retry")), true);
-  } finally {
-    if (previousHome === undefined) delete process.env.GELDMACHER_WORKFLOW_HOME;
-    else process.env.GELDMACHER_WORKFLOW_HOME = previousHome;
-    for (const home of homes) rmSync(home, { recursive: true, force: true });
-  }
-});
-
-test("content-addressed migration partitions legacy repository-key chains without deleting source", () => {
-  const previousHome = process.env.GELDMACHER_WORKFLOW_HOME;
-  const home = mkdtempSync(join(tmpdir(), "workflow-content-migrate-"));
-  process.env.GELDMACHER_WORKFLOW_HOME = home;
-  try {
-    const sourceRoot = join(home, "legacy-source");
-    const source = new ArtifactHandoffStore(sourceRoot, defaultRoot);
-    const chain = ["work-plan.valid.md", "delivery-evidence.valid.md", "work-review.valid.md"].map((name) => ({
-      label: name,
-      text: fixture(name),
-    }));
-    source.record(chain);
-    const first = migrateCursorHandoff({ sourceRoot, pluginRoot: defaultRoot, contentAddressed: true });
-    assert.equal(first.duplicate_import, false);
-    assert.equal(first.namespaces.length, 1);
-    assert.equal(first.namespaces[0].root_plan_id, "wp-adaptive-retry");
-    const repeat = migrateCursorHandoff({ sourceRoot, pluginRoot: defaultRoot, contentAddressed: true });
-    assert.equal(repeat.duplicate_import, true);
-    assert.equal(source.context("wp-adaptive-retry").artifacts.length, 3);
-    const resolved = resolveRootPlanText(defaultRoot, { rootPlanId: "wp-adaptive-retry" });
-    assert.equal(resolved, chain[0].text);
   } finally {
     if (previousHome === undefined) delete process.env.GELDMACHER_WORKFLOW_HOME;
     else process.env.GELDMACHER_WORKFLOW_HOME = previousHome;
@@ -138,5 +73,36 @@ test("handoff context never mutates a missing or corrupt index", () => {
     assert.deepEqual(JSON.parse(readFileSync(indexPath, "utf8")).entries.map((entry) => entry.artifact_id), ["wp-adaptive-retry"]);
   } finally {
     rmSync(state, { recursive: true, force: true });
+  }
+});
+
+test("handoff transport counter-probes require exact valid Root identity", () => {
+  const previousHome = process.env.GELDMACHER_WORKFLOW_HOME;
+  const home = mkdtempSync(join(tmpdir(), "workflow-content-counter-"));
+  process.env.GELDMACHER_WORKFLOW_HOME = home;
+  try {
+    const root = fixture("work-plan.valid.md");
+    assert.equal(resolveRootPlanText(defaultRoot, { artifacts: [{ label: "root", text: root }] }), root);
+    assert.throws(() => resolveRootPlanText(defaultRoot, { rootPlan: "not a Root" }), /exact Root text is invalid/);
+    assert.throws(() => resolveRootPlanText(defaultRoot, { rootPlanId: "wp-other", rootPlan: root }), /Root ID mismatch/);
+    assert.throws(() => resolveRootPlanText(defaultRoot, {}), /exact Root text is required/);
+
+    const store = new ArtifactHandoffStore(join(home, "store"), defaultRoot);
+    assert.deepEqual(store.records(), []);
+    assert.throws(() => store.artifactPath("invalid"), /invalid handoff artifact ID/);
+    assert.throws(() => store.record([]), /1\.\.32 artifacts/);
+    assert.throws(() => store.record([{ label: "", text: root }]), /non-empty label and text/);
+    assert.throws(() => store.record([{ label: "one", text: root }, { label: "two", text: root }]), /duplicate artifact IDs/);
+    assert.throws(() => store.context("invalid"), /valid wp-\* root_plan_id/);
+    assert.throws(() => store.context("wp-missing"), /no handoff Root/);
+
+    rememberContentAddressedRoot(root, defaultRoot);
+    const tipPath = handoffTipPath("wp-adaptive-retry", rootContentHash(root));
+    writeFileSync(tipPath, `${JSON.stringify({ handoff_tip_schema: 0 })}\n`);
+    assert.throws(() => readHandoffTip("wp-adaptive-retry", { rootContentHash: rootContentHash(root) }), /corrupt handoff tip/);
+  } finally {
+    if (previousHome === undefined) delete process.env.GELDMACHER_WORKFLOW_HOME;
+    else process.env.GELDMACHER_WORKFLOW_HOME = previousHome;
+    rmSync(home, { recursive: true, force: true });
   }
 });

@@ -16,47 +16,11 @@ function annotations({ readOnlyHint, destructiveHint, idempotentHint, openWorldH
 /** Canonical MCP ToolAnnotations for every advertised Workflow tool. Mixed-action tools are classified conservatively. */
 export const WORKFLOW_TOOL_ANNOTATIONS = Object.freeze({
   ...MANUAL_WORKFLOW_TOOL_ANNOTATIONS,
-  workflow_watch: annotations({
-    readOnlyHint: true,
-    destructiveHint: false,
-    idempotentHint: true,
-    openWorldHint: false,
-  }),
-  workflow_validate_models: annotations({
-    readOnlyHint: true,
-    destructiveHint: false,
-    idempotentHint: true,
-    openWorldHint: true,
-  }),
   workflow_prepare: annotations({
-    readOnlyHint: false,
-    destructiveHint: false,
-    idempotentHint: false,
-    openWorldHint: false,
-  }),
-  workflow_start: annotations({
-    readOnlyHint: false,
-    destructiveHint: false,
-    idempotentHint: false,
-    openWorldHint: false,
-  }),
-  workflow_answer: annotations({
-    readOnlyHint: false,
-    destructiveHint: false,
-    idempotentHint: false,
-    openWorldHint: false,
-  }),
-  workflow_control: annotations({
     readOnlyHint: false,
     destructiveHint: true,
     idempotentHint: false,
-    openWorldHint: false,
-  }),
-  workflow_verification_profile: annotations({
-    readOnlyHint: false,
-    destructiveHint: false,
-    idempotentHint: false,
-    openWorldHint: false,
+    openWorldHint: true,
   }),
 });
 

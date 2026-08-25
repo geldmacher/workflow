@@ -10,7 +10,7 @@ import {
   deriveRepositoryDelta,
   evidenceRepositorySnapshot,
   repositorySnapshotHash,
-} from "../core/manual-repository-snapshot.mjs";
+} from "../harness/repository-snapshot.mjs";
 import { buildDeliveryEvidence } from "./delivery-closeout.mjs";
 import { buildWorkReview } from "./work-review-builder.mjs";
 
@@ -30,8 +30,8 @@ function validReviewProvenance(provenance, text) {
 
 function exactEntries(rootPlanText, artifacts, pluginRoot) {
   const root = inspectArtifactText(rootPlanText, pluginRoot);
-  if (root.errors.length > 0 || root.artifact?.fields?.artifact !== "work-plan" || root.artifact.fields.schema !== 5) {
-    throw new Error(`manual Review requires the exact native Schema-5 Root: ${root.errors.join("; ") || "not a work-plan"}`);
+  if (root.errors.length > 0 || root.artifact?.fields?.artifact !== "work-plan" || root.artifact.fields.schema !== 6) {
+    throw new Error(`manual Review requires the exact native Schema-6 Root: ${root.errors.join("; ") || "not a work-plan"}`);
   }
   const byId = new Map([[root.artifact.fields.id, { label: root.artifact.fields.id, text: rootPlanText }]]);
   for (const entry of artifacts ?? []) {
@@ -46,7 +46,7 @@ function exactEntries(rootPlanText, artifacts, pluginRoot) {
       if (provenance && !validReviewProvenance(provenance, entry.text)) {
         throw codedError("review-artifact-rejected", `manual Review artifact ${id} has invalid host builder provenance`);
       }
-      if (!provenance && entry.legacy_review_recorded !== true) {
+      if (!provenance) {
         throw codedError("review-artifact-rejected", `manual Review rejects newly imported work-review ${id} without protected builder provenance`);
       }
     }
@@ -56,7 +56,6 @@ function exactEntries(rootPlanText, artifacts, pluginRoot) {
       label: id,
       text: entry.text,
       ...(entry.builder_provenance ? { builder_provenance: entry.builder_provenance } : {}),
-      ...(entry.legacy_review_recorded === true ? { legacy_review_recorded: true } : {}),
     });
   }
   return { rootFields: root.artifact.fields, entries: [...byId.values()] };
@@ -160,12 +159,14 @@ export function buildManualReviewLifecycle({
   artifacts = [],
   reviewInput,
   checkEvidence = [],
-  strategyRevision = 0,
   summary = null,
   workspaceRoot,
   pluginRoot,
   repositoryBaseline = null,
   repositoryAttribution = null,
+  harnessPhaseResult = null,
+  harnessProtectionHash = null,
+  workspaceBinding = null,
   captureSnapshot = captureRepositorySnapshot,
 }) {
   if (!reviewInput) throw new Error("manual Review requires review_input schema 1");
@@ -184,16 +185,29 @@ export function buildManualReviewLifecycle({
   );
 
   const current = captureSnapshot(workspaceRoot);
+  const harnessSnapshotHash = harnessPhaseResult?.workspace_snapshot_after ?? repositorySnapshotHash(current);
+  const harnessAttestations = harnessPhaseResult?.check_attestations ?? [];
   const suppliedReasonCodes = [
     ...(repositoryAttribution?.reason_codes ?? []),
     ...(repositoryAttribution?.status === "provisional" && (repositoryAttribution?.reason_codes ?? []).length === 0
       ? ["attribution-unavailable"]
       : []),
   ];
-  const repositoryDelta = deriveRepositoryDelta(repositoryBaseline, current, {
+  const observedRepositoryDelta = deriveRepositoryDelta(repositoryBaseline, current, {
     boundary: repositoryAttribution?.boundary ?? "create-plan",
     reasonCodes: suppliedReasonCodes,
   });
+  const harnessReviewBound = harnessPhaseResult?.status === "completed"
+    && /^[a-f0-9]{64}$/.test(String(harnessPhaseResult.workspace_snapshot_before ?? ""))
+    && harnessPhaseResult.workspace_snapshot_before === harnessPhaseResult.workspace_snapshot_after
+    && /^[a-f0-9]{64}$/.test(String(workspaceBinding ?? ""));
+  const repositoryDelta = harnessReviewBound ? {
+    ...observedRepositoryDelta,
+    changed_paths: sortedPaths(harnessPhaseResult.changed_paths ?? []),
+    attribution_status: "attributed",
+    attribution_boundary: "harness-review-snapshot",
+    attribution_reason_codes: [],
+  } : observedRepositoryDelta;
   let evidenceChangedPaths = repositoryDelta.changed_paths;
   let evidenceSnapshot = repositoryDelta.repository_snapshot;
   let effectiveReviewInput = reviewInput;
@@ -210,7 +224,7 @@ export function buildManualReviewLifecycle({
     const message = `Current repository changes do not fit the native Plan authority: ${String(error?.message ?? error)}`;
     effectiveReviewInput = authorityLimitation(effectiveReviewInput, message);
     effectiveCheckEvidence = supportedOnBoundary(effectiveCheckEvidence, message);
-    // Schema-5 Evidence may contain only Root-authorized changed paths. Keep
+    // Evidence may contain only Root-authorized changed paths. Keep
     // the complete dirty inventory in the Review limitation while recording
     // the safely attributable subset in Evidence.
     evidenceChangedPaths = repositoryDelta.changed_paths.filter((path) => {
@@ -250,20 +264,14 @@ export function buildManualReviewLifecycle({
       artifacts: exact.entries,
       checkEvidence: effectiveCheckEvidence,
       changedPaths: evidenceChangedPaths,
-      strategyRevision,
       effectiveProfile: "manual",
-      repositorySnapshot: evidenceSnapshot,
-      repositoryAttribution: {
-        status: repositoryDelta.attribution_status,
-        boundary: repositoryDelta.attribution_boundary,
-        baseline_hash: repositoryDelta.baseline_hash,
-        reason_codes: repositoryDelta.attribution_reason_codes,
-      },
       summary,
-      manualCheckReceipts: [],
-      // Manual verification is the fresh reviewer observation. Certified
-      // controller profiles keep their independent receipt requirements.
-      enforceManualCheckReceipts: false,
+      harnessAttestations,
+      harnessId: harnessPhaseResult?.harness_id ?? null,
+      protectedAttestationHash: harnessProtectionHash,
+      enforceHarnessAttestations: true,
+      workspaceBinding: workspaceBinding ?? createHash("sha256").update(current.repository_root).digest("hex"),
+      workspaceSnapshotHash: harnessSnapshotHash,
       pluginRoot,
     });
     reviewArtifacts = [...exact.entries, { label: evidence.fields.id, text: evidence.artifact }];
@@ -275,18 +283,14 @@ export function buildManualReviewLifecycle({
       artifacts: refreshBaseEntries,
       checkEvidence: effectiveCheckEvidence,
       changedPaths: evidenceChangedPaths,
-      strategyRevision,
       effectiveProfile: "manual",
-      repositorySnapshot: evidenceSnapshot,
-      repositoryAttribution: {
-        status: repositoryDelta.attribution_status,
-        boundary: repositoryDelta.attribution_boundary,
-        baseline_hash: repositoryDelta.baseline_hash,
-        reason_codes: repositoryDelta.attribution_reason_codes,
-      },
       summary,
-      manualCheckReceipts: [],
-      enforceManualCheckReceipts: false,
+      harnessAttestations,
+      harnessId: harnessPhaseResult?.harness_id ?? null,
+      protectedAttestationHash: harnessProtectionHash,
+      enforceHarnessAttestations: true,
+      workspaceBinding: workspaceBinding ?? createHash("sha256").update(current.repository_root).digest("hex"),
+      workspaceSnapshotHash: harnessSnapshotHash,
       pluginRoot,
     });
     const currentEvidenceText = exact.entries.find((entry) => entry.label === evidenceTipId)?.text ?? null;

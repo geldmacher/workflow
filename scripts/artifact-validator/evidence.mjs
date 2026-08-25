@@ -1,25 +1,17 @@
-export function leanEvidenceData(fields) {
+export function schema6EvidenceData(fields) {
   const objectiveStatus = fields.status === "complete" ? "achieved" : fields.status === "blocked" ? "blocked" : "partially-achieved";
-  const outcomes = (fields.affected_objectives ?? []).map((id) => ({
-    "Objective ID": id,
-    Status: objectiveStatus,
-    Evidence: `lean evidence ${fields.id}`,
-  }));
-  const checks = (fields.check_evidence ?? []).map((entry) => ({
-    "Check ID": entry.check_id,
-    "Observed Result": entry.observed,
-    Status: entry.grade === "verified" ? "passed" : entry.grade === "failed" ? "failed" : "skipped",
-    "Prerequisite fingerprints": "",
-  }));
   return {
-    results: [],
-    outcomes,
-    outcomeRows: new Map(outcomes.map((row) => [row["Objective ID"], row])),
-    changes: (fields.changed_paths ?? []).map((path) => ({ "Path or Symbol": path, Change: "declared in lean evidence", "Objective Coverage": (fields.affected_objectives ?? []).join(", ") })),
-    snapshot: null,
-    checks,
-    checkRows: new Map(checks.map((row) => [row["Check ID"], row])),
-    steps: [],
+    objectiveStates: new Map((fields.affected_objectives ?? []).map((id) => [id, {
+      status: objectiveStatus,
+      evidence: `Schema-6 Evidence ${fields.id}`,
+    }])),
+    checkStates: new Map((fields.check_evidence ?? []).map((entry) => [entry.check_id, {
+      status: entry.grade === "verified" ? "passed" : entry.grade === "failed" ? "failed" : "unavailable",
+      observed: entry.observed,
+      evidence_hashes: entry.evidence_hashes ?? [],
+    }])),
+    changedPaths: [...(fields.changed_paths ?? [])],
+    workspaceSnapshotHash: fields.workspace_snapshot_hash ?? null,
   };
 }
 

@@ -4,151 +4,70 @@ import { WORKFLOW_TOOL_NAMES } from "./tool-registry.mjs";
 import { reviewInputTransportSchema } from "./review-input-contract.mjs";
 
 const workspaceRoot = z.string().min(1).optional();
-const artifact = z.object({
-  label: z.string().min(1).max(200),
-  text: z.string().min(1).max(250_000),
-});
-const subject = {
-  workspace_root: workspaceRoot,
-  run_id: z.string().min(1).optional(),
-  preparation_id: z.string().min(1).optional(),
-};
-const checkEvidence = z.object({
+const artifact = z.strictObject({ label: z.string().min(1).max(200), text: z.string().min(1).max(250_000) });
+const checkEvidence = z.strictObject({
   check_id: z.string().regex(/^CHECK-[1-9][0-9]*$/),
-  feature_id: z.string().min(1).nullable().optional(),
   grade: z.enum(["verified", "supported", "partial", "unavailable", "failed"]),
-  surface: z.string().min(1).optional(),
-  method: z.string().min(1).optional(),
-  expected: z.string().min(1).optional(),
   observed: z.string().min(1),
-  repetitions: z.number().int().min(0).optional(),
-  artifact_hashes: z.array(z.string().regex(/^[a-f0-9]{64}$/)).max(64).optional(),
+  evidence_hashes: z.array(z.string().regex(/^[a-f0-9]{64}$/)).max(64).optional(),
   limitations: z.array(z.string().min(1)).max(64).optional(),
 });
 
 export const WORKFLOW_TOOL_CONTRACTS = Object.freeze({
   workflow_plan_preflight: {
-    description: "Validate one exact Schema-5 Root for authority feasibility and Pareto Check selection without workspace discovery, persistence, approval, or mutation.",
+    description: "Validate one exact Schema-6 Root and its intent-only verification contract without executing or selecting tools.",
     inputSchema: { root_plan: z.string().min(1).max(250_000) },
   },
-  workflow_prepare: {
-    description: "Run the configured planner pool in a read-only pre-run phase and produce either one approvable schema-5 intent root or manual intent questions.",
-    inputSchema: {
-      workspace_root: workspaceRoot,
-      goal: z.string().min(1).optional(),
-      root_plan: z.string().min(1).optional(),
-      root_artifacts: z.array(artifact).min(1).max(32).optional(),
-      requested_profile: z.enum(["supervised", "autonomous"]),
-      route_profile: z.string().min(1).default("default"),
-      expected_revision: z.literal(0),
-      idempotency_key: z.string().min(8),
-    },
-  },
-  workflow_start: {
-    description: "Atomically consume one displayed root-ready preparation after explicit root-hash approval and create exactly one approved run.",
-    inputSchema: {
-      workspace_root: workspaceRoot,
-      preparation_id: z.string().min(1),
-      approved_root_hash: z.string().length(64),
-      expected_preparation_revision: z.number().int().min(0),
-      idempotency_key: z.string().min(8),
-    },
-  },
   workflow_artifact_record: {
-    description: "Cache exact Schema-5 work-plan artifacts. New work-review authority is created only by workflow_closeout work-review mode; historical cached reviews remain readable.",
+    description: "Best-effort transport for exact Schema-6 Root artifacts.",
     inputSchema: { workspace_root: workspaceRoot, artifacts: z.array(artifact).min(1).max(32) },
   },
   workflow_artifact_context: {
-    description: "Return the exact revalidated non-authoritative Schema-5 artifact chain cached for one Root, optionally hash-bound to the supplied active native Plan.",
-    inputSchema: {
-      workspace_root: workspaceRoot,
-      root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
-      root_plan: z.string().min(1).max(250_000).optional(),
-    },
+    description: "Return one exact revalidated artifact chain; transport is never authority.",
+    inputSchema: { workspace_root: workspaceRoot, root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/), root_plan: z.string().min(1).max(250_000) },
   },
   workflow_closeout: {
-    description: "For Cursor native Manual Review, atomically build paired Schema-5 delivery-evidence and work-review artifacts from the protected current-task receipt and fresh observations; delivery-evidence and portable clients retain exact Root inputs.",
+    description: "Build Schema-6 Evidence or Review from intent evidence; verified grade requires protected harness attestations not accepted from caller input.",
     inputSchema: {
       workspace_root: workspaceRoot,
-      native_review_receipt: z.string().regex(/^[A-Za-z0-9_-]{43}$/)
-        .describe("Cursor host-injected opaque Review receipt. Models and users must never set this field.")
-        .optional(),
+      native_review_receipt: z.string().regex(/^[A-Za-z0-9_-]{43}$/).optional(),
       root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/).optional(),
       root_plan: z.string().min(1).max(250_000).optional(),
       artifacts: z.array(artifact).min(1).max(32).optional(),
       artifact_kind: z.enum(["delivery-evidence", "work-review"]).default("delivery-evidence"),
       review_input: reviewInputTransportSchema.optional(),
       effective_profile: z.enum(["manual", "supervised", "autonomous"]).default("manual"),
-      strategy_revision: z.number().int().min(0).default(0),
       changed_paths: z.array(z.string().min(1).max(1000)).max(1000).default([]),
       check_evidence: z.array(checkEvidence).max(128).default([]),
       summary: z.string().min(1).max(2_000).optional(),
-      repository_snapshot: z.object({
-        head: z.string().min(1).optional(),
-        working_tree: z.string().min(1).optional(),
-        relevant_fingerprints: z.string().min(1).optional(),
-        known_failures: z.string().min(1).optional(),
-      }).optional(),
     },
   },
   workflow_status: {
-    description: "Return current status and a uniform read-only learning projection for one preparation, adaptive run, or explicit/uniquely active stateless manual schema-5 artifact chain. With no subject it reports Workflow inactive and never gates native Manual implementation. Controller learning authority requires the ephemeral source receipt from an operational response, and Workflow-3/4 subjects remain read-only.",
+    description: "Derive status from an exact Schema-6 artifact chain or one current Workflow-6 Harness Run.",
     inputSchema: {
-      ...subject,
+      workspace_root: workspaceRoot,
       root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/).optional(),
-      learning_source_receipt: z.string().min(1).max(2_000).optional(),
+      run_id: z.string().regex(/^run-[a-f0-9]{24}$/).optional(),
       manual_acceptance: z.enum(["provisional"]).optional(),
       artifacts: z.array(artifact).min(1).max(32).optional(),
     },
   },
-  workflow_watch: {
-    description: "Return events after a cursor for exactly one planning preparation or run without mutation.",
-    inputSchema: {
-      ...subject,
-      after_event: z.number().int().min(0).default(0),
-      timeout_ms: z.number().int().min(0).max(30_000).default(0),
-    },
-  },
-  workflow_control: {
-    description: "Stop a preparation, or pause, resume, stop, or accept one Run delivery using optimistic revision and idempotency.",
-    inputSchema: {
-      ...subject,
-      action: z.enum(["pause", "resume", "stop", "accept"]),
-      acceptance: z.enum(["verified", "provisional"]).optional(),
-      expected_revision: z.number().int().min(0),
-      idempotency_key: z.string().min(8),
-    },
-  },
-  workflow_answer: {
-    description: "Record a human answer for a waiting run; planning preparations intentionally have no answer loop.",
+  workflow_prepare: {
+    description: "Advance one revision-bound Workflow-6 Harness Run until its next human gate or terminal state.",
     inputSchema: {
       workspace_root: workspaceRoot,
-      run_id: z.string().min(1),
-      answer: z.string().min(1),
-      expected_revision: z.number().int().min(0),
-      idempotency_key: z.string().min(8),
-    },
-  },
-  workflow_validate_models: {
-    description: "Validate ordered pools of concrete approved model candidates against the live Cursor catalog.",
-    inputSchema: { workspace_root: workspaceRoot, route_profile: z.string().min(1).default("default") },
-  },
-  workflow_verification_profile: {
-    description: "Draft, inspect, prove, approve, or audit one hash-bound project verification profile.",
-    inputSchema: {
-      workspace_root: workspaceRoot,
-      action: z.enum(["draft", "inspect", "prove", "approve", "audit"]),
-      manifest_path: z.string().min(1).default(".cursor/workflow-verification.yaml"),
-      surface: z.string().min(1).optional(),
-      route_profile: z.string().min(1).default("default"),
-      approved_hash: z.string().length(64).optional(),
+      action: z.enum(["start", "resume", "approve-correction", "accept-delivery", "stop"]),
+      root_plan: z.string().min(1).max(250_000).optional(),
+      requested_profile: z.enum(["supervised", "autonomous"]).optional(),
+      run_id: z.string().regex(/^run-[a-f0-9]{24}$/).optional(),
+      expected_revision: z.number().int().nonnegative().optional(),
+      idempotency_key: z.string().min(1).max(200),
+      human_decision_receipt: z.string().regex(/^[A-Za-z0-9_-]{43}$/).optional(),
     },
   },
 });
 
-if (Object.keys(WORKFLOW_TOOL_CONTRACTS).sort().join("\n") !== [...WORKFLOW_TOOL_NAMES].sort().join("\n")) {
-  throw new Error("MCP tool contracts differ from the canonical tool registry");
-}
+if (Object.keys(WORKFLOW_TOOL_CONTRACTS).sort().join("\n") !== [...WORKFLOW_TOOL_NAMES].sort().join("\n")) throw new Error("MCP tool contracts differ from the canonical tool registry");
 
 export function toolContract(name) {
   const contract = WORKFLOW_TOOL_CONTRACTS[name];

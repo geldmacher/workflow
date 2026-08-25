@@ -14,29 +14,21 @@ const groups = [
   },
   {
     name: "native Cursor authority",
-    include: ["hooks/native-review-receipt.mjs", "hooks/native-task-review-context.mjs", "src/core/native-task-review-state.mjs"],
+    include: ["hooks/native-review-receipt.mjs", "hooks/native-task-review-context.mjs", "src/harness/native-task-review-state.mjs"],
     tests: [
       "tests/native-task-review-context.test.mjs",
       "tests/cursor-native-review-regression.test.mjs",
       "tests/cursor-closeout-hook.test.mjs",
       "tests/mcp-closeout.test.mjs",
+      "tests/manual-repository-snapshot.test.mjs",
     ],
     lines: 90,
     branches: 85,
   },
   {
-    name: "Schema-5 CreatePlan guard",
+    name: "Schema-6 CreatePlan guard",
     include: ["hooks/plan-integrity-guard.mjs"],
     tests: ["tests/plan-integrity-guard.test.mjs"],
-  },
-  {
-    name: "manual attestation kernel",
-    include: ["src/core/manual-attestation.mjs", "src/core/closeout-retention.mjs"],
-    tests: [
-      "tests/closeout-attestation.test.mjs",
-      "tests/codex-hook-policy.test.mjs",
-      "tests/cursor-closeout-hook.test.mjs",
-    ],
   },
   {
     name: "Root content identity",
@@ -44,7 +36,6 @@ const groups = [
     tests: [
       "tests/state-paths.test.mjs",
       "tests/content-addressed-handoff.test.mjs",
-      "tests/closeout-attestation.test.mjs",
     ],
   },
   {
@@ -63,7 +54,7 @@ const groups = [
   },
   {
     name: "repository baseline and Manual Review lifecycle",
-    include: ["src/core/manual-repository-snapshot.mjs", "src/core/native-task-review-state.mjs", "src/controller/manual-review-lifecycle.mjs"],
+    include: ["src/harness/repository-snapshot.mjs", "src/harness/native-task-review-state.mjs", "src/controller/manual-review-lifecycle.mjs"],
     tests: [
       "tests/manual-review-lifecycle.test.mjs",
       "tests/manual-repository-snapshot.test.mjs",
@@ -75,9 +66,31 @@ const groups = [
     branches: 80,
   },
   {
-    name: "capability receipt",
-    include: ["src/controller/capabilities.mjs"],
-    tests: ["tests/capabilities.test.mjs"],
+    name: "generic harness contracts",
+    include: ["src/core/harness-attestations.mjs", "src/controller/harness-orchestrator.mjs"],
+    tests: ["tests/harness-boundary.test.mjs"],
+  },
+  {
+    name: "transactional automation trust boundary",
+    include: [
+      "src/controller/harness-lifecycle.mjs",
+      "src/harness/module-adapter.mjs",
+      "src/harness/host-decision-receipts.mjs",
+      "hooks/automation-guard.mjs",
+    ],
+    tests: [
+      "tests/harness-lifecycle.test.mjs",
+      "tests/host-adapter-loader.test.mjs",
+      "tests/host-decision-receipts.test.mjs",
+      "tests/cursor-automation-hook.test.mjs",
+    ],
+    lines: 90,
+    branches: 85,
+  },
+  {
+    name: "Schema-6 Evidence and Review builders",
+    include: ["src/controller/delivery-closeout.mjs", "src/controller/work-review-builder.mjs"],
+    tests: ["tests/delivery-closeout.test.mjs", "tests/work-review-builder.test.mjs", "tests/manual-review-lifecycle.test.mjs"],
   },
   {
     name: "release surface",
@@ -85,42 +98,27 @@ const groups = [
     tests: ["tests/release-surface.test.mjs"],
   },
   {
-    name: "worker adapter",
-    include: ["src/controller/worker-adapter.mjs"],
-    tests: ["tests/worker-adapter.test.mjs"],
-  },
-  {
     name: "state and handoff indexes",
-    include: ["src/controller/store.mjs", "src/controller/artifact-handoff.mjs"],
+    include: ["src/controller/artifact-handoff.mjs"],
     tests: [
       "tests/artifact.test.mjs",
       "tests/content-addressed-handoff.test.mjs",
-      "tests/controller.test.mjs",
       "tests/delivery-closeout.test.mjs",
       "tests/handoff-index.test.mjs",
       "tests/manual-status.test.mjs",
       "tests/mcp-closeout.test.mjs",
-      "tests/planning.test.mjs",
-      "tests/state-maintenance.test.mjs",
-      "tests/store-index.test.mjs",
     ],
   },
   {
-    name: "human projection and actions",
-    include: ["src/mcp/manual-presentation.mjs", "src/core/manual-journey.mjs"],
+    name: "human projection and status",
+    include: ["src/mcp/manual-presentation.mjs", "src/controller/manual-status.mjs"],
     tests: [
       "tests/mcp-manual-presentation.test.mjs",
-      "tests/manual-guidance.test.mjs",
       "tests/manual-status.test.mjs",
       "tests/mcp-closeout.test.mjs",
     ],
     lines: 90,
     branches: 80,
-  },
-  {
-    name: "controller learning lineage",
-    include: ["src/controller/learning-context.mjs"],
-    tests: ["tests/learning-context.test.mjs", "tests/engine.test.mjs"],
   },
 ];
 

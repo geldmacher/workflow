@@ -12,13 +12,23 @@ import { WORKFLOW_TOOL_ANNOTATIONS } from "../src/mcp/tool-annotations.mjs";
 import { workflowClient } from "./mcp-client.mjs";
 
 const expectedTools = ["workflow_artifact_context", "workflow_artifact_record", "workflow_closeout", "workflow_plan_preflight", "workflow_status"];
-const expectedJourneyStates = [
-  "plan-ready", "implementation-active", "closeout-recovery-required", "review-ready", "review-active",
-  "correction-approval-required", "replan-approval-required", "provisional-acceptance-required",
-  "clarification-required", "blocked", "done",
-];
+const expectedCodexSkills = ["accept-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-status"];
 const rootPlan = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
 const manualGuide = readFileSync(join(defaultRoot, "docs", "manual-workflow.md"), "utf8");
+
+test("canonical target metadata is Workflow 6 before generation", () => {
+  const cursor = JSON.parse(readFileSync(join(defaultRoot, ".cursor-plugin", "plugin.json"), "utf8"));
+  const codex = JSON.parse(readFileSync(join(defaultRoot, "targets", "codex", ".codex-plugin", "plugin.json"), "utf8"));
+  const portable = JSON.parse(readFileSync(join(defaultRoot, "targets", "agent-plugins", "plugin.json"), "utf8"));
+  for (const manifest of [cursor, codex, portable]) {
+    assert.equal(manifest.version, "6.0.0");
+    assert.match(JSON.stringify(manifest), /Workflow 6|Schema-6/);
+    assert.doesNotMatch(JSON.stringify(manifest), /Schema[- ]?[345]|Workflow [345]/i);
+  }
+  const builder = readFileSync(join(defaultRoot, "scripts", "build-plugin-targets.mjs"), "utf8");
+  assert.match(builder, /assertCanonicalManifest/);
+  assert.doesNotMatch(builder, /manifest\.version\s*=\s*version/);
+});
 
 test("deterministic target build isolates Codex and exposes exactly five Manual tools", async () => {
   const output = mkdtempSync(join(tmpdir(), "workflow-target-test-"));
@@ -44,10 +54,10 @@ test("deterministic target build isolates Codex and exposes exactly five Manual 
       for (const developmentRoot of [".agents", ".build", ".cursor", ".git", "node_modules", "tests"]) {
         assert.equal(existsSync(join(target, developmentRoot)), false, `${developmentRoot} leaked into ${target}`);
       }
+      assert.equal(existsSync(join(target, "agents")), false, `Workflow-owned agents leaked into ${target}`);
       const manualRuntime = readFileSync(join(target, "dist", "workflow-mcp.mjs"), "utf8");
-      for (const state of expectedJourneyStates) assert.match(manualRuntime, new RegExp(`\\b${state}\\b`), `${target} misses journey state ${state}`);
-      for (const action of ["Implement Plan", "review-work", "correct-work", "plan-work replan", "accept-work"]) {
-        assert.match(manualRuntime, new RegExp(action.replace(" ", "\\s+")), `${target} misses shared action ${action}`);
+      for (const forbidden of ["program-not-classified", "unapproved-root-check", "parseHostCommand", "runHostCheck"]) {
+        assert.doesNotMatch(manualRuntime, new RegExp(forbidden), `${target} leaked execution policy ${forbidden}`);
       }
     }
     const cursorHookConfig = JSON.parse(readFileSync(join(first.cursor.path, "hooks", "hooks.json"), "utf8"));
@@ -93,25 +103,15 @@ test("deterministic target build isolates Codex and exposes exactly five Manual 
     assert.equal(manifest.hooks, undefined);
     assert.equal(manifest.skills, "./skills/");
     assert.equal(manifest.mcpServers, "./.mcp.json");
+    const codexSkills = readdirSync(join(codex, "skills"), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort();
+    assert.deepEqual(codexSkills, expectedCodexSkills);
     const codexReview = readFileSync(join(codex, "skills", "review-work", "SKILL.md"), "utf8");
-    const codexCorrect = readFileSync(join(codex, "skills", "correct-work", "SKILL.md"), "utf8");
-    const codexExplain = readFileSync(join(codex, "skills", "explain-work", "SKILL.md"), "utf8");
-    const explanationContract = readFileSync(join(codex, "references", "explanation-contract.md"), "utf8");
-    const reviewContract = readFileSync(join(codex, "references", "review-contract.md"), "utf8");
-    for (const heading of ["What was achieved", "What this means", "Verification and limits", "Technical traceability"]) {
-      assert.match(`${codexReview}\n${codexExplain}\n${explanationContract}`, new RegExp(heading, "i"));
-    }
-    assert.match(codexReview, /current reviewer.*not another subagent or model call/is);
-    assert.match(codexReview, /current Codex Plan-mode `<proposed_plan>`.*Never restore authority/is);
-    assert.match(codexReview, /workflow_closeout.*exactly once.*Delivery Evidence and Work Review atomically or neither/is);
-    assert.match(codexReview, /failed required Check produces a completed blocked Review/is);
-    assert.match(`${codexReview}\n${reviewContract}`, /first three.*stand alone.*without.*implementation history.*code knowledge/is);
-    assert.match(reviewContract, /separates executor claims from independently inspected evidence/is);
-    assert.match(codexExplain, /Final repository explanation.*only for `achieved`/is);
-    assert.match(`${codexCorrect}\n${codexReview}`, /fresh reviewer.*planned Checks|planned Checks fresh/is);
-    assert.match(codexCorrect, /Finish normally without closeout, Evidence, persistence, or a synthetic continuation/is);
-    assert.equal(existsSync(join(codex, "skills", "close-work")), false);
-    assert.equal(readdirSync(join(codex, "skills")).length, 7);
+    assert.match(codexReview, /repository-read-only/i);
+    assert.match(codexReview, /project harness/i);
+    assert.doesNotMatch(codexReview, /command allowlist|model pool|review route/i);
     const transport = new StdioClientTransport({
       command: process.execPath,
       args: [join(codex, "dist", "workflow-mcp.mjs")],

@@ -1,18 +1,18 @@
 ---
 artifact: work-plan
-schema: 5
+schema: 6
 id: wp-adaptive-retry
 status: ready
 intent_ready: true
-profile_max: supervised
-contract_level: controlled
+profile_max: manual
+contract_level: lean
 risk: medium
 hard_triggers: []
-goal: Make retry handling deterministic without changing the public contract.
+goal: Make transient retry behavior deterministic and observable.
 acceptance:
-  - Retry handling passes its repository verification path twice.
+  - Retry behavior is deterministic and repository validation remains consistent.
 non_goals:
-  - No deployment or external service change.
+  - No deployment or external publication.
 constraints:
   - Preserve the public API.
 authority:
@@ -21,34 +21,30 @@ authority:
     - tests
   protected_paths:
     - .git
-    - .cursor/workflow-policy.yaml
   approval_required_paths: []
   dependencies: deny
   external_effects: none
   delivery: repository-only
-  max_active_minutes: 30
-  max_total_tokens: 50000
-  max_cost_usd: 5
 ---
 
 ## Intent
 
-Make retry handling deterministic on the current repository surface.
+Make transient retry behavior deterministic and observable without expanding repository authority.
 
 ## Acceptance
 
-The retry verification path passes twice and the public API remains stable.
+Retry behavior is deterministic and repository validation remains consistent.
 
 ### Verification
 
-| Check ID | Objectives | Working Directory | Command or Inspection | Expected Result | Required | Evidence Class | Cost Class | Prerequisites |
-|---|---|---|---|---|---|---|---|---|
-| CHECK-1 | OBJ-1 | repository root | npm test | Retry verification passes twice | yes | machine-verifiable | standard | src, tests |
+| Check ID | Objectives | Verification Intent | Expected Evidence | Required | Evidence Class | Cost Class | Prerequisites |
+|---|---|---|---|---|---|---|---|
+| CHECK-1 | OBJ-1 | Prove retry behavior and repository consistency with project-appropriate verification. | Protected evidence showing the acceptance outcome on the current repository snapshot. | yes | harness-verifiable | standard | Relevant implementation and test surfaces are available. |
 
 ## Boundaries
 
-Only repository delivery under `src` and `tests` is authorized. External effects are forbidden.
+Only the declared repository roots may change. Deployment, publication, and external effects are excluded.
 
 ## Risks
 
-The main risk is an accidental public-contract regression; preserve and verify that contract.
+Incorrect retry boundaries could mask a transient failure; fresh bound evidence must keep that uncertainty visible.

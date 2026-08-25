@@ -8,13 +8,18 @@ function formatAjv(error) {
   return error.keyword === "additionalProperties" ? `${location}: additional property ${error.params.additionalProperty}` : `${location}: ${error.message}`;
 }
 
-export function schemaFor(root, artifact) {
-  return join(resolve(root), "schemas", "artifacts", `${artifact}.schema.json`);
+export function schemaFor(root, artifact, schema = null) {
+  if (schema !== null && Number(schema) !== 6) return null;
+  return join(resolve(root), "schemas", "artifacts", `${artifact}-6.schema.json`);
 }
 
 export function validateArtifactSchema(root, parsed, failures) {
-  const path = schemaFor(root, parsed.fields.artifact);
-  if (!existsSync(path)) {
+  if (parsed.fields.schema !== 6) {
+    failures.push("unsupported Workflow artifact schema; only Schema 6 is supported");
+    return null;
+  }
+  const path = schemaFor(root, parsed.fields.artifact, parsed.fields.schema);
+  if (!path || !existsSync(path)) {
     failures.push(`unsupported artifact type: ${parsed.fields.artifact}`);
     return null;
   }

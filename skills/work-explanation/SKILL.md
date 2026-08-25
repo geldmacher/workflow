@@ -1,12 +1,10 @@
 ---
 name: work-explanation
-description: Explain one Workflow root read-only.
+description: Explain one Workflow chain read-only.
 ---
 
-Use Cursor Ask Mode. Read [explanation](../../references/explanation-contract.md). Resolve exact Root/Evidence/Review bytes from the current task's native Plan context; never use legacy state or cache restoration. Only without a Manual Plan may an explicitly selected controller Run use its own storage. Report Workflow-3/4 or mixed/invalid input honestly. Never mutate or emit artifacts.
+Use a read-only host mode and read [explanation](../../references/explanation-contract.md). Resolve exact Schema-6 Root/Evidence/Review bytes from the current task. Reject every unsupported artifact schema. Never mutate or emit artifacts.
 
-If there is no unique Root, name the native task source inspected and ask for the exact Root bytes or a new native Plan in this task. Do not recover from IDs or host state.
+If there is no unique Root, name the source inspected and request exact bytes or a new native Plan. Do not recover authority from IDs, cache, or host state.
 
-Never interpret, quote, summarize, explain, use, or pass opaque `extensions`. Follow `Quick decision`, `Details`, then `Agent and machine contract (authoritative)`. Use one of six human phases, distinguish Limitation from Blocker, and give one host-correct next action without appending a Root ID. State not `achieved` is **Preliminary explanation**; only `achieved` is **Final repository explanation**.
-
-For an on-demand refresh, only a fresh `work-explainer` receives `[workflow-readonly-review-v1]`. It inherits the Cursor-selected model without override, stays read-only, and never writes; Workflow chooses no model.
+Never interpret opaque `extensions` or harness trace. Follow `Quick decision`, `Details`, then `Agent and machine contract (authoritative)`. Distinguish limitation from blocker and give one lifecycle-level next action. The active harness chooses any concrete model or tool; Workflow chooses none.

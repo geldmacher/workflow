@@ -9,36 +9,31 @@ const artifact = z.object({
 });
 const checkEvidence = z.object({
   check_id: z.string().regex(/^CHECK-[1-9][0-9]*$/),
-  feature_id: z.string().min(1).nullable().optional(),
   grade: z.enum(["verified", "supported", "partial", "unavailable", "failed"]),
-  surface: z.string().min(1).optional(),
-  method: z.string().min(1).optional(),
-  expected: z.string().min(1).optional(),
   observed: z.string().min(1),
-  repetitions: z.number().int().min(0).optional(),
-  artifact_hashes: z.array(z.string().regex(/^[a-f0-9]{64}$/)).max(64).optional(),
+  evidence_hashes: z.array(z.string().regex(/^[a-f0-9]{64}$/)).max(64).optional(),
   limitations: z.array(z.string().min(1)).max(64).optional(),
-});
+}).strict();
 
 const contracts = Object.freeze({
   workflow_plan_preflight: {
-    description: "Validate one exact Schema-5 Root for authority feasibility and Pareto Check selection without workspace discovery, persistence, approval, or mutation. Optional diagnostic for low/medium Manual; CreatePlan still validates Schema-5 Roots.",
+    description: "Validate one exact Schema-6 Root and its intent-only verification contract without workspace discovery, execution, persistence, approval, or mutation.",
     inputSchema: { root_plan: z.string().min(1).max(250_000) },
   },
   workflow_artifact_record: {
-    description: "Best-effort transport for exact Schema-5 work-plan artifacts. New work-review authority is created only by workflow_closeout work-review mode; historical cached reviews remain readable.",
+    description: "Best-effort transport for exact Schema-6 work-plan artifacts.",
     inputSchema: { workspace_root: workspaceRoot, artifacts: z.array(artifact).min(1).max(32) },
   },
   workflow_artifact_context: {
-    description: "Best-effort transport enrichment: return the exact revalidated non-authoritative Schema-5 artifact chain cached for one Root under its root-content namespace, optionally hash-bound to the supplied active native Plan. Task artifacts remain authoritative.",
+    description: "Best-effort transport enrichment for one exact revalidated Schema-6 artifact chain.",
     inputSchema: {
       workspace_root: workspaceRoot,
       root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
-      root_plan: z.string().min(1).max(250_000).optional(),
+      root_plan: z.string().min(1).max(250_000),
     },
   },
   workflow_closeout: {
-    description: "Deterministically build one host-owned Schema-5 delivery-evidence or work-review artifact and best-effort cache it. delivery-evidence remains the default.",
+    description: "Build one host-owned Schema-6 delivery-evidence or work-review artifact. Concrete execution is never accepted or interpreted; verified evidence requires protected harness attestations.",
     inputSchema: {
       workspace_root: workspaceRoot,
       root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
@@ -47,25 +42,19 @@ const contracts = Object.freeze({
       artifact_kind: z.enum(["delivery-evidence", "work-review"]).default("delivery-evidence"),
       review_input: reviewInputTransportSchema.optional(),
       effective_profile: z.literal("manual").default("manual"),
-      strategy_revision: z.number().int().min(0).default(0),
       changed_paths: z.array(z.string().min(1).max(1000)).max(1000).default([]),
       check_evidence: z.array(checkEvidence).max(128).default([]),
       summary: z.string().min(1).max(2_000).optional(),
-      repository_snapshot: z.object({
-        head: z.string().min(1).optional(),
-        working_tree: z.string().min(1).optional(),
-        relevant_fingerprints: z.string().min(1).optional(),
-        known_failures: z.string().min(1).optional(),
-      }).optional(),
     },
   },
   workflow_status: {
-    description: "Return current status and a uniform read-only learning projection for an explicit stateless Manual Schema-5 artifact chain.",
+    description: "Return status for an explicit Schema-6 artifact chain or one current Workflow-6 Harness Run.",
     inputSchema: {
       workspace_root: workspaceRoot,
-      root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
+      root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/).optional(),
+      run_id: z.string().regex(/^run-[a-f0-9]{24}$/).optional(),
       manual_acceptance: z.enum(["provisional"]).optional(),
-      artifacts: z.array(artifact).min(1).max(32),
+      artifacts: z.array(artifact).min(1).max(32).optional(),
     },
   },
 });

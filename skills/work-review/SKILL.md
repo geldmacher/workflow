@@ -1,20 +1,18 @@
 ---
 name: work-review
-description: Review one Workflow root read-only.
+description: Review one Schema-6 Workflow root repository-read-only.
 ---
 
-Fresh Cursor Ask, not Writer. Read [protocol](../../references/artifact-protocol.md) and [review](../../references/review-contract.md); inspect the repository read-only. The atomic builder, not the reviewer, owns Evidence construction.
+Start a fresh repository-read-only Review. Read [protocol](../../references/artifact-protocol.md) and [review](../../references/review-contract.md). The atomic builder owns Evidence construction.
 
-Read acceptance and Checks from the current Cursor Plan. The host binds its current task Root; `cursor-plan-file` means provisional and never verified. Never use active-root files, chain caches, handoff tips, `workflow_artifact_context`, or another task as authority. Never search historical or arbitrary Plan files. Workflow-3/4 blocks.
+Use the exact current-task Schema-6 Root selected by the host. Presentation defects and recoverable MCP transport failures do not erase a valid active Root or selection. Caches and handoff are transport only. Reject every unsupported artifact schema.
 
-Check authority/boundaries/Checks. Use no built-in or general-purpose subagent. Read-only auditors inherit the model with `[workflow-readonly-review-v1]`.
+Assess acceptance, authority, boundaries, verification intents, repository state, and limitations. The project harness chooses how to inspect them and attests before and after snapshots. Workflow never parses or classifies its commands, tools, models, framework, or host choices.
 
-No Root, no substantive Review. Distinguish failures; give one remedy: restore the Plan in this task or create and approve a new native Plan. No recovery commands.
+No exact active Root means no substantive Review. Missing harness evidence is different: keep the Root, create unavailable or supported Evidence, and return a provisional decision with the limitation.
 
-Run or inspect planned Checks fresh in their directories. Cursor Shell accepts only the unique exact machine-verifiable Root command and canonical directory, optionally wrapped once by `rtk`; never alter it, compose shell syntax, redirect, substitute, or choose another npm script. A Check is `verified` only when this reviewer observed its method, expectation, result, and repetition. High-risk or Hard-Trigger Roots require delivery- and risk-auditor reports, plus material design review. Uncertainty stays visible and prevents verification.
+A Check is verified only when a protected harness attestation binds its verification intent, Root hash, workspace binding, and current snapshot. Missing attestation stays provisional; attested failure stays failed; contradictory binding is rejected. Human-decision Checks remain human gates.
 
-Call `workflow_closeout` exactly once with `artifact_kind: work-review`, fresh `check_evidence`, and closed `review_input`; omit Root and artifacts because the receipt supplies them. Observer recovery keeps `review-observer-unavailable`, caps evidence at supported, and derives no authority from prose. The builder returns Delivery Evidence and Work Review together or neither. Failed required Checks block.
+Call `workflow_closeout` once with `artifact_kind: work-review` and closed `review_input`. Cursor uses its single-use Root/workspace receipt; Codex and portable clients supply exact bytes. The builder asks the configured project harness through the generic phase interface and returns Delivery Evidence plus Work Review together or neither. Harness unavailability caps evidence but never invents Root-unavailable.
 
-Lead with one of the six human phases, result, Checks, at most one Limitation, a Blocker only when the transition is prevented, and one host-correct action. Trace exact Root/Evidence/Review IDs, repository attribution, and paths last. Verified completes; provisional offers `/accept-work provisional` as an ephemeral, not persisted acknowledgement with no Qualification or Learning authority. Persistence failure is advisory because the returned pair remains authoritative in this task.
-
-The current reviewer, not `work-explainer`, gives the three-layer `Quick decision` → `Details` → authoritative agent/machine explanation; do not add another model call.
+Verified completes. Provisional may offer ephemeral `/accept-work provisional`. Failed required Checks route to correction, clarification, retry, or replan. Never mutate during Review.

@@ -66,7 +66,7 @@ export function extractRootPlanText(source) {
     return `---\n${fenced[1].trim()}\n---\n${String(fenced[2] ?? "").trimStart()}`;
   }
   const bare = proposed.match(/^(---\r?\n[\s\S]*?\r?\n---(?:\r?\n[\s\S]*)?)$/);
-  if (bare?.[1] && /\bartifact:\s*work-plan\b/.test(bare[1]) && /\bschema:\s*5\b/.test(bare[1])) {
+  if (bare?.[1] && /\bartifact:\s*work-plan\b/.test(bare[1]) && /\bschema:\s*6\b/.test(bare[1])) {
     return bare[1];
   }
   return null;
@@ -85,8 +85,8 @@ export function parseRootPlanFields(rootPlanText) {
     return { ok: false, reason: "invalid-frontmatter", fields: null, fingerprint: null, content_hash: null };
   }
   if (!asObject(fields)) return { ok: false, reason: "invalid-frontmatter", fields: null, fingerprint: null, content_hash: null };
-  if (fields.artifact !== "work-plan" || fields.schema !== 5) {
-    return { ok: false, reason: "not-schema5-work-plan", fields, fingerprint: null, content_hash: null };
+  if (fields.artifact !== "work-plan" || fields.schema !== 6) {
+    return { ok: false, reason: "not-schema6-work-plan", fields, fingerprint: null, content_hash: null };
   }
   if (typeof fields.id !== "string" || !ROOT_ID.test(fields.id)) {
     return { ok: false, reason: "invalid-root-id", fields, fingerprint: null, content_hash: null };

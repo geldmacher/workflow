@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:geldmacher:workflow:harness-phase-request:1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "kind", "phase", "run_id", "run_revision", "transition_id", "idempotency_hash", "root_plan_id", "root_hash", "lineage_hashes", "workspace_binding", "authority", "verification_intents", "budgets", "review_read_only"],
+  "properties": {
+    "schema": { "const": 1 },
+    "kind": { "const": "harness-phase-request" },
+    "phase": { "enum": ["planning", "implementation", "review", "correction"] },
+    "run_id": { "type": "string", "pattern": "^run-[a-f0-9]{24}$" },
+    "run_revision": { "type": "integer", "minimum": 0 },
+    "transition_id": { "type": "string", "pattern": "^tr-[a-f0-9]{32}$" },
+    "idempotency_hash": { "$ref": "#/$defs/hash" },
+    "root_plan_id": { "type": "string", "pattern": "^wp-[A-Za-z0-9][A-Za-z0-9-]*$" },
+    "root_hash": { "$ref": "#/$defs/hash" },
+    "lineage_hashes": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/hash" } },
+    "workspace_binding": { "$ref": "#/$defs/hash" },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed_roots", "protected_paths", "approval_required_paths", "dependencies", "external_effects", "delivery"],
+      "properties": {
+        "allowed_roots": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "protected_paths": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "approval_required_paths": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "dependencies": { "enum": ["deny", "allow-listed"] },
+        "allowed_dependencies": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "external_effects": { "const": "none" },
+        "delivery": { "const": "repository-only" }
+      }
+    },
+    "verification_intents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["Check ID", "Objectives", "Verification Intent", "Expected Evidence", "Required", "Evidence Class", "Cost Class", "Prerequisites"],
+        "properties": {
+          "Check ID": { "type": "string", "pattern": "^CHECK-[1-9][0-9]*$" },
+          "Objectives": { "type": "string", "minLength": 1 },
+          "Verification Intent": { "type": "string", "minLength": 1 },
+          "Expected Evidence": { "type": "string", "minLength": 1 },
+          "Required": { "enum": ["yes", "no"] },
+          "Evidence Class": { "enum": ["harness-verifiable", "reviewer-observable", "human-decision-required"] },
+          "Cost Class": { "enum": ["cheap", "standard", "expensive"] },
+          "Prerequisites": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "budgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_active_minutes", "max_total_tokens", "max_cost_usd"],
+      "properties": {
+        "max_active_minutes": { "type": ["integer", "null"], "minimum": 1 },
+        "max_total_tokens": { "type": ["integer", "null"], "minimum": 1 },
+        "max_cost_usd": { "type": ["number", "null"], "exclusiveMinimum": 0 }
+      }
+    },
+    "review_read_only": { "type": "boolean" }
+  },
+  "$defs": { "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" } }
+}

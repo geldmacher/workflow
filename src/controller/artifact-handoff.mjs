@@ -21,7 +21,6 @@ import {
   contentAddressedHandoffRootByHash,
   handoffTipDirectory,
   handoffTipPath,
-  legacyHandoffTipPath,
   rootContentHash,
 } from "../core/state-paths.mjs";
 import {
@@ -40,20 +39,6 @@ export function createContentAddressedHandoffStore(rootPlanText, pluginRoot, opt
 
 export function createContentAddressedHandoffStoreByHash(rootHash, pluginRoot, options = {}) {
   return new ArtifactHandoffStore(contentAddressedHandoffRootByHash(rootHash, options), pluginRoot, options.artifactSetOptions);
-}
-
-export function quarantineContentAddressedHandoffArtifact({
-  rootHash,
-  artifactId,
-  expectedTextHash,
-  pluginRoot,
-  apply = false,
-  now = () => new Date(),
-  options = {},
-}) {
-  if (!/^[a-f0-9]{64}$/.test(String(rootHash ?? ""))) throw new Error("handoff quarantine requires an exact Root-content SHA-256");
-  const store = createContentAddressedHandoffStoreByHash(rootHash, pluginRoot, options);
-  return store.quarantineArtifact(artifactId, { expectedTextHash, apply, now });
 }
 
 function validateTip(tip, rootPlanId) {
@@ -86,8 +71,6 @@ function listHandoffTips(rootPlanId, options = {}) {
       tips.set(tip.root_content_hash, tip);
     }
   }
-  const legacy = readTipFile(legacyHandoffTipPath(rootPlanId, options), rootPlanId);
-  if (legacy && !tips.has(legacy.root_content_hash)) tips.set(legacy.root_content_hash, legacy);
   return [...tips.values()].sort((left, right) => left.root_content_hash.localeCompare(right.root_content_hash));
 }
 
@@ -118,8 +101,6 @@ export function readHandoffTip(rootPlanId, options = {}) {
   if (exactHash) {
     const exact = readTipFile(handoffTipPath(rootPlanId, exactHash, options), rootPlanId);
     if (exact) return exact;
-    const legacy = readTipFile(legacyHandoffTipPath(rootPlanId, options), rootPlanId);
-    if (legacy?.root_content_hash === exactHash) return legacy;
     return null;
   }
   const tips = listHandoffTips(rootPlanId, options);
@@ -491,93 +472,8 @@ export class ArtifactHandoffStore {
         text: record.text,
         text_hash: record.text_hash,
         ...(record.builder_provenance ? { builder_provenance: record.builder_provenance } : {}),
-        ...(record.artifact_type === "work-review" && !record.builder_provenance ? { legacy_review_recorded: true } : {}),
       })),
     };
   }
 
-  quarantineArtifact(artifactId, { expectedTextHash, apply = false, now = () => new Date() } = {}) {
-    if (!/^(?:wr|de)-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(artifactId ?? ""))) {
-      throw new Error("handoff quarantine accepts only an exactly identified wr-* or de-* transport record");
-    }
-    if (!/^[a-f0-9]{64}$/.test(String(expectedTextHash ?? ""))) {
-      throw new Error("handoff quarantine requires --expected-text-hash with the exact cached artifact hash");
-    }
-    const record = this.records([artifactId])[0];
-    if (!record) throw new Error(`handoff quarantine cannot find ${artifactId}`);
-    if (!["work-review", "delivery-evidence"].includes(record.artifact_type)) {
-      throw new Error(`handoff quarantine refuses unsupported artifact ${artifactId}`);
-    }
-    if (record.text_hash !== expectedTextHash) {
-      throw new Error(`handoff quarantine expected ${expectedTextHash} but ${artifactId} has ${record.text_hash}`);
-    }
-    const index = this.loadIndex({ repair: false });
-    const dependents = index.entries
-      .filter((entry) => (entry.references ?? []).includes(artifactId))
-      .map((entry) => entry.artifact_id)
-      .sort();
-    const timestamp = now().toISOString().replace(/[:.]/g, "-");
-    const quarantineDirectory = join(this.root, "handoff", "quarantine", `${timestamp}-${artifactId}-${expectedTextHash.slice(0, 12)}`);
-    const source = this.artifactPath(artifactId);
-    const target = join(quarantineDirectory, "artifact-record.json");
-    const report = {
-      command: "quarantine-handoff",
-      namespace_root: this.root,
-      artifact_id: artifactId,
-      artifact_type: record.artifact_type,
-      text_hash: record.text_hash,
-      record_hash: createHash("sha256").update(readFileSync(source)).digest("hex"),
-      source,
-      quarantine_directory: quarantineDirectory,
-      target,
-      dependents,
-      applicable: dependents.length === 0,
-      applied: false,
-    };
-    if (!apply) return report;
-    if (dependents.length > 0) {
-      throw new Error(`handoff quarantine refuses ${artifactId} because active artifacts depend on it: ${dependents.join(", ")}`);
-    }
-    if (existsSync(quarantineDirectory)) throw new Error(`handoff quarantine target already exists: ${quarantineDirectory}`);
-
-    const lockPath = join(this.root, "handoff", ".lock");
-    let descriptor;
-    try {
-      descriptor = acquireLock(lockPath);
-      const current = this.records([artifactId])[0];
-      if (!current || current.text_hash !== expectedTextHash) throw new Error(`handoff quarantine target ${artifactId} changed before apply`);
-      const currentIndex = this.loadIndex({ repair: false });
-      const currentDependents = currentIndex.entries
-        .filter((entry) => (entry.references ?? []).includes(artifactId))
-        .map((entry) => entry.artifact_id)
-        .sort();
-      if (currentDependents.length > 0) {
-        throw new Error(`handoff quarantine refuses ${artifactId} because active artifacts depend on it: ${currentDependents.join(", ")}`);
-      }
-      mkdirSync(quarantineDirectory, { recursive: true, mode: 0o700 });
-      const indexPath = this.indexPath();
-      if (existsSync(indexPath)) writeFileSync(join(quarantineDirectory, "index-before.json"), readFileSync(indexPath), { mode: 0o600, flag: "wx" });
-      renameSync(source, target);
-      try {
-        const rebuilt = this.rebuildIndex();
-        atomicJson(join(quarantineDirectory, "quarantine-manifest.json"), {
-          quarantine_manifest_schema: 1,
-          ...report,
-          applied: true,
-          quarantined_at: now().toISOString(),
-          rebuilt_index_entries: rebuilt.entries.length,
-        });
-      } catch (error) {
-        renameSync(target, source);
-        atomicJson(this.indexPath(), currentIndex);
-        throw error;
-      }
-      return { ...report, applied: true };
-    } finally {
-      if (descriptor !== undefined) {
-        closeSync(descriptor);
-        try { unlinkSync(lockPath); } catch (error) { if (error.code !== "ENOENT") throw error; }
-      }
-    }
-  }
 }

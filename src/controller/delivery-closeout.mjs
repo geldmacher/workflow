@@ -7,10 +7,12 @@ import {
   inspectArtifactText,
 } from "../../scripts/validate-artifact.source.mjs";
 import {
-  calibrateManualCheckEvidence,
-  manualConstraintProjection,
-} from "../core/manual-check-receipts.mjs";
-import { aggregateEvidence } from "./strategy.mjs";
+  calibrateHarnessCheckEvidence,
+  harnessConstraintProjection,
+  harnessContractHash,
+} from "../core/harness-attestations.mjs";
+
+const GRADES = new Set(["verified", "supported", "partial", "unavailable", "failed"]);
 
 function sha256(value) {
   return createHash("sha256").update(String(value)).digest("hex");
@@ -26,194 +28,104 @@ function unique(values) {
   return [...new Set(values)];
 }
 
-function cell(value) {
-  const text = String(value ?? "").replace(/\r?\n/g, "<br>").replace(/\|/g, "\\|").trim();
-  return text || "none";
-}
-
-function table(headers, rows) {
-  return [
-    `| ${headers.join(" | ")} |`,
-    `|${headers.map(() => "---").join("|")}|`,
-    ...rows.map((row) => `| ${headers.map((header) => cell(row[header])).join(" | ")} |`),
-  ].join("\n");
-}
-
 function normalizeArtifacts(rootPlanText, artifacts, pluginRoot) {
-  const rootInspection = inspectArtifactText(rootPlanText, pluginRoot);
-  if (rootInspection.errors.length > 0 || rootInspection.artifact?.fields?.artifact !== "work-plan") {
-    throw new Error(`closeout Root is invalid: ${(rootInspection.errors.length > 0 ? rootInspection.errors : ["input is not a work-plan"]).join("; ")}`);
+  const root = inspectArtifactText(rootPlanText, pluginRoot);
+  if (root.errors.length > 0 || root.artifact?.fields?.artifact !== "work-plan" || root.artifact.fields.schema !== 6) {
+    throw new Error(`closeout requires an exact valid Schema-6 Root: ${root.errors.join("; ") || "not a work-plan"}`);
   }
-  const rootId = rootInspection.artifact.fields.id;
+  const rootId = root.artifact.fields.id;
   const byId = new Map([[rootId, { label: rootId, text: rootPlanText }]]);
   for (const [index, entry] of (artifacts ?? []).entries()) {
-    if (!entry || typeof entry.label !== "string" || !entry.label.trim() || typeof entry.text !== "string" || !entry.text.trim()) {
-      throw new Error(`closeout artifact ${index + 1} requires non-empty label and text`);
-    }
+    if (!entry || typeof entry.text !== "string" || !entry.text.trim()) throw new Error(`closeout artifact ${index + 1} requires exact text`);
     const inspected = inspectArtifactText(entry.text, pluginRoot);
-    if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) throw new Error(`closeout artifact ${entry.label} is invalid: ${inspected.errors.join("; ")}`);
+    if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) throw new Error(`closeout artifact ${entry.label ?? index + 1} is invalid: ${inspected.errors.join("; ")}`);
     const id = inspected.artifact.fields.id;
     const prior = byId.get(id);
-    if (prior && prior.text !== entry.text) throw new Error(`closeout artifact ${id} has conflicting text`);
-    byId.set(id, { label: id, text: entry.text });
+    if (prior && prior.text !== entry.text) throw new Error(`closeout artifact ${id} has conflicting immutable bytes`);
+    byId.set(id, { ...entry, label: id });
   }
   return { rootId, entries: [...byId.values()] };
 }
 
-function expectedCheckMap(contract, correction, unresolvedRootChecks = new Map()) {
-  const checks = correction?.checks?.filter((check) => check.Required === "yes") ?? contract.checks.filter((check) => check.Required === "yes");
-  return new Map([
-    ...checks.map((check) => [check["Check ID"], check]),
-    ...unresolvedRootChecks,
-  ]);
+function ids(value, pattern) {
+  return unique(String(value ?? "").match(pattern) ?? []);
 }
 
-function rootCheckMap(contract) {
-  return new Map(contract.checks.filter((check) => check.Required === "yes").map((check) => [check["Check ID"], check]));
+function correctionObjectives(correction) {
+  return unique((correction?.fixes ?? []).flatMap((fix) => ids(fix["Root Objectives"], /OBJ-[1-9][0-9]*/g)));
 }
 
 function correctionRootChecks(correction) {
-  return new Set((correction?.fixes ?? []).flatMap((fix) => String(fix["Root Checks"] ?? "").match(/CHECK-[1-9][0-9]*/g) ?? []));
+  return unique((correction?.fixes ?? []).flatMap((fix) => ids(fix["Root Checks"], /CHECK-[1-9][0-9]*/g)));
 }
 
-function repositoryPaths(value) {
-  return unique(String(value ?? "")
-    .split(/(?:,|<br>)/i)
-    .map((entry) => entry.trim().replace(/^\.\//, "").replace(/\/$/, ""))
-    .filter((entry) => entry
-      && !/^(?:none|n\/a|repository root)$/i.test(entry)
-      && !/^(?:CHECK|OBJ|FIX|STEP)-[1-9][0-9]*$/i.test(entry)
-      && /^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/.test(entry)));
+function correctionCheckIntent(correction, check) {
+  const fixIds = new Set(ids(check["FIX IDs"], /FIX-[1-9][0-9]*/g));
+  const objectives = unique((correction?.fixes ?? [])
+    .filter((fix) => fixIds.has(fix["FIX ID"]))
+    .flatMap((fix) => ids(fix["Root Objectives"], /OBJ-[1-9][0-9]*/g)));
+  return {
+    "Check ID": check["Check ID"],
+    Objectives: objectives.join(", "),
+    "Verification Intent": check["Verification Intent"],
+    "Expected Evidence": check["Expected Evidence"],
+    Required: check.Required,
+    "Evidence Class": check["Evidence Class"],
+    "Cost Class": check["Cost Class"],
+    Prerequisites: check.Prerequisites,
+  };
 }
 
-function pathsOverlap(left, right) {
-  return left === right || left.startsWith(`${right}/`) || right.startsWith(`${left}/`);
+function requiredChecks(contract, correction) {
+  const root = contract.checks.filter((check) => check.Required === "yes");
+  if (!correction) return new Map(root.map((check) => [check["Check ID"], check]));
+  const correctionChecks = (correction.checks ?? [])
+    .filter((check) => check.Required === "yes")
+    .map((check) => correctionCheckIntent(correction, check));
+  const referencedRootIds = new Set(correctionRootChecks(correction));
+  const referencedRoot = root.filter((check) => referencedRootIds.has(check["Check ID"]));
+  return new Map([...correctionChecks, ...referencedRoot, ...root].map((check) => [check["Check ID"], check]));
 }
 
-function fingerprintMap(value) {
-  const result = new Map();
-  for (const entry of String(value ?? "").split(/;\s*/)) {
-    const equals = entry.indexOf("=");
-    if (equals <= 0) continue;
-    const path = entry.slice(0, equals).trim().replace(/^`|`$/g, "").replace(/^\.\//, "");
-    if (!path || ["index", "status"].includes(path)) continue;
-    result.set(path, entry.slice(equals + 1));
-  }
-  return result;
+export function correctionHarnessVerificationIntents(correction, contract) {
+  return [...requiredChecks(contract, correction).values()];
 }
 
-function correctionTargets(correction) {
-  return unique((correction?.steps ?? []).flatMap((step) => repositoryPaths(step.Targets)));
-}
-
-function rootChecksToRefresh(contract, correction, predecessorEvidence, repositorySnapshot, changedPaths = []) {
-  const effectiveChecks = predecessorEvidence?.effective?.checks;
-  const explicitlyAffected = correctionRootChecks(correction);
-  const affectedObjectives = new Set(correctionObjectives(correction));
-  const affectedPaths = unique([
-    ...changedPaths.flatMap(repositoryPaths),
-    ...correctionTargets(correction),
-  ]);
-  const previousFingerprints = predecessorEvidence?.effective?.snapshot?.["Relevant fingerprints"] ?? null;
-  const currentFingerprints = repositorySnapshot?.relevant_fingerprints ?? null;
-  const previousByPath = fingerprintMap(previousFingerprints);
-  const currentByPath = fingerprintMap(currentFingerprints);
-  const stalePaths = unique([...previousByPath.keys(), ...currentByPath.keys()])
-    .filter((path) => previousByPath.get(path) !== currentByPath.get(path));
-  const opaqueFingerprintChange = Boolean(
-    previousFingerprints
-    && currentFingerprints
-    && previousFingerprints !== currentFingerprints
-    && previousByPath.size === 0
-    && currentByPath.size === 0,
-  );
-  return new Map([...rootCheckMap(contract)].filter(([checkId, check]) => {
-    const prior = effectiveChecks?.get(checkId);
-    const prerequisites = repositoryPaths(check.Prerequisites);
-    const objectiveAffected = checkObjectives(check).some((objective) => affectedObjectives.has(objective));
-    const pathAffected = prerequisites.some((prerequisite) => affectedPaths.some((path) => pathsOverlap(prerequisite, path)));
-    const fingerprintStale = prerequisites.some((prerequisite) => stalePaths.some((path) => pathsOverlap(prerequisite, path)));
-    const ambiguousImpact = affectedPaths.length > 0 && prerequisites.length === 0;
-    return !prior
-      || ["failed", "blocked"].includes(prior.status)
-      || explicitlyAffected.has(checkId)
-      || objectiveAffected
-      || pathAffected
-      || fingerprintStale
-      || opaqueFingerprintChange
-      || ambiguousImpact;
-  }));
-}
-
-function inheritedCheckEvidence(inspection, predecessorEvidence, checkIds) {
-  return checkIds.map((checkId) => {
-    const effective = predecessorEvidence?.effective?.checks?.get(checkId);
-    const source = effective?.source ? inspection.effective.get(effective.source) : null;
-    const exact = source?.fields?.check_evidence?.find((entry) => entry.check_id === checkId);
-    if (exact) return exact;
-    return {
-      check_id: checkId,
-      grade: effective?.status === "passed" ? "verified" : effective?.status === "failed" ? "failed" : "supported",
-      limitations: effective?.status === "passed" ? [] : ["Reused predecessor proof retains its prior non-verified grade."],
-    };
-  });
-}
-
-function normalizeCheckEvidence(input, plannedChecks, rootChecks, evidenceMode, {
-  enforceManualCheckReceipts = false,
-  manualCheckReceipts = [],
-  existingCheckEvidence = [],
-} = {}) {
-  if (!Array.isArray(input) || input.length === 0) throw new Error("closeout requires structured Check evidence");
+function normalizeEvidence(input, plannedChecks) {
+  if (!Array.isArray(input)) throw new Error("closeout Check evidence must be an array");
   const ids = input.map((entry) => entry?.check_id);
   if (new Set(ids).size !== ids.length) throw new Error("closeout Check evidence IDs must be unique");
-  for (const id of plannedChecks.keys()) if (!ids.includes(id)) throw new Error(`closeout is missing required Check ${id}`);
-  const known = new Map([...rootChecks, ...plannedChecks]);
-  const normalized = input.map((entry) => {
-    const planned = known.get(entry?.check_id);
-    if (!planned) throw new Error(`closeout received unknown Check ${entry?.check_id}`);
-    if (!new Set(["verified", "supported", "partial", "unavailable", "failed"]).has(entry.grade)) throw new Error(`closeout Check ${entry.check_id} has invalid grade`);
-    const limitations = unique(Array.isArray(entry.limitations) ? entry.limitations.map(String).filter(Boolean) : []);
-    const repetitions = Number.isInteger(entry.repetitions) && entry.repetitions >= 0 ? entry.repetitions : 0;
-    if (entry.grade === "verified" && repetitions < 1) throw new Error(`verified Check ${entry.check_id} requires at least one repetition`);
+  const supplied = new Map(input.map((entry) => [entry?.check_id, entry]));
+  for (const checkId of supplied.keys()) if (!plannedChecks.has(checkId)) throw new Error(`closeout received unknown Check ${checkId}`);
+  return [...plannedChecks.keys()].map((checkId) => supplied.get(checkId) ?? {
+    check_id: checkId,
+    grade: "unavailable",
+    observed: "No project-harness observation was available for this verification intent.",
+    evidence_hashes: [],
+    limitations: ["The active project harness did not return evidence for this Check."],
+  }).map((entry) => {
+    if (!plannedChecks.has(entry?.check_id)) throw new Error(`closeout received unknown Check ${entry?.check_id}`);
+    if (!GRADES.has(entry.grade)) throw new Error(`closeout Check ${entry.check_id} has invalid grade`);
+    const limitations = unique((entry.limitations ?? []).map(String).map((value) => value.trim()).filter(Boolean));
     if (entry.grade === "unavailable" && limitations.length === 0) throw new Error(`unavailable Check ${entry.check_id} requires a concrete limitation`);
-    const normalized = {
+    return {
       check_id: entry.check_id,
-      feature_id: entry.feature_id ?? null,
       grade: entry.grade,
-      surface: entry.surface ?? "repository",
-      method: entry.method ?? planned["Command or Inspection"] ?? "inspection",
-      baseline_or_patched: "patched",
-      expected: entry.expected ?? planned["Expected Result"] ?? "required Check succeeds",
-      observed: String(entry.observed ?? "not fully observed"),
-      repetitions,
-      artifact_hashes: unique((entry.artifact_hashes ?? []).filter((value) => /^[a-f0-9]{64}$/.test(String(value)))),
+      observed: String(entry.observed ?? "not fully observed").trim() || "not fully observed",
+      evidence_hashes: unique((entry.evidence_hashes ?? []).map(String).filter((value) => /^[a-f0-9]{64}$/.test(value))),
+      ...(typeof entry.attestation_hash === "string" ? { attestation_hash: entry.attestation_hash } : {}),
       limitations,
     };
-    return normalized;
-  });
-  const calibrated = enforceManualCheckReceipts
-    ? calibrateManualCheckEvidence({
-      entries: normalized,
-      plannedChecks: known,
-      receipts: manualCheckReceipts,
-      existingCheckEvidence,
-    })
-    : normalized;
-  return calibrated.map((entry) => {
-    const value = { ...entry };
-    if (evidenceMode === "lean") {
-      if (!value.surface && value.grade === "verified") throw new Error(`verified Check ${entry.check_id} requires a surface`);
-      delete value.baseline_or_patched;
-      if ((value.artifact_hashes ?? []).length === 0) delete value.artifact_hashes;
-      if (!value.feature_id) delete value.feature_id;
-    }
-    return value;
   });
 }
 
-function overallGrade(entries) {
-  return aggregateEvidence(entries).grade;
+function aggregate(entries) {
+  const grades = entries.map((entry) => entry.grade);
+  if (grades.includes("failed")) return "failed";
+  if (entries.length > 0 && grades.every((grade) => grade === "verified")) return "verified";
+  if (grades.includes("unavailable")) return "unavailable";
+  if (grades.includes("partial")) return "partial";
+  return "supported";
 }
 
 function artifactStatus(grade) {
@@ -221,107 +133,13 @@ function artifactStatus(grade) {
   return grade === "verified" ? "complete" : "provisional";
 }
 
-function correctionObjectives(correction) {
-  return unique((correction?.fixes ?? []).flatMap((fix) => String(fix["Root Objectives"] ?? "").match(/OBJ-[1-9][0-9]*/g) ?? []));
-}
-
-function checkObjectives(check) {
-  return String(check?.Objectives ?? "").match(/OBJ-[1-9][0-9]*/g) ?? [];
-}
-
-function objectiveState(objective, entries, rootChecks, aggregate) {
-  const related = entries.filter((entry) => checkObjectives(rootChecks.get(entry.check_id)).includes(objective));
-  const grades = (related.length > 0 ? related : entries).map((entry) => entry.grade);
-  if (grades.includes("failed")) return "blocked";
-  if (grades.length > 0 && grades.every((grade) => grade === "verified")) return "achieved";
-  return aggregate === "failed" ? "blocked" : "partially-achieved";
-}
-
-function evidenceMode(fields, effectiveProfile) {
-  return effectiveProfile === "manual" && fields.profile_max === "manual" && fields.risk !== "high" && (fields.hard_triggers ?? []).length === 0 ? "lean" : "full";
-}
-
-function repositoryAttribution(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const reasonCodes = unique((value.reason_codes ?? []).map(String).map((entry) => entry.trim()).filter(Boolean)).sort();
-  const status = value.status === "attributed" ? "attributed" : "provisional";
-  const boundary = String(value.boundary ?? "create-plan").trim() || "create-plan";
-  const baselineHash = /^[a-f0-9]{64}$/.test(String(value.baseline_hash ?? "")) ? value.baseline_hash : null;
-  return {
-    status,
-    boundary,
-    baseline_hash: baselineHash,
-    reason_codes: reasonCodes,
-  };
-}
-
-function evidenceSeed({ contract, subjectId, sourceReviewId, predecessorEvidenceId, strategyRevision, mode, paths, entries, repositorySnapshot, repositoryAttribution: attribution, summary }) {
-  return sha256(JSON.stringify(stable({
-    root: contract.authoritative_projection_hash,
-    subjectId,
-    sourceReviewId,
-    predecessorEvidenceId,
-    strategyRevision,
-    mode,
-    paths,
-    entries,
-    repositorySnapshot: repositorySnapshot ?? null,
-    repositoryAttribution: attribution ?? null,
-    summary: summary ?? null,
-  })));
-}
-
-function summaryText(summary, status, grade) {
+function summaryText(summary, status, grade, entries) {
   const supplied = String(summary ?? "").trim();
   if (supplied) return supplied;
-  if (status === "blocked") return `BLOCKER: required delivery verification failed; aggregate evidence grade is ${grade}.`;
-  if (status === "provisional") return `Delivery is provisional with aggregate evidence grade ${grade}; limitations remain explicit.`;
-  return "The authorized repository delivery is complete and every required Check is verified.";
-}
-
-function fullBody({ fields, contract, entries, changedPaths, correction, repositorySnapshot, summary }) {
-  const aggregate = fields.overall_grade;
-  const outcomes = fields.affected_objectives.map((objective) => ({
-    "Objective ID": objective,
-    Status: objectiveState(objective, entries, rootCheckMap(contract), aggregate),
-    Evidence: entries.map((entry) => `${entry.check_id}:${entry.grade}`).join(", "),
-  }));
-  const sections = [`## Summary\n\n${summary}`];
-  if (correction) {
-    const state = fields.status === "complete" ? "achieved" : fields.status === "blocked" ? "blocked" : "partially-achieved";
-    sections.push(`## Subject results\n\n${table(["Objective ID", "Result", "Evidence"], correction.fixes.map((fix) => ({
-      "Objective ID": fix["FIX ID"], Result: state, Evidence: entries.map((entry) => `${entry.check_id}:${entry.grade}`).join(", "),
-    })))}`);
-  }
-  sections.push(`## Objective outcomes\n\n${table(["Objective ID", "Status", "Evidence"], outcomes)}`);
-  const coverageIds = correction
-    ? unique((correction.fixes ?? []).map((fix) => fix["FIX ID"]).filter(Boolean))
-    : fields.affected_objectives;
-  sections.push(changedPaths.length > 0
-    ? `## Changes\n\n${table(["Path or Symbol", "Change", "Objective Coverage"], changedPaths.map((path) => ({
-      "Path or Symbol": path, Change: "Declared by deterministic closeout", "Objective Coverage": coverageIds.join(", "),
-    })))}`
-    : "## Changes\n\nNone.");
-  const snapshot = repositorySnapshot ?? {};
-  sections.push(`## Repository snapshot\n\n${table(["Snapshot ID", "HEAD", "Working tree", "Changed paths", "Relevant fingerprints", "Known failures"], [{
-    "Snapshot ID": `SNAP-${fields.id.slice(3)}`,
-    HEAD: snapshot.head ?? "unknown",
-    "Working tree": snapshot.working_tree ?? (changedPaths.length > 0 ? "modified" : "unchanged"),
-    "Changed paths": changedPaths.join(", ") || "none",
-    "Relevant fingerprints": snapshot.relevant_fingerprints ?? "none",
-    "Known failures": snapshot.known_failures ?? (fields.status === "blocked" ? "required Check failed" : "none"),
-  }])}`);
-  sections.push(`## Checks\n\n${table(["Check ID", "Observed Result", "Status", "Prerequisite fingerprints"], entries.map((entry) => ({
-    "Check ID": entry.check_id,
-    "Observed Result": entry.observed,
-    Status: entry.grade === "verified" ? "passed" : entry.grade === "failed" ? "failed" : "skipped",
-    "Prerequisite fingerprints": snapshot.relevant_fingerprints ?? "none",
-  })))}`);
-  sections.push("## Deviations\n\nNone.");
-  sections.push("## Operational evidence\n\nNot applicable.");
+  if (status === "blocked") return "BLOCKER: at least one required verification intent has a harness-attested failure.";
+  if (status === "complete") return "Every required verification intent is bound to a passing project-harness attestation.";
   const limitations = unique(entries.flatMap((entry) => entry.limitations ?? []));
-  sections.push(`## Limitations\n\n${limitations.length > 0 ? limitations.map((item) => `- ${item}`).join("\n") : "None."}`);
-  return sections.join("\n\n");
+  return `Delivery remains provisional with evidence grade ${grade}.${limitations.length > 0 ? ` Limitations: ${limitations.join(" ")}` : ""}`;
 }
 
 export function buildDeliveryEvidence({
@@ -329,168 +147,108 @@ export function buildDeliveryEvidence({
   artifacts = [],
   checkEvidence,
   changedPaths = [],
-  strategyRevision = 0,
   effectiveProfile = null,
-  repositorySnapshot = null,
-  repositoryAttribution: suppliedRepositoryAttribution = null,
   summary = null,
-  manualCheckReceipts = [],
-  enforceManualCheckReceipts = null,
+  harnessAttestations = [],
+  harnessId = null,
+  protectedAttestationHash = null,
+  enforceHarnessAttestations = true,
+  workspaceBinding = null,
+  workspaceSnapshotHash = null,
   pluginRoot,
 }) {
   const normalized = normalizeArtifacts(rootPlanText, artifacts, pluginRoot);
   const contract = executionContractFromArtifactText(rootPlanText, pluginRoot);
-  if (contract.errors.length > 0 || contract.fields.schema !== 5) throw new Error(`closeout requires a valid Schema-5 Root: ${contract.errors.join("; ")}`);
-  const priorInspection = inspectArtifactSet(normalized.entries.map((entry) => [entry.label, entry.text]), pluginRoot);
-  if (priorInspection.errors.length > 0) throw new Error(`closeout input chain is invalid: ${priorInspection.errors.join("; ")}`);
-  const tips = effectiveCliSummary(priorInspection);
+  if (contract.errors.length > 0 || contract.fields.schema !== 6) throw new Error(`closeout Root is invalid: ${contract.errors.join("; ")}`);
+  const prior = inspectArtifactSet(normalized.entries.map((entry) => [entry.label, entry.text]), pluginRoot);
+  if (prior.errors.length > 0) throw new Error(`closeout input chain is invalid: ${prior.errors.join("; ")}`);
+  const tips = effectiveCliSummary(prior);
   const evidenceTipId = tips.evidence_tips[normalized.rootId] ?? null;
   const reviewTipId = tips.review_tips[normalized.rootId] ?? null;
-  const review = reviewTipId ? priorInspection.effective.get(reviewTipId) : null;
-  let correction = null;
-  let subjectId = normalized.rootId;
-  let sourceReviewId = null;
-  let predecessorEvidenceId = null;
-  let representation = "full";
-  const mode = evidenceMode(contract.fields, effectiveProfile ?? contract.fields.profile_max);
-  const requireManualReceipts = enforceManualCheckReceipts ?? (effectiveProfile ?? contract.fields.profile_max) === "manual";
-  const effectiveStrategyRevision = mode === "full" ? strategyRevision : 0;
-  const effectiveRepositorySnapshot = mode === "full" ? repositorySnapshot : null;
-  const effectiveRepositoryAttribution = repositoryAttribution(suppliedRepositoryAttribution);
-  if (evidenceTipId) {
-    if (!review || review.fields.latest_evidence_id !== evidenceTipId || review.fields.next_action !== "correct" || !review.fields.correction_id || !review.correction) {
-      const existing = normalized.entries.find((entry) => inspectArtifactText(entry.text, pluginRoot).artifact?.fields?.id === evidenceTipId);
-      const existingFields = priorInspection.effective.get(evidenceTipId)?.fields ?? null;
-      if ((checkEvidence ?? []).length > 0 || changedPaths.length > 0) {
-        const entries = normalizeCheckEvidence(checkEvidence, expectedCheckMap(contract, null), rootCheckMap(contract), mode, {
-          enforceManualCheckReceipts: requireManualReceipts,
-          manualCheckReceipts,
-          existingCheckEvidence: existingFields?.check_evidence ?? [],
-        });
-        const suppliedPaths = unique(changedPaths.map(String).map((path) => path.trim()).filter(Boolean)).sort();
-        const expectedSeed = evidenceSeed({
-          contract,
-          subjectId: normalized.rootId,
-          sourceReviewId: null,
-          predecessorEvidenceId: null,
-          strategyRevision: effectiveStrategyRevision,
-          mode,
-          paths: suppliedPaths,
-          entries,
-          repositorySnapshot: effectiveRepositorySnapshot,
-          repositoryAttribution: effectiveRepositoryAttribution,
-          summary,
-        });
-        const expectedId = `de-${normalized.rootId.replace(/^wp-/, "")}-${expectedSeed.slice(0, 12)}`;
-        const sameInputs = JSON.stringify(stable(entries)) === JSON.stringify(stable(existingFields?.check_evidence ?? []))
-          && JSON.stringify(suppliedPaths) === JSON.stringify(existingFields?.changed_paths ?? [])
-          && (mode === "lean" || (existingFields?.strategy_revision ?? 0) === effectiveStrategyRevision)
-          && expectedId === evidenceTipId;
-        if (!sameInputs) throw new Error(`stale or competing closeout conflicts with current Evidence tip ${evidenceTipId}`);
-      }
-      const projection = manualConstraintProjection({ checks: contract.checks, evidence: existingFields?.check_evidence ?? [] });
-      const unattested = projection.constraint_summary.legacy_unattested_verified_checks ?? [];
-      if (unattested.length > 0) {
-        throw new Error(`existing Evidence tip ${evidenceTipId} has receiptless verified machine Checks (${unattested.join(", ")}); run a fresh review and refresh them through its bounded correction route`);
-      }
-      return {
-        duplicate: true,
-        artifact: existing?.text ?? null,
-        artifact_hash: existing ? sha256(existing.text) : null,
-        fields: existingFields,
-        ...projection,
-      };
+  const review = reviewTipId ? prior.effective.get(reviewTipId) : null;
+  const correction = evidenceTipId
+    && review?.fields?.latest_evidence_id === evidenceTipId
+    && review?.fields?.next_action === "correct"
+    && review?.correction
+    ? review.correction
+    : null;
+
+  if (evidenceTipId && !correction) {
+    const existing = normalized.entries.find((entry) => entry.label === evidenceTipId);
+    if ((checkEvidence ?? []).length > 0 || (changedPaths ?? []).length > 0) {
+      throw new Error(`stale or competing closeout conflicts with current Evidence tip ${evidenceTipId}`);
     }
-    correction = review.correction;
-    subjectId = review.fields.correction_id;
-    sourceReviewId = review.fields.id;
-    predecessorEvidenceId = evidenceTipId;
-    representation = "delta";
+    const fields = prior.effective.get(evidenceTipId)?.fields ?? null;
+    return {
+      duplicate: true,
+      artifact: existing?.text ?? null,
+      artifact_hash: existing ? sha256(existing.text) : null,
+      fields,
+      ...harnessConstraintProjection({ checks: contract.checks, evidence: fields?.check_evidence ?? [] }),
+    };
   }
-  if (mode === "full" && (!repositorySnapshot?.head || !repositorySnapshot?.relevant_fingerprints)) {
-    throw new Error("full closeout requires repository snapshot HEAD and relevant fingerprints");
+
+  const planned = requiredChecks(contract, correction);
+  let entries = normalizeEvidence(checkEvidence, planned);
+  const rootHash = sha256(rootPlanText);
+  const effectiveWorkspaceBinding = workspaceBinding ?? harnessContractHash({ workspace: "not-established" });
+  const effectiveSnapshotHash = workspaceSnapshotHash ?? harnessContractHash({ snapshot: "not-attested" });
+  if (enforceHarnessAttestations) {
+    entries = calibrateHarnessCheckEvidence({
+      entries,
+      plannedChecks: planned,
+      attestations: harnessAttestations,
+      rootHash,
+      workspaceBinding: effectiveWorkspaceBinding,
+      workspaceSnapshotHash: effectiveSnapshotHash,
+      expectedHarnessId: harnessId,
+      protectedAttestationHash,
+    });
   }
-  const roots = rootCheckMap(contract);
-  const predecessorEvidence = correction ? priorInspection.effective.get(evidenceTipId) : null;
-  const unresolvedRootChecks = correction
-    ? rootChecksToRefresh(contract, correction, predecessorEvidence, repositorySnapshot, changedPaths)
-    : new Map();
-  const suppliedCheckIds = new Set((checkEvidence ?? []).map((entry) => entry?.check_id));
-  const missingRootRefresh = [...unresolvedRootChecks.keys()].filter((checkId) => !suppliedCheckIds.has(checkId));
-  if (missingRootRefresh.length > 0) {
-    throw new Error(`correction closeout requires fresh evidence for affected, failed, missing, stale, or ambiguous Root Checks: ${missingRootRefresh.join(", ")}`);
-  }
-  const plannedChecks = expectedCheckMap(contract, correction, unresolvedRootChecks);
-  const entries = normalizeCheckEvidence(checkEvidence, plannedChecks, roots, mode, {
-    enforceManualCheckReceipts: requireManualReceipts,
-    manualCheckReceipts,
-  });
-  const rootObjectives = contract.objectives;
-  const affectedObjectives = correction
-    ? unique([...correctionObjectives(correction), ...entries.flatMap((entry) => checkObjectives(roots.get(entry.check_id)))])
-    : [...rootObjectives];
-  const affected = affectedObjectives.length > 0 ? affectedObjectives : [...rootObjectives];
-  const reusedObjectives = representation === "delta" ? rootObjectives.filter((id) => !affected.includes(id)) : [];
-  const executedChecks = entries.map((entry) => entry.check_id);
-  const reusedChecks = representation === "delta" ? [...roots.keys()].filter((id) => !executedChecks.includes(id)) : [];
-  const reusedEvidence = representation === "delta"
-    ? inheritedCheckEvidence(priorInspection, predecessorEvidence, reusedChecks)
-    : [];
-  const effectiveEntries = [...entries, ...reusedEvidence];
-  const grade = overallGrade(effectiveEntries);
+
+  const grade = aggregate(entries);
   const status = artifactStatus(grade);
-  const paths = unique(changedPaths.map(String).map((path) => path.trim()).filter(Boolean)).sort();
-  const seed = evidenceSeed({
-    contract,
-    subjectId,
-    sourceReviewId,
-    predecessorEvidenceId,
-    strategyRevision: effectiveStrategyRevision,
-    mode,
-    paths,
-    entries,
-    repositorySnapshot: effectiveRepositorySnapshot,
-    repositoryAttribution: effectiveRepositoryAttribution,
-    summary,
-  });
+  const subjectId = correction ? review.fields.correction_id : normalized.rootId;
+  const sourceReviewId = correction ? review.fields.id : null;
+  const predecessorEvidenceId = correction ? evidenceTipId : null;
+  const paths = unique((changedPaths ?? []).map(String).map((path) => path.trim()).filter(Boolean)).sort();
+  const affectedObjectives = [...contract.objectives];
+  const seed = sha256(JSON.stringify(stable({
+    root_projection_hash: contract.authoritative_projection_hash,
+    subject_id: subjectId,
+    source_review_id: sourceReviewId,
+    predecessor_evidence_id: predecessorEvidenceId,
+    workspace_snapshot_hash: effectiveSnapshotHash,
+    changed_paths: paths,
+    check_evidence: entries,
+    summary: summary ?? null,
+  })));
   const id = `de-${subjectId.replace(/^(?:wp|cp)-/, "")}-${seed.slice(0, 12)}`;
+  const mode = effectiveProfile === "manual" && contract.fields.risk !== "high" && (contract.fields.hard_triggers ?? []).length === 0 ? "lean" : "full";
   const fields = {
     artifact: "delivery-evidence",
-    schema: 5,
+    schema: 6,
     id,
     status,
     root_plan_id: normalized.rootId,
     subject_id: subjectId,
     source_review_id: sourceReviewId,
     predecessor_evidence_id: predecessorEvidenceId,
-    representation,
+    representation: correction ? "delta" : "full",
     intent_hash: contract.authoritative_projection_hash,
-    ...(mode === "full" ? { strategy_revision: effectiveStrategyRevision } : {}),
     evidence_mode: mode,
     overall_grade: grade,
+    workspace_snapshot_hash: effectiveSnapshotHash,
     changed_paths: paths,
-    affected_objectives: affected,
-    reused_objectives: reusedObjectives,
-    executed_checks: executedChecks,
-    reused_checks: reusedChecks,
+    affected_objectives: affectedObjectives,
+    reused_objectives: [],
+    executed_checks: entries.map((entry) => entry.check_id),
+    reused_checks: [],
     check_evidence: entries,
-    ...(effectiveRepositoryAttribution ? {
-      extensions: {
-        workflow: {
-          repository_attribution: effectiveRepositoryAttribution,
-        },
-      },
-    } : {}),
   };
-  const renderedSummary = summaryText(summary, status, grade);
-  const body = mode === "lean"
-    ? `## Summary\n\n${renderedSummary}`
-    : fullBody({ fields, contract, entries, changedPaths: paths, correction, repositorySnapshot, summary: renderedSummary });
-  const artifact = `---\n${stringify(fields, { lineWidth: 0 }).trimEnd()}\n---\n\n${body}\n`;
-  const finalEntries = [...normalized.entries, { label: id, text: artifact }];
-  const inspection = inspectArtifactSet(finalEntries.map((entry) => [entry.label, entry.text]), pluginRoot);
-  if (inspection.errors.length > 0) throw new Error(`generated delivery evidence is invalid: ${inspection.errors.join("; ")}`);
-  const projection = manualConstraintProjection({ checks: contract.checks, evidence: effectiveEntries });
+  const artifact = `---\n${stringify(fields, { lineWidth: 0 }).trimEnd()}\n---\n\n## Summary\n\n${summaryText(summary, status, grade, entries)}\n`;
+  const final = inspectArtifactSet([...normalized.entries, { label: id, text: artifact }].map((entry) => [entry.label, entry.text]), pluginRoot);
+  if (final.errors.length > 0) throw new Error(`generated delivery evidence is invalid: ${final.errors.join("; ")}`);
   return {
     duplicate: false,
     artifact,
@@ -499,15 +257,14 @@ export function buildDeliveryEvidence({
     evidence_mode: mode,
     overall_grade: grade,
     status,
-    ...projection,
+    ...harnessConstraintProjection({ checks: contract.checks, evidence: entries }),
   };
 }
 
 export function persistCloseout({ handoffStore, rootPlanText, artifacts = [], closeout }) {
   if (!closeout?.artifact || !closeout?.fields?.id) throw new Error("persistCloseout requires a generated delivery artifact");
-  const entries = [{ label: "root", text: rootPlanText }, ...artifacts, { label: closeout.fields.id, text: closeout.artifact }];
   const byId = new Map();
-  for (const entry of entries) {
+  for (const entry of [{ label: "root", text: rootPlanText }, ...artifacts, { label: closeout.fields.id, text: closeout.artifact }]) {
     const inspected = inspectArtifactText(entry.text, handoffStore.pluginRoot);
     if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) throw new Error(`closeout persistence input is invalid: ${inspected.errors.join("; ")}`);
     const id = inspected.artifact.fields.id;

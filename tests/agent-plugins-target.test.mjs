@@ -23,7 +23,6 @@ import { workflowClient } from "./mcp-client.mjs";
 
 const expectedSkills = [
   "accept-work",
-  "close-work",
   "correct-work",
   "explain-work",
   "implement-work",
@@ -125,11 +124,12 @@ test("Agent Plugins v1 target is deterministic, closed, and immediately discover
     }
     const portableReview = readFileSync(join(plugin, "skills", "review-work", "SKILL.md"), "utf8");
     const portableImplement = readFileSync(join(plugin, "skills", "implement-work", "SKILL.md"), "utf8");
-    assert.match(portableReview, /enforcement_level: explicit.*cannot mint a protected native receipt/is);
-    assert.match(portableReview, /Without that host proof, fail closed with no replan/is);
-    assert.match(portableReview, /closed Schema-1 `review_input`.*workflow_closeout.*artifact_kind: work-review/is);
-    assert.doesNotMatch(portableReview, /Emit one exact Schema-5 `work-review`/i);
-    assert.match(portableImplement, /one primary journey action.*enforcement_level: explicit/is);
+    assert.match(portableReview, /repository-read-only/i);
+    assert.match(portableReview, /project harness/i);
+    assert.match(portableReview, /Schema-1 `review_input`.*workflow_closeout.*artifact_kind: work-review/is);
+    assert.doesNotMatch(portableReview, /Schema-5|auditor|model pool|planned command/i);
+    assert.match(portableImplement, /project harness chooses all commands, tools, models/i);
+    assert.doesNotMatch(portableImplement, /exact standalone|planned director|one leading `rtk`/i);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

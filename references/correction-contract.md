@@ -1,11 +1,7 @@
 # Embedded correction
 
-A correction exists only in a Review with `next_action: correct`; `/correct-work` approves its unique active-Plan correction. It contains identity, risk, Findings-backed FIXes, Checks, and advisory Learning candidates.
+A correction exists only in a Schema-6 Review with `next_action: correct`. It binds Findings to required outcomes, Root objectives, Root Checks, bounded targets, completion probes, and intent-only correction Checks.
 
-Each correction declares root-unique `LRN-*` `learning_candidates` with Finding, guidance, targets, and proof. Only `/learn-from-work` confirms and persists them.
+Correction verification uses `Check ID | FIX IDs | Verification Intent | Expected Evidence | Required | Evidence Class | Cost Class | Prerequisites`. It never authorizes commands, working directories, tools, models, routes, retries, sandboxes, or worktrees. The active project harness chooses those details.
 
-Each FIX binds Findings and affected Objectives/Checks, stays in Root authority, and has an idempotent Completion Probe. Verification-only FIXes avoid edits.
-
-`/correct-work` resolves current tips, classifies `satisfied|pending|partial|conflicted`, and executes pending/partial FIXes. It runs correction Checks plus failed, missing, affected, stale, or ambiguous Root Checks as implementation observations, then finishes normally without Evidence. The next fresh Review re-observes required proof; its atomic builder creates delta Evidence against the exact predecessor chain. Unaffected proof keeps its existing grade. Conflict, drift, expansion, or ambiguous approval blocks.
-
-After two unchanged high-Finding rounds, Review uses `clarify|replan`, not unbounded `correct`. `/correct-work` never materializes Learning or adds unrelated effects.
+`/correct-work` applies only the newest unique current correction inside Root authority and finishes without Evidence. Fresh Review creates delta Evidence. Changed intent, authority, risk, dependencies, or effects requires replan. Learning remains separate human-authorized work.

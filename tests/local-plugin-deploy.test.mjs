@@ -59,7 +59,7 @@ function fixture() {
     name: "personal",
     plugins: [
       { name: "unrelated", source: { source: "local", path: "./other" } },
-      { name: plugin, source: { source: "local", path: "./legacy" }, policy: { installation: "AVAILABLE" } },
+      { name: plugin, source: { source: "local", path: "./stale-copy" }, policy: { installation: "AVAILABLE" } },
     ],
   });
   return { root, repository, home, marketplace };

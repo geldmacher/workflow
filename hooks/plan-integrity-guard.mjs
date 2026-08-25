@@ -6,19 +6,17 @@ import { fileURLToPath } from "node:url";
 import {
   inspectArtifactText,
   preflightRootPlan,
-  requiredManualCheckSafetyIssues,
   validateArtifactText,
 } from "../scripts/validate-artifact.mjs";
-import { canonicalRepositoryRoot } from "../src/core/native-task-review-state.mjs";
 
 const MAX_INPUT_BYTES = 1024 * 1024;
 const pluginRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const deny = (user_message) => ({ permission: "deny", user_message });
 
-function schema5Claim(plan, root) {
+function workflowRootClaim(plan, root) {
   const inspected = inspectArtifactText(plan, root);
-  if (inspected.artifact?.fields?.artifact === "work-plan" && inspected.artifact.fields.schema === 5) return true;
-  return /```yaml artifact-envelope[\s\S]*?\bartifact:\s*work-plan\b[\s\S]*?\bschema:\s*5\b[\s\S]*?```/i.test(plan);
+  if (inspected.artifact?.fields?.artifact === "work-plan") return true;
+  return /```yaml artifact-envelope[\s\S]*?\bartifact:\s*work-plan\b[\s\S]*?```/i.test(plan);
 }
 
 function extractRootPlanText(plan) {
@@ -38,22 +36,6 @@ function nativePlanText(input) {
   return `---\n${JSON.stringify(wrapper)}\n---\n${input.plan}`;
 }
 
-function workspaceForInput(input, options = {}) {
-  const candidates = [
-    ...(typeof options.workspaceRoot === "string" ? [options.workspaceRoot] : []),
-    ...(Array.isArray(input.workspace_roots) ? input.workspace_roots : []),
-    ...(typeof input.cwd === "string" ? [input.cwd] : []),
-  ];
-  const roots = [];
-  for (const candidate of candidates) {
-    try {
-      const root = canonicalRepositoryRoot(candidate, options);
-      if (root && !roots.includes(root)) roots.push(root);
-    } catch { /* unavailable candidates do not become repository authority */ }
-  }
-  return roots.length === 1 ? roots[0] : null;
-}
-
 function validateNativeCreatePlan(input, options = {}) {
   if (input.tool_name !== "CreatePlan") return {};
   const toolInput = input.tool_input;
@@ -61,32 +43,23 @@ function validateNativeCreatePlan(input, options = {}) {
     return deny("Workflow CreatePlan policy received an invalid CreatePlan payload and failed closed.");
   }
   const root = options.pluginRoot ?? pluginRoot;
-  if (!schema5Claim(toolInput.plan, root)) return {};
+  if (!workflowRootClaim(toolInput.plan, root)) return {};
   if (!Array.isArray(toolInput.todos) || toolInput.todos.length === 0) {
-    return deny("Workflow Schema-5 CreatePlan denied: the native Plan requires at least one implementation todo.");
+    return deny("Workflow Schema-6 CreatePlan denied: the native Plan requires at least one implementation todo.");
   }
   const failures = validateArtifactText(nativePlanText(toolInput), root);
   if (failures.length > 0) {
     const detail = failures.slice(0, 8).map((failure) => String(failure).replace(/\s+/g, " ").slice(0, 300)).join("; ");
-    return deny(`Workflow Schema-5 CreatePlan denied: ${detail}. Repair the native Plan and call CreatePlan again.`);
+    return deny(`Workflow Schema-6 CreatePlan denied: ${detail}. Repair the native Plan and call CreatePlan again.`);
   }
   const rootText = extractRootPlanText(toolInput.plan);
-  if (!rootText) return deny("Workflow Schema-5 CreatePlan denied: the native Plan does not contain one extractable exact Root.");
+  if (!rootText) return deny("Workflow Schema-6 CreatePlan denied: the native Plan does not contain one extractable exact Root.");
   const preflight = (options.preflightRootPlan ?? preflightRootPlan)(rootText, root);
   if (!preflight.feasible) {
     const detail = (preflight.blocking_issues ?? []).slice(0, 8)
       .map((issue) => String(issue.message ?? issue).replace(/\s+/g, " ").slice(0, 300))
       .join("; ");
-    return deny(`Workflow Schema-5 CreatePlan denied: Root validation failed${detail ? `: ${detail}` : ""}. Repair the Root and call CreatePlan again.`);
-  }
-  const unsafeChecks = requiredManualCheckSafetyIssues({
-    rootPlanText: rootText,
-    pluginRoot: root,
-    workspaceRoot: workspaceForInput(input, options),
-  });
-  if (unsafeChecks.length > 0) {
-    const detail = unsafeChecks.slice(0, 8).map((issue) => `${issue.check_id}: ${issue.reason}`).join("; ");
-    return deny(`Workflow Schema-5 CreatePlan denied: required machine Check is not a uniquely classifiable Review command (${detail}). Repair the Root and call CreatePlan again.`);
+    return deny(`Workflow Schema-6 CreatePlan denied: Root validation failed${detail ? `: ${detail}` : ""}. Repair the Root and call CreatePlan again.`);
   }
   return {};
 }

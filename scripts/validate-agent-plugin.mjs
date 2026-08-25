@@ -19,7 +19,6 @@ const pluginSchemaId = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.js
 const mcpSchemaId = "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json";
 const expectedSkills = [
   "accept-work",
-  "close-work",
   "correct-work",
   "explain-work",
   "implement-work",

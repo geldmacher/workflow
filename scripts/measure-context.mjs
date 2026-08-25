@@ -7,7 +7,7 @@ import { parseFrontmatter } from "./validate-plugin.mjs";
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 export const defaultRoot = dirname(scriptDirectory);
-export const measurementVersion = 3;
+export const measurementVersion = 4;
 export const baselinePath = "scripts/context-baseline.json";
 export const limits = Object.freeze({
   alwaysOnTokens: 0,
@@ -24,13 +24,8 @@ export const limits = Object.freeze({
   automationFlows: Object.freeze({
     prepare_or_approve: 1500,
     status: 1500,
-    watch: 1500,
-    control: 1500,
-    models: 1500,
-    verification: 1500,
     acceptance: 1500,
   }),
-  reviewerTokens: 650,
 });
 export const headroomTargets = Object.freeze({
   phaseFlows: Object.freeze(Object.fromEntries(Object.entries(limits.phaseFlows).map(([name, maximum]) => [name, Math.floor(maximum * 0.9)]))),
@@ -49,12 +44,8 @@ export const flowMatrix = Object.freeze({
     explanation: Object.freeze(["commands/explain-work.md", "skills/work-explanation/SKILL.md", "references/explanation-contract.md"]),
   }),
   automation_flows: Object.freeze({
-    prepare_or_approve: Object.freeze(["commands/auto-work.md", "skills/work-automation/SKILL.md", "references/automation-preparation-contract.md"]),
+    prepare_or_approve: Object.freeze(["commands/auto-work.md", "skills/work-automation/SKILL.md", "references/automation-contract.md"]),
     status: Object.freeze(["commands/work-status.md", "skills/work-automation/SKILL.md", "references/state-contract.md"]),
-    watch: Object.freeze(["commands/work-watch.md", "skills/work-automation/SKILL.md", "references/state-contract.md"]),
-    control: Object.freeze(["commands/work-control.md", "skills/work-automation/SKILL.md", "references/state-contract.md", "references/automation-contract.md"]),
-    models: Object.freeze(["commands/work-models.md", "skills/work-automation/SKILL.md", "references/model-routing-contract.md"]),
-    verification: Object.freeze(["commands/work-verification.md", "skills/work-automation/SKILL.md", "references/verification-profile-contract.md"]),
     acceptance: Object.freeze(["commands/accept-work.md", "skills/work-automation/SKILL.md", "references/state-contract.md"]),
   }),
 });
@@ -167,7 +158,6 @@ export function baselineFromMeasurement(measurement) {
     discoverability_tokens: measurement.discoverabilityTokens,
     phase_flows: measurement.phase_flows,
     automation_flows: measurement.automationFlows,
-    reviewer_tokens: measurement.reviewerTokens,
   };
 }
 
@@ -180,7 +170,6 @@ export function evaluateRatchet(measurement, baseline) {
   if (measurement.discoverabilityTokens > baseline.discoverability_tokens) regressions.push(`discoverabilityTokens: ${measurement.discoverabilityTokens} > baseline ${baseline.discoverability_tokens}`);
   regressions.push(...compareMap(measurement.phase_flows, baseline.phase_flows, "phase_flows"));
   regressions.push(...compareMap(measurement.automationFlows, baseline.automation_flows, "automation_flows"));
-  regressions.push(...compareMap(measurement.reviewerTokens, baseline.reviewer_tokens, "reviewer_tokens"));
   return { status: regressions.length === 0 ? "passed" : "regressed", baseline_path: baselinePath, regressions };
 }
 
@@ -190,7 +179,7 @@ export function measureContext(root = defaultRoot) {
   if (loadGraphFailures.length > 0) throw new Error(`Invalid context load graph:\n${loadGraphFailures.join("\n")}`);
   const failures = [];
   let alwaysOnCharacters = 0;
-  const discoverabilityCharactersByType = { commands: 0, skills: 0, agents: 0 };
+  const discoverabilityCharactersByType = { commands: 0, skills: 0 };
   for (const file of list(join(rootPath, "rules"), (path) => [".md", ".mdc"].includes(extname(path)))) {
     if (parseFrontmatter(file, failures).alwaysApply === true) alwaysOnCharacters += readFileSync(file, "utf8").length;
   }
@@ -201,12 +190,6 @@ export function measureContext(root = defaultRoot) {
   for (const file of list(join(rootPath, "commands"), (path) => [".md", ".txt"].includes(extname(path)))) {
     const fields = parseFrontmatter(file, failures);
     discoverabilityCharactersByType.commands += `/${basename(file, extname(file))}\n${fields.description ?? ""}`.length;
-  }
-  const reviewerTokens = {};
-  for (const file of list(join(rootPath, "agents"), (path) => extname(path) === ".md")) {
-    const fields = parseFrontmatter(file, failures);
-    discoverabilityCharactersByType.agents += `${fields.name ?? ""}\n${fields.description ?? ""}`.length;
-    reviewerTokens[basename(file, ".md")] = estimate(readFileSync(file, "utf8").length);
   }
   if (failures.length > 0) throw new Error(failures.join("\n"));
 
@@ -238,7 +221,6 @@ export function measureContext(root = defaultRoot) {
     },
     expandedFlows: { plan_compact_full: phaseFlows.plan_compact_full },
     automationFlows,
-    reviewerTokens,
     limits,
     economicTargets,
   };
@@ -255,7 +237,6 @@ export function targetFailures(measurement) {
   for (const [name, maximum] of Object.entries(limits.automationFlows)) if (measurement.automationFlows[name] > maximum) failures.push(`automation_flows.${name}: ${measurement.automationFlows[name]} > ${maximum}`);
   for (const [name, maximum] of Object.entries(headroomTargets.phaseFlows)) if (measurement.phase_flows[name] > maximum) failures.push(`phase_flows.${name} headroom: ${measurement.phase_flows[name]} > ${maximum}`);
   for (const [name, maximum] of Object.entries(headroomTargets.automationFlows)) if (measurement.automationFlows[name] > maximum) failures.push(`automation_flows.${name} headroom: ${measurement.automationFlows[name]} > ${maximum}`);
-  for (const [name, value] of Object.entries(measurement.reviewerTokens)) if (value > limits.reviewerTokens) failures.push(`reviewer_tokens.${name}: ${value} > ${limits.reviewerTokens}`);
   return failures;
 }
 

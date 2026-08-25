@@ -1,15 +1,14 @@
 ---
 name: auto-work
-description: Start supervised or exact-qualified autonomous controller work.
+description: Advance one protected Schema-6 Harness Run to its next human gate.
 ---
 
 # /auto-work
 
-Read [work-automation](../skills/work-automation/SKILL.md). Accept exactly:
+Read [work-automation](../skills/work-automation/SKILL.md). Start from an exact Schema-6 Root with `supervised|autonomous`, or resume an exact Run revision. Cursor human decisions are exactly:
 
-- `/auto-work <goal|wp-id> <supervised|autonomous> [route-profile]`
-- `/auto-work <preparation-id> approve`
+- `/auto-work accept-delivery <run-id>@<revision>`
+- `/auto-work approve-correction <run-id>@<revision>`
+- `/auto-work stop <run-id>@<revision>`
 
-`manual` does not use this command. In `supervised`, the Controller executes but a human accepts delivery. `autonomous` needs an exact Qualification Key and may finish only with complete verified evidence; otherwise it downgrades to `supervised`.
-
-The first form authorizes read-only Preparation. The second approves only its displayed Intent Root hash. In-boundary Strategy revisions and downgrade need no new Root approval. Delivery acceptance is separate.
+Call revision-bound `workflow_prepare` with fresh idempotency. The host injects decision receipts; never supply one. Missing external Host Adapter protection means Shadow Mode, not loss of ordinary host use. Autonomous gaps downgrade only to fully protected Supervised.

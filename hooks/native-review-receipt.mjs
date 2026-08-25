@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { resolve } from "node:path";
-import { repositorySnapshotHash } from "../src/core/native-task-review-state.mjs";
+import { repositorySnapshotHash } from "../src/harness/native-task-review-state.mjs";
 
 const MAX_RECEIPT_BYTES = 2 * 1024 * 1024;
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
@@ -68,7 +68,6 @@ export function nativeReviewRequestHash(input = {}) {
   const semantic = {
     artifact_kind: input.artifact_kind ?? "delivery-evidence",
     effective_profile: input.effective_profile ?? "manual",
-    strategy_revision: input.strategy_revision ?? 0,
     check_evidence: input.check_evidence ?? [],
     review_input: input.review_input ?? null,
     summary: input.summary ?? null,
@@ -86,7 +85,7 @@ export function nativeReviewReceiptPath(stateRoot, token, bucket = "pending") {
 }
 
 function validReceipt(receipt, stateRoot, tokenHash, requestHash) {
-  return receipt?.schema === 4
+  return receipt?.schema === 6
     && receipt?.kind === "cursor-native-review-receipt"
     && /^[a-f0-9]{64}$/.test(String(receipt.binding_hash ?? ""))
     && receipt.binding_hash === nativeReviewReceiptBindingHash(receipt)

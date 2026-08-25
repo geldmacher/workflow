@@ -5,6 +5,6 @@ description: Review one Workflow root read-only.
 
 # /review-work
 
-Designed for Cursor Ask Mode; review is fresh and uses the host-bound exact Schema-5 Root approved through the current task's native Cursor Plan. Read [work-review](../skills/work-review/SKILL.md) completely.
+Designed for Cursor Ask Mode; review is fresh and uses the host-bound exact Schema-6 Root approved through the current task's native Plan. Read [work-review](../skills/work-review/SKILL.md) completely.
 
-Read-only. Shell runs only an exact Root Check in its canonical directory. The host binds the current Root; `cursor-plan-file` means provisional and never verified. Exact transcript `/review-work` may recover only its observer, never Root authority. Return closed Schema-1 input; the host owns Review. Failures route to `correct|replan`; never correct or author `wr-*`. Verified completes; provisional offers ephemeral `/accept-work provisional`.
+Review is conceptually repository-read-only. Workflow never selects, parses, permits, rejects, compares, or runs a concrete command or tool; the active project harness enforces read-only behavior and attests matching snapshots. Missing harness evidence makes the result provisional, not Root-unavailable. Failures route to `correct|replan`; verified completes and provisional may be acknowledged with `/accept-work provisional`.

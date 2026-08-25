@@ -16,7 +16,7 @@ import {
   repositoryPathFingerprint,
   repositorySnapshotHash,
   validRepositorySnapshot,
-} from "../src/core/manual-repository-snapshot.mjs";
+} from "../src/harness/repository-snapshot.mjs";
 
 function snapshot(root, overrides = {}) {
   return {

@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:geldmacher:workflow-artifact:work-plan:6",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifact", "schema", "id", "status", "intent_ready",
+    "profile_max", "contract_level", "risk", "hard_triggers", "goal", "acceptance",
+    "non_goals", "constraints", "authority"
+  ],
+  "properties": {
+    "artifact": { "const": "work-plan" },
+    "schema": { "const": 6 },
+    "id": { "type": "string", "pattern": "^wp-[A-Za-z0-9][A-Za-z0-9-]*$" },
+    "status": { "enum": ["ready", "blocked"] },
+    "created_at": { "type": "string", "format": "date-time" },
+    "source": { "type": "string", "minLength": 1 },
+    "predecessor_plan_id": { "type": "string", "pattern": "^wp-[A-Za-z0-9][A-Za-z0-9-]*$" },
+    "replan_source_review_id": { "type": "string", "pattern": "^wr-[A-Za-z0-9][A-Za-z0-9-]*$" },
+    "intent_ready": { "type": "boolean" },
+    "profile_max": { "enum": ["manual", "supervised", "autonomous"] },
+    "contract_level": { "enum": ["lean", "controlled", "certified"] },
+    "risk": { "enum": ["low", "medium", "high"] },
+    "hard_triggers": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "enum": ["security-secrets", "destructive-data", "regulated-or-monetary", "breaking-external-contract", "irreversible-external-effect", "no-recovery-path", "broad-runtime-impact", "material-uncertainty"] }
+    },
+    "goal": { "type": "string", "minLength": 8 },
+    "acceptance": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 3 } },
+    "non_goals": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "constraints": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed_roots", "protected_paths", "approval_required_paths", "dependencies", "external_effects", "delivery"],
+      "properties": {
+        "allowed_roots": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "protected_paths": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "approval_required_paths": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "dependencies": { "enum": ["deny", "allow-listed"] },
+        "allowed_dependencies": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "external_effects": { "const": "none" },
+        "delivery": { "const": "repository-only" },
+        "max_active_minutes": { "type": "integer", "minimum": 1 },
+        "max_total_tokens": { "type": "integer", "minimum": 1 },
+        "max_cost_usd": { "type": "number", "exclusiveMinimum": 0 }
+      },
+      "allOf": [{
+        "if": { "properties": { "dependencies": { "const": "allow-listed" } }, "required": ["dependencies"] },
+        "then": { "required": ["allowed_dependencies"], "properties": { "allowed_dependencies": { "minItems": 1 } } }
+      }]
+    },
+    "certification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["qualification_key", "harness_capability_receipt_hash", "verification_intent_hash", "certified_region"],
+      "properties": {
+        "qualification_key": { "type": "string", "pattern": "^qk-[A-Za-z0-9][A-Za-z0-9-]*$" },
+        "harness_capability_receipt_hash": { "$ref": "#/$defs/hash" },
+        "verification_intent_hash": { "$ref": "#/$defs/hash" },
+        "certified_region": { "type": "string", "minLength": 1 }
+      }
+    },
+    "extensions": { "type": "object", "additionalProperties": true }
+  },
+  "allOf": [
+    {
+      "if": { "anyOf": [{ "required": ["predecessor_plan_id"] }, { "required": ["replan_source_review_id"] }] },
+      "then": { "required": ["predecessor_plan_id", "replan_source_review_id"] }
+    },
+    { "if": { "properties": { "status": { "const": "ready" } } }, "then": { "properties": { "intent_ready": { "const": true } } } },
+    { "if": { "properties": { "profile_max": { "const": "manual" } }, "required": ["profile_max"] }, "then": { "properties": { "contract_level": { "const": "lean" } } } },
+    { "if": { "properties": { "profile_max": { "const": "supervised" } }, "required": ["profile_max"] }, "then": { "properties": { "contract_level": { "const": "controlled" }, "authority": { "required": ["max_active_minutes", "max_total_tokens", "max_cost_usd"] } } } },
+    { "if": { "properties": { "profile_max": { "const": "autonomous" } }, "required": ["profile_max"] }, "then": { "required": ["certification"], "properties": { "contract_level": { "const": "certified" }, "authority": { "required": ["max_active_minutes", "max_total_tokens", "max_cost_usd"] } } } }
+  ],
+  "$defs": { "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" } },
+  "x-required-sections": ["Intent", "Acceptance", "Boundaries", "Risks"]
+}

@@ -7,13 +7,11 @@ import {
   contentAddressedHandoffRootByHash,
   handoffTipDirectory,
   handoffTipPath,
-  legacyHandoffTipPath,
   repositoryKey,
   rootContentHash,
   sharedArtifactStateRoot,
   sharedHandoffBase,
 } from "../src/core/state-paths.mjs";
-import { defaultStateRoot } from "../src/controller/store.mjs";
 
 test("host state roots share only the repository key", () => {
   const workspace = "/tmp/workflow-state-path-test";
@@ -24,7 +22,6 @@ test("host state roots share only the repository key", () => {
     codexOperationalStateRoot(workspace, { baseRoot: "/tmp/codex-base" }),
     join("/tmp/codex-base", key),
   );
-  assert.match(defaultStateRoot(workspace), new RegExp(`\\.cursor/geldmacher-workflow/state/${key}$`));
   assert.notEqual(sharedArtifactStateRoot(workspace, { baseRoot: "/tmp/shared" }), codexOperationalStateRoot(workspace, { pluginData: "/tmp/plugin-data" }));
 });
 
@@ -49,9 +46,8 @@ test("content-addressed handoff namespaces use the full exact Root hash", () => 
   assert.equal(handoffTipDirectory("wp-a", { baseRoot: "/tmp/handoff" }), join("/tmp/handoff", "tips", "wp-a"));
   assert.throws(() => handoffTipDirectory("bad", { baseRoot: "/tmp/handoff" }), /valid wp-\*/);
   assert.equal(handoffTipPath("wp-a", hashA, { baseRoot: "/tmp/handoff" }), join("/tmp/handoff", "tips", "wp-a", `${hashA}.json`));
-  assert.equal(handoffTipPath("wp-a", null, { baseRoot: "/tmp/handoff" }), join("/tmp/handoff", "tips", "wp-a.json"));
-  assert.equal(handoffTipPath("wp-a", "", { baseRoot: "/tmp/handoff" }), join("/tmp/handoff", "tips", "wp-a.json"));
+  assert.throws(() => handoffTipPath("wp-a", null, { baseRoot: "/tmp/handoff" }), /full SHA-256/);
+  assert.throws(() => handoffTipPath("wp-a", "", { baseRoot: "/tmp/handoff" }), /full SHA-256/);
   assert.throws(() => handoffTipPath("wp-a", "not-a-hash", { baseRoot: "/tmp/handoff" }), /full SHA-256/);
   assert.throws(() => handoffTipPath("bad", hashA, { baseRoot: "/tmp/handoff" }), /valid wp-\*/);
-  assert.equal(legacyHandoffTipPath("wp-a", { baseRoot: "/tmp/handoff" }), join("/tmp/handoff", "tips", "wp-a.json"));
 });

@@ -1,8 +1,8 @@
 {
   "name": "geldmacher-workflow",
   "displayName": "Workflow",
-  "description": "Adaptive, evidence-calibrated Cursor-native workflow with manual, supervised, and certified autonomous delivery.",
-  "version": "5.5.1",
+  "description": "Workflow 6 host-neutral lifecycle, authority, lineage, and evidence kernel with project-owned execution harnesses.",
+  "version": "6.0.0",
   "author": {
     "name": "Dennis Geldmacher",
     "email": "geldmacher.dennis@outlook.de"
@@ -27,8 +27,7 @@
     "tolerant-validation",
     "economic-efficiency",
     "workflow-learning",
-    "software-factory",
-    "model-routing",
+    "harness-boundary",
     "supervised"
   ],
   "tags": [
@@ -41,8 +40,7 @@
     "adaptive-assurance",
     "progressive-evidence",
     "learning-closeout",
-    "software-factory",
-    "model-attestation",
+    "harness-attestation",
     "autonomous"
   ],
   "logo": "assets/logo.svg",

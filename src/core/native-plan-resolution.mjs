@@ -19,10 +19,10 @@ export function resolveNativePlan({ candidates = [], attemptedSources = [], plug
     if (typeof candidate?.root_text !== "string" || !candidate.root_text.trim()) continue;
     const inspected = inspectArtifactText(candidate.root_text, pluginRoot);
     const fields = inspected.artifact?.fields;
-    if (inspected.errors.length > 0 || fields?.artifact !== "work-plan" || fields?.schema !== 5) {
+    if (inspected.errors.length > 0 || fields?.artifact !== "work-plan" || fields?.schema !== 6) {
       rejected.push({
         source: candidate.source ?? "native-task-plan",
-        validation_errors: (inspected.errors.length > 0 ? inspected.errors : ["not a Schema-5 work-plan"])
+        validation_errors: (inspected.errors.length > 0 ? inspected.errors : ["not a Schema-6 work-plan"])
           .slice(0, 8)
           .map((entry) => String(entry).replace(/\s+/g, " ").slice(0, 300)),
       });
@@ -42,13 +42,13 @@ export function resolveNativePlan({ candidates = [], attemptedSources = [], plug
         status: "invalid",
         attempted_sources: attempted,
         rejected_sources: rejected,
-        resolution: "Supply the complete exact Schema-5 native Plan from this task, then repeat Review.",
+        resolution: "Supply the complete exact Schema-6 native Plan from this task, then repeat Review.",
       };
     }
     return {
       status: "unavailable",
       attempted_sources: attempted,
-      resolution: "Restore the Schema-5 native Plan in this same task or create and approve a new native Plan, then repeat Review.",
+      resolution: "Restore the Schema-6 native Plan in this same task or create and approve a new native Plan, then repeat Review.",
     };
   }
   if (unique.length > 1) {
@@ -56,7 +56,7 @@ export function resolveNativePlan({ candidates = [], attemptedSources = [], plug
       status: "ambiguous",
       candidate_ids: [...new Set(unique.map((entry) => entry.root_id))].sort(),
       attempted_sources: attempted,
-      resolution: "Keep exactly one Schema-5 native Plan in the current task context, then repeat Review.",
+      resolution: "Keep exactly one Schema-6 native Plan in the current task context, then repeat Review.",
     };
   }
   return { status: "resolved", ...unique[0] };

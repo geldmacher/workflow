@@ -9,41 +9,27 @@ import { manualToolContract } from "../src/mcp/manual-tool-contracts.mjs";
 import { toolContract } from "../src/mcp/tool-contracts.mjs";
 import { WORKFLOW_TOOL_NAMES } from "../src/mcp/tool-registry.mjs";
 
-const annotationKeys = Object.freeze(["readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint"]);
+const keys = ["destructiveHint", "idempotentHint", "openWorldHint", "readOnlyHint"];
 
-const expected = Object.freeze({
-  workflow_plan_preflight: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-  workflow_artifact_context: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-  workflow_status: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-  workflow_watch: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-  workflow_validate_models: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
-  workflow_artifact_record: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-  workflow_closeout: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-  workflow_prepare: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-  workflow_start: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-  workflow_answer: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-  workflow_control: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
-  workflow_verification_profile: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-});
-
-test("canonical annotations cover every Workflow tool with a complete tuple", () => {
+test("canonical annotations cover exactly the six Workflow-6 tools", () => {
+  assert.deepEqual([...WORKFLOW_TOOL_NAMES].sort(), [
+    "workflow_artifact_context",
+    "workflow_artifact_record",
+    "workflow_closeout",
+    "workflow_plan_preflight",
+    "workflow_prepare",
+    "workflow_status",
+  ]);
   assert.deepEqual(Object.keys(WORKFLOW_TOOL_ANNOTATIONS).sort(), [...WORKFLOW_TOOL_NAMES].sort());
-  assert.deepEqual(Object.keys(expected).sort(), [...WORKFLOW_TOOL_NAMES].sort());
   for (const name of WORKFLOW_TOOL_NAMES) {
     const value = toolAnnotations(name);
-    assert.deepEqual(Object.keys(value).sort(), [...annotationKeys].sort());
-    for (const key of annotationKeys) assert.equal(typeof value[key], "boolean");
-    assert.deepEqual(value, expected[name]);
+    assert.deepEqual(Object.keys(value).sort(), keys);
+    for (const key of keys) assert.equal(typeof value[key], "boolean");
+    assert.deepEqual(toolContract(name).annotations, value);
   }
 });
 
-test("Cursor and Manual contracts expose the same annotations without renaming tools", () => {
-  for (const name of WORKFLOW_TOOL_NAMES) {
-    const contract = toolContract(name);
-    assert.equal(typeof contract.description, "string");
-    assert.ok(contract.inputSchema);
-    assert.deepEqual(contract.annotations, expected[name]);
-  }
+test("Manual surface stays five tools and shares the canonical contracts", () => {
   assert.deepEqual([...MANUAL_WORKFLOW_TOOL_NAMES].sort(), [
     "workflow_artifact_context",
     "workflow_artifact_record",
@@ -52,14 +38,15 @@ test("Cursor and Manual contracts expose the same annotations without renaming t
     "workflow_status",
   ]);
   for (const name of MANUAL_WORKFLOW_TOOL_NAMES) {
-    assert.deepEqual(manualToolContract(name).annotations, expected[name]);
+    assert.deepEqual(manualToolContract(name).annotations, toolAnnotations(name));
   }
 });
 
-test("mixed-action and mutating tools stay conservatively non-read-only", () => {
-  for (const name of ["workflow_prepare", "workflow_start", "workflow_answer", "workflow_control", "workflow_verification_profile", "workflow_closeout", "workflow_artifact_record"]) {
-    assert.equal(expected[name].readOnlyHint, false);
-  }
-  assert.equal(expected.workflow_control.destructiveHint, true);
-  assert.equal(expected.workflow_validate_models.openWorldHint, true);
+test("generic harness orchestration is conservatively open and potentially destructive", () => {
+  const prepare = toolAnnotations("workflow_prepare");
+  assert.equal(prepare.readOnlyHint, false);
+  assert.equal(prepare.destructiveHint, true);
+  assert.equal(prepare.idempotentHint, false);
+  assert.equal(prepare.openWorldHint, true);
+  assert.equal(toolAnnotations("workflow_closeout").readOnlyHint, false);
 });

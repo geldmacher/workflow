@@ -39,10 +39,7 @@ function readState(path) {
   if (!existsSync(path)) return {};
   const value = JSON.parse(readFileSync(path, "utf8"));
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid Workflow Codex hook state");
-  // Manual lifecycle schema 2 is intentionally a clean break. Pre-5.5 active
-  // Roots, chains, closeout turns, and handoff tips are inert and never regain
-  // authority in a new native-plan task.
-  return value.schema === 2 && value.kind === "manual-native-plan-review" ? value : {};
+  return value.schema === 6 && value.kind === "workflow-lifecycle-kernel" ? value : {};
 }
 
 function writeState(path, value) {
@@ -82,12 +79,6 @@ function sameTurn(state, input) {
   return Boolean(state?.turn?.turn_id && input.turn_id && state.turn.turn_id === input.turn_id);
 }
 
-function markedWorkflowAgent(input) {
-  if (input.hook_event_name !== "PreToolUse" || !/^(?:Agent|spawn_agent)$/i.test(String(input.tool_name ?? ""))) return false;
-  const source = input.tool_input && typeof input.tool_input === "object" && !Array.isArray(input.tool_input) ? input.tool_input : {};
-  return String(source.prompt ?? source.task ?? "").includes("[workflow-model-inherit-v1]");
-}
-
 export function runCodexHook(input, options = {}) {
   if (!input || typeof input !== "object" || Array.isArray(input)) return {};
   const event = input.hook_event_name;
@@ -109,7 +100,7 @@ export function runCodexHook(input, options = {}) {
   } catch (error) {
     return event === "UserPromptSubmit" ? unavailableOutput(input, error) : {};
   }
-  if (event !== "UserPromptSubmit" && !sameTurn(state, input) && !markedWorkflowAgent(input)) return {};
+  if (event !== "UserPromptSubmit" && !sameTurn(state, input)) return {};
 
   try {
     const pluginRoot = options.pluginRoot ?? resolveCodexPluginRoot();

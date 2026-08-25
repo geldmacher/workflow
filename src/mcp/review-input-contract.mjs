@@ -25,9 +25,9 @@ const correction = z.strictObject({
   checks: z.array(z.strictObject({
     key: semanticKey,
     fix_keys: z.array(semanticKey).min(1).max(32),
-    working_directory: line(1_000),
-    command_or_inspection: line(),
-    expected_result: line(),
+    verification_intent: line(),
+    expected_evidence: line(),
+    evidence_class: z.enum(["harness-verifiable", "reviewer-observable", "human-decision-required"]),
     required: z.boolean(),
     cost_class: z.enum(["cheap", "standard", "expensive"]),
     prerequisites: z.array(line(1_000)).min(1).max(64),
@@ -61,11 +61,6 @@ export const reviewInputSchema = z.strictObject({
   snapshot_summary: line(),
   findings: z.array(finding).max(32),
   missing_evidence: z.array(line()).max(32),
-  auditor_reports: z.array(z.strictObject({
-    role: z.enum(["delivery-auditor", "risk-auditor", "work-design-auditor"]),
-    assessment: z.enum(["achieved", "provisional", "mostly-achieved", "partially-achieved", "not-achieved", "insufficient-evidence"]),
-    summary: line(),
-  })).max(3),
   correction: correction.optional(),
 });
 

@@ -8,6 +8,6 @@ compatibility: Requires an Agent Plugins v1 client with Agent Skills and stdio M
 
 Read [portable Manual boundaries](../../references/portable-manual.md), [Manual Workflow](../../../../references/manual-workflow-contract.md), [artifact protocol](../../../../references/artifact-protocol.md), and [state contract](../../../../references/state-contract.md) completely.
 
-Require one exact complete current Schema-5 chain whose unique Review tip permits provisional acceptance. Call `workflow_status` with the exact artifacts, explicit Root ID, and `manual_acceptance: provisional`.
+Require one exact complete current Schema-6 chain whose unique Review tip permits provisional acceptance. Call `workflow_status` with the exact artifacts, explicit Root ID, and `manual_acceptance: provisional`.
 
-Report `accepted-provisional`, the Root ID, `acceptance_persisted: false`, and the returned basis hash only when the tool returns them. Refuse verified, blocked, failed, incomplete, stale, mixed, ambiguous, or correction-pending chains. Do not create or modify files, artifacts, guidance, Git state, persistent approval state, or external systems.
+Report the ephemeral acceptance only when returned. Refuse unsupported, verified, blocked, failed, incomplete, stale, mixed, ambiguous, or correction-pending chains. Do not create or modify files, artifacts, guidance, Git state, persistent approval state, or external systems.

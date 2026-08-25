@@ -1,14 +1,9 @@
 # Work explanation
 
-`/explain-work [wp-id]` is a read-only, chat-only refresh, never success evidence, review, approval, or learning closeout. Every completed review and reviewed controller handoff uses the same shape directly; no extra explainer phase/model call.
+`/explain-work [wp-id]` is read-only chat output, never success evidence, review, approval, or learning.
 
-Resolve by exact current-task artifact bytes, never filename, cache, or legacy Manual state. Only without a Manual Plan may an explicitly selected controller Run use its own stored artifacts. Require a complete Schema-5 chain. Workflow-3/4 is read-only history; mixed/invalid chains are incompatible. `extensions` remains opaque audit metadata, excluded from explanations and explainer handoffs.
+Resolve exact Schema-6 artifact bytes. Unsupported, mixed, invalid, or ambiguous inputs are rejected rather than projected into a compatibility explanation. Opaque `extensions` and harness trace are not interpreted.
 
-Only derived `achieved` is **Final repository explanation**; otherwise use **Preliminary explanation**, blockers, and next safe action. Order:
+Only derived `achieved` is a final repository explanation. Otherwise state the preliminary outcome, evidence grade, limitations, blockers, and one conceptual next action. Separate desired outcome, observable meaning, verification limits, and technical traceability.
 
-1. `What was achieved`: plain intent and outcome.
-2. `What this means`: observable value, not an implementation diary.
-3. `Verification and limits`: checked results, risks, repository-only limits.
-4. `Technical traceability`: architecture/control/data flow, change map, decisions, invariants, future changes, exact Workflow/Check/Finding IDs, paths/symbols.
-
-The first three stand alone for someone who missed implementation. Technical detail separates executor claims from inspected evidence and keeps unknowns explicit. Persist nothing without separate authorization.
+Do not explain or recommend project commands, tools, models, sandboxes, worktrees, or retries as Workflow requirements. Those belong to the project harness.

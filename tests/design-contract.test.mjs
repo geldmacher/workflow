@@ -6,7 +6,7 @@ import { defaultRoot, inspectArtifactText } from "../scripts/validate-artifact.s
 
 const canonical = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
 
-test("Schema 5 validates semantics instead of eight mandatory Root tables", () => {
+test("Schema 6 validates intent semantics instead of execution tables", () => {
   const prose = canonical.replace(/### Verification[\s\S]*?(?=\n## Boundaries)/, "Acceptance may be verified by an equivalent repository-local check.\n");
   assert.deepEqual(inspectArtifactText(prose).errors, []);
 });
@@ -22,10 +22,11 @@ test("root sections may use registered prose aliases", () => {
 
 test("hard triggers prohibit autonomous execution", () => {
   const autonomous = canonical
-    .replace("profile_max: supervised", "profile_max: autonomous")
-    .replace("contract_level: controlled", "contract_level: certified")
+    .replace("profile_max: manual", "profile_max: autonomous")
+    .replace("contract_level: lean", "contract_level: certified")
     .replace("hard_triggers: []", "hard_triggers: [security-secrets]")
-    .replace("---\n\n## Intent", `certification:\n  verification_profile_id: verify-repository\n  verification_profile_hash: ${"a".repeat(64)}\n  task_recipe: bugfix\n  certified_region: src\n  route_pool_hash: ${"b".repeat(64)}\n---\n\n## Intent`);
+    .replace("  external_effects: none", `  external_effects: none\n  max_active_minutes: 30\n  max_total_tokens: 10000\n  max_cost_usd: 5`)
+    .replace("---\n\n## Intent", `certification:\n  qualification_key: qk-repository\n  harness_capability_receipt_hash: ${"a".repeat(64)}\n  verification_intent_hash: ${"b".repeat(64)}\n  certified_region: src\n---\n\n## Intent`);
   assert.match(inspectArtifactText(autonomous).errors.join("\n"), /hard-trigger work cannot be autonomous/);
 });
 

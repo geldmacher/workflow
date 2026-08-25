@@ -1,11 +1,13 @@
-# Adaptive authorization contract
+# Generic harness authorization contract
 
-The approved Schema-5 Intent Root is immutable. Goal, acceptance, constraints, public contract, risk, dependencies, effects, delivery boundary, budgets, and protected paths change only through a new human decision.
+Supervised and Autonomous share the Schema-6 lifecycle and generic Harness boundary.
 
-The hash-chained `execution-strategy` may revise targets, steps, equivalent Checks, tools, and approved models inside `authority.allowed_roots`; deviations enter the Ledger. One Writer owns the worktree. Up to two readers may run concurrently, writing only external proof.
+PhaseRequest binds phase, Run/revision, transition/idempotency, Root/lineage, workspace, authority, verification, budgets, and read-only Review. It contains no execution policy.
 
-`supervised` allows Dirty Baseline and Strategy adaptation but needs human acceptance. `autonomous` also needs an exact Qualification Key: task class, Verification Profile hash, Route Pool hash, and certified region. A non-safety deficit visibly downgrades to `supervised`; authority, secret, or budget violations stop.
+PhaseResult binds deployment, transition, snapshots, paths, Check attestations, usage, limitations, and a protected reference. Only an external Host Adapter establishes trust; direct modules and self-hashes do not.
 
-Repository delivery is outer effect. Reviewers may propose Learning; only human `/learn-from-work` applies it after integration. Push, PR, merge, deploy, production access, automatic integration, and learning are forbidden.
+`protectedCapability` is atomic and idempotent. Only PhaseResults use Prepare → Stage/Recover → Result Ready → Commit Ready → Commit. Live foreign ownership returns `in_progress`; dead owners recover staging only, never blind mutating work.
 
-Keep the user journey task-local; persisted Runs provide resilience, not a chat gate. Blockers state one plain reason and recovery.
+Missing protection is phase-local Shadow Mode. Supervised needs human acceptance. Cursor injects receipts only after exact revision-bound decision prompts; Codex/portable remain Manual-only. Autonomous needs one exact deployment-bound qualification and verified evidence.
+
+Push, PR, merge, deploy, production, publication, integration, and automatic Learning are outside Workflow.

@@ -27,7 +27,6 @@ const reviewInput = {
   snapshot_summary: "The repository was observed by the host-owned builder.",
   findings: [],
   missing_evidence: [],
-  auditor_reports: [],
 };
 
 test("diagnosed Cursor chat shape binds exact CreatePlan bytes instead of the 3680-byte model copy", async () => {
@@ -58,7 +57,7 @@ test("diagnosed Cursor chat shape binds exact CreatePlan bytes instead of the 36
     root_plan_id: "wp-adaptive-retry",
     root_plan: truncatedRoot,
     artifact_kind: "work-review",
-    check_evidence: [{ check_id: "CHECK-1", grade: "verified", observed: "Retry verification passes twice.", repetitions: 2 }],
+    check_evidence: [{ check_id: "CHECK-1", grade: "verified", observed: "Retry verification was observed." }],
     review_input: reviewInput,
   };
   const options = { home, pluginRoot: defaultRoot };

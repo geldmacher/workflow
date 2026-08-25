@@ -3,21 +3,10 @@ import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { evidenceHasKnownFailure, leanEvidenceData } from "./artifact-validator/evidence.mjs";
+import { evidenceHasKnownFailure, schema6EvidenceData } from "./artifact-validator/evidence.mjs";
 import { linearChain, lineageTips } from "./artifact-validator/lineage.mjs";
 import { opaqueExtensionsFromArtifactText, parseArtifact, replaceOpaqueExtensions } from "./artifact-validator/parser.mjs";
 import { schemaFor, validateArtifactSchema } from "./artifact-validator/schema.mjs";
-import { planCloseoutAttestationIssues } from "../src/core/manual-attestation.mjs";
-
-export {
-  evaluateDeliveryCompletion,
-  expectedLineageFromArtifacts,
-  formatDeliveryReportFence,
-  formatPlanCloseoutAttestationFence,
-  planCloseoutAttestationIssues,
-  readCloseoutRecord,
-} from "../src/core/manual-attestation.mjs";
-
 export { rootContentHash } from "../src/core/state-paths.mjs";
 
 export { opaqueExtensionsFromArtifactText, parseArtifact, replaceOpaqueExtensions };
@@ -31,7 +20,6 @@ const knownArtifacts = new Set([
   "work-review",
 ]);
 const riskRank = Object.freeze({ low: 1, medium: 2, high: 3 });
-const assuranceRank = Object.freeze({ lean: 1, standard: 2, deep: 3 });
 const hardTriggers = new Set([
   "security-secrets",
   "destructive-data",
@@ -45,35 +33,15 @@ const hardTriggers = new Set([
 const objectivePattern = /\bOBJ-[1-9][0-9]*\b/g;
 const fixPattern = /\bFIX-[1-9][0-9]*\b/g;
 const checkPattern = /\bCHECK-[1-9][0-9]*\b/g;
-const stepPattern = /\bSTEP-[1-9][0-9]*\b/g;
-const slicePattern = /\bSLICE-[1-9][0-9]*\b/g;
 const learningPattern = /\bLRN-[A-Za-z0-9][A-Za-z0-9-]*\b/g;
-const requiredScopeCategories = ["required", "permitted", "prohibited"];
-const baselineKinds = ["repository", "head", "dirty-files", "known-failures", "targets-and-prerequisites"];
 
 const sectionAliases = Object.freeze({
   Intent: ["intent", "goal", "intent contract"],
   Acceptance: ["acceptance", "acceptance outcomes", "success criteria"],
   Boundaries: ["boundaries", "authority", "authority envelope"],
   Risks: ["risks", "risk summary"],
-  "Intent and decisions": ["intent", "intent readiness", "intent and decisions"],
-  Objectives: ["objectives", "goals"],
-  "Evidence and baseline": ["baseline", "baseline evidence", "evidence and baseline"],
-  "Scope and targets": ["scope", "targets", "scope and targets"],
-  "Execution steps": ["steps", "implementation steps", "execution steps"],
   Verification: ["verification", "root checks", "planned checks"],
-  "Operational readiness": ["operations", "operational readiness"],
-  "Risk and closeout": ["risk", "assurance", "risk and closeout"],
   Summary: ["summary", "delivery summary"],
-  "Subject results": ["subject results", "fix results"],
-  "Objective outcomes": ["objective outcomes", "delivered objectives"],
-  Changes: ["changes", "changed targets"],
-  "Repository snapshot": ["snapshot", "repository snapshot"],
-  Checks: ["checks", "check results", "verification results"],
-  "Idempotency and resume": ["resume", "execution state", "idempotency and resume"],
-  Deviations: ["deviations"],
-  "Operational evidence": ["operational evidence", "operations evidence"],
-  "Residual risks": ["residual risks", "remaining risks"],
   Assessment: ["assessment", "result", "review result"],
   "Evidence coverage": ["coverage", "evidence coverage"],
   Findings: ["findings", "issues"],
@@ -87,73 +55,26 @@ const headerAliases = Object.freeze({
   "step id": ["step", "step id"],
   "observed result": ["observed", "observed result", "actual result"],
   "expected result": ["expected", "expected result", "pass condition"],
-  "command or inspection": ["command", "inspection", "command or inspection", "execution"],
-  "working directory": ["working directory", "cwd"],
   "cost class": ["cost", "cost class"],
   "evidence class": ["evidence class", "verification owner", "evidence owner"],
   prerequisites: ["prerequisite", "prerequisites", "dependencies"],
-  "prerequisite fingerprints": ["prerequisite fingerprints", "dependency fingerprints", "reuse evidence"],
-  "relevant fingerprints": ["relevant fingerprints", "dependency fingerprints", "reuse evidence"],
   "finding key": ["finding", "finding key"],
   "learning id": ["learning", "learning id", "candidate", "candidate id"],
 });
-const optionalTableCells = new Set(["prerequisite fingerprints", "relevant fingerprints"]);
+const optionalTableCells = new Set();
 
 const tables = Object.freeze({
-  readiness: ["Readiness item", "Resolution", "Evidence"],
-  decisions: ["Decision ID", "Choice", "Rationale", "Rejected alternative", "Source"],
-  objectives: ["Objective ID", "Observable outcome", "Acceptance evidence"],
-  baseline: ["Evidence ID", "Kind", "Observation", "Source"],
-  scope: ["Category", "Targets", "Boundary"],
-  steps: ["Step ID", "Objectives", "Targets", "Required outcome", "Implementation latitude", "Completion probe", "Check IDs", "Deviation action"],
-  verification: ["Check ID", "Objectives", "Working Directory", "Command or Inspection", "Expected Result", "Required", "Cost Class", "Prerequisites"],
-  verificationWithClass: ["Check ID", "Objectives", "Working Directory", "Command or Inspection", "Expected Result", "Required", "Evidence Class", "Cost Class", "Prerequisites"],
-  productRequirements: ["Requirement ID", "Need", "Actor", "Observable outcome", "Non-goal or constraint"],
-  systemImpact: ["Surface", "Current state", "Required change", "Invariant", "Evidence"],
-  programDesign: ["Design ID", "Responsibility", "Interfaces", "Invariants", "Failure handling"],
-  slices: ["Slice ID", "Objectives", "Dependencies", "Targets", "Observable outcome", "Check IDs", "Human review"],
-  operational: ["Concern", "Requirement", "Repository proof"],
-  assuranceFactors: ["Factor", "Score", "Evidence"],
-  controls: ["Control ID", "Control", "Objective or failure mode", "Expected benefit", "Cost class", "Decision", "Rationale"],
-  results: ["Objective ID", "Result", "Evidence"],
-  changes: ["Path or Symbol", "Change", "Objective Coverage"],
-  objectiveOutcomes: ["Objective ID", "Status", "Evidence"],
-  snapshot: ["Snapshot ID", "HEAD", "Working tree", "Changed paths", "Relevant fingerprints", "Known failures"],
-  checks: ["Check ID", "Observed Result", "Status", "Prerequisite fingerprints"],
-  resume: ["Step ID", "State", "Completion probe", "Evidence"],
-  deviations: ["Deviation ID", "Scope", "Approval", "Outcome", "Evidence"],
-  operationalEvidence: ["Concern", "Plan requirement", "Repository proof", "Status"],
+  verificationIntent: ["Check ID", "Objectives", "Verification Intent", "Expected Evidence", "Required", "Evidence Class", "Cost Class", "Prerequisites"],
   coverage: ["Kind", "Inspected", "Reused", "Result", "Evidence"],
   findings: ["Finding key", "Severity", "Objectives", "Checks", "Evidence", "Reasoning"],
   correctionMeta: ["Correction ID", "Root Plan", "Source Review", "Base Evidence", "Predecessor Correction", "Risk"],
   fixes: ["FIX ID", "Finding keys", "Root Objectives", "Root Checks", "Required outcome", "Evidence"],
   correctionSteps: ["Step ID", "FIX IDs", "Targets", "Required outcome", "Implementation latitude", "Completion probe", "Check IDs", "Deviation action"],
-  correctionChecks: ["Check ID", "FIX IDs", "Working Directory", "Command or Inspection", "Expected Result", "Required", "Cost Class", "Prerequisites"],
+  correctionIntentChecks: ["Check ID", "FIX IDs", "Verification Intent", "Expected Evidence", "Required", "Evidence Class", "Cost Class", "Prerequisites"],
   learningCandidates: ["Learning ID", "Finding keys", "Reusable guidance", "Candidate targets", "Confirmation evidence"],
 });
 
-const assuranceFactors = Object.freeze([
-  ["Failure impact", 0, 3],
-  ["Irreversibility", 0, 2],
-  ["Uncertainty", 0, 2],
-  ["Evidence weakness", 0, 2],
-  ["Change surface", 0, 1],
-]);
 const costRank = Object.freeze({ cheap: 1, standard: 2, expensive: 3 });
-
-const readinessItems = [
-  "Goal",
-  "Actor",
-  "Outcome",
-  "Non-goals",
-  "Constraints",
-  "Repository boundary",
-  "Acceptance evidence",
-  "Critical assumptions",
-  "Operational impact",
-  "Review risk",
-  "Material open decisions",
-];
 
 function unique(values) {
   return [...new Set(values)];
@@ -309,15 +230,9 @@ function subsection(content, name) {
 function verificationSectionContent(artifact) {
   const sections = artifact?.sections instanceof Map ? artifact.sections : new Map();
   const topLevel = sections.get("Verification") ?? "";
-  if (tableRows(topLevel, tables.verification).length > 0
-    || tableRows(topLevel, tables.verificationWithClass).length > 0) {
-    return topLevel;
-  }
-  if ((artifact?.fields?.schema ?? 0) >= 5) {
-    const nested = subsection(sections.get("Acceptance") ?? "", "Verification");
-    if (nested.trim()) return nested;
-  }
-  return "";
+  if (tableRows(topLevel, tables.verificationIntent).length > 0) return topLevel;
+  const nested = subsection(sections.get("Acceptance") ?? "", "Verification");
+  return nested.trim() ? nested : "";
 }
 
 function noneLike(value) {
@@ -419,17 +334,6 @@ function issue(code, message, details = {}) {
   return { code, message, ...details };
 }
 
-function fingerprintMap(value) {
-  const entries = String(value ?? "").split(/;\s*/).flatMap((entry) => {
-    const match = entry.match(/^`?([^=`]+?)`?=(.+)$/);
-    if (!match) return [];
-    const path = match[1].trim().replace(/^\.\//, "");
-    if (!path || ["index", "status"].includes(path)) return [];
-    return [[path, match[2].trim()]];
-  });
-  return new Map(entries);
-}
-
 function validateCostOrder(rows, column, label, parsed) {
   let previous = 0;
   for (const row of rows) {
@@ -442,85 +346,36 @@ function validateCostOrder(rows, column, label, parsed) {
   }
 }
 
-function derivedAssurance(score, triggers) {
-  if ((triggers ?? []).length > 0) return "deep";
-  if (score <= 3) return "lean";
-  if (score <= 6) return "standard";
-  return "deep";
-}
-
 function planData(artifact) {
-  if (artifact.fields.schema >= 4) {
-    const objectives = artifact.fields.acceptance.map((outcome, index) => ({
-      "Objective ID": `OBJ-${index + 1}`,
-      "Observable outcome": outcome,
-      "Acceptance evidence": outcome,
-    }));
-    const verificationContent = verificationSectionContent(artifact);
-    const declaredChecks = tableRows(verificationContent, tables.verification);
-    const declaredWithClass = tableRows(verificationContent, tables.verificationWithClass);
-    const checks = declaredChecks.length > 0 ? declaredChecks : objectives.map((objective, index) => ({
-      "Check ID": `CHECK-${index + 1}`,
-      Objectives: objective["Objective ID"],
-      "Working Directory": "repository root",
-      "Command or Inspection": "verification-profile",
-      "Expected Result": objective["Observable outcome"],
-      Required: "yes",
-      "Cost Class": "standard",
-      Prerequisites: artifact.fields.authority.allowed_roots.join(", "),
-    }));
-    const evidenceClasses = declaredWithClass.length > 0
-      ? new Map(declaredWithClass.map((row) => [row["Check ID"], row["Evidence Class"]]))
-      : new Map(checks.map((row) => [row["Check ID"], "human-review-required"]));
-    const objectiveIds = objectives.map((row) => row["Objective ID"]);
-    const objectiveDependencies = new Map(objectiveIds.map((id) => [id, new Set()]));
-    for (const check of checks) {
-      for (const objective of ids(check.Objectives, objectivePattern)) {
-        for (const target of targetTokens(check.Prerequisites)) objectiveDependencies.get(objective)?.add(target);
-      }
-    }
-    return {
-      objectives: new Set(objectiveIds),
-      checks: new Set(checks.map((row) => row["Check ID"])),
-      checkRows: new Map(checks.map((row) => [row["Check ID"], row])),
-      evidenceClasses,
-      slices: [{
-        "Slice ID": "SLICE-1", Objectives: objectiveIds.join(", "), Dependencies: "None.",
-        Targets: artifact.fields.authority.allowed_roots.join(", "),
-        "Observable outcome": artifact.fields.goal,
-        "Check IDs": checks.map((row) => row["Check ID"]).join(", "), "Human review": "no",
-      }],
-      steps: new Set(["STEP-1"]),
-      requiredChecks: new Set(checks.filter((row) => row.Required === "yes").map((row) => row["Check ID"])),
-      allowedTargets: [...artifact.fields.authority.allowed_roots],
-      prohibitedTargets: [...artifact.fields.authority.protected_paths, ...artifact.fields.authority.approval_required_paths],
-      objectiveDependencies,
-    };
-  }
-  const objectives = tableRows(artifact.sections.get("Objectives") ?? "", tables.objectives);
-  const verificationContent = verificationSectionContent(artifact);
-  const checks = tableRows(verificationContent, tables.verification);
-  const steps = tableRows(artifact.sections.get("Execution steps") ?? "", tables.steps);
-  const scope = tableRows(artifact.sections.get("Scope and targets") ?? "", tables.scope);
-  const verificationWithClass = tableRows(verificationContent, tables.verificationWithClass);
-  const slices = tableRows(subsection(artifact.sections.get("Execution steps") ?? "", "Vertical slices"), tables.slices);
-  const objectiveDependencies = new Map(objectives.map((row) => [row["Objective ID"], new Set()]));
-  for (const check of checks) for (const objective of ids(check.Objectives, objectivePattern)) for (const target of targetTokens(check.Prerequisites)) objectiveDependencies.get(objective)?.add(target);
+  const objectives = artifact.fields.acceptance.map((outcome, index) => ({
+    "Objective ID": `OBJ-${index + 1}`,
+    "Observable outcome": outcome,
+    "Acceptance evidence": outcome,
+  }));
+  const checks = tableRows(verificationSectionContent(artifact), tables.verificationIntent);
+  const objectiveIds = objectives.map((row) => row["Objective ID"]);
   return {
-    objectives: new Set(objectives.map((row) => row["Objective ID"])),
+    objectives: new Set(objectiveIds),
     checks: new Set(checks.map((row) => row["Check ID"])),
     checkRows: new Map(checks.map((row) => [row["Check ID"], row])),
-    evidenceClasses: new Map(verificationWithClass.map((row) => [row["Check ID"], row["Evidence Class"]])),
-    slices,
-    steps: new Set(steps.map((row) => row["Step ID"])),
+    evidenceClasses: new Map(checks.map((row) => [row["Check ID"], row["Evidence Class"]])),
+    slices: [{
+      "Slice ID": "SLICE-1",
+      Objectives: objectiveIds.join(", "),
+      Dependencies: "None.",
+      Targets: artifact.fields.authority.allowed_roots.join(", "),
+      "Observable outcome": artifact.fields.goal,
+      "Check IDs": checks.map((row) => row["Check ID"]).join(", "),
+      "Human review": "no",
+    }],
+    steps: new Set(["STEP-1"]),
     requiredChecks: new Set(checks.filter((row) => row.Required === "yes").map((row) => row["Check ID"])),
-    allowedTargets: scope.filter((row) => ["required", "permitted", "incidental"].includes(row.Category)).flatMap((row) => targetTokens(row.Targets)),
-    prohibitedTargets: scope.filter((row) => row.Category === "prohibited").flatMap((row) => targetTokens(row.Targets)),
-    objectiveDependencies,
+    allowedTargets: [...artifact.fields.authority.allowed_roots],
+    prohibitedTargets: [...artifact.fields.authority.protected_paths, ...artifact.fields.authority.approval_required_paths],
   };
 }
 
-function validatePlanV4(parsed, sections, failures) {
+function validatePlan6(parsed, sections, failures) {
   for (const section of ["Intent", "Acceptance", "Boundaries", "Risks"]) {
     if (!(sections.get(section) ?? "").trim()) failures.push(`${section}: section must not be empty`);
   }
@@ -536,11 +391,15 @@ function validatePlanV4(parsed, sections, failures) {
     for (const field of ["max_active_minutes", "max_total_tokens", "max_cost_usd"]) if (!Number.isFinite(authority[field]) || authority[field] <= 0) failures.push(`controlled authority requires ${field}`);
   }
   const data = planData(parsed);
-  const verification = tableRows(verificationSectionContent(parsed), tables.verificationWithClass);
+  const verification = tableRows(
+    verificationSectionContent(parsed),
+    tables.verificationIntent,
+  );
   for (const row of verification) {
     if (!/^CHECK-[1-9][0-9]*$/.test(row["Check ID"])) failures.push(`Verification: invalid Check ID ${row["Check ID"]}`);
     if (!/^(?:yes|no)$/.test(row.Required)) failures.push(`Verification: ${row["Check ID"]} Required must be yes|no`);
-    if (!/^(?:machine-verifiable|human-review-required|human-approval-required)$/.test(row["Evidence Class"])) failures.push(`Verification: ${row["Check ID"]} invalid Evidence Class`);
+    const evidenceClass = /^(?:harness-verifiable|reviewer-observable|human-decision-required)$/;
+    if (!evidenceClass.test(row["Evidence Class"])) failures.push(`Verification: ${row["Check ID"]} invalid Evidence Class`);
   }
   if (verification.length === 0) parsed.normalizations.push("synthesized strategy checks from acceptance outcomes");
   if (data.objectives.size !== parsed.fields.acceptance.length) failures.push("acceptance outcomes must map one-to-one to objectives");
@@ -551,23 +410,7 @@ function validatePlanV4(parsed, sections, failures) {
 }
 
 function evidenceData(artifact) {
-  if (artifact.fields.schema === 5 && artifact.fields.evidence_mode === "lean") return leanEvidenceData(artifact.fields);
-  const results = tableRows(artifact.sections.get("Subject results") ?? "", tables.results);
-  const outcomes = tableRows(artifact.sections.get("Objective outcomes") ?? "", tables.objectiveOutcomes);
-  const changes = tableRows(artifact.sections.get("Changes") ?? "", tables.changes);
-  const snapshot = tableRows(artifact.sections.get("Repository snapshot") ?? "", tables.snapshot)[0];
-  const checks = tableRows(artifact.sections.get("Checks") ?? "", tables.checks);
-  const steps = tableRows(artifact.sections.get("Idempotency and resume") ?? "", tables.resume);
-  return {
-    results,
-    outcomes,
-    outcomeRows: new Map(outcomes.map((row) => [row["Objective ID"], row])),
-    changes,
-    snapshot,
-    checks,
-    checkRows: new Map(checks.map((row) => [row["Check ID"], row])),
-    steps,
-  };
+  return schema6EvidenceData(artifact.fields);
 }
 
 function reviewData(artifact) {
@@ -576,174 +419,12 @@ function reviewData(artifact) {
   return { coverage, findings };
 }
 
-function validatePlan(parsed, sections, failures) {
-  const options = { normalizations: parsed.normalizations };
-  const readiness = requireTable(sections, "Intent and decisions", tables.readiness, failures, options);
-  const readinessByKey = new Map(readiness.rows.map((row) => [normalizedHeader(row["Readiness item"]), row]));
-  for (const item of readinessItems) if (!readinessByKey.has(normalizedHeader(item))) failures.push(`Intent Readiness is missing ${item}`);
-  if (readiness.rows.map((row) => normalizedHeader(row["Readiness item"])).join("\n") !== readinessItems.map(normalizedHeader).join("\n")) parsed.normalizations.push("normalized Intent Readiness row order");
-  const openDecisions = readinessByKey.get(normalizedHeader("Material open decisions"));
-  if (parsed.fields.status === "ready" && !noneLike(openDecisions?.Resolution)) failures.push("ready work-plan requires no material open decisions");
-
-  const decisions = requireTable(sections, "Intent and decisions", tables.decisions, failures, { allowNone: true, normalizations: parsed.normalizations });
-  const decisionIds = exactIdSet(decisions.rows, "Decision ID", /DEC-[1-9][0-9]*/, "Decisions", failures);
-  const objectives = requireTable(sections, "Objectives", tables.objectives, failures, options);
-  const objectiveIds = exactIdSet(objectives.rows, "Objective ID", /OBJ-[1-9][0-9]*/, "Objectives", failures);
-
-  const baseline = requireTable(sections, "Evidence and baseline", tables.baseline, failures, options);
-  const kinds = new Set(baseline.rows.map((row) => row.Kind));
-  if (!kinds.has("repository")) failures.push("baseline requires repository evidence");
-  for (const kind of kinds) if (!baselineKinds.includes(kind)) parsed.normalizations.push(`baseline uses additional Kind ${kind}`);
-
-  const scope = requireTable(sections, "Scope and targets", tables.scope, failures, options);
-  const categories = new Set(scope.rows.map((row) => row.Category));
-  for (const category of requiredScopeCategories) if (!categories.has(category)) failures.push(`scope is missing required category ${category}`);
-  for (const category of categories) if (![...requiredScopeCategories, "incidental"].includes(category)) failures.push(`scope has unsupported category ${category}`);
-  if (!categories.has("incidental")) parsed.normalizations.push("Scope and targets: omitted incidental scope materialized as empty");
-
-  const steps = requireTable(sections, "Execution steps", tables.steps, failures, options);
-  exactIdSet(steps.rows, "Step ID", /STEP-[1-9][0-9]*/, "Execution steps", failures);
-  const coveredObjectives = new Set();
-  const referencedChecks = new Set();
-  for (const row of steps.rows) {
-    for (const objective of ids(row.Objectives, objectivePattern)) {
-      coveredObjectives.add(objective);
-      if (!objectiveIds.has(objective)) failures.push(`Execution steps: unknown ${objective}`);
-    }
-    const rowChecks = ids(row["Check IDs"], checkPattern);
-    if (rowChecks.length === 0) failures.push(`Execution steps: ${row["Step ID"]} has no Check ID`);
-    rowChecks.forEach((check) => referencedChecks.add(check));
-    if (!/PROBE-[1-9][0-9]*:/.test(row["Completion probe"])) failures.push(`Execution steps: ${row["Step ID"]} needs a PROBE-N completion probe`);
-  }
-  if (!sameSet(coveredObjectives, objectiveIds)) failures.push("Execution steps must cover every objective");
-
-  const checks = requireTable(sections, "Verification", tables.verification, failures, options);
-  const classifiedChecks = tableRows(sections.get("Verification") ?? "", tables.verificationWithClass);
-  const classifications = new Map(classifiedChecks.map((row) => [row["Check ID"], row["Evidence Class"]]));
-  const checkIds = exactIdSet(checks.rows, "Check ID", /CHECK-[1-9][0-9]*/, "Verification", failures);
-  for (const row of checks.rows) {
-    const covered = ids(row.Objectives, objectivePattern);
-    if (covered.length === 0) failures.push(`Verification: ${row["Check ID"]} has no objective`);
-    covered.forEach((objective) => { if (!objectiveIds.has(objective)) failures.push(`Verification: unknown ${objective}`); });
-    if (!/^(?:yes|no)$/.test(row.Required)) failures.push(`Verification: ${row["Check ID"]} Required must be yes|no`);
-    if (!/^(?:cheap|standard|expensive)$/.test(row["Cost Class"])) failures.push(`Verification: ${row["Check ID"]} invalid Cost Class`);
-    if (targetTokens(row.Prerequisites).length === 0) failures.push(`Verification: ${row["Check ID"]} needs concrete Prerequisites`);
-    const evidenceClass = classifications.get(row["Check ID"]);
-    if (!evidenceClass) failures.push(`Verification: ${row["Check ID"]} needs Evidence Class`);
-    if (evidenceClass && !/^(?:machine-verifiable|human-review-required|human-approval-required)$/.test(evidenceClass)) failures.push(`Verification: ${row["Check ID"]} invalid Evidence Class`);
-  }
-  validateCostOrder(checks.rows, "Cost Class", "Verification", parsed);
-  for (const check of referencedChecks) if (!checkIds.has(check)) failures.push(`Execution steps reference unknown ${check}`);
-  for (const objective of objectiveIds) if (!checks.rows.some((row) => ids(row.Objectives, objectivePattern).includes(objective))) failures.push(`${objective} has no verification Check`);
-  for (const objective of objectiveIds) if (!checks.rows.some((row) => row.Required === "yes" && ids(row.Objectives, objectivePattern).includes(objective))) failures.push(`${objective} has no required verification Check`);
-
-  const intentContent = sections.get("Intent and decisions") ?? "";
-  const scopeContent = sections.get("Scope and targets") ?? "";
-  const executionContent = sections.get("Execution steps") ?? "";
-  const productRequirements = tableRows(subsection(intentContent, "Product requirements"), tables.productRequirements);
-  const systemImpact = tableRows(subsection(scopeContent, "System architecture"), tables.systemImpact);
-  const programDesign = tableRows(subsection(scopeContent, "Program design"), tables.programDesign);
-  const slices = tableRows(subsection(executionContent, "Vertical slices"), tables.slices);
-  if (["compact", "full"].includes(parsed.fields.design_depth)) {
-    if (systemImpact.length === 0) failures.push(`${parsed.fields.design_depth} design requires a System architecture table`);
-    if (slices.length === 0) failures.push(`${parsed.fields.design_depth} design requires a Vertical slices table`);
-  }
-  if (parsed.fields.design_depth === "full") {
-    if (productRequirements.length === 0) failures.push("full design requires a Product requirements table");
-    if (programDesign.length === 0) failures.push("full design requires a Program design table");
-  }
-  const sliceIds = exactIdSet(slices, "Slice ID", /SLICE-[1-9][0-9]*/, "Vertical slices", failures);
-  for (const row of slices) {
-    const sliceObjectives = ids(row.Objectives, objectivePattern);
-    if (sliceObjectives.length === 0) failures.push(`Vertical slices: ${row["Slice ID"]} has no objective`);
-    for (const objective of sliceObjectives) if (!objectiveIds.has(objective)) failures.push(`Vertical slices: ${row["Slice ID"]} references unknown ${objective}`);
-    for (const dependency of ids(row.Dependencies, slicePattern)) if (!sliceIds.has(dependency)) failures.push(`Vertical slices: ${row["Slice ID"]} references unknown ${dependency}`);
-    const sliceChecks = ids(row["Check IDs"], checkPattern);
-    if (sliceChecks.length === 0) failures.push(`Vertical slices: ${row["Slice ID"]} has no Check ID`);
-    for (const check of sliceChecks) if (!checkIds.has(check)) failures.push(`Vertical slices: ${row["Slice ID"]} references unknown ${check}`);
-    if (!/^(?:yes|no)$/.test(row["Human review"])) failures.push(`Vertical slices: ${row["Slice ID"]} Human review must be yes|no`);
-  }
-
-  if (parsed.fields.automation_profile_max !== "manual") {
-    const bounds = parsed.fields.automation_bounds;
-    if (!bounds) failures.push(`${parsed.fields.automation_profile_max} plan requires automation_bounds`);
-    else {
-      const scopedTargets = scope.rows.filter((row) => ["required", "permitted"].includes(row.Category)).flatMap((row) => targetTokens(row.Targets));
-      for (const target of bounds.allowed_targets ?? []) if (!scopedTargets.some((scopeTarget) => targetMatches(target, scopeTarget))) failures.push(`automation_bounds target ${target} is outside required/permitted scope`);
-      if ((riskRank[bounds.max_risk] ?? 0) > (riskRank[parsed.fields.risk] ?? 0)) failures.push("automation_bounds max_risk cannot exceed root risk");
-    }
-  }
-
-  const operational = requireTable(sections, "Operational readiness", tables.operational, failures, options);
-  const concerns = new Set(operational.rows.map((row) => row.Concern));
-  const notApplicable = concerns.has("Not applicable");
-  if (parsed.fields.runtime_relevant === true) {
-    if (notApplicable) failures.push("runtime-relevant work cannot use Not applicable operational readiness");
-    for (const concern of ["Observable signal", "Failure condition", "Recovery or rollback"]) {
-      if (!concerns.has(concern)) failures.push(`Operational readiness: missing ${concern}`);
-    }
-  } else if (operational.rows.length !== 1 || operational.rows[0]?.Concern !== "Not applicable") {
-    failures.push("non-runtime work requires exactly one Not applicable operational readiness row");
-  }
-
-  const factors = requireTable(sections, "Risk and closeout", tables.assuranceFactors, failures, options);
-  const factorNames = new Set(factors.rows.map((row) => normalizedHeader(row.Factor)));
-  for (const [factor] of assuranceFactors) if (!factorNames.has(normalizedHeader(factor))) failures.push(`Assurance factors are missing ${factor}`);
-  if (factors.rows.map((row) => normalizedHeader(row.Factor)).join("\n") !== assuranceFactors.map(([factor]) => normalizedHeader(factor)).join("\n")) parsed.normalizations.push("normalized assurance factor order");
-  let score = 0;
-  for (const [factor, minimum, maximum] of assuranceFactors) {
-    const raw = factors.rows.find((row) => normalizedHeader(row.Factor) === normalizedHeader(factor))?.Score;
-    const value = Number(raw);
-    if (!Number.isInteger(value) || value < minimum || value > maximum) failures.push(`Assurance factor ${factor} Score must be an integer ${minimum}..${maximum}`);
-    else score += value;
-  }
-  if (score !== parsed.fields.assurance_score) failures.push(`assurance_score must equal computed score ${score}`);
-  const triggers = parsed.fields.hard_triggers ?? [];
-  for (const trigger of triggers) if (!hardTriggers.has(trigger)) failures.push(`unknown hard trigger ${trigger}`);
-  const derived = derivedAssurance(score, triggers);
-  const selectedRank = assuranceRank[parsed.fields.assurance_profile] ?? 0;
-  const derivedRank = assuranceRank[derived];
-  if (parsed.fields.assurance_override === "none" && parsed.fields.assurance_profile !== derived) failures.push(`assurance_profile must equal derived profile ${derived} without override`);
-  if (parsed.fields.assurance_override === "raised" && selectedRank <= derivedRank) failures.push("raised assurance override must select a higher profile than derived");
-  if (parsed.fields.assurance_override === "lowered") {
-    if (triggers.length > 0) failures.push("hard-trigger assurance cannot be lowered");
-    if (selectedRank >= derivedRank) failures.push("lowered assurance override must select a lower profile than derived");
-    const decision = decisions.rows.find((row) => row["Decision ID"] === parsed.fields.assurance_override_decision_id);
-    if (!decisionIds.has(parsed.fields.assurance_override_decision_id) || !/\bHuman (?:decision|approval)\b/i.test(decision?.Source ?? "")) failures.push("lowered assurance requires a human-sourced decision");
-  }
-
-  const controls = requireTable(sections, "Risk and closeout", tables.controls, failures, { allowNone: true, normalizations: parsed.normalizations });
-  exactIdSet(controls.rows, "Control ID", /CTRL-[1-9][0-9]*/, "Pareto controls", failures);
-  for (const row of controls.rows) {
-    if (!/^(?:cheap|standard|expensive)$/.test(row["Cost class"])) failures.push(`Pareto controls: ${row["Control ID"]} invalid Cost class`);
-    if (!/^(?:include|defer)$/.test(row.Decision)) failures.push(`Pareto controls: ${row["Control ID"]} Decision must be include|defer`);
-    const matchedTriggers = triggers.filter((trigger) => row["Objective or failure mode"].includes(trigger));
-    if (matchedTriggers.length > 0 && row.Decision !== "include") failures.push(`Pareto controls: hard-trigger control ${row["Control ID"]} cannot be deferred`);
-  }
-  for (const trigger of triggers) if (!controls.rows.some((row) => row["Objective or failure mode"].includes(trigger) && row.Decision === "include")) failures.push(`hard trigger ${trigger} requires an included Pareto control`);
-  if (parsed.fields.status === "ready" && parsed.fields.intent_ready !== true) failures.push("ready work-plan requires intent_ready true");
-
-  if (parsed.wrapper) {
-    const todos = parsed.wrapper.todos ?? [];
-    const stepIds = steps.rows.map((row) => row["Step ID"]);
-    for (const stepId of stepIds) if (!todos.some((todo) => String(todo.content).includes(stepId))) failures.push(`native todos must project ${stepId}`);
-    const final = String(todos.at(-1)?.content ?? "");
-    if (!/verify|check|evidence|snapshot/i.test(final)) failures.push("final native todo must verify or evidence the implemented result");
-    if (/\/correct-work/.test(final)) failures.push("initial native implementation must not require another Workflow command");
-  }
-}
-
-function resultIdPattern(fields) {
-  return String(fields.subject_id ?? "").startsWith("cp-") ? fixPattern : objectivePattern;
-}
-
 function validateEvidenceGrades(parsed, failures) {
   const entries = parsed.fields.check_evidence ?? [];
   const grades = entries.map((entry) => entry.grade);
-  const patched = entries.filter((entry) => (entry.baseline_or_patched ?? (parsed.fields.evidence_mode === "lean" ? "patched" : null)) === "patched");
   if (grades.includes("failed") && parsed.fields.overall_grade !== "failed") failures.push("failed check evidence requires overall_grade failed");
   if (parsed.fields.status === "complete" && parsed.fields.overall_grade !== "verified") failures.push("complete evidence requires overall_grade verified");
-  if (parsed.fields.status === "complete" && patched.some((entry) => entry.grade !== "verified")) failures.push("complete evidence requires every patched Check grade verified");
+  if (parsed.fields.status === "complete" && entries.some((entry) => entry.grade !== "verified")) failures.push("complete evidence requires every Check grade verified");
   if (parsed.fields.status === "provisional" && !["supported", "partial", "unavailable"].includes(parsed.fields.overall_grade)) failures.push("provisional evidence requires supported, partial, or unavailable grade");
   if (parsed.fields.status !== "blocked" && grades.includes("failed")) failures.push("failed check evidence must be blocked");
 }
@@ -763,95 +444,13 @@ function validateLeanEvidence(parsed, sections, failures) {
     if (path.startsWith("/") || path === ".." || path.startsWith("../")) failures.push(`changed path must remain repository-relative: ${path}`);
   }
   validateEvidenceGrades(parsed, failures);
-  if (!Object.hasOwn(parsed.fields, "strategy_revision")) parsed.normalizations.push("lean evidence: interpreted missing strategy_revision as 0");
-  for (const entry of parsed.fields.check_evidence ?? []) {
-    if (!Object.hasOwn(entry, "baseline_or_patched")) parsed.normalizations.push(`lean evidence: interpreted ${entry.check_id} baseline_or_patched as patched`);
-  }
   parsed.effective = {
-    strategyRevision: parsed.fields.strategy_revision ?? 0,
-    checkEvidence: (parsed.fields.check_evidence ?? []).map((entry) => ({ baseline_or_patched: "patched", ...entry })),
+    checkEvidence: (parsed.fields.check_evidence ?? []).map((entry) => ({ ...entry })),
   };
 }
 
 function validateEvidence(parsed, sections, failures) {
-  if (parsed.fields.schema === 5 && parsed.fields.evidence_mode === "lean") {
-    validateLeanEvidence(parsed, sections, failures);
-    return;
-  }
-  const options = { normalizations: parsed.normalizations };
-  const pattern = resultIdPattern(parsed.fields);
-  const results = requireTable(sections, "Subject results", tables.results, failures, { optional: true, normalizations: parsed.normalizations });
-  const resultIds = exactIdSet(results.rows, "Objective ID", pattern, "Subject results", failures);
-  for (const row of results.rows) if (!/^(?:achieved|partially-achieved|not-achieved|blocked)$/.test(row.Result)) failures.push(`Subject results: ${row["Objective ID"]} invalid Result`);
-
-  const outcomes = requireTable(sections, "Objective outcomes", tables.objectiveOutcomes, failures, options);
-  const outcomeIds = exactIdSet(outcomes.rows, "Objective ID", /OBJ-[1-9][0-9]*/, "Objective outcomes", failures);
-  if (!sameSet(outcomeIds, new Set(parsed.fields.affected_objectives ?? []))) failures.push("Objective outcomes must exactly match affected_objectives");
-  for (const row of outcomes.rows) if (!/^(?:achieved|partially-achieved|not-achieved|blocked)$/.test(row.Status)) failures.push(`Objective outcomes: ${row["Objective ID"]} invalid Status`);
-
-  const affected = new Set(parsed.fields.affected_objectives ?? []);
-  const reusedObjectives = new Set(parsed.fields.reused_objectives ?? []);
-  for (const id of affected) if (reusedObjectives.has(id)) failures.push(`Objective ${id} cannot be both affected and reused`);
-  const executed = new Set(parsed.fields.executed_checks ?? []);
-  const reusedChecks = new Set(parsed.fields.reused_checks ?? []);
-  for (const id of executed) if (reusedChecks.has(id)) failures.push(`Check ${id} cannot be both executed and reused`);
-
-  const changes = requireTable(sections, "Changes", tables.changes, failures, { allowNone: true, optional: true, normalizations: parsed.normalizations });
-  const declaredChangedPaths = new Set(parsed.fields.changed_paths ?? []);
-  const visibleChangedPaths = new Set(changes.rows.flatMap((row) => targetTokens(row["Path or Symbol"])));
-  if (parsed.fields.schema === 5 && !sameSet(declaredChangedPaths, visibleChangedPaths)) failures.push("Changes table must exactly match changed_paths");
-  for (const path of declaredChangedPaths) {
-    if (path.startsWith("/") || path === ".." || path.startsWith("../")) failures.push(`changed path must remain repository-relative: ${path}`);
-  }
-  for (const row of changes.rows) {
-    const covered = ids(row["Objective Coverage"], pattern);
-    if (covered.length === 0) failures.push("Changes: every row must name a subject objective");
-    covered.forEach((id) => { if (!(resultIds.size > 0 ? resultIds : outcomeIds).has(id)) failures.push(`Changes: unknown ${id}`); });
-  }
-
-  const snapshot = requireTable(sections, "Repository snapshot", tables.snapshot, failures, options);
-  let snapshotFingerprints = new Map();
-  if (snapshot.rows.length === 1) {
-    const row = snapshot.rows[0];
-    parsed.fields.snapshot_id = row["Snapshot ID"];
-    snapshotFingerprints = fingerprintMap(row["Relevant fingerprints"]);
-  }
-
-  const checks = requireTable(sections, "Checks", tables.checks, failures, options);
-  const checkIds = exactIdSet(checks.rows, "Check ID", /CHECK-[1-9][0-9]*/, "Checks", failures);
-  if (!sameSet(checkIds, executed)) failures.push("Checks table must exactly match executed_checks");
-  for (const row of checks.rows) {
-    if (!/^(?:passed|failed|blocked|skipped)$/.test(row.Status)) failures.push(`Checks: ${row["Check ID"]} invalid Status`);
-    const prerequisites = fingerprintMap(row["Prerequisite fingerprints"]);
-    for (const [path, hash] of prerequisites) if (snapshotFingerprints.get(path) !== hash) failures.push(`Checks: ${row["Check ID"]} prerequisite ${path} must match Repository snapshot`);
-    if (row.Status === "blocked" && !/^blocked-by:CHECK-[1-9][0-9]*\b/.test(row["Observed Result"])) failures.push(`Checks: ${row["Check ID"]} blocked status needs blocked-by:CHECK-N evidence`);
-  }
-  if (parsed.fields.schema >= 4) {
-    const entries = parsed.fields.check_evidence ?? [];
-    const patched = new Map(entries.filter((entry) => entry.baseline_or_patched === "patched").map((entry) => [entry.check_id, entry]));
-    for (const check of parsed.fields.executed_checks ?? []) if (!patched.has(check)) failures.push(`check_evidence requires patched evidence for ${check}`);
-    validateEvidenceGrades(parsed, failures);
-  }
-
-  const resume = requireTable(sections, "Idempotency and resume", tables.resume, failures, { optional: true, normalizations: parsed.normalizations });
-  exactIdSet(resume.rows, "Step ID", /STEP-[1-9][0-9]*/, "Idempotency and resume", failures);
-  for (const row of resume.rows) {
-    if (!/^(?:satisfied|pending|partial|conflicted)$/.test(row.State)) failures.push(`Idempotency and resume: ${row["Step ID"]} invalid State`);
-    if (!/PROBE-[1-9][0-9]*:/.test(row["Completion probe"])) failures.push(`Idempotency and resume: ${row["Step ID"]} needs a PROBE-N completion probe`);
-  }
-
-  const deviations = requireTable(sections, "Deviations", tables.deviations, failures, { allowNone: true, optional: true, normalizations: parsed.normalizations });
-  for (const row of deviations.rows) if (!/^DEV-[1-9][0-9]*$/.test(row["Deviation ID"])) failures.push(`Deviations: invalid ${row["Deviation ID"]}`);
-  if (parsed.fields.status === "complete") {
-    if (results.rows.some((row) => row.Result === "blocked")) failures.push("complete evidence cannot contain blocked subject results");
-    if (checks.rows.some((row) => row.Status === "blocked")) failures.push("complete evidence cannot contain blocked Checks");
-    if (resume.rows.some((row) => ["pending", "partial", "conflicted"].includes(row.State))) failures.push("complete evidence requires every step state satisfied");
-  } else if (parsed.fields.status === "blocked" && !results.rows.some((row) => row.Result === "blocked") && !checks.rows.some((row) => row.Status === "blocked") && !/BLOCKER:\s*\S.{10,}/i.test(sections.get("Summary") ?? "")) {
-    failures.push("blocked evidence requires blocked work or a concrete BLOCKER reason");
-  }
-  const operationalEvidence = (sections.get("Operational evidence") ?? "").trim();
-  if (operationalEvidence && !/^not applicable\.?$/i.test(operationalEvidence)) requireTable(sections, "Operational evidence", tables.operationalEvidence, failures);
-  if (/production (?:is|was) (?:healthy|successful|verified)/i.test(operationalEvidence)) failures.push("repository evidence must not claim observed production success");
+  validateLeanEvidence(parsed, sections, failures);
 }
 
 function parseCorrection(parsed, sections, failures) {
@@ -869,7 +468,7 @@ function parseCorrection(parsed, sections, failures) {
   const metadata = requireTable(pseudo, "Correction plan", tables.correctionMeta, failures, { normalizations: parsed.normalizations });
   const fixes = { rows: tableRows(content, tables.fixes) };
   const steps = { rows: tableRows(content, tables.correctionSteps) };
-  const checks = { rows: tableRows(content, tables.correctionChecks) };
+  const checks = { rows: tableRows(content, tables.correctionIntentChecks) };
   if (fixes.rows.length === 0) failures.push("Correction plan requires a FIX table");
   if (steps.rows.length === 0) failures.push("Correction plan requires a step table");
   if (checks.rows.length === 0) failures.push("Correction plan requires a Check table");
@@ -903,6 +502,7 @@ function parseCorrection(parsed, sections, failures) {
   for (const row of checks.rows) {
     if (!/^(?:yes|no)$/.test(row.Required)) failures.push(`Correction check ${row["Check ID"]} Required must be yes|no`);
     if (!/^(?:cheap|standard|expensive)$/.test(row["Cost Class"])) failures.push(`Correction check ${row["Check ID"]} invalid Cost Class`);
+    if (!/^(?:harness-verifiable|reviewer-observable|human-decision-required)$/.test(row["Evidence Class"])) failures.push(`Correction check ${row["Check ID"]} invalid Evidence Class`);
     if (targetTokens(row.Prerequisites).length === 0) failures.push(`Correction check ${row["Check ID"]} needs concrete Prerequisites`);
     ids(row["FIX IDs"], fixPattern).forEach((id) => { if (!fixIds.has(id)) failures.push(`Correction check references unknown ${id}`); });
   }
@@ -957,30 +557,6 @@ function validateCompactReview(parsed, sections, failures) {
   const boundaryReview = parsed.fields.review_basis === "root-boundary";
   if (boundaryReview && findings.rows.length > 0) failures.push("root-boundary review cannot contain delivery findings");
   parsed.findings = findings.rows;
-  const actualAuditors = new Set(parsed.fields.auditors_run ?? []);
-  const auditorRow = coverageByKind.get(normalizedHeader("Auditors"))?.[0];
-  const visibleAuditors = new Set(String(auditorRow?.Inspected ?? "").split(",").map((value) => value.trim()).filter((value) => value && !noneLike(value)));
-  if (coverage.rows.length > 0 && !sameSet(visibleAuditors, actualAuditors)) parsed.normalizations.push("Evidence coverage: auditor summary derived from frontmatter");
-  const routeRank = { inline: 1, targeted: 2, full: 3 };
-  const decisiveBoundary = ["correct", "replan", "clarify"].includes(parsed.fields.next_action);
-  const unresolvedHighFinding = findings.rows.some((row) => /^(?:high|critical)$/.test(row.Severity)) && !decisiveBoundary;
-  let minimumRoute = actualAuditors.has("risk-auditor") || unresolvedHighFinding
-    ? "full"
-    : actualAuditors.has("delivery-auditor") || actualAuditors.has("work-design-auditor") ? "targeted" : "inline";
-  if (routeRank[parsed.fields.review_route] < routeRank[minimumRoute]) failures.push(`review_route must be at least computed minimum ${minimumRoute}`);
-  const requiredAuditors = parsed.fields.review_route === "inline" ? ["inline"] : parsed.fields.review_route === "full" ? ["inline", "delivery-auditor", "risk-auditor"] : ["inline"];
-  const missingAuditors = requiredAuditors.filter((auditor) => !actualAuditors.has(auditor));
-  missingAuditors.forEach((auditor) => failures.push(`${parsed.fields.review_route} review requires auditor ${auditor}`));
-  const targetedSpecialists = ["delivery-auditor", "work-design-auditor"].filter((auditor) => actualAuditors.has(auditor));
-  if (parsed.fields.review_route === "inline" && actualAuditors.size !== 1) failures.push("inline review permits only the inline auditor");
-  if (parsed.fields.review_route === "targeted" && (targetedSpecialists.length !== 1 || actualAuditors.size !== 2 || actualAuditors.has("risk-auditor"))) {
-    failures.push("targeted review requires inline plus exactly one delivery or design auditor");
-  }
-  if (parsed.fields.review_route === "full") {
-    const permitted = new Set(["inline", "delivery-auditor", "risk-auditor", "work-design-auditor"]);
-    if ([...actualAuditors].some((auditor) => !permitted.has(auditor))) failures.push("full review contains an unsupported auditor");
-  }
-
   const next = sections.get("Next action") ?? "";
   if (!next.toLowerCase().includes(String(parsed.fields.next_action).toLowerCase())) failures.push("Next action section must state frontmatter next_action");
   if (parsed.fields.assessment === "achieved") {
@@ -990,11 +566,9 @@ function validateCompactReview(parsed, sections, failures) {
     if (coverage.rows.length > 0 && (normalizedHeader(snapshotRow?.Result) !== "consistent" || noneLike(snapshotRow?.Inspected))) failures.push("achieved review coverage contradicts current snapshot consistency");
   }
   if (parsed.fields.next_action === "none" && parsed.fields.assessment !== "achieved") failures.push("next_action none requires assessment achieved");
-  if (parsed.fields.schema >= 4) {
-    if (parsed.fields.delivery_status === "verified" && parsed.fields.assessment !== "achieved") failures.push("verified delivery requires achieved assessment");
-    if (parsed.fields.delivery_status === "provisional" && parsed.fields.next_action !== "accept-provisional") failures.push("provisional delivery requires accept-provisional");
-    if (parsed.fields.next_action === "accept-provisional" && parsed.fields.delivery_status !== "provisional") failures.push("accept-provisional requires provisional delivery");
-  }
+  if (parsed.fields.delivery_status === "verified" && parsed.fields.assessment !== "achieved") failures.push("verified delivery requires achieved assessment");
+  if (parsed.fields.delivery_status === "provisional" && parsed.fields.next_action !== "accept-provisional") failures.push("provisional delivery requires accept-provisional");
+  if (parsed.fields.next_action === "accept-provisional" && parsed.fields.delivery_status !== "provisional") failures.push("accept-provisional requires provisional delivery");
   if (parsed.fields.next_action === "correct" && findings.rows.length === 0) failures.push("correct review requires findings");
   if (parsed.fields.next_action !== "correct" && Array.isArray(parsed.fields.learning_candidates)) failures.push("learning_candidates are allowed only when next_action is correct");
   if (parsed.fields.next_action === "retry-review" && parsed.fields.assessment !== "insufficient-evidence") failures.push("retry-review requires assessment insufficient-evidence");
@@ -1011,14 +585,10 @@ function validateCompactReview(parsed, sections, failures) {
     }
   }
   parsed.effective = {
-    plannedAssurance: null,
-    assuranceUsed: parsed.fields.review_route === "full" ? "deep" : parsed.fields.review_route === "targeted" ? "standard" : null,
     inspectedObjectives: [...inspectedObjectives],
     reusedObjectives: [...reusedObjectives],
     inspectedChecks: [...inspectedChecks],
     reusedChecks: [...reusedChecks],
-    auditorsRun: [...actualAuditors],
-    missingAuditors,
     findings: findings.rows,
   };
   return correction;
@@ -1039,8 +609,7 @@ function buildArtifact(text, root, options = {}) {
   if (sections.size > 0) {
     rejectPlaceholders(parsed, schema, sections, failures);
     if (parsed.fields.artifact === "work-plan") {
-      if (parsed.fields.schema >= 4) validatePlanV4(parsed, sections, failures);
-      else validatePlan(parsed, sections, failures);
+      validatePlan6(parsed, sections, failures);
     }
     if (parsed.fields.artifact === "delivery-evidence") validateEvidence(parsed, sections, failures);
     if (parsed.fields.artifact === "work-review") parsed.correction = validateCompactReview(parsed, sections, failures);
@@ -1066,12 +635,12 @@ export function inspectArtifactText(text, root = defaultRoot, options = {}) {
 export function preflightRootPlan(text, root = defaultRoot) {
   const inspected = inspectArtifactText(text, root);
   const parsed = inspected.artifact;
-  if (inspected.errors.length > 0 || parsed?.fields?.artifact !== "work-plan" || parsed.fields.schema !== 5) {
+  if (inspected.errors.length > 0 || parsed?.fields?.artifact !== "work-plan" || parsed.fields.schema !== 6) {
     return {
       feasible: false,
       root_plan_id: parsed?.fields?.id ?? null,
       root_projection_hash: null,
-      blocking_issues: (inspected.errors.length > 0 ? inspected.errors : ["input must be one Schema-5 work-plan"])
+      blocking_issues: (inspected.errors.length > 0 ? inspected.errors : ["input must be one Schema-6 work-plan"])
         .map((message) => issue("invalid-root", message)),
       advisories: [],
       required_checks: [],
@@ -1106,13 +675,13 @@ export function preflightRootPlan(text, root = defaultRoot) {
     ));
   }
 
-  const rows = tableRows(verificationSectionContent(parsed), tables.verificationWithClass);
+  const rows = tableRows(verificationSectionContent(parsed), tables.verificationIntent);
   const objectiveIds = new Set((parsed.fields.acceptance ?? []).map((_, index) => `OBJ-${index + 1}`));
   const requiredChecks = [];
   const deferredChecks = [];
   const costs = { cheap: 0, standard: 0, expensive: 0 };
   if (rows.length === 0) {
-    blocking.push(issue("explicit-verification-required", "new Schema-5 roots require an explicit Verification table for Pareto check selection"));
+    blocking.push(issue("explicit-verification-required", "new Schema-6 roots require an explicit intent-only Verification table for Pareto check selection"));
   } else {
     const seenIds = new Set();
     const signatures = new Map();
@@ -1130,13 +699,13 @@ export function preflightRootPlan(text, root = defaultRoot) {
         { check_id: checkId || null, objectives: boundObjectives },
       ));
       if (!/^(?:yes|no)$/.test(row.Required)) blocking.push(issue("invalid-required-value", `${checkId || "Verification Check"} Required must be yes or no`, { check_id: checkId || null }));
-      if (!/^(?:machine-verifiable|human-review-required|human-approval-required)$/.test(row["Evidence Class"])) blocking.push(issue("invalid-evidence-class", `${checkId || "Verification Check"} has an invalid Evidence Class`, { check_id: checkId || null }));
+      if (!/^(?:harness-verifiable|reviewer-observable|human-decision-required)$/.test(row["Evidence Class"])) blocking.push(issue("invalid-evidence-class", `${checkId || "Verification Check"} has an invalid Evidence Class`, { check_id: checkId || null }));
       if (!/^(?:cheap|standard|expensive)$/.test(row["Cost Class"])) blocking.push(issue("invalid-cost-class", `${checkId || "Verification Check"} has an invalid Cost Class`, { check_id: checkId || null }));
       else costs[row["Cost Class"]] += 1;
       if (row.Required === "yes") {
         requiredChecks.push(checkId);
         boundObjectives.forEach((id) => requiredObjectives.add(id));
-        const signature = [boundObjectives.sort().join(","), row["Command or Inspection"], row["Expected Result"], targetTokens(row.Prerequisites).sort().join(",")]
+        const signature = [boundObjectives.sort().join(","), row["Verification Intent"], row["Expected Evidence"], targetTokens(row.Prerequisites).sort().join(",")]
           .map((value) => normalizedHeader(value)).join("|");
         classifiedChecks.push({ check_id: checkId, required: true, cost: row["Cost Class"], signature });
         const prior = signatures.get(signature);
@@ -1153,7 +722,7 @@ export function preflightRootPlan(text, root = defaultRoot) {
           check_id: checkId,
           required: false,
           cost: row["Cost Class"],
-          signature: [boundObjectives.sort().join(","), row["Command or Inspection"], row["Expected Result"], targetTokens(row.Prerequisites).sort().join(",")]
+          signature: [boundObjectives.sort().join(","), row["Verification Intent"], row["Expected Evidence"], targetTokens(row.Prerequisites).sort().join(",")]
             .map((value) => normalizedHeader(value)).join("|"),
         });
       }
@@ -1189,7 +758,7 @@ export function preflightRootPlan(text, root = defaultRoot) {
 }
 
 function authoritativeArtifactProjection(artifact, root) {
-  const schema = JSON.parse(readFileSync(schemaFor(root, artifact.fields.artifact), "utf8"));
+  const schema = JSON.parse(readFileSync(schemaFor(root, artifact.fields.artifact, artifact.fields.schema), "utf8"));
   const fields = Object.fromEntries(Object.keys(schema.properties ?? {})
     .filter((key) => key !== "extensions" && Object.hasOwn(artifact.fields, key))
     .map((key) => [key, structuredClone(artifact.fields[key])]));
@@ -1226,24 +795,8 @@ export function executionContractFromArtifactText(text, root = defaultRoot) {
     fields: structuredClone(authoritative.projection.fields),
     objectives: [...data.objectives],
     checks: [...data.checkRows.values()].map((row) => ({ ...row, "Evidence Class": data.evidenceClasses.get(row["Check ID"]) })),
-    slices: data.slices.map((row) => ({ ...row })),
     allowedTargets: [...data.allowedTargets],
     prohibitedTargets: [...data.prohibitedTargets],
-    strategy: artifact.fields.schema >= 4 ? {
-      strategy_id: `strategy-${artifact.fields.id.slice(3)}`,
-      revision: 0,
-      parent_hash: null,
-      root_projection_hash: authoritative.projection_hash,
-      task_class: artifact.fields.certification?.task_recipe ?? null,
-      recipe_version: "workflow-recipe-1",
-      primary_targets: [...data.allowedTargets],
-      steps: data.slices.map((row) => ({ ...row })),
-      checks: [...data.checkRows.values()].map((row) => ({ ...row, "Evidence Class": data.evidenceClasses.get(row["Check ID"]) })),
-      evidence_requirements: artifact.fields.profile_max === "autonomous" ? "verified" : "provisional-allowed",
-      deviations: [],
-      rationale: "initial strategy derived from the approved intent root",
-      created_by: "planner",
-    } : null,
     authoritative_projection: authoritative.projection,
     authoritative_projection_text: authoritative.projection_text,
     authoritative_projection_hash: authoritative.projection_hash,
@@ -1259,18 +812,6 @@ function disjointCoverage(left, right, expected, label, failures) {
   const b = new Set(right ?? []);
   for (const value of a) if (b.has(value)) failures.push(`${label}: ${value} appears in both fresh and reused coverage`);
   if (!sameSet(setUnion(a, b), new Set(expected))) failures.push(`${label}: fresh and reused coverage must exactly partition the root set`);
-}
-
-function compareReusePaths(paths, current, predecessor, basis, label, requiresStrong, failures) {
-  for (const path of paths) {
-    const currentHash = current.get(path);
-    const previousHash = predecessor.get(path);
-    if (currentHash && previousHash && currentHash === previousHash) continue;
-    const inspectedUnchanged = String(basis ?? "").includes(path) && /(?:inspected|unchanged|no relevant change)/i.test(String(basis));
-    if (!requiresStrong && inspectedUnchanged) continue;
-    if (currentHash && previousHash && currentHash !== previousHash) failures.push(`${label}: changed fingerprint for ${path} invalidates reuse`);
-    else failures.push(`${label}: reuse lacks ${requiresStrong ? "strong fingerprint" : "fingerprint or current change-impact inspection"} evidence for ${path}`);
-  }
 }
 
 function correctionForId(artifacts, id) {
@@ -1289,22 +830,12 @@ function materializeEvidence(artifact, artifacts, cache, failures, rootDirectory
     failures.push(`${artifact.label}: missing root plan ${artifact.fields.root_plan_id}`);
     return null;
   }
-  if (root.fields.schema === 5) {
-    const authoritativeRoot = authoritativeArtifactProjection(root, rootDirectory);
-    if (artifact.fields.intent_hash !== authoritativeRoot.projection_hash) failures.push(`${artifact.label}: intent_hash does not match authoritative Root projection`);
-  }
+  const authoritativeRoot = authoritativeArtifactProjection(root, rootDirectory);
+  if (artifact.fields.intent_hash !== authoritativeRoot.projection_hash) failures.push(`${artifact.label}: intent_hash does not match authoritative Root projection`);
   const plan = planData(root);
   const data = evidenceData(artifact);
-  const leanMode = artifact.fields.schema === 5 && artifact.fields.evidence_mode === "lean";
-  if (root.fields.schema === 5) {
-    const fullRequired = root.fields.profile_max !== "manual" || root.fields.risk === "high" || (root.fields.hard_triggers ?? []).length > 0;
-    if (fullRequired && leanMode) failures.push(`${artifact.label}: ${root.fields.profile_max} ${root.fields.risk}-risk root requires evidence_mode full`);
-  }
-  const currentFingerprints = fingerprintMap(data.snapshot?.["Relevant fingerprints"]);
-  const reuseBasis = data.snapshot?.["Relevant fingerprints"] ?? "";
-  const strongReuse = root.fields.schema >= 4
-    ? root.fields.contract_level === "certified" || (root.fields.hard_triggers ?? []).length > 0
-    : root.fields.assurance_profile === "deep" || (root.fields.hard_triggers ?? []).length > 0;
+  const fullRequired = root.fields.profile_max !== "manual" || root.fields.risk === "high" || (root.fields.hard_triggers ?? []).length > 0;
+  if (fullRequired && artifact.fields.evidence_mode === "lean") failures.push(`${artifact.label}: ${root.fields.profile_max} ${root.fields.risk}-risk root requires evidence_mode full`);
   const predecessor = artifact.fields.predecessor_evidence_id ? artifacts.get(artifact.fields.predecessor_evidence_id) : null;
   const predecessorEffective = predecessor?.fields.artifact === "delivery-evidence" ? materializeEvidence(predecessor, artifacts, cache, failures, rootDirectory, active) : null;
   if (artifact.fields.predecessor_evidence_id && !predecessorEffective) failures.push(`${artifact.label}: missing predecessor evidence ${artifact.fields.predecessor_evidence_id}`);
@@ -1324,74 +855,46 @@ function materializeEvidence(artifact, artifacts, cache, failures, rootDirectory
 
   const objectives = new Map();
   for (const objective of affected) {
-    const row = data.outcomeRows.get(objective);
-    if (!row) failures.push(`${artifact.label}: affected ${objective} lacks an Objective outcomes row`);
-    else objectives.set(objective, { status: row.Status, evidence: row.Evidence, source: artifact.fields.id });
+    const state = data.objectiveStates.get(objective);
+    if (!state) failures.push(`${artifact.label}: affected ${objective} lacks Schema-6 objective evidence`);
+    else objectives.set(objective, { ...state, source: artifact.fields.id });
   }
   for (const objective of reusedObjectives) {
     const previous = predecessorEffective?.objectives.get(objective);
     if (!previous) failures.push(`${artifact.label}: reused ${objective} is absent from direct predecessor evidence`);
     else {
-      if (!leanMode) compareReusePaths(plan.objectiveDependencies.get(objective) ?? [], currentFingerprints, predecessorEffective.snapshotFingerprints, reuseBasis, `${artifact.label}: reused ${objective}`, strongReuse, failures);
       objectives.set(objective, { ...previous, reusedFrom: predecessor.fields.id });
     }
   }
 
   const checks = new Map();
   for (const id of executed) {
-    const row = data.checkRows.get(id);
-    if (!row) {
-      failures.push(`${artifact.label}: executed ${id} lacks a Checks row`);
+    const state = data.checkStates.get(id);
+    if (!state) {
+      failures.push(`${artifact.label}: executed ${id} lacks Schema-6 Check evidence`);
       continue;
     }
     const planned = plan.checkRows.get(id) ?? correctionForId(artifacts, artifact.fields.subject_id)?.checks.find((candidate) => candidate["Check ID"] === id);
     if (!planned) failures.push(`${artifact.label}: executed unknown ${id}`);
-    else {
-      const prerequisiteFingerprints = fingerprintMap(row["Prerequisite fingerprints"]);
-      for (const [prerequisite, hash] of prerequisiteFingerprints) if (currentFingerprints.get(prerequisite) !== hash) failures.push(`${artifact.label}: ${id} fingerprint ${prerequisite} is not current`);
-    }
-    checks.set(id, { status: row.Status, observed: row["Observed Result"], fingerprints: row["Prerequisite fingerprints"], source: artifact.fields.id });
+    checks.set(id, { ...state, source: artifact.fields.id });
   }
   for (const id of reusedChecks) {
     const previous = predecessorEffective?.checks.get(id);
     const planned = plan.checkRows.get(id);
     if (!previous || !planned) failures.push(`${artifact.label}: reused ${id} is absent from direct predecessor root evidence`);
     else {
-      if (!leanMode) compareReusePaths(targetTokens(planned.Prerequisites), currentFingerprints, predecessorEffective.snapshotFingerprints, reuseBasis, `${artifact.label}: reused ${id}`, strongReuse, failures);
       checks.set(id, { ...previous, reusedFrom: predecessor.fields.id });
     }
   }
 
-  for (const change of data.changes) for (const target of targetTokens(change["Path or Symbol"])) {
+  for (const target of data.changedPaths) {
     const allowed = plan.allowedTargets.some((scope) => targetMatches(target, scope));
     const prohibited = plan.prohibitedTargets.filter((scope) => !/^all other (?:files|paths|targets)$/i.test(scope)).some((scope) => targetMatches(target, scope));
     if (!allowed || prohibited) failures.push(`${artifact.label}: changed target ${target} is outside root scope`);
   }
 
-  const operationalContent = (artifact.sections.get("Operational evidence") ?? "").trim();
-  let operationalReady = true;
-  if (root.fields.schema >= 4) {
-    if (operationalContent && !/^not applicable\.?$/i.test(operationalContent)) {
-      const operationalRows = tableRows(operationalContent, tables.operationalEvidence);
-      operationalReady = operationalRows.length > 0 && operationalRows.every((row) => row.Status === "satisfied");
-    }
-  } else if (root.fields.runtime_relevant === true) {
-    const operationalRows = tableRows(operationalContent, tables.operationalEvidence);
-    const byConcern = new Map(operationalRows.map((row) => [normalizedHeader(row.Concern), row]));
-    for (const concern of ["Observable signal", "Failure condition", "Recovery or rollback"]) {
-      const row = byConcern.get(normalizedHeader(concern));
-      if (!row) failures.push(`${artifact.label}: runtime operational evidence is missing ${concern}`);
-      if (row && !/^(?:satisfied|unsatisfied|blocked)$/.test(row.Status)) failures.push(`${artifact.label}: runtime operational evidence ${concern} has invalid Status`);
-      if (row?.Status !== "satisfied") operationalReady = false;
-    }
-    if (artifact.fields.status === "complete" && !operationalReady) failures.push(`${artifact.label}: complete runtime evidence requires satisfied operational proof`);
-  } else if (operationalContent && !/^not applicable\.?$/i.test(operationalContent)) {
-    failures.push(`${artifact.label}: non-runtime operational evidence must be omitted or Not applicable.`);
-    operationalReady = false;
-  }
-
   if (initial) {
-    const delivered = data.results.length > 0 ? new Set(data.results.map((row) => row["Objective ID"])) : new Set(data.outcomes.map((row) => row["Objective ID"]));
+    const delivered = new Set(data.objectiveStates.keys());
     if (!sameSet(delivered, plan.objectives)) failures.push(`${artifact.label}: initial evidence must cover every root objective`);
     if (artifact.fields.source_review_id || artifact.fields.predecessor_evidence_id) failures.push(`${artifact.label}: initial evidence cannot reference review or predecessor evidence`);
   } else {
@@ -1399,17 +902,22 @@ function materializeEvidence(artifact, artifacts, cache, failures, rootDirectory
     const correction = correctionForId(artifacts, artifact.fields.subject_id);
     if (!sourceReview || sourceReview.fields.correction_id !== artifact.fields.subject_id || !correction) failures.push(`${artifact.label}: correction evidence does not resolve its source review and correction`);
     else {
-      const expectedFixes = new Set(correction.fixes.map((row) => row["FIX ID"]));
-      if (!leanMode && !sameSet(new Set(data.results.map((row) => row["Objective ID"])), expectedFixes)) failures.push(`${artifact.label}: correction Subject results must cover every FIX`);
       for (const check of correction.checks.filter((row) => row.Required === "yes")) if (!executed.has(check["Check ID"])) failures.push(`${artifact.label}: missing executed correction Check ${check["Check ID"]}`);
     }
   }
 
   const reviewReady = artifact.fields.status === "complete"
-    && (artifact.fields.schema < 4 || artifact.fields.overall_grade === "verified")
-    && operationalReady
+    && artifact.fields.overall_grade === "verified"
     && [...plan.requiredChecks].every((id) => checks.get(id)?.status === "passed");
-  const effective = { root, plan, objectives, checks, snapshot: data.snapshot, snapshotFingerprints: currentFingerprints, operationalReady, reviewReady, predecessor: predecessorEffective };
+  const effective = {
+    root,
+    plan,
+    objectives,
+    checks,
+    workspaceSnapshotHash: data.workspaceSnapshotHash,
+    reviewReady,
+    predecessor: predecessorEffective,
+  };
   artifact.effective = effective;
   cache.set(artifact.fields.id, effective);
   active.delete(artifact.fields.id);
@@ -1448,14 +956,14 @@ function progressState(review, artifacts) {
     const checks = ids(finding.Checks, checkPattern);
     const objectiveRank = objectives.reduce((sum, id) => sum + ({ blocked: 0, "not-achieved": 1, "partially-achieved": 2, achieved: 3 }[effective?.objectives.get(id)?.status] ?? 0), 0);
     const passedChecks = checks.filter((id) => effective?.checks.get(id)?.status === "passed").length;
-    const fingerprintSignature = objectives.flatMap((id) => [...effective?.plan.objectiveDependencies.get(id) ?? []]).sort().map((path) => `${path}=${effective?.snapshotFingerprints.get(path) ?? "missing"}`).join(";");
-    return [finding["Finding key"], { severity: ({ critical: 4, high: 3, medium: 2, low: 1 }[finding.Severity] ?? 9), objectiveRank, passedChecks, fingerprintSignature }];
+    const snapshotSignature = effective?.workspaceSnapshotHash ?? "missing";
+    return [finding["Finding key"], { severity: ({ critical: 4, high: 3, medium: 2, low: 1 }[finding.Severity] ?? 9), objectiveRank, passedChecks, snapshotSignature }];
   }));
 }
 
 function measurableProgress(previous, current) {
   if (!previous || !current) return false;
-  return current.severity < previous.severity || current.objectiveRank > previous.objectiveRank || current.passedChecks > previous.passedChecks || current.fingerprintSignature !== previous.fingerprintSignature;
+  return current.severity < previous.severity || current.objectiveRank > previous.objectiveRank || current.passedChecks > previous.passedChecks || current.snapshotSignature !== previous.snapshotSignature;
 }
 
 function validatePlanLineage(artifacts, failures) {
@@ -1470,11 +978,9 @@ function validatePlanLineage(artifacts, failures) {
     if (predecessorId === plan.fields.id) failures.push(`${plan.label}: replan root cannot reference itself`);
     const predecessor = plansById.get(predecessorId);
     if (!predecessor) failures.push(`${plan.label}: missing predecessor plan ${predecessorId}`);
-    else if (predecessor.fields.schema !== 5) failures.push(`${plan.label}: predecessor plan must use Schema 5`);
     const sourceReview = artifacts.get(sourceReviewId);
     if (!sourceReview || sourceReview.fields.artifact !== "work-review") failures.push(`${plan.label}: missing replan source review ${sourceReviewId}`);
     else {
-      if (sourceReview.fields.schema !== 5) failures.push(`${plan.label}: replan source review must use Schema 5`);
       if (sourceReview.fields.root_plan_id !== predecessorId) failures.push(`${plan.label}: replan source review must belong to predecessor plan ${predecessorId}`);
       if (sourceReview.fields.next_action !== "replan") failures.push(`${plan.label}: replan source review must require next_action replan`);
       const predecessorReviews = [...artifacts.values()].filter((artifact) => artifact.fields.artifact === "work-review" && artifact.fields.root_plan_id === predecessorId);
@@ -1594,19 +1100,17 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
         }
         review.effective = {
           ...review.effective,
-          plannedAssurance: rootPlan.fields.contract_level === "certified" ? "deep" : rootPlan.fields.contract_level === "controlled" ? "standard" : "lean",
-          assuranceUsed: "inline",
-          snapshotId: receipt.repository_snapshot_hash ?? null,
+          contractLevel: rootPlan.fields.contract_level,
+          workspaceSnapshotHash: receipt.repository_snapshot_hash ?? null,
           correctionRound: rootEvidence.length > 0 ? rootEvidence.length - 1 : 0,
           reviewReady: false,
           loopState: "blocked",
           boundaryReview: true,
-          proxies: {
+          coverage: {
             objectivesInspected: 0,
             objectivesReused: 0,
             checksExecuted: 0,
             checksReused: 0,
-            auditorsRun: 1,
           },
         };
         continue;
@@ -1627,16 +1131,6 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
       disjointCoverage(review.fields.inspected_objectives, review.fields.reused_objectives, plan.objectives, `${review.label}: objective review`, errors);
       disjointCoverage(review.fields.inspected_checks, review.fields.reused_checks, plan.requiredChecks, `${review.label}: Check review`, errors);
       if (index === 0 && ((review.fields.reused_objectives ?? []).length > 0 || (review.fields.reused_checks ?? []).length > 0)) errors.push(`${review.label}: first review must inspect all root evidence`);
-      const fullReviewRequired = rootPlan.fields.schema >= 4
-        ? rootPlan.fields.contract_level === "certified" || rootPlan.fields.risk === "high" || (rootPlan.fields.hard_triggers ?? []).length > 0
-        : rootPlan.fields.assurance_profile === "deep" || (rootPlan.fields.hard_triggers ?? []).length > 0;
-      const deterministicBlockedRoute = review.fields.delivery_status === "blocked"
-        && review.fields.review_route === "inline"
-        && (review.fields.next_action === "replan"
-          || (review.fields.next_action === "correct" && knownFailedEvidence));
-      if (fullReviewRequired && review.fields.review_route !== "full" && !deterministicBlockedRoute) {
-        errors.push(`${review.label}: certified, high-risk, or hard-trigger root requires review_route full`);
-      }
       for (const objective of review.fields.reused_objectives ?? []) {
         if (!evidence.fields.reused_objectives.includes(objective)) errors.push(`${review.label}: reused review objective ${objective} lacks delta-evidence reuse`);
         const previousEvidence = index > 0 ? artifacts.get(ordered[index - 1].fields.latest_evidence_id)?.effective : null;
@@ -1650,23 +1144,18 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
         if ([...plan.objectives].some((id) => effective?.objectives.get(id)?.status !== "achieved")) errors.push(`${review.label}: achieved requires every effective root objective achieved`);
         if (reviewData(review).findings.length > 0) errors.push(`${review.label}: achieved cannot contain findings`);
       }
-      const plannedAssurance = rootPlan.fields.schema >= 4
-        ? ({ lean: "lean", controlled: "standard", certified: "deep" }[rootPlan.fields.contract_level] ?? "standard")
-        : rootPlan.fields.assurance_profile;
       review.effective = {
         ...review.effective,
-        plannedAssurance,
-        assuranceUsed: review.fields.review_route === "full" ? "deep" : review.fields.review_route === "targeted" ? "standard" : plannedAssurance,
-        snapshotId: effective?.snapshot?.["Snapshot ID"] ?? null,
+        contractLevel: rootPlan.fields.contract_level,
+        workspaceSnapshotHash: evidence.fields.workspace_snapshot_hash ?? null,
         correctionRound: candidates.length - 1,
         reviewReady: effective?.reviewReady ?? false,
         loopState: reviewData(review).findings.length > 0 ? "degraded" : "healthy",
-        proxies: {
+        coverage: {
           objectivesInspected: review.fields.inspected_objectives.length,
           objectivesReused: review.fields.reused_objectives.length,
           checksExecuted: review.fields.inspected_checks.length,
           checksReused: review.fields.reused_checks.length,
-          auditorsRun: (review.fields.auditors_run ?? []).length,
         },
       };
       validateCompactCorrection(review, rootPlan, evidence, artifacts, errors);

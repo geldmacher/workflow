@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { cpSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
+import { buildDeliveryEvidence } from "../src/controller/delivery-closeout.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 
@@ -14,8 +15,16 @@ test("the shipped artifact validator runs in a clean plugin cache without node_m
     mkdirSync(join(cache, "scripts"));
     cpSync(join(root, "scripts", "validate-artifact.mjs"), join(cache, "scripts", "validate-artifact.mjs"));
     cpSync(join(root, "schemas"), join(cache, "schemas"), { recursive: true });
-    cpSync(join(root, "tests", "fixtures", "artifacts", "work-plan.valid.md"), join(cache, "work-plan.md"));
-    cpSync(join(root, "tests", "fixtures", "artifacts", "delivery-evidence.valid.md"), join(cache, "evidence.md"));
+    const rootPlan = readFileSync(join(root, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
+    writeFileSync(join(cache, "work-plan.md"), rootPlan);
+    const evidence = buildDeliveryEvidence({
+      rootPlanText: rootPlan,
+      checkEvidence: [],
+      changedPaths: [],
+      effectiveProfile: "manual",
+      pluginRoot: root,
+    });
+    writeFileSync(join(cache, "evidence.md"), evidence.artifact);
 
     const result = spawnSync(process.execPath, [join(cache, "scripts", "validate-artifact.mjs"), join(cache, "work-plan.md")], {
       cwd: cache,
@@ -50,7 +59,7 @@ test("the shipped artifact validator runs in a clean plugin cache without node_m
     assert.equal(effective.status, 0, `${effective.stdout}\n${effective.stderr}`);
     const state = JSON.parse(effective.stdout);
     assert.equal(state.status, "passed");
-    assert.equal(state.evidence_tips["wp-adaptive-retry"], "de-adaptive-retry");
+    assert.equal(state.evidence_tips["wp-adaptive-retry"], evidence.fields.id);
     assert.deepEqual(state.learning_candidates, []);
   } finally {
     rmSync(cache, { recursive: true, force: true });

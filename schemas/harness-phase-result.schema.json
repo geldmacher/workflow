@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:geldmacher:workflow:harness-phase-result:1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "kind", "phase", "status", "harness_id", "deployment_binding_hash", "transition_id", "capability_receipt_hash", "phase_request_hash", "root_hash", "workspace_binding", "workspace_snapshot_before", "workspace_snapshot_after", "changed_paths", "check_attestations", "usage", "limitations", "content_hash"],
+  "properties": {
+    "schema": { "const": 1 },
+    "kind": { "const": "harness-phase-result" },
+    "phase": { "enum": ["planning", "implementation", "review", "correction"] },
+    "status": { "enum": ["completed", "blocked", "unavailable", "cancelled"] },
+    "harness_id": { "type": "string", "minLength": 1 },
+    "deployment_binding_hash": { "$ref": "#/$defs/hash" },
+    "transition_id": { "type": "string", "pattern": "^tr-[a-f0-9]{32}$" },
+    "capability_receipt_hash": { "$ref": "#/$defs/hash" },
+    "phase_request_hash": { "$ref": "#/$defs/hash" },
+    "root_hash": { "$ref": "#/$defs/hash" },
+    "workspace_binding": { "$ref": "#/$defs/hash" },
+    "workspace_snapshot_before": { "$ref": "#/$defs/hash" },
+    "workspace_snapshot_after": { "$ref": "#/$defs/hash" },
+    "changed_paths": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "check_attestations": { "type": "array", "items": { "$ref": "harness-check-attestation.schema.json" } },
+    "review_input": {
+      "type": "object",
+      "description": "Conceptual Review assessment protected as part of a read-only Review PhaseResult. Concrete execution details are not permitted here."
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["active_minutes", "total_tokens", "cost_usd"],
+      "properties": {
+        "active_minutes": { "type": "number", "minimum": 0 },
+        "total_tokens": { "type": "integer", "minimum": 0 },
+        "cost_usd": { "type": "number", "minimum": 0 }
+      }
+    },
+    "limitations": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "content_hash": { "$ref": "#/$defs/hash" }
+  },
+  "allOf": [
+    {
+      "if": { "required": ["review_input"] },
+      "then": { "properties": { "phase": { "const": "review" } } }
+    }
+  ],
+  "$defs": { "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" } }
+}

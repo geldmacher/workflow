@@ -1,375 +1,329 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import test from "node:test";
+import { defaultRoot, executionContractFromArtifactText } from "../scripts/validate-artifact.source.mjs";
 import { buildManualReviewLifecycle } from "../src/controller/manual-review-lifecycle.mjs";
-import { defaultRoot } from "../scripts/validate-artifact.source.mjs";
-import { leanRoot } from "./support/manual-attestation-fixtures.mjs";
+import {
+  HARNESS_CHECK_ATTESTATION_SCHEMA,
+  harnessContractHash,
+  verificationIntentHash,
+} from "../src/core/harness-attestations.mjs";
 
-function snapshot(dirtyPaths = ["src/retry.mjs"], fingerprint = "b".repeat(64)) {
+const root = readFileSync(join(defaultRoot, "tests/fixtures/artifacts/work-plan.valid.md"), "utf8");
+const current = {
+  schema: 1,
+  repository_root: defaultRoot,
+  head: "a".repeat(40),
+  dirty_paths: ["src/retry.mjs"],
+  fingerprints: { "src/retry.mjs": "file:" + "b".repeat(64) },
+  index_fingerprint: "c".repeat(64),
+  status_fingerprint: "d".repeat(64),
+  working_tree: "modified",
+  captured_at: "2026-08-25T00:00:00.000Z",
+};
+const workspaceBinding = harnessContractHash({ workspace_root: defaultRoot });
+const harnessSnapshot = "e".repeat(64);
+
+const cleanBaseline = {
+  ...current,
+  dirty_paths: [],
+  fingerprints: {},
+  working_tree: "unchanged",
+};
+
+function signed(value, field) {
+  return { ...value, [field]: harnessContractHash(value) };
+}
+
+function reviewInput(verified = false) {
   return {
     schema: 1,
-    repository_root: defaultRoot,
-    head: "a".repeat(40),
-    dirty_paths: dirtyPaths,
-    fingerprints: Object.fromEntries(dirtyPaths.map((path) => [path, `file:100644:${fingerprint}`])),
-    index_fingerprint: "c".repeat(64),
-    status_fingerprint: "d".repeat(64),
-    working_tree: dirtyPaths.length > 0 ? "modified" : "unchanged",
-    captured_at: "2026-08-17T00:00:00.000Z",
+    kind: "review-input",
+    assessment: verified ? "achieved" : "provisional",
+    recommended_action: verified ? "none" : "accept-provisional",
+    assessment_summary: verified ? "The bound evidence satisfies the Root." : "The Root is intact but harness evidence is unavailable.",
+    snapshot_assessment: "consistent",
+    snapshot_summary: "The repository snapshot is consistent.",
+    findings: [],
+    missing_evidence: [],
   };
 }
 
-const verifiedCheck = {
-  check_id: "CHECK-1",
-  grade: "verified",
-  surface: "repository",
-  method: "node --test tests/codex-hook-policy.test.mjs",
-  expected: "Focused Codex hook policy tests pass.",
-  observed: "The exact planned command passed in this fresh Review.",
-  repetitions: 1,
-  artifact_hashes: [],
-  limitations: [],
-};
+function phaseResult() {
+  const check = executionContractFromArtifactText(root, defaultRoot).checks[0];
+  const attestation = signed({
+    schema: HARNESS_CHECK_ATTESTATION_SCHEMA,
+    kind: "harness-check-attestation",
+    harness_id: "project-harness",
+    check_id: "CHECK-1",
+    root_hash: createHash("sha256").update(root).digest("hex"),
+    verification_intent_hash: verificationIntentHash(check),
+    workspace_binding: workspaceBinding,
+    workspace_snapshot_hash: harnessSnapshot,
+    status: "passed",
+    observed: "The verification intent was satisfied.",
+    evidence_hashes: ["f".repeat(64)],
+    issued_at: "2026-08-25T00:00:00.000Z",
+  }, "content_hash");
+  return {
+    status: "completed",
+    harness_id: "project-harness",
+    workspace_snapshot_before: harnessSnapshot,
+    workspace_snapshot_after: harnessSnapshot,
+    changed_paths: [],
+    check_attestations: [attestation],
+  };
+}
 
-const achievedReview = {
-  schema: 1,
-  kind: "review-input",
-  assessment: "achieved",
-  recommended_action: "none",
-  assessment_summary: "The native Plan acceptance is achieved.",
-  snapshot_assessment: "consistent",
-  snapshot_summary: "The current repository matches the reviewed delivery.",
-  findings: [],
-  missing_evidence: [],
-  auditor_reports: [],
-};
+function protectedArtifacts(bundle) {
+  return [
+    { label: bundle.delivery_evidence.fields.id, text: bundle.delivery_evidence.artifact },
+    {
+      label: bundle.review.fields.id,
+      text: bundle.review.artifact,
+      builder_provenance: bundle.review.provenance,
+    },
+  ];
+}
 
-const correctionReview = {
-  schema: 1,
-  kind: "review-input",
-  assessment: "mostly-achieved",
-  recommended_action: "correct",
-  assessment_summary: "One bounded retry correction remains.",
-  snapshot_assessment: "consistent",
-  snapshot_summary: "The current repository matches the reviewed delivery.",
-  findings: [{
-    key: "retry-gap",
-    severity: "medium",
-    objective_ids: ["OBJ-1"],
-    check_ids: ["CHECK-1"],
-    evidence: "The retry boundary is incomplete.",
-    reasoning: "The Root remains incomplete until this bounded gap is corrected.",
-    resolution: "correct",
-  }],
-  missing_evidence: [],
-  auditor_reports: [],
-  correction: {
-    fixes: [{ key: "complete-retry", finding_keys: ["retry-gap"], required_outcome: "Complete the retry boundary.", evidence: "The finding is bounded." }],
-    checks: [{ key: "verify-correction", fix_keys: ["complete-retry"], working_directory: "repository root", command_or_inspection: "node --test tests/codex-hook-policy.test.mjs", expected_result: "Focused correction tests pass.", required: true, cost_class: "standard", prerequisites: ["src", "tests"] }],
-    steps: [{ key: "apply-correction", fix_keys: ["complete-retry"], targets: ["src/retry.mjs"], required_outcome: "Apply the bounded correction.", implementation_latitude: "Use the smallest in-scope change.", completion_probe: "Focused correction tests pass.", check_keys: ["verify-correction"], deviation_action: "Replan if authority changes." }],
-    learning_candidates: [{ key: "retry-guidance", finding_keys: ["retry-gap"], reusable_guidance: "Keep retry boundaries covered.", candidate_targets: ["tests"], confirmation_evidence: "Focused tests pass." }],
-  },
-};
+function correctionInput() {
+  return {
+    schema: 1,
+    kind: "review-input",
+    assessment: "mostly-achieved",
+    recommended_action: "correct",
+    assessment_summary: "One bounded retry outcome remains incomplete.",
+    snapshot_assessment: "consistent",
+    snapshot_summary: "The repository state is consistent with the finding.",
+    findings: [{
+      key: "retry-gap",
+      severity: "medium",
+      objective_ids: ["OBJ-1"],
+      check_ids: ["CHECK-1"],
+      evidence: "The required retry outcome is incomplete.",
+      reasoning: "Acceptance is not yet fully established.",
+      resolution: "correct",
+    }],
+    missing_evidence: [],
+    correction: {
+      fixes: [{ key: "close-gap", finding_keys: ["retry-gap"], required_outcome: "Complete retry behavior.", evidence: "The gap is Root-bounded." }],
+      checks: [{
+        key: "verify-gap",
+        fix_keys: ["close-gap"],
+        verification_intent: "Prove the corrected retry outcome.",
+        expected_evidence: "Protected evidence on the corrected snapshot.",
+        evidence_class: "harness-verifiable",
+        required: true,
+        cost_class: "standard",
+        prerequisites: ["The correction is implemented."],
+      }],
+      steps: [{
+        key: "apply-gap",
+        fix_keys: ["close-gap"],
+        targets: ["src"],
+        required_outcome: "Complete retry behavior.",
+        implementation_latitude: "The project harness chooses execution.",
+        completion_probe: "The required outcome is observable.",
+        check_keys: ["verify-gap"],
+        deviation_action: "Replan if Root authority changes.",
+      }],
+      learning_candidates: [{
+        key: "retain-boundary",
+        finding_keys: ["retry-gap"],
+        reusable_guidance: "Keep verification intent separate from execution.",
+        candidate_targets: ["project guidance"],
+        confirmation_evidence: "Verified corrected delivery.",
+      }],
+    },
+  };
+}
 
-test("Manual Review atomically creates missing Evidence and Review from fresh observations", () => {
+test("missing harness keeps exact Root and returns provisional Review", () => {
   const bundle = buildManualReviewLifecycle({
-    rootPlanText: leanRoot,
-    reviewInput: achievedReview,
-    checkEvidence: [verifiedCheck],
+    rootPlanText: root,
+    reviewInput: reviewInput(false),
     workspaceRoot: defaultRoot,
     pluginRoot: defaultRoot,
-    repositoryBaseline: snapshot([]),
-    captureSnapshot: () => snapshot(),
+    captureSnapshot: () => current,
   });
+  assert.equal(bundle.root_plan_id, "wp-adaptive-retry");
+  assert.equal(bundle.delivery_evidence.fields.status, "provisional");
+  assert.equal(bundle.review.fields.delivery_status, "provisional");
+  assert.match(bundle.delivery_evidence.fields.check_evidence[0].limitations.join("\n"), /harness/i);
+});
 
-  assert.equal(bundle.delivery_evidence.fields.root_plan_id, "wp-retry");
+test("protected harness evidence enables verified Review independent of execution choice", () => {
+  const bundle = buildManualReviewLifecycle({
+    rootPlanText: root,
+    reviewInput: reviewInput(true),
+    workspaceRoot: defaultRoot,
+    pluginRoot: defaultRoot,
+    captureSnapshot: () => current,
+    harnessPhaseResult: phaseResult(),
+    harnessProtectionHash: "1".repeat(64),
+    workspaceBinding,
+  });
   assert.equal(bundle.delivery_evidence.fields.overall_grade, "verified");
-  assert.equal(bundle.delivery_evidence.fields.check_evidence[0].grade, "verified");
-  assert.equal(bundle.review.fields.latest_evidence_id, bundle.delivery_evidence.fields.id);
-  assert.equal(bundle.review.fields.assessment, "achieved");
   assert.equal(bundle.review.fields.delivery_status, "verified");
   assert.equal(bundle.review.fields.next_action, "none");
 });
 
-test("Manual Review caps otherwise verified observations when no repository baseline is available", () => {
-  const bundle = buildManualReviewLifecycle({
-    rootPlanText: leanRoot,
-    reviewInput: achievedReview,
-    checkEvidence: [verifiedCheck],
+test("manual Review rejects invalid Roots, missing inputs, and unprotected Review bytes", () => {
+  assert.throws(() => buildManualReviewLifecycle({
+    rootPlanText: root,
     workspaceRoot: defaultRoot,
     pluginRoot: defaultRoot,
-    captureSnapshot: () => snapshot(),
-  });
+    captureSnapshot: () => current,
+  }), /review_input/);
+  assert.throws(() => buildManualReviewLifecycle({
+    rootPlanText: root,
+    reviewInput: reviewInput(false),
+    pluginRoot: defaultRoot,
+    captureSnapshot: () => current,
+  }), /repository root/);
+  assert.throws(() => buildManualReviewLifecycle({
+    rootPlanText: root.replace("schema: 6", "schema: 7"),
+    reviewInput: reviewInput(false),
+    workspaceRoot: defaultRoot,
+    pluginRoot: defaultRoot,
+    captureSnapshot: () => current,
+  }), /Schema-6 Root/);
+  assert.throws(() => buildManualReviewLifecycle({
+    rootPlanText: root,
+    artifacts: [{ label: "broken", text: "not an artifact" }],
+    reviewInput: reviewInput(false),
+    workspaceRoot: defaultRoot,
+    pluginRoot: defaultRoot,
+    captureSnapshot: () => current,
+  }), /artifact broken is invalid/);
 
-  assert.equal(bundle.delivery_evidence.fields.overall_grade, "supported");
-  assert.equal(bundle.delivery_evidence.fields.status, "provisional");
-  assert.equal(bundle.delivery_evidence.fields.extensions.workflow.repository_attribution.status, "provisional");
-  assert.deepEqual(bundle.repository_attribution.reason_codes, ["baseline-unavailable"]);
-  assert.equal(bundle.review.fields.delivery_status, "provisional");
-  assert.equal(bundle.review.fields.next_action, "accept-provisional");
+  const first = buildManualReviewLifecycle({
+    rootPlanText: root,
+    reviewInput: reviewInput(false),
+    workspaceRoot: defaultRoot,
+    pluginRoot: defaultRoot,
+    repositoryBaseline: cleanBaseline,
+    repositoryAttribution: { status: "attributed", boundary: "create-plan", reason_codes: [] },
+    captureSnapshot: () => current,
+  });
+  const evidence = { label: first.delivery_evidence.fields.id, text: first.delivery_evidence.artifact };
+  const rawReview = { label: first.review.fields.id, text: first.review.artifact };
+  assert.throws(() => buildManualReviewLifecycle({
+    rootPlanText: root,
+    artifacts: [evidence, rawReview],
+    reviewInput: reviewInput(false),
+    workspaceRoot: defaultRoot,
+    pluginRoot: defaultRoot,
+    repositoryBaseline: cleanBaseline,
+    captureSnapshot: () => current,
+  }), (error) => error?.code === "review-artifact-rejected");
+  assert.throws(() => buildManualReviewLifecycle({
+    rootPlanText: root,
+    artifacts: [evidence, { ...rawReview, builder_provenance: { ...first.review.provenance, artifact_hash: "0".repeat(64) } }],
+    reviewInput: reviewInput(false),
+    workspaceRoot: defaultRoot,
+    pluginRoot: defaultRoot,
+    repositoryBaseline: cleanBaseline,
+    captureSnapshot: () => current,
+  }), (error) => error?.code === "review-artifact-rejected");
 });
 
-test("Manual Review returns a bounded clarification instead of throwing on dirty paths outside Plan authority", () => {
+test("repository attribution and Root path authority downgrade claims without inventing failure", () => {
+  const unsupported = {
+    ...current,
+    dirty_paths: ["README.md", "src/retry.mjs"],
+    fingerprints: {
+      "README.md": "file:" + "1".repeat(64),
+      "src/retry.mjs": "file:" + "2".repeat(64),
+    },
+  };
   const bundle = buildManualReviewLifecycle({
-    rootPlanText: leanRoot,
-    reviewInput: achievedReview,
-    checkEvidence: [verifiedCheck],
+    rootPlanText: root,
+    reviewInput: reviewInput(true),
+    checkEvidence: [{ check_id: "CHECK-1", grade: "verified", observed: "Caller observation without protected harness attestation." }],
     workspaceRoot: defaultRoot,
     pluginRoot: defaultRoot,
-    repositoryBaseline: snapshot([]),
-    captureSnapshot: () => snapshot(["README.md"]),
+    repositoryBaseline: cleanBaseline,
+    repositoryAttribution: { status: "provisional", boundary: "create-plan", reason_codes: [] },
+    captureSnapshot: () => unsupported,
   });
-
-  assert.equal(bundle.delivery_evidence.fields.check_evidence[0].grade, "supported");
-  assert.equal(bundle.delivery_evidence.fields.status, "provisional");
   assert.equal(bundle.review.fields.delivery_status, "blocked");
   assert.equal(bundle.review.fields.next_action, "clarify");
-  assert.match(bundle.review.artifact, /do not fit the native Plan authority/i);
+  assert.deepEqual(bundle.changed_paths, ["src/retry.mjs"]);
+  assert.match(bundle.review.artifact, /README\.md|Plan authority/);
+  assert.match(bundle.delivery_evidence.fields.check_evidence[0].limitations.join("\n"), /provisional|harness/i);
 });
 
-test("Manual Review replaces stale Evidence when changed_paths diverge from the current delivery delta", () => {
+test("an unchanged protected chain is reused and repository drift replaces only its tip", () => {
   const first = buildManualReviewLifecycle({
-    rootPlanText: leanRoot,
-    reviewInput: achievedReview,
-    checkEvidence: [verifiedCheck],
+    rootPlanText: root,
+    reviewInput: reviewInput(false),
     workspaceRoot: defaultRoot,
     pluginRoot: defaultRoot,
-    repositoryBaseline: snapshot([]),
-    captureSnapshot: () => snapshot(["src/retry.mjs"]),
+    repositoryBaseline: cleanBaseline,
+    repositoryAttribution: { status: "attributed", boundary: "create-plan", reason_codes: [] },
+    captureSnapshot: () => current,
   });
-  const stale = buildManualReviewLifecycle({
-    rootPlanText: leanRoot,
-    artifacts: [{ label: first.delivery_evidence.fields.id, text: first.delivery_evidence.artifact }],
-    reviewInput: achievedReview,
-    checkEvidence: [verifiedCheck],
+  const artifacts = protectedArtifacts(first);
+  const same = buildManualReviewLifecycle({
+    rootPlanText: root,
+    artifacts,
+    reviewInput: reviewInput(false),
     workspaceRoot: defaultRoot,
     pluginRoot: defaultRoot,
-    repositoryBaseline: snapshot([]),
-    captureSnapshot: () => snapshot([]),
+    repositoryBaseline: cleanBaseline,
+    repositoryAttribution: { status: "attributed", boundary: "create-plan", reason_codes: [] },
+    captureSnapshot: () => current,
   });
+  assert.equal(same.chain_update, "reuse");
+  assert.equal(same.delivery_evidence.duplicate, true);
 
-  assert.equal(stale.delivery_evidence.duplicate, false);
-  assert.notEqual(stale.delivery_evidence.fields.id, first.delivery_evidence.fields.id);
-  assert.deepEqual(stale.delivery_evidence.fields.changed_paths, []);
-  assert.deepEqual(stale.observed_dirty_paths, []);
-  assert.equal(stale.review.fields.delivery_status, "blocked");
-  assert.equal(stale.review.fields.next_action, "clarify");
-  assert.match(stale.review.artifact, /delivery delta .* does not match Evidence .* changed_paths/i);
-  assert.match(stale.chain_update, /^replace-/);
-});
-
-test("Manual Review bounds a large changed-path mismatch without losing the recovery verdict", () => {
-  const first = buildManualReviewLifecycle({
-    rootPlanText: leanRoot,
-    reviewInput: achievedReview,
-    checkEvidence: [verifiedCheck],
-    workspaceRoot: defaultRoot,
-    pluginRoot: defaultRoot,
-    repositoryBaseline: snapshot([]),
-    captureSnapshot: () => snapshot(["src/retry.mjs"]),
-  });
-  const manyPaths = Array.from({ length: 120 }, (_, index) => `src/generated/retry-case-${String(index).padStart(3, "0")}.mjs`);
-  const refreshed = buildManualReviewLifecycle({
-    rootPlanText: leanRoot,
-    artifacts: [{ label: first.delivery_evidence.fields.id, text: first.delivery_evidence.artifact }],
-    reviewInput: achievedReview,
-    checkEvidence: [verifiedCheck],
-    workspaceRoot: defaultRoot,
-    pluginRoot: defaultRoot,
-    repositoryBaseline: snapshot([]),
-    captureSnapshot: () => snapshot(manyPaths),
-  });
-
-  assert.equal(refreshed.review.fields.delivery_status, "blocked");
-  assert.equal(refreshed.review.fields.next_action, "clarify");
-  assert.match(refreshed.review.artifact, /\[bounded\]|\(\+\d+ more\)/);
-});
-
-test("Manual Review may reuse Evidence when the current delivery delta still matches", () => {
-  const first = buildManualReviewLifecycle({
-    rootPlanText: leanRoot,
-    reviewInput: achievedReview,
-    checkEvidence: [verifiedCheck],
-    workspaceRoot: defaultRoot,
-    pluginRoot: defaultRoot,
-    repositoryBaseline: snapshot([]),
-    captureSnapshot: () => snapshot(["src/retry.mjs"]),
-  });
-  const reused = buildManualReviewLifecycle({
-    rootPlanText: leanRoot,
-    artifacts: [{ label: first.delivery_evidence.fields.id, text: first.delivery_evidence.artifact }],
-    reviewInput: achievedReview,
-    checkEvidence: [verifiedCheck],
-    workspaceRoot: defaultRoot,
-    pluginRoot: defaultRoot,
-    repositoryBaseline: snapshot([]),
-    captureSnapshot: () => snapshot(["src/retry.mjs"]),
-  });
-
-  assert.equal(reused.delivery_evidence.duplicate, true);
-  assert.equal(reused.delivery_evidence.fields.id, first.delivery_evidence.fields.id);
-  assert.equal(reused.review.fields.delivery_status, "verified");
-  assert.equal(reused.review.fields.next_action, "none");
-});
-
-test("a fresh retry Review replaces provisional Evidence when checks improve without repository drift", () => {
-  const first = buildManualReviewLifecycle({
-    rootPlanText: leanRoot,
-    reviewInput: {
-      ...achievedReview,
-      assessment: "insufficient-evidence",
-      recommended_action: "retry-review",
-      assessment_summary: "The planned Check was temporarily unavailable.",
-      snapshot_assessment: "incomplete",
-      missing_evidence: ["Fresh CHECK-1 observation is unavailable."],
-    },
-    checkEvidence: [{
-      ...verifiedCheck,
-      grade: "unavailable",
-      observed: "The planned verification surface was temporarily unavailable.",
-      repetitions: 0,
-      limitations: ["Retry the planned Check in a fresh Review."],
-    }],
-    workspaceRoot: defaultRoot,
-    pluginRoot: defaultRoot,
-    repositoryBaseline: snapshot([]),
-    captureSnapshot: () => snapshot(["src/retry.mjs"]),
-  });
-  assert.equal(first.review.fields.next_action, "retry-review");
-  assert.equal(first.delivery_evidence.fields.status, "provisional");
-
-  const second = buildManualReviewLifecycle({
-    rootPlanText: leanRoot,
-    artifacts: [
-      { label: first.delivery_evidence.fields.id, text: first.delivery_evidence.artifact },
-      { label: first.review.fields.id, text: first.review.artifact, builder_provenance: first.review.provenance },
-    ],
-    reviewInput: achievedReview,
-    checkEvidence: [verifiedCheck],
-    workspaceRoot: defaultRoot,
-    pluginRoot: defaultRoot,
-    repositoryBaseline: snapshot([]),
-    captureSnapshot: () => snapshot(["src/retry.mjs"]),
-  });
-
-  assert.equal(second.chain_update, "replace-full-tip");
-  assert.notEqual(second.delivery_evidence.fields.id, first.delivery_evidence.fields.id);
-  assert.equal(second.delivery_evidence.fields.overall_grade, "verified");
-  assert.equal(second.review.fields.delivery_status, "verified");
-  assert.equal(second.review.fields.next_action, "none");
-});
-
-test("a refresh cannot discard an imported raw Review before provenance validation", () => {
-  const first = buildManualReviewLifecycle({
-    rootPlanText: leanRoot,
-    reviewInput: achievedReview,
-    checkEvidence: [verifiedCheck],
-    workspaceRoot: defaultRoot,
-    pluginRoot: defaultRoot,
-    repositoryBaseline: snapshot([]),
-    captureSnapshot: () => snapshot(["src/retry.mjs"]),
-  });
-
-  assert.throws(() => buildManualReviewLifecycle({
-    rootPlanText: leanRoot,
-    artifacts: [
-      { label: first.delivery_evidence.fields.id, text: first.delivery_evidence.artifact },
-      { label: first.review.fields.id, text: first.review.artifact },
-    ],
-    reviewInput: achievedReview,
-    checkEvidence: [verifiedCheck],
-    workspaceRoot: defaultRoot,
-    pluginRoot: defaultRoot,
-    repositoryBaseline: snapshot([]),
-    captureSnapshot: () => snapshot(["src/retry.mjs"]),
-  }), (error) => error?.code === "review-artifact-rejected" && /without protected builder provenance/.test(error.message));
-});
-
-test("Manual Review rejects invalid authority inputs and bounds an appended repository limitation", () => {
-  const base = {
-    rootPlanText: leanRoot,
-    reviewInput: achievedReview,
-    checkEvidence: [verifiedCheck],
-    workspaceRoot: defaultRoot,
-    pluginRoot: defaultRoot,
-    repositoryBaseline: snapshot([]),
-    captureSnapshot: () => snapshot(["src/retry.mjs"]),
+  const drifted = {
+    ...current,
+    dirty_paths: ["tests/retry.test.mjs"],
+    fingerprints: { "tests/retry.test.mjs": "file:" + "f".repeat(64) },
+    status_fingerprint: "9".repeat(64),
   };
-  assert.throws(() => buildManualReviewLifecycle({ ...base, rootPlanText: leanRoot.slice(0, 200) }), /exact native Schema-5 Root/);
-  assert.throws(() => buildManualReviewLifecycle({ ...base, artifacts: [{ label: "broken", text: "not an artifact" }] }), /artifact broken is invalid/);
-
-  const first = buildManualReviewLifecycle(base);
-  assert.throws(() => buildManualReviewLifecycle({
-    ...base,
-    artifacts: [
-      { label: first.delivery_evidence.fields.id, text: first.delivery_evidence.artifact },
-      {
-        label: first.review.fields.id,
-        text: first.review.artifact,
-        builder_provenance: { ...first.review.provenance, artifact_hash: "0".repeat(64) },
-      },
-    ],
-  }), (error) => error?.code === "review-artifact-rejected" && /invalid host builder provenance/.test(error.message));
-
-  const bounded = buildManualReviewLifecycle({
-    ...base,
-    repositoryBaseline: null,
-    reviewInput: { ...achievedReview, snapshot_summary: "x".repeat(1_880) },
-  });
-  assert.equal(bounded.review.fields.delivery_status, "provisional");
-  assert.match(bounded.review.artifact, /\[bounded\]/);
-});
-
-test("known failed required Checks complete Review with blocked delivery", () => {
-  const bundle = buildManualReviewLifecycle({
-    rootPlanText: leanRoot,
-    reviewInput: achievedReview,
-    checkEvidence: [{ ...verifiedCheck, grade: "failed", observed: "The required Check failed." }],
+  const replaced = buildManualReviewLifecycle({
+    rootPlanText: root,
+    artifacts,
+    reviewInput: reviewInput(false),
     workspaceRoot: defaultRoot,
     pluginRoot: defaultRoot,
-    repositoryBaseline: snapshot([]),
-    captureSnapshot: () => snapshot(),
+    repositoryBaseline: cleanBaseline,
+    repositoryAttribution: { status: "attributed", boundary: "create-plan", reason_codes: [] },
+    captureSnapshot: () => drifted,
   });
-
-  assert.equal(bundle.delivery_evidence.fields.status, "blocked");
-  assert.equal(bundle.review.fields.delivery_status, "blocked");
-  assert.notEqual(bundle.review.fields.assessment, "achieved");
-  assert.notEqual(bundle.review.fields.next_action, "none");
+  assert.match(replaced.chain_update, /^replace-/);
+  assert.deepEqual(replaced.changed_paths, ["tests/retry.test.mjs"]);
+  assert.match(replaced.review.artifact, /does not match Evidence|tests\/retry\.test\.mjs/);
 });
 
-test("fresh Review after correction creates delta Evidence against the exact current-task chain", () => {
+test("a correction Review creates a fresh intent-based Evidence suffix", () => {
   const first = buildManualReviewLifecycle({
-    rootPlanText: leanRoot,
-    reviewInput: correctionReview,
-    checkEvidence: [verifiedCheck],
+    rootPlanText: root,
+    reviewInput: correctionInput(),
     workspaceRoot: defaultRoot,
     pluginRoot: defaultRoot,
-    repositoryBaseline: snapshot([]),
-    captureSnapshot: () => snapshot(),
+    repositoryBaseline: cleanBaseline,
+    repositoryAttribution: { status: "attributed", boundary: "create-plan", reason_codes: [] },
+    captureSnapshot: () => current,
   });
-  const correctionCheck = {
-    ...verifiedCheck,
-    check_id: "CHECK-2",
-    expected: "Focused correction tests pass.",
-    observed: "The bounded correction passed in this fresh Review.",
-  };
-  const second = buildManualReviewLifecycle({
-    rootPlanText: leanRoot,
-    artifacts: [
-      { label: first.delivery_evidence.fields.id, text: first.delivery_evidence.artifact },
-      { label: first.review.fields.id, text: first.review.artifact, builder_provenance: first.review.provenance },
-    ],
-    reviewInput: achievedReview,
-    checkEvidence: [verifiedCheck, correctionCheck],
+  assert.equal(first.review.fields.next_action, "correct");
+  const corrected = buildManualReviewLifecycle({
+    rootPlanText: root,
+    artifacts: protectedArtifacts(first),
+    reviewInput: reviewInput(false),
     workspaceRoot: defaultRoot,
     pluginRoot: defaultRoot,
-    repositoryBaseline: snapshot(["src/retry.mjs"], "a".repeat(64)),
+    repositoryBaseline: current,
     repositoryAttribution: { status: "attributed", boundary: "correction", reason_codes: [] },
-    captureSnapshot: () => snapshot(["src/retry.mjs"], "b".repeat(64)),
+    captureSnapshot: () => current,
   });
-
-  assert.equal(second.delivery_evidence.fields.representation, "delta");
-  assert.equal(second.delivery_evidence.fields.source_review_id, first.review.fields.id);
-  assert.equal(second.delivery_evidence.fields.predecessor_evidence_id, first.delivery_evidence.fields.id);
-  assert.equal(second.review.fields.latest_evidence_id, second.delivery_evidence.fields.id);
-  assert.equal(second.review.fields.delivery_status, "verified");
+  assert.equal(corrected.chain_update, "append");
+  assert.equal(corrected.delivery_evidence.fields.representation, "delta");
+  assert.match(first.review.artifact, /Verification Intent/);
+  assert.doesNotMatch(first.review.artifact, /Working Directory|Command or Inspection/);
 });

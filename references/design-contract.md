@@ -1,7 +1,7 @@
 # Adaptive design contract
 
-Workflow 5 has no fixed design ladder or mandatory design tables. Intent states observable goal, acceptance, boundaries, constraints, non-goals, and risk.
+The Schema-6 Root states observable goal, acceptance, authority, constraints, non-goals, and risk. Workflow does not prescribe an implementation design ladder or concrete execution technique.
 
-Strategy may revise in-root decomposition, targets, tools, and equivalent Checks. Intent, public contracts, risk, dependency authority, external effects, or approval paths need a human boundary decision.
+The project harness may adapt decomposition and execution inside the immutable Root envelope. Goal, acceptance, public contracts, risk, dependency authority, protected paths, external effects, budgets, or profile changes require a new human decision.
 
-Pareto assurance proves essential acceptance and hard boundaries; add breadth only for worthwhile risk reduction. Required Checks are review-reobservable: inspect wrapper and hook chains and reject repository-writing methods. Without sufficient read-only proof, the Root is not ready. Deferred Checks are visible, not closeout gates.
+Verification intents prove essential acceptance and hard boundaries. Add breadth only where risk reduction is worthwhile. The harness decides how to obtain evidence; Workflow evaluates only the resulting bound grade and limitations.

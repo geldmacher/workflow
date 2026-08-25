@@ -1,105 +1,27 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/geldmacher/workflow/schemas/capability-receipt.schema.json",
-  "title": "Workflow Capability Receipt",
+  "$id": "urn:geldmacher:workflow:harness-capability-receipt:1",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "schema", "generated_by", "issued_at", "expires_at", "plugin_version", "artifact_schema", "controller_protocol",
-    "sdk_version", "platform", "node_version", "os_version", "cursor_version", "marketplace_git_commit", "plugin_hash",
-    "worker_hash", "runtime_hash", "lockfile_hash", "attested_route_pool_hash", "model_catalog_hash", "planning_harness_hash",
-    "cursor_harness_hash", "verification_profile_hash", "model_attestation", "certified_models", "audit", "observations",
-    "capability_vector", "qualification_bindings", "profile_eligibility", "evidence_hashes", "automation_safe"
-  ],
+  "required": ["schema", "kind", "harness_id", "harness_version", "deployment_binding_hash", "workspace_binding", "capabilities", "qualification_keys", "policy_hash", "issued_at", "expires_at", "content_hash"],
   "properties": {
-    "schema": { "const": 4 },
-    "generated_by": { "const": "geldmacher-workflow-capability-spike" },
+    "schema": { "const": 1 },
+    "kind": { "const": "harness-capability-receipt" },
+    "harness_id": { "type": "string", "minLength": 1 },
+    "harness_version": { "type": "string", "minLength": 1 },
+    "deployment_binding_hash": { "$ref": "#/$defs/hash" },
+    "workspace_binding": { "$ref": "#/$defs/hash" },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["phase-execution", "authority-enforcement", "read-only-review", "workspace-snapshot", "evidence-attestation", "budget-reporting", "cancellation"] }
+    },
+    "qualification_keys": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^qk-[A-Za-z0-9][A-Za-z0-9-]*$" } },
+    "policy_hash": { "$ref": "#/$defs/hash" },
     "issued_at": { "type": "string", "format": "date-time" },
     "expires_at": { "type": "string", "format": "date-time" },
-    "plugin_version": { "type": "string" },
-    "artifact_schema": { "const": 5 },
-    "controller_protocol": { "const": 5 },
-    "sdk_version": { "type": "string" },
-    "platform": { "type": "string" },
-    "node_version": { "type": "string" },
-    "os_version": { "type": "string" },
-    "cursor_version": { "type": "string", "minLength": 1 },
-    "marketplace_git_commit": { "type": "string", "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$" },
-    "plugin_hash": { "$ref": "#/$defs/hash" },
-    "worker_hash": { "$ref": "#/$defs/hash" },
-    "runtime_hash": { "$ref": "#/$defs/hash" },
-    "lockfile_hash": { "$ref": "#/$defs/hash" },
-    "attested_route_pool_hash": { "$ref": "#/$defs/hash" },
-    "model_catalog_hash": { "$ref": "#/$defs/hash" },
-    "planning_harness_hash": { "$ref": "#/$defs/hash" },
-    "cursor_harness_hash": { "$ref": "#/$defs/hash" },
-    "verification_profile_hash": { "$ref": "#/$defs/hash" },
-    "model_attestation": {
-      "type": "object", "additionalProperties": false,
-      "required": ["requested", "accepted", "observed", "request_ids", "agent_ids", "run_ids"],
-      "properties": {
-        "requested": { "$ref": "#/$defs/models" }, "accepted": { "$ref": "#/$defs/models" }, "observed": { "$ref": "#/$defs/models" },
-        "request_ids": { "$ref": "#/$defs/ids" }, "agent_ids": { "$ref": "#/$defs/ids" }, "run_ids": { "$ref": "#/$defs/ids" }
-      }
-    },
-    "audit": {
-      "type": "object", "additionalProperties": false,
-      "required": ["lockfile_hash", "evidence_hash", "production_packages", "high", "critical", "moderate", "risk_acceptance_hash"],
-      "properties": {
-        "lockfile_hash": { "$ref": "#/$defs/hash" }, "evidence_hash": { "$ref": "#/$defs/hash" },
-        "production_packages": { "type": "integer", "minimum": 0 }, "high": { "type": "integer", "minimum": 0 },
-        "critical": { "type": "integer", "minimum": 0 }, "moderate": { "type": "integer", "minimum": 0 },
-        "risk_acceptance_hash": { "oneOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] }
-      }
-    },
-    "certified_models": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/model" } },
-    "capability_vector": {
-      "type": "object", "additionalProperties": false,
-      "required": ["write_boundary", "network_isolation", "secret_isolation", "budget_cancel", "planning", "verification_profile", "route_pool"],
-      "properties": {
-        "write_boundary": { "type": "boolean" }, "network_isolation": { "type": "boolean" },
-        "secret_isolation": { "type": "boolean" }, "budget_cancel": { "type": "boolean" },
-        "planning": { "type": "boolean" }, "verification_profile": { "type": "boolean" }, "route_pool": { "type": "boolean" }
-      }
-    },
-    "qualification_bindings": {
-      "type": "array", "items": {
-        "type": "object", "additionalProperties": false,
-        "required": ["task_class", "verification_profile_hash", "route_pool_hash", "certified_region"],
-        "properties": {
-          "task_class": { "enum": ["bugfix", "refactor", "performance", "feature", "investigation", "verify-existing"] },
-          "verification_profile_hash": { "$ref": "#/$defs/hash" }, "route_pool_hash": { "$ref": "#/$defs/hash" },
-          "certified_region": { "type": "string", "minLength": 1 }
-        }
-      }
-    },
-    "profile_eligibility": {
-      "type": "object", "additionalProperties": false, "required": ["supervised", "autonomous"],
-      "properties": { "supervised": { "type": "boolean" }, "autonomous": { "type": "boolean" } }
-    },
-    "observations": {
-      "type": "object", "additionalProperties": false,
-      "required": ["local_mcp", "marketplace_mcp", "marketplace_worker_runtime", "sdk_write_boundary", "worker_network_isolated", "sdk_secret_isolated", "sdk_budget_cancel", "restart_resume", "crash_interrupt_resume", "planner_submission", "model_configuration_exact", "cursor_harness"],
-      "properties": {
-        "local_mcp": { "$ref": "#/$defs/observation" }, "marketplace_mcp": { "$ref": "#/$defs/observation" },
-        "marketplace_worker_runtime": { "$ref": "#/$defs/observation" }, "sdk_write_boundary": { "$ref": "#/$defs/observation" },
-        "worker_network_isolated": { "$ref": "#/$defs/observation" }, "sdk_secret_isolated": { "$ref": "#/$defs/observation" },
-        "sdk_budget_cancel": { "$ref": "#/$defs/observation" }, "restart_resume": { "$ref": "#/$defs/observation" },
-        "crash_interrupt_resume": { "$ref": "#/$defs/observation" }, "planner_submission": { "$ref": "#/$defs/observation" },
-        "model_configuration_exact": { "$ref": "#/$defs/observation" }, "cursor_harness": { "$ref": "#/$defs/observation" }
-      }
-    },
-    "evidence_hashes": { "type": "object", "minProperties": 1, "additionalProperties": { "$ref": "#/$defs/hash" } },
-    "automation_safe": { "type": "boolean" }
+    "content_hash": { "$ref": "#/$defs/hash" }
   },
-  "$defs": {
-    "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-    "ids": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
-    "models": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/model" } },
-    "model": {
-      "type": "object", "additionalProperties": false, "required": ["role", "id", "params"],
-      "properties": { "role": { "enum": ["planner", "investigator", "writer", "writer_escalated", "verifier", "reviewer", "explainer"] }, "id": { "type": "string", "minLength": 1 }, "params": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["id", "value"], "properties": { "id": { "type": "string" }, "value": { "type": "string" } } } } }
-    },
-    "observation": { "type": "object", "additionalProperties": false, "required": ["verified", "repetitions", "evidence_hash"], "properties": { "verified": { "type": "boolean" }, "repetitions": { "type": "integer", "minimum": 0 }, "evidence_hash": { "$ref": "#/$defs/hash" } } }
-  }
+  "$defs": { "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" } }
 }

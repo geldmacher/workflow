@@ -27,11 +27,11 @@ test("workflow has no always-on context and bounded discoverability", () => {
   const measurement = measureContext(defaultRoot);
   assert.equal(measurement.alwaysOnTokens, 0);
   assert.ok(measurement.discoverabilityTokens <= limits.discoverabilityTokens);
-  assert.deepEqual(Object.keys(measurement.discoverabilityTokensByType), ["commands", "skills", "agents"]);
+  assert.deepEqual(Object.keys(measurement.discoverabilityTokensByType), ["commands", "skills"]);
   assert.ok(Object.values(measurement.discoverabilityTokensByType).every((tokens) => tokens > 0));
 });
 
-test("manual phase flows model progressive contract loading", () => {
+test("manual phase flows use progressive contract loading", () => {
   const measurement = measureContext(defaultRoot);
   assert.equal(measurement.measurement_version, measurementVersion);
   assert.deepEqual(Object.keys(measurement.phase_flows), Object.keys(flowMatrix.phase_flows));
@@ -73,11 +73,10 @@ test("every measured flow has a unique actionable file breakdown", () => {
   }
 });
 
-test("manual, expanded, automation, and auditor targets are explicit", () => {
+test("manual, expanded, and automation targets are explicit", () => {
   const measurement = measureContext(defaultRoot);
   for (const [name, maximum] of Object.entries(limits.phaseFlows)) assert.ok(measurement.phase_flows[name] <= maximum, name);
   for (const [name, maximum] of Object.entries(limits.automationFlows)) assert.ok(measurement.automationFlows[name] <= maximum, name);
-  for (const [name, tokens] of Object.entries(measurement.reviewerTokens)) assert.ok(tokens <= limits.reviewerTokens, name);
   assert.deepEqual(economicTargets, { plan: 1800, correction: 1800, review: 1950, learning: 1800, explanation: 1080, automation: 1350 });
   for (const [name, maximum] of Object.entries(headroomTargets.phaseFlows)) assert.ok(measurement.phase_flows[name] <= maximum, `${name} headroom`);
   for (const [name, maximum] of Object.entries(headroomTargets.automationFlows)) assert.ok(measurement.automationFlows[name] <= maximum, `${name} headroom`);

@@ -12,15 +12,12 @@ import {
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { isReadOnlyShell, manualJourneyDecision } from "../scripts/validate-artifact.mjs";
-import { canonicalRepositoryRoot, withNativeStateLock } from "../src/core/native-task-review-state.mjs";
-import { hashWorkflowIdentifier, workflowStateRoot } from "./model-inheritance-state.mjs";
+import { canonicalRepositoryRoot, withNativeStateLock } from "../src/harness/native-task-review-state.mjs";
+import { hashWorkflowIdentifier, workflowStateRoot } from "./workflow-state.mjs";
 import {
-  authorizeNativeReviewShell,
   beginNativeCorrection,
   cleanupNativeTaskReviewContext,
   failNativeReview,
-  markNativeRepositoryMutation,
   observeNativeCreatePlan,
   observeNativeCreatePlanAtStop,
   observeNativeReviewResult,
@@ -31,14 +28,6 @@ import {
 
 const MAX_INPUT_BYTES = 1024 * 1024;
 const pluginRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-const MUTATING_TOOL = /^(?:Write|Edit|Delete|Task|Agent|spawn_agent|CreatePlan|ApplyPatch|apply_patch|DeleteFile|StrReplace|EditNotebook|Computer.*|Browser.*)$/i;
-const READONLY_REVIEW_MARKER = "[workflow-readonly-review-v1]";
-const READONLY_REVIEW_AGENTS = new Set(["delivery-auditor", "risk-auditor", "work-design-auditor"]);
-const READONLY_REVIEW_MCP = new Set([
-  "mcp:workflow_plan_preflight",
-  "mcp:workflow_artifact_context",
-  "mcp:workflow_status",
-]);
 
 const deny = (user_message) => ({ permission: "deny", user_message });
 
@@ -48,6 +37,12 @@ function conversationHash(input) {
 
 function generationHash(input) {
   return hashWorkflowIdentifier("generation", input.generation_id ?? input.turn_id ?? "unknown");
+}
+
+function toolInput(input) {
+  return input?.tool_input && typeof input.tool_input === "object" && !Array.isArray(input.tool_input)
+    ? input.tool_input
+    : {};
 }
 
 function stateRoots(input, options = {}) {
@@ -123,7 +118,7 @@ function readTurnState(input, options = {}) {
     const path = turnPath(root, input);
     if (!path || !existsSync(path)) continue;
     const value = readJson(path);
-    if (value?.schema !== 4 || value?.kind !== "manual-native-plan-review-turn") return { status: "invalid", value: null };
+    if (value?.schema !== 6 || value?.kind !== "manual-native-plan-review-turn") return { status: "invalid", value: null };
     found ??= value;
   }
   return found ? { status: "valid", value: found } : { status: "absent", value: null };
@@ -140,9 +135,9 @@ function writeTurn(input, valueOrUpdater, options = {}) {
         : valueOrUpdater;
       writeJson(path, {
         ...value,
-        schema: 4,
+        schema: 6,
         kind: "manual-native-plan-review-turn",
-        revision: current?.schema === 4 && Number.isInteger(current.revision) ? current.revision + 1 : 1,
+        revision: current?.schema === 6 && Number.isInteger(current.revision) ? current.revision + 1 : 1,
         updated_at: new Date().toISOString(),
       });
     }, options);
@@ -152,7 +147,7 @@ function writeTurn(input, valueOrUpdater, options = {}) {
 function phaseFromPrompt(input) {
   const prompt = String(input.prompt ?? input.command ?? "");
   if (/^\s*\/(?:plan-work)(?:\s|$)/i.test(prompt)) return "planning";
-  if (/^\s*\/(?:review-work)(?:\s|$)|\[workflow-codex-review-v1\]/i.test(prompt)) return "review";
+  if (/^\s*\/(?:review-work)(?:\s|$)/i.test(prompt)) return "review";
   if (/^\s*\/(?:correct-work)(?:\s|$)/i.test(prompt)) return "correction";
   return null;
 }
@@ -162,46 +157,17 @@ function eventTimestamp(options = {}) {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
 
-function toolInput(input) {
-  if (input.tool_input && typeof input.tool_input === "object" && !Array.isArray(input.tool_input)) return input.tool_input;
-  if (typeof input.tool_input !== "string") return {};
-  try { return JSON.parse(input.tool_input); } catch { return {}; }
-}
-
-function isMutatingTool(input) {
-  const name = String(input.tool_name ?? "");
-  if (/^(?:Shell|Bash)$/i.test(name)) {
-    const source = toolInput(input);
-    return !isReadOnlyShell(source.command ?? source.cmd);
-  }
-  if (/^MCP:/i.test(name)) return !READONLY_REVIEW_MCP.has(name.toLowerCase());
-  return MUTATING_TOOL.test(name);
-}
-
-function isPotentialRepositoryMutation(input) {
-  const name = String(input.tool_name ?? "");
-  if (/^(?:Shell|Bash)$/i.test(name)) {
-    const source = toolInput(input);
-    return !isReadOnlyShell(source.command ?? source.cmd);
-  }
-  if (/^MCP:/i.test(name)) {
-    return !/^MCP:workflow_closeout$/i.test(name) && !READONLY_REVIEW_MCP.has(name.toLowerCase());
-  }
-  return /^(?:Write|Edit|Delete|Task|Agent|spawn_agent|ApplyPatch|apply_patch|DeleteFile|StrReplace|EditNotebook|Computer.*|Browser.*)$/i.test(name);
-}
-
-function readOnlyReviewAgent(input) {
-  if (!/^(?:Task|Agent|spawn_agent)$/i.test(String(input.tool_name ?? ""))) return null;
-  const source = toolInput(input);
-  const agent = String(source.subagent_type ?? source.agent_type ?? "");
-  const prompt = String(source.prompt ?? source.task ?? "");
-  return source.readonly === true && prompt.includes(READONLY_REVIEW_MARKER) && READONLY_REVIEW_AGENTS.has(agent)
-    ? agent
-    : null;
-}
-
 function nativeReviewDenial(value) {
   const reasons = value.reason_codes ?? [];
+  if (value.status === "invalidated") {
+    return deny("[native-review-invalidated] The repository changed after this Review began, so its observations are stale. Stop the active writer, then repeat /review-work in this same task. The active Root remains valid; create a new Plan only if Intent or authority changed.");
+  }
+  if (reasons.includes("native-plan-root-invalid")
+    || reasons.includes("native-plan-transcript-root-invalid")
+    || reasons.includes("native-plan-file-root-invalid")) {
+    const detail = (value.validation_errors ?? []).slice(0, 8).join("; ");
+    return deny(`[native-plan-root-invalid] Workflow found one CreatePlan in this task, but its Schema-6 Root is invalid${detail ? `: ${detail}` : ""}. Create one fresh valid Plan in this task, then repeat /review-work.`);
+  }
   if (reasons.includes("native-plan-file-ambiguous")) {
     return deny("[native-plan-file-ambiguous] Workflow found more than one native Plan file created in the observed Plan turn, so none can grant Root authority. Create one fresh Plan in this task, then repeat /review-work.");
   }
@@ -212,7 +178,9 @@ function nativeReviewDenial(value) {
     return deny("[native-plan-transcript-invalid] Workflow could not bind exactly one completed CreatePlan from the current task transcript. Create one fresh Plan in this task, then repeat /review-work.");
   }
   const failures = {
-    unavailable: ["native-task-root-unavailable", "No current validated Schema-5 CreatePlan Root is available in this Cursor task. Create a fresh Plan in this task, then repeat /review-work."],
+    unavailable: value.reason === "review-selection-unavailable"
+      ? ["native-review-selection-unavailable", "A valid Schema-6 Root exists, but this call is not bound to an active /review-work selection. Submit exactly /review-work again in this task."]
+      : ["native-task-root-unavailable", "No current validated Schema-6 CreatePlan Root is available in this Cursor task. Create a fresh Plan in this task, then repeat /review-work."],
     ambiguous: ["native-workspace-ambiguous", "Workflow cannot bind this Review to exactly one Cursor workspace. Open the intended repository by itself, then repeat /review-work."],
     invalid: ["native-task-root-invalid", "The host-observed native Plan or predecessor chain is invalid. Create one fresh valid Plan, then repeat /review-work."],
     busy: ["native-review-busy", "Another protected Review call is already in flight for this task. Wait for it to finish or start a fresh /review-work turn after failure."],
@@ -220,7 +188,7 @@ function nativeReviewDenial(value) {
     replayed: ["native-task-receipt-replayed", "The protected Cursor Review receipt was already consumed. Start a fresh /review-work turn."],
     mismatch: value.reason === "repository-mutated-during-review"
       ? ["native-review-repository-mutated", "The repository changed after Review began, so this observation is invalid. Restore or authorize the change, then start a fresh /review-work turn."]
-      : ["native-task-receipt-mismatch", `The Review call conflicts with the host-selected Cursor task${value.expected_root_plan_id ? `; expected Root ${value.expected_root_plan_id}` : ""}. Repeat /review-work without model-supplied Root or receipt transport.`],
+      : ["native-task-receipt-mismatch", `The Review call conflicts with the host-selected Cursor task${value.expected_root_plan_id ? `; expected Root ${value.expected_root_plan_id}` : ""}. Repeat /review-work without caller-supplied Root or receipt transport.`],
   };
   const [code, message] = failures[value.status] ?? failures.unavailable;
   return deny(`[${code}] ${message}`);
@@ -269,12 +237,12 @@ export function evaluateCloseoutGuard(input, options = {}) {
         phase,
         authority_status: selection.status,
         authority_reason_codes: selection.reason_codes ?? [],
+        authority_validation_errors: selection.validation_errors ?? [],
         root_plan_id: selection.root_plan_id ?? null,
         review_enforcement: selection.status === "selected"
           ? { status: "enforced", reason_codes: [] }
           : { status: "unavailable", reason_codes: ["review-observer-unavailable"] },
         implementation_authorization: "host-owned-unattested",
-        observed_review_auditors: [],
       }, options);
     } else if (phase === "correction" && authority.status === "selected") {
       try {
@@ -312,7 +280,7 @@ export function evaluateCloseoutGuard(input, options = {}) {
       }
       try {
         writeTurn(input, (current) => ({
-          ...(current?.schema === 4 && current?.kind === "manual-native-plan-review-turn" ? current : marker),
+          ...(current?.schema === 6 && current?.kind === "manual-native-plan-review-turn" ? current : marker),
           plan_observation_status: observation.status,
           plan_observation_reason_codes: observation.reason_codes ?? [],
           root_plan_id: observation.root_plan_id ?? null,
@@ -360,24 +328,12 @@ export function evaluateCloseoutGuard(input, options = {}) {
         root_plan_id: recovered.root_plan_id,
         review_enforcement: recovered.review_enforcement,
         implementation_authorization: "host-owned-unattested",
-        observed_review_auditors: [],
       };
       writeTurn(input, turn, options);
       turnState = { status: "valid", value: turn };
     } else {
       return deny("[review-observer-unavailable] Workflow could not confirm this Review activation. Verify Hook Trust, reload Cursor, then submit exactly /review-work again in this task.");
     }
-  }
-  const guardedTool = /^(?:Shell|Bash)$/i.test(String(input.tool_name ?? "")) || isMutatingTool(input);
-  // Corrupt or unreadable Workflow state cannot establish an active Review.
-  // Host-native tools stay available; without valid state the protected Review
-  // receipt cannot be issued, so Workflow delivery evidence still fails safe.
-  if (turn?.phase === "review"
-    && turn.authority_status === "ambiguous"
-    && event === "preToolUse"
-    && guardedTool
-    && !readOnlyReviewAgent(input)) {
-    return nativeReviewDenial({ status: "ambiguous", reason_codes: turn.authority_reason_codes ?? [] });
   }
   if (closeoutCall && turn?.phase === "review") {
     let prepared;
@@ -394,48 +350,6 @@ export function evaluateCloseoutGuard(input, options = {}) {
     if (!["ignored", "prepared"].includes(prepared.status)) return nativeReviewDenial(prepared);
     if (prepared.status === "prepared") return { updated_input: prepared.updated_input };
   }
-  if (event === "preToolUse" && turn?.phase === "review" && /^(?:Shell|Bash)$/i.test(String(input.tool_name ?? ""))) {
-    let shell;
-    try {
-      shell = authorizeNativeReviewShell({
-        stateRoots: authority.stateRoots,
-        input,
-        pluginRoot: options.pluginRoot ?? pluginRoot,
-        options: authorityOptions,
-      });
-    } catch (error) {
-      shell = { status: "denied", reason: error?.code === "native-state-busy" ? "native-state-busy" : "shell-authority-invalid" };
-    }
-    if (shell.status === "allowed") return {};
-    return deny(manualJourneyDecision({
-      state: "blocked",
-      blocker: `Review Shell is limited to one exact machine-verifiable Check from the active Root (${shell.reason ?? "unapproved-root-check"}).`,
-      action: "retry-review",
-      trace: { root_plan_id: turn.root_plan_id ?? null },
-    }));
-  }
-  if (event === "preToolUse" && turn?.phase === "review" && isMutatingTool(input) && !readOnlyReviewAgent(input)) {
-    return deny(manualJourneyDecision({
-      state: "blocked",
-      blocker: "Review is repository-read-only; repository writes require a separately approved correction.",
-      action: "retry-review",
-      trace: { root_plan_id: null },
-    }));
-  }
-  if (event === "preToolUse"
-    && isPotentialRepositoryMutation(input)
-    && !readOnlyReviewAgent(input)) {
-    try {
-      const mutationStateRoots = authority.status === "selected" ? authority.stateRoots : roots;
-      for (const stateRoot of [...new Set(mutationStateRoots)]) {
-        markNativeRepositoryMutation({
-          stateRoots: [stateRoot],
-          input,
-          options: authorityOptions,
-        });
-      }
-    } catch { /* observation failure cannot block a host-native mutation */ }
-  }
   if (!turn) return {};
   if (event === "postToolUse" && turn.phase === "review") {
     if (/^MCP:workflow_closeout$/i.test(String(input.tool_name ?? ""))) {
@@ -448,14 +362,6 @@ export function evaluateCloseoutGuard(input, options = {}) {
         });
       } catch { /* MCP result remains authoritative in current task */ }
     }
-    const auditor = readOnlyReviewAgent(input);
-    if (auditor) writeTurn(input, (current) => {
-      const active = current?.schema === 4 && current?.kind === "manual-native-plan-review-turn" ? current : turn;
-      return {
-        ...active,
-        observed_review_auditors: [...new Set([...(active.observed_review_auditors ?? []), auditor])].sort(),
-      };
-    }, options);
   }
   if (event === "postToolUseFailure" && turn.phase === "review" && /^MCP:workflow_closeout$/i.test(String(input.tool_name ?? ""))) {
     try { failNativeReview({ stateRoots: authority.stateRoots, input, options: authorityOptions }); } catch { /* fresh Review clears stale state */ }

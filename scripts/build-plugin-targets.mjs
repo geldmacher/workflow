@@ -25,7 +25,7 @@ const cursorExcludedPaths = new Set([
   "schemas/agent-plugins/1.0.0/plugin.schema.json",
 ]);
 const expectedCodexSkills = ["accept-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-status"];
-const expectedAgentPluginSkills = ["accept-work", "close-work", "correct-work", "explain-work", "implement-work", "learn-from-work", "plan-work", "review-work", "work-status"];
+const expectedAgentPluginSkills = ["accept-work", "correct-work", "explain-work", "implement-work", "learn-from-work", "plan-work", "review-work", "work-status"];
 const manualTools = ["workflow_artifact_context", "workflow_artifact_record", "workflow_closeout", "workflow_plan_preflight", "workflow_status"];
 const forbiddenCodexText = [
   "@cursor/sdk",
@@ -50,7 +50,6 @@ const sharedReferences = [
   "explanation-contract.md",
   "learning-contract.md",
   "host-approval-contract.md",
-  "manual-subagent-policy.md",
   "manual-workflow-contract.md",
   "manual-mcp-output-contract.md",
   "plan-container-contract.md",
@@ -60,12 +59,11 @@ const sharedReferences = [
 ];
 const portableSkillReferences = Object.freeze({
   "accept-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "state-contract.md"],
-  "close-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "delivery-evidence-contract.md", "closeout-contract.md"],
-  "correct-work": ["portable-manual.md", "manual-workflow-contract.md", "correction-contract.md", "artifact-protocol.md", "closeout-contract.md"],
+  "correct-work": ["portable-manual.md", "manual-workflow-contract.md", "correction-contract.md", "artifact-protocol.md"],
   "explain-work": ["portable-manual.md", "manual-workflow-contract.md", "state-contract.md", "explanation-contract.md"],
-  "implement-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "executable-contract.md", "delivery-evidence-contract.md", "closeout-contract.md"],
+  "implement-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "executable-contract.md"],
   "learn-from-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "learning-contract.md"],
-  "plan-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "executable-contract.md", "design-contract.md", "closeout-contract.md"],
+  "plan-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "executable-contract.md", "design-contract.md"],
   "review-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "delivery-evidence-contract.md", "review-contract.md", "work-review-input-contract.md", "explanation-contract.md"],
   "work-status": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "state-contract.md"],
 });
@@ -121,6 +119,14 @@ function writeJson(path, value) {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 
+function assertCanonicalManifest(path, expectedVersion, label) {
+  const manifest = JSON.parse(readFileSync(path, "utf8"));
+  if (manifest.version !== expectedVersion) throw new Error(`${label} source manifest version must be ${expectedVersion}, received ${manifest.version ?? "missing"}`);
+  if (!/Workflow 6|Schema-6/.test(JSON.stringify(manifest))) throw new Error(`${label} source manifest must describe Workflow 6`);
+  if (/Schema[- ]?[345]|Workflow [345]/i.test(JSON.stringify(manifest))) throw new Error(`${label} source manifest contains a pre-Workflow-6 description`);
+  return manifest;
+}
+
 function buildCursor(destination) {
   for (const entry of enumerateReleaseSurface(root, "package_paths")) {
     if (!cursorExcludedPaths.has(entry.relative_path)) copyRelative(root, destination, entry.relative_path);
@@ -151,7 +157,7 @@ function buildCodex(destination, version) {
   if (manifest.name !== "geldmacher-workflow" || manifest.interface?.displayName !== "Workflow" || manifest.author?.name !== "Geldmacher") {
     throw new Error("Codex manifest product identity drifted");
   }
-  manifest.version = version;
+  if (manifest.version !== version) throw new Error("Codex source manifest version drifted during target build");
   writeJson(manifestPath, manifest);
 
   writeJson(join(destination, "release-surface.json"), releaseSurface([
@@ -184,11 +190,12 @@ function buildCodex(destination, version) {
 }
 
 function buildAgentPlugins(destination, version) {
-  for (const item of ["plugin.json", "mcp.json", "README.md", "skills"]) copyRelative(agentPluginsTargetRoot, destination, item);
+  for (const item of ["plugin.json", "mcp.json", "README.md"]) copyRelative(agentPluginsTargetRoot, destination, item);
   for (const skill of expectedAgentPluginSkills) {
     const references = portableSkillReferences[skill];
     if (!references) throw new Error(`portable reference map is missing ${skill}`);
     const skillPath = join(destination, "skills", skill, "SKILL.md");
+    copyRelative(agentPluginsTargetRoot, destination, `skills/${skill}/SKILL.md`);
     const localized = readFileSync(skillPath, "utf8")
       .replaceAll("../../references/portable-manual.md", "references/portable-manual.md")
       .replaceAll("../../../../references/", "references/");
@@ -211,7 +218,7 @@ function buildAgentPlugins(destination, version) {
   if (manifest.name !== "geldmacher-workflow" || manifest.author?.name !== "Geldmacher") {
     throw new Error("Agent Plugins manifest product identity drifted");
   }
-  manifest.version = version;
+  if (manifest.version !== version) throw new Error("Agent Plugins source manifest version drifted during target build");
   writeJson(manifestPath, manifest);
 
   const skills = readdirSync(join(destination, "skills"), { withFileTypes: true })
@@ -237,6 +244,9 @@ export function buildPluginTargets(outputRoot) {
   if (!inside(root, destination) && !inside(tmpdir(), destination)) throw new Error("target output must be under the repository or temporary directory");
   rmSync(destination, { recursive: true, force: true });
   const packageJson = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  assertCanonicalManifest(join(root, ".cursor-plugin", "plugin.json"), packageJson.version, "Cursor");
+  assertCanonicalManifest(join(codexTargetRoot, ".codex-plugin", "plugin.json"), packageJson.version, "Codex");
+  assertCanonicalManifest(join(agentPluginsTargetRoot, "plugin.json"), packageJson.version, "Agent Plugins");
   const cursor = join(destination, "cursor", "geldmacher-workflow");
   const codex = join(destination, "codex", "geldmacher-workflow");
   const agentPlugins = join(destination, "agent-plugins", "geldmacher-workflow");

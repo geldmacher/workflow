@@ -6,10 +6,9 @@ import Ajv from "ajv";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import { parseDocument } from "yaml";
-import { CAPABILITY_RECEIPT_SCHEMA } from "../src/controller/capabilities.mjs";
+import { HARNESS_CAPABILITY_RECEIPT_SCHEMA } from "../src/core/harness-attestations.mjs";
 import { enumerateReleaseSurface, validateReleaseSurfaceClosure } from "../src/controller/release-surface.mjs";
 import { ARTIFACT_SCHEMA, CONTROLLER_PROTOCOL, PLUGIN_VERSION } from "../src/controller/protocol.mjs";
-import { sdkVersion } from "../src/controller/worker-adapter.mjs";
 import { WORKFLOW_TOOL_CONTRACTS } from "../src/mcp/tool-contracts.mjs";
 import { WORKFLOW_TOOL_NAMES } from "../src/mcp/tool-registry.mjs";
 
@@ -21,12 +20,12 @@ const namePattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const semverPattern = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 const globPattern = /[*?[{]/;
 const expected = Object.freeze({
-  commands: ["accept-work", "auto-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-control", "work-models", "work-status", "work-verification", "work-watch"],
-  agents: ["delivery-auditor", "risk-auditor", "work-design-auditor", "work-explainer", "work-plan-auditor"],
+  commands: ["accept-work", "auto-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-status"],
+  agents: [],
   skills: ["work-automation", "work-execution", "work-explanation", "work-learning", "work-planning", "work-review"],
   rules: [],
-  artifacts: ["delivery-evidence", "work-plan", "work-review"],
-  references: ["artifact-protocol", "automation-contract", "automation-preparation-contract", "closeout-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "host-approval-contract", "learning-contract", "manual-subagent-policy", "manual-workflow-contract", "model-routing-contract", "plan-container-contract", "review-contract", "state-contract", "verification-profile-contract", "work-review-input-contract"],
+  artifacts: ["delivery-evidence-6", "work-plan-6", "work-review-6"],
+  references: ["artifact-protocol", "automation-contract", "closeout-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "host-approval-contract", "learning-contract", "manual-workflow-contract", "plan-container-contract", "review-contract", "state-contract", "work-review-input-contract"],
 });
 
 const readText = (path) => readFileSync(path, "utf8");
@@ -146,11 +145,8 @@ function validateRelease(root, manifest, failures) {
   if (packageJson.version !== manifest.version) failures.push("package.json version differs from plugin.json");
   if (manifest.name !== "geldmacher-workflow" || manifest.displayName !== "Workflow") failures.push("release identity must be geldmacher-workflow with display name Workflow");
   if (manifest.version !== PLUGIN_VERSION) failures.push("plugin.json version differs from runtime protocol version");
-  if (packageJson.dependencies?.["@cursor/sdk"] !== sdkVersion) failures.push("package.json @cursor/sdk differs from worker adapter SDK version");
   const receiptSchema = JSON.parse(readText(join(root, "schemas", "capability-receipt.schema.json")));
-  if (receiptSchema.properties?.schema?.const !== CAPABILITY_RECEIPT_SCHEMA) failures.push("capability receipt JSON schema differs from runtime receipt schema");
-  if (receiptSchema.properties?.artifact_schema?.const !== ARTIFACT_SCHEMA) failures.push("capability receipt JSON schema differs from runtime Artifact Schema");
-  if (receiptSchema.properties?.controller_protocol?.const !== CONTROLLER_PROTOCOL) failures.push("capability receipt JSON schema differs from runtime Controller Protocol");
+  if (receiptSchema.properties?.schema?.const !== HARNESS_CAPABILITY_RECEIPT_SCHEMA) failures.push("harness capability receipt JSON schema differs from runtime receipt schema");
   try {
     const schemaAjv = new Ajv2020({ allErrors: true, strict: false });
     addFormats(schemaAjv);
@@ -160,11 +156,9 @@ function validateRelease(root, manifest, failures) {
   const registeredTools = [...new Set([...registrationSources.matchAll(/server\.registerTool\("([^"]+)"/g)].map((match) => match[1]))].sort();
   if (registeredTools.join("\n") !== [...WORKFLOW_TOOL_NAMES].sort().join("\n")) failures.push("MCP tool registry differs from registered tools");
   if (Object.keys(WORKFLOW_TOOL_CONTRACTS).sort().join("\n") !== [...WORKFLOW_TOOL_NAMES].sort().join("\n")) failures.push("MCP tool contracts differ from the tool registry");
-  if (!readText(join(root, "docs", "capability-spike.md")).includes("exactly twelve tools")) failures.push("capability-spike.md does not describe the twelve-tool surface");
   const versionDocuments = {
-    "README.md": [`- Plugin ${PLUGIN_VERSION}`, `- Artifact Schema ${ARTIFACT_SCHEMA}`, `- Controller Protocol ${CONTROLLER_PROTOCOL}`, `- Capability Receipt Schema ${CAPABILITY_RECEIPT_SCHEMA}`],
-    "docs/configuration.md": [`Plugin ${PLUGIN_VERSION}`, `Artifact Schema ${ARTIFACT_SCHEMA}`, `Controller Protocol ${CONTROLLER_PROTOCOL}`, `Capability Receipt Schema ${CAPABILITY_RECEIPT_SCHEMA}`],
-    "docs/migration-workflow-5.md": [`Plugin \`${PLUGIN_VERSION}\``, `Artifact Schema \`${ARTIFACT_SCHEMA}\``, `Controller Protocol \`${CONTROLLER_PROTOCOL}\``, `Capability Receipt Schema \`${CAPABILITY_RECEIPT_SCHEMA}\``],
+    "README.md": [`- Plugin ${PLUGIN_VERSION}`, `- Artifact Schema ${ARTIFACT_SCHEMA}`, `- Controller Protocol ${CONTROLLER_PROTOCOL}`, `- Harness Capability Receipt Schema ${HARNESS_CAPABILITY_RECEIPT_SCHEMA}`],
+    "docs/configuration.md": [`Plugin ${PLUGIN_VERSION}`, `Artifact Schema ${ARTIFACT_SCHEMA}`, `Controller Protocol ${CONTROLLER_PROTOCOL}`, `Harness Capability Receipt Schema ${HARNESS_CAPABILITY_RECEIPT_SCHEMA}`],
   };
   for (const [path, snippets] of Object.entries(versionDocuments)) {
     const source = readText(join(root, path));
@@ -185,35 +179,35 @@ function validateRelease(root, manifest, failures) {
 
 function validateHookSurface(root, manifest, failures) {
   const expectedPath = "./hooks/hooks.json";
-  const expectedCommand = "node \"${CURSOR_PLUGIN_ROOT}/hooks/subagent-guard.mjs\"";
+  const expectedPlanCommand = "node \"${CURSOR_PLUGIN_ROOT}/hooks/plan-integrity-guard.mjs\"";
   const expectedEnforcementCommand = "node \"${CURSOR_PLUGIN_ROOT}/hooks/closeout-guard.mjs\" --enforce";
   const expectedCloseoutCommand = "node \"${CURSOR_PLUGIN_ROOT}/hooks/closeout-guard.mjs\"";
+  const expectedAutomationCommand = "node \"${CURSOR_PLUGIN_ROOT}/hooks/automation-guard.mjs\"";
   if (manifest.hooks !== expectedPath) failures.push(`plugin.json hooks must reference ${expectedPath}`);
   const directory = join(root, "hooks");
   const configPath = join(directory, "hooks.json");
-  const statePath = join(directory, "model-inheritance-state.mjs");
+  const statePath = join(directory, "workflow-state.mjs");
   const planGuardPath = join(directory, "plan-integrity-guard.mjs");
   const closeoutGuardPath = join(directory, "closeout-guard.mjs");
+  const automationGuardPath = join(directory, "automation-guard.mjs");
   const nativeReviewReceiptPath = join(directory, "native-review-receipt.mjs");
   const nativeTaskReviewPath = join(directory, "native-task-review-context.mjs");
-  const scriptPath = join(directory, "subagent-guard.mjs");
   if (!existsSync(configPath)) failures.push("hooks/hooks.json is missing");
-  if (!existsSync(statePath)) failures.push("hooks/model-inheritance-state.mjs is missing");
+  if (!existsSync(statePath)) failures.push("hooks/workflow-state.mjs is missing");
   if (!existsSync(planGuardPath)) failures.push("hooks/plan-integrity-guard.mjs is missing");
   if (!existsSync(closeoutGuardPath)) failures.push("hooks/closeout-guard.mjs is missing");
+  if (!existsSync(automationGuardPath)) failures.push("hooks/automation-guard.mjs is missing");
   if (!existsSync(nativeReviewReceiptPath)) failures.push("hooks/native-review-receipt.mjs is missing");
   if (!existsSync(nativeTaskReviewPath)) failures.push("hooks/native-task-review-context.mjs is missing");
-  if (!existsSync(scriptPath)) failures.push("hooks/subagent-guard.mjs is missing");
   const files = listFiles(directory, () => true).map((file) => relative(root, file));
   const expectedFiles = [
+    "hooks/automation-guard.mjs",
     "hooks/closeout-guard.mjs",
     "hooks/hooks.json",
-    "hooks/manual-subagent-policy.mjs",
-    "hooks/model-inheritance-state.mjs",
     "hooks/native-review-receipt.mjs",
     "hooks/native-task-review-context.mjs",
     "hooks/plan-integrity-guard.mjs",
-    "hooks/subagent-guard.mjs",
+    "hooks/workflow-state.mjs",
   ];
   if (files.join("\n") !== expectedFiles.join("\n")) failures.push(`hooks: expected [${expectedFiles.join(", ")}], received [${files.join(", ")}]`);
   if (!existsSync(configPath)) return;
@@ -223,35 +217,33 @@ function validateHookSurface(root, manifest, failures) {
     if (topLevelKeys.join("\n") !== ["hooks", "version"].join("\n")) failures.push("hooks/hooks.json must contain only version and hooks");
     if (config.version !== 1) failures.push("hooks/hooks.json version must equal 1");
     const expectedEvents = [
-      "sessionStart",
       "beforeSubmitPrompt",
       "stop",
       "preToolUse",
-      "subagentStart",
-      "subagentStop",
       "postToolUse",
       "postToolUseFailure",
     ];
     const eventNames = Object.keys(config.hooks ?? {});
     if (eventNames.join("\n") !== expectedEvents.join("\n")) failures.push(`hooks/hooks.json must declare ${expectedEvents.join(", ")} in order`);
     const expectedByEvent = {
-      sessionStart: [{ command: expectedCommand, failClosed: false }],
       beforeSubmitPrompt: [
-        { command: expectedCommand, failClosed: false },
         { command: expectedCloseoutCommand, failClosed: false },
+        { command: expectedAutomationCommand, failClosed: false },
       ],
       stop: [{ command: expectedCloseoutCommand, failClosed: false }],
       preToolUse: [
-        { command: expectedCommand, matcher: "CreatePlan|Task|Agent|spawn_agent", failClosed: false },
-        { command: expectedEnforcementCommand, matcher: "CreatePlan|Write|Edit|Delete|Shell|Bash|Task|Agent|spawn_agent|ApplyPatch|apply_patch|DeleteFile|StrReplace|EditNotebook|Computer.*|Browser.*|MCP:.*", failClosed: false },
+        { command: expectedPlanCommand, matcher: "CreatePlan", failClosed: false },
+        { command: expectedEnforcementCommand, matcher: "MCP:workflow_closeout", failClosed: false },
+        { command: expectedAutomationCommand, matcher: "MCP:workflow_prepare", failClosed: false },
       ],
-      subagentStart: [{ command: expectedCommand, failClosed: false }],
-      subagentStop: [{ command: expectedCommand, failClosed: false }],
       postToolUse: [
-        { command: expectedCommand, matcher: "Task", failClosed: false },
         { command: expectedCloseoutCommand, matcher: "CreatePlan|MCP:workflow_closeout", failClosed: false },
+        { command: expectedAutomationCommand, matcher: "MCP:workflow_prepare", failClosed: false },
       ],
-      postToolUseFailure: [{ command: expectedCloseoutCommand, matcher: "MCP:workflow_closeout", failClosed: false }],
+      postToolUseFailure: [
+        { command: expectedCloseoutCommand, matcher: "MCP:workflow_closeout", failClosed: false },
+        { command: expectedAutomationCommand, matcher: "MCP:workflow_prepare", failClosed: false },
+      ],
     };
     for (const eventName of expectedEvents) {
       const entries = config.hooks?.[eventName];
@@ -344,8 +336,6 @@ export function validatePlugin(root = defaultRoot, options = {}) {
     requireString(record.fields, "name", record.label, failures);
     requireString(record.fields, "description", record.label, failures);
     if (record.fields.name !== basename(record.file, ".md")) failures.push(`${record.label}: name must match filename`);
-    if (record.fields.model !== "inherit") failures.push(`${record.label}: model must be inherit`);
-    if (record.fields.readonly !== true) failures.push(`${record.label}: readonly must be true`);
   }
   validateNames(commands, "commands", expected.commands, failures);
   validateNames(agents, "agents", expected.agents, failures);
@@ -358,9 +348,11 @@ export function validatePlugin(root = defaultRoot, options = {}) {
   for (const file of artifactFiles) {
     const schema = JSON.parse(readText(file));
     const artifactName = basename(file, ".schema.json");
-    const expectedId = `urn:geldmacher:cursor-artifact:${artifactName}:5`;
-    if (schema.additionalProperties !== false) failures.push(`${relative(rootPath, file)}: additionalProperties must be false for Schema-5 artifacts`);
-    if (schema.properties?.schema?.const !== 5) failures.push(`${relative(rootPath, file)}: artifact schema must require 5`);
+    const artifactVersion = 6;
+    const baseName = artifactName.replace(/-6$/, "");
+    const expectedId = `urn:geldmacher:workflow-artifact:${baseName}:6`;
+    if (schema.additionalProperties !== false) failures.push(`${relative(rootPath, file)}: additionalProperties must be false`);
+    if (schema.properties?.schema?.const !== artifactVersion) failures.push(`${relative(rootPath, file)}: artifact schema must require ${artifactVersion}`);
     if (schema.properties?.extensions?.type !== "object" || schema.properties.extensions.additionalProperties !== true) failures.push(`${relative(rootPath, file)}: extensions must be the only open metadata object`);
     if (schema.$schema !== "http://json-schema.org/draft-07/schema#") failures.push(`${relative(rootPath, file)}: $schema must be JSON Schema draft-07`);
     if (schema.$id !== expectedId) failures.push(`${relative(rootPath, file)}: schema id must equal ${expectedId}`);
@@ -375,29 +367,6 @@ export function validatePlugin(root = defaultRoot, options = {}) {
     if (wrapperSchema.$id !== "urn:geldmacher:cursor-plan-wrapper:1") failures.push("schemas/cursor-plan-wrapper.schema.json: invalid schema id");
     for (const field of ["todos", "isProject"]) if (!wrapperSchema.required?.includes(field)) failures.push(`schemas/cursor-plan-wrapper.schema.json: missing required ${field}`);
   }
-  const hostPreferencesSchemaPath = join(rootPath, "schemas", "host-preferences.schema.json");
-  if (!existsSync(hostPreferencesSchemaPath)) failures.push("schemas/host-preferences.schema.json is missing");
-  else {
-    try {
-      const hostPreferencesSchema = JSON.parse(readText(hostPreferencesSchemaPath));
-      if (hostPreferencesSchema.$id !== "urn:geldmacher:workflow-host-preferences:1") {
-        failures.push("schemas/host-preferences.schema.json: invalid schema id");
-      }
-      if (hostPreferencesSchema.properties?.schema?.const !== 1) {
-        failures.push("schemas/host-preferences.schema.json: schema must require 1");
-      }
-      if (!hostPreferencesSchema.properties?.tool_approval?.enum?.includes("strict")
-        || !hostPreferencesSchema.properties?.tool_approval?.enum?.includes("allowlisted")) {
-        failures.push("schemas/host-preferences.schema.json: tool_approval must allow strict and allowlisted");
-      }
-      const hostAjv = new Ajv({ allErrors: true, strict: false });
-      addFormats(hostAjv);
-      hostAjv.compile(hostPreferencesSchema);
-    } catch (error) {
-      failures.push(`schemas/host-preferences.schema.json does not compile: ${error.message}`);
-    }
-  }
-
   const references = listFiles(join(rootPath, "references"), (file) => extname(file) === ".md")
     .map((file) => ({ file, label: relative(rootPath, file), fields: {} }));
   const runtime = [...commands, ...agents, ...skills, ...rules, ...references].map((record) => readText(record.file)).join("\n");
@@ -438,7 +407,7 @@ export function validatePlugin(root = defaultRoot, options = {}) {
         if (JSON.stringify(mcp).includes("npx") || JSON.stringify(mcp).includes("latest")) failures.push("mcp.json must not install or resolve latest packages at runtime");
       } catch (error) { failures.push(`mcp.json is invalid JSON: ${error.message}`); }
     }
-    for (const name of ["workflow-mcp.mjs", "workflow-runner.mjs", "workflow-worker.mjs"]) if (!existsSync(join(rootPath, "dist", name))) failures.push(`dist/${name} is missing`);
+    if (!existsSync(join(rootPath, "dist", "workflow-mcp.mjs"))) failures.push("dist/workflow-mcp.mjs is missing");
     if (existsSync(join(rootPath, "dist", "node_modules"))) failures.push("dist/node_modules must not vendor the external Cursor SDK runtime");
   }
   for (const name of expected.references) {

@@ -1,700 +1,395 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { evaluateCloseoutGuard } from "../hooks/closeout-guard.mjs";
-import { consumeNativeReviewReceipt } from "../hooks/native-task-review-context.mjs";
-import { hashWorkflowIdentifier, workflowStateRoot } from "../hooks/model-inheritance-state.mjs";
+import { hashWorkflowIdentifier } from "../hooks/workflow-state.mjs";
 import { defaultRoot } from "../scripts/validate-artifact.source.mjs";
 
-const rootPlan = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8")
-  .replace("profile_max: supervised", "profile_max: manual")
-  .replace("contract_level: controlled", "contract_level: lean");
+const rootPlan = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
+const baseline = Object.freeze({
+  schema: 1,
+  repository_root: defaultRoot,
+  head: "a".repeat(40),
+  dirty_paths: [],
+  fingerprints: {},
+  index_fingerprint: "b".repeat(64),
+  status_fingerprint: "c".repeat(64),
+  working_tree: "clean",
+  captured_at: "2026-08-25T10:00:00.000Z",
+});
 
-function input(overrides = {}) {
+function options(stateRoot) {
+  return { stateRoot, workspaceRoot: defaultRoot, pluginRoot: defaultRoot, captureSnapshot: () => structuredClone(baseline) };
+}
+
+function base(overrides = {}) {
   return {
-    conversation_id: "cursor-native-plan-review",
-    generation_id: "generation-1",
+    conversation_id: "cursor-v6",
+    generation_id: "review-generation",
     workspace_roots: [defaultRoot],
     cwd: defaultRoot,
     ...overrides,
   };
 }
 
-test("Cursor implementation and correction finish without lifecycle closeout", () => {
-  const stateRoot = mkdtempSync(join(tmpdir(), "cursor-native-plan-review-"));
+function establish(stateRoot) {
+  const opts = options(stateRoot);
+  assert.deepEqual(evaluateCloseoutGuard(base({
+    hook_event_name: "postToolUse",
+    tool_name: "CreatePlan",
+    generation_id: "plan-generation",
+    tool_use_id: "create-plan-call",
+    tool_input: { name: "Workflow 6", plan: rootPlan, todos: [] },
+  }), opts), {});
+  assert.deepEqual(evaluateCloseoutGuard(base({
+    hook_event_name: "beforeSubmitPrompt",
+    prompt: "/review-work",
+  }), opts), {});
+}
+
+function reviewCall(overrides = {}) {
+  return base({
+    hook_event_name: "preToolUse",
+    tool_name: "MCP:workflow_closeout",
+    tool_use_id: "review-call",
+    tool_input: { artifact_kind: "work-review", check_evidence: [] },
+    ...overrides,
+  });
+}
+
+test("ordinary Cursor tools remain completely available during Review", () => {
+  const stateRoot = mkdtempSync(join(tmpdir(), "workflow-v6-hook-"));
   try {
-    const options = { stateRoot };
-    assert.deepEqual(evaluateCloseoutGuard(input({ hook_event_name: "beforeSubmitPrompt", prompt: "Implement this plan" }), options), {});
-    assert.deepEqual(evaluateCloseoutGuard(input({ hook_event_name: "preToolUse", tool_name: "Write", tool_input: { path: "src/a.mjs" } }), options), {});
-    assert.deepEqual(evaluateCloseoutGuard(input({ hook_event_name: "afterAgentResponse", text: "Implemented." }), options), {});
-    const stop = evaluateCloseoutGuard(input({ hook_event_name: "stop" }), options);
-    assert.deepEqual(stop, {});
-    assert.equal("followup_message" in stop, false);
+    establish(stateRoot);
+    for (const [toolName, toolInput] of [
+      ["Shell", { command: "ddev exec sh -lc 'npm test && custom-tool verify'" }],
+      ["Task", { model: "any-project-model", prompt: "Review the repository." }],
+      ["Edit", { path: "src/example.mjs" }],
+      ["CompletelyUnknownProjectTool", { framework: "project-owned" }],
+    ]) {
+      assert.deepEqual(evaluateCloseoutGuard(base({ hook_event_name: "preToolUse", tool_name: toolName, tool_input: toolInput }), options(stateRoot)), {});
+    }
   } finally {
     rmSync(stateRoot, { recursive: true, force: true });
   }
 });
 
-test("Cursor planning stop passively captures the current transcript Root without a follow-up turn", () => {
-  const stateRoot = mkdtempSync(join(tmpdir(), "cursor-plan-stop-state-"));
-  const transcriptRoot = mkdtempSync(join(tmpdir(), "cursor-plan-stop-transcript-"));
+test("the exact Workflow Review call receives Root, workspace and opaque receipt without command evaluation", () => {
+  const stateRoot = mkdtempSync(join(tmpdir(), "workflow-v6-hook-"));
   try {
-    const options = { stateRoot, pluginRoot: defaultRoot };
-    const conversationId = "cursor-native-plan-review";
-    const transcriptPath = join(transcriptRoot, `${conversationId}.jsonl`);
-    writeFileSync(transcriptPath, `${[
-      { role: "assistant", message: { content: [{ type: "tool_use", name: "CreatePlan", input: { name: "Adaptive retry", plan: rootPlan } }] } },
+    establish(stateRoot);
+    const result = evaluateCloseoutGuard(base({
+      hook_event_name: "preToolUse",
+      tool_name: "MCP:workflow_closeout",
+      tool_use_id: "review-call",
+      tool_input: { artifact_kind: "work-review", check_evidence: [] },
+    }), options(stateRoot));
+    assert.equal(result.permission, undefined);
+    assert.equal(result.updated_input.root_plan_id, "wp-adaptive-retry");
+    assert.equal(result.updated_input.workspace_root, defaultRoot);
+    assert.match(result.updated_input.native_review_receipt, /^[A-Za-z0-9_-]{43}$/);
+    assert.doesNotMatch(JSON.stringify(result), /program-not-classified|unapproved-root-check|command mismatch/i);
+  } finally {
+    rmSync(stateRoot, { recursive: true, force: true });
+  }
+});
+
+test("a failed Workflow transport can retry in the same selected Review turn", () => {
+  const stateRoot = mkdtempSync(join(tmpdir(), "workflow-v6-hook-"));
+  try {
+    establish(stateRoot);
+    const call = base({
+      hook_event_name: "preToolUse",
+      tool_name: "MCP:workflow_closeout",
+      tool_use_id: "review-call",
+      tool_input: { artifact_kind: "work-review", check_evidence: [] },
+    });
+    const first = evaluateCloseoutGuard(call, options(stateRoot));
+    evaluateCloseoutGuard({ ...call, hook_event_name: "postToolUseFailure" }, options(stateRoot));
+    const second = evaluateCloseoutGuard(call, options(stateRoot));
+    assert.match(second.updated_input.native_review_receipt, /^[A-Za-z0-9_-]{43}$/);
+    assert.notEqual(second.updated_input.native_review_receipt, first.updated_input.native_review_receipt);
+    assert.equal(second.updated_input.root_plan_id, "wp-adaptive-retry");
+  } finally {
+    rmSync(stateRoot, { recursive: true, force: true });
+  }
+});
+
+test("hook source contains no command, tool, or model policy", () => {
+  const source = readFileSync(join(defaultRoot, "hooks", "closeout-guard.mjs"), "utf8");
+  for (const forbidden of ["parseHostCommand", "runHostCheck", "program-not-classified", "unapproved-root-check", "model_pool", "modelCatalog"]) {
+    assert.doesNotMatch(source, new RegExp(forbidden));
+  }
+});
+
+test("planning observation is passive and binds only the completed native CreatePlan", () => {
+  const stateRoot = mkdtempSync(join(tmpdir(), "workflow-v6-hook-"));
+  const transcriptRoot = mkdtempSync(join(tmpdir(), "workflow-v6-hook-transcript-"));
+  try {
+    const transcript = join(transcriptRoot, "cursor-v6.jsonl");
+    writeFileSync(transcript, `${[
+      { role: "assistant", message: { content: [{ type: "tool_use", name: "CreatePlan", input: { name: "Workflow 6", plan: rootPlan, todos: [] } }] } },
       { type: "turn_ended", status: "success" },
     ].map((entry) => JSON.stringify(entry)).join("\n")}\n`);
-
-    assert.deepEqual(evaluateCloseoutGuard(input({
+    assert.deepEqual(evaluateCloseoutGuard(base({
       hook_event_name: "beforeSubmitPrompt",
-      generation_id: "plan-generation",
-      prompt: "/plan-work stabilize native Root binding",
-      transcript_path: transcriptPath,
-    }), options), {});
-    const stopped = evaluateCloseoutGuard(input({
-      hook_event_name: "stop",
-      generation_id: "plan-generation",
-      status: "completed",
-      transcript_path: transcriptPath,
-    }), options);
-    assert.deepEqual(stopped, {});
-    assert.equal("followup_message" in stopped, false);
-
-    assert.deepEqual(evaluateCloseoutGuard(input({
-      hook_event_name: "beforeSubmitPrompt",
-      generation_id: "review-generation",
-      prompt: "/review-work",
-      transcript_path: transcriptPath,
-    }), options), {});
-    const prepared = evaluateCloseoutGuard(input({
-      hook_event_name: "preToolUse",
-      generation_id: "review-generation",
-      tool_name: "MCP:workflow_closeout",
-      tool_use_id: "review-call",
-      transcript_path: transcriptPath,
-      tool_input: { artifact_kind: "work-review", check_evidence: [], review_input: null },
-    }), options);
-    assert.match(prepared.updated_input.native_review_receipt, /^[A-Za-z0-9_-]{43}$/);
-    const consumed = consumeNativeReviewReceipt({ stateRoot, token: prepared.updated_input.native_review_receipt, input: prepared.updated_input });
-    assert.equal(consumed.status, "resolved");
-    assert.equal(consumed.receipt.root_source, "cursor-create-plan");
-    assert.deepEqual(consumed.receipt.root_binding, { status: "enforced", source: "task-transcript-stop", reason_codes: [] });
-  } finally {
-    rmSync(stateRoot, { recursive: true, force: true });
-    rmSync(transcriptRoot, { recursive: true, force: true });
-  }
-});
-
-test("planning stop never reconstructs a Root without a current generation marker", () => {
-  const stateRoot = mkdtempSync(join(tmpdir(), "cursor-plan-stop-no-marker-state-"));
-  const transcriptRoot = mkdtempSync(join(tmpdir(), "cursor-plan-stop-no-marker-transcript-"));
-  try {
-    const transcriptPath = join(transcriptRoot, "cursor-native-plan-review.jsonl");
-    writeFileSync(transcriptPath, `${JSON.stringify({ role: "assistant", message: { content: [{ type: "tool_use", name: "CreatePlan", input: { name: "Adaptive retry", plan: rootPlan } }] } })}\n${JSON.stringify({ type: "turn_ended", status: "success" })}\n`);
-    assert.deepEqual(evaluateCloseoutGuard(input({
-      hook_event_name: "stop",
-      generation_id: "historical-plan-generation",
-      status: "completed",
-      transcript_path: transcriptPath,
-    }), { stateRoot, pluginRoot: defaultRoot }), {});
-    assert.equal(existsSync(join(stateRoot, "manual-native-task-review", "conversations")), false);
-  } finally {
-    rmSync(stateRoot, { recursive: true, force: true });
-    rmSync(transcriptRoot, { recursive: true, force: true });
-  }
-});
-
-test("planning stop cannot carry a generation marker into another workspace", () => {
-  const stateRoot = mkdtempSync(join(tmpdir(), "cursor-plan-stop-workspace-state-"));
-  const foreignWorkspace = mkdtempSync(join(tmpdir(), "cursor-plan-stop-foreign-workspace-"));
-  const transcriptRoot = mkdtempSync(join(tmpdir(), "cursor-plan-stop-workspace-transcript-"));
-  try {
-    spawnSync("git", ["init", "--quiet", foreignWorkspace], { encoding: "utf8" });
-    const options = { stateRoot, pluginRoot: defaultRoot };
-    const transcriptPath = join(transcriptRoot, "cursor-native-plan-review.jsonl");
-    writeFileSync(transcriptPath, `${JSON.stringify({ role: "assistant", message: { content: [{ type: "tool_use", name: "CreatePlan", input: { name: "Adaptive retry", plan: rootPlan } }] } })}\n${JSON.stringify({ type: "turn_ended", status: "success" })}\n`);
-    evaluateCloseoutGuard(input({
-      hook_event_name: "beforeSubmitPrompt",
-      generation_id: "plan-generation",
+      generation_id: "planning-generation",
       prompt: "/plan-work",
-      transcript_path: transcriptPath,
-    }), options);
-    assert.deepEqual(evaluateCloseoutGuard(input({
+    }), options(stateRoot)), {});
+    assert.deepEqual(evaluateCloseoutGuard(base({
       hook_event_name: "stop",
-      generation_id: "plan-generation",
+      generation_id: "planning-generation",
+      transcript_path: transcript,
       status: "completed",
-      workspace_roots: [foreignWorkspace],
-      cwd: foreignWorkspace,
-      transcript_path: transcriptPath,
-    }), options), {});
-    const conversationPath = join(
-      stateRoot,
-      "manual-native-task-review",
-      "conversations",
-      `${hashWorkflowIdentifier("conversation", "cursor-native-plan-review")}.json`,
-    );
-    assert.equal(existsSync(conversationPath), false);
+    }), options(stateRoot)), {});
+    assert.deepEqual(evaluateCloseoutGuard(base({
+      hook_event_name: "beforeSubmitPrompt",
+      generation_id: "review-generation-after-stop",
+      prompt: "/review-work",
+    }), options(stateRoot)), {});
+    const prepared = evaluateCloseoutGuard(reviewCall({ generation_id: "review-generation-after-stop" }), options(stateRoot));
+    assert.equal(prepared.updated_input.root_plan_id, "wp-adaptive-retry");
   } finally {
     rmSync(stateRoot, { recursive: true, force: true });
-    rmSync(foreignWorkspace, { recursive: true, force: true });
     rmSync(transcriptRoot, { recursive: true, force: true });
   }
 });
 
-test("Cursor Review remains repository-read-only while allowing marked auditors", () => {
-  const stateRoot = mkdtempSync(join(tmpdir(), "cursor-review-readonly-"));
+test("recoverable observer loss restores only exact Review selection", () => {
+  const stateRoot = mkdtempSync(join(tmpdir(), "workflow-v6-hook-"));
+  const transcriptRoot = mkdtempSync(join(tmpdir(), "workflow-v6-hook-transcript-"));
   try {
-    const options = { stateRoot };
-    evaluateCloseoutGuard(input({ hook_event_name: "beforeSubmitPrompt", prompt: "/review-work" }), options);
-    const denied = evaluateCloseoutGuard(input({ hook_event_name: "preToolUse", tool_name: "Write", tool_input: { path: "src/a.mjs" } }), options);
-    assert.equal(denied.permission, "deny");
-    assert.match(denied.user_message, /read-only/i);
-    const shellDenied = evaluateCloseoutGuard(input({ hook_event_name: "preToolUse", tool_name: "Shell", tool_input: { command: "git status --short" } }), options);
-    assert.equal(shellDenied.permission, "deny");
-    assert.match(shellDenied.user_message, /exact machine-verifiable Check/i);
-    const mcpDenied = evaluateCloseoutGuard(input({ hook_event_name: "preToolUse", tool_name: "MCP:third_party_write", tool_input: {} }), options);
-    assert.equal(mcpDenied.permission, "deny");
-    assert.match(mcpDenied.user_message, /read-only/i);
-    assert.deepEqual(evaluateCloseoutGuard(input({ hook_event_name: "preToolUse", tool_name: "MCP:workflow_status", tool_input: {} }), options), {});
-    assert.deepEqual(evaluateCloseoutGuard(input({
-      hook_event_name: "preToolUse",
-      tool_name: "Task",
-      tool_input: {
-        readonly: true,
-        subagent_type: "delivery-auditor",
-        prompt: "[workflow-readonly-review-v1] Inspect delivery.",
-      },
-    }), options), {});
-  } finally {
-    rmSync(stateRoot, { recursive: true, force: true });
-  }
-});
+    evaluateCloseoutGuard(base({
+      hook_event_name: "postToolUse",
+      tool_name: "CreatePlan",
+      generation_id: "plan-generation",
+      tool_use_id: "create-plan-call",
+      tool_input: { name: "Workflow 6", plan: rootPlan, todos: [] },
+    }), options(stateRoot));
+    const transcript = join(transcriptRoot, "cursor-v6.jsonl");
+    writeFileSync(transcript, `${JSON.stringify({ role: "user", message: { content: [{ type: "text", text: "/review-work" }] } })}\n`);
+    const recovered = evaluateCloseoutGuard(reviewCall({ transcript_path: transcript }), options(stateRoot));
+    assert.match(recovered.updated_input.native_review_receipt, /^[A-Za-z0-9_-]{43}$/);
+    assert.equal(recovered.updated_input.root_plan_id, "wp-adaptive-retry");
 
-test("corrupt or absent Review state cannot block host-native mutation", () => {
-  const stateRoot = mkdtempSync(join(tmpdir(), "cursor-review-corrupt-state-"));
-  try {
-    const options = { stateRoot, enforcementMode: true };
-    evaluateCloseoutGuard(input({ hook_event_name: "beforeSubmitPrompt", prompt: "/review-work" }), options);
-    const turn = join(
-      stateRoot,
-      "manual-native-plan-review",
-      hashWorkflowIdentifier("conversation", "cursor-native-plan-review"),
-      `${hashWorkflowIdentifier("generation", "generation-1")}.json`,
-    );
-    writeFileSync(turn, "{broken\n");
-    assert.deepEqual(
-      evaluateCloseoutGuard(input({ hook_event_name: "preToolUse", tool_name: "Write", tool_input: { path: "src/a.mjs" } }), options),
-      {},
-    );
-    const closeout = evaluateCloseoutGuard(input({
-      hook_event_name: "preToolUse",
-      tool_name: "MCP:workflow_closeout",
-      tool_input: { artifact_kind: "work-review" },
-    }), options);
-    assert.equal(closeout.permission, "deny");
-    assert.match(closeout.user_message, /review-observer-unavailable|native-task-root/i);
-
-    const absent = mkdtempSync(join(tmpdir(), "cursor-review-absent-state-"));
+    const otherState = mkdtempSync(join(tmpdir(), "workflow-v6-hook-other-"));
     try {
-      assert.deepEqual(evaluateCloseoutGuard(input({ hook_event_name: "preToolUse", tool_name: "Write" }), { stateRoot: absent, enforcementMode: true }), {});
-    } finally { rmSync(absent, { recursive: true, force: true }); }
-  } finally {
-    rmSync(stateRoot, { recursive: true, force: true });
-  }
-});
-
-test("Cursor ignores legacy Manual lifecycle files", () => {
-  const stateRoot = mkdtempSync(join(tmpdir(), "cursor-legacy-manual-"));
-  try {
-    const legacy = join(stateRoot, "manual-closeout", "legacy");
-    mkdirSync(legacy, { recursive: true });
-    writeFileSync(join(legacy, "turn.json"), JSON.stringify({ schema: 1, required: true, closeout_recorded: false }));
-    assert.deepEqual(evaluateCloseoutGuard(input({ hook_event_name: "stop" }), { stateRoot }), {});
-    assert.deepEqual(evaluateCloseoutGuard(input({ hook_event_name: "preToolUse", tool_name: "Write" }), { stateRoot }), {});
-  } finally {
-    rmSync(stateRoot, { recursive: true, force: true });
-  }
-});
-
-test("Cursor phase tracking ignores unrelated and invalid input", () => {
-  const stateRoot = mkdtempSync(join(tmpdir(), "cursor-phase-tracking-"));
-  try {
-    const options = { stateRoot };
-    assert.deepEqual(evaluateCloseoutGuard(null, options), {});
-    assert.deepEqual(evaluateCloseoutGuard([], options), {});
-    assert.deepEqual(evaluateCloseoutGuard(input({ hook_event_name: "beforeSubmitPrompt", prompt: "Explain the repository" }), options), {});
-    assert.deepEqual(evaluateCloseoutGuard(input({ hook_event_name: "beforeSubmitPrompt", prompt: "/correct-work" }), options), {});
-    assert.deepEqual(evaluateCloseoutGuard(input({ hook_event_name: "preToolUse", tool_name: "Write", tool_input: { path: "src/a.mjs" } }), options), {});
-  } finally {
-    rmSync(stateRoot, { recursive: true, force: true });
-  }
-});
-
-test("Cursor Review parses shell input and records completed auditors", () => {
-  const stateRoot = mkdtempSync(join(tmpdir(), "cursor-review-observation-"));
-  try {
-    const options = { stateRoot };
-    evaluateCloseoutGuard(input({ hook_event_name: "beforeSubmitPrompt", prompt: "/review-work" }), options);
-    assert.equal(evaluateCloseoutGuard(input({ hook_event_name: "preToolUse", tool_name: "Shell", tool_input: JSON.stringify({ command: "git status --short" }) }), options).permission, "deny");
-    assert.equal(evaluateCloseoutGuard(input({ hook_event_name: "preToolUse", tool_name: "Shell", tool_input: "not-json" }), options).permission, "deny");
-    assert.equal(evaluateCloseoutGuard(input({ hook_event_name: "preToolUse", tool_name: "Task", tool_input: "not-json" }), options).permission, "deny");
-    assert.deepEqual(evaluateCloseoutGuard(input({
-      hook_event_name: "postToolUse",
-      tool_name: "spawn_agent",
-      tool_input: {
-        readonly: true,
-        agent_type: "risk-auditor",
-        prompt: "[workflow-readonly-review-v1] Inspect risk.",
-      },
-    }), options), {});
-    assert.deepEqual(evaluateCloseoutGuard(input({
-      hook_event_name: "postToolUse",
-      tool_name: "spawn_agent",
-      tool_input: {
-        readonly: true,
-        agent_type: "delivery-auditor",
-        prompt: "[workflow-readonly-review-v1] Inspect delivery.",
-      },
-    }), options), {});
-    const turn = JSON.parse(readFileSync(join(
-      stateRoot,
-      "manual-native-plan-review",
-      hashWorkflowIdentifier("conversation", "cursor-native-plan-review"),
-      `${hashWorkflowIdentifier("generation", "generation-1")}.json`,
-    ), "utf8"));
-    assert.equal(turn.revision, 3);
-    assert.deepEqual(turn.observed_review_auditors, ["delivery-auditor", "risk-auditor"]);
-  } finally {
-    rmSync(stateRoot, { recursive: true, force: true });
-  }
-});
-
-test("Cursor lifecycle binds explicit Review to one opaque work-review receipt", () => {
-  const stateRoot = mkdtempSync(join(tmpdir(), "cursor-native-review-receipt-"));
-  try {
-    const options = { stateRoot, pluginRoot: defaultRoot };
-    assert.deepEqual(evaluateCloseoutGuard(input({
-      hook_event_name: "postToolUse",
-      generation_id: "plan-generation",
-      tool_name: "CreatePlan",
-      tool_use_id: "create-plan-call",
-      tool_input: { name: "Adaptive retry", plan: rootPlan },
-    }), options), {});
-    assert.deepEqual(evaluateCloseoutGuard(input({
-      hook_event_name: "beforeSubmitPrompt",
-      generation_id: "review-generation",
-      prompt: "/review-work",
-    }), options), {});
-    for (const command of ["npm test", "rtk npm test"]) {
-      assert.deepEqual(evaluateCloseoutGuard(input({
-        hook_event_name: "preToolUse",
-        generation_id: "review-generation",
-        tool_name: "Shell",
-        tool_use_id: `approved-${command}`,
-        tool_input: { command, cwd: defaultRoot },
-      }), options), {});
+      evaluateCloseoutGuard(base({
+        hook_event_name: "postToolUse",
+        tool_name: "CreatePlan",
+        generation_id: "plan-generation",
+        tool_use_id: "create-plan-call",
+        tool_input: { name: "Workflow 6", plan: rootPlan, todos: [] },
+      }), options(otherState));
+      writeFileSync(transcript, `${JSON.stringify({ role: "user", message: { content: [{ type: "text", text: "not exact /review-work" }] } })}\n`);
+      const denied = evaluateCloseoutGuard(reviewCall({ transcript_path: transcript }), options(otherState));
+      assert.equal(denied.permission, "deny");
+      assert.match(denied.user_message, /review-observer-unavailable/);
+    } finally {
+      rmSync(otherState, { recursive: true, force: true });
     }
-    for (const command of [
-      "find . -delete",
-      "sed -n -i README.md",
-      "git diff --output=review.patch",
-      "node --test tests/other.test.mjs",
-      "npm run missing-script",
-      "npm test -- --extra",
-    ]) {
-      const denied = evaluateCloseoutGuard(input({
-        hook_event_name: "preToolUse",
-        generation_id: "review-generation",
-        tool_name: "Shell",
-        tool_use_id: `denied-${command}`,
-        tool_input: { command, cwd: defaultRoot },
-      }), options);
-      assert.equal(denied.permission, "deny", command);
-    }
-    const toolInput = {
-      artifact_kind: "work-review",
-      root_plan_id: "wp-adaptive-retry",
-      root_plan: rootPlan.slice(0, 250),
-      check_evidence: [],
-      review_input: { schema: 1, kind: "review-input" },
-    };
-    const prepared = evaluateCloseoutGuard(input({
-      hook_event_name: "preToolUse",
-      generation_id: "review-generation",
-      tool_name: "MCP:workflow_closeout",
-      tool_use_id: "review-call",
-      tool_input: toolInput,
-    }), options);
-    assert.match(prepared.updated_input.native_review_receipt, /^[A-Za-z0-9_-]{43}$/);
-    const consumed = consumeNativeReviewReceipt({
-      stateRoot,
-      token: prepared.updated_input.native_review_receipt,
-      input: prepared.updated_input,
-    });
-    assert.equal(consumed.status, "resolved");
-    assert.equal(consumed.receipt.root_text, rootPlan);
-  } finally {
-    rmSync(stateRoot, { recursive: true, force: true });
-  }
-});
-
-test("missing Review observer recovers only from one exact current transcript command and stays provisional", () => {
-  const stateRoot = mkdtempSync(join(tmpdir(), "cursor-native-review-recovery-"));
-  const transcriptRoot = mkdtempSync(join(tmpdir(), "cursor-native-review-recovery-transcript-"));
-  const transcriptPath = join(transcriptRoot, "cursor-review-recovery.jsonl");
-  try {
-    const options = { stateRoot, pluginRoot: defaultRoot, workspaceRoot: defaultRoot };
-    const base = {
-      conversation_id: "cursor-review-recovery",
-      transcript_path: transcriptPath,
-      workspace_roots: [defaultRoot],
-      cwd: defaultRoot,
-    };
-    evaluateCloseoutGuard({
-      ...base,
-      hook_event_name: "postToolUse",
-      generation_id: "plan-generation",
-      tool_name: "CreatePlan",
-      tool_use_id: "create-plan-call",
-      tool_input: { name: "Adaptive retry", plan: rootPlan },
-    }, options);
-    writeFileSync(transcriptPath, `${JSON.stringify({ role: "user", message: { content: [{ type: "text", text: "/review-work" }] } })}\n`);
-    const toolInput = { artifact_kind: "work-review", check_evidence: [], review_input: { schema: 1, kind: "review-input" } };
-    const prepared = evaluateCloseoutGuard({
-      ...base,
-      hook_event_name: "preToolUse",
-      generation_id: "recovered-review-generation",
-      tool_use_id: "recovered-review-call",
-      tool_name: "MCP:workflow_closeout",
-      tool_input: toolInput,
-    }, options);
-    assert.match(prepared.updated_input.native_review_receipt, /^[A-Za-z0-9_-]{43}$/);
-    const consumed = consumeNativeReviewReceipt({ stateRoot, token: prepared.updated_input.native_review_receipt, input: prepared.updated_input });
-    assert.equal(consumed.status, "resolved");
-    assert.equal(consumed.receipt.review_enforcement.status, "unavailable");
-    assert.deepEqual(consumed.receipt.review_enforcement.reason_codes, ["review-observer-unavailable"]);
-
-    writeFileSync(transcriptPath, `${JSON.stringify({ role: "user", message: { content: [{ type: "text", text: "/review-work later" }] } })}\n`);
-    const denied = evaluateCloseoutGuard({
-      ...base,
-      hook_event_name: "preToolUse",
-      generation_id: "failed-recovery-generation",
-      tool_use_id: "failed-recovery-call",
-      tool_name: "MCP:workflow_closeout",
-      tool_input: toolInput,
-    }, options);
-    assert.equal(denied.permission, "deny");
-    assert.match(denied.user_message, /Hook Trust/i);
-
-    assert.deepEqual(evaluateCloseoutGuard({
-      ...base,
-      hook_event_name: "preToolUse",
-      generation_id: "ordinary-closeout-generation",
-      tool_name: "MCP:workflow_closeout",
-      tool_input: { artifact_kind: "delivery-evidence" },
-    }, options), {});
   } finally {
     rmSync(stateRoot, { recursive: true, force: true });
     rmSync(transcriptRoot, { recursive: true, force: true });
   }
 });
 
-test("a mutating tool in another Cursor conversation contaminates repository attribution", () => {
-  const stateRoot = mkdtempSync(join(tmpdir(), "cursor-native-review-contamination-"));
+test("targeted Review denials distinguish no Root, repository drift, and an inflight call", () => {
+  const emptyState = mkdtempSync(join(tmpdir(), "workflow-v6-hook-empty-"));
+  const driftState = mkdtempSync(join(tmpdir(), "workflow-v6-hook-drift-"));
   try {
-    const options = { stateRoot, pluginRoot: defaultRoot };
-    const workspace = { workspace_roots: [defaultRoot], cwd: defaultRoot };
-    evaluateCloseoutGuard(input({
-      ...workspace,
-      hook_event_name: "postToolUse",
-      generation_id: "plan-generation",
-      tool_name: "CreatePlan",
-      tool_use_id: "create-plan-call",
-      tool_input: { name: "Adaptive retry", plan: rootPlan },
-    }), options);
-    assert.deepEqual(evaluateCloseoutGuard(input({
-      ...workspace,
-      hook_event_name: "preToolUse",
-      conversation_id: "concurrent-conversation",
-      generation_id: "implementation-generation",
-      tool_name: "Write",
-      tool_use_id: "concurrent-write",
-      tool_input: { path: "README.md" },
-    }), options), {});
-    evaluateCloseoutGuard(input({
-      ...workspace,
-      hook_event_name: "beforeSubmitPrompt",
-      generation_id: "review-generation",
-      prompt: "/review-work",
-    }), options);
-    const prepared = evaluateCloseoutGuard(input({
-      ...workspace,
-      hook_event_name: "preToolUse",
-      generation_id: "review-generation",
-      tool_name: "MCP:workflow_closeout",
-      tool_use_id: "review-call",
-      tool_input: { artifact_kind: "work-review", check_evidence: [], review_input: { schema: 1, kind: "review-input" } },
-    }), options);
-    const consumed = consumeNativeReviewReceipt({
-      stateRoot,
-      token: prepared.updated_input.native_review_receipt,
-      input: prepared.updated_input,
-    });
-    assert.equal(consumed.status, "resolved");
-    assert.equal(consumed.receipt.repository_attribution.status, "unavailable");
-    assert.ok(consumed.receipt.repository_attribution.reason_codes.includes("concurrent-repository-activity"));
-  } finally {
-    rmSync(stateRoot, { recursive: true, force: true });
-  }
-});
+    const noRoot = evaluateCloseoutGuard(reviewCall(), options(emptyState));
+    assert.equal(noRoot.permission, "deny");
+    assert.match(noRoot.user_message, /review-observer-unavailable|native-task-root-unavailable/);
 
-test("Cursor lifecycle blocks a mismatched Review Root before MCP execution", () => {
-  const stateRoot = mkdtempSync(join(tmpdir(), "cursor-native-review-mismatch-"));
-  try {
-    const options = { stateRoot, pluginRoot: defaultRoot };
-    evaluateCloseoutGuard(input({
-      hook_event_name: "postToolUse",
-      generation_id: "plan-generation",
-      tool_name: "CreatePlan",
-      tool_use_id: "create-plan-call",
-      tool_input: { name: "Adaptive retry", plan: rootPlan },
-    }), options);
-    evaluateCloseoutGuard(input({ hook_event_name: "beforeSubmitPrompt", generation_id: "review-generation", prompt: "/review-work" }), options);
-    const denied = evaluateCloseoutGuard(input({
-      hook_event_name: "preToolUse",
-      generation_id: "review-generation",
-      tool_name: "MCP:workflow_closeout",
-      tool_input: { artifact_kind: "work-review", root_plan_id: "wp-other-root" },
-    }), options);
-    assert.equal(denied.permission, "deny");
-    assert.match(denied.user_message, /native-task-receipt-mismatch/);
-  } finally {
-    rmSync(stateRoot, { recursive: true, force: true });
-  }
-});
-
-test("multi-root Cursor input writes no Root authority even when cwd is unique", () => {
-  const home = mkdtempSync(join(tmpdir(), "cursor-native-multiroot-home-"));
-  const parent = mkdtempSync(join(tmpdir(), "cursor-native-multiroot-workspaces-"));
-  const first = join(parent, "first");
-  const second = join(parent, "second");
-  mkdirSync(first);
-  mkdirSync(second);
-  assert.equal(spawnSync("git", ["-C", first, "init", "--quiet"]).status, 0);
-  assert.equal(spawnSync("git", ["-C", second, "init", "--quiet"]).status, 0);
-  try {
-    const base = {
-      conversation_id: "cursor-multiroot-selection",
-      workspace_roots: [first, second],
-      cwd: first,
+    establish(driftState);
+    let captures = 0;
+    const driftOptions = {
+      ...options(driftState),
+      captureSnapshot: () => ({
+        ...structuredClone(baseline),
+        status_fingerprint: (++captures).toString(16).padStart(64, "0"),
+      }),
     };
-    const options = { home, pluginRoot: defaultRoot };
-    assert.deepEqual(evaluateCloseoutGuard({
-      ...base,
-      hook_event_name: "postToolUse",
-      generation_id: "plan-generation",
-      tool_name: "CreatePlan",
-      tool_use_id: "create-plan-call",
-      tool_input: { name: "Adaptive retry", plan: rootPlan },
-    }, options), {});
-    assert.deepEqual(evaluateCloseoutGuard({
-      ...base,
-      hook_event_name: "beforeSubmitPrompt",
-      generation_id: "review-generation",
-      prompt: "/review-work",
-    }, options), {});
-    const shellDenied = evaluateCloseoutGuard({
-      ...base,
-      hook_event_name: "preToolUse",
-      generation_id: "review-generation",
-      tool_name: "Shell",
-      tool_use_id: "diagnostic-read",
-      tool_input: { command: "git status --short" },
-    }, options);
-    assert.equal(shellDenied.permission, "deny");
-    const denied = evaluateCloseoutGuard({
-      ...base,
-      hook_event_name: "preToolUse",
-      generation_id: "review-generation",
-      tool_name: "MCP:workflow_closeout",
-      tool_use_id: "review-call",
-      tool_input: { artifact_kind: "work-review", check_evidence: [], review_input: { schema: 1, kind: "review-input" } },
-    }, options);
-    assert.equal(denied.permission, "deny");
-    assert.match(denied.user_message, /native-workspace-ambiguous/i);
-    assert.equal(existsSync(join(workflowStateRoot(realpathSync(first), { home }), "manual-native-task-review", "conversations")), false);
-    assert.equal(existsSync(join(workflowStateRoot(realpathSync(second), { home }), "manual-native-task-review", "conversations")), false);
+    evaluateCloseoutGuard(base({ hook_event_name: "beforeSubmitPrompt", prompt: "/review-work", generation_id: "drift-review" }), driftOptions);
+    const drift = evaluateCloseoutGuard(reviewCall({ generation_id: "drift-review" }), driftOptions);
+    assert.equal(drift.permission, "deny");
+    assert.match(drift.user_message, /repository changed|repository-mutated/i);
+
+    evaluateCloseoutGuard(base({ hook_event_name: "beforeSubmitPrompt", prompt: "/review-work", generation_id: "busy-review" }), options(driftState));
+    assert.match(evaluateCloseoutGuard(reviewCall({ generation_id: "busy-review", tool_use_id: "first-call" }), options(driftState)).updated_input.native_review_receipt, /^[A-Za-z0-9_-]{43}$/);
+    const busy = evaluateCloseoutGuard(reviewCall({ generation_id: "busy-review", tool_use_id: "second-call" }), options(driftState));
+    assert.equal(busy.permission, "deny");
+    assert.match(busy.user_message, /already in flight|busy/i);
   } finally {
-    rmSync(home, { recursive: true, force: true });
-    rmSync(parent, { recursive: true, force: true });
+    rmSync(emptyState, { recursive: true, force: true });
+    rmSync(driftState, { recursive: true, force: true });
   }
 });
 
-test("symlink and repository subdirectory paths share one canonical Review identity", () => {
-  const home = mkdtempSync(join(tmpdir(), "cursor-native-canonical-home-"));
-  const links = mkdtempSync(join(tmpdir(), "cursor-native-canonical-link-"));
-  const linked = join(links, "workflow-link");
-  symlinkSync(defaultRoot, linked);
+test("Review result and correction events remain lifecycle-only", () => {
+  const stateRoot = mkdtempSync(join(tmpdir(), "workflow-v6-hook-"));
   try {
-    const options = { home, pluginRoot: defaultRoot };
-    const workspace = { workspace_roots: [linked, join(defaultRoot, "src")], cwd: defaultRoot };
-    evaluateCloseoutGuard(input({
-      ...workspace,
-      hook_event_name: "postToolUse",
-      generation_id: "canonical-plan",
-      tool_name: "CreatePlan",
-      tool_use_id: "canonical-create",
-      tool_input: { name: "Adaptive retry", plan: rootPlan },
-    }), options);
-    evaluateCloseoutGuard(input({
-      ...workspace,
-      hook_event_name: "beforeSubmitPrompt",
-      generation_id: "canonical-review",
-      prompt: "/review-work",
-    }), options);
-    const prepared = evaluateCloseoutGuard(input({
-      ...workspace,
-      hook_event_name: "preToolUse",
-      generation_id: "canonical-review",
-      tool_use_id: "canonical-closeout",
-      tool_name: "MCP:workflow_closeout",
-      tool_input: { artifact_kind: "work-review", check_evidence: [], review_input: { schema: 1, kind: "review-input" } },
-    }), options);
+    establish(stateRoot);
+    const call = reviewCall();
+    const prepared = evaluateCloseoutGuard(call, options(stateRoot));
     assert.match(prepared.updated_input.native_review_receipt, /^[A-Za-z0-9_-]{43}$/);
-    const stateRoot = workflowStateRoot(realpathSync(defaultRoot), { home });
-    const consumed = consumeNativeReviewReceipt({ stateRoot, token: prepared.updated_input.native_review_receipt, input: prepared.updated_input });
-    assert.equal(consumed.status, "resolved");
-    assert.equal(consumed.receipt.workspace_root, realpathSync(defaultRoot));
-    assert.equal(consumed.receipt.baseline.repository_root, realpathSync(defaultRoot));
+    assert.deepEqual(evaluateCloseoutGuard({ ...call, hook_event_name: "postToolUse", tool_output: { content: [] } }, options(stateRoot)), {});
+    assert.deepEqual(evaluateCloseoutGuard(base({ hook_event_name: "beforeSubmitPrompt", prompt: "/correct-work", generation_id: "correction-generation" }), options(stateRoot)), {});
+    assert.deepEqual(evaluateCloseoutGuard(base({ hook_event_name: "beforeSubmitPrompt", prompt: "ordinary prompt" }), options(stateRoot)), {});
+    assert.deepEqual(evaluateCloseoutGuard(null, options(stateRoot)), {});
   } finally {
-    rmSync(home, { recursive: true, force: true });
-    rmSync(links, { recursive: true, force: true });
+    rmSync(stateRoot, { recursive: true, force: true });
   }
 });
 
-test("multi-root and parallel-generation mutations revoke or contaminate single-root Review authority", () => {
-  const home = mkdtempSync(join(tmpdir(), "cursor-native-contamination-home-"));
-  const second = mkdtempSync(join(tmpdir(), "cursor-native-contamination-second-"));
-  const firstStateRoot = workflowStateRoot(realpathSync(defaultRoot), { home });
+test("Review guard converts native state contention and adapter failure into targeted denials", () => {
+  const busyState = mkdtempSync(join(tmpdir(), "workflow-v6-hook-busy-"));
+  const invalidState = mkdtempSync(join(tmpdir(), "workflow-v6-hook-invalid-adapter-"));
   try {
-    const options = { home, pluginRoot: defaultRoot };
-    const workspace = { workspace_roots: [defaultRoot], cwd: defaultRoot };
-    evaluateCloseoutGuard(input({
-      ...workspace,
+    establish(busyState);
+    const conversation = hashWorkflowIdentifier("conversation", "cursor-v6");
+    const lock = join(busyState, "manual-native-task-review", "locks", `${conversation}.lock`);
+    mkdirSync(lock, { recursive: true });
+    writeFileSync(join(lock, "owner.json"), `${JSON.stringify({
+      owner_token: "current-host-owner-token",
+      pid: process.pid,
+      acquired_at: new Date().toISOString(),
+    })}\n`);
+    const busy = evaluateCloseoutGuard(reviewCall(), { ...options(busyState), lockWaitMs: 1, lockPollMs: 1 });
+    assert.equal(busy.permission, "deny");
+    assert.match(busy.user_message, /busy|in flight/i);
+
+    establish(invalidState);
+    const invalid = evaluateCloseoutGuard(reviewCall(), { ...options(invalidState), now: () => Symbol("invalid-time") });
+    assert.equal(invalid.permission, "deny");
+    assert.match(invalid.user_message, /invalid/i);
+  } finally {
+    rmSync(busyState, { recursive: true, force: true });
+    rmSync(invalidState, { recursive: true, force: true });
+  }
+});
+
+test("Review guard CLI stays fail-open for valid, malformed, and oversized host input", () => {
+  const hook = join(defaultRoot, "hooks", "closeout-guard.mjs");
+  const run = (input, args = []) => spawnSync(process.execPath, [hook, ...args], { input, encoding: "utf8" });
+  const valid = run(JSON.stringify({ hook_event_name: "preToolUse", tool_name: "Shell", tool_input: {} }));
+  assert.equal(valid.status, 0);
+  assert.equal(valid.stdout, "{}");
+  const malformed = run("not-json", ["--enforce"]);
+  assert.equal(malformed.status, 0);
+  assert.equal(malformed.stdout, "{}");
+  assert.match(malformed.stderr, /host action remains available/);
+  const oversized = run("x".repeat(1024 * 1024 + 1));
+  assert.equal(oversized.status, 0);
+  assert.equal(oversized.stdout, "{}");
+});
+
+test("invalid, ambiguous, and caller-conflicting Root states get distinct Review denials", () => {
+  const invalidState = mkdtempSync(join(tmpdir(), "workflow-v6-hook-invalid-"));
+  const ambiguousState = mkdtempSync(join(tmpdir(), "workflow-v6-hook-ambiguous-"));
+  const mismatchState = mkdtempSync(join(tmpdir(), "workflow-v6-hook-mismatch-"));
+  try {
+    evaluateCloseoutGuard(base({
       hook_event_name: "postToolUse",
-      generation_id: "plan-generation",
       tool_name: "CreatePlan",
-      tool_use_id: "create-plan-call",
-      tool_input: { name: "Adaptive retry", plan: rootPlan },
-    }), options);
-    assert.deepEqual(evaluateCloseoutGuard(input({
-      hook_event_name: "preToolUse",
-      conversation_id: "other-conversation",
-      generation_id: "other-generation",
-      tool_name: "Write",
-      tool_use_id: "multi-root-write",
-      workspace_roots: [defaultRoot, second],
-      cwd: defaultRoot,
-      tool_input: { path: "README.md" },
-    }), options), {});
-    evaluateCloseoutGuard(input({ ...workspace, hook_event_name: "beforeSubmitPrompt", generation_id: "review-generation", prompt: "/review-work" }), options);
-    const prepared = evaluateCloseoutGuard(input({
-      ...workspace,
-      hook_event_name: "preToolUse",
-      generation_id: "review-generation",
-      tool_name: "MCP:workflow_closeout",
-      tool_use_id: "review-call",
-      tool_input: { artifact_kind: "work-review", check_evidence: [], review_input: { schema: 1, kind: "review-input" } },
-    }), options);
-    const consumed = consumeNativeReviewReceipt({ stateRoot: firstStateRoot, token: prepared.updated_input.native_review_receipt, input: prepared.updated_input });
-    assert.equal(consumed.status, "resolved");
-    assert.ok(consumed.receipt.repository_attribution.reason_codes.includes("concurrent-repository-activity"));
+      generation_id: "plan-generation",
+      tool_use_id: "invalid-plan-call",
+      tool_input: { name: "Invalid", plan: "not a Workflow Root", todos: [] },
+    }), options(invalidState));
+    evaluateCloseoutGuard(base({ hook_event_name: "beforeSubmitPrompt", prompt: "/review-work" }), options(invalidState));
+    const invalid = evaluateCloseoutGuard(reviewCall(), options(invalidState));
+    assert.equal(invalid.permission, "deny");
+    assert.match(invalid.user_message, /native-plan-root-invalid|native-task-root-unavailable/);
 
-    evaluateCloseoutGuard(input({ ...workspace, hook_event_name: "beforeSubmitPrompt", generation_id: "review-generation-2", prompt: "/review-work" }), options);
-    const pending = evaluateCloseoutGuard(input({
-      ...workspace,
-      hook_event_name: "preToolUse",
-      generation_id: "review-generation-2",
-      tool_name: "MCP:workflow_closeout",
-      tool_use_id: "review-call-2",
-      tool_input: { artifact_kind: "work-review", check_evidence: [], review_input: { schema: 1, kind: "review-input" } },
-    }), options);
-    assert.deepEqual(evaluateCloseoutGuard(input({
-      ...workspace,
-      hook_event_name: "preToolUse",
-      generation_id: "parallel-generation",
-      tool_name: "Write",
-      tool_use_id: "parallel-write",
-      tool_input: { path: "README.md" },
-    }), options), {});
-    assert.equal(consumeNativeReviewReceipt({ stateRoot: firstStateRoot, token: pending.updated_input.native_review_receipt, input: pending.updated_input }).status, "unavailable");
-  } finally {
-    rmSync(home, { recursive: true, force: true });
-    rmSync(second, { recursive: true, force: true });
-  }
-});
-
-test("registered Cursor lifecycle hook is passive outside explicit Workflow and enforces Review", () => {
-  const home = mkdtempSync(join(tmpdir(), "cursor-passive-hook-home-"));
-  const secondary = mkdtempSync(join(tmpdir(), "cursor-passive-hook-repository-"));
-  assert.equal(spawnSync("git", ["-C", secondary, "init", "--quiet"]).status, 0);
-  const script = join(new URL("..", import.meta.url).pathname, "hooks", "closeout-guard.mjs");
-  const run = (overrides) => {
-    const result = spawnSync(process.execPath, [script], {
-      input: JSON.stringify(input({
-        model: "cursor-parent",
-        transcript_path: null,
-        workspace_roots: [defaultRoot, secondary],
-        cwd: defaultRoot,
-        ...overrides,
-      })),
-      encoding: "utf8",
-      env: { ...process.env, HOME: home },
+    const firstPlan = base({
+      hook_event_name: "postToolUse",
+      tool_name: "CreatePlan",
+      generation_id: "same-generation",
+      tool_use_id: "first-plan-call",
+      tool_input: { name: "Workflow 6", plan: rootPlan, todos: [] },
     });
-    assert.equal(result.status, 0, result.stderr || result.stdout);
-    return JSON.parse(result.stdout || "{}");
-  };
-  try {
-    assert.deepEqual(run({ hook_event_name: "beforeSubmitPrompt", prompt: "Implement this plan" }), {});
-    assert.deepEqual(run({ hook_event_name: "preToolUse", tool_name: "Write", tool_input: { path: "src/a.mjs" } }), {});
-    assert.equal(existsSync(join(home, ".cursor", "geldmacher-workflow")), false);
+    evaluateCloseoutGuard(firstPlan, options(ambiguousState));
+    evaluateCloseoutGuard({
+      ...firstPlan,
+      tool_use_id: "second-plan-call",
+      tool_input: { ...firstPlan.tool_input, plan: rootPlan.replace("wp-adaptive-retry", "wp-adaptive-retry-other") },
+    }, options(ambiguousState));
+    evaluateCloseoutGuard(base({ hook_event_name: "beforeSubmitPrompt", prompt: "/review-work" }), options(ambiguousState));
+    const ambiguous = evaluateCloseoutGuard(reviewCall(), options(ambiguousState));
+    assert.equal(ambiguous.permission, "deny");
+    assert.match(ambiguous.user_message, /workspace-ambiguous|Root.*invalid|native-task-root/i);
 
-    assert.deepEqual(run({ hook_event_name: "beforeSubmitPrompt", prompt: "/review-work" }), {});
-    const denied = run({ hook_event_name: "preToolUse", tool_name: "Write", tool_input: { path: "src/a.mjs" } });
-    assert.equal(denied.permission, "deny");
-    assert.match(denied.user_message, /native-workspace-ambiguous/i);
-
-    const invalid = spawnSync(process.execPath, [script], { input: "not-json", encoding: "utf8", env: { ...process.env, HOME: home } });
-    assert.equal(invalid.status, 0);
-    assert.deepEqual(JSON.parse(invalid.stdout), {});
+    establish(mismatchState);
+    const mismatch = evaluateCloseoutGuard(reviewCall({
+      tool_input: { artifact_kind: "work-review", root_plan_id: "caller-conflict", check_evidence: [] },
+    }), options(mismatchState));
+    assert.equal(mismatch.permission, "deny");
+    assert.match(mismatch.user_message, /expected Root wp-adaptive-retry|receipt-mismatch/);
   } finally {
-    rmSync(home, { recursive: true, force: true });
-    rmSync(secondary, { recursive: true, force: true });
+    rmSync(invalidState, { recursive: true, force: true });
+    rmSync(ambiguousState, { recursive: true, force: true });
+    rmSync(mismatchState, { recursive: true, force: true });
   }
 });
 
-test("dedicated mutation hook cannot turn an internal failure into a host blockade", () => {
-  const script = join(new URL("..", import.meta.url).pathname, "hooks", "closeout-guard.mjs");
-  const healthy = spawnSync(process.execPath, [script, "--enforce"], {
-    input: JSON.stringify(input({ hook_event_name: "preToolUse", tool_name: "Write", tool_input: { path: "src/a.mjs" } })),
-    encoding: "utf8",
-  });
-  assert.equal(healthy.status, 0, healthy.stderr);
-  assert.deepEqual(JSON.parse(healthy.stdout), {});
-  const failed = spawnSync(process.execPath, [script, "--enforce"], { input: "not-json", encoding: "utf8" });
-  assert.equal(failed.status, 0, failed.stderr);
-  assert.deepEqual(JSON.parse(failed.stdout), {});
-  assert.match(failed.stderr, /host action remains available/i);
+test("workspace-derived state remains fail-open for ordinary events", () => {
+  assert.deepEqual(evaluateCloseoutGuard(base({
+    hook_event_name: "preToolUse",
+    tool_name: "Shell",
+    tool_input: { opaque_project_operation: true },
+  }), { pluginRoot: defaultRoot }), {});
+});
 
-  const hooks = JSON.parse(readFileSync(join(new URL("..", import.meta.url).pathname, "hooks", "hooks.json"), "utf8"));
-  const enforcement = hooks.hooks.preToolUse.find((entry) => entry.command.includes("closeout-guard.mjs"));
-  assert.equal(enforcement.failClosed, false);
-  assert.match(enforcement.matcher, /MCP:\.\*/);
-  assert.equal(hooks.hooks.beforeSubmitPrompt.length, 2);
-  assert.ok(hooks.hooks.beforeSubmitPrompt.every((entry) => entry.failClosed === false));
+test("native Plan observer limitations remain precise at the Review boundary", () => {
+  const scenarios = ["missing", "ambiguous-file", "invalid-transcript-root", "invalid-transcript"];
+  for (const scenario of scenarios) {
+    const stateRoot = mkdtempSync(join(tmpdir(), "workflow-v6-hook-observer-"));
+    const planDirectory = mkdtempSync(join(tmpdir(), "workflow-v6-hook-plans-"));
+    const transcriptRoot = mkdtempSync(join(tmpdir(), "workflow-v6-hook-transcript-"));
+    try {
+      const now = new Date();
+      const observerOptions = { ...options(stateRoot), planDirectory, now: () => now };
+      evaluateCloseoutGuard(base({ hook_event_name: "beforeSubmitPrompt", generation_id: "planning-observer", prompt: "/plan-work" }), observerOptions);
+      let transcriptPath;
+      if (scenario === "ambiguous-file") {
+        const source = `---\nname: Workflow 6\ntodos: []\n---\n${rootPlan}`;
+        writeFileSync(join(planDirectory, "one.plan.md"), source);
+        writeFileSync(join(planDirectory, "two.plan.md"), source);
+      } else if (scenario === "invalid-transcript-root") {
+        transcriptPath = join(transcriptRoot, "cursor-v6.jsonl");
+        writeFileSync(transcriptPath, `${[
+          { role: "assistant", message: { content: [{ type: "tool_use", name: "CreatePlan", input: { name: "Invalid", plan: "not a Root" } }] } },
+          { type: "turn_ended", status: "success" },
+        ].map((entry) => JSON.stringify(entry)).join("\n")}\n`);
+      } else if (scenario === "invalid-transcript") {
+        transcriptPath = join(transcriptRoot, "cursor-v6.jsonl");
+        writeFileSync(transcriptPath, "not-json\n");
+      }
+      evaluateCloseoutGuard(base({
+        hook_event_name: "stop",
+        generation_id: "planning-observer",
+        status: "completed",
+        ...(transcriptPath ? { transcript_path: transcriptPath } : {}),
+      }), observerOptions);
+      evaluateCloseoutGuard(base({ hook_event_name: "beforeSubmitPrompt", prompt: "/review-work" }), observerOptions);
+      const denied = evaluateCloseoutGuard(reviewCall(), observerOptions);
+      assert.equal(denied.permission, "deny", scenario);
+      const expected = scenario === "missing"
+        ? /native-plan-root-unavailable/
+        : scenario === "ambiguous-file"
+          ? /native-plan-file-ambiguous/
+          : scenario === "invalid-transcript-root"
+            ? /native-plan-root-invalid/
+            : /native-plan-transcript-invalid/;
+      assert.match(denied.user_message, expected, scenario);
+    } finally {
+      rmSync(stateRoot, { recursive: true, force: true });
+      rmSync(planDirectory, { recursive: true, force: true });
+      rmSync(transcriptRoot, { recursive: true, force: true });
+    }
+  }
 });

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { cpSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
@@ -34,11 +34,12 @@ test("an isolated installed-copy surface starts MCP with the canonical tool matr
     for (const tool of tools.tools) {
       assert.deepEqual(tool.annotations, WORKFLOW_TOOL_ANNOTATIONS[tool.name]);
     }
-    const status = await client.callTool({ name: "workflow_status", arguments: {} });
-    assert.notEqual(status.isError, true);
-    assert.equal(status.structuredContent.workflow_active, false);
-    assert.equal(status.structuredContent.subject_kind, "none");
-    assert.match(status.structuredContent.message, /never gates native Manual implementation/);
+    const rootPlan = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
+    const preflight = await client.callTool({ name: "workflow_plan_preflight", arguments: { root_plan: rootPlan } });
+    assert.equal(preflight.isError, false);
+    assert.equal(preflight.structuredContent.feasible, true);
+    assert.equal(preflight.structuredContent.root_plan_id, "wp-adaptive-retry");
+    assert.equal(preflight.structuredContent.mutation_performed, false);
   } finally {
     await client?.close().catch(() => {});
     rmSync(installed, { recursive: true, force: true });

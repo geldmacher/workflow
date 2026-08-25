@@ -1,9 +1,13 @@
-# Intent Root contract
+# Schema-6 Intent Root contract
 
-A Schema-5 `work-plan` is closed and requires `artifact`, `schema`, `id`, `status`, `intent_ready`, `profile_max`, `contract_level`, `risk`, `hard_triggers`, `goal`, `acceptance`, `non_goals`, `constraints`, and `authority`.
+A closed Schema-6 `work-plan` requires goal, acceptance, non-goals, constraints, risk, Hard Triggers, profile, and authority. Authority fixes allowed roots, protected and approval-required paths, dependency policy, no external effects, repository-only delivery, and profile budgets.
 
-Initial Roots omit lineage. A replan Root uses a fresh ID and must bind both `predecessor_plan_id` and the predecessor's unique current `replan_source_review_id`; the source review requires `next_action: replan`. Lineage is authoritative, linear, and acyclic.
+Initial Roots omit lineage. A replan uses a fresh ID and binds both predecessor Root and the unique current review that requested replan.
 
-`authority` closes allowed roots, protected and approval-required paths, dependencies, external effects, repository-only delivery, and controlled budgets. Manual uses `lean`; supervised uses `controlled`; autonomous uses `certified` plus hashed Verification Profile, task recipe, certified region, and Route Pool.
+Verification is intent-only:
 
-Intent, Acceptance, Boundaries, and Risks must be meaningfully present, but may be prose, lists, or tables. The Validator checks semantics rather than eight fixed tables. The Root declares primary outcomes; Strategy owns mutable steps, targets, and equivalent checks.
+`Check ID | Objectives | Verification Intent | Expected Evidence | Required | Evidence Class | Cost Class | Prerequisites`
+
+Working directories, commands, programs, tools, models, host calls, route pools, task recipes, retry counts, sandboxes, and worktrees are forbidden authoritative fields. The active project harness owns them. Concrete execution data may appear only as opaque trace that Workflow never interprets.
+
+Manual uses lean lifecycle ceremony. Supervised uses a generic Harness Capability Receipt and final human acceptance. Autonomous additionally binds one exact Qualification Key, capability receipt hash, verification-intent hash, and certified region.

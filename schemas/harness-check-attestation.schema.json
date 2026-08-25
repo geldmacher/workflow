@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:geldmacher:workflow:harness-check-attestation:1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "kind", "harness_id", "check_id", "root_hash", "verification_intent_hash", "workspace_binding", "workspace_snapshot_hash", "status", "observed", "evidence_hashes", "issued_at", "content_hash"],
+  "properties": {
+    "schema": { "const": 1 },
+    "kind": { "const": "harness-check-attestation" },
+    "harness_id": { "type": "string", "minLength": 1 },
+    "check_id": { "type": "string", "pattern": "^CHECK-[1-9][0-9]*$" },
+    "root_hash": { "$ref": "#/$defs/hash" },
+    "verification_intent_hash": { "$ref": "#/$defs/hash" },
+    "workspace_binding": { "$ref": "#/$defs/hash" },
+    "workspace_snapshot_hash": { "$ref": "#/$defs/hash" },
+    "status": { "enum": ["passed", "failed", "unavailable"] },
+    "observed": { "type": "string", "minLength": 1 },
+    "evidence_hashes": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/hash" } },
+    "issued_at": { "type": "string", "format": "date-time" },
+    "content_hash": { "$ref": "#/$defs/hash" }
+  },
+  "allOf": [{ "if": { "properties": { "status": { "const": "passed" } }, "required": ["status"] }, "then": { "properties": { "evidence_hashes": { "minItems": 1 } } } }],
+  "$defs": { "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" } }
+}

@@ -1,31 +1,20 @@
 {
-  "measurement_version": 3,
-  "flow_matrix_hash": "b525c883639accb248143a6774d9d7fa95bdb2a4a9b16be4cac773f75e70effc",
+  "measurement_version": 4,
+  "flow_matrix_hash": "94402193e7494d67c58d99977ef5afbd279344b815cb964b6639fa51f948340b",
   "always_on_tokens": 0,
-  "discoverability_tokens": 367,
+  "discoverability_tokens": 246,
   "phase_flows": {
-    "plan_intake": 969,
-    "plan_oneshot": 1748,
-    "plan_compact_full": 1929,
-    "review_base": 1829,
-    "correction": 1351,
-    "learning": 1785,
-    "explanation": 778
+    "plan_intake": 656,
+    "plan_oneshot": 1162,
+    "plan_compact_full": 1339,
+    "review_base": 1201,
+    "correction": 950,
+    "learning": 769,
+    "explanation": 517
   },
   "automation_flows": {
-    "prepare_or_approve": 922,
-    "status": 1150,
-    "watch": 919,
-    "control": 1334,
-    "models": 885,
-    "verification": 891,
-    "acceptance": 1123
-  },
-  "reviewer_tokens": {
-    "delivery-auditor": 495,
-    "risk-auditor": 388,
-    "work-design-auditor": 147,
-    "work-explainer": 203,
-    "work-plan-auditor": 486
+    "prepare_or_approve": 754,
+    "status": 639,
+    "acceptance": 616
   }
 }

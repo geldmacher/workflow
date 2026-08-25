@@ -7,6 +7,4 @@ description: Apply the current approved Workflow correction.
 
 Designed for Cursor Agent Mode. This command accepts no arguments. Read [work-execution](../skills/work-execution/SKILL.md) completely.
 
-`[workflow-model-inherit-v1]`
-
-Approve only the newest unique correction in the exact current-task native Plan chain; stale, missing, or multiple tips stop before mutation. Run correction Checks plus failed, missing, affected, stale, or ambiguous Root Checks. Finish normally without Evidence, then Ask `/review-work` to create delta Evidence and Review atomically.
+Approve only the newest unique correction in the exact current-task Schema-6 chain. Apply its required outcomes inside Root authority; the active project harness decides how. Finish without creating Evidence, then run fresh `/review-work`. Changed intent, authority, risk, or external effects require a human-approved Schema-6 replan.

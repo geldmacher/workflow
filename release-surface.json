@@ -2,18 +2,9 @@
   "schema": 1,
   "runtime_paths": [
     ".cursor-plugin/plugin.json",
-    "agents",
     "assets",
     "commands",
-    "dist/chunks",
-    "dist/workflow-capability-spike.mjs",
-    "dist/workflow-fanout.mjs",
     "dist/workflow-mcp.mjs",
-    "dist/workflow-provision-worker-runtime.mjs",
-    "dist/workflow-runner.mjs",
-    "dist/workflow-sdk-crash-probe.mjs",
-    "dist/workflow-state-maintenance.mjs",
-    "dist/workflow-worker.mjs",
     "hooks",
     "mcp.json",
     "npm-shrinkwrap.json",
@@ -23,7 +14,11 @@
     "schemas",
     "scripts/validate-artifact.mjs",
     "skills",
-    "src/core/native-task-review-state.mjs"
+    "src/core/protected-record-store.mjs",
+    "src/harness/host-decision-receipts.mjs",
+    "src/harness/host-trust-adapter.mjs",
+    "src/harness/native-automation-state.mjs",
+    "src/harness/native-task-review-state.mjs"
   ],
   "package_extras": [
     ".cursor-plugin/marketplace.json",

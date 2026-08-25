@@ -14,12 +14,11 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
-import { parseWorkflowYaml } from "./manual-subagent-policy.mjs";
 import {
   effectiveCliSummary,
   inspectArtifactSet,
   inspectArtifactText,
-  manualReviewShellDecision,
+  parseWorkflowYaml,
   preflightRootPlan,
 } from "../scripts/validate-artifact.mjs";
 import {
@@ -29,8 +28,8 @@ import {
   repositorySnapshotHash,
   validRepositorySnapshot,
   withNativeTaskReviewLock as withConversationLock,
-} from "../src/core/native-task-review-state.mjs";
-import { hashWorkflowIdentifier } from "./model-inheritance-state.mjs";
+} from "../src/harness/native-task-review-state.mjs";
+import { hashWorkflowIdentifier } from "./workflow-state.mjs";
 import {
   atomicNativeReviewReceipt,
   consumeNativeReviewReceipt,
@@ -40,7 +39,7 @@ import {
 } from "./native-review-receipt.mjs";
 
 export { consumeNativeReviewReceipt, nativeReviewRequestHash } from "./native-review-receipt.mjs";
-export { validateConsumedNativeReviewReceipt } from "../src/core/native-task-review-state.mjs";
+export { validateConsumedNativeReviewReceipt } from "../src/harness/native-task-review-state.mjs";
 
 export const NATIVE_TASK_CONTEXT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const NATIVE_REVIEW_RECEIPT_TTL_MS = 5 * 60 * 1000;
@@ -48,6 +47,8 @@ export const NATIVE_REVIEW_RECEIPT_TTL_MS = 5 * 60 * 1000;
 const MAX_CONTEXT_BYTES = 2 * 1024 * 1024;
 const MAX_TRANSCRIPT_BYTES = 32 * 1024 * 1024;
 const MAX_PLAN_FILE_BYTES = 2 * 1024 * 1024;
+const MAX_PLAN_VALIDATION_ERRORS = 8;
+const MAX_PLAN_VALIDATION_ERROR_LENGTH = 300;
 const PLAN_FILE_WINDOW_MS = 120 * 1000;
 const WORK_REVIEW_TOOL = /^MCP:workflow_closeout$/i;
 const sha256 = (value) => createHash("sha256").update(String(value), "utf8").digest("hex");
@@ -93,7 +94,7 @@ function conversationPath(stateRoot, conversationHash) {
 
 function writeConversation(stateRoot, conversationHash, value, options = {}) {
   atomicJson(conversationPath(stateRoot, conversationHash), {
-    schema: 3,
+    schema: 6,
     kind: "cursor-native-task-review-context",
     conversation_hash: conversationHash,
     revision: 1,
@@ -104,6 +105,7 @@ function writeConversation(stateRoot, conversationHash, value, options = {}) {
     baseline_hash: null,
     mutation_epoch: null,
     review_selection: null,
+    review_invalidation: null,
     inflight: null,
     ...value,
     updated_at: timestamp(options),
@@ -138,29 +140,61 @@ function workspaceForInput(input, options = {}) {
   return null;
 }
 
-function planObservation(toolInput, pluginRoot) {
-  if (!toolInput || typeof toolInput !== "object" || Array.isArray(toolInput) || typeof toolInput.plan !== "string") return null;
+function boundedPlanValidationErrors(values) {
+  return [...new Set((values ?? []).map((value) => String(value)
+    .replace(/[\u0000-\u001f\u007f]+/g, " ")
+    .replace(/(^|\s)\/(?:Users|home|private|var|tmp)\/[^\s;,)\]]+/g, "$1<absolute-path>")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, MAX_PLAN_VALIDATION_ERROR_LENGTH))
+    .filter(Boolean))].slice(0, MAX_PLAN_VALIDATION_ERRORS);
+}
+
+function inspectPlanObservation(toolInput, pluginRoot) {
+  if (!toolInput || typeof toolInput !== "object" || Array.isArray(toolInput) || typeof toolInput.plan !== "string") {
+    return {
+      status: "invalid",
+      reason_codes: ["native-plan-root-invalid"],
+      validation_errors: ["CreatePlan payload does not contain one plan string"],
+    };
+  }
   const inspected = inspectArtifactText(toolInput.plan, pluginRoot);
   const fields = inspected.artifact?.fields;
-  if (inspected.errors.length > 0 || fields?.artifact !== "work-plan" || fields.schema !== 5 || fields.status !== "ready") return null;
+  const inspectionErrors = [
+    ...inspected.errors,
+    ...(inspected.errors.length === 0 && fields?.artifact !== "work-plan" ? ["input must contain one work-plan Root"] : []),
+    ...(inspected.errors.length === 0 && fields?.artifact === "work-plan" && fields.schema !== 6 ? ["work-plan Root must use schema 6"] : []),
+    ...(inspected.errors.length === 0 && fields?.artifact === "work-plan" && fields.status !== "ready" ? ["work-plan Root must be ready"] : []),
+  ];
+  if (inspectionErrors.length > 0) {
+    return {
+      status: "invalid",
+      reason_codes: ["native-plan-root-invalid"],
+      validation_errors: boundedPlanValidationErrors(inspectionErrors),
+    };
+  }
   const preflight = preflightRootPlan(toolInput.plan, pluginRoot);
-  if (!preflight.feasible) return null;
+  if (!preflight.feasible) {
+    return {
+      status: "invalid",
+      reason_codes: ["native-plan-root-invalid"],
+      validation_errors: boundedPlanValidationErrors((preflight.blocking_issues ?? []).map((issue) => issue?.message ?? issue)),
+    };
+  }
   const title = toolInput.plan.match(/(?:^|\n)#\s+([^\r\n]+)/)?.[1]?.trim() ?? toolInput.name?.trim() ?? null;
   return {
-    root_plan_id: fields.id,
-    root_hash: sha256(toolInput.plan),
-    root_text: toolInput.plan,
-    title,
+    status: "resolved",
+    observed: {
+      root_plan_id: fields.id,
+      root_hash: sha256(toolInput.plan),
+      root_text: toolInput.plan,
+      title,
+    },
   };
 }
 
 function normalizedRootBinding(active) {
-  const legacy = {
-    status: "enforced",
-    source: "post-tool-use",
-    reason_codes: [],
-  };
-  const value = active?.root_binding ?? legacy;
+  const value = active?.root_binding;
   const valid = value && typeof value === "object" && !Array.isArray(value)
     && ["enforced", "provisional"].includes(value.status)
     && ["post-tool-use", "task-transcript-stop", "recent-plan-file-stop"].includes(value.source)
@@ -239,6 +273,7 @@ function recordNativePlanObservation({
   toolHash,
   rootBinding,
   rootSource,
+  validationErrors = [],
   options = {},
 }) {
   const conversationHash = workflowConversation(input);
@@ -260,10 +295,12 @@ function recordNativePlanObservation({
         baseline_hash: null,
         mutation_epoch: null,
         review_selection: null,
+        review_invalidation: null,
         inflight: null,
         last_plan_observation: {
           status: "invalid",
           reason_codes: ["native-plan-root-invalid"],
+          ...(validationErrors.length > 0 ? { validation_errors: boundedPlanValidationErrors(validationErrors) } : {}),
           observed_at: timestamp(options),
         },
       }, options);
@@ -283,6 +320,7 @@ function recordNativePlanObservation({
         baseline_hash: null,
         mutation_epoch: null,
         review_selection: null,
+        review_invalidation: null,
         inflight: null,
         last_plan_observation: {
           status: "ambiguous",
@@ -336,6 +374,7 @@ function recordNativePlanObservation({
         options,
       }),
       review_selection: null,
+      review_invalidation: null,
       inflight: null,
       last_plan_observation: {
         status: "observed",
@@ -354,7 +393,7 @@ function recordNativePlanObservation({
   }, options);
 }
 
-function recordNativePlanObservationFailure({ stateRoot, input, status, reasonCodes, options = {} }) {
+function recordNativePlanObservationFailure({ stateRoot, input, status, reasonCodes, validationErrors = [], options = {} }) {
   const conversationHash = workflowConversation(input);
   if (!conversationHash) return { status, reason_codes: reasonCodes };
   return withConversationLock(stateRoot, conversationHash, () => {
@@ -370,14 +409,20 @@ function recordNativePlanObservationFailure({ stateRoot, input, status, reasonCo
       baseline_hash: null,
       mutation_epoch: null,
       review_selection: null,
+      review_invalidation: null,
       inflight: null,
       last_plan_observation: {
         status,
         reason_codes: reasonCodes,
+        ...(validationErrors.length > 0 ? { validation_errors: boundedPlanValidationErrors(validationErrors) } : {}),
         observed_at: timestamp(options),
       },
     }, options);
-    return { status, reason_codes: reasonCodes };
+    return {
+      status,
+      reason_codes: reasonCodes,
+      ...(validationErrors.length > 0 ? { validation_errors: boundedPlanValidationErrors(validationErrors) } : {}),
+    };
   }, options);
 }
 
@@ -437,10 +482,14 @@ function transcriptCreatePlan(input, pluginRoot) {
         reason_codes: [candidates.length > 1 ? "native-plan-transcript-create-plan-ambiguous" : "native-plan-transcript-create-plan-missing"],
       };
     }
-    const observed = planObservation(candidates[0].input, pluginRoot);
-    return observed
-      ? { status: "resolved", observed }
-      : { status: "invalid", reason_codes: ["native-plan-transcript-root-invalid"] };
+    const inspected = inspectPlanObservation(candidates[0].input, pluginRoot);
+    return inspected.status === "resolved"
+      ? inspected
+      : {
+          status: "invalid",
+          reason_codes: ["native-plan-transcript-root-invalid", ...(inspected.reason_codes ?? [])],
+          validation_errors: inspected.validation_errors ?? [],
+        };
   } catch {
     return { status: "invalid", reason_codes: ["native-plan-transcript-invalid"] };
   }
@@ -509,10 +558,14 @@ function recentNativePlanFile(markerStartedAt, pluginRoot, options = {}) {
       return { status: "invalid", reason_codes: ["native-plan-file-oversized"] };
     }
     const toolInput = nativePlanFileInput(source);
-    const observed = planObservation(toolInput, pluginRoot);
-    return observed
-      ? { status: "resolved", observed }
-      : { status: "invalid", reason_codes: ["native-plan-file-root-invalid"] };
+    const inspected = inspectPlanObservation(toolInput, pluginRoot);
+    return inspected.status === "resolved"
+      ? inspected
+      : {
+          status: "invalid",
+          reason_codes: ["native-plan-file-root-invalid", ...(inspected.reason_codes ?? [])],
+          validation_errors: inspected.validation_errors ?? [],
+        };
   } catch {
     return { status: "invalid", reason_codes: ["native-plan-file-read-failed"] };
   }
@@ -522,11 +575,25 @@ export function observeNativeCreatePlan({ stateRoots, input, pluginRoot, options
   if (!Array.isArray(stateRoots) || stateRoots.length !== 1) return { status: "ambiguous" };
   const toolHash = workflowTool(input);
   if (!toolHash) return { status: "ignored" };
+  const inspected = inspectPlanObservation(input.tool_input, pluginRoot);
+  if (inspected.status !== "resolved") {
+    return recordNativePlanObservation({
+      stateRoot: stateRoots[0],
+      input,
+      pluginRoot,
+      observed: null,
+      toolHash,
+      rootBinding: { status: "enforced", source: "post-tool-use", reason_codes: [] },
+      rootSource: "cursor-create-plan",
+      validationErrors: inspected.validation_errors,
+      options,
+    });
+  }
   return recordNativePlanObservation({
     stateRoot: stateRoots[0],
     input,
     pluginRoot,
-    observed: planObservation(input.tool_input, pluginRoot),
+    observed: inspected.observed,
     toolHash,
     rootBinding: { status: "enforced", source: "post-tool-use", reason_codes: [] },
     rootSource: "cursor-create-plan",
@@ -551,7 +618,14 @@ export function observeNativeCreatePlanAtStop({ stateRoots, input, markerStarted
     });
   }
   if (transcript.status !== "unavailable") {
-    return recordNativePlanObservationFailure({ stateRoot, input, status: transcript.status, reasonCodes: transcript.reason_codes, options });
+    return recordNativePlanObservationFailure({
+      stateRoot,
+      input,
+      status: transcript.status,
+      reasonCodes: transcript.reason_codes,
+      validationErrors: transcript.validation_errors,
+      options,
+    });
   }
   const planFile = recentNativePlanFile(markerStartedAt, pluginRoot, options);
   if (planFile.status !== "resolved") {
@@ -560,6 +634,7 @@ export function observeNativeCreatePlanAtStop({ stateRoots, input, markerStarted
       input,
       status: planFile.status,
       reasonCodes: [...new Set([...transcript.reason_codes, ...planFile.reason_codes])],
+      validationErrors: planFile.validation_errors,
       options,
     });
   }
@@ -577,11 +652,6 @@ export function observeNativeCreatePlanAtStop({ stateRoots, input, markerStarted
     rootSource: "cursor-plan-file",
     options,
   });
-}
-
-/** Legacy compatibility export. Implement Plan prose is intentionally inert. */
-export function approveNativeImplementPlan() {
-  return { status: "ignored", reason: "implementation-authorization-host-owned-unattested" };
 }
 
 function inspectedArtifacts(rootText, artifacts, pluginRoot) {
@@ -660,8 +730,13 @@ function validArtifacts(rootText, artifacts, pluginRoot) {
 function validateActive(current, pluginRoot) {
   if (!current) return { status: "unavailable" };
   const reasonCodes = current.last_plan_observation?.reason_codes ?? [];
-  if (current.root_status === "ambiguous") return { status: "ambiguous", reason_codes: reasonCodes };
-  if (current.root_status !== "active" || !current.active) return { status: "unavailable", reason_codes: reasonCodes };
+  const validationErrors = current.last_plan_observation?.validation_errors ?? [];
+  if (current.root_status === "ambiguous") {
+    return { status: "ambiguous", reason_codes: reasonCodes, validation_errors: validationErrors };
+  }
+  if (current.root_status !== "active" || !current.active) {
+    return { status: "unavailable", reason_codes: reasonCodes, validation_errors: validationErrors };
+  }
   const rootBinding = normalizedRootBinding(current.active);
   const rootSource = current.active.root_source ?? rootSourceForBinding(rootBinding);
   const inspected = inspectArtifactText(current.active.root_text, pluginRoot);
@@ -689,7 +764,10 @@ export function selectNativeReviewRoot({ stateRoots, input, pluginRoot, options 
     const current = readConversation(stateRoot, conversationHash);
     if (!current && existsSync(conversationPath(stateRoot, conversationHash))) return { status: "invalid" };
     const resolved = validateActive(current, pluginRoot);
-    if (resolved.status !== "resolved") return resolved;
+    if (resolved.status !== "resolved") return {
+      ...resolved,
+      reason: resolved.status === "unavailable" ? "root-unavailable" : resolved.reason,
+    };
     revokeInflight(stateRoot, current, options);
     let selected = current;
     if (current.mutation_epoch?.status === "closed") {
@@ -726,6 +804,7 @@ export function selectNativeReviewRoot({ stateRoots, input, pluginRoot, options 
         repository_hash: baselineObservation(selected.active.workspace_root, options).hash,
         selected_at: timestamp(options),
       },
+      review_invalidation: null,
       inflight: null,
     };
     writeConversation(stateRoot, conversationHash, next, options);
@@ -817,6 +896,7 @@ export function recoverNativeReviewSelection({ stateRoots, input, pluginRoot, op
         repository_hash: baselineObservation(current.active.workspace_root, options).hash,
         selected_at: timestamp(options),
       },
+      review_invalidation: null,
       inflight: null,
     };
     writeConversation(stateRoot, conversationHash, next, options);
@@ -826,31 +906,6 @@ export function recoverNativeReviewSelection({ stateRoots, input, pluginRoot, op
       context_revision: next.revision,
       review_enforcement: next.review_selection.review_enforcement,
     };
-  }, options);
-}
-
-export function authorizeNativeReviewShell({ stateRoots, input, pluginRoot, options = {} }) {
-  if (!Array.isArray(stateRoots) || stateRoots.length !== 1) return { status: "denied", reason: "workspace-ambiguous" };
-  const conversationHash = workflowConversation(input);
-  const generationHash = workflowGeneration(input);
-  if (!conversationHash || !generationHash) return { status: "denied", reason: "review-binding-unavailable" };
-  return withConversationLock(stateRoots[0], conversationHash, () => {
-    const current = readConversation(stateRoots[0], conversationHash);
-    const resolved = validateActive(current, pluginRoot);
-    if (resolved.status !== "resolved") return { status: "denied", reason: `root-${resolved.status}` };
-    if (!current.review_selection
-      || current.review_selection.generation_hash !== generationHash
-      || current.review_selection.root_hash !== current.active.root_hash) {
-      return { status: "denied", reason: "review-selection-unavailable" };
-    }
-    return manualReviewShellDecision({
-      rootPlanText: current.active.root_text,
-      pluginRoot,
-      workspaceRoot: current.active.workspace_root,
-      expectedRootHash: current.active.root_hash,
-      toolName: input.tool_name,
-      toolInput: input.tool_input,
-    });
   }, options);
 }
 
@@ -889,56 +944,11 @@ export function beginNativeCorrection({ stateRoots, input, pluginRoot, options =
       baseline_reason: baseline.reason,
       mutation_epoch: epoch,
       review_selection: null,
+      review_invalidation: null,
       inflight: null,
     }, options);
     return { status: "selected", mutation_epoch: epoch, baseline_status: baseline.status };
   }, options);
-}
-
-export function markNativeRepositoryMutation({ stateRoots, input, options = {} }) {
-  if (!Array.isArray(stateRoots) || stateRoots.length !== 1) return { status: "ambiguous", marked: 0 };
-  const sourceConversationHash = workflowConversation(input);
-  if (!sourceConversationHash) return { status: "unavailable", marked: 0 };
-  const stateRoot = stateRoots[0];
-  const directory = join(contextRoot(stateRoot), "conversations");
-  if (!existsSync(directory)) return { status: "ignored", marked: 0 };
-  let marked = 0;
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    if (!entry.isFile() || !entry.name.endsWith(".json")) continue;
-    const conversationHash = entry.name.slice(0, -5);
-    const sameConversation = conversationHash === sourceConversationHash;
-    const changed = withConversationLock(stateRoot, conversationHash, () => {
-      const current = readConversation(stateRoot, conversationHash);
-      if (!current?.active || !current.mutation_epoch) return false;
-      const protectedSameConversation = current.mutation_epoch.status === "closed"
-        || Boolean(current.review_selection)
-        || Boolean(current.inflight);
-      if (sameConversation && !protectedSameConversation) return false;
-      const reason = sameConversation && current.mutation_epoch.status === "closed"
-        ? "post-review-repository-activity"
-        : "concurrent-repository-activity";
-      const reasonCodes = [...new Set([
-        ...(current.mutation_epoch.reason_codes ?? []),
-        reason,
-      ])].sort();
-      if (reasonCodes.length === (current.mutation_epoch.reason_codes ?? []).length && !current.inflight) return false;
-      revokeInflight(stateRoot, current, options);
-      writeConversation(stateRoot, conversationHash, {
-        ...current,
-        revision: current.revision + 1,
-        mutation_epoch: {
-          ...current.mutation_epoch,
-          reason_codes: reasonCodes,
-          contaminated_at: timestamp(options),
-        },
-        review_selection: null,
-        inflight: null,
-      }, options);
-      return true;
-    }, options);
-    if (changed) marked += 1;
-  }
-  return { status: marked > 0 ? "marked" : "ignored", marked };
 }
 
 function repositoryAttribution(current) {
@@ -976,7 +986,7 @@ export function prepareNativeReviewReceipt({ stateRoots, input, pluginRoot, opti
   const toolInput = source && typeof source === "object" && !Array.isArray(source) ? source : {};
   if (!WORK_REVIEW_TOOL.test(String(input.tool_name ?? "")) || (toolInput.artifact_kind ?? "delivery-evidence") !== "work-review") return { status: "ignored" };
   if (Object.prototype.hasOwnProperty.call(toolInput, "native_review_receipt")) {
-    return { status: "mismatch", reason: "model-supplied-receipt" };
+    return { status: "mismatch", reason: "caller-supplied-receipt" };
   }
   if (!Array.isArray(stateRoots) || stateRoots.length !== 1) return { status: "ambiguous" };
   const stateRoot = stateRoots[0];
@@ -989,12 +999,31 @@ export function prepareNativeReviewReceipt({ stateRoots, input, pluginRoot, opti
     const current = readConversation(stateRoot, conversationHash);
     if (!current && existsSync(conversationPath(stateRoot, conversationHash))) return { status: "invalid" };
     const resolved = validateActive(current, pluginRoot);
-    if (resolved.status !== "resolved") return resolved;
+    if (resolved.status !== "resolved") return {
+      ...resolved,
+      reason: resolved.status === "unavailable" ? "root-unavailable" : resolved.reason,
+    };
     if (!current.review_selection
       || !["explicit-review-command", "transcript-exact-review-command"].includes(current.review_selection.source)
       || current.review_selection.generation_hash !== generationHash
       || current.review_selection.root_hash !== current.active.root_hash) {
-      return { status: "unavailable" };
+      const invalidation = current.review_invalidation;
+      if (invalidation?.schema === 1
+        && invalidation.root_hash === current.active.root_hash
+        && invalidation.generation_hash === generationHash
+        && ["concurrent-repository-activity", "post-review-repository-activity"].includes(invalidation.reason)) {
+        return {
+          status: "invalidated",
+          reason: invalidation.reason,
+          reason_codes: invalidation.reason_codes ?? [invalidation.reason],
+          root_plan_id: current.active.root_plan_id,
+        };
+      }
+      return {
+        status: "unavailable",
+        reason: "review-selection-unavailable",
+        root_plan_id: current.active.root_plan_id,
+      };
     }
     const reviewRepository = baselineObservation(current.active.workspace_root, options);
     if (!current.review_selection.repository_hash
@@ -1015,7 +1044,12 @@ export function prepareNativeReviewReceipt({ stateRoots, input, pluginRoot, opti
           root_plan_id: current.active.root_plan_id,
           request_hash: requestHash,
           token: current.inflight.token,
-          updated_input: { ...toolInput, native_review_receipt: current.inflight.token },
+          updated_input: {
+            ...toolInput,
+            workspace_root: current.active.workspace_root,
+            root_plan_id: current.active.root_plan_id,
+            native_review_receipt: current.inflight.token,
+          },
           duplicate: true,
         };
       }
@@ -1027,7 +1061,7 @@ export function prepareNativeReviewReceipt({ stateRoots, input, pluginRoot, opti
     const expiresAt = new Date(Date.parse(createdAt) + NATIVE_REVIEW_RECEIPT_TTL_MS).toISOString();
     const nextRevision = current.revision + 1;
     const receipt = {
-      schema: 4,
+      schema: 6,
       kind: "cursor-native-review-receipt",
       receipt_id: tokenHash.slice(0, 32),
       token_hash: tokenHash,
@@ -1085,7 +1119,12 @@ export function prepareNativeReviewReceipt({ stateRoots, input, pluginRoot, opti
       root_plan_id: receipt.root_plan_id,
       request_hash: requestHash,
       token,
-      updated_input: { ...toolInput, native_review_receipt: token },
+      updated_input: {
+        ...toolInput,
+        workspace_root: receipt.workspace_root,
+        root_plan_id: receipt.root_plan_id,
+        native_review_receipt: token,
+      },
     };
   }, options);
 }
@@ -1193,6 +1232,7 @@ export function observeNativeReviewResult({ stateRoots, input, pluginRoot, optio
         closed_at: timestamp(options),
       } : null,
       review_selection: null,
+      review_invalidation: null,
       inflight: null,
     }, options);
     return { status: "recorded", root_plan_id: current.active.root_plan_id };
@@ -1215,7 +1255,6 @@ export function failNativeReview({ stateRoots, input, options = {} }) {
     writeConversation(stateRoot, conversationHash, {
       ...current,
       revision: current.revision + 1,
-      review_selection: null,
       inflight: null,
     }, options);
     return { status: "revoked" };

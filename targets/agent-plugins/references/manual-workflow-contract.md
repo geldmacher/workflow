@@ -1,26 +1,26 @@
 # Portable Manual Workflow contract
 
-This contract preserves Workflow's Schema-5 Manual semantics on Agent Plugins clients. The client discovers skills and MCP components through the standard package; it does not gain native hooks, plan modes, permissions, model routing, or controller automation.
+This contract preserves Workflow's Manual Schema-6 lifecycle on Agent Plugins clients. The client discovers skills and MCP components through the standard package; the project harness owns every concrete execution choice.
 
 ## Authority
 
 - Planning, implementation, correction, review, provisional acceptance, and learning are separate human-authorized actions.
-- The exact current-conversation Schema-5 Root and artifact chain are authority. MCP persistence is transport only.
-- Portable plan presentation and implementation require successful `workflow_plan_preflight` for the exact Root. Implementation, correction, and recovery require `workflow_closeout`.
-- Review and explanation are repository-read-only. Optional subagents inherit the primary model and remain advisory until the primary verifies their claims.
+- The exact current-conversation Schema-6 Root and artifact chain are authority. MCP persistence is transport only; every other artifact schema is unsupported.
+- Portable plan presentation and implementation use `workflow_plan_preflight` for structural validation; the human separately approves implementation.
+- Review and explanation are repository-read-only. The harness chooses inspection details and returns protected attestations.
 - No action automatically merges, pushes, publishes, deploys, installs, changes host settings, or grants permissions.
 
 ## Artifact flow
 
-1. `plan-work` creates one exact Schema-5 `work-plan` Root with a visible `wp-*` ID and obtains exact MCP preflight.
+1. `plan-work` creates one exact Schema-6 `work-plan` Root with a visible `wp-*` ID and obtains exact MCP preflight.
 2. The human separately invokes `implement-work` with that approved Root available.
-3. Implementation re-runs exact preflight, captures the pre-mutation baseline, stays inside authority, observes every required Check, and calls `workflow_closeout`.
-4. The returned exact Schema-5 `delivery-evidence` artifact is the portable closeout result.
-5. In the same task by default, `review-work` compares the exact chain read-only and passes closed Schema-1 input to `workflow_closeout` in `work-review` mode; the host builds the authoritative Review.
+3. Implementation re-runs exact preflight, stays inside Root authority, and finishes without creating Evidence.
+4. `review-work` declares repository-read-only intent; the project harness returns bound snapshots and Check attestations.
+5. Review passes closed Schema-1 semantic input to `workflow_closeout`; the host builds Schema-6 Evidence and Review atomically.
 6. `work-status` derives state from the exact chain. Provisional acceptance, correction, and learning remain separate invocations.
 
-Required machine claims are verified only by fresh protected host receipts bound to the exact Root, command, directory, and repository snapshot. Agent Plugins clients without compatible lifecycle hooks receive an honest MCP downgrade; they never simulate receipts. Closeout, status, and review expose current-delivery coverage, actionable human attention, Problems with cause and recovery, and one next action.
+Verified claims require protected harness attestations bound to Check intent, exact Root, workspace, and snapshot. Missing attestation stays provisional; attested failure stays failed; contradictory binding is rejected. Workflow never inspects command, tool, model, framework, sandbox, worktree, retry, or route data.
 
 ## Failure boundary
 
-Invalid, incomplete, stale, conflicting, mixed-version, redirected, or ambiguous Roots, workspace identity, baselines, Check observations, or artifact chains stop the action. Missing MCP capability stops planning or closeout where it is mandatory. Prose, cache content, tool IDs, or subagent claims cannot substitute for exact artifacts or manufacture approval, Evidence, or success.
+Invalid, stale, conflicting, mixed-version, or ambiguous Roots and workspace bindings stop only the affected phase. Harness or MCP unavailability lowers Evidence or blocks that phase without blocking ordinary client use. Prose, cache content, tool IDs, or opaque trace cannot manufacture approval, Evidence, or success.

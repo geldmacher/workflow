@@ -1,7 +1,7 @@
 {
   "name": "geldmacher-workflow",
-  "version": "5.5.1",
-  "description": "Human-authorized native planning, implementation, atomic evidence review, and status for Codex.",
+  "version": "6.0.0",
+  "description": "Workflow 6 human-authorized lifecycle, protected evidence, and harness-owned execution for Codex.",
   "author": {
     "name": "Geldmacher"
   },
@@ -20,7 +20,7 @@
   "interface": {
     "displayName": "Workflow",
     "shortDescription": "Human-authorized delivery workflow",
-    "longDescription": "Workflow keeps Schema-5 planning native, lets implementation finish normally, and creates evidence plus review atomically in the current Codex task.",
+    "longDescription": "Workflow 6 keeps intent, authority, lineage, evidence, and human gates host-neutral while the project harness owns every concrete execution choice.",
     "developerName": "Geldmacher",
     "category": "Developer Tools",
     "capabilities": ["Interactive", "Read", "Write"],

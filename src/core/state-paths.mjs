@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { sharedWorkflowHome } from "./host-preferences.mjs";
+
+function sharedWorkflowHome(options = {}) {
+  return resolve(options.homeRoot ?? process.env.GELDMACHER_WORKFLOW_HOME ?? join(homedir(), ".geldmacher", "workflow"));
+}
 
 export function repositoryKey(workspaceRoot) {
   return createHash("sha256").update(resolve(workspaceRoot)).digest("hex").slice(0, 20);
@@ -34,19 +37,12 @@ export function handoffTipDirectory(rootPlanId, options = {}) {
   return join(resolve(sharedHandoffBase(options)), "tips", rootPlanId);
 }
 
-export function handoffTipPath(rootPlanId, rootContentHashValue = null, options = {}) {
+export function handoffTipPath(rootPlanId, rootContentHashValue, options = {}) {
   if (!/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(rootPlanId ?? ""))) throw new Error("handoff tip requires a valid wp-* root_plan_id");
-  if (rootContentHashValue === null || rootContentHashValue === undefined || rootContentHashValue === "") {
-    return join(resolve(sharedHandoffBase(options)), "tips", `${rootPlanId}.json`);
-  }
   if (!/^[a-f0-9]{64}$/.test(String(rootContentHashValue))) {
     throw new Error("content-addressed handoff tip requires a full SHA-256 root content hash");
   }
   return join(handoffTipDirectory(rootPlanId, options), `${rootContentHashValue}.json`);
-}
-
-export function legacyHandoffTipPath(rootPlanId, options = {}) {
-  return handoffTipPath(rootPlanId, null, options);
 }
 
 export function sharedArtifactStateRoot(workspaceRoot, options = {}) {
@@ -56,9 +52,11 @@ export function sharedArtifactStateRoot(workspaceRoot, options = {}) {
   return join(resolve(base), repositoryKey(workspaceRoot));
 }
 
-export function codexOperationalStateRoot(workspaceRoot, options = {}) {
+export function localOperationalStateRoot(workspaceRoot, options = {}) {
   const pluginData = options.pluginData ?? process.env.PLUGIN_DATA;
   const base = options.baseRoot
     ?? (pluginData ? join(pluginData, "state") : join(homedir(), ".codex", "geldmacher-workflow", "state"));
   return join(resolve(base), repositoryKey(workspaceRoot));
 }
+
+export const codexOperationalStateRoot = localOperationalStateRoot;

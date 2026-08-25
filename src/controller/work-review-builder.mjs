@@ -16,20 +16,12 @@ const ASSESSMENTS = new Set([
   "not-achieved",
   "insufficient-evidence",
 ]);
-const ASSESSMENT_RANK = Object.freeze({
-  "insufficient-evidence": 0,
-  "not-achieved": 1,
-  "partially-achieved": 2,
-  "mostly-achieved": 3,
-  provisional: 4,
-  achieved: 5,
-});
 const ACTIONS = new Set(["none", "accept-provisional", "correct", "clarify", "replan", "retry-review"]);
 const SEVERITIES = new Set(["low", "medium", "high", "critical"]);
 const RESOLUTIONS = new Set(["correct", "clarify", "replan"]);
 const SNAPSHOT_ASSESSMENTS = new Set(["consistent", "contradicted", "incomplete"]);
-const AUDITOR_ROLES = new Set(["delivery-auditor", "risk-auditor", "work-design-auditor"]);
 const COSTS = new Set(["cheap", "standard", "expensive"]);
+const EVIDENCE_CLASSES = new Set(["harness-verifiable", "reviewer-observable", "human-decision-required"]);
 const KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 function sha256(value) {
@@ -130,20 +122,6 @@ function normalizeFindings(value, contract) {
   return findings;
 }
 
-function normalizeAuditors(value) {
-  const reports = list(value, "review_input.auditor_reports", { max: 3 }).map((entry, index) => {
-    const item = object(entry, `review_input.auditor_reports[${index}]`);
-    closed(item, ["role", "assessment", "summary"], `review_input.auditor_reports[${index}]`);
-    return {
-      role: enumValue(item.role, AUDITOR_ROLES, `review_input.auditor_reports[${index}].role`),
-      assessment: enumValue(item.assessment, ASSESSMENTS, `review_input.auditor_reports[${index}].assessment`),
-      summary: line(item.summary, `review_input.auditor_reports[${index}].summary`, { max: 2_000 }),
-    };
-  }).sort((left, right) => compareCanonical(left.role, right.role));
-  if (new Set(reports.map((report) => report.role)).size !== reports.length) throw new Error("review_input.auditor_reports roles must be unique");
-  return reports;
-}
-
 function normalizeCorrection(value, findingKeys) {
   if (value == null) return null;
   const correction = object(value, "review_input.correction");
@@ -165,7 +143,7 @@ function normalizeCorrection(value, findingKeys) {
 
   const checks = list(correction.checks, "review_input.correction.checks", { max: 32, required: true }).map((entry, index) => {
     const item = object(entry, `review_input.correction.checks[${index}]`);
-    closed(item, ["key", "fix_keys", "working_directory", "command_or_inspection", "expected_result", "required", "cost_class", "prerequisites"], `review_input.correction.checks[${index}]`);
+    closed(item, ["key", "fix_keys", "verification_intent", "expected_evidence", "evidence_class", "required", "cost_class", "prerequisites"], `review_input.correction.checks[${index}]`);
     const referencedFixes = uniqueSorted(list(item.fix_keys, `review_input.correction.checks[${index}].fix_keys`, { required: true }).map((key) => localKey(key, `review_input.correction.checks[${index}].fix_keys`)));
     if (referencedFixes.some((key) => !fixKeys.has(key))) throw new Error(`review_input.correction.checks[${index}] references an unknown fix`);
     const prerequisites = uniqueSorted(list(item.prerequisites, `review_input.correction.checks[${index}].prerequisites`, { required: true }).map((entryValue) => line(entryValue, `review_input.correction.checks[${index}].prerequisites`, { max: 1_000 })));
@@ -173,9 +151,9 @@ function normalizeCorrection(value, findingKeys) {
     return {
       key: localKey(item.key, `review_input.correction.checks[${index}].key`),
       fix_keys: referencedFixes,
-      working_directory: line(item.working_directory, `review_input.correction.checks[${index}].working_directory`, { max: 1_000 }),
-      command_or_inspection: line(item.command_or_inspection, `review_input.correction.checks[${index}].command_or_inspection`, { max: 2_000 }),
-      expected_result: line(item.expected_result, `review_input.correction.checks[${index}].expected_result`, { max: 2_000 }),
+      verification_intent: line(item.verification_intent, `review_input.correction.checks[${index}].verification_intent`, { max: 2_000 }),
+      expected_evidence: line(item.expected_evidence, `review_input.correction.checks[${index}].expected_evidence`, { max: 2_000 }),
+      evidence_class: enumValue(item.evidence_class, EVIDENCE_CLASSES, `review_input.correction.checks[${index}].evidence_class`),
       required: item.required,
       cost_class: enumValue(item.cost_class, COSTS, `review_input.correction.checks[${index}].cost_class`),
       prerequisites,
@@ -225,7 +203,7 @@ function normalizeCorrection(value, findingKeys) {
 
 export function normalizeReviewInput(input, contract) {
   const value = object(input, "review_input");
-  closed(value, ["schema", "kind", "assessment", "recommended_action", "assessment_summary", "snapshot_assessment", "snapshot_summary", "findings", "missing_evidence", "auditor_reports", "correction"], "review_input");
+  closed(value, ["schema", "kind", "assessment", "recommended_action", "assessment_summary", "snapshot_assessment", "snapshot_summary", "findings", "missing_evidence", "correction"], "review_input");
   if (value.schema !== 1) throw new Error("review_input.schema must be 1");
   if (value.kind !== "review-input") throw new Error("review_input.kind must be review-input");
   const findings = normalizeFindings(requiredField(value, "findings"), contract);
@@ -240,7 +218,6 @@ export function normalizeReviewInput(input, contract) {
     snapshot_summary: line(requiredField(value, "snapshot_summary"), "review_input.snapshot_summary", { max: 2_000 }),
     findings,
     missing_evidence: uniqueSorted(list(requiredField(value, "missing_evidence"), "review_input.missing_evidence", { max: 32 }).map((entry) => line(entry, "review_input.missing_evidence", { max: 2_000 }))),
-    auditor_reports: normalizeAuditors(requiredField(value, "auditor_reports")),
     correction: normalizeCorrection(value.correction, findingKeys),
   };
   if (normalized.recommended_action === "correct") {
@@ -264,8 +241,8 @@ export function parseReviewInputFromText(source) {
 
 function mergeChain(rootPlanText, artifacts, pluginRoot) {
   const rootInspection = inspectArtifactText(rootPlanText, pluginRoot);
-  if (rootInspection.errors.length > 0 || rootInspection.artifact?.fields?.artifact !== "work-plan" || rootInspection.artifact.fields.schema !== 5) {
-    throw new Error(`review builder requires an exact valid Schema-5 Root: ${rootInspection.errors.join("; ") || "not a work-plan"}`);
+  if (rootInspection.errors.length > 0 || rootInspection.artifact?.fields?.artifact !== "work-plan" || rootInspection.artifact.fields.schema !== 6) {
+    throw new Error(`review builder requires an exact valid Schema-6 Root: ${rootInspection.errors.join("; ") || "not a work-plan"}`);
   }
   const byId = new Map([[rootInspection.artifact.fields.id, { label: rootInspection.artifact.fields.id, text: rootPlanText }]]);
   for (const [index, entry] of (artifacts ?? []).entries()) {
@@ -274,7 +251,6 @@ function mergeChain(rootPlanText, artifacts, pluginRoot) {
     if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) throw new Error(`review builder artifact ${entry.label ?? index + 1} is invalid: ${inspected.errors.join("; ")}`);
     const id = inspected.artifact.fields.id;
     const builderProvenance = entry.builder_provenance ?? entry.provenance ?? null;
-    const protectedLegacyReview = entry.legacy_review_recorded === true;
     if (inspected.artifact.fields.artifact === "work-review") {
       const validBuilderProvenance = builderProvenance?.schema === 1
         && builderProvenance?.kind === "host-work-review-builder"
@@ -284,7 +260,7 @@ function mergeChain(rootPlanText, artifacts, pluginRoot) {
       if (builderProvenance && !validBuilderProvenance) {
         throw codedError("review-artifact-rejected", `review builder artifact ${id} has invalid host builder provenance`);
       }
-      if (!validBuilderProvenance && !protectedLegacyReview) {
+      if (!validBuilderProvenance) {
         throw codedError("review-artifact-rejected", `review builder rejects newly imported work-review ${id} without protected builder provenance; Root, Evidence, and repository work remain unchanged, so repeat Review from the exact Root/Evidence chain in this task`);
       }
     }
@@ -294,7 +270,6 @@ function mergeChain(rootPlanText, artifacts, pluginRoot) {
       label: id,
       text: entry.text,
       ...(builderProvenance ? { builder_provenance: builderProvenance } : {}),
-      ...(protectedLegacyReview ? { legacy_review_recorded: true } : {}),
     });
   }
   return { rootFields: rootInspection.artifact.fields, entries: [...byId.values()] };
@@ -305,15 +280,10 @@ function knownFailure(evidence) {
 }
 
 function decision(input, evidence) {
-  for (const report of input.auditor_reports) {
-    if (ASSESSMENT_RANK[report.assessment] < ASSESSMENT_RANK[input.assessment]) {
-      throw new Error(`review_input.assessment ${input.assessment} is more positive than review_input.auditor_reports ${report.role} assessment ${report.assessment}`);
-    }
-  }
   const failed = knownFailure(evidence);
   const reviewReady = evidence?.effective?.reviewReady === true && evidence?.fields?.status === "complete";
   const hasFindings = input.findings.length > 0;
-  const missing = input.missing_evidence.length > 0 || input.snapshot_assessment !== "consistent";
+  const contradicted = input.snapshot_assessment === "contradicted";
   let assessment = input.assessment;
   let nextAction = input.recommended_action;
   let deliveryStatus = "blocked";
@@ -339,7 +309,7 @@ function decision(input, evidence) {
     assessment = ["achieved", "provisional"].includes(assessment) ? "mostly-achieved" : assessment;
     return { assessment, delivery_status: "blocked", next_action: "correct", review_ready: reviewReady, known_failure: false };
   }
-  if (missing || nextAction === "retry-review" || assessment === "insufficient-evidence") {
+  if (contradicted || nextAction === "retry-review" || assessment === "insufficient-evidence") {
     return { assessment: "insufficient-evidence", delivery_status: "blocked", next_action: "retry-review", review_ready: reviewReady, known_failure: false };
   }
   if (reviewReady && assessment === "achieved" && nextAction === "none") {
@@ -350,20 +320,6 @@ function decision(input, evidence) {
     throw new Error(`review_input.assessment ${assessment} is inconsistent with review_input.recommended_action ${nextAction}; provide the missing Evidence or choose correct, clarify, replan, or retry-review`);
   }
   return { assessment: "provisional", delivery_status: "provisional", next_action: "accept-provisional", review_ready: reviewReady, known_failure: false };
-}
-
-function routeFor(rootFields, input, outcome) {
-  const roles = new Set(input.auditor_reports.map((report) => report.role));
-  const deterministicBlocked = outcome.delivery_status === "blocked" && (outcome.next_action === "replan" || (outcome.next_action === "correct" && outcome.known_failure));
-  const fullRequired = rootFields.contract_level === "certified" || rootFields.risk === "high" || (rootFields.hard_triggers ?? []).length > 0;
-  if (roles.has("risk-auditor")) {
-    if (!roles.has("delivery-auditor")) throw new Error("risk-auditor review input also requires delivery-auditor input");
-    return { review_route: "full", auditors_run: ["inline", "delivery-auditor", "risk-auditor", ...(roles.has("work-design-auditor") ? ["work-design-auditor"] : [])] };
-  }
-  if (fullRequired && !deterministicBlocked) throw new Error("certified, high-risk, or hard-trigger review requires delivery-auditor and risk-auditor reports");
-  if (roles.has("delivery-auditor")) return { review_route: "targeted", auditors_run: ["inline", "delivery-auditor"] };
-  if (roles.has("work-design-auditor")) return { review_route: "targeted", auditors_run: ["inline", "work-design-auditor"] };
-  return { review_route: "inline", auditors_run: ["inline"] };
 }
 
 function cell(value) {
@@ -423,9 +379,9 @@ function correctionProjection({ normalized, findings, seed, rootFields, evidence
   const checks = normalized.correction.checks.map((check) => ({
     "Check ID": checkIds.get(check.key),
     "FIX IDs": check.fix_keys.map((key) => fixIds.get(key)).join(", "),
-    "Working Directory": check.working_directory,
-    "Command or Inspection": check.command_or_inspection,
-    "Expected Result": check.expected_result,
+    "Verification Intent": check.verification_intent,
+    "Expected Evidence": check.expected_evidence,
+    "Evidence Class": check.evidence_class,
     Required: check.required ? "yes" : "no",
     "Cost Class": check.cost_class,
     Prerequisites: check.prerequisites.join(", "),
@@ -450,19 +406,18 @@ function correctionProjection({ normalized, findings, seed, rootFields, evidence
     }]),
     table(["FIX ID", "Finding keys", "Root Objectives", "Root Checks", "Required outcome", "Evidence"], fixes),
     table(["Step ID", "FIX IDs", "Targets", "Required outcome", "Implementation latitude", "Completion probe", "Check IDs", "Deviation action"], steps),
-    table(["Check ID", "FIX IDs", "Working Directory", "Command or Inspection", "Expected Result", "Required", "Cost Class", "Prerequisites"], checks),
+    table(["Check ID", "FIX IDs", "Verification Intent", "Expected Evidence", "Required", "Evidence Class", "Cost Class", "Prerequisites"], checks),
     table(["Learning ID", "Finding keys", "Reusable guidance", "Candidate targets", "Confirmation evidence"], learnings),
   ].join("\n\n");
   return { correction_id: correctionId, learning_ids: [...learningIds.values()], body };
 }
 
-function reviewBody({ normalized, outcome, route, coverage, evidenceId, correction }) {
+function reviewBody({ normalized, outcome, coverage, evidenceId, correction }) {
   const sections = [
     `## Assessment\n\n${outcome.assessment}: ${normalized.assessment_summary}`,
     `## Evidence coverage\n\n${table(["Kind", "Inspected", "Reused", "Result", "Evidence"], [
       { Kind: "Objectives", Inspected: coverage.inspectedObjectives.join(", ") || "none", Reused: coverage.reusedObjectives.join(", ") || "none", Result: outcome.assessment, Evidence: `exact Evidence ${evidenceId}` },
       { Kind: "Checks", Inspected: coverage.inspectedChecks.join(", ") || "none", Reused: coverage.reusedChecks.join(", ") || "none", Result: outcome.delivery_status === "verified" ? "passed" : outcome.delivery_status, Evidence: `exact Evidence ${evidenceId}` },
-      { Kind: "Auditors", Inspected: route.auditors_run.join(", "), Reused: "none", Result: "complete", Evidence: "validated review input" },
       { Kind: "Snapshot", Inspected: evidenceId, Reused: "none", Result: normalized.snapshot_assessment, Evidence: normalized.snapshot_summary },
     ])}`,
     normalized.findings.length === 0
@@ -475,7 +430,7 @@ function reviewBody({ normalized, outcome, route, coverage, evidenceId, correcti
         Evidence: finding.evidence,
         Reasoning: finding.reasoning,
       })))}`,
-    `## Next action\n\n${outcome.next_action}: ${outcome.next_action === "none" ? "No further Workflow action is required." : `Continue through the bounded ${outcome.next_action} route in this task.`}`,
+    `## Next action\n\n${outcome.next_action}: ${outcome.next_action === "none" ? "No further Workflow action is required." : `Continue through the bounded ${outcome.next_action} phase in this task.`}`,
   ];
   if (correction) sections.push(correction.body);
   return sections.join("\n\n");
@@ -487,7 +442,6 @@ function boundaryBody(receipt) {
     `## Evidence coverage\n\n${table(["Kind", "Inspected", "Reused", "Result", "Evidence"], [
       { Kind: "Objectives", Inspected: "none", Reused: "none", Result: "blocked", Evidence: "protected root-boundary receipt" },
       { Kind: "Checks", Inspected: "none", Reused: "none", Result: "blocked", Evidence: "protected root-boundary receipt" },
-      { Kind: "Auditors", Inspected: "inline", Reused: "none", Result: "complete", Evidence: "host boundary validation" },
       { Kind: "Snapshot", Inspected: receipt.repository_snapshot_hash, Reused: "none", Result: "incomplete", Evidence: receipt.recovery_error_code },
     ])}`,
     "## Findings\n\nNone.",
@@ -505,7 +459,7 @@ export function buildWorkReview({
 }) {
   const merged = mergeChain(rootPlanText, artifacts, pluginRoot);
   const contract = executionContractFromArtifactText(rootPlanText, pluginRoot);
-  if (contract.errors.length > 0 || contract.fields.schema !== 5) throw new Error(`review builder Root is invalid: ${contract.errors.join("; ")}`);
+  if (contract.errors.length > 0 || contract.fields.schema !== 6) throw new Error(`review builder Root is invalid: ${contract.errors.join("; ")}`);
   const inspectionOptions = boundaryReceipt && typeof boundaryReceiptVerifier === "function" ? { boundaryReceiptVerifier } : {};
   const prior = inspectArtifactSet(merged.entries.map((entry) => [entry.label, entry.text]), pluginRoot, inspectionOptions);
   if (prior.errors.length > 0) throw new Error(`review builder input chain is invalid: ${prior.errors.join("; ")}`);
@@ -529,11 +483,11 @@ export function buildWorkReview({
     const reviewInputHash = sha256(stableJson(seedInput));
     const id = `wr-${merged.rootFields.id.replace(/^wp-/, "")}-${reviewInputHash.slice(0, 12)}`;
     const fields = {
-      artifact: "work-review", schema: 5, id, status: "complete", root_plan_id: merged.rootFields.id,
+      artifact: "work-review", schema: 6, id, status: "complete", root_plan_id: merged.rootFields.id,
       latest_evidence_id: null, review_basis: "root-boundary", boundary_receipt: boundaryReceipt,
-      assessment: "insufficient-evidence", delivery_status: "blocked", review_route: "inline", next_action: "replan",
+      assessment: "insufficient-evidence", delivery_status: "blocked", next_action: "replan",
       correction_id: null, predecessor_review_id: predecessorReviewId,
-      inspected_objectives: [], reused_objectives: [], inspected_checks: [], reused_checks: [], auditors_run: ["inline"],
+      inspected_objectives: [], reused_objectives: [], inspected_checks: [], reused_checks: [],
     };
     const artifact = `---\n${stringify(fields, { lineWidth: 0 }).trimEnd()}\n---\n\n${boundaryBody(boundaryReceipt)}\n`;
     const duplicate = merged.entries.find((entry) => entry.label === id);
@@ -552,11 +506,9 @@ export function buildWorkReview({
   if (!evidence || !evidenceText) throw new Error(`review builder cannot resolve exact Evidence ${evidenceId}`);
   let normalized;
   let outcome;
-  let route;
   try {
     normalized = normalizeReviewInput(reviewInput, contract);
     outcome = decision(normalized, evidence);
-    route = routeFor(merged.rootFields, normalized, outcome);
   } catch (error) {
     if (error?.code) throw error;
     throw codedError("review-input-invalid", error?.message ?? "review_input is invalid");
@@ -577,7 +529,6 @@ export function buildWorkReview({
       evidence_hash: sha256(evidenceText),
       predecessor_review_id: priorPredecessorId,
       predecessor_review_hash: priorPredecessorText ? sha256(priorPredecessorText) : null,
-      auditors_run: route.auditors_run,
       review_input: normalized,
     };
     const retryInputHash = sha256(stableJson(retrySeed));
@@ -612,23 +563,21 @@ export function buildWorkReview({
     evidence_hash: sha256(evidenceText),
     predecessor_review_id: predecessorReviewId,
     predecessor_review_hash: predecessorReviewText ? sha256(predecessorReviewText) : null,
-    auditors_run: route.auditors_run,
     review_input: normalized,
   };
   const reviewInputHash = sha256(stableJson(seedInput));
   const id = `wr-${merged.rootFields.id.replace(/^wp-/, "")}-${reviewInputHash.slice(0, 12)}`;
   const correction = correctionProjection({ normalized, findings: normalized.findings, seed: reviewInputHash, rootFields: merged.rootFields, evidenceId, reviewId: id, predecessorReview, entries: merged.entries, pluginRoot });
   const fields = {
-    artifact: "work-review", schema: 5, id, status: "complete", root_plan_id: merged.rootFields.id,
+    artifact: "work-review", schema: 6, id, status: "complete", root_plan_id: merged.rootFields.id,
     latest_evidence_id: evidenceId, assessment: outcome.assessment, delivery_status: outcome.delivery_status,
-    review_route: route.review_route, next_action: outcome.next_action,
+    next_action: outcome.next_action,
     correction_id: correction?.correction_id ?? null, predecessor_review_id: predecessorReviewId,
-    auditors_run: route.auditors_run,
     inspected_objectives: coverage.inspectedObjectives, reused_objectives: coverage.reusedObjectives,
     inspected_checks: coverage.inspectedChecks, reused_checks: coverage.reusedChecks,
     ...(correction ? { learning_candidates: correction.learning_ids } : {}),
   };
-  const artifact = `---\n${stringify(fields, { lineWidth: 0 }).trimEnd()}\n---\n\n${reviewBody({ normalized, outcome, route, coverage, evidenceId, correction })}\n`;
+  const artifact = `---\n${stringify(fields, { lineWidth: 0 }).trimEnd()}\n---\n\n${reviewBody({ normalized, outcome, coverage, evidenceId, correction })}\n`;
   const duplicate = merged.entries.find((entry) => entry.label === id);
   if (duplicate && duplicate.text !== artifact) throw new Error(`review builder generated conflicting immutable bytes for ${id}`);
   const finalEntries = duplicate ? merged.entries : [...merged.entries, { label: id, text: artifact }];

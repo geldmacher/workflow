@@ -24,7 +24,7 @@ test("native plan resolution reports inspected native sources without cache reco
   assert.deepEqual(resolveNativePlan({ attemptedSources: ["cursor-native-plan", "cursor-task-context"], pluginRoot: root }), {
     status: "unavailable",
     attempted_sources: ["cursor-native-plan", "cursor-task-context"],
-    resolution: "Restore the Schema-5 native Plan in this same task or create and approve a new native Plan, then repeat Review.",
+    resolution: "Restore the Schema-6 native Plan in this same task or create and approve a new native Plan, then repeat Review.",
   });
 });
 
@@ -38,5 +38,5 @@ test("native plan resolution distinguishes a supplied truncated Root from absenc
   assert.deepEqual(resolution.attempted_sources, ["workflow_closeout.root_plan"]);
   assert.equal(resolution.rejected_sources[0].source, "workflow_closeout.root_plan");
   assert.ok(resolution.rejected_sources[0].validation_errors.length > 0);
-  assert.match(resolution.resolution, /complete exact Schema-5 native Plan/i);
+  assert.match(resolution.resolution, /complete exact Schema-6 native Plan/i);
 });

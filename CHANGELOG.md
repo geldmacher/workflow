@@ -2,8 +2,20 @@
 
 ## Unreleased
 
-- Capture future Cursor Manual Schema-5 Roots passively at the planning `stop` boundary when native `CreatePlan` tool hooks are omitted, while preserving the post-tool fast path and requiring exact latest-turn transcript binding.
-- Allow only one recent native Plan file as a visibly provisional transcript-unavailable fallback, propagate its trust level through Schema-4 Review receipts and MCP output, and prevent it from producing verified delivery.
+- Removed direct project-Harness trust: only an external canonical Host Adapter outside the workspace may protect deployment-bound Capability and PhaseResult provenance.
+- Added exact Cursor `/auto-work` human-decision prompts with task-, generation-, workspace-, Run-, revision-, and artifact-tip-bound host receipt injection plus narrow transport retry.
+- Made automated Runs transactional through persisted Prepare, execution claim, host Stage/Recover, Result Ready, protected Commit, and atomic finalization with workspace-wide idempotency conflict detection.
+
+## 6.0.0
+
+- Replaced Workflow-owned execution policy with one generic project-harness boundary shared by Manual, Supervised, and Autonomous phases.
+- Introduced closed Schema-6 Intent Roots with intent-only verification and protected Root/workspace/snapshot-bound Check attestations; removed all readers, records, migrations, fixtures, and state transitions for earlier Workflow schemas.
+- Removed command parsing and classification, program allowlists, host Check execution, model routing, Verification Profiles, controller workers, sandboxes, worktrees, retry recipes, and their public commands.
+- Made Review repository-read-only through harness before/after snapshot attestation rather than command-text inference; missing attestations stay provisional and attested failures stay failed.
+- Preserved the exact active Cursor Root, canonical workspace, and Review selection across recoverable transport failure, revoked only the concrete receipt, and separated missing selection from missing Root.
+- Added generic Harness Capability Receipt, PhaseRequest, PhaseResult, and Check Attestation contracts plus Shadow Mode that never blocks ordinary Cursor or Codex use.
+- Established root `AGENTS.md` as the single central contributor Northstar and added architecture regression coverage for the Core-to-Harness boundary.
+- Removed `/work-models`, `/work-verification`, `/work-watch`, and `/work-control`; kept repository build, test, and deployment scripts as development-harness concerns outside shipped Workflow policy.
 
 ## 5.5.1
 
@@ -37,7 +49,7 @@
 
 - Build every new authoritative Schema-5 `work-review` through one deterministic host-owned kernel shared by Cursor, Codex, controller, and portable Manual clients.
 - Add the backward-compatible `work-review` mode to `workflow_closeout` while preserving the five-tool portable Manual surface and the `delivery-evidence` default.
-- Reject new full model-authored Review envelopes through both artifact recording and closeout-chain input, retain protected historical immutable reviews read-only, and keep valid task-local Reviews usable when optional handoff persistence fails.
+- Reject new full unprotected caller-authored Review envelopes through both artifact recording and closeout-chain input, retain protected historical immutable reviews read-only, and keep valid task-local Reviews usable when optional handoff persistence fails.
 - Keep malformed Review recovery bounded to one plain same-task retry with explicit preservation and field-level recovery guidance; reject null, coerced, or internally contradictory reviewer semantics in the shared kernel, and require non-adverse host-observed delivery/risk review for high-risk Roots.
 - Kept Manual, supervised, and autonomous user journeys in one task by default; made optional cross-task handoff failure non-blocking for exact task-local Evidence; and added plain-language blocker plus resolution guidance before technical traceability.
 - Simplified Manual delivery to the visible Plan → Implement Plan → Review loop with Root-scoped state across Cursor generations, internal closeout, finite recovery, exact correction/replan tips, conservative impact-based Check refresh, and one bundled hook dispatcher per host event.

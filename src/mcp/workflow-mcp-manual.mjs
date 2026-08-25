@@ -4,13 +4,17 @@ import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { RootsListChangedNotificationSchema } from "@modelcontextprotocol/sdk/types.js";
-import { codexOperationalStateRoot, sharedArtifactStateRoot } from "../core/state-paths.mjs";
+import { codexOperationalStateRoot } from "../core/state-paths.mjs";
+import { harnessContractHash } from "../core/harness-attestations.mjs";
+import { orchestrateHarnessPhase } from "../controller/harness-orchestrator.mjs";
+import { createHarnessLifecycleController } from "../controller/harness-lifecycle.mjs";
 import { PLUGIN_VERSION } from "../controller/protocol.mjs";
+import { loadProtectedProjectHarness } from "../harness/module-adapter.mjs";
 import { registerManualWorkflowTools } from "./manual-tools.mjs";
 import { WorkspaceRootAuthority, WorkspaceRootError } from "./workspace-roots.mjs";
 
 function hasManualRuntime(candidate) {
-  return existsSync(join(candidate, "schemas", "artifacts", "work-plan.schema.json"))
+  return existsSync(join(candidate, "schemas", "artifacts", "work-plan-6.schema.json"))
     && existsSync(join(candidate, "scripts", "validate-artifact.mjs"));
 }
 
@@ -52,15 +56,51 @@ function failure(error) {
   }, true);
 }
 
+async function reviewHarnessPhase({ rootPlanText, workspaceRoot, reviewTransitionBindingHash }) {
+  if (!/^[a-f0-9]{64}$/.test(String(reviewTransitionBindingHash ?? ""))) throw new Error("Manual Review requires an exact host invocation binding");
+  const workspaceBinding = harnessContractHash({ workspace_root: workspaceRoot });
+  const runId = `run-${harnessContractHash({ kind: "manual-review-run", root_plan: rootPlanText, workspace_binding: workspaceBinding }).slice(0, 24)}`;
+  const transitionId = `tr-${harnessContractHash({ kind: "manual-review-transition", binding_hash: reviewTransitionBindingHash }).slice(0, 32)}`;
+  const idempotencyHash = harnessContractHash({ kind: "manual-review-idempotency", binding_hash: reviewTransitionBindingHash });
+  let harnessBinding = null;
+  try {
+    harnessBinding = await loadProtectedProjectHarness({
+      pluginRoot,
+      stateRoot: codexOperationalStateRoot(workspaceRoot),
+      workspaceRoot,
+      workspaceBinding,
+    });
+  } catch { /* the requested Review remains provisional */ }
+  if (!harnessBinding) return { mode: "shadow", status: "unavailable", blockers: ["harness-protection-unavailable"], result: null };
+  return orchestrateHarnessPhase({
+    harnessBinding,
+    phase: "review",
+    profile: "manual",
+    rootPlanText,
+    workspaceBinding,
+    pluginRoot,
+    runId,
+    runRevision: 0,
+    transitionId,
+    idempotencyHash,
+  });
+}
+
 registerManualWorkflowTools({
   server,
   pluginRoot,
   workspaceAuthority,
   operationalStateRoot: codexOperationalStateRoot,
-  handoffStateRoot: sharedArtifactStateRoot,
   result,
   failure,
   clientHost: manualClientHost,
+  reviewHarnessPhase,
+  runStatus: ({ runId, stateRoot, workspace }) => createHarnessLifecycleController({
+    stateRoot,
+    workspaceBinding: harnessContractHash({ workspace_root: workspace }),
+    pluginRoot,
+    harnessBinding: null,
+  }).status(runId),
 });
 
 await server.connect(new StdioServerTransport());
