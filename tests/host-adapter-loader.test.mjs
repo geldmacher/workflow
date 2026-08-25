@@ -55,7 +55,12 @@ test("Host Adapter loader requires an absolute canonical non-symlink path outsid
   await assert.rejects(() => loadProtectedProjectHarness({ adapterSpecifier: "adapter.mjs", workspaceRoot: defaultRoot }), /absolute file path/);
   await assert.rejects(() => loadProtectedProjectHarness({ adapterSpecifier: join(defaultRoot, "src/harness/module-adapter.mjs"), workspaceRoot: defaultRoot }), /outside the project workspace/);
   await assert.rejects(() => loadProtectedProjectHarness({ adapterSpecifier: adapter.path, workspaceRoot: adapter.path }), /outside the project workspace/);
-  await assert.rejects(() => loadProtectedProjectHarness({ adapterSpecifier: join(adapter.root, "adapter.mjs") }), /may not be redirected/);
+  // Parent-dir symlink keeps lstat on the leaf file green while realpath differs from resolve.
+  const aliasRoot = mkdtempSync(join(tmpdir(), "workflow-host-adapter-alias-"));
+  roots.push(aliasRoot);
+  const aliasedDir = join(aliasRoot, "via-link");
+  symlinkSync(adapter.root, aliasedDir);
+  await assert.rejects(() => loadProtectedProjectHarness({ adapterSpecifier: join(aliasedDir, "adapter.mjs"), workspaceRoot: defaultRoot }), /may not be redirected/);
   const link = join(adapter.root, "adapter-link.mjs");
   symlinkSync(adapter.path, link);
   await assert.rejects(() => loadProtectedProjectHarness({ adapterSpecifier: link, workspaceRoot: defaultRoot }), /non-symlink/);

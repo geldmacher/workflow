@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fixed release-check regressions: Host Adapter redirect rejection is exercised through a parent-directory symlink (Linux-stable), and Cursor plugin validator tests build the generated target instead of assuming `.build/plugins`.
 - Removed direct project-Harness trust: only an external canonical Host Adapter outside the workspace may protect deployment-bound Capability and PhaseResult provenance.
 - Added exact Cursor `/auto-work` human-decision prompts with task-, generation-, workspace-, Run-, revision-, and artifact-tip-bound host receipt injection plus narrow transport retry.
 - Made automated Runs transactional through persisted Prepare, execution claim, host Stage/Recover, Result Ready, protected Commit, and atomic finalization with workspace-wide idempotency conflict detection.

@@ -1,16 +1,20 @@
 import assert from "node:assert/strict";
-import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
+import { buildPluginTargets } from "../scripts/build-plugin-targets.mjs";
 import { validatePlugin } from "../scripts/validate-plugin.mjs";
 import { defaultRoot } from "../scripts/validate-artifact.source.mjs";
 
 async function withCursorTarget(run) {
   const parent = await mkdtemp(join(tmpdir(), "workflow-v6-plugin-"));
-  const target = join(parent, "geldmacher-workflow");
-  await cp(join(defaultRoot, ".build", "plugins", "cursor", "geldmacher-workflow"), target, { recursive: true });
-  try { await run(target); } finally { await rm(parent, { recursive: true, force: true }); }
+  try {
+    const built = buildPluginTargets(join(parent, "plugins"));
+    await run(built.cursor.path);
+  } finally {
+    await rm(parent, { recursive: true, force: true });
+  }
 }
 
 test("canonical source and generated Cursor target validate as Workflow 6", async () => {
