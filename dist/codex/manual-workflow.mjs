@@ -1,0 +1,16600 @@
+#!/usr/bin/env node
+import { createRequire as __workflowCreateRequire } from 'node:module';
+const require = __workflowCreateRequire(import.meta.url);
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf, __hasOwnProp = Object.prototype.hasOwnProperty;
+var __require = /* @__PURE__ */ ((x) => typeof require < "u" ? require : typeof Proxy < "u" ? new Proxy(x, {
+  get: (a, b) => (typeof require < "u" ? require : a)[b]
+}) : x)(function(x) {
+  if (typeof require < "u") return require.apply(this, arguments);
+  throw Error('Dynamic require of "' + x + '" is not supported');
+});
+var __commonJS = (cb, mod) => function() {
+  return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: !0 });
+}, __copyProps = (to, from, except, desc) => {
+  if (from && typeof from == "object" || typeof from == "function")
+    for (let key of __getOwnPropNames(from))
+      !__hasOwnProp.call(to, key) && key !== except && __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: !0 }) : target,
+  mod
+));
+
+// node_modules/yaml/dist/nodes/identity.js
+var require_identity = __commonJS({
+  "node_modules/yaml/dist/nodes/identity.js"(exports) {
+    "use strict";
+    var ALIAS = Symbol.for("yaml.alias"), DOC = Symbol.for("yaml.document"), MAP = Symbol.for("yaml.map"), PAIR = Symbol.for("yaml.pair"), SCALAR = Symbol.for("yaml.scalar"), SEQ = Symbol.for("yaml.seq"), NODE_TYPE = Symbol.for("yaml.node.type"), isAlias = (node) => !!node && typeof node == "object" && node[NODE_TYPE] === ALIAS, isDocument = (node) => !!node && typeof node == "object" && node[NODE_TYPE] === DOC, isMap = (node) => !!node && typeof node == "object" && node[NODE_TYPE] === MAP, isPair = (node) => !!node && typeof node == "object" && node[NODE_TYPE] === PAIR, isScalar = (node) => !!node && typeof node == "object" && node[NODE_TYPE] === SCALAR, isSeq = (node) => !!node && typeof node == "object" && node[NODE_TYPE] === SEQ;
+    function isCollection(node) {
+      if (node && typeof node == "object")
+        switch (node[NODE_TYPE]) {
+          case MAP:
+          case SEQ:
+            return !0;
+        }
+      return !1;
+    }
+    function isNode(node) {
+      if (node && typeof node == "object")
+        switch (node[NODE_TYPE]) {
+          case ALIAS:
+          case MAP:
+          case SCALAR:
+          case SEQ:
+            return !0;
+        }
+      return !1;
+    }
+    var hasAnchor = (node) => (isScalar(node) || isCollection(node)) && !!node.anchor;
+    exports.ALIAS = ALIAS;
+    exports.DOC = DOC;
+    exports.MAP = MAP;
+    exports.NODE_TYPE = NODE_TYPE;
+    exports.PAIR = PAIR;
+    exports.SCALAR = SCALAR;
+    exports.SEQ = SEQ;
+    exports.hasAnchor = hasAnchor;
+    exports.isAlias = isAlias;
+    exports.isCollection = isCollection;
+    exports.isDocument = isDocument;
+    exports.isMap = isMap;
+    exports.isNode = isNode;
+    exports.isPair = isPair;
+    exports.isScalar = isScalar;
+    exports.isSeq = isSeq;
+  }
+});
+
+// node_modules/yaml/dist/visit.js
+var require_visit = __commonJS({
+  "node_modules/yaml/dist/visit.js"(exports) {
+    "use strict";
+    var identity = require_identity(), BREAK = Symbol("break visit"), SKIP = Symbol("skip children"), REMOVE = Symbol("remove node");
+    function visit(node, visitor) {
+      let visitor_ = initVisitor(visitor);
+      identity.isDocument(node) ? visit_(null, node.contents, visitor_, Object.freeze([node])) === REMOVE && (node.contents = null) : visit_(null, node, visitor_, Object.freeze([]));
+    }
+    visit.BREAK = BREAK;
+    visit.SKIP = SKIP;
+    visit.REMOVE = REMOVE;
+    function visit_(key, node, visitor, path) {
+      let ctrl = callVisitor(key, node, visitor, path);
+      if (identity.isNode(ctrl) || identity.isPair(ctrl))
+        return replaceNode(key, path, ctrl), visit_(key, ctrl, visitor, path);
+      if (typeof ctrl != "symbol") {
+        if (identity.isCollection(node)) {
+          path = Object.freeze(path.concat(node));
+          for (let i = 0; i < node.items.length; ++i) {
+            let ci = visit_(i, node.items[i], visitor, path);
+            if (typeof ci == "number")
+              i = ci - 1;
+            else {
+              if (ci === BREAK)
+                return BREAK;
+              ci === REMOVE && (node.items.splice(i, 1), i -= 1);
+            }
+          }
+        } else if (identity.isPair(node)) {
+          path = Object.freeze(path.concat(node));
+          let ck = visit_("key", node.key, visitor, path);
+          if (ck === BREAK)
+            return BREAK;
+          ck === REMOVE && (node.key = null);
+          let cv = visit_("value", node.value, visitor, path);
+          if (cv === BREAK)
+            return BREAK;
+          cv === REMOVE && (node.value = null);
+        }
+      }
+      return ctrl;
+    }
+    async function visitAsync(node, visitor) {
+      let visitor_ = initVisitor(visitor);
+      identity.isDocument(node) ? await visitAsync_(null, node.contents, visitor_, Object.freeze([node])) === REMOVE && (node.contents = null) : await visitAsync_(null, node, visitor_, Object.freeze([]));
+    }
+    visitAsync.BREAK = BREAK;
+    visitAsync.SKIP = SKIP;
+    visitAsync.REMOVE = REMOVE;
+    async function visitAsync_(key, node, visitor, path) {
+      let ctrl = await callVisitor(key, node, visitor, path);
+      if (identity.isNode(ctrl) || identity.isPair(ctrl))
+        return replaceNode(key, path, ctrl), visitAsync_(key, ctrl, visitor, path);
+      if (typeof ctrl != "symbol") {
+        if (identity.isCollection(node)) {
+          path = Object.freeze(path.concat(node));
+          for (let i = 0; i < node.items.length; ++i) {
+            let ci = await visitAsync_(i, node.items[i], visitor, path);
+            if (typeof ci == "number")
+              i = ci - 1;
+            else {
+              if (ci === BREAK)
+                return BREAK;
+              ci === REMOVE && (node.items.splice(i, 1), i -= 1);
+            }
+          }
+        } else if (identity.isPair(node)) {
+          path = Object.freeze(path.concat(node));
+          let ck = await visitAsync_("key", node.key, visitor, path);
+          if (ck === BREAK)
+            return BREAK;
+          ck === REMOVE && (node.key = null);
+          let cv = await visitAsync_("value", node.value, visitor, path);
+          if (cv === BREAK)
+            return BREAK;
+          cv === REMOVE && (node.value = null);
+        }
+      }
+      return ctrl;
+    }
+    function initVisitor(visitor) {
+      return typeof visitor == "object" && (visitor.Collection || visitor.Node || visitor.Value) ? Object.assign({
+        Alias: visitor.Node,
+        Map: visitor.Node,
+        Scalar: visitor.Node,
+        Seq: visitor.Node
+      }, visitor.Value && {
+        Map: visitor.Value,
+        Scalar: visitor.Value,
+        Seq: visitor.Value
+      }, visitor.Collection && {
+        Map: visitor.Collection,
+        Seq: visitor.Collection
+      }, visitor) : visitor;
+    }
+    function callVisitor(key, node, visitor, path) {
+      if (typeof visitor == "function")
+        return visitor(key, node, path);
+      if (identity.isMap(node))
+        return visitor.Map?.(key, node, path);
+      if (identity.isSeq(node))
+        return visitor.Seq?.(key, node, path);
+      if (identity.isPair(node))
+        return visitor.Pair?.(key, node, path);
+      if (identity.isScalar(node))
+        return visitor.Scalar?.(key, node, path);
+      if (identity.isAlias(node))
+        return visitor.Alias?.(key, node, path);
+    }
+    function replaceNode(key, path, node) {
+      let parent = path[path.length - 1];
+      if (identity.isCollection(parent))
+        parent.items[key] = node;
+      else if (identity.isPair(parent))
+        key === "key" ? parent.key = node : parent.value = node;
+      else if (identity.isDocument(parent))
+        parent.contents = node;
+      else {
+        let pt = identity.isAlias(parent) ? "alias" : "scalar";
+        throw new Error(`Cannot replace node with ${pt} parent`);
+      }
+    }
+    exports.visit = visit;
+    exports.visitAsync = visitAsync;
+  }
+});
+
+// node_modules/yaml/dist/doc/directives.js
+var require_directives = __commonJS({
+  "node_modules/yaml/dist/doc/directives.js"(exports) {
+    "use strict";
+    var identity = require_identity(), visit = require_visit(), escapeChars = {
+      "!": "%21",
+      ",": "%2C",
+      "[": "%5B",
+      "]": "%5D",
+      "{": "%7B",
+      "}": "%7D"
+    }, escapeTagName = (tn) => tn.replace(/[!,[\]{}]/g, (ch) => escapeChars[ch]), Directives = class _Directives {
+      constructor(yaml, tags) {
+        this.docStart = null, this.docEnd = !1, this.yaml = Object.assign({}, _Directives.defaultYaml, yaml), this.tags = Object.assign({}, _Directives.defaultTags, tags);
+      }
+      clone() {
+        let copy = new _Directives(this.yaml, this.tags);
+        return copy.docStart = this.docStart, copy;
+      }
+      /**
+       * During parsing, get a Directives instance for the current document and
+       * update the stream state according to the current version's spec.
+       */
+      atDocument() {
+        let res = new _Directives(this.yaml, this.tags);
+        switch (this.yaml.version) {
+          case "1.1":
+            this.atNextDocument = !0;
+            break;
+          case "1.2":
+            this.atNextDocument = !1, this.yaml = {
+              explicit: _Directives.defaultYaml.explicit,
+              version: "1.2"
+            }, this.tags = Object.assign({}, _Directives.defaultTags);
+            break;
+        }
+        return res;
+      }
+      /**
+       * @param onError - May be called even if the action was successful
+       * @returns `true` on success
+       */
+      add(line4, onError) {
+        this.atNextDocument && (this.yaml = { explicit: _Directives.defaultYaml.explicit, version: "1.1" }, this.tags = Object.assign({}, _Directives.defaultTags), this.atNextDocument = !1);
+        let parts = line4.trim().split(/[ \t]+/), name = parts.shift();
+        switch (name) {
+          case "%TAG": {
+            if (parts.length !== 2 && (onError(0, "%TAG directive should contain exactly two parts"), parts.length < 2))
+              return !1;
+            let [handle, prefix] = parts;
+            return this.tags[handle] = prefix, !0;
+          }
+          case "%YAML": {
+            if (this.yaml.explicit = !0, parts.length !== 1)
+              return onError(0, "%YAML directive should contain exactly one part"), !1;
+            let [version2] = parts;
+            if (version2 === "1.1" || version2 === "1.2")
+              return this.yaml.version = version2, !0;
+            {
+              let isValid = /^\d+\.\d+$/.test(version2);
+              return onError(6, `Unsupported YAML version ${version2}`, isValid), !1;
+            }
+          }
+          default:
+            return onError(0, `Unknown directive ${name}`, !0), !1;
+        }
+      }
+      /**
+       * Resolves a tag, matching handles to those defined in %TAG directives.
+       *
+       * @returns Resolved tag, which may also be the non-specific tag `'!'` or a
+       *   `'!local'` tag, or `null` if unresolvable.
+       */
+      tagName(source, onError) {
+        if (source === "!")
+          return "!";
+        if (source[0] !== "!")
+          return onError(`Not a valid tag: ${source}`), null;
+        if (source[1] === "<") {
+          let verbatim = source.slice(2, -1);
+          return verbatim === "!" || verbatim === "!!" ? (onError(`Verbatim tags aren't resolved, so ${source} is invalid.`), null) : (source[source.length - 1] !== ">" && onError("Verbatim tags must end with a >"), verbatim);
+        }
+        let [, handle, suffix] = source.match(/^(.*!)([^!]*)$/s);
+        suffix || onError(`The ${source} tag has no suffix`);
+        let prefix = this.tags[handle];
+        if (prefix)
+          try {
+            return prefix + decodeURIComponent(suffix);
+          } catch (error) {
+            return onError(String(error)), null;
+          }
+        return handle === "!" ? source : (onError(`Could not resolve tag: ${source}`), null);
+      }
+      /**
+       * Given a fully resolved tag, returns its printable string form,
+       * taking into account current tag prefixes and defaults.
+       */
+      tagString(tag) {
+        for (let [handle, prefix] of Object.entries(this.tags))
+          if (tag.startsWith(prefix))
+            return handle + escapeTagName(tag.substring(prefix.length));
+        return tag[0] === "!" ? tag : `!<${tag}>`;
+      }
+      toString(doc) {
+        let lines = this.yaml.explicit ? [`%YAML ${this.yaml.version || "1.2"}`] : [], tagEntries = Object.entries(this.tags), tagNames;
+        if (doc && tagEntries.length > 0 && identity.isNode(doc.contents)) {
+          let tags = {};
+          visit.visit(doc.contents, (_key, node) => {
+            identity.isNode(node) && node.tag && (tags[node.tag] = !0);
+          }), tagNames = Object.keys(tags);
+        } else
+          tagNames = [];
+        for (let [handle, prefix] of tagEntries)
+          handle === "!!" && prefix === "tag:yaml.org,2002:" || (!doc || tagNames.some((tn) => tn.startsWith(prefix))) && lines.push(`%TAG ${handle} ${prefix}`);
+        return lines.join(`
+`);
+      }
+    };
+    Directives.defaultYaml = { explicit: !1, version: "1.2" };
+    Directives.defaultTags = { "!!": "tag:yaml.org,2002:" };
+    exports.Directives = Directives;
+  }
+});
+
+// node_modules/yaml/dist/doc/anchors.js
+var require_anchors = __commonJS({
+  "node_modules/yaml/dist/doc/anchors.js"(exports) {
+    "use strict";
+    var identity = require_identity(), visit = require_visit();
+    function anchorIsValid(anchor) {
+      if (/[\x00-\x19\s,[\]{}]/.test(anchor)) {
+        let msg = `Anchor must not contain whitespace or control characters: ${JSON.stringify(anchor)}`;
+        throw new Error(msg);
+      }
+      return !0;
+    }
+    function anchorNames(root) {
+      let anchors = /* @__PURE__ */ new Set();
+      return visit.visit(root, {
+        Value(_key, node) {
+          node.anchor && anchors.add(node.anchor);
+        }
+      }), anchors;
+    }
+    function findNewAnchor(prefix, exclude) {
+      for (let i = 1; ; ++i) {
+        let name = `${prefix}${i}`;
+        if (!exclude.has(name))
+          return name;
+      }
+    }
+    function createNodeAnchors(doc, prefix) {
+      let aliasObjects = [], sourceObjects = /* @__PURE__ */ new Map(), prevAnchors = null;
+      return {
+        onAnchor: (source) => {
+          aliasObjects.push(source), prevAnchors ?? (prevAnchors = anchorNames(doc));
+          let anchor = findNewAnchor(prefix, prevAnchors);
+          return prevAnchors.add(anchor), anchor;
+        },
+        /**
+         * With circular references, the source node is only resolved after all
+         * of its child nodes are. This is why anchors are set only after all of
+         * the nodes have been created.
+         */
+        setAnchors: () => {
+          for (let source of aliasObjects) {
+            let ref = sourceObjects.get(source);
+            if (typeof ref == "object" && ref.anchor && (identity.isScalar(ref.node) || identity.isCollection(ref.node)))
+              ref.node.anchor = ref.anchor;
+            else {
+              let error = new Error("Failed to resolve repeated object (this should not happen)");
+              throw error.source = source, error;
+            }
+          }
+        },
+        sourceObjects
+      };
+    }
+    exports.anchorIsValid = anchorIsValid;
+    exports.anchorNames = anchorNames;
+    exports.createNodeAnchors = createNodeAnchors;
+    exports.findNewAnchor = findNewAnchor;
+  }
+});
+
+// node_modules/yaml/dist/doc/applyReviver.js
+var require_applyReviver = __commonJS({
+  "node_modules/yaml/dist/doc/applyReviver.js"(exports) {
+    "use strict";
+    function applyReviver(reviver, obj, key, val) {
+      if (val && typeof val == "object")
+        if (Array.isArray(val))
+          for (let i = 0, len = val.length; i < len; ++i) {
+            let v0 = val[i], v1 = applyReviver(reviver, val, String(i), v0);
+            v1 === void 0 ? delete val[i] : v1 !== v0 && (val[i] = v1);
+          }
+        else if (val instanceof Map)
+          for (let k of Array.from(val.keys())) {
+            let v0 = val.get(k), v1 = applyReviver(reviver, val, k, v0);
+            v1 === void 0 ? val.delete(k) : v1 !== v0 && val.set(k, v1);
+          }
+        else if (val instanceof Set)
+          for (let v0 of Array.from(val)) {
+            let v1 = applyReviver(reviver, val, v0, v0);
+            v1 === void 0 ? val.delete(v0) : v1 !== v0 && (val.delete(v0), val.add(v1));
+          }
+        else
+          for (let [k, v0] of Object.entries(val)) {
+            let v1 = applyReviver(reviver, val, k, v0);
+            v1 === void 0 ? delete val[k] : v1 !== v0 && (val[k] = v1);
+          }
+      return reviver.call(obj, key, val);
+    }
+    exports.applyReviver = applyReviver;
+  }
+});
+
+// node_modules/yaml/dist/nodes/toJS.js
+var require_toJS = __commonJS({
+  "node_modules/yaml/dist/nodes/toJS.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    function toJS(value, arg, ctx) {
+      if (Array.isArray(value))
+        return value.map((v, i) => toJS(v, String(i), ctx));
+      if (value && typeof value.toJSON == "function") {
+        if (!ctx || !identity.hasAnchor(value))
+          return value.toJSON(arg, ctx);
+        let data = { aliasCount: 0, count: 1, res: void 0 };
+        ctx.anchors.set(value, data), ctx.onCreate = (res2) => {
+          data.res = res2, delete ctx.onCreate;
+        };
+        let res = value.toJSON(arg, ctx);
+        return ctx.onCreate && ctx.onCreate(res), res;
+      }
+      return typeof value == "bigint" && !ctx?.keep ? Number(value) : value;
+    }
+    exports.toJS = toJS;
+  }
+});
+
+// node_modules/yaml/dist/nodes/Node.js
+var require_Node = __commonJS({
+  "node_modules/yaml/dist/nodes/Node.js"(exports) {
+    "use strict";
+    var applyReviver = require_applyReviver(), identity = require_identity(), toJS = require_toJS(), NodeBase = class {
+      constructor(type) {
+        Object.defineProperty(this, identity.NODE_TYPE, { value: type });
+      }
+      /** Create a copy of this node.  */
+      clone() {
+        let copy = Object.create(Object.getPrototypeOf(this), Object.getOwnPropertyDescriptors(this));
+        return this.range && (copy.range = this.range.slice()), copy;
+      }
+      /** A plain JavaScript representation of this node. */
+      toJS(doc, { mapAsMap, maxAliasCount, onAnchor, reviver } = {}) {
+        if (!identity.isDocument(doc))
+          throw new TypeError("A document argument is required");
+        let ctx = {
+          anchors: /* @__PURE__ */ new Map(),
+          doc,
+          keep: !0,
+          mapAsMap: mapAsMap === !0,
+          mapKeyWarned: !1,
+          maxAliasCount: typeof maxAliasCount == "number" ? maxAliasCount : 100
+        }, res = toJS.toJS(this, "", ctx);
+        if (typeof onAnchor == "function")
+          for (let { count, res: res2 } of ctx.anchors.values())
+            onAnchor(res2, count);
+        return typeof reviver == "function" ? applyReviver.applyReviver(reviver, { "": res }, "", res) : res;
+      }
+    };
+    exports.NodeBase = NodeBase;
+  }
+});
+
+// node_modules/yaml/dist/nodes/Alias.js
+var require_Alias = __commonJS({
+  "node_modules/yaml/dist/nodes/Alias.js"(exports) {
+    "use strict";
+    var anchors = require_anchors(), visit = require_visit(), identity = require_identity(), Node = require_Node(), toJS = require_toJS(), Alias = class extends Node.NodeBase {
+      constructor(source) {
+        super(identity.ALIAS), this.source = source, Object.defineProperty(this, "tag", {
+          set() {
+            throw new Error("Alias nodes cannot have tags");
+          }
+        });
+      }
+      /**
+       * Resolve the value of this alias within `doc`, finding the last
+       * instance of the `source` anchor before this node.
+       */
+      resolve(doc, ctx) {
+        if (ctx?.maxAliasCount === 0)
+          throw new ReferenceError("Alias resolution is disabled");
+        let nodes;
+        ctx?.aliasResolveCache ? nodes = ctx.aliasResolveCache : (nodes = [], visit.visit(doc, {
+          Node: (_key, node) => {
+            (identity.isAlias(node) || identity.hasAnchor(node)) && nodes.push(node);
+          }
+        }), ctx && (ctx.aliasResolveCache = nodes));
+        let found;
+        for (let node of nodes) {
+          if (node === this)
+            break;
+          node.anchor === this.source && (found = node);
+        }
+        return found;
+      }
+      toJSON(_arg, ctx) {
+        if (!ctx)
+          return { source: this.source };
+        let { anchors: anchors2, doc, maxAliasCount } = ctx, source = this.resolve(doc, ctx);
+        if (!source) {
+          let msg = `Unresolved alias (the anchor must be set before the alias): ${this.source}`;
+          throw new ReferenceError(msg);
+        }
+        let data = anchors2.get(source);
+        if (data || (toJS.toJS(source, null, ctx), data = anchors2.get(source)), data?.res === void 0) {
+          let msg = "This should not happen: Alias anchor was not resolved?";
+          throw new ReferenceError(msg);
+        }
+        if (maxAliasCount >= 0 && (data.count += 1, data.aliasCount === 0 && (data.aliasCount = getAliasCount(doc, source, anchors2)), data.count * data.aliasCount > maxAliasCount)) {
+          let msg = "Excessive alias count indicates a resource exhaustion attack";
+          throw new ReferenceError(msg);
+        }
+        return data.res;
+      }
+      toString(ctx, _onComment, _onChompKeep) {
+        let src = `*${this.source}`;
+        if (ctx) {
+          if (anchors.anchorIsValid(this.source), ctx.options.verifyAliasOrder && !ctx.anchors.has(this.source)) {
+            let msg = `Unresolved alias (the anchor must be set before the alias): ${this.source}`;
+            throw new Error(msg);
+          }
+          if (ctx.implicitKey)
+            return `${src} `;
+        }
+        return src;
+      }
+    };
+    function getAliasCount(doc, node, anchors2) {
+      if (identity.isAlias(node)) {
+        let source = node.resolve(doc), anchor = anchors2 && source && anchors2.get(source);
+        return anchor ? anchor.count * anchor.aliasCount : 0;
+      } else if (identity.isCollection(node)) {
+        let count = 0;
+        for (let item of node.items) {
+          let c = getAliasCount(doc, item, anchors2);
+          c > count && (count = c);
+        }
+        return count;
+      } else if (identity.isPair(node)) {
+        let kc = getAliasCount(doc, node.key, anchors2), vc = getAliasCount(doc, node.value, anchors2);
+        return Math.max(kc, vc);
+      }
+      return 1;
+    }
+    exports.Alias = Alias;
+  }
+});
+
+// node_modules/yaml/dist/nodes/Scalar.js
+var require_Scalar = __commonJS({
+  "node_modules/yaml/dist/nodes/Scalar.js"(exports) {
+    "use strict";
+    var identity = require_identity(), Node = require_Node(), toJS = require_toJS(), isScalarValue = (value) => !value || typeof value != "function" && typeof value != "object", Scalar = class extends Node.NodeBase {
+      constructor(value) {
+        super(identity.SCALAR), this.value = value;
+      }
+      toJSON(arg, ctx) {
+        return ctx?.keep ? this.value : toJS.toJS(this.value, arg, ctx);
+      }
+      toString() {
+        return String(this.value);
+      }
+    };
+    Scalar.BLOCK_FOLDED = "BLOCK_FOLDED";
+    Scalar.BLOCK_LITERAL = "BLOCK_LITERAL";
+    Scalar.PLAIN = "PLAIN";
+    Scalar.QUOTE_DOUBLE = "QUOTE_DOUBLE";
+    Scalar.QUOTE_SINGLE = "QUOTE_SINGLE";
+    exports.Scalar = Scalar;
+    exports.isScalarValue = isScalarValue;
+  }
+});
+
+// node_modules/yaml/dist/doc/createNode.js
+var require_createNode = __commonJS({
+  "node_modules/yaml/dist/doc/createNode.js"(exports) {
+    "use strict";
+    var Alias = require_Alias(), identity = require_identity(), Scalar = require_Scalar(), defaultTagPrefix = "tag:yaml.org,2002:";
+    function findTagObject(value, tagName, tags) {
+      if (tagName) {
+        let match = tags.filter((t) => t.tag === tagName), tagObj = match.find((t) => !t.format) ?? match[0];
+        if (!tagObj)
+          throw new Error(`Tag ${tagName} not found`);
+        return tagObj;
+      }
+      return tags.find((t) => t.identify?.(value) && !t.format);
+    }
+    function createNode(value, tagName, ctx) {
+      if (identity.isDocument(value) && (value = value.contents), identity.isNode(value))
+        return value;
+      if (identity.isPair(value)) {
+        let map = ctx.schema[identity.MAP].createNode?.(ctx.schema, null, ctx);
+        return map.items.push(value), map;
+      }
+      (value instanceof String || value instanceof Number || value instanceof Boolean || typeof BigInt < "u" && value instanceof BigInt) && (value = value.valueOf());
+      let { aliasDuplicateObjects, onAnchor, onTagObj, schema, sourceObjects } = ctx, ref;
+      if (aliasDuplicateObjects && value && typeof value == "object") {
+        if (ref = sourceObjects.get(value), ref)
+          return ref.anchor ?? (ref.anchor = onAnchor(value)), new Alias.Alias(ref.anchor);
+        ref = { anchor: null, node: null }, sourceObjects.set(value, ref);
+      }
+      tagName?.startsWith("!!") && (tagName = defaultTagPrefix + tagName.slice(2));
+      let tagObj = findTagObject(value, tagName, schema.tags);
+      if (!tagObj) {
+        if (value && typeof value.toJSON == "function" && (value = value.toJSON()), !value || typeof value != "object") {
+          let node2 = new Scalar.Scalar(value);
+          return ref && (ref.node = node2), node2;
+        }
+        tagObj = value instanceof Map ? schema[identity.MAP] : Symbol.iterator in Object(value) ? schema[identity.SEQ] : schema[identity.MAP];
+      }
+      onTagObj && (onTagObj(tagObj), delete ctx.onTagObj);
+      let node = tagObj?.createNode ? tagObj.createNode(ctx.schema, value, ctx) : typeof tagObj?.nodeClass?.from == "function" ? tagObj.nodeClass.from(ctx.schema, value, ctx) : new Scalar.Scalar(value);
+      return tagName ? node.tag = tagName : tagObj.default || (node.tag = tagObj.tag), ref && (ref.node = node), node;
+    }
+    exports.createNode = createNode;
+  }
+});
+
+// node_modules/yaml/dist/nodes/Collection.js
+var require_Collection = __commonJS({
+  "node_modules/yaml/dist/nodes/Collection.js"(exports) {
+    "use strict";
+    var createNode = require_createNode(), identity = require_identity(), Node = require_Node();
+    function collectionFromPath(schema, path, value) {
+      let v = value;
+      for (let i = path.length - 1; i >= 0; --i) {
+        let k = path[i];
+        if (typeof k == "number" && Number.isInteger(k) && k >= 0) {
+          let a = [];
+          a[k] = v, v = a;
+        } else
+          v = /* @__PURE__ */ new Map([[k, v]]);
+      }
+      return createNode.createNode(v, void 0, {
+        aliasDuplicateObjects: !1,
+        keepUndefined: !1,
+        onAnchor: () => {
+          throw new Error("This should not happen, please report a bug.");
+        },
+        schema,
+        sourceObjects: /* @__PURE__ */ new Map()
+      });
+    }
+    var isEmptyPath = (path) => path == null || typeof path == "object" && !!path[Symbol.iterator]().next().done, Collection = class extends Node.NodeBase {
+      constructor(type, schema) {
+        super(type), Object.defineProperty(this, "schema", {
+          value: schema,
+          configurable: !0,
+          enumerable: !1,
+          writable: !0
+        });
+      }
+      /**
+       * Create a copy of this collection.
+       *
+       * @param schema - If defined, overwrites the original's schema
+       */
+      clone(schema) {
+        let copy = Object.create(Object.getPrototypeOf(this), Object.getOwnPropertyDescriptors(this));
+        return schema && (copy.schema = schema), copy.items = copy.items.map((it) => identity.isNode(it) || identity.isPair(it) ? it.clone(schema) : it), this.range && (copy.range = this.range.slice()), copy;
+      }
+      /**
+       * Adds a value to the collection. For `!!map` and `!!omap` the value must
+       * be a Pair instance or a `{ key, value }` object, which may not have a key
+       * that already exists in the map.
+       */
+      addIn(path, value) {
+        if (isEmptyPath(path))
+          this.add(value);
+        else {
+          let [key, ...rest] = path, node = this.get(key, !0);
+          if (identity.isCollection(node))
+            node.addIn(rest, value);
+          else if (node === void 0 && this.schema)
+            this.set(key, collectionFromPath(this.schema, rest, value));
+          else
+            throw new Error(`Expected YAML collection at ${key}. Remaining path: ${rest}`);
+        }
+      }
+      /**
+       * Removes a value from the collection.
+       * @returns `true` if the item was found and removed.
+       */
+      deleteIn(path) {
+        let [key, ...rest] = path;
+        if (rest.length === 0)
+          return this.delete(key);
+        let node = this.get(key, !0);
+        if (identity.isCollection(node))
+          return node.deleteIn(rest);
+        throw new Error(`Expected YAML collection at ${key}. Remaining path: ${rest}`);
+      }
+      /**
+       * Returns item at `key`, or `undefined` if not found. By default unwraps
+       * scalar values from their surrounding node; to disable set `keepScalar` to
+       * `true` (collections are always returned intact).
+       */
+      getIn(path, keepScalar) {
+        let [key, ...rest] = path, node = this.get(key, !0);
+        return rest.length === 0 ? !keepScalar && identity.isScalar(node) ? node.value : node : identity.isCollection(node) ? node.getIn(rest, keepScalar) : void 0;
+      }
+      hasAllNullValues(allowScalar) {
+        return this.items.every((node) => {
+          if (!identity.isPair(node))
+            return !1;
+          let n = node.value;
+          return n == null || allowScalar && identity.isScalar(n) && n.value == null && !n.commentBefore && !n.comment && !n.tag;
+        });
+      }
+      /**
+       * Checks if the collection includes a value with the key `key`.
+       */
+      hasIn(path) {
+        let [key, ...rest] = path;
+        if (rest.length === 0)
+          return this.has(key);
+        let node = this.get(key, !0);
+        return identity.isCollection(node) ? node.hasIn(rest) : !1;
+      }
+      /**
+       * Sets a value in this collection. For `!!set`, `value` needs to be a
+       * boolean to add/remove the item from the set.
+       */
+      setIn(path, value) {
+        let [key, ...rest] = path;
+        if (rest.length === 0)
+          this.set(key, value);
+        else {
+          let node = this.get(key, !0);
+          if (identity.isCollection(node))
+            node.setIn(rest, value);
+          else if (node === void 0 && this.schema)
+            this.set(key, collectionFromPath(this.schema, rest, value));
+          else
+            throw new Error(`Expected YAML collection at ${key}. Remaining path: ${rest}`);
+        }
+      }
+    };
+    exports.Collection = Collection;
+    exports.collectionFromPath = collectionFromPath;
+    exports.isEmptyPath = isEmptyPath;
+  }
+});
+
+// node_modules/yaml/dist/stringify/stringifyComment.js
+var require_stringifyComment = __commonJS({
+  "node_modules/yaml/dist/stringify/stringifyComment.js"(exports) {
+    "use strict";
+    var stringifyComment = (str) => str.replace(/^(?!$)(?: $)?/gm, "#");
+    function indentComment(comment, indent) {
+      return /^\n+$/.test(comment) ? comment.substring(1) : indent ? comment.replace(/^(?! *$)/gm, indent) : comment;
+    }
+    var lineComment = (str, indent, comment) => str.endsWith(`
+`) ? indentComment(comment, indent) : comment.includes(`
+`) ? `
+` + indentComment(comment, indent) : (str.endsWith(" ") ? "" : " ") + comment;
+    exports.indentComment = indentComment;
+    exports.lineComment = lineComment;
+    exports.stringifyComment = stringifyComment;
+  }
+});
+
+// node_modules/yaml/dist/stringify/foldFlowLines.js
+var require_foldFlowLines = __commonJS({
+  "node_modules/yaml/dist/stringify/foldFlowLines.js"(exports) {
+    "use strict";
+    var FOLD_FLOW = "flow", FOLD_BLOCK = "block", FOLD_QUOTED = "quoted";
+    function foldFlowLines(text, indent, mode = "flow", { indentAtStart, lineWidth = 80, minContentWidth = 20, onFold, onOverflow } = {}) {
+      if (!lineWidth || lineWidth < 0)
+        return text;
+      lineWidth < minContentWidth && (minContentWidth = 0);
+      let endStep = Math.max(1 + minContentWidth, 1 + lineWidth - indent.length);
+      if (text.length <= endStep)
+        return text;
+      let folds = [], escapedFolds = {}, end = lineWidth - indent.length;
+      typeof indentAtStart == "number" && (indentAtStart > lineWidth - Math.max(2, minContentWidth) ? folds.push(0) : end = lineWidth - indentAtStart);
+      let split, prev, overflow = !1, i = -1, escStart = -1, escEnd = -1;
+      mode === FOLD_BLOCK && (i = consumeMoreIndentedLines(text, i, indent.length), i !== -1 && (end = i + endStep));
+      for (let ch; ch = text[i += 1]; ) {
+        if (mode === FOLD_QUOTED && ch === "\\") {
+          switch (escStart = i, text[i + 1]) {
+            case "x":
+              i += 3;
+              break;
+            case "u":
+              i += 5;
+              break;
+            case "U":
+              i += 9;
+              break;
+            default:
+              i += 1;
+          }
+          escEnd = i;
+        }
+        if (ch === `
+`)
+          mode === FOLD_BLOCK && (i = consumeMoreIndentedLines(text, i, indent.length)), end = i + indent.length + endStep, split = void 0;
+        else {
+          if (ch === " " && prev && prev !== " " && prev !== `
+` && prev !== "	") {
+            let next = text[i + 1];
+            next && next !== " " && next !== `
+` && next !== "	" && (split = i);
+          }
+          if (i >= end)
+            if (split)
+              folds.push(split), end = split + endStep, split = void 0;
+            else if (mode === FOLD_QUOTED) {
+              for (; prev === " " || prev === "	"; )
+                prev = ch, ch = text[i += 1], overflow = !0;
+              let j = i > escEnd + 1 ? i - 2 : escStart - 1;
+              if (escapedFolds[j])
+                return text;
+              folds.push(j), escapedFolds[j] = !0, end = j + endStep, split = void 0;
+            } else
+              overflow = !0;
+        }
+        prev = ch;
+      }
+      if (overflow && onOverflow && onOverflow(), folds.length === 0)
+        return text;
+      onFold && onFold();
+      let res = text.slice(0, folds[0]);
+      for (let i2 = 0; i2 < folds.length; ++i2) {
+        let fold = folds[i2], end2 = folds[i2 + 1] || text.length;
+        fold === 0 ? res = `
+${indent}${text.slice(0, end2)}` : (mode === FOLD_QUOTED && escapedFolds[fold] && (res += `${text[fold]}\\`), res += `
+${indent}${text.slice(fold + 1, end2)}`);
+      }
+      return res;
+    }
+    function consumeMoreIndentedLines(text, i, indent) {
+      let end = i, start = i + 1, ch = text[start];
+      for (; ch === " " || ch === "	"; )
+        if (i < start + indent)
+          ch = text[++i];
+        else {
+          do
+            ch = text[++i];
+          while (ch && ch !== `
+`);
+          end = i, start = i + 1, ch = text[start];
+        }
+      return end;
+    }
+    exports.FOLD_BLOCK = FOLD_BLOCK;
+    exports.FOLD_FLOW = FOLD_FLOW;
+    exports.FOLD_QUOTED = FOLD_QUOTED;
+    exports.foldFlowLines = foldFlowLines;
+  }
+});
+
+// node_modules/yaml/dist/stringify/stringifyString.js
+var require_stringifyString = __commonJS({
+  "node_modules/yaml/dist/stringify/stringifyString.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar(), foldFlowLines = require_foldFlowLines(), getFoldOptions = (ctx, isBlock) => ({
+      indentAtStart: isBlock ? ctx.indent.length : ctx.indentAtStart,
+      lineWidth: ctx.options.lineWidth,
+      minContentWidth: ctx.options.minContentWidth
+    }), containsDocumentMarker = (str) => /^(%|---|\.\.\.)/m.test(str);
+    function lineLengthOverLimit(str, lineWidth, indentLength) {
+      if (!lineWidth || lineWidth < 0)
+        return !1;
+      let limit = lineWidth - indentLength, strLen = str.length;
+      if (strLen <= limit)
+        return !1;
+      for (let i = 0, start = 0; i < strLen; ++i)
+        if (str[i] === `
+`) {
+          if (i - start > limit)
+            return !0;
+          if (start = i + 1, strLen - start <= limit)
+            return !1;
+        }
+      return !0;
+    }
+    function doubleQuotedString(value, ctx) {
+      let json = JSON.stringify(value);
+      if (ctx.options.doubleQuotedAsJSON)
+        return json;
+      let { implicitKey } = ctx, minMultiLineLength = ctx.options.doubleQuotedMinMultiLineLength, indent = ctx.indent || (containsDocumentMarker(value) ? "  " : ""), str = "", start = 0;
+      for (let i = 0, ch = json[i]; ch; ch = json[++i])
+        if (ch === " " && json[i + 1] === "\\" && json[i + 2] === "n" && (str += json.slice(start, i) + "\\ ", i += 1, start = i, ch = "\\"), ch === "\\")
+          switch (json[i + 1]) {
+            case "u":
+              {
+                str += json.slice(start, i);
+                let code = json.substr(i + 2, 4);
+                switch (code) {
+                  case "0000":
+                    str += "\\0";
+                    break;
+                  case "0007":
+                    str += "\\a";
+                    break;
+                  case "000b":
+                    str += "\\v";
+                    break;
+                  case "001b":
+                    str += "\\e";
+                    break;
+                  case "0085":
+                    str += "\\N";
+                    break;
+                  case "00a0":
+                    str += "\\_";
+                    break;
+                  case "2028":
+                    str += "\\L";
+                    break;
+                  case "2029":
+                    str += "\\P";
+                    break;
+                  default:
+                    code.substr(0, 2) === "00" ? str += "\\x" + code.substr(2) : str += json.substr(i, 6);
+                }
+                i += 5, start = i + 1;
+              }
+              break;
+            case "n":
+              if (implicitKey || json[i + 2] === '"' || json.length < minMultiLineLength)
+                i += 1;
+              else {
+                for (str += json.slice(start, i) + `
+
+`; json[i + 2] === "\\" && json[i + 3] === "n" && json[i + 4] !== '"'; )
+                  str += `
+`, i += 2;
+                str += indent, json[i + 2] === " " && (str += "\\"), i += 1, start = i + 1;
+              }
+              break;
+            default:
+              i += 1;
+          }
+      return str = start ? str + json.slice(start) : json, implicitKey ? str : foldFlowLines.foldFlowLines(str, indent, foldFlowLines.FOLD_QUOTED, getFoldOptions(ctx, !1));
+    }
+    function singleQuotedString(value, ctx) {
+      if (ctx.options.singleQuote === !1 || ctx.implicitKey && value.includes(`
+`) || /[ \t]\n|\n[ \t]/.test(value))
+        return doubleQuotedString(value, ctx);
+      let indent = ctx.indent || (containsDocumentMarker(value) ? "  " : ""), res = "'" + value.replace(/'/g, "''").replace(/\n+/g, `$&
+${indent}`) + "'";
+      return ctx.implicitKey ? res : foldFlowLines.foldFlowLines(res, indent, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx, !1));
+    }
+    function quotedString(value, ctx) {
+      let { singleQuote } = ctx.options, qs;
+      if (singleQuote === !1)
+        qs = doubleQuotedString;
+      else {
+        let hasDouble = value.includes('"'), hasSingle = value.includes("'");
+        hasDouble && !hasSingle ? qs = singleQuotedString : hasSingle && !hasDouble ? qs = doubleQuotedString : qs = singleQuote ? singleQuotedString : doubleQuotedString;
+      }
+      return qs(value, ctx);
+    }
+    var blockEndNewlines;
+    try {
+      blockEndNewlines = new RegExp(`(^|(?<!
+))
++(?!
+|$)`, "g");
+    } catch {
+      blockEndNewlines = /\n+(?!\n|$)/g;
+    }
+    function blockString({ comment, type, value }, ctx, onComment, onChompKeep) {
+      let { blockQuote, commentString, lineWidth } = ctx.options;
+      if (!blockQuote || /\n[\t ]+$/.test(value))
+        return quotedString(value, ctx);
+      let indent = ctx.indent || (ctx.forceBlockIndent || containsDocumentMarker(value) ? "  " : ""), literal2 = blockQuote === "literal" ? !0 : blockQuote === "folded" || type === Scalar.Scalar.BLOCK_FOLDED ? !1 : type === Scalar.Scalar.BLOCK_LITERAL ? !0 : !lineLengthOverLimit(value, lineWidth, indent.length);
+      if (!value)
+        return literal2 ? `|
+` : `>
+`;
+      let chomp, endStart;
+      for (endStart = value.length; endStart > 0; --endStart) {
+        let ch = value[endStart - 1];
+        if (ch !== `
+` && ch !== "	" && ch !== " ")
+          break;
+      }
+      let end = value.substring(endStart), endNlPos = end.indexOf(`
+`);
+      endNlPos === -1 ? chomp = "-" : value === end || endNlPos !== end.length - 1 ? (chomp = "+", onChompKeep && onChompKeep()) : chomp = "", end && (value = value.slice(0, -end.length), end[end.length - 1] === `
+` && (end = end.slice(0, -1)), end = end.replace(blockEndNewlines, `$&${indent}`));
+      let startWithSpace = !1, startEnd, startNlPos = -1;
+      for (startEnd = 0; startEnd < value.length; ++startEnd) {
+        let ch = value[startEnd];
+        if (ch === " ")
+          startWithSpace = !0;
+        else if (ch === `
+`)
+          startNlPos = startEnd;
+        else
+          break;
+      }
+      let start = value.substring(0, startNlPos < startEnd ? startNlPos + 1 : startEnd);
+      start && (value = value.substring(start.length), start = start.replace(/\n+/g, `$&${indent}`));
+      let header = (startWithSpace ? indent ? "2" : "1" : "") + chomp;
+      if (comment && (header += " " + commentString(comment.replace(/ ?[\r\n]+/g, " ")), onComment && onComment()), !literal2) {
+        let foldedValue = value.replace(/\n+/g, `
+$&`).replace(/(?:^|\n)([\t ].*)(?:([\n\t ]*)\n(?![\n\t ]))?/g, "$1$2").replace(/\n+/g, `$&${indent}`), literalFallback = !1, foldOptions = getFoldOptions(ctx, !0);
+        blockQuote !== "folded" && type !== Scalar.Scalar.BLOCK_FOLDED && (foldOptions.onOverflow = () => {
+          literalFallback = !0;
+        });
+        let body = foldFlowLines.foldFlowLines(`${start}${foldedValue}${end}`, indent, foldFlowLines.FOLD_BLOCK, foldOptions);
+        if (!literalFallback)
+          return `>${header}
+${indent}${body}`;
+      }
+      return value = value.replace(/\n+/g, `$&${indent}`), `|${header}
+${indent}${start}${value}${end}`;
+    }
+    function plainString(item, ctx, onComment, onChompKeep) {
+      let { type, value } = item, { actualString, implicitKey, indent, indentStep, inFlow } = ctx;
+      if (implicitKey && value.includes(`
+`) || inFlow && /[[\]{},]/.test(value))
+        return quotedString(value, ctx);
+      if (/^[\n\t ,[\]{}#&*!|>'"%@`]|^[?-]$|^[?-][ \t]|[\n:][ \t]|[ \t]\n|[\n\t ]#|[\n\t :]$/.test(value))
+        return implicitKey || inFlow || !value.includes(`
+`) ? quotedString(value, ctx) : blockString(item, ctx, onComment, onChompKeep);
+      if (!implicitKey && !inFlow && type !== Scalar.Scalar.PLAIN && value.includes(`
+`))
+        return blockString(item, ctx, onComment, onChompKeep);
+      if (containsDocumentMarker(value)) {
+        if (indent === "")
+          return ctx.forceBlockIndent = !0, blockString(item, ctx, onComment, onChompKeep);
+        if (implicitKey && indent === indentStep)
+          return quotedString(value, ctx);
+      }
+      let str = value.replace(/\n+/g, `$&
+${indent}`);
+      if (actualString) {
+        let test = (tag) => tag.default && tag.tag !== "tag:yaml.org,2002:str" && tag.test?.test(str), { compat, tags } = ctx.doc.schema;
+        if (tags.some(test) || compat?.some(test))
+          return quotedString(value, ctx);
+      }
+      return implicitKey ? str : foldFlowLines.foldFlowLines(str, indent, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx, !1));
+    }
+    function stringifyString(item, ctx, onComment, onChompKeep) {
+      let { implicitKey, inFlow } = ctx, ss = typeof item.value == "string" ? item : Object.assign({}, item, { value: String(item.value) }), { type } = item;
+      type !== Scalar.Scalar.QUOTE_DOUBLE && /[\x00-\x08\x0b-\x1f\x7f-\x9f\u{D800}-\u{DFFF}]/u.test(ss.value) && (type = Scalar.Scalar.QUOTE_DOUBLE);
+      let _stringify = (_type) => {
+        switch (_type) {
+          case Scalar.Scalar.BLOCK_FOLDED:
+          case Scalar.Scalar.BLOCK_LITERAL:
+            return implicitKey || inFlow ? quotedString(ss.value, ctx) : blockString(ss, ctx, onComment, onChompKeep);
+          case Scalar.Scalar.QUOTE_DOUBLE:
+            return doubleQuotedString(ss.value, ctx);
+          case Scalar.Scalar.QUOTE_SINGLE:
+            return singleQuotedString(ss.value, ctx);
+          case Scalar.Scalar.PLAIN:
+            return plainString(ss, ctx, onComment, onChompKeep);
+          default:
+            return null;
+        }
+      }, res = _stringify(type);
+      if (res === null) {
+        let { defaultKeyType, defaultStringType } = ctx.options, t = implicitKey && defaultKeyType || defaultStringType;
+        if (res = _stringify(t), res === null)
+          throw new Error(`Unsupported default string type ${t}`);
+      }
+      return res;
+    }
+    exports.stringifyString = stringifyString;
+  }
+});
+
+// node_modules/yaml/dist/stringify/stringify.js
+var require_stringify = __commonJS({
+  "node_modules/yaml/dist/stringify/stringify.js"(exports) {
+    "use strict";
+    var anchors = require_anchors(), identity = require_identity(), stringifyComment = require_stringifyComment(), stringifyString = require_stringifyString();
+    function createStringifyContext(doc, options) {
+      let opt = Object.assign({
+        blockQuote: !0,
+        commentString: stringifyComment.stringifyComment,
+        defaultKeyType: null,
+        defaultStringType: "PLAIN",
+        directives: null,
+        doubleQuotedAsJSON: !1,
+        doubleQuotedMinMultiLineLength: 40,
+        falseStr: "false",
+        flowCollectionPadding: !0,
+        indentSeq: !0,
+        lineWidth: 80,
+        minContentWidth: 20,
+        nullStr: "null",
+        simpleKeys: !1,
+        singleQuote: null,
+        trailingComma: !1,
+        trueStr: "true",
+        verifyAliasOrder: !0
+      }, doc.schema.toStringOptions, options), inFlow;
+      switch (opt.collectionStyle) {
+        case "block":
+          inFlow = !1;
+          break;
+        case "flow":
+          inFlow = !0;
+          break;
+        default:
+          inFlow = null;
+      }
+      return {
+        anchors: /* @__PURE__ */ new Set(),
+        doc,
+        flowCollectionPadding: opt.flowCollectionPadding ? " " : "",
+        indent: "",
+        indentStep: typeof opt.indent == "number" ? " ".repeat(opt.indent) : "  ",
+        inFlow,
+        options: opt
+      };
+    }
+    function getTagObject(tags, item) {
+      if (item.tag) {
+        let match = tags.filter((t) => t.tag === item.tag);
+        if (match.length > 0)
+          return match.find((t) => t.format === item.format) ?? match[0];
+      }
+      let tagObj, obj;
+      if (identity.isScalar(item)) {
+        obj = item.value;
+        let match = tags.filter((t) => t.identify?.(obj));
+        if (match.length > 1) {
+          let testMatch = match.filter((t) => t.test);
+          testMatch.length > 0 && (match = testMatch);
+        }
+        tagObj = match.find((t) => t.format === item.format) ?? match.find((t) => !t.format);
+      } else
+        obj = item, tagObj = tags.find((t) => t.nodeClass && obj instanceof t.nodeClass);
+      if (!tagObj) {
+        let name = obj?.constructor?.name ?? (obj === null ? "null" : typeof obj);
+        throw new Error(`Tag not resolved for ${name} value`);
+      }
+      return tagObj;
+    }
+    function stringifyProps(node, tagObj, { anchors: anchors$1, doc }) {
+      if (!doc.directives)
+        return "";
+      let props = [], anchor = (identity.isScalar(node) || identity.isCollection(node)) && node.anchor;
+      anchor && anchors.anchorIsValid(anchor) && (anchors$1.add(anchor), props.push(`&${anchor}`));
+      let tag = node.tag ?? (tagObj.default ? null : tagObj.tag);
+      return tag && props.push(doc.directives.tagString(tag)), props.join(" ");
+    }
+    function stringify3(item, ctx, onComment, onChompKeep) {
+      if (identity.isPair(item))
+        return item.toString(ctx, onComment, onChompKeep);
+      if (identity.isAlias(item)) {
+        if (ctx.doc.directives)
+          return item.toString(ctx);
+        if (ctx.resolvedAliases?.has(item))
+          throw new TypeError("Cannot stringify circular structure without alias nodes");
+        ctx.resolvedAliases ? ctx.resolvedAliases.add(item) : ctx.resolvedAliases = /* @__PURE__ */ new Set([item]), item = item.resolve(ctx.doc);
+      }
+      let tagObj, node = identity.isNode(item) ? item : ctx.doc.createNode(item, { onTagObj: (o) => tagObj = o });
+      tagObj ?? (tagObj = getTagObject(ctx.doc.schema.tags, node));
+      let props = stringifyProps(node, tagObj, ctx);
+      props.length > 0 && (ctx.indentAtStart = (ctx.indentAtStart ?? 0) + props.length + 1);
+      let str = typeof tagObj.stringify == "function" ? tagObj.stringify(node, ctx, onComment, onChompKeep) : identity.isScalar(node) ? stringifyString.stringifyString(node, ctx, onComment, onChompKeep) : node.toString(ctx, onComment, onChompKeep);
+      return props ? identity.isScalar(node) || str[0] === "{" || str[0] === "[" ? `${props} ${str}` : `${props}
+${ctx.indent}${str}` : str;
+    }
+    exports.createStringifyContext = createStringifyContext;
+    exports.stringify = stringify3;
+  }
+});
+
+// node_modules/yaml/dist/stringify/stringifyPair.js
+var require_stringifyPair = __commonJS({
+  "node_modules/yaml/dist/stringify/stringifyPair.js"(exports) {
+    "use strict";
+    var identity = require_identity(), Scalar = require_Scalar(), stringify3 = require_stringify(), stringifyComment = require_stringifyComment();
+    function stringifyPair({ key, value }, ctx, onComment, onChompKeep) {
+      let { allNullValues, doc, indent, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx, keyComment = identity.isNode(key) && key.comment || null;
+      if (simpleKeys) {
+        if (keyComment)
+          throw new Error("With simple keys, key nodes cannot have comments");
+        if (identity.isCollection(key) || !identity.isNode(key) && typeof key == "object") {
+          let msg = "With simple keys, collection cannot be used as a key value";
+          throw new Error(msg);
+        }
+      }
+      let explicitKey = !simpleKeys && (!key || keyComment && value == null && !ctx.inFlow || identity.isCollection(key) || (identity.isScalar(key) ? key.type === Scalar.Scalar.BLOCK_FOLDED || key.type === Scalar.Scalar.BLOCK_LITERAL : typeof key == "object"));
+      ctx = Object.assign({}, ctx, {
+        allNullValues: !1,
+        implicitKey: !explicitKey && (simpleKeys || !allNullValues),
+        indent: indent + indentStep
+      });
+      let keyCommentDone = !1, chompKeep = !1, str = stringify3.stringify(key, ctx, () => keyCommentDone = !0, () => chompKeep = !0);
+      if (!explicitKey && !ctx.inFlow && str.length > 1024) {
+        if (simpleKeys)
+          throw new Error("With simple keys, single line scalar must not span more than 1024 characters");
+        explicitKey = !0;
+      }
+      if (ctx.inFlow) {
+        if (allNullValues || value == null)
+          return keyCommentDone && onComment && onComment(), str === "" ? "?" : explicitKey ? `? ${str}` : str;
+      } else if (allNullValues && !simpleKeys || value == null && explicitKey)
+        return str = `? ${str}`, keyComment && !keyCommentDone ? str += stringifyComment.lineComment(str, ctx.indent, commentString(keyComment)) : chompKeep && onChompKeep && onChompKeep(), str;
+      keyCommentDone && (keyComment = null), explicitKey ? (keyComment && (str += stringifyComment.lineComment(str, ctx.indent, commentString(keyComment))), str = `? ${str}
+${indent}:`) : (str = `${str}:`, keyComment && (str += stringifyComment.lineComment(str, ctx.indent, commentString(keyComment))));
+      let vsb, vcb, valueComment;
+      identity.isNode(value) ? (vsb = !!value.spaceBefore, vcb = value.commentBefore, valueComment = value.comment) : (vsb = !1, vcb = null, valueComment = null, value && typeof value == "object" && (value = doc.createNode(value))), ctx.implicitKey = !1, !explicitKey && !keyComment && identity.isScalar(value) && (ctx.indentAtStart = str.length + 1), chompKeep = !1, !indentSeq && indentStep.length >= 2 && !ctx.inFlow && !explicitKey && identity.isSeq(value) && !value.flow && !value.tag && !value.anchor && (ctx.indent = ctx.indent.substring(2));
+      let valueCommentDone = !1, valueStr = stringify3.stringify(value, ctx, () => valueCommentDone = !0, () => chompKeep = !0), ws = " ";
+      if (keyComment || vsb || vcb) {
+        if (ws = vsb ? `
+` : "", vcb) {
+          let cs = commentString(vcb);
+          ws += `
+${stringifyComment.indentComment(cs, ctx.indent)}`;
+        }
+        valueStr === "" && !ctx.inFlow ? ws === `
+` && valueComment && (ws = `
+
+`) : ws += `
+${ctx.indent}`;
+      } else if (!explicitKey && identity.isCollection(value)) {
+        let vs0 = valueStr[0], nl0 = valueStr.indexOf(`
+`), hasNewline = nl0 !== -1, flow = ctx.inFlow ?? value.flow ?? value.items.length === 0;
+        if (hasNewline || !flow) {
+          let hasPropsLine = !1;
+          if (hasNewline && (vs0 === "&" || vs0 === "!")) {
+            let sp0 = valueStr.indexOf(" ");
+            vs0 === "&" && sp0 !== -1 && sp0 < nl0 && valueStr[sp0 + 1] === "!" && (sp0 = valueStr.indexOf(" ", sp0 + 1)), (sp0 === -1 || nl0 < sp0) && (hasPropsLine = !0);
+          }
+          hasPropsLine || (ws = `
+${ctx.indent}`);
+        }
+      } else (valueStr === "" || valueStr[0] === `
+`) && (ws = "");
+      return str += ws + valueStr, ctx.inFlow ? valueCommentDone && onComment && onComment() : valueComment && !valueCommentDone ? str += stringifyComment.lineComment(str, ctx.indent, commentString(valueComment)) : chompKeep && onChompKeep && onChompKeep(), str;
+    }
+    exports.stringifyPair = stringifyPair;
+  }
+});
+
+// node_modules/yaml/dist/log.js
+var require_log = __commonJS({
+  "node_modules/yaml/dist/log.js"(exports) {
+    "use strict";
+    var node_process = __require("process");
+    function debug(logLevel, ...messages) {
+      logLevel === "debug" && console.log(...messages);
+    }
+    function warn(logLevel, warning) {
+      (logLevel === "debug" || logLevel === "warn") && (typeof node_process.emitWarning == "function" ? node_process.emitWarning(warning) : console.warn(warning));
+    }
+    exports.debug = debug;
+    exports.warn = warn;
+  }
+});
+
+// node_modules/yaml/dist/schema/yaml-1.1/merge.js
+var require_merge = __commonJS({
+  "node_modules/yaml/dist/schema/yaml-1.1/merge.js"(exports) {
+    "use strict";
+    var identity = require_identity(), Scalar = require_Scalar(), MERGE_KEY = "<<", merge2 = {
+      identify: (value) => value === MERGE_KEY || typeof value == "symbol" && value.description === MERGE_KEY,
+      default: "key",
+      tag: "tag:yaml.org,2002:merge",
+      test: /^<<$/,
+      resolve: () => Object.assign(new Scalar.Scalar(Symbol(MERGE_KEY)), {
+        addToJSMap: addMergeToJSMap
+      }),
+      stringify: () => MERGE_KEY
+    }, isMergeKey = (ctx, key) => (merge2.identify(key) || identity.isScalar(key) && (!key.type || key.type === Scalar.Scalar.PLAIN) && merge2.identify(key.value)) && ctx?.doc.schema.tags.some((tag) => tag.tag === merge2.tag && tag.default);
+    function addMergeToJSMap(ctx, map, value) {
+      let source = resolveAliasValue(ctx, value);
+      if (identity.isSeq(source))
+        for (let it of source.items)
+          mergeValue(ctx, map, it);
+      else if (Array.isArray(source))
+        for (let it of source)
+          mergeValue(ctx, map, it);
+      else
+        mergeValue(ctx, map, source);
+    }
+    function mergeValue(ctx, map, value) {
+      let source = resolveAliasValue(ctx, value);
+      if (!identity.isMap(source))
+        throw new Error("Merge sources must be maps or map aliases");
+      let srcMap = source.toJSON(null, ctx, Map);
+      for (let [key, value2] of srcMap)
+        map instanceof Map ? map.has(key) || map.set(key, value2) : map instanceof Set ? map.add(key) : Object.prototype.hasOwnProperty.call(map, key) || Object.defineProperty(map, key, {
+          value: value2,
+          writable: !0,
+          enumerable: !0,
+          configurable: !0
+        });
+      return map;
+    }
+    function resolveAliasValue(ctx, value) {
+      return ctx && identity.isAlias(value) ? value.resolve(ctx.doc, ctx) : value;
+    }
+    exports.addMergeToJSMap = addMergeToJSMap;
+    exports.isMergeKey = isMergeKey;
+    exports.merge = merge2;
+  }
+});
+
+// node_modules/yaml/dist/nodes/addPairToJSMap.js
+var require_addPairToJSMap = __commonJS({
+  "node_modules/yaml/dist/nodes/addPairToJSMap.js"(exports) {
+    "use strict";
+    var log = require_log(), merge2 = require_merge(), stringify3 = require_stringify(), identity = require_identity(), toJS = require_toJS();
+    function addPairToJSMap(ctx, map, { key, value }) {
+      if (identity.isNode(key) && key.addToJSMap)
+        key.addToJSMap(ctx, map, value);
+      else if (merge2.isMergeKey(ctx, key))
+        merge2.addMergeToJSMap(ctx, map, value);
+      else {
+        let jsKey = toJS.toJS(key, "", ctx);
+        if (map instanceof Map)
+          map.set(jsKey, toJS.toJS(value, jsKey, ctx));
+        else if (map instanceof Set)
+          map.add(jsKey);
+        else {
+          let stringKey = stringifyKey(key, jsKey, ctx), jsValue = toJS.toJS(value, stringKey, ctx);
+          stringKey in map ? Object.defineProperty(map, stringKey, {
+            value: jsValue,
+            writable: !0,
+            enumerable: !0,
+            configurable: !0
+          }) : map[stringKey] = jsValue;
+        }
+      }
+      return map;
+    }
+    function stringifyKey(key, jsKey, ctx) {
+      if (jsKey === null)
+        return "";
+      if (typeof jsKey != "object")
+        return String(jsKey);
+      if (identity.isNode(key) && ctx?.doc) {
+        let strCtx = stringify3.createStringifyContext(ctx.doc, {});
+        strCtx.anchors = /* @__PURE__ */ new Set();
+        for (let node of ctx.anchors.keys())
+          strCtx.anchors.add(node.anchor);
+        strCtx.inFlow = !0, strCtx.inStringifyKey = !0;
+        let strKey = key.toString(strCtx);
+        if (!ctx.mapKeyWarned) {
+          let jsonStr = JSON.stringify(strKey);
+          jsonStr.length > 40 && (jsonStr = jsonStr.substring(0, 36) + '..."'), log.warn(ctx.doc.options.logLevel, `Keys with collection values will be stringified due to JS Object restrictions: ${jsonStr}. Set mapAsMap: true to use object keys.`), ctx.mapKeyWarned = !0;
+        }
+        return strKey;
+      }
+      return JSON.stringify(jsKey);
+    }
+    exports.addPairToJSMap = addPairToJSMap;
+  }
+});
+
+// node_modules/yaml/dist/nodes/Pair.js
+var require_Pair = __commonJS({
+  "node_modules/yaml/dist/nodes/Pair.js"(exports) {
+    "use strict";
+    var createNode = require_createNode(), stringifyPair = require_stringifyPair(), addPairToJSMap = require_addPairToJSMap(), identity = require_identity();
+    function createPair(key, value, ctx) {
+      let k = createNode.createNode(key, void 0, ctx), v = createNode.createNode(value, void 0, ctx);
+      return new Pair(k, v);
+    }
+    var Pair = class _Pair {
+      constructor(key, value = null) {
+        Object.defineProperty(this, identity.NODE_TYPE, { value: identity.PAIR }), this.key = key, this.value = value;
+      }
+      clone(schema) {
+        let { key, value } = this;
+        return identity.isNode(key) && (key = key.clone(schema)), identity.isNode(value) && (value = value.clone(schema)), new _Pair(key, value);
+      }
+      toJSON(_, ctx) {
+        let pair = ctx?.mapAsMap ? /* @__PURE__ */ new Map() : {};
+        return addPairToJSMap.addPairToJSMap(ctx, pair, this);
+      }
+      toString(ctx, onComment, onChompKeep) {
+        return ctx?.doc ? stringifyPair.stringifyPair(this, ctx, onComment, onChompKeep) : JSON.stringify(this);
+      }
+    };
+    exports.Pair = Pair;
+    exports.createPair = createPair;
+  }
+});
+
+// node_modules/yaml/dist/stringify/stringifyCollection.js
+var require_stringifyCollection = __commonJS({
+  "node_modules/yaml/dist/stringify/stringifyCollection.js"(exports) {
+    "use strict";
+    var identity = require_identity(), stringify3 = require_stringify(), stringifyComment = require_stringifyComment();
+    function stringifyCollection(collection, ctx, options) {
+      return (ctx.inFlow ?? collection.flow ? stringifyFlowCollection : stringifyBlockCollection)(collection, ctx, options);
+    }
+    function stringifyBlockCollection({ comment, items }, ctx, { blockItemPrefix, flowChars, itemIndent, onChompKeep, onComment }) {
+      let { indent, options: { commentString } } = ctx, itemCtx = Object.assign({}, ctx, { indent: itemIndent, type: null }), chompKeep = !1, lines = [];
+      for (let i = 0; i < items.length; ++i) {
+        let item = items[i], comment2 = null;
+        if (identity.isNode(item))
+          !chompKeep && item.spaceBefore && lines.push(""), addCommentBefore(ctx, lines, item.commentBefore, chompKeep), item.comment && (comment2 = item.comment);
+        else if (identity.isPair(item)) {
+          let ik = identity.isNode(item.key) ? item.key : null;
+          ik && (!chompKeep && ik.spaceBefore && lines.push(""), addCommentBefore(ctx, lines, ik.commentBefore, chompKeep));
+        }
+        chompKeep = !1;
+        let str2 = stringify3.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = !0);
+        comment2 && (str2 += stringifyComment.lineComment(str2, itemIndent, commentString(comment2))), chompKeep && comment2 && (chompKeep = !1), lines.push(blockItemPrefix + str2);
+      }
+      let str;
+      if (lines.length === 0)
+        str = flowChars.start + flowChars.end;
+      else {
+        str = lines[0];
+        for (let i = 1; i < lines.length; ++i) {
+          let line4 = lines[i];
+          str += line4 ? `
+${indent}${line4}` : `
+`;
+        }
+      }
+      return comment ? (str += `
+` + stringifyComment.indentComment(commentString(comment), indent), onComment && onComment()) : chompKeep && onChompKeep && onChompKeep(), str;
+    }
+    function stringifyFlowCollection({ items }, ctx, { flowChars, itemIndent }) {
+      let { indent, indentStep, flowCollectionPadding: fcPadding, options: { commentString } } = ctx;
+      itemIndent += indentStep;
+      let itemCtx = Object.assign({}, ctx, {
+        indent: itemIndent,
+        inFlow: !0,
+        type: null
+      }), reqNewline = !1, linesAtValue = 0, lines = [];
+      for (let i = 0; i < items.length; ++i) {
+        let item = items[i], comment = null;
+        if (identity.isNode(item))
+          item.spaceBefore && lines.push(""), addCommentBefore(ctx, lines, item.commentBefore, !1), item.comment && (comment = item.comment);
+        else if (identity.isPair(item)) {
+          let ik = identity.isNode(item.key) ? item.key : null;
+          ik && (ik.spaceBefore && lines.push(""), addCommentBefore(ctx, lines, ik.commentBefore, !1), ik.comment && (reqNewline = !0));
+          let iv = identity.isNode(item.value) ? item.value : null;
+          iv ? (iv.comment && (comment = iv.comment), iv.commentBefore && (reqNewline = !0)) : item.value == null && ik?.comment && (comment = ik.comment);
+        }
+        comment && (reqNewline = !0);
+        let str = stringify3.stringify(item, itemCtx, () => comment = null);
+        reqNewline || (reqNewline = lines.length > linesAtValue || str.includes(`
+`)), i < items.length - 1 ? str += "," : ctx.options.trailingComma && (ctx.options.lineWidth > 0 && (reqNewline || (reqNewline = lines.reduce((sum, line4) => sum + line4.length + 2, 2) + (str.length + 2) > ctx.options.lineWidth)), reqNewline && (str += ",")), comment && (str += stringifyComment.lineComment(str, itemIndent, commentString(comment))), lines.push(str), linesAtValue = lines.length;
+      }
+      let { start, end } = flowChars;
+      if (lines.length === 0)
+        return start + end;
+      if (!reqNewline) {
+        let len = lines.reduce((sum, line4) => sum + line4.length + 2, 2);
+        reqNewline = ctx.options.lineWidth > 0 && len > ctx.options.lineWidth;
+      }
+      if (reqNewline) {
+        let str = start;
+        for (let line4 of lines)
+          str += line4 ? `
+${indentStep}${indent}${line4}` : `
+`;
+        return `${str}
+${indent}${end}`;
+      } else
+        return `${start}${fcPadding}${lines.join(" ")}${fcPadding}${end}`;
+    }
+    function addCommentBefore({ indent, options: { commentString } }, lines, comment, chompKeep) {
+      if (comment && chompKeep && (comment = comment.replace(/^\n+/, "")), comment) {
+        let ic = stringifyComment.indentComment(commentString(comment), indent);
+        lines.push(ic.trimStart());
+      }
+    }
+    exports.stringifyCollection = stringifyCollection;
+  }
+});
+
+// node_modules/yaml/dist/nodes/YAMLMap.js
+var require_YAMLMap = __commonJS({
+  "node_modules/yaml/dist/nodes/YAMLMap.js"(exports) {
+    "use strict";
+    var stringifyCollection = require_stringifyCollection(), addPairToJSMap = require_addPairToJSMap(), Collection = require_Collection(), identity = require_identity(), Pair = require_Pair(), Scalar = require_Scalar();
+    function findPair(items, key) {
+      let k = identity.isScalar(key) ? key.value : key;
+      for (let it of items)
+        if (identity.isPair(it) && (it.key === key || it.key === k || identity.isScalar(it.key) && it.key.value === k))
+          return it;
+    }
+    var YAMLMap = class extends Collection.Collection {
+      static get tagName() {
+        return "tag:yaml.org,2002:map";
+      }
+      constructor(schema) {
+        super(identity.MAP, schema), this.items = [];
+      }
+      /**
+       * A generic collection parsing method that can be extended
+       * to other node classes that inherit from YAMLMap
+       */
+      static from(schema, obj, ctx) {
+        let { keepUndefined, replacer } = ctx, map = new this(schema), add = (key, value) => {
+          if (typeof replacer == "function")
+            value = replacer.call(obj, key, value);
+          else if (Array.isArray(replacer) && !replacer.includes(key))
+            return;
+          (value !== void 0 || keepUndefined) && map.items.push(Pair.createPair(key, value, ctx));
+        };
+        if (obj instanceof Map)
+          for (let [key, value] of obj)
+            add(key, value);
+        else if (obj && typeof obj == "object")
+          for (let key of Object.keys(obj))
+            add(key, obj[key]);
+        return typeof schema.sortMapEntries == "function" && map.items.sort(schema.sortMapEntries), map;
+      }
+      /**
+       * Adds a value to the collection.
+       *
+       * @param overwrite - If not set `true`, using a key that is already in the
+       *   collection will throw. Otherwise, overwrites the previous value.
+       */
+      add(pair, overwrite) {
+        let _pair;
+        identity.isPair(pair) ? _pair = pair : !pair || typeof pair != "object" || !("key" in pair) ? _pair = new Pair.Pair(pair, pair?.value) : _pair = new Pair.Pair(pair.key, pair.value);
+        let prev = findPair(this.items, _pair.key), sortEntries = this.schema?.sortMapEntries;
+        if (prev) {
+          if (!overwrite)
+            throw new Error(`Key ${_pair.key} already set`);
+          identity.isScalar(prev.value) && Scalar.isScalarValue(_pair.value) ? prev.value.value = _pair.value : prev.value = _pair.value;
+        } else if (sortEntries) {
+          let i = this.items.findIndex((item) => sortEntries(_pair, item) < 0);
+          i === -1 ? this.items.push(_pair) : this.items.splice(i, 0, _pair);
+        } else
+          this.items.push(_pair);
+      }
+      delete(key) {
+        let it = findPair(this.items, key);
+        return it ? this.items.splice(this.items.indexOf(it), 1).length > 0 : !1;
+      }
+      get(key, keepScalar) {
+        let node = findPair(this.items, key)?.value;
+        return (!keepScalar && identity.isScalar(node) ? node.value : node) ?? void 0;
+      }
+      has(key) {
+        return !!findPair(this.items, key);
+      }
+      set(key, value) {
+        this.add(new Pair.Pair(key, value), !0);
+      }
+      /**
+       * @param ctx - Conversion context, originally set in Document#toJS()
+       * @param {Class} Type - If set, forces the returned collection type
+       * @returns Instance of Type, Map, or Object
+       */
+      toJSON(_, ctx, Type) {
+        let map = Type ? new Type() : ctx?.mapAsMap ? /* @__PURE__ */ new Map() : {};
+        ctx?.onCreate && ctx.onCreate(map);
+        for (let item of this.items)
+          addPairToJSMap.addPairToJSMap(ctx, map, item);
+        return map;
+      }
+      toString(ctx, onComment, onChompKeep) {
+        if (!ctx)
+          return JSON.stringify(this);
+        for (let item of this.items)
+          if (!identity.isPair(item))
+            throw new Error(`Map items must all be pairs; found ${JSON.stringify(item)} instead`);
+        return !ctx.allNullValues && this.hasAllNullValues(!1) && (ctx = Object.assign({}, ctx, { allNullValues: !0 })), stringifyCollection.stringifyCollection(this, ctx, {
+          blockItemPrefix: "",
+          flowChars: { start: "{", end: "}" },
+          itemIndent: ctx.indent || "",
+          onChompKeep,
+          onComment
+        });
+      }
+    };
+    exports.YAMLMap = YAMLMap;
+    exports.findPair = findPair;
+  }
+});
+
+// node_modules/yaml/dist/schema/common/map.js
+var require_map = __commonJS({
+  "node_modules/yaml/dist/schema/common/map.js"(exports) {
+    "use strict";
+    var identity = require_identity(), YAMLMap = require_YAMLMap(), map = {
+      collection: "map",
+      default: !0,
+      nodeClass: YAMLMap.YAMLMap,
+      tag: "tag:yaml.org,2002:map",
+      resolve(map2, onError) {
+        return identity.isMap(map2) || onError("Expected a mapping for this tag"), map2;
+      },
+      createNode: (schema, obj, ctx) => YAMLMap.YAMLMap.from(schema, obj, ctx)
+    };
+    exports.map = map;
+  }
+});
+
+// node_modules/yaml/dist/nodes/YAMLSeq.js
+var require_YAMLSeq = __commonJS({
+  "node_modules/yaml/dist/nodes/YAMLSeq.js"(exports) {
+    "use strict";
+    var createNode = require_createNode(), stringifyCollection = require_stringifyCollection(), Collection = require_Collection(), identity = require_identity(), Scalar = require_Scalar(), toJS = require_toJS(), YAMLSeq = class extends Collection.Collection {
+      static get tagName() {
+        return "tag:yaml.org,2002:seq";
+      }
+      constructor(schema) {
+        super(identity.SEQ, schema), this.items = [];
+      }
+      add(value) {
+        this.items.push(value);
+      }
+      /**
+       * Removes a value from the collection.
+       *
+       * `key` must contain a representation of an integer for this to succeed.
+       * It may be wrapped in a `Scalar`.
+       *
+       * @returns `true` if the item was found and removed.
+       */
+      delete(key) {
+        let idx = asItemIndex(key);
+        return typeof idx != "number" ? !1 : this.items.splice(idx, 1).length > 0;
+      }
+      get(key, keepScalar) {
+        let idx = asItemIndex(key);
+        if (typeof idx != "number")
+          return;
+        let it = this.items[idx];
+        return !keepScalar && identity.isScalar(it) ? it.value : it;
+      }
+      /**
+       * Checks if the collection includes a value with the key `key`.
+       *
+       * `key` must contain a representation of an integer for this to succeed.
+       * It may be wrapped in a `Scalar`.
+       */
+      has(key) {
+        let idx = asItemIndex(key);
+        return typeof idx == "number" && idx < this.items.length;
+      }
+      /**
+       * Sets a value in this collection. For `!!set`, `value` needs to be a
+       * boolean to add/remove the item from the set.
+       *
+       * If `key` does not contain a representation of an integer, this will throw.
+       * It may be wrapped in a `Scalar`.
+       */
+      set(key, value) {
+        let idx = asItemIndex(key);
+        if (typeof idx != "number")
+          throw new Error(`Expected a valid index, not ${key}.`);
+        let prev = this.items[idx];
+        identity.isScalar(prev) && Scalar.isScalarValue(value) ? prev.value = value : this.items[idx] = value;
+      }
+      toJSON(_, ctx) {
+        let seq = [];
+        ctx?.onCreate && ctx.onCreate(seq);
+        let i = 0;
+        for (let item of this.items)
+          seq.push(toJS.toJS(item, String(i++), ctx));
+        return seq;
+      }
+      toString(ctx, onComment, onChompKeep) {
+        return ctx ? stringifyCollection.stringifyCollection(this, ctx, {
+          blockItemPrefix: "- ",
+          flowChars: { start: "[", end: "]" },
+          itemIndent: (ctx.indent || "") + "  ",
+          onChompKeep,
+          onComment
+        }) : JSON.stringify(this);
+      }
+      static from(schema, obj, ctx) {
+        let { replacer } = ctx, seq = new this(schema);
+        if (obj && Symbol.iterator in Object(obj)) {
+          let i = 0;
+          for (let it of obj) {
+            if (typeof replacer == "function") {
+              let key = obj instanceof Set ? it : String(i++);
+              it = replacer.call(obj, key, it);
+            }
+            seq.items.push(createNode.createNode(it, void 0, ctx));
+          }
+        }
+        return seq;
+      }
+    };
+    function asItemIndex(key) {
+      let idx = identity.isScalar(key) ? key.value : key;
+      return idx && typeof idx == "string" && (idx = Number(idx)), typeof idx == "number" && Number.isInteger(idx) && idx >= 0 ? idx : null;
+    }
+    exports.YAMLSeq = YAMLSeq;
+  }
+});
+
+// node_modules/yaml/dist/schema/common/seq.js
+var require_seq = __commonJS({
+  "node_modules/yaml/dist/schema/common/seq.js"(exports) {
+    "use strict";
+    var identity = require_identity(), YAMLSeq = require_YAMLSeq(), seq = {
+      collection: "seq",
+      default: !0,
+      nodeClass: YAMLSeq.YAMLSeq,
+      tag: "tag:yaml.org,2002:seq",
+      resolve(seq2, onError) {
+        return identity.isSeq(seq2) || onError("Expected a sequence for this tag"), seq2;
+      },
+      createNode: (schema, obj, ctx) => YAMLSeq.YAMLSeq.from(schema, obj, ctx)
+    };
+    exports.seq = seq;
+  }
+});
+
+// node_modules/yaml/dist/schema/common/string.js
+var require_string = __commonJS({
+  "node_modules/yaml/dist/schema/common/string.js"(exports) {
+    "use strict";
+    var stringifyString = require_stringifyString(), string3 = {
+      identify: (value) => typeof value == "string",
+      default: !0,
+      tag: "tag:yaml.org,2002:str",
+      resolve: (str) => str,
+      stringify(item, ctx, onComment, onChompKeep) {
+        return ctx = Object.assign({ actualString: !0 }, ctx), stringifyString.stringifyString(item, ctx, onComment, onChompKeep);
+      }
+    };
+    exports.string = string3;
+  }
+});
+
+// node_modules/yaml/dist/schema/common/null.js
+var require_null = __commonJS({
+  "node_modules/yaml/dist/schema/common/null.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar(), nullTag = {
+      identify: (value) => value == null,
+      createNode: () => new Scalar.Scalar(null),
+      default: !0,
+      tag: "tag:yaml.org,2002:null",
+      test: /^(?:~|[Nn]ull|NULL)?$/,
+      resolve: () => new Scalar.Scalar(null),
+      stringify: ({ source }, ctx) => typeof source == "string" && nullTag.test.test(source) ? source : ctx.options.nullStr
+    };
+    exports.nullTag = nullTag;
+  }
+});
+
+// node_modules/yaml/dist/schema/core/bool.js
+var require_bool = __commonJS({
+  "node_modules/yaml/dist/schema/core/bool.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar(), boolTag = {
+      identify: (value) => typeof value == "boolean",
+      default: !0,
+      tag: "tag:yaml.org,2002:bool",
+      test: /^(?:[Tt]rue|TRUE|[Ff]alse|FALSE)$/,
+      resolve: (str) => new Scalar.Scalar(str[0] === "t" || str[0] === "T"),
+      stringify({ source, value }, ctx) {
+        if (source && boolTag.test.test(source)) {
+          let sv = source[0] === "t" || source[0] === "T";
+          if (value === sv)
+            return source;
+        }
+        return value ? ctx.options.trueStr : ctx.options.falseStr;
+      }
+    };
+    exports.boolTag = boolTag;
+  }
+});
+
+// node_modules/yaml/dist/stringify/stringifyNumber.js
+var require_stringifyNumber = __commonJS({
+  "node_modules/yaml/dist/stringify/stringifyNumber.js"(exports) {
+    "use strict";
+    function stringifyNumber({ format, minFractionDigits, tag, value }) {
+      if (typeof value == "bigint")
+        return String(value);
+      let num = typeof value == "number" ? value : Number(value);
+      if (!isFinite(num))
+        return isNaN(num) ? ".nan" : num < 0 ? "-.inf" : ".inf";
+      let n = Object.is(value, -0) ? "-0" : JSON.stringify(value);
+      if (!format && minFractionDigits && (!tag || tag === "tag:yaml.org,2002:float") && /^-?\d/.test(n) && !n.includes("e")) {
+        let i = n.indexOf(".");
+        i < 0 && (i = n.length, n += ".");
+        let d = minFractionDigits - (n.length - i - 1);
+        for (; d-- > 0; )
+          n += "0";
+      }
+      return n;
+    }
+    exports.stringifyNumber = stringifyNumber;
+  }
+});
+
+// node_modules/yaml/dist/schema/core/float.js
+var require_float = __commonJS({
+  "node_modules/yaml/dist/schema/core/float.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar(), stringifyNumber = require_stringifyNumber(), floatNaN = {
+      identify: (value) => typeof value == "number",
+      default: !0,
+      tag: "tag:yaml.org,2002:float",
+      test: /^(?:[-+]?\.(?:inf|Inf|INF)|\.nan|\.NaN|\.NAN)$/,
+      resolve: (str) => str.slice(-3).toLowerCase() === "nan" ? NaN : str[0] === "-" ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
+      stringify: stringifyNumber.stringifyNumber
+    }, floatExp = {
+      identify: (value) => typeof value == "number",
+      default: !0,
+      tag: "tag:yaml.org,2002:float",
+      format: "EXP",
+      test: /^[-+]?(?:\.[0-9]+|[0-9]+(?:\.[0-9]*)?)[eE][-+]?[0-9]+$/,
+      resolve: (str) => parseFloat(str),
+      stringify(node) {
+        let num = Number(node.value);
+        return isFinite(num) ? num.toExponential() : stringifyNumber.stringifyNumber(node);
+      }
+    }, float = {
+      identify: (value) => typeof value == "number",
+      default: !0,
+      tag: "tag:yaml.org,2002:float",
+      test: /^[-+]?(?:\.[0-9]+|[0-9]+\.[0-9]*)$/,
+      resolve(str) {
+        let node = new Scalar.Scalar(parseFloat(str)), dot = str.indexOf(".");
+        return dot !== -1 && str[str.length - 1] === "0" && (node.minFractionDigits = str.length - dot - 1), node;
+      },
+      stringify: stringifyNumber.stringifyNumber
+    };
+    exports.float = float;
+    exports.floatExp = floatExp;
+    exports.floatNaN = floatNaN;
+  }
+});
+
+// node_modules/yaml/dist/schema/core/int.js
+var require_int = __commonJS({
+  "node_modules/yaml/dist/schema/core/int.js"(exports) {
+    "use strict";
+    var stringifyNumber = require_stringifyNumber(), intIdentify = (value) => typeof value == "bigint" || Number.isInteger(value), intResolve = (str, offset, radix, { intAsBigInt }) => intAsBigInt ? BigInt(str) : parseInt(str.substring(offset), radix);
+    function intStringify(node, radix, prefix) {
+      let { value } = node;
+      return intIdentify(value) && value >= 0 ? prefix + value.toString(radix) : stringifyNumber.stringifyNumber(node);
+    }
+    var intOct = {
+      identify: (value) => intIdentify(value) && value >= 0,
+      default: !0,
+      tag: "tag:yaml.org,2002:int",
+      format: "OCT",
+      test: /^0o[0-7]+$/,
+      resolve: (str, _onError, opt) => intResolve(str, 2, 8, opt),
+      stringify: (node) => intStringify(node, 8, "0o")
+    }, int = {
+      identify: intIdentify,
+      default: !0,
+      tag: "tag:yaml.org,2002:int",
+      test: /^[-+]?[0-9]+$/,
+      resolve: (str, _onError, opt) => intResolve(str, 0, 10, opt),
+      stringify: stringifyNumber.stringifyNumber
+    }, intHex = {
+      identify: (value) => intIdentify(value) && value >= 0,
+      default: !0,
+      tag: "tag:yaml.org,2002:int",
+      format: "HEX",
+      test: /^0x[0-9a-fA-F]+$/,
+      resolve: (str, _onError, opt) => intResolve(str, 2, 16, opt),
+      stringify: (node) => intStringify(node, 16, "0x")
+    };
+    exports.int = int;
+    exports.intHex = intHex;
+    exports.intOct = intOct;
+  }
+});
+
+// node_modules/yaml/dist/schema/core/schema.js
+var require_schema = __commonJS({
+  "node_modules/yaml/dist/schema/core/schema.js"(exports) {
+    "use strict";
+    var map = require_map(), _null3 = require_null(), seq = require_seq(), string3 = require_string(), bool = require_bool(), float = require_float(), int = require_int(), schema = [
+      map.map,
+      seq.seq,
+      string3.string,
+      _null3.nullTag,
+      bool.boolTag,
+      int.intOct,
+      int.int,
+      int.intHex,
+      float.floatNaN,
+      float.floatExp,
+      float.float
+    ];
+    exports.schema = schema;
+  }
+});
+
+// node_modules/yaml/dist/schema/json/schema.js
+var require_schema2 = __commonJS({
+  "node_modules/yaml/dist/schema/json/schema.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar(), map = require_map(), seq = require_seq();
+    function intIdentify(value) {
+      return typeof value == "bigint" || Number.isInteger(value);
+    }
+    var stringifyJSON = ({ value }) => JSON.stringify(value), jsonScalars = [
+      {
+        identify: (value) => typeof value == "string",
+        default: !0,
+        tag: "tag:yaml.org,2002:str",
+        resolve: (str) => str,
+        stringify: stringifyJSON
+      },
+      {
+        identify: (value) => value == null,
+        createNode: () => new Scalar.Scalar(null),
+        default: !0,
+        tag: "tag:yaml.org,2002:null",
+        test: /^null$/,
+        resolve: () => null,
+        stringify: stringifyJSON
+      },
+      {
+        identify: (value) => typeof value == "boolean",
+        default: !0,
+        tag: "tag:yaml.org,2002:bool",
+        test: /^true$|^false$/,
+        resolve: (str) => str === "true",
+        stringify: stringifyJSON
+      },
+      {
+        identify: intIdentify,
+        default: !0,
+        tag: "tag:yaml.org,2002:int",
+        test: /^-?(?:0|[1-9][0-9]*)$/,
+        resolve: (str, _onError, { intAsBigInt }) => intAsBigInt ? BigInt(str) : parseInt(str, 10),
+        stringify: ({ value }) => intIdentify(value) ? value.toString() : JSON.stringify(value)
+      },
+      {
+        identify: (value) => typeof value == "number",
+        default: !0,
+        tag: "tag:yaml.org,2002:float",
+        test: /^-?(?:0|[1-9][0-9]*)(?:\.[0-9]*)?(?:[eE][-+]?[0-9]+)?$/,
+        resolve: (str) => parseFloat(str),
+        stringify: stringifyJSON
+      }
+    ], jsonError = {
+      default: !0,
+      tag: "",
+      test: /^/,
+      resolve(str, onError) {
+        return onError(`Unresolved plain scalar ${JSON.stringify(str)}`), str;
+      }
+    }, schema = [map.map, seq.seq].concat(jsonScalars, jsonError);
+    exports.schema = schema;
+  }
+});
+
+// node_modules/yaml/dist/schema/yaml-1.1/binary.js
+var require_binary = __commonJS({
+  "node_modules/yaml/dist/schema/yaml-1.1/binary.js"(exports) {
+    "use strict";
+    var node_buffer = __require("buffer"), Scalar = require_Scalar(), stringifyString = require_stringifyString(), binary = {
+      identify: (value) => value instanceof Uint8Array,
+      // Buffer inherits from Uint8Array
+      default: !1,
+      tag: "tag:yaml.org,2002:binary",
+      /**
+       * Returns a Buffer in node and an Uint8Array in browsers
+       *
+       * To use the resulting buffer as an image, you'll want to do something like:
+       *
+       *   const blob = new Blob([buffer], { type: 'image/jpeg' })
+       *   document.querySelector('#photo').src = URL.createObjectURL(blob)
+       */
+      resolve(src, onError) {
+        if (typeof node_buffer.Buffer == "function")
+          return node_buffer.Buffer.from(src, "base64");
+        if (typeof atob == "function") {
+          let str = atob(src.replace(/[\n\r]/g, "")), buffer = new Uint8Array(str.length);
+          for (let i = 0; i < str.length; ++i)
+            buffer[i] = str.charCodeAt(i);
+          return buffer;
+        } else
+          return onError("This environment does not support reading binary tags; either Buffer or atob is required"), src;
+      },
+      stringify({ comment, type, value }, ctx, onComment, onChompKeep) {
+        if (!value)
+          return "";
+        let buf = value, str;
+        if (typeof node_buffer.Buffer == "function")
+          str = buf instanceof node_buffer.Buffer ? buf.toString("base64") : node_buffer.Buffer.from(buf.buffer).toString("base64");
+        else if (typeof btoa == "function") {
+          let s = "";
+          for (let i = 0; i < buf.length; ++i)
+            s += String.fromCharCode(buf[i]);
+          str = btoa(s);
+        } else
+          throw new Error("This environment does not support writing binary tags; either Buffer or btoa is required");
+        if (type ?? (type = Scalar.Scalar.BLOCK_LITERAL), type !== Scalar.Scalar.QUOTE_DOUBLE) {
+          let lineWidth = Math.max(ctx.options.lineWidth - ctx.indent.length, ctx.options.minContentWidth), n = Math.ceil(str.length / lineWidth), lines = new Array(n);
+          for (let i = 0, o = 0; i < n; ++i, o += lineWidth)
+            lines[i] = str.substr(o, lineWidth);
+          str = lines.join(type === Scalar.Scalar.BLOCK_LITERAL ? `
+` : " ");
+        }
+        return stringifyString.stringifyString({ comment, type, value: str }, ctx, onComment, onChompKeep);
+      }
+    };
+    exports.binary = binary;
+  }
+});
+
+// node_modules/yaml/dist/schema/yaml-1.1/pairs.js
+var require_pairs = __commonJS({
+  "node_modules/yaml/dist/schema/yaml-1.1/pairs.js"(exports) {
+    "use strict";
+    var identity = require_identity(), Pair = require_Pair(), Scalar = require_Scalar(), YAMLSeq = require_YAMLSeq();
+    function resolvePairs(seq, onError) {
+      if (identity.isSeq(seq))
+        for (let i = 0; i < seq.items.length; ++i) {
+          let item = seq.items[i];
+          if (!identity.isPair(item)) {
+            if (identity.isMap(item)) {
+              item.items.length > 1 && onError("Each pair must have its own sequence indicator");
+              let pair = item.items[0] || new Pair.Pair(new Scalar.Scalar(null));
+              if (item.commentBefore && (pair.key.commentBefore = pair.key.commentBefore ? `${item.commentBefore}
+${pair.key.commentBefore}` : item.commentBefore), item.comment) {
+                let cn = pair.value ?? pair.key;
+                cn.comment = cn.comment ? `${item.comment}
+${cn.comment}` : item.comment;
+              }
+              item = pair;
+            }
+            seq.items[i] = identity.isPair(item) ? item : new Pair.Pair(item);
+          }
+        }
+      else
+        onError("Expected a sequence for this tag");
+      return seq;
+    }
+    function createPairs(schema, iterable, ctx) {
+      let { replacer } = ctx, pairs2 = new YAMLSeq.YAMLSeq(schema);
+      pairs2.tag = "tag:yaml.org,2002:pairs";
+      let i = 0;
+      if (iterable && Symbol.iterator in Object(iterable))
+        for (let it of iterable) {
+          typeof replacer == "function" && (it = replacer.call(iterable, String(i++), it));
+          let key, value;
+          if (Array.isArray(it))
+            if (it.length === 2)
+              key = it[0], value = it[1];
+            else
+              throw new TypeError(`Expected [key, value] tuple: ${it}`);
+          else if (it && it instanceof Object) {
+            let keys = Object.keys(it);
+            if (keys.length === 1)
+              key = keys[0], value = it[key];
+            else
+              throw new TypeError(`Expected tuple with one key, not ${keys.length} keys`);
+          } else
+            key = it;
+          pairs2.items.push(Pair.createPair(key, value, ctx));
+        }
+      return pairs2;
+    }
+    var pairs = {
+      collection: "seq",
+      default: !1,
+      tag: "tag:yaml.org,2002:pairs",
+      resolve: resolvePairs,
+      createNode: createPairs
+    };
+    exports.createPairs = createPairs;
+    exports.pairs = pairs;
+    exports.resolvePairs = resolvePairs;
+  }
+});
+
+// node_modules/yaml/dist/schema/yaml-1.1/omap.js
+var require_omap = __commonJS({
+  "node_modules/yaml/dist/schema/yaml-1.1/omap.js"(exports) {
+    "use strict";
+    var identity = require_identity(), toJS = require_toJS(), YAMLMap = require_YAMLMap(), YAMLSeq = require_YAMLSeq(), pairs = require_pairs(), YAMLOMap = class _YAMLOMap extends YAMLSeq.YAMLSeq {
+      constructor() {
+        super(), this.add = YAMLMap.YAMLMap.prototype.add.bind(this), this.delete = YAMLMap.YAMLMap.prototype.delete.bind(this), this.get = YAMLMap.YAMLMap.prototype.get.bind(this), this.has = YAMLMap.YAMLMap.prototype.has.bind(this), this.set = YAMLMap.YAMLMap.prototype.set.bind(this), this.tag = _YAMLOMap.tag;
+      }
+      /**
+       * If `ctx` is given, the return type is actually `Map<unknown, unknown>`,
+       * but TypeScript won't allow widening the signature of a child method.
+       */
+      toJSON(_, ctx) {
+        if (!ctx)
+          return super.toJSON(_);
+        let map = /* @__PURE__ */ new Map();
+        ctx?.onCreate && ctx.onCreate(map);
+        for (let pair of this.items) {
+          let key, value;
+          if (identity.isPair(pair) ? (key = toJS.toJS(pair.key, "", ctx), value = toJS.toJS(pair.value, key, ctx)) : key = toJS.toJS(pair, "", ctx), map.has(key))
+            throw new Error("Ordered maps must not include duplicate keys");
+          map.set(key, value);
+        }
+        return map;
+      }
+      static from(schema, iterable, ctx) {
+        let pairs$1 = pairs.createPairs(schema, iterable, ctx), omap2 = new this();
+        return omap2.items = pairs$1.items, omap2;
+      }
+    };
+    YAMLOMap.tag = "tag:yaml.org,2002:omap";
+    var omap = {
+      collection: "seq",
+      identify: (value) => value instanceof Map,
+      nodeClass: YAMLOMap,
+      default: !1,
+      tag: "tag:yaml.org,2002:omap",
+      resolve(seq, onError) {
+        let pairs$1 = pairs.resolvePairs(seq, onError), seenKeys = [];
+        for (let { key } of pairs$1.items)
+          identity.isScalar(key) && (seenKeys.includes(key.value) ? onError(`Ordered maps must not include duplicate keys: ${key.value}`) : seenKeys.push(key.value));
+        return Object.assign(new YAMLOMap(), pairs$1);
+      },
+      createNode: (schema, iterable, ctx) => YAMLOMap.from(schema, iterable, ctx)
+    };
+    exports.YAMLOMap = YAMLOMap;
+    exports.omap = omap;
+  }
+});
+
+// node_modules/yaml/dist/schema/yaml-1.1/bool.js
+var require_bool2 = __commonJS({
+  "node_modules/yaml/dist/schema/yaml-1.1/bool.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    function boolStringify({ value, source }, ctx) {
+      return source && (value ? trueTag : falseTag).test.test(source) ? source : value ? ctx.options.trueStr : ctx.options.falseStr;
+    }
+    var trueTag = {
+      identify: (value) => value === !0,
+      default: !0,
+      tag: "tag:yaml.org,2002:bool",
+      test: /^(?:Y|y|[Yy]es|YES|[Tt]rue|TRUE|[Oo]n|ON)$/,
+      resolve: () => new Scalar.Scalar(!0),
+      stringify: boolStringify
+    }, falseTag = {
+      identify: (value) => value === !1,
+      default: !0,
+      tag: "tag:yaml.org,2002:bool",
+      test: /^(?:N|n|[Nn]o|NO|[Ff]alse|FALSE|[Oo]ff|OFF)$/,
+      resolve: () => new Scalar.Scalar(!1),
+      stringify: boolStringify
+    };
+    exports.falseTag = falseTag;
+    exports.trueTag = trueTag;
+  }
+});
+
+// node_modules/yaml/dist/schema/yaml-1.1/float.js
+var require_float2 = __commonJS({
+  "node_modules/yaml/dist/schema/yaml-1.1/float.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar(), stringifyNumber = require_stringifyNumber(), floatNaN = {
+      identify: (value) => typeof value == "number",
+      default: !0,
+      tag: "tag:yaml.org,2002:float",
+      test: /^(?:[-+]?\.(?:inf|Inf|INF)|\.nan|\.NaN|\.NAN)$/,
+      resolve: (str) => str.slice(-3).toLowerCase() === "nan" ? NaN : str[0] === "-" ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
+      stringify: stringifyNumber.stringifyNumber
+    }, floatExp = {
+      identify: (value) => typeof value == "number",
+      default: !0,
+      tag: "tag:yaml.org,2002:float",
+      format: "EXP",
+      test: /^[-+]?(?:[0-9][0-9_]*)?(?:\.[0-9_]*)?[eE][-+]?[0-9]+$/,
+      resolve: (str) => parseFloat(str.replace(/_/g, "")),
+      stringify(node) {
+        let num = Number(node.value);
+        return isFinite(num) ? num.toExponential() : stringifyNumber.stringifyNumber(node);
+      }
+    }, float = {
+      identify: (value) => typeof value == "number",
+      default: !0,
+      tag: "tag:yaml.org,2002:float",
+      test: /^[-+]?(?:[0-9][0-9_]*)?\.[0-9_]*$/,
+      resolve(str) {
+        let node = new Scalar.Scalar(parseFloat(str.replace(/_/g, ""))), dot = str.indexOf(".");
+        if (dot !== -1) {
+          let f = str.substring(dot + 1).replace(/_/g, "");
+          f[f.length - 1] === "0" && (node.minFractionDigits = f.length);
+        }
+        return node;
+      },
+      stringify: stringifyNumber.stringifyNumber
+    };
+    exports.float = float;
+    exports.floatExp = floatExp;
+    exports.floatNaN = floatNaN;
+  }
+});
+
+// node_modules/yaml/dist/schema/yaml-1.1/int.js
+var require_int2 = __commonJS({
+  "node_modules/yaml/dist/schema/yaml-1.1/int.js"(exports) {
+    "use strict";
+    var stringifyNumber = require_stringifyNumber(), intIdentify = (value) => typeof value == "bigint" || Number.isInteger(value);
+    function intResolve(str, offset, radix, { intAsBigInt }) {
+      let sign = str[0];
+      if ((sign === "-" || sign === "+") && (offset += 1), str = str.substring(offset).replace(/_/g, ""), intAsBigInt) {
+        switch (radix) {
+          case 2:
+            str = `0b${str}`;
+            break;
+          case 8:
+            str = `0o${str}`;
+            break;
+          case 16:
+            str = `0x${str}`;
+            break;
+        }
+        let n2 = BigInt(str);
+        return sign === "-" ? BigInt(-1) * n2 : n2;
+      }
+      let n = parseInt(str, radix);
+      return sign === "-" ? -1 * n : n;
+    }
+    function intStringify(node, radix, prefix) {
+      let { value } = node;
+      if (intIdentify(value)) {
+        let str = value.toString(radix);
+        return value < 0 ? "-" + prefix + str.substr(1) : prefix + str;
+      }
+      return stringifyNumber.stringifyNumber(node);
+    }
+    var intBin = {
+      identify: intIdentify,
+      default: !0,
+      tag: "tag:yaml.org,2002:int",
+      format: "BIN",
+      test: /^[-+]?0b[0-1_]+$/,
+      resolve: (str, _onError, opt) => intResolve(str, 2, 2, opt),
+      stringify: (node) => intStringify(node, 2, "0b")
+    }, intOct = {
+      identify: intIdentify,
+      default: !0,
+      tag: "tag:yaml.org,2002:int",
+      format: "OCT",
+      test: /^[-+]?0[0-7_]+$/,
+      resolve: (str, _onError, opt) => intResolve(str, 1, 8, opt),
+      stringify: (node) => intStringify(node, 8, "0")
+    }, int = {
+      identify: intIdentify,
+      default: !0,
+      tag: "tag:yaml.org,2002:int",
+      test: /^[-+]?[0-9][0-9_]*$/,
+      resolve: (str, _onError, opt) => intResolve(str, 0, 10, opt),
+      stringify: stringifyNumber.stringifyNumber
+    }, intHex = {
+      identify: intIdentify,
+      default: !0,
+      tag: "tag:yaml.org,2002:int",
+      format: "HEX",
+      test: /^[-+]?0x[0-9a-fA-F_]+$/,
+      resolve: (str, _onError, opt) => intResolve(str, 2, 16, opt),
+      stringify: (node) => intStringify(node, 16, "0x")
+    };
+    exports.int = int;
+    exports.intBin = intBin;
+    exports.intHex = intHex;
+    exports.intOct = intOct;
+  }
+});
+
+// node_modules/yaml/dist/schema/yaml-1.1/set.js
+var require_set = __commonJS({
+  "node_modules/yaml/dist/schema/yaml-1.1/set.js"(exports) {
+    "use strict";
+    var identity = require_identity(), Pair = require_Pair(), YAMLMap = require_YAMLMap(), YAMLSet = class _YAMLSet extends YAMLMap.YAMLMap {
+      constructor(schema) {
+        super(schema), this.tag = _YAMLSet.tag;
+      }
+      add(key) {
+        let pair;
+        identity.isPair(key) ? pair = key : key && typeof key == "object" && "key" in key && "value" in key && key.value === null ? pair = new Pair.Pair(key.key, null) : pair = new Pair.Pair(key, null), YAMLMap.findPair(this.items, pair.key) || this.items.push(pair);
+      }
+      /**
+       * If `keepPair` is `true`, returns the Pair matching `key`.
+       * Otherwise, returns the value of that Pair's key.
+       */
+      get(key, keepPair) {
+        let pair = YAMLMap.findPair(this.items, key);
+        return !keepPair && identity.isPair(pair) ? identity.isScalar(pair.key) ? pair.key.value : pair.key : pair;
+      }
+      set(key, value) {
+        if (typeof value != "boolean")
+          throw new Error(`Expected boolean value for set(key, value) in a YAML set, not ${typeof value}`);
+        let prev = YAMLMap.findPair(this.items, key);
+        prev && !value ? this.items.splice(this.items.indexOf(prev), 1) : !prev && value && this.items.push(new Pair.Pair(key));
+      }
+      toJSON(_, ctx) {
+        return super.toJSON(_, ctx, Set);
+      }
+      toString(ctx, onComment, onChompKeep) {
+        if (!ctx)
+          return JSON.stringify(this);
+        if (this.hasAllNullValues(!0))
+          return super.toString(Object.assign({}, ctx, { allNullValues: !0 }), onComment, onChompKeep);
+        throw new Error("Set items must all have null values");
+      }
+      static from(schema, iterable, ctx) {
+        let { replacer } = ctx, set2 = new this(schema);
+        if (iterable && Symbol.iterator in Object(iterable))
+          for (let value of iterable)
+            typeof replacer == "function" && (value = replacer.call(iterable, value, value)), set2.items.push(Pair.createPair(value, null, ctx));
+        return set2;
+      }
+    };
+    YAMLSet.tag = "tag:yaml.org,2002:set";
+    var set = {
+      collection: "map",
+      identify: (value) => value instanceof Set,
+      nodeClass: YAMLSet,
+      default: !1,
+      tag: "tag:yaml.org,2002:set",
+      createNode: (schema, iterable, ctx) => YAMLSet.from(schema, iterable, ctx),
+      resolve(map, onError) {
+        if (identity.isMap(map)) {
+          if (map.hasAllNullValues(!0))
+            return Object.assign(new YAMLSet(), map);
+          onError("Set items must all have null values");
+        } else
+          onError("Expected a mapping for this tag");
+        return map;
+      }
+    };
+    exports.YAMLSet = YAMLSet;
+    exports.set = set;
+  }
+});
+
+// node_modules/yaml/dist/schema/yaml-1.1/timestamp.js
+var require_timestamp = __commonJS({
+  "node_modules/yaml/dist/schema/yaml-1.1/timestamp.js"(exports) {
+    "use strict";
+    var stringifyNumber = require_stringifyNumber();
+    function parseSexagesimal(str, asBigInt) {
+      let sign = str[0], parts = sign === "-" || sign === "+" ? str.substring(1) : str, num = (n) => asBigInt ? BigInt(n) : Number(n), res = parts.replace(/_/g, "").split(":").reduce((res2, p) => res2 * num(60) + num(p), num(0));
+      return sign === "-" ? num(-1) * res : res;
+    }
+    function stringifySexagesimal(node) {
+      let { value } = node, num = (n) => n;
+      if (typeof value == "bigint")
+        num = (n) => BigInt(n);
+      else if (isNaN(value) || !isFinite(value))
+        return stringifyNumber.stringifyNumber(node);
+      let sign = "";
+      value < 0 && (sign = "-", value *= num(-1));
+      let _60 = num(60), parts = [value % _60];
+      return value < 60 ? parts.unshift(0) : (value = (value - parts[0]) / _60, parts.unshift(value % _60), value >= 60 && (value = (value - parts[0]) / _60, parts.unshift(value))), sign + parts.map((n) => String(n).padStart(2, "0")).join(":").replace(/000000\d*$/, "");
+    }
+    var intTime = {
+      identify: (value) => typeof value == "bigint" || Number.isInteger(value),
+      default: !0,
+      tag: "tag:yaml.org,2002:int",
+      format: "TIME",
+      test: /^[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+$/,
+      resolve: (str, _onError, { intAsBigInt }) => parseSexagesimal(str, intAsBigInt),
+      stringify: stringifySexagesimal
+    }, floatTime = {
+      identify: (value) => typeof value == "number",
+      default: !0,
+      tag: "tag:yaml.org,2002:float",
+      format: "TIME",
+      test: /^[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+\.[0-9_]*$/,
+      resolve: (str) => parseSexagesimal(str, !1),
+      stringify: stringifySexagesimal
+    }, timestamp = {
+      identify: (value) => value instanceof Date,
+      default: !0,
+      tag: "tag:yaml.org,2002:timestamp",
+      // If the time zone is omitted, the timestamp is assumed to be specified in UTC. The time part
+      // may be omitted altogether, resulting in a date format. In such a case, the time part is
+      // assumed to be 00:00:00Z (start of day, UTC).
+      test: RegExp("^([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})(?:(?:t|T|[ \\t]+)([0-9]{1,2}):([0-9]{1,2}):([0-9]{1,2}(\\.[0-9]+)?)(?:[ \\t]*(Z|[-+][012]?[0-9](?::[0-9]{2})?))?)?$"),
+      resolve(str) {
+        let match = str.match(timestamp.test);
+        if (!match)
+          throw new Error("!!timestamp expects a date, starting with yyyy-mm-dd");
+        let [, year, month, day, hour, minute, second] = match.map(Number), millisec = match[7] ? Number((match[7] + "00").substr(1, 3)) : 0, date3 = Date.UTC(year, month - 1, day, hour || 0, minute || 0, second || 0, millisec), tz = match[8];
+        if (tz && tz !== "Z") {
+          let d = parseSexagesimal(tz, !1);
+          Math.abs(d) < 30 && (d *= 60), date3 -= 6e4 * d;
+        }
+        return new Date(date3);
+      },
+      stringify: ({ value }) => value?.toISOString().replace(/(T00:00:00)?\.000Z$/, "") ?? ""
+    };
+    exports.floatTime = floatTime;
+    exports.intTime = intTime;
+    exports.timestamp = timestamp;
+  }
+});
+
+// node_modules/yaml/dist/schema/yaml-1.1/schema.js
+var require_schema3 = __commonJS({
+  "node_modules/yaml/dist/schema/yaml-1.1/schema.js"(exports) {
+    "use strict";
+    var map = require_map(), _null3 = require_null(), seq = require_seq(), string3 = require_string(), binary = require_binary(), bool = require_bool2(), float = require_float2(), int = require_int2(), merge2 = require_merge(), omap = require_omap(), pairs = require_pairs(), set = require_set(), timestamp = require_timestamp(), schema = [
+      map.map,
+      seq.seq,
+      string3.string,
+      _null3.nullTag,
+      bool.trueTag,
+      bool.falseTag,
+      int.intBin,
+      int.intOct,
+      int.int,
+      int.intHex,
+      float.floatNaN,
+      float.floatExp,
+      float.float,
+      binary.binary,
+      merge2.merge,
+      omap.omap,
+      pairs.pairs,
+      set.set,
+      timestamp.intTime,
+      timestamp.floatTime,
+      timestamp.timestamp
+    ];
+    exports.schema = schema;
+  }
+});
+
+// node_modules/yaml/dist/schema/tags.js
+var require_tags = __commonJS({
+  "node_modules/yaml/dist/schema/tags.js"(exports) {
+    "use strict";
+    var map = require_map(), _null3 = require_null(), seq = require_seq(), string3 = require_string(), bool = require_bool(), float = require_float(), int = require_int(), schema = require_schema(), schema$1 = require_schema2(), binary = require_binary(), merge2 = require_merge(), omap = require_omap(), pairs = require_pairs(), schema$2 = require_schema3(), set = require_set(), timestamp = require_timestamp(), schemas2 = /* @__PURE__ */ new Map([
+      ["core", schema.schema],
+      ["failsafe", [map.map, seq.seq, string3.string]],
+      ["json", schema$1.schema],
+      ["yaml11", schema$2.schema],
+      ["yaml-1.1", schema$2.schema]
+    ]), tagsByName = {
+      binary: binary.binary,
+      bool: bool.boolTag,
+      float: float.float,
+      floatExp: float.floatExp,
+      floatNaN: float.floatNaN,
+      floatTime: timestamp.floatTime,
+      int: int.int,
+      intHex: int.intHex,
+      intOct: int.intOct,
+      intTime: timestamp.intTime,
+      map: map.map,
+      merge: merge2.merge,
+      null: _null3.nullTag,
+      omap: omap.omap,
+      pairs: pairs.pairs,
+      seq: seq.seq,
+      set: set.set,
+      timestamp: timestamp.timestamp
+    }, coreKnownTags = {
+      "tag:yaml.org,2002:binary": binary.binary,
+      "tag:yaml.org,2002:merge": merge2.merge,
+      "tag:yaml.org,2002:omap": omap.omap,
+      "tag:yaml.org,2002:pairs": pairs.pairs,
+      "tag:yaml.org,2002:set": set.set,
+      "tag:yaml.org,2002:timestamp": timestamp.timestamp
+    };
+    function getTags(customTags, schemaName, addMergeTag) {
+      let schemaTags = schemas2.get(schemaName);
+      if (schemaTags && !customTags)
+        return addMergeTag && !schemaTags.includes(merge2.merge) ? schemaTags.concat(merge2.merge) : schemaTags.slice();
+      let tags = schemaTags;
+      if (!tags)
+        if (Array.isArray(customTags))
+          tags = [];
+        else {
+          let keys = Array.from(schemas2.keys()).filter((key) => key !== "yaml11").map((key) => JSON.stringify(key)).join(", ");
+          throw new Error(`Unknown schema "${schemaName}"; use one of ${keys} or define customTags array`);
+        }
+      if (Array.isArray(customTags))
+        for (let tag of customTags)
+          tags = tags.concat(tag);
+      else typeof customTags == "function" && (tags = customTags(tags.slice()));
+      return addMergeTag && (tags = tags.concat(merge2.merge)), tags.reduce((tags2, tag) => {
+        let tagObj = typeof tag == "string" ? tagsByName[tag] : tag;
+        if (!tagObj) {
+          let tagName = JSON.stringify(tag), keys = Object.keys(tagsByName).map((key) => JSON.stringify(key)).join(", ");
+          throw new Error(`Unknown custom tag ${tagName}; use one of ${keys}`);
+        }
+        return tags2.includes(tagObj) || tags2.push(tagObj), tags2;
+      }, []);
+    }
+    exports.coreKnownTags = coreKnownTags;
+    exports.getTags = getTags;
+  }
+});
+
+// node_modules/yaml/dist/schema/Schema.js
+var require_Schema = __commonJS({
+  "node_modules/yaml/dist/schema/Schema.js"(exports) {
+    "use strict";
+    var identity = require_identity(), map = require_map(), seq = require_seq(), string3 = require_string(), tags = require_tags(), sortMapEntriesByKey = (a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0, Schema = class _Schema {
+      constructor({ compat, customTags, merge: merge2, resolveKnownTags, schema, sortMapEntries, toStringDefaults }) {
+        this.compat = Array.isArray(compat) ? tags.getTags(compat, "compat") : compat ? tags.getTags(null, compat) : null, this.name = typeof schema == "string" && schema || "core", this.knownTags = resolveKnownTags ? tags.coreKnownTags : {}, this.tags = tags.getTags(customTags, this.name, merge2), this.toStringOptions = toStringDefaults ?? null, Object.defineProperty(this, identity.MAP, { value: map.map }), Object.defineProperty(this, identity.SCALAR, { value: string3.string }), Object.defineProperty(this, identity.SEQ, { value: seq.seq }), this.sortMapEntries = typeof sortMapEntries == "function" ? sortMapEntries : sortMapEntries === !0 ? sortMapEntriesByKey : null;
+      }
+      clone() {
+        let copy = Object.create(_Schema.prototype, Object.getOwnPropertyDescriptors(this));
+        return copy.tags = this.tags.slice(), copy;
+      }
+    };
+    exports.Schema = Schema;
+  }
+});
+
+// node_modules/yaml/dist/stringify/stringifyDocument.js
+var require_stringifyDocument = __commonJS({
+  "node_modules/yaml/dist/stringify/stringifyDocument.js"(exports) {
+    "use strict";
+    var identity = require_identity(), stringify3 = require_stringify(), stringifyComment = require_stringifyComment();
+    function stringifyDocument(doc, options) {
+      let lines = [], hasDirectives = options.directives === !0;
+      if (options.directives !== !1 && doc.directives) {
+        let dir = doc.directives.toString(doc);
+        dir ? (lines.push(dir), hasDirectives = !0) : doc.directives.docStart && (hasDirectives = !0);
+      }
+      hasDirectives && lines.push("---");
+      let ctx = stringify3.createStringifyContext(doc, options), { commentString } = ctx.options;
+      if (doc.commentBefore) {
+        lines.length !== 1 && lines.unshift("");
+        let cs = commentString(doc.commentBefore);
+        lines.unshift(stringifyComment.indentComment(cs, ""));
+      }
+      let chompKeep = !1, contentComment = null;
+      if (doc.contents) {
+        if (identity.isNode(doc.contents)) {
+          if (doc.contents.spaceBefore && hasDirectives && lines.push(""), doc.contents.commentBefore) {
+            let cs = commentString(doc.contents.commentBefore);
+            lines.push(stringifyComment.indentComment(cs, ""));
+          }
+          ctx.forceBlockIndent = !!doc.comment, contentComment = doc.contents.comment;
+        }
+        let onChompKeep = contentComment ? void 0 : () => chompKeep = !0, body = stringify3.stringify(doc.contents, ctx, () => contentComment = null, onChompKeep);
+        contentComment && (body += stringifyComment.lineComment(body, "", commentString(contentComment))), (body[0] === "|" || body[0] === ">") && lines[lines.length - 1] === "---" ? lines[lines.length - 1] = `--- ${body}` : lines.push(body);
+      } else
+        lines.push(stringify3.stringify(doc.contents, ctx));
+      if (doc.directives?.docEnd)
+        if (doc.comment) {
+          let cs = commentString(doc.comment);
+          cs.includes(`
+`) ? (lines.push("..."), lines.push(stringifyComment.indentComment(cs, ""))) : lines.push(`... ${cs}`);
+        } else
+          lines.push("...");
+      else {
+        let dc = doc.comment;
+        dc && chompKeep && (dc = dc.replace(/^\n+/, "")), dc && ((!chompKeep || contentComment) && lines[lines.length - 1] !== "" && lines.push(""), lines.push(stringifyComment.indentComment(commentString(dc), "")));
+      }
+      return lines.join(`
+`) + `
+`;
+    }
+    exports.stringifyDocument = stringifyDocument;
+  }
+});
+
+// node_modules/yaml/dist/doc/Document.js
+var require_Document = __commonJS({
+  "node_modules/yaml/dist/doc/Document.js"(exports) {
+    "use strict";
+    var Alias = require_Alias(), Collection = require_Collection(), identity = require_identity(), Pair = require_Pair(), toJS = require_toJS(), Schema = require_Schema(), stringifyDocument = require_stringifyDocument(), anchors = require_anchors(), applyReviver = require_applyReviver(), createNode = require_createNode(), directives = require_directives(), Document = class _Document {
+      constructor(value, replacer, options) {
+        this.commentBefore = null, this.comment = null, this.errors = [], this.warnings = [], Object.defineProperty(this, identity.NODE_TYPE, { value: identity.DOC });
+        let _replacer = null;
+        typeof replacer == "function" || Array.isArray(replacer) ? _replacer = replacer : options === void 0 && replacer && (options = replacer, replacer = void 0);
+        let opt = Object.assign({
+          intAsBigInt: !1,
+          keepSourceTokens: !1,
+          logLevel: "warn",
+          prettyErrors: !0,
+          strict: !0,
+          stringKeys: !1,
+          uniqueKeys: !0,
+          version: "1.2"
+        }, options);
+        this.options = opt;
+        let { version: version2 } = opt;
+        options?._directives ? (this.directives = options._directives.atDocument(), this.directives.yaml.explicit && (version2 = this.directives.yaml.version)) : this.directives = new directives.Directives({ version: version2 }), this.setSchema(version2, options), this.contents = value === void 0 ? null : this.createNode(value, _replacer, options);
+      }
+      /**
+       * Create a deep copy of this Document and its contents.
+       *
+       * Custom Node values that inherit from `Object` still refer to their original instances.
+       */
+      clone() {
+        let copy = Object.create(_Document.prototype, {
+          [identity.NODE_TYPE]: { value: identity.DOC }
+        });
+        return copy.commentBefore = this.commentBefore, copy.comment = this.comment, copy.errors = this.errors.slice(), copy.warnings = this.warnings.slice(), copy.options = Object.assign({}, this.options), this.directives && (copy.directives = this.directives.clone()), copy.schema = this.schema.clone(), copy.contents = identity.isNode(this.contents) ? this.contents.clone(copy.schema) : this.contents, this.range && (copy.range = this.range.slice()), copy;
+      }
+      /** Adds a value to the document. */
+      add(value) {
+        assertCollection(this.contents) && this.contents.add(value);
+      }
+      /** Adds a value to the document. */
+      addIn(path, value) {
+        assertCollection(this.contents) && this.contents.addIn(path, value);
+      }
+      /**
+       * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
+       *
+       * If `node` already has an anchor, `name` is ignored.
+       * Otherwise, the `node.anchor` value will be set to `name`,
+       * or if an anchor with that name is already present in the document,
+       * `name` will be used as a prefix for a new unique anchor.
+       * If `name` is undefined, the generated anchor will use 'a' as a prefix.
+       */
+      createAlias(node, name) {
+        if (!node.anchor) {
+          let prev = anchors.anchorNames(this);
+          node.anchor = // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+          !name || prev.has(name) ? anchors.findNewAnchor(name || "a", prev) : name;
+        }
+        return new Alias.Alias(node.anchor);
+      }
+      createNode(value, replacer, options) {
+        let _replacer;
+        if (typeof replacer == "function")
+          value = replacer.call({ "": value }, "", value), _replacer = replacer;
+        else if (Array.isArray(replacer)) {
+          let keyToStr = (v) => typeof v == "number" || v instanceof String || v instanceof Number, asStr = replacer.filter(keyToStr).map(String);
+          asStr.length > 0 && (replacer = replacer.concat(asStr)), _replacer = replacer;
+        } else options === void 0 && replacer && (options = replacer, replacer = void 0);
+        let { aliasDuplicateObjects, anchorPrefix, flow, keepUndefined, onTagObj, tag } = options ?? {}, { onAnchor, setAnchors, sourceObjects } = anchors.createNodeAnchors(
+          this,
+          // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+          anchorPrefix || "a"
+        ), ctx = {
+          aliasDuplicateObjects: aliasDuplicateObjects ?? !0,
+          keepUndefined: keepUndefined ?? !1,
+          onAnchor,
+          onTagObj,
+          replacer: _replacer,
+          schema: this.schema,
+          sourceObjects
+        }, node = createNode.createNode(value, tag, ctx);
+        return flow && identity.isCollection(node) && (node.flow = !0), setAnchors(), node;
+      }
+      /**
+       * Convert a key and a value into a `Pair` using the current schema,
+       * recursively wrapping all values as `Scalar` or `Collection` nodes.
+       */
+      createPair(key, value, options = {}) {
+        let k = this.createNode(key, null, options), v = this.createNode(value, null, options);
+        return new Pair.Pair(k, v);
+      }
+      /**
+       * Removes a value from the document.
+       * @returns `true` if the item was found and removed.
+       */
+      delete(key) {
+        return assertCollection(this.contents) ? this.contents.delete(key) : !1;
+      }
+      /**
+       * Removes a value from the document.
+       * @returns `true` if the item was found and removed.
+       */
+      deleteIn(path) {
+        return Collection.isEmptyPath(path) ? this.contents == null ? !1 : (this.contents = null, !0) : assertCollection(this.contents) ? this.contents.deleteIn(path) : !1;
+      }
+      /**
+       * Returns item at `key`, or `undefined` if not found. By default unwraps
+       * scalar values from their surrounding node; to disable set `keepScalar` to
+       * `true` (collections are always returned intact).
+       */
+      get(key, keepScalar) {
+        return identity.isCollection(this.contents) ? this.contents.get(key, keepScalar) : void 0;
+      }
+      /**
+       * Returns item at `path`, or `undefined` if not found. By default unwraps
+       * scalar values from their surrounding node; to disable set `keepScalar` to
+       * `true` (collections are always returned intact).
+       */
+      getIn(path, keepScalar) {
+        return Collection.isEmptyPath(path) ? !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents : identity.isCollection(this.contents) ? this.contents.getIn(path, keepScalar) : void 0;
+      }
+      /**
+       * Checks if the document includes a value with the key `key`.
+       */
+      has(key) {
+        return identity.isCollection(this.contents) ? this.contents.has(key) : !1;
+      }
+      /**
+       * Checks if the document includes a value at `path`.
+       */
+      hasIn(path) {
+        return Collection.isEmptyPath(path) ? this.contents !== void 0 : identity.isCollection(this.contents) ? this.contents.hasIn(path) : !1;
+      }
+      /**
+       * Sets a value in this document. For `!!set`, `value` needs to be a
+       * boolean to add/remove the item from the set.
+       */
+      set(key, value) {
+        this.contents == null ? this.contents = Collection.collectionFromPath(this.schema, [key], value) : assertCollection(this.contents) && this.contents.set(key, value);
+      }
+      /**
+       * Sets a value in this document. For `!!set`, `value` needs to be a
+       * boolean to add/remove the item from the set.
+       */
+      setIn(path, value) {
+        Collection.isEmptyPath(path) ? this.contents = value : this.contents == null ? this.contents = Collection.collectionFromPath(this.schema, Array.from(path), value) : assertCollection(this.contents) && this.contents.setIn(path, value);
+      }
+      /**
+       * Change the YAML version and schema used by the document.
+       * A `null` version disables support for directives, explicit tags, anchors, and aliases.
+       * It also requires the `schema` option to be given as a `Schema` instance value.
+       *
+       * Overrides all previously set schema options.
+       */
+      setSchema(version2, options = {}) {
+        typeof version2 == "number" && (version2 = String(version2));
+        let opt;
+        switch (version2) {
+          case "1.1":
+            this.directives ? this.directives.yaml.version = "1.1" : this.directives = new directives.Directives({ version: "1.1" }), opt = { resolveKnownTags: !1, schema: "yaml-1.1" };
+            break;
+          case "1.2":
+          case "next":
+            this.directives ? this.directives.yaml.version = version2 : this.directives = new directives.Directives({ version: version2 }), opt = { resolveKnownTags: !0, schema: "core" };
+            break;
+          case null:
+            this.directives && delete this.directives, opt = null;
+            break;
+          default: {
+            let sv = JSON.stringify(version2);
+            throw new Error(`Expected '1.1', '1.2' or null as first argument, but found: ${sv}`);
+          }
+        }
+        if (options.schema instanceof Object)
+          this.schema = options.schema;
+        else if (opt)
+          this.schema = new Schema.Schema(Object.assign(opt, options));
+        else
+          throw new Error("With a null YAML version, the { schema: Schema } option is required");
+      }
+      // json & jsonArg are only used from toJSON()
+      toJS({ json, jsonArg, mapAsMap, maxAliasCount, onAnchor, reviver } = {}) {
+        let ctx = {
+          anchors: /* @__PURE__ */ new Map(),
+          doc: this,
+          keep: !json,
+          mapAsMap: mapAsMap === !0,
+          mapKeyWarned: !1,
+          maxAliasCount: typeof maxAliasCount == "number" ? maxAliasCount : 100
+        }, res = toJS.toJS(this.contents, jsonArg ?? "", ctx);
+        if (typeof onAnchor == "function")
+          for (let { count, res: res2 } of ctx.anchors.values())
+            onAnchor(res2, count);
+        return typeof reviver == "function" ? applyReviver.applyReviver(reviver, { "": res }, "", res) : res;
+      }
+      /**
+       * A JSON representation of the document `contents`.
+       *
+       * @param jsonArg Used by `JSON.stringify` to indicate the array index or
+       *   property name.
+       */
+      toJSON(jsonArg, onAnchor) {
+        return this.toJS({ json: !0, jsonArg, mapAsMap: !1, onAnchor });
+      }
+      /** A YAML representation of the document. */
+      toString(options = {}) {
+        if (this.errors.length > 0)
+          throw new Error("Document with errors cannot be stringified");
+        if ("indent" in options && (!Number.isInteger(options.indent) || Number(options.indent) <= 0)) {
+          let s = JSON.stringify(options.indent);
+          throw new Error(`"indent" option must be a positive integer, not ${s}`);
+        }
+        return stringifyDocument.stringifyDocument(this, options);
+      }
+    };
+    function assertCollection(contents) {
+      if (identity.isCollection(contents))
+        return !0;
+      throw new Error("Expected a YAML collection as document contents");
+    }
+    exports.Document = Document;
+  }
+});
+
+// node_modules/yaml/dist/errors.js
+var require_errors = __commonJS({
+  "node_modules/yaml/dist/errors.js"(exports) {
+    "use strict";
+    var YAMLError = class extends Error {
+      constructor(name, pos, code, message) {
+        super(), this.name = name, this.code = code, this.message = message, this.pos = pos;
+      }
+    }, YAMLParseError = class extends YAMLError {
+      constructor(pos, code, message) {
+        super("YAMLParseError", pos, code, message);
+      }
+    }, YAMLWarning = class extends YAMLError {
+      constructor(pos, code, message) {
+        super("YAMLWarning", pos, code, message);
+      }
+    }, prettifyError = (src, lc) => (error) => {
+      if (error.pos[0] === -1)
+        return;
+      error.linePos = error.pos.map((pos) => lc.linePos(pos));
+      let { line: line4, col } = error.linePos[0];
+      error.message += ` at line ${line4}, column ${col}`;
+      let ci = col - 1, lineStr = src.substring(lc.lineStarts[line4 - 1], lc.lineStarts[line4]).replace(/[\n\r]+$/, "");
+      if (ci >= 60 && lineStr.length > 80) {
+        let trimStart = Math.min(ci - 39, lineStr.length - 79);
+        lineStr = "\u2026" + lineStr.substring(trimStart), ci -= trimStart - 1;
+      }
+      if (lineStr.length > 80 && (lineStr = lineStr.substring(0, 79) + "\u2026"), line4 > 1 && /^ *$/.test(lineStr.substring(0, ci))) {
+        let prev = src.substring(lc.lineStarts[line4 - 2], lc.lineStarts[line4 - 1]);
+        prev.length > 80 && (prev = prev.substring(0, 79) + `\u2026
+`), lineStr = prev + lineStr;
+      }
+      if (/[^ ]/.test(lineStr)) {
+        let count = 1, end = error.linePos[1];
+        end?.line === line4 && end.col > col && (count = Math.max(1, Math.min(end.col - col, 80 - ci)));
+        let pointer = " ".repeat(ci) + "^".repeat(count);
+        error.message += `:
+
+${lineStr}
+${pointer}
+`;
+      }
+    };
+    exports.YAMLError = YAMLError;
+    exports.YAMLParseError = YAMLParseError;
+    exports.YAMLWarning = YAMLWarning;
+    exports.prettifyError = prettifyError;
+  }
+});
+
+// node_modules/yaml/dist/compose/resolve-props.js
+var require_resolve_props = __commonJS({
+  "node_modules/yaml/dist/compose/resolve-props.js"(exports) {
+    "use strict";
+    function resolveProps(tokens, { flow, indicator, next, offset, onError, parentIndent, startOnNewline }) {
+      let spaceBefore = !1, atNewline = startOnNewline, hasSpace = startOnNewline, comment = "", commentSep = "", hasNewline = !1, reqSpace = !1, tab = null, anchor = null, tag = null, newlineAfterProp = null, comma = null, found = null, start = null;
+      for (let token of tokens)
+        switch (reqSpace && (token.type !== "space" && token.type !== "newline" && token.type !== "comma" && onError(token.offset, "MISSING_CHAR", "Tags and anchors must be separated from the next token by white space"), reqSpace = !1), tab && (atNewline && token.type !== "comment" && token.type !== "newline" && onError(tab, "TAB_AS_INDENT", "Tabs are not allowed as indentation"), tab = null), token.type) {
+          case "space":
+            !flow && (indicator !== "doc-start" || next?.type !== "flow-collection") && token.source.includes("	") && (tab = token), hasSpace = !0;
+            break;
+          case "comment": {
+            hasSpace || onError(token, "MISSING_CHAR", "Comments must be separated from other tokens by white space characters");
+            let cb = token.source.substring(1) || " ";
+            comment ? comment += commentSep + cb : comment = cb, commentSep = "", atNewline = !1;
+            break;
+          }
+          case "newline":
+            atNewline ? comment ? comment += token.source : (!found || indicator !== "seq-item-ind") && (spaceBefore = !0) : commentSep += token.source, atNewline = !0, hasNewline = !0, (anchor || tag) && (newlineAfterProp = token), hasSpace = !0;
+            break;
+          case "anchor":
+            anchor && onError(token, "MULTIPLE_ANCHORS", "A node can have at most one anchor"), token.source.endsWith(":") && onError(token.offset + token.source.length - 1, "BAD_ALIAS", "Anchor ending in : is ambiguous", !0), anchor = token, start ?? (start = token.offset), atNewline = !1, hasSpace = !1, reqSpace = !0;
+            break;
+          case "tag": {
+            tag && onError(token, "MULTIPLE_TAGS", "A node can have at most one tag"), tag = token, start ?? (start = token.offset), atNewline = !1, hasSpace = !1, reqSpace = !0;
+            break;
+          }
+          case indicator:
+            (anchor || tag) && onError(token, "BAD_PROP_ORDER", `Anchors and tags must be after the ${token.source} indicator`), found && onError(token, "UNEXPECTED_TOKEN", `Unexpected ${token.source} in ${flow ?? "collection"}`), found = token, atNewline = indicator === "seq-item-ind" || indicator === "explicit-key-ind", hasSpace = !1;
+            break;
+          case "comma":
+            if (flow) {
+              comma && onError(token, "UNEXPECTED_TOKEN", `Unexpected , in ${flow}`), comma = token, atNewline = !1, hasSpace = !1;
+              break;
+            }
+          // else fallthrough
+          default:
+            onError(token, "UNEXPECTED_TOKEN", `Unexpected ${token.type} token`), atNewline = !1, hasSpace = !1;
+        }
+      let last = tokens[tokens.length - 1], end = last ? last.offset + last.source.length : offset;
+      return reqSpace && next && next.type !== "space" && next.type !== "newline" && next.type !== "comma" && (next.type !== "scalar" || next.source !== "") && onError(next.offset, "MISSING_CHAR", "Tags and anchors must be separated from the next token by white space"), tab && (atNewline && tab.indent <= parentIndent || next?.type === "block-map" || next?.type === "block-seq") && onError(tab, "TAB_AS_INDENT", "Tabs are not allowed as indentation"), {
+        comma,
+        found,
+        spaceBefore,
+        comment,
+        hasNewline,
+        anchor,
+        tag,
+        newlineAfterProp,
+        end,
+        start: start ?? end
+      };
+    }
+    exports.resolveProps = resolveProps;
+  }
+});
+
+// node_modules/yaml/dist/compose/util-contains-newline.js
+var require_util_contains_newline = __commonJS({
+  "node_modules/yaml/dist/compose/util-contains-newline.js"(exports) {
+    "use strict";
+    function containsNewline(key) {
+      if (!key)
+        return null;
+      switch (key.type) {
+        case "alias":
+        case "scalar":
+        case "double-quoted-scalar":
+        case "single-quoted-scalar":
+          if (key.source.includes(`
+`))
+            return !0;
+          if (key.end) {
+            for (let st of key.end)
+              if (st.type === "newline")
+                return !0;
+          }
+          return !1;
+        case "flow-collection":
+          for (let it of key.items) {
+            for (let st of it.start)
+              if (st.type === "newline")
+                return !0;
+            if (it.sep) {
+              for (let st of it.sep)
+                if (st.type === "newline")
+                  return !0;
+            }
+            if (containsNewline(it.key) || containsNewline(it.value))
+              return !0;
+          }
+          return !1;
+        default:
+          return !0;
+      }
+    }
+    exports.containsNewline = containsNewline;
+  }
+});
+
+// node_modules/yaml/dist/compose/util-flow-indent-check.js
+var require_util_flow_indent_check = __commonJS({
+  "node_modules/yaml/dist/compose/util-flow-indent-check.js"(exports) {
+    "use strict";
+    var utilContainsNewline = require_util_contains_newline();
+    function flowIndentCheck(indent, fc, onError) {
+      if (fc?.type === "flow-collection") {
+        let end = fc.end[0];
+        end.indent === indent && (end.source === "]" || end.source === "}") && utilContainsNewline.containsNewline(fc) && onError(end, "BAD_INDENT", "Flow end indicator should be more indented than parent", !0);
+      }
+    }
+    exports.flowIndentCheck = flowIndentCheck;
+  }
+});
+
+// node_modules/yaml/dist/compose/util-map-includes.js
+var require_util_map_includes = __commonJS({
+  "node_modules/yaml/dist/compose/util-map-includes.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    function mapIncludes(ctx, items, search) {
+      let { uniqueKeys } = ctx.options;
+      if (uniqueKeys === !1)
+        return !1;
+      let isEqual = typeof uniqueKeys == "function" ? uniqueKeys : (a, b) => a === b || identity.isScalar(a) && identity.isScalar(b) && a.value === b.value;
+      return items.some((pair) => isEqual(pair.key, search));
+    }
+    exports.mapIncludes = mapIncludes;
+  }
+});
+
+// node_modules/yaml/dist/compose/resolve-block-map.js
+var require_resolve_block_map = __commonJS({
+  "node_modules/yaml/dist/compose/resolve-block-map.js"(exports) {
+    "use strict";
+    var Pair = require_Pair(), YAMLMap = require_YAMLMap(), resolveProps = require_resolve_props(), utilContainsNewline = require_util_contains_newline(), utilFlowIndentCheck = require_util_flow_indent_check(), utilMapIncludes = require_util_map_includes(), startColMsg = "All mapping items must start at the same column";
+    function resolveBlockMap({ composeNode, composeEmptyNode }, ctx, bm, onError, tag) {
+      let NodeClass = tag?.nodeClass ?? YAMLMap.YAMLMap, map = new NodeClass(ctx.schema);
+      ctx.atRoot && (ctx.atRoot = !1);
+      let offset = bm.offset, commentEnd = null;
+      for (let collItem of bm.items) {
+        let { start, key, sep: sep2, value } = collItem, keyProps = resolveProps.resolveProps(start, {
+          indicator: "explicit-key-ind",
+          next: key ?? sep2?.[0],
+          offset,
+          onError,
+          parentIndent: bm.indent,
+          startOnNewline: !0
+        }), implicitKey = !keyProps.found;
+        if (implicitKey) {
+          if (key && (key.type === "block-seq" ? onError(offset, "BLOCK_AS_IMPLICIT_KEY", "A block sequence may not be used as an implicit map key") : "indent" in key && key.indent !== bm.indent && onError(offset, "BAD_INDENT", startColMsg)), !keyProps.anchor && !keyProps.tag && !sep2) {
+            commentEnd = keyProps.end, keyProps.comment && (map.comment ? map.comment += `
+` + keyProps.comment : map.comment = keyProps.comment);
+            continue;
+          }
+          (keyProps.newlineAfterProp || utilContainsNewline.containsNewline(key)) && onError(key ?? start[start.length - 1], "MULTILINE_IMPLICIT_KEY", "Implicit keys need to be on a single line");
+        } else keyProps.found?.indent !== bm.indent && onError(offset, "BAD_INDENT", startColMsg);
+        ctx.atKey = !0;
+        let keyStart = keyProps.end, keyNode = key ? composeNode(ctx, key, keyProps, onError) : composeEmptyNode(ctx, keyStart, start, null, keyProps, onError);
+        ctx.schema.compat && utilFlowIndentCheck.flowIndentCheck(bm.indent, key, onError), ctx.atKey = !1, utilMapIncludes.mapIncludes(ctx, map.items, keyNode) && onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
+        let valueProps = resolveProps.resolveProps(sep2 ?? [], {
+          indicator: "map-value-ind",
+          next: value,
+          offset: keyNode.range[2],
+          onError,
+          parentIndent: bm.indent,
+          startOnNewline: !key || key.type === "block-scalar"
+        });
+        if (offset = valueProps.end, valueProps.found) {
+          implicitKey && (value?.type === "block-map" && !valueProps.hasNewline && onError(offset, "BLOCK_AS_IMPLICIT_KEY", "Nested mappings are not allowed in compact mappings"), ctx.options.strict && keyProps.start < valueProps.found.offset - 1024 && onError(keyNode.range, "KEY_OVER_1024_CHARS", "The : indicator must be at most 1024 chars after the start of an implicit block mapping key"));
+          let valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep2, null, valueProps, onError);
+          ctx.schema.compat && utilFlowIndentCheck.flowIndentCheck(bm.indent, value, onError), offset = valueNode.range[2];
+          let pair = new Pair.Pair(keyNode, valueNode);
+          ctx.options.keepSourceTokens && (pair.srcToken = collItem), map.items.push(pair);
+        } else {
+          implicitKey && onError(keyNode.range, "MISSING_CHAR", "Implicit map keys need to be followed by map values"), valueProps.comment && (keyNode.comment ? keyNode.comment += `
+` + valueProps.comment : keyNode.comment = valueProps.comment);
+          let pair = new Pair.Pair(keyNode);
+          ctx.options.keepSourceTokens && (pair.srcToken = collItem), map.items.push(pair);
+        }
+      }
+      return commentEnd && commentEnd < offset && onError(commentEnd, "IMPOSSIBLE", "Map comment with trailing content"), map.range = [bm.offset, offset, commentEnd ?? offset], map;
+    }
+    exports.resolveBlockMap = resolveBlockMap;
+  }
+});
+
+// node_modules/yaml/dist/compose/resolve-block-seq.js
+var require_resolve_block_seq = __commonJS({
+  "node_modules/yaml/dist/compose/resolve-block-seq.js"(exports) {
+    "use strict";
+    var YAMLSeq = require_YAMLSeq(), resolveProps = require_resolve_props(), utilFlowIndentCheck = require_util_flow_indent_check();
+    function resolveBlockSeq({ composeNode, composeEmptyNode }, ctx, bs, onError, tag) {
+      let NodeClass = tag?.nodeClass ?? YAMLSeq.YAMLSeq, seq = new NodeClass(ctx.schema);
+      ctx.atRoot && (ctx.atRoot = !1), ctx.atKey && (ctx.atKey = !1);
+      let offset = bs.offset, commentEnd = null;
+      for (let { start, value } of bs.items) {
+        let props = resolveProps.resolveProps(start, {
+          indicator: "seq-item-ind",
+          next: value,
+          offset,
+          onError,
+          parentIndent: bs.indent,
+          startOnNewline: !0
+        });
+        if (!props.found)
+          if (props.anchor || props.tag || value)
+            value?.type === "block-seq" ? onError(props.end, "BAD_INDENT", "All sequence items must start at the same column") : onError(offset, "MISSING_CHAR", "Sequence item without - indicator");
+          else {
+            commentEnd = props.end, props.comment && (seq.comment = props.comment);
+            continue;
+          }
+        let node = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, start, null, props, onError);
+        ctx.schema.compat && utilFlowIndentCheck.flowIndentCheck(bs.indent, value, onError), offset = node.range[2], seq.items.push(node);
+      }
+      return seq.range = [bs.offset, offset, commentEnd ?? offset], seq;
+    }
+    exports.resolveBlockSeq = resolveBlockSeq;
+  }
+});
+
+// node_modules/yaml/dist/compose/resolve-end.js
+var require_resolve_end = __commonJS({
+  "node_modules/yaml/dist/compose/resolve-end.js"(exports) {
+    "use strict";
+    function resolveEnd(end, offset, reqSpace, onError) {
+      let comment = "";
+      if (end) {
+        let hasSpace = !1, sep2 = "";
+        for (let token of end) {
+          let { source, type } = token;
+          switch (type) {
+            case "space":
+              hasSpace = !0;
+              break;
+            case "comment": {
+              reqSpace && !hasSpace && onError(token, "MISSING_CHAR", "Comments must be separated from other tokens by white space characters");
+              let cb = source.substring(1) || " ";
+              comment ? comment += sep2 + cb : comment = cb, sep2 = "";
+              break;
+            }
+            case "newline":
+              comment && (sep2 += source), hasSpace = !0;
+              break;
+            default:
+              onError(token, "UNEXPECTED_TOKEN", `Unexpected ${type} at node end`);
+          }
+          offset += source.length;
+        }
+      }
+      return { comment, offset };
+    }
+    exports.resolveEnd = resolveEnd;
+  }
+});
+
+// node_modules/yaml/dist/compose/resolve-flow-collection.js
+var require_resolve_flow_collection = __commonJS({
+  "node_modules/yaml/dist/compose/resolve-flow-collection.js"(exports) {
+    "use strict";
+    var identity = require_identity(), Pair = require_Pair(), YAMLMap = require_YAMLMap(), YAMLSeq = require_YAMLSeq(), resolveEnd = require_resolve_end(), resolveProps = require_resolve_props(), utilContainsNewline = require_util_contains_newline(), utilMapIncludes = require_util_map_includes(), blockMsg = "Block collections are not allowed within flow collections", isBlock = (token) => token && (token.type === "block-map" || token.type === "block-seq");
+    function resolveFlowCollection({ composeNode, composeEmptyNode }, ctx, fc, onError, tag) {
+      let isMap = fc.start.source === "{", fcName = isMap ? "flow map" : "flow sequence", NodeClass = tag?.nodeClass ?? (isMap ? YAMLMap.YAMLMap : YAMLSeq.YAMLSeq), coll = new NodeClass(ctx.schema);
+      coll.flow = !0;
+      let atRoot = ctx.atRoot;
+      atRoot && (ctx.atRoot = !1), ctx.atKey && (ctx.atKey = !1);
+      let offset = fc.offset + fc.start.source.length;
+      for (let i = 0; i < fc.items.length; ++i) {
+        let collItem = fc.items[i], { start, key, sep: sep2, value } = collItem, props = resolveProps.resolveProps(start, {
+          flow: fcName,
+          indicator: "explicit-key-ind",
+          next: key ?? sep2?.[0],
+          offset,
+          onError,
+          parentIndent: fc.indent,
+          startOnNewline: !1
+        });
+        if (!props.found) {
+          if (!props.anchor && !props.tag && !sep2 && !value) {
+            i === 0 && props.comma ? onError(props.comma, "UNEXPECTED_TOKEN", `Unexpected , in ${fcName}`) : i < fc.items.length - 1 && onError(props.start, "UNEXPECTED_TOKEN", `Unexpected empty item in ${fcName}`), props.comment && (coll.comment ? coll.comment += `
+` + props.comment : coll.comment = props.comment), offset = props.end;
+            continue;
+          }
+          !isMap && ctx.options.strict && utilContainsNewline.containsNewline(key) && onError(
+            key,
+            // checked by containsNewline()
+            "MULTILINE_IMPLICIT_KEY",
+            "Implicit keys of flow sequence pairs need to be on a single line"
+          );
+        }
+        if (i === 0)
+          props.comma && onError(props.comma, "UNEXPECTED_TOKEN", `Unexpected , in ${fcName}`);
+        else if (props.comma || onError(props.start, "MISSING_CHAR", `Missing , between ${fcName} items`), props.comment) {
+          let prevItemComment = "";
+          loop: for (let st of start)
+            switch (st.type) {
+              case "comma":
+              case "space":
+                break;
+              case "comment":
+                prevItemComment = st.source.substring(1);
+                break loop;
+              default:
+                break loop;
+            }
+          if (prevItemComment) {
+            let prev = coll.items[coll.items.length - 1];
+            identity.isPair(prev) && (prev = prev.value ?? prev.key), prev.comment ? prev.comment += `
+` + prevItemComment : prev.comment = prevItemComment, props.comment = props.comment.substring(prevItemComment.length + 1);
+          }
+        }
+        if (!isMap && !sep2 && !props.found) {
+          let valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep2, null, props, onError);
+          coll.items.push(valueNode), offset = valueNode.range[2], isBlock(value) && onError(valueNode.range, "BLOCK_IN_FLOW", blockMsg);
+        } else {
+          ctx.atKey = !0;
+          let keyStart = props.end, keyNode = key ? composeNode(ctx, key, props, onError) : composeEmptyNode(ctx, keyStart, start, null, props, onError);
+          isBlock(key) && onError(keyNode.range, "BLOCK_IN_FLOW", blockMsg), ctx.atKey = !1;
+          let valueProps = resolveProps.resolveProps(sep2 ?? [], {
+            flow: fcName,
+            indicator: "map-value-ind",
+            next: value,
+            offset: keyNode.range[2],
+            onError,
+            parentIndent: fc.indent,
+            startOnNewline: !1
+          });
+          if (valueProps.found) {
+            if (!isMap && !props.found && ctx.options.strict) {
+              if (sep2)
+                for (let st of sep2) {
+                  if (st === valueProps.found)
+                    break;
+                  if (st.type === "newline") {
+                    onError(st, "MULTILINE_IMPLICIT_KEY", "Implicit keys of flow sequence pairs need to be on a single line");
+                    break;
+                  }
+                }
+              props.start < valueProps.found.offset - 1024 && onError(valueProps.found, "KEY_OVER_1024_CHARS", "The : indicator must be at most 1024 chars after the start of an implicit flow sequence key");
+            }
+          } else value && ("source" in value && value.source?.[0] === ":" ? onError(value, "MISSING_CHAR", `Missing space after : in ${fcName}`) : onError(valueProps.start, "MISSING_CHAR", `Missing , or : between ${fcName} items`));
+          let valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep2, null, valueProps, onError) : null;
+          valueNode ? isBlock(value) && onError(valueNode.range, "BLOCK_IN_FLOW", blockMsg) : valueProps.comment && (keyNode.comment ? keyNode.comment += `
+` + valueProps.comment : keyNode.comment = valueProps.comment);
+          let pair = new Pair.Pair(keyNode, valueNode);
+          if (ctx.options.keepSourceTokens && (pair.srcToken = collItem), isMap) {
+            let map = coll;
+            utilMapIncludes.mapIncludes(ctx, map.items, keyNode) && onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique"), map.items.push(pair);
+          } else {
+            let map = new YAMLMap.YAMLMap(ctx.schema);
+            map.flow = !0, map.items.push(pair);
+            let endRange = (valueNode ?? keyNode).range;
+            map.range = [keyNode.range[0], endRange[1], endRange[2]], coll.items.push(map);
+          }
+          offset = valueNode ? valueNode.range[2] : valueProps.end;
+        }
+      }
+      let expectedEnd = isMap ? "}" : "]", [ce, ...ee] = fc.end, cePos = offset;
+      if (ce?.source === expectedEnd)
+        cePos = ce.offset + ce.source.length;
+      else {
+        let name = fcName[0].toUpperCase() + fcName.substring(1), msg = atRoot ? `${name} must end with a ${expectedEnd}` : `${name} in block collection must be sufficiently indented and end with a ${expectedEnd}`;
+        onError(offset, atRoot ? "MISSING_CHAR" : "BAD_INDENT", msg), ce && ce.source.length !== 1 && ee.unshift(ce);
+      }
+      if (ee.length > 0) {
+        let end = resolveEnd.resolveEnd(ee, cePos, ctx.options.strict, onError);
+        end.comment && (coll.comment ? coll.comment += `
+` + end.comment : coll.comment = end.comment), coll.range = [fc.offset, cePos, end.offset];
+      } else
+        coll.range = [fc.offset, cePos, cePos];
+      return coll;
+    }
+    exports.resolveFlowCollection = resolveFlowCollection;
+  }
+});
+
+// node_modules/yaml/dist/compose/compose-collection.js
+var require_compose_collection = __commonJS({
+  "node_modules/yaml/dist/compose/compose-collection.js"(exports) {
+    "use strict";
+    var identity = require_identity(), Scalar = require_Scalar(), YAMLMap = require_YAMLMap(), YAMLSeq = require_YAMLSeq(), resolveBlockMap = require_resolve_block_map(), resolveBlockSeq = require_resolve_block_seq(), resolveFlowCollection = require_resolve_flow_collection();
+    function resolveCollection(CN, ctx, token, onError, tagName, tag) {
+      let coll = token.type === "block-map" ? resolveBlockMap.resolveBlockMap(CN, ctx, token, onError, tag) : token.type === "block-seq" ? resolveBlockSeq.resolveBlockSeq(CN, ctx, token, onError, tag) : resolveFlowCollection.resolveFlowCollection(CN, ctx, token, onError, tag), Coll = coll.constructor;
+      return tagName === "!" || tagName === Coll.tagName ? (coll.tag = Coll.tagName, coll) : (tagName && (coll.tag = tagName), coll);
+    }
+    function composeCollection(CN, ctx, token, props, onError) {
+      let tagToken = props.tag, tagName = tagToken ? ctx.directives.tagName(tagToken.source, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg)) : null;
+      if (token.type === "block-seq") {
+        let { anchor, newlineAfterProp: nl } = props, lastProp = anchor && tagToken ? anchor.offset > tagToken.offset ? anchor : tagToken : anchor ?? tagToken;
+        lastProp && (!nl || nl.offset < lastProp.offset) && onError(lastProp, "MISSING_CHAR", "Missing newline after block sequence props");
+      }
+      let expType = token.type === "block-map" ? "map" : token.type === "block-seq" ? "seq" : token.start.source === "{" ? "map" : "seq";
+      if (!tagToken || !tagName || tagName === "!" || tagName === YAMLMap.YAMLMap.tagName && expType === "map" || tagName === YAMLSeq.YAMLSeq.tagName && expType === "seq")
+        return resolveCollection(CN, ctx, token, onError, tagName);
+      let tag = ctx.schema.tags.find((t) => t.tag === tagName && t.collection === expType);
+      if (!tag) {
+        let kt = ctx.schema.knownTags[tagName];
+        if (kt?.collection === expType)
+          ctx.schema.tags.push(Object.assign({}, kt, { default: !1 })), tag = kt;
+        else
+          return kt ? onError(tagToken, "BAD_COLLECTION_TYPE", `${kt.tag} used for ${expType} collection, but expects ${kt.collection ?? "scalar"}`, !0) : onError(tagToken, "TAG_RESOLVE_FAILED", `Unresolved tag: ${tagName}`, !0), resolveCollection(CN, ctx, token, onError, tagName);
+      }
+      let coll = resolveCollection(CN, ctx, token, onError, tagName, tag), res = tag.resolve?.(coll, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg), ctx.options) ?? coll, node = identity.isNode(res) ? res : new Scalar.Scalar(res);
+      return node.range = coll.range, node.tag = tagName, tag?.format && (node.format = tag.format), node;
+    }
+    exports.composeCollection = composeCollection;
+  }
+});
+
+// node_modules/yaml/dist/compose/resolve-block-scalar.js
+var require_resolve_block_scalar = __commonJS({
+  "node_modules/yaml/dist/compose/resolve-block-scalar.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    function resolveBlockScalar(ctx, scalar, onError) {
+      let start = scalar.offset, header = parseBlockScalarHeader(scalar, ctx.options.strict, onError);
+      if (!header)
+        return { value: "", type: null, comment: "", range: [start, start, start] };
+      let type = header.mode === ">" ? Scalar.Scalar.BLOCK_FOLDED : Scalar.Scalar.BLOCK_LITERAL, lines = scalar.source ? splitLines(scalar.source) : [], chompStart = lines.length;
+      for (let i = lines.length - 1; i >= 0; --i) {
+        let content = lines[i][1];
+        if (content === "" || content === "\r")
+          chompStart = i;
+        else
+          break;
+      }
+      if (chompStart === 0) {
+        let value2 = header.chomp === "+" && lines.length > 0 ? `
+`.repeat(Math.max(1, lines.length - 1)) : "", end2 = start + header.length;
+        return scalar.source && (end2 += scalar.source.length), { value: value2, type, comment: header.comment, range: [start, end2, end2] };
+      }
+      let trimIndent = scalar.indent + header.indent, offset = scalar.offset + header.length, contentStart = 0;
+      for (let i = 0; i < chompStart; ++i) {
+        let [indent, content] = lines[i];
+        if (content === "" || content === "\r")
+          header.indent === 0 && indent.length > trimIndent && (trimIndent = indent.length);
+        else {
+          indent.length < trimIndent && onError(offset + indent.length, "MISSING_CHAR", "Block scalars with more-indented leading empty lines must use an explicit indentation indicator"), header.indent === 0 && (trimIndent = indent.length), contentStart = i, trimIndent === 0 && !ctx.atRoot && onError(offset, "BAD_INDENT", "Block scalar values in collections must be indented");
+          break;
+        }
+        offset += indent.length + content.length + 1;
+      }
+      for (let i = lines.length - 1; i >= chompStart; --i)
+        lines[i][0].length > trimIndent && (chompStart = i + 1);
+      let value = "", sep2 = "", prevMoreIndented = !1;
+      for (let i = 0; i < contentStart; ++i)
+        value += lines[i][0].slice(trimIndent) + `
+`;
+      for (let i = contentStart; i < chompStart; ++i) {
+        let [indent, content] = lines[i];
+        offset += indent.length + content.length + 1;
+        let crlf = content[content.length - 1] === "\r";
+        if (crlf && (content = content.slice(0, -1)), content && indent.length < trimIndent) {
+          let message = `Block scalar lines must not be less indented than their ${header.indent ? "explicit indentation indicator" : "first line"}`;
+          onError(offset - content.length - (crlf ? 2 : 1), "BAD_INDENT", message), indent = "";
+        }
+        type === Scalar.Scalar.BLOCK_LITERAL ? (value += sep2 + indent.slice(trimIndent) + content, sep2 = `
+`) : indent.length > trimIndent || content[0] === "	" ? (sep2 === " " ? sep2 = `
+` : !prevMoreIndented && sep2 === `
+` && (sep2 = `
+
+`), value += sep2 + indent.slice(trimIndent) + content, sep2 = `
+`, prevMoreIndented = !0) : content === "" ? sep2 === `
+` ? value += `
+` : sep2 = `
+` : (value += sep2 + content, sep2 = " ", prevMoreIndented = !1);
+      }
+      switch (header.chomp) {
+        case "-":
+          break;
+        case "+":
+          for (let i = chompStart; i < lines.length; ++i)
+            value += `
+` + lines[i][0].slice(trimIndent);
+          value[value.length - 1] !== `
+` && (value += `
+`);
+          break;
+        default:
+          value += `
+`;
+      }
+      let end = start + header.length + scalar.source.length;
+      return { value, type, comment: header.comment, range: [start, end, end] };
+    }
+    function parseBlockScalarHeader({ offset, props }, strict, onError) {
+      if (props[0].type !== "block-scalar-header")
+        return onError(props[0], "IMPOSSIBLE", "Block scalar header not found"), null;
+      let { source } = props[0], mode = source[0], indent = 0, chomp = "", error = -1;
+      for (let i = 1; i < source.length; ++i) {
+        let ch = source[i];
+        if (!chomp && (ch === "-" || ch === "+"))
+          chomp = ch;
+        else {
+          let n = Number(ch);
+          !indent && n ? indent = n : error === -1 && (error = offset + i);
+        }
+      }
+      error !== -1 && onError(error, "UNEXPECTED_TOKEN", `Block scalar header includes extra characters: ${source}`);
+      let hasSpace = !1, comment = "", length = source.length;
+      for (let i = 1; i < props.length; ++i) {
+        let token = props[i];
+        switch (token.type) {
+          case "space":
+            hasSpace = !0;
+          // fallthrough
+          case "newline":
+            length += token.source.length;
+            break;
+          case "comment":
+            strict && !hasSpace && onError(token, "MISSING_CHAR", "Comments must be separated from other tokens by white space characters"), length += token.source.length, comment = token.source.substring(1);
+            break;
+          case "error":
+            onError(token, "UNEXPECTED_TOKEN", token.message), length += token.source.length;
+            break;
+          /* istanbul ignore next should not happen */
+          default: {
+            let message = `Unexpected token in block scalar header: ${token.type}`;
+            onError(token, "UNEXPECTED_TOKEN", message);
+            let ts = token.source;
+            ts && typeof ts == "string" && (length += ts.length);
+          }
+        }
+      }
+      return { mode, indent, chomp, comment, length };
+    }
+    function splitLines(source) {
+      let split = source.split(/\n( *)/), first = split[0], m = first.match(/^( *)/), lines = [m?.[1] ? [m[1], first.slice(m[1].length)] : ["", first]];
+      for (let i = 1; i < split.length; i += 2)
+        lines.push([split[i], split[i + 1]]);
+      return lines;
+    }
+    exports.resolveBlockScalar = resolveBlockScalar;
+  }
+});
+
+// node_modules/yaml/dist/compose/resolve-flow-scalar.js
+var require_resolve_flow_scalar = __commonJS({
+  "node_modules/yaml/dist/compose/resolve-flow-scalar.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar(), resolveEnd = require_resolve_end();
+    function resolveFlowScalar(scalar, strict, onError) {
+      let { offset, type, source, end } = scalar, _type, value, _onError = (rel, code, msg) => onError(offset + rel, code, msg);
+      switch (type) {
+        case "scalar":
+          _type = Scalar.Scalar.PLAIN, value = plainValue(source, _onError);
+          break;
+        case "single-quoted-scalar":
+          _type = Scalar.Scalar.QUOTE_SINGLE, value = singleQuotedValue(source, _onError);
+          break;
+        case "double-quoted-scalar":
+          _type = Scalar.Scalar.QUOTE_DOUBLE, value = doubleQuotedValue(source, _onError);
+          break;
+        /* istanbul ignore next should not happen */
+        default:
+          return onError(scalar, "UNEXPECTED_TOKEN", `Expected a flow scalar value, but found: ${type}`), {
+            value: "",
+            type: null,
+            comment: "",
+            range: [offset, offset + source.length, offset + source.length]
+          };
+      }
+      let valueEnd = offset + source.length, re = resolveEnd.resolveEnd(end, valueEnd, strict, onError);
+      return {
+        value,
+        type: _type,
+        comment: re.comment,
+        range: [offset, valueEnd, re.offset]
+      };
+    }
+    function plainValue(source, onError) {
+      let badChar = "";
+      switch (source[0]) {
+        /* istanbul ignore next should not happen */
+        case "	":
+          badChar = "a tab character";
+          break;
+        case ",":
+          badChar = "flow indicator character ,";
+          break;
+        case "%":
+          badChar = "directive indicator character %";
+          break;
+        case "|":
+        case ">": {
+          badChar = `block scalar indicator ${source[0]}`;
+          break;
+        }
+        case "@":
+        case "`": {
+          badChar = `reserved character ${source[0]}`;
+          break;
+        }
+      }
+      return badChar && onError(0, "BAD_SCALAR_START", `Plain value cannot start with ${badChar}`), foldLines(source);
+    }
+    function singleQuotedValue(source, onError) {
+      return (source[source.length - 1] !== "'" || source.length === 1) && onError(source.length, "MISSING_CHAR", "Missing closing 'quote"), foldLines(source.slice(1, -1)).replace(/''/g, "'");
+    }
+    function foldLines(source) {
+      let first, line4;
+      try {
+        first = new RegExp(`(.*?)(?<![ 	])[ 	]*\r?
+`, "sy"), line4 = new RegExp(`[ 	]*(.*?)(?:(?<![ 	])[ 	]*)?\r?
+`, "sy");
+      } catch {
+        first = /(.*?)[ \t]*\r?\n/sy, line4 = /[ \t]*(.*?)[ \t]*\r?\n/sy;
+      }
+      let match = first.exec(source);
+      if (!match)
+        return source;
+      let res = match[1], sep2 = " ", pos = first.lastIndex;
+      for (line4.lastIndex = pos; match = line4.exec(source); )
+        match[1] === "" ? sep2 === `
+` ? res += sep2 : sep2 = `
+` : (res += sep2 + match[1], sep2 = " "), pos = line4.lastIndex;
+      let last = /[ \t]*(.*)/sy;
+      return last.lastIndex = pos, match = last.exec(source), res + sep2 + (match?.[1] ?? "");
+    }
+    function doubleQuotedValue(source, onError) {
+      let res = "";
+      for (let i = 1; i < source.length - 1; ++i) {
+        let ch = source[i];
+        if (!(ch === "\r" && source[i + 1] === `
+`))
+          if (ch === `
+`) {
+            let { fold, offset } = foldNewline(source, i);
+            res += fold, i = offset;
+          } else if (ch === "\\") {
+            let next = source[++i], cc = escapeCodes[next];
+            if (cc)
+              res += cc;
+            else if (next === `
+`)
+              for (next = source[i + 1]; next === " " || next === "	"; )
+                next = source[++i + 1];
+            else if (next === "\r" && source[i + 1] === `
+`)
+              for (next = source[++i + 1]; next === " " || next === "	"; )
+                next = source[++i + 1];
+            else if (next === "x" || next === "u" || next === "U") {
+              let length = next === "x" ? 2 : next === "u" ? 4 : 8;
+              res += parseCharCode(source, i + 1, length, onError), i += length;
+            } else {
+              let raw = source.substr(i - 1, 2);
+              onError(i - 1, "BAD_DQ_ESCAPE", `Invalid escape sequence ${raw}`), res += raw;
+            }
+          } else if (ch === " " || ch === "	") {
+            let wsStart = i, next = source[i + 1];
+            for (; next === " " || next === "	"; )
+              next = source[++i + 1];
+            next !== `
+` && !(next === "\r" && source[i + 2] === `
+`) && (res += i > wsStart ? source.slice(wsStart, i + 1) : ch);
+          } else
+            res += ch;
+      }
+      return (source[source.length - 1] !== '"' || source.length === 1) && onError(source.length, "MISSING_CHAR", 'Missing closing "quote'), res;
+    }
+    function foldNewline(source, offset) {
+      let fold = "", ch = source[offset + 1];
+      for (; (ch === " " || ch === "	" || ch === `
+` || ch === "\r") && !(ch === "\r" && source[offset + 2] !== `
+`); )
+        ch === `
+` && (fold += `
+`), offset += 1, ch = source[offset + 1];
+      return fold || (fold = " "), { fold, offset };
+    }
+    var escapeCodes = {
+      0: "\0",
+      // null character
+      a: "\x07",
+      // bell character
+      b: "\b",
+      // backspace
+      e: "\x1B",
+      // escape character
+      f: "\f",
+      // form feed
+      n: `
+`,
+      // line feed
+      r: "\r",
+      // carriage return
+      t: "	",
+      // horizontal tab
+      v: "\v",
+      // vertical tab
+      N: "\x85",
+      // Unicode next line
+      _: "\xA0",
+      // Unicode non-breaking space
+      L: "\u2028",
+      // Unicode line separator
+      P: "\u2029",
+      // Unicode paragraph separator
+      " ": " ",
+      '"': '"',
+      "/": "/",
+      "\\": "\\",
+      "	": "	"
+    };
+    function parseCharCode(source, offset, length, onError) {
+      let cc = source.substr(offset, length), code = cc.length === length && /^[0-9a-fA-F]+$/.test(cc) ? parseInt(cc, 16) : NaN;
+      try {
+        return String.fromCodePoint(code);
+      } catch {
+        let raw = source.substr(offset - 2, length + 2);
+        return onError(offset - 2, "BAD_DQ_ESCAPE", `Invalid escape sequence ${raw}`), raw;
+      }
+    }
+    exports.resolveFlowScalar = resolveFlowScalar;
+  }
+});
+
+// node_modules/yaml/dist/compose/compose-scalar.js
+var require_compose_scalar = __commonJS({
+  "node_modules/yaml/dist/compose/compose-scalar.js"(exports) {
+    "use strict";
+    var identity = require_identity(), Scalar = require_Scalar(), resolveBlockScalar = require_resolve_block_scalar(), resolveFlowScalar = require_resolve_flow_scalar();
+    function composeScalar(ctx, token, tagToken, onError) {
+      let { value, type, comment, range } = token.type === "block-scalar" ? resolveBlockScalar.resolveBlockScalar(ctx, token, onError) : resolveFlowScalar.resolveFlowScalar(token, ctx.options.strict, onError), tagName = tagToken ? ctx.directives.tagName(tagToken.source, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg)) : null, tag;
+      ctx.options.stringKeys && ctx.atKey ? tag = ctx.schema[identity.SCALAR] : tagName ? tag = findScalarTagByName(ctx.schema, value, tagName, tagToken, onError) : token.type === "scalar" ? tag = findScalarTagByTest(ctx, value, token, onError) : tag = ctx.schema[identity.SCALAR];
+      let scalar;
+      try {
+        let res = tag.resolve(value, (msg) => onError(tagToken ?? token, "TAG_RESOLVE_FAILED", msg), ctx.options);
+        scalar = identity.isScalar(res) ? res : new Scalar.Scalar(res);
+      } catch (error) {
+        let msg = error instanceof Error ? error.message : String(error);
+        onError(tagToken ?? token, "TAG_RESOLVE_FAILED", msg), scalar = new Scalar.Scalar(value);
+      }
+      return scalar.range = range, scalar.source = value, type && (scalar.type = type), tagName && (scalar.tag = tagName), tag.format && (scalar.format = tag.format), comment && (scalar.comment = comment), scalar;
+    }
+    function findScalarTagByName(schema, value, tagName, tagToken, onError) {
+      if (tagName === "!")
+        return schema[identity.SCALAR];
+      let matchWithTest = [];
+      for (let tag of schema.tags)
+        if (!tag.collection && tag.tag === tagName)
+          if (tag.default && tag.test)
+            matchWithTest.push(tag);
+          else
+            return tag;
+      for (let tag of matchWithTest)
+        if (tag.test?.test(value))
+          return tag;
+      let kt = schema.knownTags[tagName];
+      return kt && !kt.collection ? (schema.tags.push(Object.assign({}, kt, { default: !1, test: void 0 })), kt) : (onError(tagToken, "TAG_RESOLVE_FAILED", `Unresolved tag: ${tagName}`, tagName !== "tag:yaml.org,2002:str"), schema[identity.SCALAR]);
+    }
+    function findScalarTagByTest({ atKey, directives, schema }, value, token, onError) {
+      let tag = schema.tags.find((tag2) => (tag2.default === !0 || atKey && tag2.default === "key") && tag2.test?.test(value)) || schema[identity.SCALAR];
+      if (schema.compat) {
+        let compat = schema.compat.find((tag2) => tag2.default && tag2.test?.test(value)) ?? schema[identity.SCALAR];
+        if (tag.tag !== compat.tag) {
+          let ts = directives.tagString(tag.tag), cs = directives.tagString(compat.tag), msg = `Value may be parsed as either ${ts} or ${cs}`;
+          onError(token, "TAG_RESOLVE_FAILED", msg, !0);
+        }
+      }
+      return tag;
+    }
+    exports.composeScalar = composeScalar;
+  }
+});
+
+// node_modules/yaml/dist/compose/util-empty-scalar-position.js
+var require_util_empty_scalar_position = __commonJS({
+  "node_modules/yaml/dist/compose/util-empty-scalar-position.js"(exports) {
+    "use strict";
+    function emptyScalarPosition(offset, before, pos) {
+      if (before) {
+        pos ?? (pos = before.length);
+        for (let i = pos - 1; i >= 0; --i) {
+          let st = before[i];
+          switch (st.type) {
+            case "space":
+            case "comment":
+            case "newline":
+              offset -= st.source.length;
+              continue;
+          }
+          for (st = before[++i]; st?.type === "space"; )
+            offset += st.source.length, st = before[++i];
+          break;
+        }
+      }
+      return offset;
+    }
+    exports.emptyScalarPosition = emptyScalarPosition;
+  }
+});
+
+// node_modules/yaml/dist/compose/compose-node.js
+var require_compose_node = __commonJS({
+  "node_modules/yaml/dist/compose/compose-node.js"(exports) {
+    "use strict";
+    var Alias = require_Alias(), identity = require_identity(), composeCollection = require_compose_collection(), composeScalar = require_compose_scalar(), resolveEnd = require_resolve_end(), utilEmptyScalarPosition = require_util_empty_scalar_position(), CN = { composeNode, composeEmptyNode };
+    function composeNode(ctx, token, props, onError) {
+      let atKey = ctx.atKey, { spaceBefore, comment, anchor, tag } = props, node, isSrcToken = !0;
+      switch (token.type) {
+        case "alias":
+          node = composeAlias(ctx, token, onError), (anchor || tag) && onError(token, "ALIAS_PROPS", "An alias node must not specify any properties");
+          break;
+        case "scalar":
+        case "single-quoted-scalar":
+        case "double-quoted-scalar":
+        case "block-scalar":
+          node = composeScalar.composeScalar(ctx, token, tag, onError), anchor && (node.anchor = anchor.source.substring(1));
+          break;
+        case "block-map":
+        case "block-seq":
+        case "flow-collection":
+          try {
+            node = composeCollection.composeCollection(CN, ctx, token, props, onError), anchor && (node.anchor = anchor.source.substring(1));
+          } catch (error) {
+            let message = error instanceof Error ? error.message : String(error);
+            onError(token, "RESOURCE_EXHAUSTION", message);
+          }
+          break;
+        default: {
+          let message = token.type === "error" ? token.message : `Unsupported token (type: ${token.type})`;
+          onError(token, "UNEXPECTED_TOKEN", message), isSrcToken = !1;
+        }
+      }
+      return node ?? (node = composeEmptyNode(ctx, token.offset, void 0, null, props, onError)), anchor && node.anchor === "" && onError(anchor, "BAD_ALIAS", "Anchor cannot be an empty string"), atKey && ctx.options.stringKeys && (!identity.isScalar(node) || typeof node.value != "string" || node.tag && node.tag !== "tag:yaml.org,2002:str") && onError(tag ?? token, "NON_STRING_KEY", "With stringKeys, all keys must be strings"), spaceBefore && (node.spaceBefore = !0), comment && (token.type === "scalar" && token.source === "" ? node.comment = comment : node.commentBefore = comment), ctx.options.keepSourceTokens && isSrcToken && (node.srcToken = token), node;
+    }
+    function composeEmptyNode(ctx, offset, before, pos, { spaceBefore, comment, anchor, tag, end }, onError) {
+      let token = {
+        type: "scalar",
+        offset: utilEmptyScalarPosition.emptyScalarPosition(offset, before, pos),
+        indent: -1,
+        source: ""
+      }, node = composeScalar.composeScalar(ctx, token, tag, onError);
+      return anchor && (node.anchor = anchor.source.substring(1), node.anchor === "" && onError(anchor, "BAD_ALIAS", "Anchor cannot be an empty string")), spaceBefore && (node.spaceBefore = !0), comment && (node.comment = comment, node.range[2] = end), node;
+    }
+    function composeAlias({ options }, { offset, source, end }, onError) {
+      let alias = new Alias.Alias(source.substring(1));
+      alias.source === "" && onError(offset, "BAD_ALIAS", "Alias cannot be an empty string"), alias.source.endsWith(":") && onError(offset + source.length - 1, "BAD_ALIAS", "Alias ending in : is ambiguous", !0);
+      let valueEnd = offset + source.length, re = resolveEnd.resolveEnd(end, valueEnd, options.strict, onError);
+      return alias.range = [offset, valueEnd, re.offset], re.comment && (alias.comment = re.comment), alias;
+    }
+    exports.composeEmptyNode = composeEmptyNode;
+    exports.composeNode = composeNode;
+  }
+});
+
+// node_modules/yaml/dist/compose/compose-doc.js
+var require_compose_doc = __commonJS({
+  "node_modules/yaml/dist/compose/compose-doc.js"(exports) {
+    "use strict";
+    var Document = require_Document(), composeNode = require_compose_node(), resolveEnd = require_resolve_end(), resolveProps = require_resolve_props();
+    function composeDoc(options, directives, { offset, start, value, end }, onError) {
+      let opts = Object.assign({ _directives: directives }, options), doc = new Document.Document(void 0, opts), ctx = {
+        atKey: !1,
+        atRoot: !0,
+        directives: doc.directives,
+        options: doc.options,
+        schema: doc.schema
+      }, props = resolveProps.resolveProps(start, {
+        indicator: "doc-start",
+        next: value ?? end?.[0],
+        offset,
+        onError,
+        parentIndent: 0,
+        startOnNewline: !0
+      });
+      props.found && (doc.directives.docStart = !0, value && (value.type === "block-map" || value.type === "block-seq") && !props.hasNewline && onError(props.end, "MISSING_CHAR", "Block collection cannot start on same line with directives-end marker")), doc.contents = value ? composeNode.composeNode(ctx, value, props, onError) : composeNode.composeEmptyNode(ctx, props.end, start, null, props, onError);
+      let contentEnd = doc.contents.range[2], re = resolveEnd.resolveEnd(end, contentEnd, !1, onError);
+      return re.comment && (doc.comment = re.comment), doc.range = [offset, contentEnd, re.offset], doc;
+    }
+    exports.composeDoc = composeDoc;
+  }
+});
+
+// node_modules/yaml/dist/compose/composer.js
+var require_composer = __commonJS({
+  "node_modules/yaml/dist/compose/composer.js"(exports) {
+    "use strict";
+    var node_process = __require("process"), directives = require_directives(), Document = require_Document(), errors = require_errors(), identity = require_identity(), composeDoc = require_compose_doc(), resolveEnd = require_resolve_end();
+    function getErrorPos(src) {
+      if (typeof src == "number")
+        return [src, src + 1];
+      if (Array.isArray(src))
+        return src.length === 2 ? src : [src[0], src[1]];
+      let { offset, source } = src;
+      return [offset, offset + (typeof source == "string" ? source.length : 1)];
+    }
+    function parsePrelude(prelude) {
+      let comment = "", atComment = !1, afterEmptyLine = !1;
+      for (let i = 0; i < prelude.length; ++i) {
+        let source = prelude[i];
+        switch (source[0]) {
+          case "#":
+            comment += (comment === "" ? "" : afterEmptyLine ? `
+
+` : `
+`) + (source.substring(1) || " "), atComment = !0, afterEmptyLine = !1;
+            break;
+          case "%":
+            prelude[i + 1]?.[0] !== "#" && (i += 1), atComment = !1;
+            break;
+          default:
+            atComment || (afterEmptyLine = !0), atComment = !1;
+        }
+      }
+      return { comment, afterEmptyLine };
+    }
+    var Composer = class {
+      constructor(options = {}) {
+        this.doc = null, this.atDirectives = !1, this.prelude = [], this.errors = [], this.warnings = [], this.onError = (source, code, message, warning) => {
+          let pos = getErrorPos(source);
+          warning ? this.warnings.push(new errors.YAMLWarning(pos, code, message)) : this.errors.push(new errors.YAMLParseError(pos, code, message));
+        }, this.directives = new directives.Directives({ version: options.version || "1.2" }), this.options = options;
+      }
+      decorate(doc, afterDoc) {
+        let { comment, afterEmptyLine } = parsePrelude(this.prelude);
+        if (comment) {
+          let dc = doc.contents;
+          if (afterDoc)
+            doc.comment = doc.comment ? `${doc.comment}
+${comment}` : comment;
+          else if (afterEmptyLine || doc.directives.docStart || !dc)
+            doc.commentBefore = comment;
+          else if (identity.isCollection(dc) && !dc.flow && dc.items.length > 0) {
+            let it = dc.items[0];
+            identity.isPair(it) && (it = it.key);
+            let cb = it.commentBefore;
+            it.commentBefore = cb ? `${comment}
+${cb}` : comment;
+          } else {
+            let cb = dc.commentBefore;
+            dc.commentBefore = cb ? `${comment}
+${cb}` : comment;
+          }
+        }
+        if (afterDoc) {
+          for (let i = 0; i < this.errors.length; ++i)
+            doc.errors.push(this.errors[i]);
+          for (let i = 0; i < this.warnings.length; ++i)
+            doc.warnings.push(this.warnings[i]);
+        } else
+          doc.errors = this.errors, doc.warnings = this.warnings;
+        this.prelude = [], this.errors = [], this.warnings = [];
+      }
+      /**
+       * Current stream status information.
+       *
+       * Mostly useful at the end of input for an empty stream.
+       */
+      streamInfo() {
+        return {
+          comment: parsePrelude(this.prelude).comment,
+          directives: this.directives,
+          errors: this.errors,
+          warnings: this.warnings
+        };
+      }
+      /**
+       * Compose tokens into documents.
+       *
+       * @param forceDoc - If the stream contains no document, still emit a final document including any comments and directives that would be applied to a subsequent document.
+       * @param endOffset - Should be set if `forceDoc` is also set, to set the document range end and to indicate errors correctly.
+       */
+      *compose(tokens, forceDoc = !1, endOffset = -1) {
+        for (let token of tokens)
+          yield* this.next(token);
+        yield* this.end(forceDoc, endOffset);
+      }
+      /** Advance the composer by one CST token. */
+      *next(token) {
+        switch (node_process.env.LOG_STREAM && console.dir(token, { depth: null }), token.type) {
+          case "directive":
+            this.directives.add(token.source, (offset, message, warning) => {
+              let pos = getErrorPos(token);
+              pos[0] += offset, this.onError(pos, "BAD_DIRECTIVE", message, warning);
+            }), this.prelude.push(token.source), this.atDirectives = !0;
+            break;
+          case "document": {
+            let doc = composeDoc.composeDoc(this.options, this.directives, token, this.onError);
+            this.atDirectives && !doc.directives.docStart && this.onError(token, "MISSING_CHAR", "Missing directives-end/doc-start indicator line"), this.decorate(doc, !1), this.doc && (yield this.doc), this.doc = doc, this.atDirectives = !1;
+            break;
+          }
+          case "byte-order-mark":
+          case "space":
+            break;
+          case "comment":
+          case "newline":
+            this.prelude.push(token.source);
+            break;
+          case "error": {
+            let msg = token.source ? `${token.message}: ${JSON.stringify(token.source)}` : token.message, error = new errors.YAMLParseError(getErrorPos(token), "UNEXPECTED_TOKEN", msg);
+            this.atDirectives || !this.doc ? this.errors.push(error) : this.doc.errors.push(error);
+            break;
+          }
+          case "doc-end": {
+            if (!this.doc) {
+              let msg = "Unexpected doc-end without preceding document";
+              this.errors.push(new errors.YAMLParseError(getErrorPos(token), "UNEXPECTED_TOKEN", msg));
+              break;
+            }
+            this.doc.directives.docEnd = !0;
+            let end = resolveEnd.resolveEnd(token.end, token.offset + token.source.length, this.doc.options.strict, this.onError);
+            if (this.decorate(this.doc, !0), end.comment) {
+              let dc = this.doc.comment;
+              this.doc.comment = dc ? `${dc}
+${end.comment}` : end.comment;
+            }
+            this.doc.range[2] = end.offset;
+            break;
+          }
+          default:
+            this.errors.push(new errors.YAMLParseError(getErrorPos(token), "UNEXPECTED_TOKEN", `Unsupported token ${token.type}`));
+        }
+      }
+      /**
+       * Call at end of input to yield any remaining document.
+       *
+       * @param forceDoc - If the stream contains no document, still emit a final document including any comments and directives that would be applied to a subsequent document.
+       * @param endOffset - Should be set if `forceDoc` is also set, to set the document range end and to indicate errors correctly.
+       */
+      *end(forceDoc = !1, endOffset = -1) {
+        if (this.doc)
+          this.decorate(this.doc, !0), yield this.doc, this.doc = null;
+        else if (forceDoc) {
+          let opts = Object.assign({ _directives: this.directives }, this.options), doc = new Document.Document(void 0, opts);
+          this.atDirectives && this.onError(endOffset, "MISSING_CHAR", "Missing directives-end indicator line"), doc.range = [0, endOffset, endOffset], this.decorate(doc, !1), yield doc;
+        }
+      }
+    };
+    exports.Composer = Composer;
+  }
+});
+
+// node_modules/yaml/dist/parse/cst-scalar.js
+var require_cst_scalar = __commonJS({
+  "node_modules/yaml/dist/parse/cst-scalar.js"(exports) {
+    "use strict";
+    var resolveBlockScalar = require_resolve_block_scalar(), resolveFlowScalar = require_resolve_flow_scalar(), errors = require_errors(), stringifyString = require_stringifyString();
+    function resolveAsScalar(token, strict = !0, onError) {
+      if (token) {
+        let _onError = (pos, code, message) => {
+          let offset = typeof pos == "number" ? pos : Array.isArray(pos) ? pos[0] : pos.offset;
+          if (onError)
+            onError(offset, code, message);
+          else
+            throw new errors.YAMLParseError([offset, offset + 1], code, message);
+        };
+        switch (token.type) {
+          case "scalar":
+          case "single-quoted-scalar":
+          case "double-quoted-scalar":
+            return resolveFlowScalar.resolveFlowScalar(token, strict, _onError);
+          case "block-scalar":
+            return resolveBlockScalar.resolveBlockScalar({ options: { strict } }, token, _onError);
+        }
+      }
+      return null;
+    }
+    function createScalarToken(value, context) {
+      let { implicitKey = !1, indent, inFlow = !1, offset = -1, type = "PLAIN" } = context, source = stringifyString.stringifyString({ type, value }, {
+        implicitKey,
+        indent: indent > 0 ? " ".repeat(indent) : "",
+        inFlow,
+        options: { blockQuote: !0, lineWidth: -1 }
+      }), end = context.end ?? [
+        { type: "newline", offset: -1, indent, source: `
+` }
+      ];
+      switch (source[0]) {
+        case "|":
+        case ">": {
+          let he = source.indexOf(`
+`), head = source.substring(0, he), body = source.substring(he + 1) + `
+`, props = [
+            { type: "block-scalar-header", offset, indent, source: head }
+          ];
+          return addEndtoBlockProps(props, end) || props.push({ type: "newline", offset: -1, indent, source: `
+` }), { type: "block-scalar", offset, indent, props, source: body };
+        }
+        case '"':
+          return { type: "double-quoted-scalar", offset, indent, source, end };
+        case "'":
+          return { type: "single-quoted-scalar", offset, indent, source, end };
+        default:
+          return { type: "scalar", offset, indent, source, end };
+      }
+    }
+    function setScalarValue(token, value, context = {}) {
+      let { afterKey = !1, implicitKey = !1, inFlow = !1, type } = context, indent = "indent" in token ? token.indent : null;
+      if (afterKey && typeof indent == "number" && (indent += 2), !type)
+        switch (token.type) {
+          case "single-quoted-scalar":
+            type = "QUOTE_SINGLE";
+            break;
+          case "double-quoted-scalar":
+            type = "QUOTE_DOUBLE";
+            break;
+          case "block-scalar": {
+            let header = token.props[0];
+            if (header.type !== "block-scalar-header")
+              throw new Error("Invalid block scalar header");
+            type = header.source[0] === ">" ? "BLOCK_FOLDED" : "BLOCK_LITERAL";
+            break;
+          }
+          default:
+            type = "PLAIN";
+        }
+      let source = stringifyString.stringifyString({ type, value }, {
+        implicitKey: implicitKey || indent === null,
+        indent: indent !== null && indent > 0 ? " ".repeat(indent) : "",
+        inFlow,
+        options: { blockQuote: !0, lineWidth: -1 }
+      });
+      switch (source[0]) {
+        case "|":
+        case ">":
+          setBlockScalarValue(token, source);
+          break;
+        case '"':
+          setFlowScalarValue(token, source, "double-quoted-scalar");
+          break;
+        case "'":
+          setFlowScalarValue(token, source, "single-quoted-scalar");
+          break;
+        default:
+          setFlowScalarValue(token, source, "scalar");
+      }
+    }
+    function setBlockScalarValue(token, source) {
+      let he = source.indexOf(`
+`), head = source.substring(0, he), body = source.substring(he + 1) + `
+`;
+      if (token.type === "block-scalar") {
+        let header = token.props[0];
+        if (header.type !== "block-scalar-header")
+          throw new Error("Invalid block scalar header");
+        header.source = head, token.source = body;
+      } else {
+        let { offset } = token, indent = "indent" in token ? token.indent : -1, props = [
+          { type: "block-scalar-header", offset, indent, source: head }
+        ];
+        addEndtoBlockProps(props, "end" in token ? token.end : void 0) || props.push({ type: "newline", offset: -1, indent, source: `
+` });
+        for (let key of Object.keys(token))
+          key !== "type" && key !== "offset" && delete token[key];
+        Object.assign(token, { type: "block-scalar", indent, props, source: body });
+      }
+    }
+    function addEndtoBlockProps(props, end) {
+      if (end)
+        for (let st of end)
+          switch (st.type) {
+            case "space":
+            case "comment":
+              props.push(st);
+              break;
+            case "newline":
+              return props.push(st), !0;
+          }
+      return !1;
+    }
+    function setFlowScalarValue(token, source, type) {
+      switch (token.type) {
+        case "scalar":
+        case "double-quoted-scalar":
+        case "single-quoted-scalar":
+          token.type = type, token.source = source;
+          break;
+        case "block-scalar": {
+          let end = token.props.slice(1), oa = source.length;
+          token.props[0].type === "block-scalar-header" && (oa -= token.props[0].source.length);
+          for (let tok of end)
+            tok.offset += oa;
+          delete token.props, Object.assign(token, { type, source, end });
+          break;
+        }
+        case "block-map":
+        case "block-seq": {
+          let nl = { type: "newline", offset: token.offset + source.length, indent: token.indent, source: `
+` };
+          delete token.items, Object.assign(token, { type, source, end: [nl] });
+          break;
+        }
+        default: {
+          let indent = "indent" in token ? token.indent : -1, end = "end" in token && Array.isArray(token.end) ? token.end.filter((st) => st.type === "space" || st.type === "comment" || st.type === "newline") : [];
+          for (let key of Object.keys(token))
+            key !== "type" && key !== "offset" && delete token[key];
+          Object.assign(token, { type, indent, source, end });
+        }
+      }
+    }
+    exports.createScalarToken = createScalarToken;
+    exports.resolveAsScalar = resolveAsScalar;
+    exports.setScalarValue = setScalarValue;
+  }
+});
+
+// node_modules/yaml/dist/parse/cst-stringify.js
+var require_cst_stringify = __commonJS({
+  "node_modules/yaml/dist/parse/cst-stringify.js"(exports) {
+    "use strict";
+    var stringify3 = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
+    function stringifyToken(token) {
+      switch (token.type) {
+        case "block-scalar": {
+          let res = "";
+          for (let tok of token.props)
+            res += stringifyToken(tok);
+          return res + token.source;
+        }
+        case "block-map":
+        case "block-seq": {
+          let res = "";
+          for (let item of token.items)
+            res += stringifyItem(item);
+          return res;
+        }
+        case "flow-collection": {
+          let res = token.start.source;
+          for (let item of token.items)
+            res += stringifyItem(item);
+          for (let st of token.end)
+            res += st.source;
+          return res;
+        }
+        case "document": {
+          let res = stringifyItem(token);
+          if (token.end)
+            for (let st of token.end)
+              res += st.source;
+          return res;
+        }
+        default: {
+          let res = token.source;
+          if ("end" in token && token.end)
+            for (let st of token.end)
+              res += st.source;
+          return res;
+        }
+      }
+    }
+    function stringifyItem({ start, key, sep: sep2, value }) {
+      let res = "";
+      for (let st of start)
+        res += st.source;
+      if (key && (res += stringifyToken(key)), sep2)
+        for (let st of sep2)
+          res += st.source;
+      return value && (res += stringifyToken(value)), res;
+    }
+    exports.stringify = stringify3;
+  }
+});
+
+// node_modules/yaml/dist/parse/cst-visit.js
+var require_cst_visit = __commonJS({
+  "node_modules/yaml/dist/parse/cst-visit.js"(exports) {
+    "use strict";
+    var BREAK = Symbol("break visit"), SKIP = Symbol("skip children"), REMOVE = Symbol("remove item");
+    function visit(cst, visitor) {
+      "type" in cst && cst.type === "document" && (cst = { start: cst.start, value: cst.value }), _visit(Object.freeze([]), cst, visitor);
+    }
+    visit.BREAK = BREAK;
+    visit.SKIP = SKIP;
+    visit.REMOVE = REMOVE;
+    visit.itemAtPath = (cst, path) => {
+      let item = cst;
+      for (let [field, index] of path) {
+        let tok = item?.[field];
+        if (tok && "items" in tok)
+          item = tok.items[index];
+        else
+          return;
+      }
+      return item;
+    };
+    visit.parentCollection = (cst, path) => {
+      let parent = visit.itemAtPath(cst, path.slice(0, -1)), field = path[path.length - 1][0], coll = parent?.[field];
+      if (coll && "items" in coll)
+        return coll;
+      throw new Error("Parent collection not found");
+    };
+    function _visit(path, item, visitor) {
+      let ctrl = visitor(item, path);
+      if (typeof ctrl == "symbol")
+        return ctrl;
+      for (let field of ["key", "value"]) {
+        let token = item[field];
+        if (token && "items" in token) {
+          for (let i = 0; i < token.items.length; ++i) {
+            let ci = _visit(Object.freeze(path.concat([[field, i]])), token.items[i], visitor);
+            if (typeof ci == "number")
+              i = ci - 1;
+            else {
+              if (ci === BREAK)
+                return BREAK;
+              ci === REMOVE && (token.items.splice(i, 1), i -= 1);
+            }
+          }
+          typeof ctrl == "function" && field === "key" && (ctrl = ctrl(item, path));
+        }
+      }
+      return typeof ctrl == "function" ? ctrl(item, path) : ctrl;
+    }
+    exports.visit = visit;
+  }
+});
+
+// node_modules/yaml/dist/parse/cst.js
+var require_cst = __commonJS({
+  "node_modules/yaml/dist/parse/cst.js"(exports) {
+    "use strict";
+    var cstScalar = require_cst_scalar(), cstStringify = require_cst_stringify(), cstVisit = require_cst_visit(), BOM = "\uFEFF", DOCUMENT = "", FLOW_END = "", SCALAR = "", isCollection = (token) => !!token && "items" in token, isScalar = (token) => !!token && (token.type === "scalar" || token.type === "single-quoted-scalar" || token.type === "double-quoted-scalar" || token.type === "block-scalar");
+    function prettyToken(token) {
+      switch (token) {
+        case BOM:
+          return "<BOM>";
+        case DOCUMENT:
+          return "<DOC>";
+        case FLOW_END:
+          return "<FLOW_END>";
+        case SCALAR:
+          return "<SCALAR>";
+        default:
+          return JSON.stringify(token);
+      }
+    }
+    function tokenType(source) {
+      switch (source) {
+        case BOM:
+          return "byte-order-mark";
+        case DOCUMENT:
+          return "doc-mode";
+        case FLOW_END:
+          return "flow-error-end";
+        case SCALAR:
+          return "scalar";
+        case "---":
+          return "doc-start";
+        case "...":
+          return "doc-end";
+        case "":
+        case `
+`:
+        case `\r
+`:
+          return "newline";
+        case "-":
+          return "seq-item-ind";
+        case "?":
+          return "explicit-key-ind";
+        case ":":
+          return "map-value-ind";
+        case "{":
+          return "flow-map-start";
+        case "}":
+          return "flow-map-end";
+        case "[":
+          return "flow-seq-start";
+        case "]":
+          return "flow-seq-end";
+        case ",":
+          return "comma";
+      }
+      switch (source[0]) {
+        case " ":
+        case "	":
+          return "space";
+        case "#":
+          return "comment";
+        case "%":
+          return "directive-line";
+        case "*":
+          return "alias";
+        case "&":
+          return "anchor";
+        case "!":
+          return "tag";
+        case "'":
+          return "single-quoted-scalar";
+        case '"':
+          return "double-quoted-scalar";
+        case "|":
+        case ">":
+          return "block-scalar-header";
+      }
+      return null;
+    }
+    exports.createScalarToken = cstScalar.createScalarToken;
+    exports.resolveAsScalar = cstScalar.resolveAsScalar;
+    exports.setScalarValue = cstScalar.setScalarValue;
+    exports.stringify = cstStringify.stringify;
+    exports.visit = cstVisit.visit;
+    exports.BOM = BOM;
+    exports.DOCUMENT = DOCUMENT;
+    exports.FLOW_END = FLOW_END;
+    exports.SCALAR = SCALAR;
+    exports.isCollection = isCollection;
+    exports.isScalar = isScalar;
+    exports.prettyToken = prettyToken;
+    exports.tokenType = tokenType;
+  }
+});
+
+// node_modules/yaml/dist/parse/lexer.js
+var require_lexer = __commonJS({
+  "node_modules/yaml/dist/parse/lexer.js"(exports) {
+    "use strict";
+    var cst = require_cst();
+    function isEmpty(ch) {
+      switch (ch) {
+        case void 0:
+        case " ":
+        case `
+`:
+        case "\r":
+        case "	":
+          return !0;
+        default:
+          return !1;
+      }
+    }
+    var hexDigits = new Set("0123456789ABCDEFabcdef"), tagChars = new Set("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-#;/?:@&=+$_.!~*'()"), flowIndicatorChars = new Set(",[]{}"), invalidAnchorChars = new Set(` ,[]{}
+\r	`), isNotAnchorChar = (ch) => !ch || invalidAnchorChars.has(ch), Lexer = class {
+      constructor() {
+        this.atEnd = !1, this.blockScalarIndent = -1, this.blockScalarKeep = !1, this.buffer = "", this.flowKey = !1, this.flowLevel = 0, this.indentNext = 0, this.indentValue = 0, this.lineEndPos = null, this.next = null, this.pos = 0;
+      }
+      /**
+       * Generate YAML tokens from the `source` string. If `incomplete`,
+       * a part of the last line may be left as a buffer for the next call.
+       *
+       * @returns A generator of lexical tokens
+       */
+      *lex(source, incomplete2 = !1) {
+        if (source) {
+          if (typeof source != "string")
+            throw TypeError("source is not a string");
+          this.buffer = this.buffer ? this.buffer + source : source, this.lineEndPos = null;
+        }
+        this.atEnd = !incomplete2;
+        let next = this.next ?? "stream";
+        for (; next && (incomplete2 || this.hasChars(1)); )
+          next = yield* this.parseNext(next);
+      }
+      atLineEnd() {
+        let i = this.pos, ch = this.buffer[i];
+        for (; ch === " " || ch === "	"; )
+          ch = this.buffer[++i];
+        return !ch || ch === "#" || ch === `
+` ? !0 : ch === "\r" ? this.buffer[i + 1] === `
+` : !1;
+      }
+      charAt(n) {
+        return this.buffer[this.pos + n];
+      }
+      continueScalar(offset) {
+        let ch = this.buffer[offset];
+        if (this.indentNext > 0) {
+          let indent = 0;
+          for (; ch === " "; )
+            ch = this.buffer[++indent + offset];
+          if (ch === "\r") {
+            let next = this.buffer[indent + offset + 1];
+            if (next === `
+` || !next && !this.atEnd)
+              return offset + indent + 1;
+          }
+          return ch === `
+` || indent >= this.indentNext || !ch && !this.atEnd ? offset + indent : -1;
+        }
+        if (ch === "-" || ch === ".") {
+          let dt = this.buffer.substr(offset, 3);
+          if ((dt === "---" || dt === "...") && isEmpty(this.buffer[offset + 3]))
+            return -1;
+        }
+        return offset;
+      }
+      getLine() {
+        let end = this.lineEndPos;
+        return (typeof end != "number" || end !== -1 && end < this.pos) && (end = this.buffer.indexOf(`
+`, this.pos), this.lineEndPos = end), end === -1 ? this.atEnd ? this.buffer.substring(this.pos) : null : (this.buffer[end - 1] === "\r" && (end -= 1), this.buffer.substring(this.pos, end));
+      }
+      hasChars(n) {
+        return this.pos + n <= this.buffer.length;
+      }
+      setNext(state) {
+        return this.buffer = this.buffer.substring(this.pos), this.pos = 0, this.lineEndPos = null, this.next = state, null;
+      }
+      peek(n) {
+        return this.buffer.substr(this.pos, n);
+      }
+      *parseNext(next) {
+        switch (next) {
+          case "stream":
+            return yield* this.parseStream();
+          case "line-start":
+            return yield* this.parseLineStart();
+          case "block-start":
+            return yield* this.parseBlockStart();
+          case "doc":
+            return yield* this.parseDocument();
+          case "flow":
+            return yield* this.parseFlowCollection();
+          case "quoted-scalar":
+            return yield* this.parseQuotedScalar();
+          case "block-scalar":
+            return yield* this.parseBlockScalar();
+          case "plain-scalar":
+            return yield* this.parsePlainScalar();
+        }
+      }
+      *parseStream() {
+        let line4 = this.getLine();
+        if (line4 === null)
+          return this.setNext("stream");
+        if (line4[0] === cst.BOM && (yield* this.pushCount(1), line4 = line4.substring(1)), line4[0] === "%") {
+          let dirEnd = line4.length, cs = line4.indexOf("#");
+          for (; cs !== -1; ) {
+            let ch = line4[cs - 1];
+            if (ch === " " || ch === "	") {
+              dirEnd = cs - 1;
+              break;
+            } else
+              cs = line4.indexOf("#", cs + 1);
+          }
+          for (; ; ) {
+            let ch = line4[dirEnd - 1];
+            if (ch === " " || ch === "	")
+              dirEnd -= 1;
+            else
+              break;
+          }
+          let n = (yield* this.pushCount(dirEnd)) + (yield* this.pushSpaces(!0));
+          return yield* this.pushCount(line4.length - n), this.pushNewline(), "stream";
+        }
+        if (this.atLineEnd()) {
+          let sp = yield* this.pushSpaces(!0);
+          return yield* this.pushCount(line4.length - sp), yield* this.pushNewline(), "stream";
+        }
+        return yield cst.DOCUMENT, yield* this.parseLineStart();
+      }
+      *parseLineStart() {
+        let ch = this.charAt(0);
+        if (!ch && !this.atEnd)
+          return this.setNext("line-start");
+        if (ch === "-" || ch === ".") {
+          if (!this.atEnd && !this.hasChars(4))
+            return this.setNext("line-start");
+          let s = this.peek(3);
+          if ((s === "---" || s === "...") && isEmpty(this.charAt(3)))
+            return yield* this.pushCount(3), this.indentValue = 0, this.indentNext = 0, s === "---" ? "doc" : "stream";
+        }
+        return this.indentValue = yield* this.pushSpaces(!1), this.indentNext > this.indentValue && !isEmpty(this.charAt(1)) && (this.indentNext = this.indentValue), yield* this.parseBlockStart();
+      }
+      *parseBlockStart() {
+        let [ch0, ch1] = this.peek(2);
+        if (!ch1 && !this.atEnd)
+          return this.setNext("block-start");
+        if ((ch0 === "-" || ch0 === "?" || ch0 === ":") && isEmpty(ch1)) {
+          let n = (yield* this.pushCount(1)) + (yield* this.pushSpaces(!0));
+          return this.indentNext = this.indentValue + 1, this.indentValue += n, "block-start";
+        }
+        return "doc";
+      }
+      *parseDocument() {
+        yield* this.pushSpaces(!0);
+        let line4 = this.getLine();
+        if (line4 === null)
+          return this.setNext("doc");
+        let n = yield* this.pushIndicators();
+        switch (line4[n]) {
+          case "#":
+            yield* this.pushCount(line4.length - n);
+          // fallthrough
+          case void 0:
+            return yield* this.pushNewline(), yield* this.parseLineStart();
+          case "{":
+          case "[":
+            return yield* this.pushCount(1), this.flowKey = !1, this.flowLevel = 1, "flow";
+          case "}":
+          case "]":
+            return yield* this.pushCount(1), "doc";
+          case "*":
+            return yield* this.pushUntil(isNotAnchorChar), "doc";
+          case '"':
+          case "'":
+            return yield* this.parseQuotedScalar();
+          case "|":
+          case ">":
+            return n += yield* this.parseBlockScalarHeader(), n += yield* this.pushSpaces(!0), yield* this.pushCount(line4.length - n), yield* this.pushNewline(), yield* this.parseBlockScalar();
+          default:
+            return yield* this.parsePlainScalar();
+        }
+      }
+      *parseFlowCollection() {
+        let nl, sp, indent = -1;
+        do
+          nl = yield* this.pushNewline(), nl > 0 ? (sp = yield* this.pushSpaces(!1), this.indentValue = indent = sp) : sp = 0, sp += yield* this.pushSpaces(!0);
+        while (nl + sp > 0);
+        let line4 = this.getLine();
+        if (line4 === null)
+          return this.setNext("flow");
+        if ((indent !== -1 && indent < this.indentNext && line4[0] !== "#" || indent === 0 && (line4.startsWith("---") || line4.startsWith("...")) && isEmpty(line4[3])) && !(indent === this.indentNext - 1 && this.flowLevel === 1 && (line4[0] === "]" || line4[0] === "}")))
+          return this.flowLevel = 0, yield cst.FLOW_END, yield* this.parseLineStart();
+        let n = 0;
+        for (; line4[n] === ","; )
+          n += yield* this.pushCount(1), n += yield* this.pushSpaces(!0), this.flowKey = !1;
+        switch (n += yield* this.pushIndicators(), line4[n]) {
+          case void 0:
+            return "flow";
+          case "#":
+            return yield* this.pushCount(line4.length - n), "flow";
+          case "{":
+          case "[":
+            return yield* this.pushCount(1), this.flowKey = !1, this.flowLevel += 1, "flow";
+          case "}":
+          case "]":
+            return yield* this.pushCount(1), this.flowKey = !0, this.flowLevel -= 1, this.flowLevel ? "flow" : "doc";
+          case "*":
+            return yield* this.pushUntil(isNotAnchorChar), "flow";
+          case '"':
+          case "'":
+            return this.flowKey = !0, yield* this.parseQuotedScalar();
+          case ":": {
+            let next = this.charAt(1);
+            if (this.flowKey || isEmpty(next) || next === ",")
+              return this.flowKey = !1, yield* this.pushCount(1), yield* this.pushSpaces(!0), "flow";
+          }
+          // fallthrough
+          default:
+            return this.flowKey = !1, yield* this.parsePlainScalar();
+        }
+      }
+      *parseQuotedScalar() {
+        let quote = this.charAt(0), end = this.buffer.indexOf(quote, this.pos + 1);
+        if (quote === "'")
+          for (; end !== -1 && this.buffer[end + 1] === "'"; )
+            end = this.buffer.indexOf("'", end + 2);
+        else
+          for (; end !== -1; ) {
+            let n = 0;
+            for (; this.buffer[end - 1 - n] === "\\"; )
+              n += 1;
+            if (n % 2 === 0)
+              break;
+            end = this.buffer.indexOf('"', end + 1);
+          }
+        let qb = this.buffer.substring(0, end), nl = qb.indexOf(`
+`, this.pos);
+        if (nl !== -1) {
+          for (; nl !== -1; ) {
+            let cs = this.continueScalar(nl + 1);
+            if (cs === -1)
+              break;
+            nl = qb.indexOf(`
+`, cs);
+          }
+          nl !== -1 && (end = nl - (qb[nl - 1] === "\r" ? 2 : 1));
+        }
+        if (end === -1) {
+          if (!this.atEnd)
+            return this.setNext("quoted-scalar");
+          end = this.buffer.length;
+        }
+        return yield* this.pushToIndex(end + 1, !1), this.flowLevel ? "flow" : "doc";
+      }
+      *parseBlockScalarHeader() {
+        this.blockScalarIndent = -1, this.blockScalarKeep = !1;
+        let i = this.pos;
+        for (; ; ) {
+          let ch = this.buffer[++i];
+          if (ch === "+")
+            this.blockScalarKeep = !0;
+          else if (ch > "0" && ch <= "9")
+            this.blockScalarIndent = Number(ch) - 1;
+          else if (ch !== "-")
+            break;
+        }
+        return yield* this.pushUntil((ch) => isEmpty(ch) || ch === "#");
+      }
+      *parseBlockScalar() {
+        let nl = this.pos - 1, indent = 0, ch;
+        loop: for (let i2 = this.pos; ch = this.buffer[i2]; ++i2)
+          switch (ch) {
+            case " ":
+              indent += 1;
+              break;
+            case `
+`:
+              nl = i2, indent = 0;
+              break;
+            case "\r": {
+              let next = this.buffer[i2 + 1];
+              if (!next && !this.atEnd)
+                return this.setNext("block-scalar");
+              if (next === `
+`)
+                break;
+            }
+            // fallthrough
+            default:
+              break loop;
+          }
+        if (!ch && !this.atEnd)
+          return this.setNext("block-scalar");
+        if (indent >= this.indentNext) {
+          this.blockScalarIndent === -1 ? this.indentNext = indent : this.indentNext = this.blockScalarIndent + (this.indentNext === 0 ? 1 : this.indentNext);
+          do {
+            let cs = this.continueScalar(nl + 1);
+            if (cs === -1)
+              break;
+            nl = this.buffer.indexOf(`
+`, cs);
+          } while (nl !== -1);
+          if (nl === -1) {
+            if (!this.atEnd)
+              return this.setNext("block-scalar");
+            nl = this.buffer.length;
+          }
+        }
+        let i = nl + 1;
+        for (ch = this.buffer[i]; ch === " "; )
+          ch = this.buffer[++i];
+        if (ch === "	") {
+          for (; ch === "	" || ch === " " || ch === "\r" || ch === `
+`; )
+            ch = this.buffer[++i];
+          nl = i - 1;
+        } else if (!this.blockScalarKeep)
+          do {
+            let i2 = nl - 1, ch2 = this.buffer[i2];
+            ch2 === "\r" && (ch2 = this.buffer[--i2]);
+            let lastChar = i2;
+            for (; ch2 === " "; )
+              ch2 = this.buffer[--i2];
+            if (ch2 === `
+` && i2 >= this.pos && i2 + 1 + indent > lastChar)
+              nl = i2;
+            else
+              break;
+          } while (!0);
+        return yield cst.SCALAR, yield* this.pushToIndex(nl + 1, !0), yield* this.parseLineStart();
+      }
+      *parsePlainScalar() {
+        let inFlow = this.flowLevel > 0, end = this.pos - 1, i = this.pos - 1, ch;
+        for (; ch = this.buffer[++i]; )
+          if (ch === ":") {
+            let next = this.buffer[i + 1];
+            if (isEmpty(next) || inFlow && flowIndicatorChars.has(next))
+              break;
+            end = i;
+          } else if (isEmpty(ch)) {
+            let next = this.buffer[i + 1];
+            if (ch === "\r" && (next === `
+` ? (i += 1, ch = `
+`, next = this.buffer[i + 1]) : end = i), next === "#" || inFlow && flowIndicatorChars.has(next))
+              break;
+            if (ch === `
+`) {
+              let cs = this.continueScalar(i + 1);
+              if (cs === -1)
+                break;
+              i = Math.max(i, cs - 2);
+            }
+          } else {
+            if (inFlow && flowIndicatorChars.has(ch))
+              break;
+            end = i;
+          }
+        return !ch && !this.atEnd ? this.setNext("plain-scalar") : (yield cst.SCALAR, yield* this.pushToIndex(end + 1, !0), inFlow ? "flow" : "doc");
+      }
+      *pushCount(n) {
+        return n > 0 ? (yield this.buffer.substr(this.pos, n), this.pos += n, n) : 0;
+      }
+      *pushToIndex(i, allowEmpty) {
+        let s = this.buffer.slice(this.pos, i);
+        return s ? (yield s, this.pos += s.length, s.length) : (allowEmpty && (yield ""), 0);
+      }
+      *pushIndicators() {
+        let n = 0;
+        loop: for (; ; ) {
+          switch (this.charAt(0)) {
+            case "!":
+              n += yield* this.pushTag(), n += yield* this.pushSpaces(!0);
+              continue loop;
+            case "&":
+              n += yield* this.pushUntil(isNotAnchorChar), n += yield* this.pushSpaces(!0);
+              continue loop;
+            case "-":
+            // this is an error
+            case "?":
+            // this is an error outside flow collections
+            case ":": {
+              let inFlow = this.flowLevel > 0, ch1 = this.charAt(1);
+              if (isEmpty(ch1) || inFlow && flowIndicatorChars.has(ch1)) {
+                inFlow ? this.flowKey && (this.flowKey = !1) : this.indentNext = this.indentValue + 1, n += yield* this.pushCount(1), n += yield* this.pushSpaces(!0);
+                continue loop;
+              }
+            }
+          }
+          break loop;
+        }
+        return n;
+      }
+      *pushTag() {
+        if (this.charAt(1) === "<") {
+          let i = this.pos + 2, ch = this.buffer[i];
+          for (; !isEmpty(ch) && ch !== ">"; )
+            ch = this.buffer[++i];
+          return yield* this.pushToIndex(ch === ">" ? i + 1 : i, !1);
+        } else {
+          let i = this.pos + 1, ch = this.buffer[i];
+          for (; ch; )
+            if (tagChars.has(ch))
+              ch = this.buffer[++i];
+            else if (ch === "%" && hexDigits.has(this.buffer[i + 1]) && hexDigits.has(this.buffer[i + 2]))
+              ch = this.buffer[i += 3];
+            else
+              break;
+          return yield* this.pushToIndex(i, !1);
+        }
+      }
+      *pushNewline() {
+        let ch = this.buffer[this.pos];
+        return ch === `
+` ? yield* this.pushCount(1) : ch === "\r" && this.charAt(1) === `
+` ? yield* this.pushCount(2) : 0;
+      }
+      *pushSpaces(allowTabs) {
+        let i = this.pos - 1, ch;
+        do
+          ch = this.buffer[++i];
+        while (ch === " " || allowTabs && ch === "	");
+        let n = i - this.pos;
+        return n > 0 && (yield this.buffer.substr(this.pos, n), this.pos = i), n;
+      }
+      *pushUntil(test) {
+        let i = this.pos, ch = this.buffer[i];
+        for (; !test(ch); )
+          ch = this.buffer[++i];
+        return yield* this.pushToIndex(i, !1);
+      }
+    };
+    exports.Lexer = Lexer;
+  }
+});
+
+// node_modules/yaml/dist/parse/line-counter.js
+var require_line_counter = __commonJS({
+  "node_modules/yaml/dist/parse/line-counter.js"(exports) {
+    "use strict";
+    var LineCounter = class {
+      constructor() {
+        this.lineStarts = [], this.addNewLine = (offset) => this.lineStarts.push(offset), this.linePos = (offset) => {
+          let low = 0, high = this.lineStarts.length;
+          for (; low < high; ) {
+            let mid = low + high >> 1;
+            this.lineStarts[mid] < offset ? low = mid + 1 : high = mid;
+          }
+          if (this.lineStarts[low] === offset)
+            return { line: low + 1, col: 1 };
+          if (low === 0)
+            return { line: 0, col: offset };
+          let start = this.lineStarts[low - 1];
+          return { line: low, col: offset - start + 1 };
+        };
+      }
+    };
+    exports.LineCounter = LineCounter;
+  }
+});
+
+// node_modules/yaml/dist/parse/parser.js
+var require_parser = __commonJS({
+  "node_modules/yaml/dist/parse/parser.js"(exports) {
+    "use strict";
+    var node_process = __require("process"), cst = require_cst(), lexer = require_lexer();
+    function includesToken(list2, type) {
+      for (let i = 0; i < list2.length; ++i)
+        if (list2[i].type === type)
+          return !0;
+      return !1;
+    }
+    function findNonEmptyIndex(list2) {
+      for (let i = 0; i < list2.length; ++i)
+        switch (list2[i].type) {
+          case "space":
+          case "comment":
+          case "newline":
+            break;
+          default:
+            return i;
+        }
+      return -1;
+    }
+    function isFlowToken(token) {
+      switch (token?.type) {
+        case "alias":
+        case "scalar":
+        case "single-quoted-scalar":
+        case "double-quoted-scalar":
+        case "flow-collection":
+          return !0;
+        default:
+          return !1;
+      }
+    }
+    function getPrevProps(parent) {
+      switch (parent.type) {
+        case "document":
+          return parent.start;
+        case "block-map": {
+          let it = parent.items[parent.items.length - 1];
+          return it.sep ?? it.start;
+        }
+        case "block-seq":
+          return parent.items[parent.items.length - 1].start;
+        /* istanbul ignore next should not happen */
+        default:
+          return [];
+      }
+    }
+    function getFirstKeyStartProps(prev) {
+      if (prev.length === 0)
+        return [];
+      let i = prev.length;
+      loop: for (; --i >= 0; )
+        switch (prev[i].type) {
+          case "doc-start":
+          case "explicit-key-ind":
+          case "map-value-ind":
+          case "seq-item-ind":
+          case "newline":
+            break loop;
+        }
+      for (; prev[++i]?.type === "space"; )
+        ;
+      return prev.splice(i, prev.length);
+    }
+    function arrayPushArray(target, source) {
+      if (source.length < 1e5)
+        Array.prototype.push.apply(target, source);
+      else
+        for (let i = 0; i < source.length; ++i)
+          target.push(source[i]);
+    }
+    function fixFlowSeqItems(fc) {
+      if (fc.start.type === "flow-seq-start")
+        for (let it of fc.items)
+          it.sep && !it.value && !includesToken(it.start, "explicit-key-ind") && !includesToken(it.sep, "map-value-ind") && (it.key && (it.value = it.key), delete it.key, isFlowToken(it.value) ? it.value.end ? arrayPushArray(it.value.end, it.sep) : it.value.end = it.sep : arrayPushArray(it.start, it.sep), delete it.sep);
+    }
+    var Parser = class {
+      /**
+       * @param onNewLine - If defined, called separately with the start position of
+       *   each new line (in `parse()`, including the start of input).
+       */
+      constructor(onNewLine) {
+        this.atNewLine = !0, this.atScalar = !1, this.indent = 0, this.offset = 0, this.onKeyLine = !1, this.stack = [], this.source = "", this.type = "", this.lexer = new lexer.Lexer(), this.onNewLine = onNewLine;
+      }
+      /**
+       * Parse `source` as a YAML stream.
+       * If `incomplete`, a part of the last line may be left as a buffer for the next call.
+       *
+       * Errors are not thrown, but yielded as `{ type: 'error', message }` tokens.
+       *
+       * @returns A generator of tokens representing each directive, document, and other structure.
+       */
+      *parse(source, incomplete2 = !1) {
+        this.onNewLine && this.offset === 0 && this.onNewLine(0);
+        for (let lexeme of this.lexer.lex(source, incomplete2))
+          yield* this.next(lexeme);
+        incomplete2 || (yield* this.end());
+      }
+      /**
+       * Advance the parser by the `source` of one lexical token.
+       */
+      *next(source) {
+        if (this.source = source, node_process.env.LOG_TOKENS && console.log("|", cst.prettyToken(source)), this.atScalar) {
+          this.atScalar = !1, yield* this.step(), this.offset += source.length;
+          return;
+        }
+        let type = cst.tokenType(source);
+        if (type)
+          if (type === "scalar")
+            this.atNewLine = !1, this.atScalar = !0, this.type = "scalar";
+          else {
+            switch (this.type = type, yield* this.step(), type) {
+              case "newline":
+                this.atNewLine = !0, this.indent = 0, this.onNewLine && this.onNewLine(this.offset + source.length);
+                break;
+              case "space":
+                this.atNewLine && source[0] === " " && (this.indent += source.length);
+                break;
+              case "explicit-key-ind":
+              case "map-value-ind":
+              case "seq-item-ind":
+                this.atNewLine && (this.indent += source.length);
+                break;
+              case "doc-mode":
+              case "flow-error-end":
+                return;
+              default:
+                this.atNewLine = !1;
+            }
+            this.offset += source.length;
+          }
+        else {
+          let message = `Not a YAML token: ${source}`;
+          yield* this.pop({ type: "error", offset: this.offset, message, source }), this.offset += source.length;
+        }
+      }
+      /** Call at end of input to push out any remaining constructions */
+      *end() {
+        for (; this.stack.length > 0; )
+          yield* this.pop();
+      }
+      get sourceToken() {
+        return {
+          type: this.type,
+          offset: this.offset,
+          indent: this.indent,
+          source: this.source
+        };
+      }
+      *step() {
+        let top = this.peek(1);
+        if (this.type === "doc-end" && top?.type !== "doc-end") {
+          for (; this.stack.length > 0; )
+            yield* this.pop();
+          this.stack.push({
+            type: "doc-end",
+            offset: this.offset,
+            source: this.source
+          });
+          return;
+        }
+        if (!top)
+          return yield* this.stream();
+        switch (top.type) {
+          case "document":
+            return yield* this.document(top);
+          case "alias":
+          case "scalar":
+          case "single-quoted-scalar":
+          case "double-quoted-scalar":
+            return yield* this.scalar(top);
+          case "block-scalar":
+            return yield* this.blockScalar(top);
+          case "block-map":
+            return yield* this.blockMap(top);
+          case "block-seq":
+            return yield* this.blockSequence(top);
+          case "flow-collection":
+            return yield* this.flowCollection(top);
+          case "doc-end":
+            return yield* this.documentEnd(top);
+        }
+        yield* this.pop();
+      }
+      peek(n) {
+        return this.stack[this.stack.length - n];
+      }
+      *pop(error) {
+        let token = error ?? this.stack.pop();
+        if (!token)
+          yield { type: "error", offset: this.offset, source: "", message: "Tried to pop an empty stack" };
+        else if (this.stack.length === 0)
+          yield token;
+        else {
+          let top = this.peek(1);
+          switch (token.type === "block-scalar" ? token.indent = "indent" in top ? top.indent : 0 : token.type === "flow-collection" && top.type === "document" && (token.indent = 0), token.type === "flow-collection" && fixFlowSeqItems(token), top.type) {
+            case "document":
+              top.value = token;
+              break;
+            case "block-scalar":
+              top.props.push(token);
+              break;
+            case "block-map": {
+              let it = top.items[top.items.length - 1];
+              if (it.value) {
+                top.items.push({ start: [], key: token, sep: [] }), this.onKeyLine = !0;
+                return;
+              } else if (it.sep)
+                it.value = token;
+              else {
+                Object.assign(it, { key: token, sep: [] }), this.onKeyLine = !it.explicitKey;
+                return;
+              }
+              break;
+            }
+            case "block-seq": {
+              let it = top.items[top.items.length - 1];
+              it.value ? top.items.push({ start: [], value: token }) : it.value = token;
+              break;
+            }
+            case "flow-collection": {
+              let it = top.items[top.items.length - 1];
+              !it || it.value ? top.items.push({ start: [], key: token, sep: [] }) : it.sep ? it.value = token : Object.assign(it, { key: token, sep: [] });
+              return;
+            }
+            /* istanbul ignore next should not happen */
+            default:
+              yield* this.pop(), yield* this.pop(token);
+          }
+          if ((top.type === "document" || top.type === "block-map" || top.type === "block-seq") && (token.type === "block-map" || token.type === "block-seq")) {
+            let last = token.items[token.items.length - 1];
+            last && !last.sep && !last.value && last.start.length > 0 && findNonEmptyIndex(last.start) === -1 && (token.indent === 0 || last.start.every((st) => st.type !== "comment" || st.indent < token.indent)) && (top.type === "document" ? top.end = last.start : top.items.push({ start: last.start }), token.items.splice(-1, 1));
+          }
+        }
+      }
+      *stream() {
+        switch (this.type) {
+          case "directive-line":
+            yield { type: "directive", offset: this.offset, source: this.source };
+            return;
+          case "byte-order-mark":
+          case "space":
+          case "comment":
+          case "newline":
+            yield this.sourceToken;
+            return;
+          case "doc-mode":
+          case "doc-start": {
+            let doc = {
+              type: "document",
+              offset: this.offset,
+              start: []
+            };
+            this.type === "doc-start" && doc.start.push(this.sourceToken), this.stack.push(doc);
+            return;
+          }
+        }
+        yield {
+          type: "error",
+          offset: this.offset,
+          message: `Unexpected ${this.type} token in YAML stream`,
+          source: this.source
+        };
+      }
+      *document(doc) {
+        if (doc.value)
+          return yield* this.lineEnd(doc);
+        switch (this.type) {
+          case "doc-start": {
+            findNonEmptyIndex(doc.start) !== -1 ? (yield* this.pop(), yield* this.step()) : doc.start.push(this.sourceToken);
+            return;
+          }
+          case "anchor":
+          case "tag":
+          case "space":
+          case "comment":
+          case "newline":
+            doc.start.push(this.sourceToken);
+            return;
+        }
+        let bv = this.startBlockValue(doc);
+        bv ? this.stack.push(bv) : yield {
+          type: "error",
+          offset: this.offset,
+          message: `Unexpected ${this.type} token in YAML document`,
+          source: this.source
+        };
+      }
+      *scalar(scalar) {
+        if (this.type === "map-value-ind") {
+          let prev = getPrevProps(this.peek(2)), start = getFirstKeyStartProps(prev), sep2;
+          scalar.end ? (sep2 = scalar.end, sep2.push(this.sourceToken), delete scalar.end) : sep2 = [this.sourceToken];
+          let map = {
+            type: "block-map",
+            offset: scalar.offset,
+            indent: scalar.indent,
+            items: [{ start, key: scalar, sep: sep2 }]
+          };
+          this.onKeyLine = !0, this.stack[this.stack.length - 1] = map;
+        } else
+          yield* this.lineEnd(scalar);
+      }
+      *blockScalar(scalar) {
+        switch (this.type) {
+          case "space":
+          case "comment":
+          case "newline":
+            scalar.props.push(this.sourceToken);
+            return;
+          case "scalar":
+            if (scalar.source = this.source, this.atNewLine = !0, this.indent = 0, this.onNewLine) {
+              let nl = this.source.indexOf(`
+`) + 1;
+              for (; nl !== 0; )
+                this.onNewLine(this.offset + nl), nl = this.source.indexOf(`
+`, nl) + 1;
+            }
+            yield* this.pop();
+            break;
+          /* istanbul ignore next should not happen */
+          default:
+            yield* this.pop(), yield* this.step();
+        }
+      }
+      *blockMap(map) {
+        let it = map.items[map.items.length - 1];
+        switch (this.type) {
+          case "newline":
+            if (this.onKeyLine = !1, it.value) {
+              let end = "end" in it.value ? it.value.end : void 0;
+              (Array.isArray(end) ? end[end.length - 1] : void 0)?.type === "comment" ? end?.push(this.sourceToken) : map.items.push({ start: [this.sourceToken] });
+            } else it.sep ? it.sep.push(this.sourceToken) : it.start.push(this.sourceToken);
+            return;
+          case "space":
+          case "comment":
+            if (it.value)
+              map.items.push({ start: [this.sourceToken] });
+            else if (it.sep)
+              it.sep.push(this.sourceToken);
+            else {
+              if (this.atIndentedComment(it.start, map.indent)) {
+                let end = map.items[map.items.length - 2]?.value?.end;
+                if (Array.isArray(end)) {
+                  arrayPushArray(end, it.start), end.push(this.sourceToken), map.items.pop();
+                  return;
+                }
+              }
+              it.start.push(this.sourceToken);
+            }
+            return;
+        }
+        if (this.indent >= map.indent) {
+          let atMapIndent = !this.onKeyLine && this.indent === map.indent, atNextItem = atMapIndent && (it.sep || it.explicitKey) && this.type !== "seq-item-ind", start = [];
+          if (atNextItem && it.sep && !it.value) {
+            let nl = [];
+            for (let i = 0; i < it.sep.length; ++i) {
+              let st = it.sep[i];
+              switch (st.type) {
+                case "newline":
+                  nl.push(i);
+                  break;
+                case "space":
+                  break;
+                case "comment":
+                  st.indent > map.indent && (nl.length = 0);
+                  break;
+                default:
+                  nl.length = 0;
+              }
+            }
+            nl.length >= 2 && (start = it.sep.splice(nl[1]));
+          }
+          switch (this.type) {
+            case "anchor":
+            case "tag":
+              atNextItem || it.value ? (start.push(this.sourceToken), map.items.push({ start }), this.onKeyLine = !0) : it.sep ? it.sep.push(this.sourceToken) : it.start.push(this.sourceToken);
+              return;
+            case "explicit-key-ind":
+              !it.sep && !it.explicitKey ? (it.start.push(this.sourceToken), it.explicitKey = !0) : atNextItem || it.value ? (start.push(this.sourceToken), map.items.push({ start, explicitKey: !0 })) : this.stack.push({
+                type: "block-map",
+                offset: this.offset,
+                indent: this.indent,
+                items: [{ start: [this.sourceToken], explicitKey: !0 }]
+              }), this.onKeyLine = !0;
+              return;
+            case "map-value-ind":
+              if (it.explicitKey)
+                if (it.sep)
+                  if (it.value)
+                    map.items.push({ start: [], key: null, sep: [this.sourceToken] });
+                  else if (includesToken(it.sep, "map-value-ind"))
+                    this.stack.push({
+                      type: "block-map",
+                      offset: this.offset,
+                      indent: this.indent,
+                      items: [{ start, key: null, sep: [this.sourceToken] }]
+                    });
+                  else if (isFlowToken(it.key) && !includesToken(it.sep, "newline")) {
+                    let start2 = getFirstKeyStartProps(it.start), key = it.key, sep2 = it.sep;
+                    sep2.push(this.sourceToken), delete it.key, delete it.sep, this.stack.push({
+                      type: "block-map",
+                      offset: this.offset,
+                      indent: this.indent,
+                      items: [{ start: start2, key, sep: sep2 }]
+                    });
+                  } else start.length > 0 ? it.sep = it.sep.concat(start, this.sourceToken) : it.sep.push(this.sourceToken);
+                else if (includesToken(it.start, "newline"))
+                  Object.assign(it, { key: null, sep: [this.sourceToken] });
+                else {
+                  let start2 = getFirstKeyStartProps(it.start);
+                  this.stack.push({
+                    type: "block-map",
+                    offset: this.offset,
+                    indent: this.indent,
+                    items: [{ start: start2, key: null, sep: [this.sourceToken] }]
+                  });
+                }
+              else
+                it.sep ? it.value || atNextItem ? map.items.push({ start, key: null, sep: [this.sourceToken] }) : includesToken(it.sep, "map-value-ind") ? this.stack.push({
+                  type: "block-map",
+                  offset: this.offset,
+                  indent: this.indent,
+                  items: [{ start: [], key: null, sep: [this.sourceToken] }]
+                }) : it.sep.push(this.sourceToken) : Object.assign(it, { key: null, sep: [this.sourceToken] });
+              this.onKeyLine = !0;
+              return;
+            case "alias":
+            case "scalar":
+            case "single-quoted-scalar":
+            case "double-quoted-scalar": {
+              let fs = this.flowScalar(this.type);
+              atNextItem || it.value ? (map.items.push({ start, key: fs, sep: [] }), this.onKeyLine = !0) : it.sep ? this.stack.push(fs) : (Object.assign(it, { key: fs, sep: [] }), this.onKeyLine = !0);
+              return;
+            }
+            default: {
+              let bv = this.startBlockValue(map);
+              if (bv) {
+                if (bv.type === "block-seq") {
+                  if (!it.explicitKey && it.sep && !includesToken(it.sep, "newline")) {
+                    yield* this.pop({
+                      type: "error",
+                      offset: this.offset,
+                      message: "Unexpected block-seq-ind on same line with key",
+                      source: this.source
+                    });
+                    return;
+                  }
+                } else atMapIndent && map.items.push({ start });
+                this.stack.push(bv);
+                return;
+              }
+            }
+          }
+        }
+        yield* this.pop(), yield* this.step();
+      }
+      *blockSequence(seq) {
+        let it = seq.items[seq.items.length - 1];
+        switch (this.type) {
+          case "newline":
+            if (it.value) {
+              let end = "end" in it.value ? it.value.end : void 0;
+              (Array.isArray(end) ? end[end.length - 1] : void 0)?.type === "comment" ? end?.push(this.sourceToken) : seq.items.push({ start: [this.sourceToken] });
+            } else
+              it.start.push(this.sourceToken);
+            return;
+          case "space":
+          case "comment":
+            if (it.value)
+              seq.items.push({ start: [this.sourceToken] });
+            else {
+              if (this.atIndentedComment(it.start, seq.indent)) {
+                let end = seq.items[seq.items.length - 2]?.value?.end;
+                if (Array.isArray(end)) {
+                  arrayPushArray(end, it.start), end.push(this.sourceToken), seq.items.pop();
+                  return;
+                }
+              }
+              it.start.push(this.sourceToken);
+            }
+            return;
+          case "anchor":
+          case "tag":
+            if (it.value || this.indent <= seq.indent)
+              break;
+            it.start.push(this.sourceToken);
+            return;
+          case "seq-item-ind":
+            if (this.indent !== seq.indent)
+              break;
+            it.value || includesToken(it.start, "seq-item-ind") ? seq.items.push({ start: [this.sourceToken] }) : it.start.push(this.sourceToken);
+            return;
+        }
+        if (this.indent > seq.indent) {
+          let bv = this.startBlockValue(seq);
+          if (bv) {
+            this.stack.push(bv);
+            return;
+          }
+        }
+        yield* this.pop(), yield* this.step();
+      }
+      *flowCollection(fc) {
+        let it = fc.items[fc.items.length - 1];
+        if (this.type === "flow-error-end") {
+          let top;
+          do
+            yield* this.pop(), top = this.peek(1);
+          while (top?.type === "flow-collection");
+        } else if (fc.end.length === 0) {
+          switch (this.type) {
+            case "comma":
+            case "explicit-key-ind":
+              !it || it.sep ? fc.items.push({ start: [this.sourceToken] }) : it.start.push(this.sourceToken);
+              return;
+            case "map-value-ind":
+              !it || it.value ? fc.items.push({ start: [], key: null, sep: [this.sourceToken] }) : it.sep ? it.sep.push(this.sourceToken) : Object.assign(it, { key: null, sep: [this.sourceToken] });
+              return;
+            case "space":
+            case "comment":
+            case "newline":
+            case "anchor":
+            case "tag":
+              !it || it.value ? fc.items.push({ start: [this.sourceToken] }) : it.sep ? it.sep.push(this.sourceToken) : it.start.push(this.sourceToken);
+              return;
+            case "alias":
+            case "scalar":
+            case "single-quoted-scalar":
+            case "double-quoted-scalar": {
+              let fs = this.flowScalar(this.type);
+              !it || it.value ? fc.items.push({ start: [], key: fs, sep: [] }) : it.sep ? this.stack.push(fs) : Object.assign(it, { key: fs, sep: [] });
+              return;
+            }
+            case "flow-map-end":
+            case "flow-seq-end":
+              fc.end.push(this.sourceToken);
+              return;
+          }
+          let bv = this.startBlockValue(fc);
+          bv ? this.stack.push(bv) : (yield* this.pop(), yield* this.step());
+        } else {
+          let parent = this.peek(2);
+          if (parent.type === "block-map" && (this.type === "map-value-ind" && parent.indent === fc.indent || this.type === "newline" && !parent.items[parent.items.length - 1].sep))
+            yield* this.pop(), yield* this.step();
+          else if (this.type === "map-value-ind" && parent.type !== "flow-collection") {
+            let prev = getPrevProps(parent), start = getFirstKeyStartProps(prev);
+            fixFlowSeqItems(fc);
+            let sep2 = fc.end.splice(1, fc.end.length);
+            sep2.push(this.sourceToken);
+            let map = {
+              type: "block-map",
+              offset: fc.offset,
+              indent: fc.indent,
+              items: [{ start, key: fc, sep: sep2 }]
+            };
+            this.onKeyLine = !0, this.stack[this.stack.length - 1] = map;
+          } else
+            yield* this.lineEnd(fc);
+        }
+      }
+      flowScalar(type) {
+        if (this.onNewLine) {
+          let nl = this.source.indexOf(`
+`) + 1;
+          for (; nl !== 0; )
+            this.onNewLine(this.offset + nl), nl = this.source.indexOf(`
+`, nl) + 1;
+        }
+        return {
+          type,
+          offset: this.offset,
+          indent: this.indent,
+          source: this.source
+        };
+      }
+      startBlockValue(parent) {
+        switch (this.type) {
+          case "alias":
+          case "scalar":
+          case "single-quoted-scalar":
+          case "double-quoted-scalar":
+            return this.flowScalar(this.type);
+          case "block-scalar-header":
+            return {
+              type: "block-scalar",
+              offset: this.offset,
+              indent: this.indent,
+              props: [this.sourceToken],
+              source: ""
+            };
+          case "flow-map-start":
+          case "flow-seq-start":
+            return {
+              type: "flow-collection",
+              offset: this.offset,
+              indent: this.indent,
+              start: this.sourceToken,
+              items: [],
+              end: []
+            };
+          case "seq-item-ind":
+            return {
+              type: "block-seq",
+              offset: this.offset,
+              indent: this.indent,
+              items: [{ start: [this.sourceToken] }]
+            };
+          case "explicit-key-ind": {
+            this.onKeyLine = !0;
+            let prev = getPrevProps(parent), start = getFirstKeyStartProps(prev);
+            return start.push(this.sourceToken), {
+              type: "block-map",
+              offset: this.offset,
+              indent: this.indent,
+              items: [{ start, explicitKey: !0 }]
+            };
+          }
+          case "map-value-ind": {
+            this.onKeyLine = !0;
+            let prev = getPrevProps(parent), start = getFirstKeyStartProps(prev);
+            return {
+              type: "block-map",
+              offset: this.offset,
+              indent: this.indent,
+              items: [{ start, key: null, sep: [this.sourceToken] }]
+            };
+          }
+        }
+        return null;
+      }
+      atIndentedComment(start, indent) {
+        return this.type !== "comment" || this.indent <= indent ? !1 : start.every((st) => st.type === "newline" || st.type === "space");
+      }
+      *documentEnd(docEnd) {
+        this.type !== "doc-mode" && (docEnd.end ? docEnd.end.push(this.sourceToken) : docEnd.end = [this.sourceToken], this.type === "newline" && (yield* this.pop()));
+      }
+      *lineEnd(token) {
+        switch (this.type) {
+          case "comma":
+          case "doc-start":
+          case "doc-end":
+          case "flow-seq-end":
+          case "flow-map-end":
+          case "map-value-ind":
+            yield* this.pop(), yield* this.step();
+            break;
+          case "newline":
+            this.onKeyLine = !1;
+          // fallthrough
+          case "space":
+          case "comment":
+          default:
+            token.end ? token.end.push(this.sourceToken) : token.end = [this.sourceToken], this.type === "newline" && (yield* this.pop());
+        }
+      }
+    };
+    exports.Parser = Parser;
+  }
+});
+
+// node_modules/yaml/dist/public-api.js
+var require_public_api = __commonJS({
+  "node_modules/yaml/dist/public-api.js"(exports) {
+    "use strict";
+    var composer = require_composer(), Document = require_Document(), errors = require_errors(), log = require_log(), identity = require_identity(), lineCounter = require_line_counter(), parser = require_parser();
+    function parseOptions(options) {
+      let prettyErrors = options.prettyErrors !== !1;
+      return { lineCounter: options.lineCounter || prettyErrors && new lineCounter.LineCounter() || null, prettyErrors };
+    }
+    function parseAllDocuments(source, options = {}) {
+      let { lineCounter: lineCounter2, prettyErrors } = parseOptions(options), parser$1 = new parser.Parser(lineCounter2?.addNewLine), composer$1 = new composer.Composer(options), docs = Array.from(composer$1.compose(parser$1.parse(source)));
+      if (prettyErrors && lineCounter2)
+        for (let doc of docs)
+          doc.errors.forEach(errors.prettifyError(source, lineCounter2)), doc.warnings.forEach(errors.prettifyError(source, lineCounter2));
+      return docs.length > 0 ? docs : Object.assign([], { empty: !0 }, composer$1.streamInfo());
+    }
+    function parseDocument2(source, options = {}) {
+      let { lineCounter: lineCounter2, prettyErrors } = parseOptions(options), parser$1 = new parser.Parser(lineCounter2?.addNewLine), composer$1 = new composer.Composer(options), doc = null;
+      for (let _doc of composer$1.compose(parser$1.parse(source), !0, source.length))
+        if (!doc)
+          doc = _doc;
+        else if (doc.options.logLevel !== "silent") {
+          doc.errors.push(new errors.YAMLParseError(_doc.range.slice(0, 2), "MULTIPLE_DOCS", "Source contains multiple documents; please use YAML.parseAllDocuments()"));
+          break;
+        }
+      return prettyErrors && lineCounter2 && (doc.errors.forEach(errors.prettifyError(source, lineCounter2)), doc.warnings.forEach(errors.prettifyError(source, lineCounter2))), doc;
+    }
+    function parse3(src, reviver, options) {
+      let _reviver;
+      typeof reviver == "function" ? _reviver = reviver : options === void 0 && reviver && typeof reviver == "object" && (options = reviver);
+      let doc = parseDocument2(src, options);
+      if (!doc)
+        return null;
+      if (doc.warnings.forEach((warning) => log.warn(doc.options.logLevel, warning)), doc.errors.length > 0) {
+        if (doc.options.logLevel !== "silent")
+          throw doc.errors[0];
+        doc.errors = [];
+      }
+      return doc.toJS(Object.assign({ reviver: _reviver }, options));
+    }
+    function stringify3(value, replacer, options) {
+      let _replacer = null;
+      if (typeof replacer == "function" || Array.isArray(replacer) ? _replacer = replacer : options === void 0 && replacer && (options = replacer), typeof options == "string" && (options = options.length), typeof options == "number") {
+        let indent = Math.round(options);
+        options = indent < 1 ? void 0 : indent > 8 ? { indent: 8 } : { indent };
+      }
+      if (value === void 0) {
+        let { keepUndefined } = options ?? replacer ?? {};
+        if (!keepUndefined)
+          return;
+      }
+      return identity.isDocument(value) && !_replacer ? value.toString(options) : new Document.Document(value, _replacer, options).toString(options);
+    }
+    exports.parse = parse3;
+    exports.parseAllDocuments = parseAllDocuments;
+    exports.parseDocument = parseDocument2;
+    exports.stringify = stringify3;
+  }
+});
+
+// node_modules/yaml/dist/index.js
+var require_dist = __commonJS({
+  "node_modules/yaml/dist/index.js"(exports) {
+    "use strict";
+    var composer = require_composer(), Document = require_Document(), Schema = require_Schema(), errors = require_errors(), Alias = require_Alias(), identity = require_identity(), Pair = require_Pair(), Scalar = require_Scalar(), YAMLMap = require_YAMLMap(), YAMLSeq = require_YAMLSeq(), cst = require_cst(), lexer = require_lexer(), lineCounter = require_line_counter(), parser = require_parser(), publicApi = require_public_api(), visit = require_visit();
+    exports.Composer = composer.Composer;
+    exports.Document = Document.Document;
+    exports.Schema = Schema.Schema;
+    exports.YAMLError = errors.YAMLError;
+    exports.YAMLParseError = errors.YAMLParseError;
+    exports.YAMLWarning = errors.YAMLWarning;
+    exports.Alias = Alias.Alias;
+    exports.isAlias = identity.isAlias;
+    exports.isCollection = identity.isCollection;
+    exports.isDocument = identity.isDocument;
+    exports.isMap = identity.isMap;
+    exports.isNode = identity.isNode;
+    exports.isPair = identity.isPair;
+    exports.isScalar = identity.isScalar;
+    exports.isSeq = identity.isSeq;
+    exports.Pair = Pair.Pair;
+    exports.Scalar = Scalar.Scalar;
+    exports.YAMLMap = YAMLMap.YAMLMap;
+    exports.YAMLSeq = YAMLSeq.YAMLSeq;
+    exports.CST = cst;
+    exports.Lexer = lexer.Lexer;
+    exports.LineCounter = lineCounter.LineCounter;
+    exports.Parser = parser.Parser;
+    exports.parse = publicApi.parse;
+    exports.parseAllDocuments = publicApi.parseAllDocuments;
+    exports.parseDocument = publicApi.parseDocument;
+    exports.stringify = publicApi.stringify;
+    exports.visit = visit.visit;
+    exports.visitAsync = visit.visitAsync;
+  }
+});
+
+// node_modules/ajv/dist/compile/codegen/code.js
+var require_code = __commonJS({
+  "node_modules/ajv/dist/compile/codegen/code.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.regexpCode = exports.getEsmExportName = exports.getProperty = exports.safeStringify = exports.stringify = exports.strConcat = exports.addCodeArg = exports.str = exports._ = exports.nil = exports._Code = exports.Name = exports.IDENTIFIER = exports._CodeOrName = void 0;
+    var _CodeOrName = class {
+    };
+    exports._CodeOrName = _CodeOrName;
+    exports.IDENTIFIER = /^[a-z$_][a-z$_0-9]*$/i;
+    var Name = class extends _CodeOrName {
+      constructor(s) {
+        if (super(), !exports.IDENTIFIER.test(s))
+          throw new Error("CodeGen: name must be a valid identifier");
+        this.str = s;
+      }
+      toString() {
+        return this.str;
+      }
+      emptyStr() {
+        return !1;
+      }
+      get names() {
+        return { [this.str]: 1 };
+      }
+    };
+    exports.Name = Name;
+    var _Code = class extends _CodeOrName {
+      constructor(code) {
+        super(), this._items = typeof code == "string" ? [code] : code;
+      }
+      toString() {
+        return this.str;
+      }
+      emptyStr() {
+        if (this._items.length > 1)
+          return !1;
+        let item = this._items[0];
+        return item === "" || item === '""';
+      }
+      get str() {
+        var _a3;
+        return (_a3 = this._str) !== null && _a3 !== void 0 ? _a3 : this._str = this._items.reduce((s, c) => `${s}${c}`, "");
+      }
+      get names() {
+        var _a3;
+        return (_a3 = this._names) !== null && _a3 !== void 0 ? _a3 : this._names = this._items.reduce((names, c) => (c instanceof Name && (names[c.str] = (names[c.str] || 0) + 1), names), {});
+      }
+    };
+    exports._Code = _Code;
+    exports.nil = new _Code("");
+    function _(strs, ...args) {
+      let code = [strs[0]], i = 0;
+      for (; i < args.length; )
+        addCodeArg(code, args[i]), code.push(strs[++i]);
+      return new _Code(code);
+    }
+    exports._ = _;
+    var plus = new _Code("+");
+    function str(strs, ...args) {
+      let expr = [safeStringify(strs[0])], i = 0;
+      for (; i < args.length; )
+        expr.push(plus), addCodeArg(expr, args[i]), expr.push(plus, safeStringify(strs[++i]));
+      return optimize(expr), new _Code(expr);
+    }
+    exports.str = str;
+    function addCodeArg(code, arg) {
+      arg instanceof _Code ? code.push(...arg._items) : arg instanceof Name ? code.push(arg) : code.push(interpolate(arg));
+    }
+    exports.addCodeArg = addCodeArg;
+    function optimize(expr) {
+      let i = 1;
+      for (; i < expr.length - 1; ) {
+        if (expr[i] === plus) {
+          let res = mergeExprItems(expr[i - 1], expr[i + 1]);
+          if (res !== void 0) {
+            expr.splice(i - 1, 3, res);
+            continue;
+          }
+          expr[i++] = "+";
+        }
+        i++;
+      }
+    }
+    function mergeExprItems(a, b) {
+      if (b === '""')
+        return a;
+      if (a === '""')
+        return b;
+      if (typeof a == "string")
+        return b instanceof Name || a[a.length - 1] !== '"' ? void 0 : typeof b != "string" ? `${a.slice(0, -1)}${b}"` : b[0] === '"' ? a.slice(0, -1) + b.slice(1) : void 0;
+      if (typeof b == "string" && b[0] === '"' && !(a instanceof Name))
+        return `"${a}${b.slice(1)}`;
+    }
+    function strConcat(c1, c2) {
+      return c2.emptyStr() ? c1 : c1.emptyStr() ? c2 : str`${c1}${c2}`;
+    }
+    exports.strConcat = strConcat;
+    function interpolate(x) {
+      return typeof x == "number" || typeof x == "boolean" || x === null ? x : safeStringify(Array.isArray(x) ? x.join(",") : x);
+    }
+    function stringify3(x) {
+      return new _Code(safeStringify(x));
+    }
+    exports.stringify = stringify3;
+    function safeStringify(x) {
+      return JSON.stringify(x).replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
+    }
+    exports.safeStringify = safeStringify;
+    function getProperty(key) {
+      return typeof key == "string" && exports.IDENTIFIER.test(key) ? new _Code(`.${key}`) : _`[${key}]`;
+    }
+    exports.getProperty = getProperty;
+    function getEsmExportName(key) {
+      if (typeof key == "string" && exports.IDENTIFIER.test(key))
+        return new _Code(`${key}`);
+      throw new Error(`CodeGen: invalid export name: ${key}, use explicit $id name mapping`);
+    }
+    exports.getEsmExportName = getEsmExportName;
+    function regexpCode(rx) {
+      return new _Code(rx.toString());
+    }
+    exports.regexpCode = regexpCode;
+  }
+});
+
+// node_modules/ajv/dist/compile/codegen/scope.js
+var require_scope = __commonJS({
+  "node_modules/ajv/dist/compile/codegen/scope.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.ValueScope = exports.ValueScopeName = exports.Scope = exports.varKinds = exports.UsedValueState = void 0;
+    var code_1 = require_code(), ValueError = class extends Error {
+      constructor(name) {
+        super(`CodeGen: "code" for ${name} not defined`), this.value = name.value;
+      }
+    }, UsedValueState;
+    (function(UsedValueState2) {
+      UsedValueState2[UsedValueState2.Started = 0] = "Started", UsedValueState2[UsedValueState2.Completed = 1] = "Completed";
+    })(UsedValueState || (exports.UsedValueState = UsedValueState = {}));
+    exports.varKinds = {
+      const: new code_1.Name("const"),
+      let: new code_1.Name("let"),
+      var: new code_1.Name("var")
+    };
+    var Scope = class {
+      constructor({ prefixes, parent } = {}) {
+        this._names = {}, this._prefixes = prefixes, this._parent = parent;
+      }
+      toName(nameOrPrefix) {
+        return nameOrPrefix instanceof code_1.Name ? nameOrPrefix : this.name(nameOrPrefix);
+      }
+      name(prefix) {
+        return new code_1.Name(this._newName(prefix));
+      }
+      _newName(prefix) {
+        let ng = this._names[prefix] || this._nameGroup(prefix);
+        return `${prefix}${ng.index++}`;
+      }
+      _nameGroup(prefix) {
+        var _a3, _b;
+        if (!((_b = (_a3 = this._parent) === null || _a3 === void 0 ? void 0 : _a3._prefixes) === null || _b === void 0) && _b.has(prefix) || this._prefixes && !this._prefixes.has(prefix))
+          throw new Error(`CodeGen: prefix "${prefix}" is not allowed in this scope`);
+        return this._names[prefix] = { prefix, index: 0 };
+      }
+    };
+    exports.Scope = Scope;
+    var ValueScopeName = class extends code_1.Name {
+      constructor(prefix, nameStr) {
+        super(nameStr), this.prefix = prefix;
+      }
+      setValue(value, { property, itemIndex }) {
+        this.value = value, this.scopePath = (0, code_1._)`.${new code_1.Name(property)}[${itemIndex}]`;
+      }
+    };
+    exports.ValueScopeName = ValueScopeName;
+    var line4 = (0, code_1._)`\n`, ValueScope = class extends Scope {
+      constructor(opts) {
+        super(opts), this._values = {}, this._scope = opts.scope, this.opts = { ...opts, _n: opts.lines ? line4 : code_1.nil };
+      }
+      get() {
+        return this._scope;
+      }
+      name(prefix) {
+        return new ValueScopeName(prefix, this._newName(prefix));
+      }
+      value(nameOrPrefix, value) {
+        var _a3;
+        if (value.ref === void 0)
+          throw new Error("CodeGen: ref must be passed in value");
+        let name = this.toName(nameOrPrefix), { prefix } = name, valueKey = (_a3 = value.key) !== null && _a3 !== void 0 ? _a3 : value.ref, vs = this._values[prefix];
+        if (vs) {
+          let _name = vs.get(valueKey);
+          if (_name)
+            return _name;
+        } else
+          vs = this._values[prefix] = /* @__PURE__ */ new Map();
+        vs.set(valueKey, name);
+        let s = this._scope[prefix] || (this._scope[prefix] = []), itemIndex = s.length;
+        return s[itemIndex] = value.ref, name.setValue(value, { property: prefix, itemIndex }), name;
+      }
+      getValue(prefix, keyOrRef) {
+        let vs = this._values[prefix];
+        if (vs)
+          return vs.get(keyOrRef);
+      }
+      scopeRefs(scopeName, values = this._values) {
+        return this._reduceValues(values, (name) => {
+          if (name.scopePath === void 0)
+            throw new Error(`CodeGen: name "${name}" has no value`);
+          return (0, code_1._)`${scopeName}${name.scopePath}`;
+        });
+      }
+      scopeCode(values = this._values, usedValues, getCode) {
+        return this._reduceValues(values, (name) => {
+          if (name.value === void 0)
+            throw new Error(`CodeGen: name "${name}" has no value`);
+          return name.value.code;
+        }, usedValues, getCode);
+      }
+      _reduceValues(values, valueCode, usedValues = {}, getCode) {
+        let code = code_1.nil;
+        for (let prefix in values) {
+          let vs = values[prefix];
+          if (!vs)
+            continue;
+          let nameSet = usedValues[prefix] = usedValues[prefix] || /* @__PURE__ */ new Map();
+          vs.forEach((name) => {
+            if (nameSet.has(name))
+              return;
+            nameSet.set(name, UsedValueState.Started);
+            let c = valueCode(name);
+            if (c) {
+              let def = this.opts.es5 ? exports.varKinds.var : exports.varKinds.const;
+              code = (0, code_1._)`${code}${def} ${name} = ${c};${this.opts._n}`;
+            } else if (c = getCode?.(name))
+              code = (0, code_1._)`${code}${c}${this.opts._n}`;
+            else
+              throw new ValueError(name);
+            nameSet.set(name, UsedValueState.Completed);
+          });
+        }
+        return code;
+      }
+    };
+    exports.ValueScope = ValueScope;
+  }
+});
+
+// node_modules/ajv/dist/compile/codegen/index.js
+var require_codegen = __commonJS({
+  "node_modules/ajv/dist/compile/codegen/index.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.or = exports.and = exports.not = exports.CodeGen = exports.operators = exports.varKinds = exports.ValueScopeName = exports.ValueScope = exports.Scope = exports.Name = exports.regexpCode = exports.stringify = exports.getProperty = exports.nil = exports.strConcat = exports.str = exports._ = void 0;
+    var code_1 = require_code(), scope_1 = require_scope(), code_2 = require_code();
+    Object.defineProperty(exports, "_", { enumerable: !0, get: function() {
+      return code_2._;
+    } });
+    Object.defineProperty(exports, "str", { enumerable: !0, get: function() {
+      return code_2.str;
+    } });
+    Object.defineProperty(exports, "strConcat", { enumerable: !0, get: function() {
+      return code_2.strConcat;
+    } });
+    Object.defineProperty(exports, "nil", { enumerable: !0, get: function() {
+      return code_2.nil;
+    } });
+    Object.defineProperty(exports, "getProperty", { enumerable: !0, get: function() {
+      return code_2.getProperty;
+    } });
+    Object.defineProperty(exports, "stringify", { enumerable: !0, get: function() {
+      return code_2.stringify;
+    } });
+    Object.defineProperty(exports, "regexpCode", { enumerable: !0, get: function() {
+      return code_2.regexpCode;
+    } });
+    Object.defineProperty(exports, "Name", { enumerable: !0, get: function() {
+      return code_2.Name;
+    } });
+    var scope_2 = require_scope();
+    Object.defineProperty(exports, "Scope", { enumerable: !0, get: function() {
+      return scope_2.Scope;
+    } });
+    Object.defineProperty(exports, "ValueScope", { enumerable: !0, get: function() {
+      return scope_2.ValueScope;
+    } });
+    Object.defineProperty(exports, "ValueScopeName", { enumerable: !0, get: function() {
+      return scope_2.ValueScopeName;
+    } });
+    Object.defineProperty(exports, "varKinds", { enumerable: !0, get: function() {
+      return scope_2.varKinds;
+    } });
+    exports.operators = {
+      GT: new code_1._Code(">"),
+      GTE: new code_1._Code(">="),
+      LT: new code_1._Code("<"),
+      LTE: new code_1._Code("<="),
+      EQ: new code_1._Code("==="),
+      NEQ: new code_1._Code("!=="),
+      NOT: new code_1._Code("!"),
+      OR: new code_1._Code("||"),
+      AND: new code_1._Code("&&"),
+      ADD: new code_1._Code("+")
+    };
+    var Node = class {
+      optimizeNodes() {
+        return this;
+      }
+      optimizeNames(_names, _constants) {
+        return this;
+      }
+    }, Def = class extends Node {
+      constructor(varKind, name, rhs) {
+        super(), this.varKind = varKind, this.name = name, this.rhs = rhs;
+      }
+      render({ es5, _n }) {
+        let varKind = es5 ? scope_1.varKinds.var : this.varKind, rhs = this.rhs === void 0 ? "" : ` = ${this.rhs}`;
+        return `${varKind} ${this.name}${rhs};` + _n;
+      }
+      optimizeNames(names, constants) {
+        if (names[this.name.str])
+          return this.rhs && (this.rhs = optimizeExpr(this.rhs, names, constants)), this;
+      }
+      get names() {
+        return this.rhs instanceof code_1._CodeOrName ? this.rhs.names : {};
+      }
+    }, Assign = class extends Node {
+      constructor(lhs, rhs, sideEffects) {
+        super(), this.lhs = lhs, this.rhs = rhs, this.sideEffects = sideEffects;
+      }
+      render({ _n }) {
+        return `${this.lhs} = ${this.rhs};` + _n;
+      }
+      optimizeNames(names, constants) {
+        if (!(this.lhs instanceof code_1.Name && !names[this.lhs.str] && !this.sideEffects))
+          return this.rhs = optimizeExpr(this.rhs, names, constants), this;
+      }
+      get names() {
+        let names = this.lhs instanceof code_1.Name ? {} : { ...this.lhs.names };
+        return addExprNames(names, this.rhs);
+      }
+    }, AssignOp = class extends Assign {
+      constructor(lhs, op, rhs, sideEffects) {
+        super(lhs, rhs, sideEffects), this.op = op;
+      }
+      render({ _n }) {
+        return `${this.lhs} ${this.op}= ${this.rhs};` + _n;
+      }
+    }, Label = class extends Node {
+      constructor(label) {
+        super(), this.label = label, this.names = {};
+      }
+      render({ _n }) {
+        return `${this.label}:` + _n;
+      }
+    }, Break = class extends Node {
+      constructor(label) {
+        super(), this.label = label, this.names = {};
+      }
+      render({ _n }) {
+        return `break${this.label ? ` ${this.label}` : ""};` + _n;
+      }
+    }, Throw = class extends Node {
+      constructor(error) {
+        super(), this.error = error;
+      }
+      render({ _n }) {
+        return `throw ${this.error};` + _n;
+      }
+      get names() {
+        return this.error.names;
+      }
+    }, AnyCode = class extends Node {
+      constructor(code) {
+        super(), this.code = code;
+      }
+      render({ _n }) {
+        return `${this.code};` + _n;
+      }
+      optimizeNodes() {
+        return `${this.code}` ? this : void 0;
+      }
+      optimizeNames(names, constants) {
+        return this.code = optimizeExpr(this.code, names, constants), this;
+      }
+      get names() {
+        return this.code instanceof code_1._CodeOrName ? this.code.names : {};
+      }
+    }, ParentNode = class extends Node {
+      constructor(nodes = []) {
+        super(), this.nodes = nodes;
+      }
+      render(opts) {
+        return this.nodes.reduce((code, n) => code + n.render(opts), "");
+      }
+      optimizeNodes() {
+        let { nodes } = this, i = nodes.length;
+        for (; i--; ) {
+          let n = nodes[i].optimizeNodes();
+          Array.isArray(n) ? nodes.splice(i, 1, ...n) : n ? nodes[i] = n : nodes.splice(i, 1);
+        }
+        return nodes.length > 0 ? this : void 0;
+      }
+      optimizeNames(names, constants) {
+        let { nodes } = this, i = nodes.length;
+        for (; i--; ) {
+          let n = nodes[i];
+          n.optimizeNames(names, constants) || (subtractNames(names, n.names), nodes.splice(i, 1));
+        }
+        return nodes.length > 0 ? this : void 0;
+      }
+      get names() {
+        return this.nodes.reduce((names, n) => addNames(names, n.names), {});
+      }
+    }, BlockNode = class extends ParentNode {
+      render(opts) {
+        return "{" + opts._n + super.render(opts) + "}" + opts._n;
+      }
+    }, Root = class extends ParentNode {
+    }, Else = class extends BlockNode {
+    };
+    Else.kind = "else";
+    var If = class _If extends BlockNode {
+      constructor(condition, nodes) {
+        super(nodes), this.condition = condition;
+      }
+      render(opts) {
+        let code = `if(${this.condition})` + super.render(opts);
+        return this.else && (code += "else " + this.else.render(opts)), code;
+      }
+      optimizeNodes() {
+        super.optimizeNodes();
+        let cond = this.condition;
+        if (cond === !0)
+          return this.nodes;
+        let e = this.else;
+        if (e) {
+          let ns = e.optimizeNodes();
+          e = this.else = Array.isArray(ns) ? new Else(ns) : ns;
+        }
+        if (e)
+          return cond === !1 ? e instanceof _If ? e : e.nodes : this.nodes.length ? this : new _If(not(cond), e instanceof _If ? [e] : e.nodes);
+        if (!(cond === !1 || !this.nodes.length))
+          return this;
+      }
+      optimizeNames(names, constants) {
+        var _a3;
+        if (this.else = (_a3 = this.else) === null || _a3 === void 0 ? void 0 : _a3.optimizeNames(names, constants), !!(super.optimizeNames(names, constants) || this.else))
+          return this.condition = optimizeExpr(this.condition, names, constants), this;
+      }
+      get names() {
+        let names = super.names;
+        return addExprNames(names, this.condition), this.else && addNames(names, this.else.names), names;
+      }
+    };
+    If.kind = "if";
+    var For = class extends BlockNode {
+    };
+    For.kind = "for";
+    var ForLoop = class extends For {
+      constructor(iteration) {
+        super(), this.iteration = iteration;
+      }
+      render(opts) {
+        return `for(${this.iteration})` + super.render(opts);
+      }
+      optimizeNames(names, constants) {
+        if (super.optimizeNames(names, constants))
+          return this.iteration = optimizeExpr(this.iteration, names, constants), this;
+      }
+      get names() {
+        return addNames(super.names, this.iteration.names);
+      }
+    }, ForRange = class extends For {
+      constructor(varKind, name, from, to) {
+        super(), this.varKind = varKind, this.name = name, this.from = from, this.to = to;
+      }
+      render(opts) {
+        let varKind = opts.es5 ? scope_1.varKinds.var : this.varKind, { name, from, to } = this;
+        return `for(${varKind} ${name}=${from}; ${name}<${to}; ${name}++)` + super.render(opts);
+      }
+      get names() {
+        let names = addExprNames(super.names, this.from);
+        return addExprNames(names, this.to);
+      }
+    }, ForIter = class extends For {
+      constructor(loop, varKind, name, iterable) {
+        super(), this.loop = loop, this.varKind = varKind, this.name = name, this.iterable = iterable;
+      }
+      render(opts) {
+        return `for(${this.varKind} ${this.name} ${this.loop} ${this.iterable})` + super.render(opts);
+      }
+      optimizeNames(names, constants) {
+        if (super.optimizeNames(names, constants))
+          return this.iterable = optimizeExpr(this.iterable, names, constants), this;
+      }
+      get names() {
+        return addNames(super.names, this.iterable.names);
+      }
+    }, Func = class extends BlockNode {
+      constructor(name, args, async) {
+        super(), this.name = name, this.args = args, this.async = async;
+      }
+      render(opts) {
+        return `${this.async ? "async " : ""}function ${this.name}(${this.args})` + super.render(opts);
+      }
+    };
+    Func.kind = "func";
+    var Return = class extends ParentNode {
+      render(opts) {
+        return "return " + super.render(opts);
+      }
+    };
+    Return.kind = "return";
+    var Try = class extends BlockNode {
+      render(opts) {
+        let code = "try" + super.render(opts);
+        return this.catch && (code += this.catch.render(opts)), this.finally && (code += this.finally.render(opts)), code;
+      }
+      optimizeNodes() {
+        var _a3, _b;
+        return super.optimizeNodes(), (_a3 = this.catch) === null || _a3 === void 0 || _a3.optimizeNodes(), (_b = this.finally) === null || _b === void 0 || _b.optimizeNodes(), this;
+      }
+      optimizeNames(names, constants) {
+        var _a3, _b;
+        return super.optimizeNames(names, constants), (_a3 = this.catch) === null || _a3 === void 0 || _a3.optimizeNames(names, constants), (_b = this.finally) === null || _b === void 0 || _b.optimizeNames(names, constants), this;
+      }
+      get names() {
+        let names = super.names;
+        return this.catch && addNames(names, this.catch.names), this.finally && addNames(names, this.finally.names), names;
+      }
+    }, Catch = class extends BlockNode {
+      constructor(error) {
+        super(), this.error = error;
+      }
+      render(opts) {
+        return `catch(${this.error})` + super.render(opts);
+      }
+    };
+    Catch.kind = "catch";
+    var Finally = class extends BlockNode {
+      render(opts) {
+        return "finally" + super.render(opts);
+      }
+    };
+    Finally.kind = "finally";
+    var CodeGen = class {
+      constructor(extScope, opts = {}) {
+        this._values = {}, this._blockStarts = [], this._constants = {}, this.opts = { ...opts, _n: opts.lines ? `
+` : "" }, this._extScope = extScope, this._scope = new scope_1.Scope({ parent: extScope }), this._nodes = [new Root()];
+      }
+      toString() {
+        return this._root.render(this.opts);
+      }
+      // returns unique name in the internal scope
+      name(prefix) {
+        return this._scope.name(prefix);
+      }
+      // reserves unique name in the external scope
+      scopeName(prefix) {
+        return this._extScope.name(prefix);
+      }
+      // reserves unique name in the external scope and assigns value to it
+      scopeValue(prefixOrName, value) {
+        let name = this._extScope.value(prefixOrName, value);
+        return (this._values[name.prefix] || (this._values[name.prefix] = /* @__PURE__ */ new Set())).add(name), name;
+      }
+      getScopeValue(prefix, keyOrRef) {
+        return this._extScope.getValue(prefix, keyOrRef);
+      }
+      // return code that assigns values in the external scope to the names that are used internally
+      // (same names that were returned by gen.scopeName or gen.scopeValue)
+      scopeRefs(scopeName) {
+        return this._extScope.scopeRefs(scopeName, this._values);
+      }
+      scopeCode() {
+        return this._extScope.scopeCode(this._values);
+      }
+      _def(varKind, nameOrPrefix, rhs, constant) {
+        let name = this._scope.toName(nameOrPrefix);
+        return rhs !== void 0 && constant && (this._constants[name.str] = rhs), this._leafNode(new Def(varKind, name, rhs)), name;
+      }
+      // `const` declaration (`var` in es5 mode)
+      const(nameOrPrefix, rhs, _constant) {
+        return this._def(scope_1.varKinds.const, nameOrPrefix, rhs, _constant);
+      }
+      // `let` declaration with optional assignment (`var` in es5 mode)
+      let(nameOrPrefix, rhs, _constant) {
+        return this._def(scope_1.varKinds.let, nameOrPrefix, rhs, _constant);
+      }
+      // `var` declaration with optional assignment
+      var(nameOrPrefix, rhs, _constant) {
+        return this._def(scope_1.varKinds.var, nameOrPrefix, rhs, _constant);
+      }
+      // assignment code
+      assign(lhs, rhs, sideEffects) {
+        return this._leafNode(new Assign(lhs, rhs, sideEffects));
+      }
+      // `+=` code
+      add(lhs, rhs) {
+        return this._leafNode(new AssignOp(lhs, exports.operators.ADD, rhs));
+      }
+      // appends passed SafeExpr to code or executes Block
+      code(c) {
+        return typeof c == "function" ? c() : c !== code_1.nil && this._leafNode(new AnyCode(c)), this;
+      }
+      // returns code for object literal for the passed argument list of key-value pairs
+      object(...keyValues) {
+        let code = ["{"];
+        for (let [key, value] of keyValues)
+          code.length > 1 && code.push(","), code.push(key), (key !== value || this.opts.es5) && (code.push(":"), (0, code_1.addCodeArg)(code, value));
+        return code.push("}"), new code_1._Code(code);
+      }
+      // `if` clause (or statement if `thenBody` and, optionally, `elseBody` are passed)
+      if(condition, thenBody, elseBody) {
+        if (this._blockNode(new If(condition)), thenBody && elseBody)
+          this.code(thenBody).else().code(elseBody).endIf();
+        else if (thenBody)
+          this.code(thenBody).endIf();
+        else if (elseBody)
+          throw new Error('CodeGen: "else" body without "then" body');
+        return this;
+      }
+      // `else if` clause - invalid without `if` or after `else` clauses
+      elseIf(condition) {
+        return this._elseNode(new If(condition));
+      }
+      // `else` clause - only valid after `if` or `else if` clauses
+      else() {
+        return this._elseNode(new Else());
+      }
+      // end `if` statement (needed if gen.if was used only with condition)
+      endIf() {
+        return this._endBlockNode(If, Else);
+      }
+      _for(node, forBody) {
+        return this._blockNode(node), forBody && this.code(forBody).endFor(), this;
+      }
+      // a generic `for` clause (or statement if `forBody` is passed)
+      for(iteration, forBody) {
+        return this._for(new ForLoop(iteration), forBody);
+      }
+      // `for` statement for a range of values
+      forRange(nameOrPrefix, from, to, forBody, varKind = this.opts.es5 ? scope_1.varKinds.var : scope_1.varKinds.let) {
+        let name = this._scope.toName(nameOrPrefix);
+        return this._for(new ForRange(varKind, name, from, to), () => forBody(name));
+      }
+      // `for-of` statement (in es5 mode replace with a normal for loop)
+      forOf(nameOrPrefix, iterable, forBody, varKind = scope_1.varKinds.const) {
+        let name = this._scope.toName(nameOrPrefix);
+        if (this.opts.es5) {
+          let arr = iterable instanceof code_1.Name ? iterable : this.var("_arr", iterable);
+          return this.forRange("_i", 0, (0, code_1._)`${arr}.length`, (i) => {
+            this.var(name, (0, code_1._)`${arr}[${i}]`), forBody(name);
+          });
+        }
+        return this._for(new ForIter("of", varKind, name, iterable), () => forBody(name));
+      }
+      // `for-in` statement.
+      // With option `ownProperties` replaced with a `for-of` loop for object keys
+      forIn(nameOrPrefix, obj, forBody, varKind = this.opts.es5 ? scope_1.varKinds.var : scope_1.varKinds.const) {
+        if (this.opts.ownProperties)
+          return this.forOf(nameOrPrefix, (0, code_1._)`Object.keys(${obj})`, forBody);
+        let name = this._scope.toName(nameOrPrefix);
+        return this._for(new ForIter("in", varKind, name, obj), () => forBody(name));
+      }
+      // end `for` loop
+      endFor() {
+        return this._endBlockNode(For);
+      }
+      // `label` statement
+      label(label) {
+        return this._leafNode(new Label(label));
+      }
+      // `break` statement
+      break(label) {
+        return this._leafNode(new Break(label));
+      }
+      // `return` statement
+      return(value) {
+        let node = new Return();
+        if (this._blockNode(node), this.code(value), node.nodes.length !== 1)
+          throw new Error('CodeGen: "return" should have one node');
+        return this._endBlockNode(Return);
+      }
+      // `try` statement
+      try(tryBody, catchCode, finallyCode) {
+        if (!catchCode && !finallyCode)
+          throw new Error('CodeGen: "try" without "catch" and "finally"');
+        let node = new Try();
+        if (this._blockNode(node), this.code(tryBody), catchCode) {
+          let error = this.name("e");
+          this._currNode = node.catch = new Catch(error), catchCode(error);
+        }
+        return finallyCode && (this._currNode = node.finally = new Finally(), this.code(finallyCode)), this._endBlockNode(Catch, Finally);
+      }
+      // `throw` statement
+      throw(error) {
+        return this._leafNode(new Throw(error));
+      }
+      // start self-balancing block
+      block(body, nodeCount) {
+        return this._blockStarts.push(this._nodes.length), body && this.code(body).endBlock(nodeCount), this;
+      }
+      // end the current self-balancing block
+      endBlock(nodeCount) {
+        let len = this._blockStarts.pop();
+        if (len === void 0)
+          throw new Error("CodeGen: not in self-balancing block");
+        let toClose = this._nodes.length - len;
+        if (toClose < 0 || nodeCount !== void 0 && toClose !== nodeCount)
+          throw new Error(`CodeGen: wrong number of nodes: ${toClose} vs ${nodeCount} expected`);
+        return this._nodes.length = len, this;
+      }
+      // `function` heading (or definition if funcBody is passed)
+      func(name, args = code_1.nil, async, funcBody) {
+        return this._blockNode(new Func(name, args, async)), funcBody && this.code(funcBody).endFunc(), this;
+      }
+      // end function definition
+      endFunc() {
+        return this._endBlockNode(Func);
+      }
+      optimize(n = 1) {
+        for (; n-- > 0; )
+          this._root.optimizeNodes(), this._root.optimizeNames(this._root.names, this._constants);
+      }
+      _leafNode(node) {
+        return this._currNode.nodes.push(node), this;
+      }
+      _blockNode(node) {
+        this._currNode.nodes.push(node), this._nodes.push(node);
+      }
+      _endBlockNode(N1, N2) {
+        let n = this._currNode;
+        if (n instanceof N1 || N2 && n instanceof N2)
+          return this._nodes.pop(), this;
+        throw new Error(`CodeGen: not in block "${N2 ? `${N1.kind}/${N2.kind}` : N1.kind}"`);
+      }
+      _elseNode(node) {
+        let n = this._currNode;
+        if (!(n instanceof If))
+          throw new Error('CodeGen: "else" without "if"');
+        return this._currNode = n.else = node, this;
+      }
+      get _root() {
+        return this._nodes[0];
+      }
+      get _currNode() {
+        let ns = this._nodes;
+        return ns[ns.length - 1];
+      }
+      set _currNode(node) {
+        let ns = this._nodes;
+        ns[ns.length - 1] = node;
+      }
+    };
+    exports.CodeGen = CodeGen;
+    function addNames(names, from) {
+      for (let n in from)
+        names[n] = (names[n] || 0) + (from[n] || 0);
+      return names;
+    }
+    function addExprNames(names, from) {
+      return from instanceof code_1._CodeOrName ? addNames(names, from.names) : names;
+    }
+    function optimizeExpr(expr, names, constants) {
+      if (expr instanceof code_1.Name)
+        return replaceName(expr);
+      if (!canOptimize(expr))
+        return expr;
+      return new code_1._Code(expr._items.reduce((items, c) => (c instanceof code_1.Name && (c = replaceName(c)), c instanceof code_1._Code ? items.push(...c._items) : items.push(c), items), []));
+      function replaceName(n) {
+        let c = constants[n.str];
+        return c === void 0 || names[n.str] !== 1 ? n : (delete names[n.str], c);
+      }
+      function canOptimize(e) {
+        return e instanceof code_1._Code && e._items.some((c) => c instanceof code_1.Name && names[c.str] === 1 && constants[c.str] !== void 0);
+      }
+    }
+    function subtractNames(names, from) {
+      for (let n in from)
+        names[n] = (names[n] || 0) - (from[n] || 0);
+    }
+    function not(x) {
+      return typeof x == "boolean" || typeof x == "number" || x === null ? !x : (0, code_1._)`!${par(x)}`;
+    }
+    exports.not = not;
+    var andCode = mappend(exports.operators.AND);
+    function and(...args) {
+      return args.reduce(andCode);
+    }
+    exports.and = and;
+    var orCode = mappend(exports.operators.OR);
+    function or(...args) {
+      return args.reduce(orCode);
+    }
+    exports.or = or;
+    function mappend(op) {
+      return (x, y) => x === code_1.nil ? y : y === code_1.nil ? x : (0, code_1._)`${par(x)} ${op} ${par(y)}`;
+    }
+    function par(x) {
+      return x instanceof code_1.Name ? x : (0, code_1._)`(${x})`;
+    }
+  }
+});
+
+// node_modules/ajv/dist/compile/util.js
+var require_util = __commonJS({
+  "node_modules/ajv/dist/compile/util.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.checkStrictMode = exports.getErrorPath = exports.Type = exports.useFunc = exports.setEvaluated = exports.evaluatedPropsToName = exports.mergeEvaluated = exports.eachItem = exports.unescapeJsonPointer = exports.escapeJsonPointer = exports.escapeFragment = exports.unescapeFragment = exports.schemaRefOrVal = exports.schemaHasRulesButRef = exports.schemaHasRules = exports.checkUnknownRules = exports.alwaysValidSchema = exports.toHash = void 0;
+    var codegen_1 = require_codegen(), code_1 = require_code();
+    function toHash(arr) {
+      let hash = {};
+      for (let item of arr)
+        hash[item] = !0;
+      return hash;
+    }
+    exports.toHash = toHash;
+    function alwaysValidSchema(it, schema) {
+      return typeof schema == "boolean" ? schema : Object.keys(schema).length === 0 ? !0 : (checkUnknownRules(it, schema), !schemaHasRules(schema, it.self.RULES.all));
+    }
+    exports.alwaysValidSchema = alwaysValidSchema;
+    function checkUnknownRules(it, schema = it.schema) {
+      let { opts, self } = it;
+      if (!opts.strictSchema || typeof schema == "boolean")
+        return;
+      let rules = self.RULES.keywords;
+      for (let key in schema)
+        rules[key] || checkStrictMode(it, `unknown keyword: "${key}"`);
+    }
+    exports.checkUnknownRules = checkUnknownRules;
+    function schemaHasRules(schema, rules) {
+      if (typeof schema == "boolean")
+        return !schema;
+      for (let key in schema)
+        if (rules[key])
+          return !0;
+      return !1;
+    }
+    exports.schemaHasRules = schemaHasRules;
+    function schemaHasRulesButRef(schema, RULES) {
+      if (typeof schema == "boolean")
+        return !schema;
+      for (let key in schema)
+        if (key !== "$ref" && RULES.all[key])
+          return !0;
+      return !1;
+    }
+    exports.schemaHasRulesButRef = schemaHasRulesButRef;
+    function schemaRefOrVal({ topSchemaRef, schemaPath }, schema, keyword, $data) {
+      if (!$data) {
+        if (typeof schema == "number" || typeof schema == "boolean")
+          return schema;
+        if (typeof schema == "string")
+          return (0, codegen_1._)`${schema}`;
+      }
+      return (0, codegen_1._)`${topSchemaRef}${schemaPath}${(0, codegen_1.getProperty)(keyword)}`;
+    }
+    exports.schemaRefOrVal = schemaRefOrVal;
+    function unescapeFragment(str) {
+      return unescapeJsonPointer(decodeURIComponent(str));
+    }
+    exports.unescapeFragment = unescapeFragment;
+    function escapeFragment(str) {
+      return encodeURIComponent(escapeJsonPointer(str));
+    }
+    exports.escapeFragment = escapeFragment;
+    function escapeJsonPointer(str) {
+      return typeof str == "number" ? `${str}` : str.replace(/~/g, "~0").replace(/\//g, "~1");
+    }
+    exports.escapeJsonPointer = escapeJsonPointer;
+    function unescapeJsonPointer(str) {
+      return str.replace(/~1/g, "/").replace(/~0/g, "~");
+    }
+    exports.unescapeJsonPointer = unescapeJsonPointer;
+    function eachItem(xs, f) {
+      if (Array.isArray(xs))
+        for (let x of xs)
+          f(x);
+      else
+        f(xs);
+    }
+    exports.eachItem = eachItem;
+    function makeMergeEvaluated({ mergeNames, mergeToName, mergeValues: mergeValues2, resultToName }) {
+      return (gen, from, to, toName) => {
+        let res = to === void 0 ? from : to instanceof codegen_1.Name ? (from instanceof codegen_1.Name ? mergeNames(gen, from, to) : mergeToName(gen, from, to), to) : from instanceof codegen_1.Name ? (mergeToName(gen, to, from), from) : mergeValues2(from, to);
+        return toName === codegen_1.Name && !(res instanceof codegen_1.Name) ? resultToName(gen, res) : res;
+      };
+    }
+    exports.mergeEvaluated = {
+      props: makeMergeEvaluated({
+        mergeNames: (gen, from, to) => gen.if((0, codegen_1._)`${to} !== true && ${from} !== undefined`, () => {
+          gen.if((0, codegen_1._)`${from} === true`, () => gen.assign(to, !0), () => gen.assign(to, (0, codegen_1._)`${to} || {}`).code((0, codegen_1._)`Object.assign(${to}, ${from})`));
+        }),
+        mergeToName: (gen, from, to) => gen.if((0, codegen_1._)`${to} !== true`, () => {
+          from === !0 ? gen.assign(to, !0) : (gen.assign(to, (0, codegen_1._)`${to} || {}`), setEvaluated(gen, to, from));
+        }),
+        mergeValues: (from, to) => from === !0 ? !0 : { ...from, ...to },
+        resultToName: evaluatedPropsToName
+      }),
+      items: makeMergeEvaluated({
+        mergeNames: (gen, from, to) => gen.if((0, codegen_1._)`${to} !== true && ${from} !== undefined`, () => gen.assign(to, (0, codegen_1._)`${from} === true ? true : ${to} > ${from} ? ${to} : ${from}`)),
+        mergeToName: (gen, from, to) => gen.if((0, codegen_1._)`${to} !== true`, () => gen.assign(to, from === !0 ? !0 : (0, codegen_1._)`${to} > ${from} ? ${to} : ${from}`)),
+        mergeValues: (from, to) => from === !0 ? !0 : Math.max(from, to),
+        resultToName: (gen, items) => gen.var("items", items)
+      })
+    };
+    function evaluatedPropsToName(gen, ps) {
+      if (ps === !0)
+        return gen.var("props", !0);
+      let props = gen.var("props", (0, codegen_1._)`{}`);
+      return ps !== void 0 && setEvaluated(gen, props, ps), props;
+    }
+    exports.evaluatedPropsToName = evaluatedPropsToName;
+    function setEvaluated(gen, props, ps) {
+      Object.keys(ps).forEach((p) => gen.assign((0, codegen_1._)`${props}${(0, codegen_1.getProperty)(p)}`, !0));
+    }
+    exports.setEvaluated = setEvaluated;
+    var snippets = {};
+    function useFunc(gen, f) {
+      return gen.scopeValue("func", {
+        ref: f,
+        code: snippets[f.code] || (snippets[f.code] = new code_1._Code(f.code))
+      });
+    }
+    exports.useFunc = useFunc;
+    var Type;
+    (function(Type2) {
+      Type2[Type2.Num = 0] = "Num", Type2[Type2.Str = 1] = "Str";
+    })(Type || (exports.Type = Type = {}));
+    function getErrorPath(dataProp, dataPropType, jsPropertySyntax) {
+      if (dataProp instanceof codegen_1.Name) {
+        let isNumber = dataPropType === Type.Num;
+        return jsPropertySyntax ? isNumber ? (0, codegen_1._)`"[" + ${dataProp} + "]"` : (0, codegen_1._)`"['" + ${dataProp} + "']"` : isNumber ? (0, codegen_1._)`"/" + ${dataProp}` : (0, codegen_1._)`"/" + ${dataProp}.replace(/~/g, "~0").replace(/\\//g, "~1")`;
+      }
+      return jsPropertySyntax ? (0, codegen_1.getProperty)(dataProp).toString() : "/" + escapeJsonPointer(dataProp);
+    }
+    exports.getErrorPath = getErrorPath;
+    function checkStrictMode(it, msg, mode = it.opts.strictSchema) {
+      if (mode) {
+        if (msg = `strict mode: ${msg}`, mode === !0)
+          throw new Error(msg);
+        it.self.logger.warn(msg);
+      }
+    }
+    exports.checkStrictMode = checkStrictMode;
+  }
+});
+
+// node_modules/ajv/dist/compile/names.js
+var require_names = __commonJS({
+  "node_modules/ajv/dist/compile/names.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var codegen_1 = require_codegen(), names = {
+      // validation function arguments
+      data: new codegen_1.Name("data"),
+      // data passed to validation function
+      // args passed from referencing schema
+      valCxt: new codegen_1.Name("valCxt"),
+      // validation/data context - should not be used directly, it is destructured to the names below
+      instancePath: new codegen_1.Name("instancePath"),
+      parentData: new codegen_1.Name("parentData"),
+      parentDataProperty: new codegen_1.Name("parentDataProperty"),
+      rootData: new codegen_1.Name("rootData"),
+      // root data - same as the data passed to the first/top validation function
+      dynamicAnchors: new codegen_1.Name("dynamicAnchors"),
+      // used to support recursiveRef and dynamicRef
+      // function scoped variables
+      vErrors: new codegen_1.Name("vErrors"),
+      // null or array of validation errors
+      errors: new codegen_1.Name("errors"),
+      // counter of validation errors
+      this: new codegen_1.Name("this"),
+      // "globals"
+      self: new codegen_1.Name("self"),
+      scope: new codegen_1.Name("scope"),
+      // JTD serialize/parse name for JSON string and position
+      json: new codegen_1.Name("json"),
+      jsonPos: new codegen_1.Name("jsonPos"),
+      jsonLen: new codegen_1.Name("jsonLen"),
+      jsonPart: new codegen_1.Name("jsonPart")
+    };
+    exports.default = names;
+  }
+});
+
+// node_modules/ajv/dist/compile/errors.js
+var require_errors2 = __commonJS({
+  "node_modules/ajv/dist/compile/errors.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.extendErrors = exports.resetErrorsCount = exports.reportExtraError = exports.reportError = exports.keyword$DataError = exports.keywordError = void 0;
+    var codegen_1 = require_codegen(), util_1 = require_util(), names_1 = require_names();
+    exports.keywordError = {
+      message: ({ keyword }) => (0, codegen_1.str)`must pass "${keyword}" keyword validation`
+    };
+    exports.keyword$DataError = {
+      message: ({ keyword, schemaType }) => schemaType ? (0, codegen_1.str)`"${keyword}" keyword must be ${schemaType} ($data)` : (0, codegen_1.str)`"${keyword}" keyword is invalid ($data)`
+    };
+    function reportError(cxt, error = exports.keywordError, errorPaths, overrideAllErrors) {
+      let { it } = cxt, { gen, compositeRule, allErrors } = it, errObj = errorObjectCode(cxt, error, errorPaths);
+      overrideAllErrors ?? (compositeRule || allErrors) ? addError(gen, errObj) : returnErrors(it, (0, codegen_1._)`[${errObj}]`);
+    }
+    exports.reportError = reportError;
+    function reportExtraError(cxt, error = exports.keywordError, errorPaths) {
+      let { it } = cxt, { gen, compositeRule, allErrors } = it, errObj = errorObjectCode(cxt, error, errorPaths);
+      addError(gen, errObj), compositeRule || allErrors || returnErrors(it, names_1.default.vErrors);
+    }
+    exports.reportExtraError = reportExtraError;
+    function resetErrorsCount(gen, errsCount) {
+      gen.assign(names_1.default.errors, errsCount), gen.if((0, codegen_1._)`${names_1.default.vErrors} !== null`, () => gen.if(errsCount, () => gen.assign((0, codegen_1._)`${names_1.default.vErrors}.length`, errsCount), () => gen.assign(names_1.default.vErrors, null)));
+    }
+    exports.resetErrorsCount = resetErrorsCount;
+    function extendErrors({ gen, keyword, schemaValue, data, errsCount, it }) {
+      if (errsCount === void 0)
+        throw new Error("ajv implementation error");
+      let err = gen.name("err");
+      gen.forRange("i", errsCount, names_1.default.errors, (i) => {
+        gen.const(err, (0, codegen_1._)`${names_1.default.vErrors}[${i}]`), gen.if((0, codegen_1._)`${err}.instancePath === undefined`, () => gen.assign((0, codegen_1._)`${err}.instancePath`, (0, codegen_1.strConcat)(names_1.default.instancePath, it.errorPath))), gen.assign((0, codegen_1._)`${err}.schemaPath`, (0, codegen_1.str)`${it.errSchemaPath}/${keyword}`), it.opts.verbose && (gen.assign((0, codegen_1._)`${err}.schema`, schemaValue), gen.assign((0, codegen_1._)`${err}.data`, data));
+      });
+    }
+    exports.extendErrors = extendErrors;
+    function addError(gen, errObj) {
+      let err = gen.const("err", errObj);
+      gen.if((0, codegen_1._)`${names_1.default.vErrors} === null`, () => gen.assign(names_1.default.vErrors, (0, codegen_1._)`[${err}]`), (0, codegen_1._)`${names_1.default.vErrors}.push(${err})`), gen.code((0, codegen_1._)`${names_1.default.errors}++`);
+    }
+    function returnErrors(it, errs) {
+      let { gen, validateName, schemaEnv } = it;
+      schemaEnv.$async ? gen.throw((0, codegen_1._)`new ${it.ValidationError}(${errs})`) : (gen.assign((0, codegen_1._)`${validateName}.errors`, errs), gen.return(!1));
+    }
+    var E = {
+      keyword: new codegen_1.Name("keyword"),
+      schemaPath: new codegen_1.Name("schemaPath"),
+      // also used in JTD errors
+      params: new codegen_1.Name("params"),
+      propertyName: new codegen_1.Name("propertyName"),
+      message: new codegen_1.Name("message"),
+      schema: new codegen_1.Name("schema"),
+      parentSchema: new codegen_1.Name("parentSchema")
+    };
+    function errorObjectCode(cxt, error, errorPaths) {
+      let { createErrors } = cxt.it;
+      return createErrors === !1 ? (0, codegen_1._)`{}` : errorObject(cxt, error, errorPaths);
+    }
+    function errorObject(cxt, error, errorPaths = {}) {
+      let { gen, it } = cxt, keyValues = [
+        errorInstancePath(it, errorPaths),
+        errorSchemaPath(cxt, errorPaths)
+      ];
+      return extraErrorProps(cxt, error, keyValues), gen.object(...keyValues);
+    }
+    function errorInstancePath({ errorPath }, { instancePath }) {
+      let instPath = instancePath ? (0, codegen_1.str)`${errorPath}${(0, util_1.getErrorPath)(instancePath, util_1.Type.Str)}` : errorPath;
+      return [names_1.default.instancePath, (0, codegen_1.strConcat)(names_1.default.instancePath, instPath)];
+    }
+    function errorSchemaPath({ keyword, it: { errSchemaPath } }, { schemaPath, parentSchema }) {
+      let schPath = parentSchema ? errSchemaPath : (0, codegen_1.str)`${errSchemaPath}/${keyword}`;
+      return schemaPath && (schPath = (0, codegen_1.str)`${schPath}${(0, util_1.getErrorPath)(schemaPath, util_1.Type.Str)}`), [E.schemaPath, schPath];
+    }
+    function extraErrorProps(cxt, { params, message }, keyValues) {
+      let { keyword, data, schemaValue, it } = cxt, { opts, propertyName, topSchemaRef, schemaPath } = it;
+      keyValues.push([E.keyword, keyword], [E.params, typeof params == "function" ? params(cxt) : params || (0, codegen_1._)`{}`]), opts.messages && keyValues.push([E.message, typeof message == "function" ? message(cxt) : message]), opts.verbose && keyValues.push([E.schema, schemaValue], [E.parentSchema, (0, codegen_1._)`${topSchemaRef}${schemaPath}`], [names_1.default.data, data]), propertyName && keyValues.push([E.propertyName, propertyName]);
+    }
+  }
+});
+
+// node_modules/ajv/dist/compile/validate/boolSchema.js
+var require_boolSchema = __commonJS({
+  "node_modules/ajv/dist/compile/validate/boolSchema.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.boolOrEmptySchema = exports.topBoolOrEmptySchema = void 0;
+    var errors_1 = require_errors2(), codegen_1 = require_codegen(), names_1 = require_names(), boolError = {
+      message: "boolean schema is false"
+    };
+    function topBoolOrEmptySchema(it) {
+      let { gen, schema, validateName } = it;
+      schema === !1 ? falseSchemaError(it, !1) : typeof schema == "object" && schema.$async === !0 ? gen.return(names_1.default.data) : (gen.assign((0, codegen_1._)`${validateName}.errors`, null), gen.return(!0));
+    }
+    exports.topBoolOrEmptySchema = topBoolOrEmptySchema;
+    function boolOrEmptySchema(it, valid) {
+      let { gen, schema } = it;
+      schema === !1 ? (gen.var(valid, !1), falseSchemaError(it)) : gen.var(valid, !0);
+    }
+    exports.boolOrEmptySchema = boolOrEmptySchema;
+    function falseSchemaError(it, overrideAllErrors) {
+      let { gen, data } = it, cxt = {
+        gen,
+        keyword: "false schema",
+        data,
+        schema: !1,
+        schemaCode: !1,
+        schemaValue: !1,
+        params: {},
+        it
+      };
+      (0, errors_1.reportError)(cxt, boolError, void 0, overrideAllErrors);
+    }
+  }
+});
+
+// node_modules/ajv/dist/compile/rules.js
+var require_rules = __commonJS({
+  "node_modules/ajv/dist/compile/rules.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.getRules = exports.isJSONType = void 0;
+    var _jsonTypes = ["string", "number", "integer", "boolean", "null", "object", "array"], jsonTypes = new Set(_jsonTypes);
+    function isJSONType(x) {
+      return typeof x == "string" && jsonTypes.has(x);
+    }
+    exports.isJSONType = isJSONType;
+    function getRules() {
+      let groups = {
+        number: { type: "number", rules: [] },
+        string: { type: "string", rules: [] },
+        array: { type: "array", rules: [] },
+        object: { type: "object", rules: [] }
+      };
+      return {
+        types: { ...groups, integer: !0, boolean: !0, null: !0 },
+        rules: [{ rules: [] }, groups.number, groups.string, groups.array, groups.object],
+        post: { rules: [] },
+        all: {},
+        keywords: {}
+      };
+    }
+    exports.getRules = getRules;
+  }
+});
+
+// node_modules/ajv/dist/compile/validate/applicability.js
+var require_applicability = __commonJS({
+  "node_modules/ajv/dist/compile/validate/applicability.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.shouldUseRule = exports.shouldUseGroup = exports.schemaHasRulesForType = void 0;
+    function schemaHasRulesForType({ schema, self }, type) {
+      let group = self.RULES.types[type];
+      return group && group !== !0 && shouldUseGroup(schema, group);
+    }
+    exports.schemaHasRulesForType = schemaHasRulesForType;
+    function shouldUseGroup(schema, group) {
+      return group.rules.some((rule) => shouldUseRule(schema, rule));
+    }
+    exports.shouldUseGroup = shouldUseGroup;
+    function shouldUseRule(schema, rule) {
+      var _a3;
+      return schema[rule.keyword] !== void 0 || ((_a3 = rule.definition.implements) === null || _a3 === void 0 ? void 0 : _a3.some((kwd) => schema[kwd] !== void 0));
+    }
+    exports.shouldUseRule = shouldUseRule;
+  }
+});
+
+// node_modules/ajv/dist/compile/validate/dataType.js
+var require_dataType = __commonJS({
+  "node_modules/ajv/dist/compile/validate/dataType.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.reportTypeError = exports.checkDataTypes = exports.checkDataType = exports.coerceAndCheckDataType = exports.getJSONTypes = exports.getSchemaTypes = exports.DataType = void 0;
+    var rules_1 = require_rules(), applicability_1 = require_applicability(), errors_1 = require_errors2(), codegen_1 = require_codegen(), util_1 = require_util(), DataType;
+    (function(DataType2) {
+      DataType2[DataType2.Correct = 0] = "Correct", DataType2[DataType2.Wrong = 1] = "Wrong";
+    })(DataType || (exports.DataType = DataType = {}));
+    function getSchemaTypes(schema) {
+      let types = getJSONTypes(schema.type);
+      if (types.includes("null")) {
+        if (schema.nullable === !1)
+          throw new Error("type: null contradicts nullable: false");
+      } else {
+        if (!types.length && schema.nullable !== void 0)
+          throw new Error('"nullable" cannot be used without "type"');
+        schema.nullable === !0 && types.push("null");
+      }
+      return types;
+    }
+    exports.getSchemaTypes = getSchemaTypes;
+    function getJSONTypes(ts) {
+      let types = Array.isArray(ts) ? ts : ts ? [ts] : [];
+      if (types.every(rules_1.isJSONType))
+        return types;
+      throw new Error("type must be JSONType or JSONType[]: " + types.join(","));
+    }
+    exports.getJSONTypes = getJSONTypes;
+    function coerceAndCheckDataType(it, types) {
+      let { gen, data, opts } = it, coerceTo = coerceToTypes(types, opts.coerceTypes), checkTypes = types.length > 0 && !(coerceTo.length === 0 && types.length === 1 && (0, applicability_1.schemaHasRulesForType)(it, types[0]));
+      if (checkTypes) {
+        let wrongType = checkDataTypes(types, data, opts.strictNumbers, DataType.Wrong);
+        gen.if(wrongType, () => {
+          coerceTo.length ? coerceData(it, types, coerceTo) : reportTypeError(it);
+        });
+      }
+      return checkTypes;
+    }
+    exports.coerceAndCheckDataType = coerceAndCheckDataType;
+    var COERCIBLE = /* @__PURE__ */ new Set(["string", "number", "integer", "boolean", "null"]);
+    function coerceToTypes(types, coerceTypes) {
+      return coerceTypes ? types.filter((t) => COERCIBLE.has(t) || coerceTypes === "array" && t === "array") : [];
+    }
+    function coerceData(it, types, coerceTo) {
+      let { gen, data, opts } = it, dataType = gen.let("dataType", (0, codegen_1._)`typeof ${data}`), coerced = gen.let("coerced", (0, codegen_1._)`undefined`);
+      opts.coerceTypes === "array" && gen.if((0, codegen_1._)`${dataType} == 'object' && Array.isArray(${data}) && ${data}.length == 1`, () => gen.assign(data, (0, codegen_1._)`${data}[0]`).assign(dataType, (0, codegen_1._)`typeof ${data}`).if(checkDataTypes(types, data, opts.strictNumbers), () => gen.assign(coerced, data))), gen.if((0, codegen_1._)`${coerced} !== undefined`);
+      for (let t of coerceTo)
+        (COERCIBLE.has(t) || t === "array" && opts.coerceTypes === "array") && coerceSpecificType(t);
+      gen.else(), reportTypeError(it), gen.endIf(), gen.if((0, codegen_1._)`${coerced} !== undefined`, () => {
+        gen.assign(data, coerced), assignParentData(it, coerced);
+      });
+      function coerceSpecificType(t) {
+        switch (t) {
+          case "string":
+            gen.elseIf((0, codegen_1._)`${dataType} == "number" || ${dataType} == "boolean"`).assign(coerced, (0, codegen_1._)`"" + ${data}`).elseIf((0, codegen_1._)`${data} === null`).assign(coerced, (0, codegen_1._)`""`);
+            return;
+          case "number":
+            gen.elseIf((0, codegen_1._)`${dataType} == "boolean" || ${data} === null
+              || (${dataType} == "string" && ${data} && ${data} == +${data})`).assign(coerced, (0, codegen_1._)`+${data}`);
+            return;
+          case "integer":
+            gen.elseIf((0, codegen_1._)`${dataType} === "boolean" || ${data} === null
+              || (${dataType} === "string" && ${data} && ${data} == +${data} && !(${data} % 1))`).assign(coerced, (0, codegen_1._)`+${data}`);
+            return;
+          case "boolean":
+            gen.elseIf((0, codegen_1._)`${data} === "false" || ${data} === 0 || ${data} === null`).assign(coerced, !1).elseIf((0, codegen_1._)`${data} === "true" || ${data} === 1`).assign(coerced, !0);
+            return;
+          case "null":
+            gen.elseIf((0, codegen_1._)`${data} === "" || ${data} === 0 || ${data} === false`), gen.assign(coerced, null);
+            return;
+          case "array":
+            gen.elseIf((0, codegen_1._)`${dataType} === "string" || ${dataType} === "number"
+              || ${dataType} === "boolean" || ${data} === null`).assign(coerced, (0, codegen_1._)`[${data}]`);
+        }
+      }
+    }
+    function assignParentData({ gen, parentData, parentDataProperty }, expr) {
+      gen.if((0, codegen_1._)`${parentData} !== undefined`, () => gen.assign((0, codegen_1._)`${parentData}[${parentDataProperty}]`, expr));
+    }
+    function checkDataType(dataType, data, strictNums, correct = DataType.Correct) {
+      let EQ = correct === DataType.Correct ? codegen_1.operators.EQ : codegen_1.operators.NEQ, cond;
+      switch (dataType) {
+        case "null":
+          return (0, codegen_1._)`${data} ${EQ} null`;
+        case "array":
+          cond = (0, codegen_1._)`Array.isArray(${data})`;
+          break;
+        case "object":
+          cond = (0, codegen_1._)`${data} && typeof ${data} == "object" && !Array.isArray(${data})`;
+          break;
+        case "integer":
+          cond = numCond((0, codegen_1._)`!(${data} % 1) && !isNaN(${data})`);
+          break;
+        case "number":
+          cond = numCond();
+          break;
+        default:
+          return (0, codegen_1._)`typeof ${data} ${EQ} ${dataType}`;
+      }
+      return correct === DataType.Correct ? cond : (0, codegen_1.not)(cond);
+      function numCond(_cond = codegen_1.nil) {
+        return (0, codegen_1.and)((0, codegen_1._)`typeof ${data} == "number"`, _cond, strictNums ? (0, codegen_1._)`isFinite(${data})` : codegen_1.nil);
+      }
+    }
+    exports.checkDataType = checkDataType;
+    function checkDataTypes(dataTypes, data, strictNums, correct) {
+      if (dataTypes.length === 1)
+        return checkDataType(dataTypes[0], data, strictNums, correct);
+      let cond, types = (0, util_1.toHash)(dataTypes);
+      if (types.array && types.object) {
+        let notObj = (0, codegen_1._)`typeof ${data} != "object"`;
+        cond = types.null ? notObj : (0, codegen_1._)`!${data} || ${notObj}`, delete types.null, delete types.array, delete types.object;
+      } else
+        cond = codegen_1.nil;
+      types.number && delete types.integer;
+      for (let t in types)
+        cond = (0, codegen_1.and)(cond, checkDataType(t, data, strictNums, correct));
+      return cond;
+    }
+    exports.checkDataTypes = checkDataTypes;
+    var typeError = {
+      message: ({ schema }) => `must be ${schema}`,
+      params: ({ schema, schemaValue }) => typeof schema == "string" ? (0, codegen_1._)`{type: ${schema}}` : (0, codegen_1._)`{type: ${schemaValue}}`
+    };
+    function reportTypeError(it) {
+      let cxt = getTypeErrorContext(it);
+      (0, errors_1.reportError)(cxt, typeError);
+    }
+    exports.reportTypeError = reportTypeError;
+    function getTypeErrorContext(it) {
+      let { gen, data, schema } = it, schemaCode = (0, util_1.schemaRefOrVal)(it, schema, "type");
+      return {
+        gen,
+        keyword: "type",
+        data,
+        schema: schema.type,
+        schemaCode,
+        schemaValue: schemaCode,
+        parentSchema: schema,
+        params: {},
+        it
+      };
+    }
+  }
+});
+
+// node_modules/ajv/dist/compile/validate/defaults.js
+var require_defaults = __commonJS({
+  "node_modules/ajv/dist/compile/validate/defaults.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.assignDefaults = void 0;
+    var codegen_1 = require_codegen(), util_1 = require_util();
+    function assignDefaults(it, ty) {
+      let { properties, items } = it.schema;
+      if (ty === "object" && properties)
+        for (let key in properties)
+          assignDefault(it, key, properties[key].default);
+      else ty === "array" && Array.isArray(items) && items.forEach((sch, i) => assignDefault(it, i, sch.default));
+    }
+    exports.assignDefaults = assignDefaults;
+    function assignDefault(it, prop, defaultValue) {
+      let { gen, compositeRule, data, opts } = it;
+      if (defaultValue === void 0)
+        return;
+      let childData = (0, codegen_1._)`${data}${(0, codegen_1.getProperty)(prop)}`;
+      if (compositeRule) {
+        (0, util_1.checkStrictMode)(it, `default is ignored for: ${childData}`);
+        return;
+      }
+      let condition = (0, codegen_1._)`${childData} === undefined`;
+      opts.useDefaults === "empty" && (condition = (0, codegen_1._)`${condition} || ${childData} === null || ${childData} === ""`), gen.if(condition, (0, codegen_1._)`${childData} = ${(0, codegen_1.stringify)(defaultValue)}`);
+    }
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/code.js
+var require_code2 = __commonJS({
+  "node_modules/ajv/dist/vocabularies/code.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.validateUnion = exports.validateArray = exports.usePattern = exports.callValidateCode = exports.schemaProperties = exports.allSchemaProperties = exports.noPropertyInData = exports.propertyInData = exports.isOwnProperty = exports.hasPropFunc = exports.reportMissingProp = exports.checkMissingProp = exports.checkReportMissingProp = void 0;
+    var codegen_1 = require_codegen(), util_1 = require_util(), names_1 = require_names(), util_2 = require_util();
+    function checkReportMissingProp(cxt, prop) {
+      let { gen, data, it } = cxt;
+      gen.if(noPropertyInData(gen, data, prop, it.opts.ownProperties), () => {
+        cxt.setParams({ missingProperty: (0, codegen_1._)`${prop}` }, !0), cxt.error();
+      });
+    }
+    exports.checkReportMissingProp = checkReportMissingProp;
+    function checkMissingProp({ gen, data, it: { opts } }, properties, missing) {
+      return (0, codegen_1.or)(...properties.map((prop) => (0, codegen_1.and)(noPropertyInData(gen, data, prop, opts.ownProperties), (0, codegen_1._)`${missing} = ${prop}`)));
+    }
+    exports.checkMissingProp = checkMissingProp;
+    function reportMissingProp(cxt, missing) {
+      cxt.setParams({ missingProperty: missing }, !0), cxt.error();
+    }
+    exports.reportMissingProp = reportMissingProp;
+    function hasPropFunc(gen) {
+      return gen.scopeValue("func", {
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        ref: Object.prototype.hasOwnProperty,
+        code: (0, codegen_1._)`Object.prototype.hasOwnProperty`
+      });
+    }
+    exports.hasPropFunc = hasPropFunc;
+    function isOwnProperty(gen, data, property) {
+      return (0, codegen_1._)`${hasPropFunc(gen)}.call(${data}, ${property})`;
+    }
+    exports.isOwnProperty = isOwnProperty;
+    function propertyInData(gen, data, property, ownProperties) {
+      let cond = (0, codegen_1._)`${data}${(0, codegen_1.getProperty)(property)} !== undefined`;
+      return ownProperties ? (0, codegen_1._)`${cond} && ${isOwnProperty(gen, data, property)}` : cond;
+    }
+    exports.propertyInData = propertyInData;
+    function noPropertyInData(gen, data, property, ownProperties) {
+      let cond = (0, codegen_1._)`${data}${(0, codegen_1.getProperty)(property)} === undefined`;
+      return ownProperties ? (0, codegen_1.or)(cond, (0, codegen_1.not)(isOwnProperty(gen, data, property))) : cond;
+    }
+    exports.noPropertyInData = noPropertyInData;
+    function allSchemaProperties(schemaMap) {
+      return schemaMap ? Object.keys(schemaMap).filter((p) => p !== "__proto__") : [];
+    }
+    exports.allSchemaProperties = allSchemaProperties;
+    function schemaProperties(it, schemaMap) {
+      return allSchemaProperties(schemaMap).filter((p) => !(0, util_1.alwaysValidSchema)(it, schemaMap[p]));
+    }
+    exports.schemaProperties = schemaProperties;
+    function callValidateCode({ schemaCode, data, it: { gen, topSchemaRef, schemaPath, errorPath }, it }, func, context, passSchema) {
+      let dataAndSchema = passSchema ? (0, codegen_1._)`${schemaCode}, ${data}, ${topSchemaRef}${schemaPath}` : data, valCxt = [
+        [names_1.default.instancePath, (0, codegen_1.strConcat)(names_1.default.instancePath, errorPath)],
+        [names_1.default.parentData, it.parentData],
+        [names_1.default.parentDataProperty, it.parentDataProperty],
+        [names_1.default.rootData, names_1.default.rootData]
+      ];
+      it.opts.dynamicRef && valCxt.push([names_1.default.dynamicAnchors, names_1.default.dynamicAnchors]);
+      let args = (0, codegen_1._)`${dataAndSchema}, ${gen.object(...valCxt)}`;
+      return context !== codegen_1.nil ? (0, codegen_1._)`${func}.call(${context}, ${args})` : (0, codegen_1._)`${func}(${args})`;
+    }
+    exports.callValidateCode = callValidateCode;
+    var newRegExp = (0, codegen_1._)`new RegExp`;
+    function usePattern({ gen, it: { opts } }, pattern) {
+      let u = opts.unicodeRegExp ? "u" : "", { regExp } = opts.code, rx = regExp(pattern, u);
+      return gen.scopeValue("pattern", {
+        key: rx.toString(),
+        ref: rx,
+        code: (0, codegen_1._)`${regExp.code === "new RegExp" ? newRegExp : (0, util_2.useFunc)(gen, regExp)}(${pattern}, ${u})`
+      });
+    }
+    exports.usePattern = usePattern;
+    function validateArray(cxt) {
+      let { gen, data, keyword, it } = cxt, valid = gen.name("valid");
+      if (it.allErrors) {
+        let validArr = gen.let("valid", !0);
+        return validateItems(() => gen.assign(validArr, !1)), validArr;
+      }
+      return gen.var(valid, !0), validateItems(() => gen.break()), valid;
+      function validateItems(notValid) {
+        let len = gen.const("len", (0, codegen_1._)`${data}.length`);
+        gen.forRange("i", 0, len, (i) => {
+          cxt.subschema({
+            keyword,
+            dataProp: i,
+            dataPropType: util_1.Type.Num
+          }, valid), gen.if((0, codegen_1.not)(valid), notValid);
+        });
+      }
+    }
+    exports.validateArray = validateArray;
+    function validateUnion(cxt) {
+      let { gen, schema, keyword, it } = cxt;
+      if (!Array.isArray(schema))
+        throw new Error("ajv implementation error");
+      if (schema.some((sch) => (0, util_1.alwaysValidSchema)(it, sch)) && !it.opts.unevaluated)
+        return;
+      let valid = gen.let("valid", !1), schValid = gen.name("_valid");
+      gen.block(() => schema.forEach((_sch, i) => {
+        let schCxt = cxt.subschema({
+          keyword,
+          schemaProp: i,
+          compositeRule: !0
+        }, schValid);
+        gen.assign(valid, (0, codegen_1._)`${valid} || ${schValid}`), cxt.mergeValidEvaluated(schCxt, schValid) || gen.if((0, codegen_1.not)(valid));
+      })), cxt.result(valid, () => cxt.reset(), () => cxt.error(!0));
+    }
+    exports.validateUnion = validateUnion;
+  }
+});
+
+// node_modules/ajv/dist/compile/validate/keyword.js
+var require_keyword = __commonJS({
+  "node_modules/ajv/dist/compile/validate/keyword.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.validateKeywordUsage = exports.validSchemaType = exports.funcKeywordCode = exports.macroKeywordCode = void 0;
+    var codegen_1 = require_codegen(), names_1 = require_names(), code_1 = require_code2(), errors_1 = require_errors2();
+    function macroKeywordCode(cxt, def) {
+      let { gen, keyword, schema, parentSchema, it } = cxt, macroSchema = def.macro.call(it.self, schema, parentSchema, it), schemaRef = useKeyword(gen, keyword, macroSchema);
+      it.opts.validateSchema !== !1 && it.self.validateSchema(macroSchema, !0);
+      let valid = gen.name("valid");
+      cxt.subschema({
+        schema: macroSchema,
+        schemaPath: codegen_1.nil,
+        errSchemaPath: `${it.errSchemaPath}/${keyword}`,
+        topSchemaRef: schemaRef,
+        compositeRule: !0
+      }, valid), cxt.pass(valid, () => cxt.error(!0));
+    }
+    exports.macroKeywordCode = macroKeywordCode;
+    function funcKeywordCode(cxt, def) {
+      var _a3;
+      let { gen, keyword, schema, parentSchema, $data, it } = cxt;
+      checkAsyncKeyword(it, def);
+      let validate = !$data && def.compile ? def.compile.call(it.self, schema, parentSchema, it) : def.validate, validateRef = useKeyword(gen, keyword, validate), valid = gen.let("valid");
+      cxt.block$data(valid, validateKeyword), cxt.ok((_a3 = def.valid) !== null && _a3 !== void 0 ? _a3 : valid);
+      function validateKeyword() {
+        if (def.errors === !1)
+          assignValid(), def.modifying && modifyData(cxt), reportErrs(() => cxt.error());
+        else {
+          let ruleErrs = def.async ? validateAsync() : validateSync();
+          def.modifying && modifyData(cxt), reportErrs(() => addErrs(cxt, ruleErrs));
+        }
+      }
+      function validateAsync() {
+        let ruleErrs = gen.let("ruleErrs", null);
+        return gen.try(() => assignValid((0, codegen_1._)`await `), (e) => gen.assign(valid, !1).if((0, codegen_1._)`${e} instanceof ${it.ValidationError}`, () => gen.assign(ruleErrs, (0, codegen_1._)`${e}.errors`), () => gen.throw(e))), ruleErrs;
+      }
+      function validateSync() {
+        let validateErrs = (0, codegen_1._)`${validateRef}.errors`;
+        return gen.assign(validateErrs, null), assignValid(codegen_1.nil), validateErrs;
+      }
+      function assignValid(_await = def.async ? (0, codegen_1._)`await ` : codegen_1.nil) {
+        let passCxt = it.opts.passContext ? names_1.default.this : names_1.default.self, passSchema = !("compile" in def && !$data || def.schema === !1);
+        gen.assign(valid, (0, codegen_1._)`${_await}${(0, code_1.callValidateCode)(cxt, validateRef, passCxt, passSchema)}`, def.modifying);
+      }
+      function reportErrs(errors) {
+        var _a4;
+        gen.if((0, codegen_1.not)((_a4 = def.valid) !== null && _a4 !== void 0 ? _a4 : valid), errors);
+      }
+    }
+    exports.funcKeywordCode = funcKeywordCode;
+    function modifyData(cxt) {
+      let { gen, data, it } = cxt;
+      gen.if(it.parentData, () => gen.assign(data, (0, codegen_1._)`${it.parentData}[${it.parentDataProperty}]`));
+    }
+    function addErrs(cxt, errs) {
+      let { gen } = cxt;
+      gen.if((0, codegen_1._)`Array.isArray(${errs})`, () => {
+        gen.assign(names_1.default.vErrors, (0, codegen_1._)`${names_1.default.vErrors} === null ? ${errs} : ${names_1.default.vErrors}.concat(${errs})`).assign(names_1.default.errors, (0, codegen_1._)`${names_1.default.vErrors}.length`), (0, errors_1.extendErrors)(cxt);
+      }, () => cxt.error());
+    }
+    function checkAsyncKeyword({ schemaEnv }, def) {
+      if (def.async && !schemaEnv.$async)
+        throw new Error("async keyword in sync schema");
+    }
+    function useKeyword(gen, keyword, result) {
+      if (result === void 0)
+        throw new Error(`keyword "${keyword}" failed to compile`);
+      return gen.scopeValue("keyword", typeof result == "function" ? { ref: result } : { ref: result, code: (0, codegen_1.stringify)(result) });
+    }
+    function validSchemaType(schema, schemaType, allowUndefined = !1) {
+      return !schemaType.length || schemaType.some((st) => st === "array" ? Array.isArray(schema) : st === "object" ? schema && typeof schema == "object" && !Array.isArray(schema) : typeof schema == st || allowUndefined && typeof schema > "u");
+    }
+    exports.validSchemaType = validSchemaType;
+    function validateKeywordUsage({ schema, opts, self, errSchemaPath }, def, keyword) {
+      if (Array.isArray(def.keyword) ? !def.keyword.includes(keyword) : def.keyword !== keyword)
+        throw new Error("ajv implementation error");
+      let deps = def.dependencies;
+      if (deps?.some((kwd) => !Object.prototype.hasOwnProperty.call(schema, kwd)))
+        throw new Error(`parent schema must have dependencies of ${keyword}: ${deps.join(",")}`);
+      if (def.validateSchema && !def.validateSchema(schema[keyword])) {
+        let msg = `keyword "${keyword}" value is invalid at path "${errSchemaPath}": ` + self.errorsText(def.validateSchema.errors);
+        if (opts.validateSchema === "log")
+          self.logger.error(msg);
+        else
+          throw new Error(msg);
+      }
+    }
+    exports.validateKeywordUsage = validateKeywordUsage;
+  }
+});
+
+// node_modules/ajv/dist/compile/validate/subschema.js
+var require_subschema = __commonJS({
+  "node_modules/ajv/dist/compile/validate/subschema.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.extendSubschemaMode = exports.extendSubschemaData = exports.getSubschema = void 0;
+    var codegen_1 = require_codegen(), util_1 = require_util();
+    function getSubschema(it, { keyword, schemaProp, schema, schemaPath, errSchemaPath, topSchemaRef }) {
+      if (keyword !== void 0 && schema !== void 0)
+        throw new Error('both "keyword" and "schema" passed, only one allowed');
+      if (keyword !== void 0) {
+        let sch = it.schema[keyword];
+        return schemaProp === void 0 ? {
+          schema: sch,
+          schemaPath: (0, codegen_1._)`${it.schemaPath}${(0, codegen_1.getProperty)(keyword)}`,
+          errSchemaPath: `${it.errSchemaPath}/${keyword}`
+        } : {
+          schema: sch[schemaProp],
+          schemaPath: (0, codegen_1._)`${it.schemaPath}${(0, codegen_1.getProperty)(keyword)}${(0, codegen_1.getProperty)(schemaProp)}`,
+          errSchemaPath: `${it.errSchemaPath}/${keyword}/${(0, util_1.escapeFragment)(schemaProp)}`
+        };
+      }
+      if (schema !== void 0) {
+        if (schemaPath === void 0 || errSchemaPath === void 0 || topSchemaRef === void 0)
+          throw new Error('"schemaPath", "errSchemaPath" and "topSchemaRef" are required with "schema"');
+        return {
+          schema,
+          schemaPath,
+          topSchemaRef,
+          errSchemaPath
+        };
+      }
+      throw new Error('either "keyword" or "schema" must be passed');
+    }
+    exports.getSubschema = getSubschema;
+    function extendSubschemaData(subschema, it, { dataProp, dataPropType: dpType, data, dataTypes, propertyName }) {
+      if (data !== void 0 && dataProp !== void 0)
+        throw new Error('both "data" and "dataProp" passed, only one allowed');
+      let { gen } = it;
+      if (dataProp !== void 0) {
+        let { errorPath, dataPathArr, opts } = it, nextData = gen.let("data", (0, codegen_1._)`${it.data}${(0, codegen_1.getProperty)(dataProp)}`, !0);
+        dataContextProps(nextData), subschema.errorPath = (0, codegen_1.str)`${errorPath}${(0, util_1.getErrorPath)(dataProp, dpType, opts.jsPropertySyntax)}`, subschema.parentDataProperty = (0, codegen_1._)`${dataProp}`, subschema.dataPathArr = [...dataPathArr, subschema.parentDataProperty];
+      }
+      if (data !== void 0) {
+        let nextData = data instanceof codegen_1.Name ? data : gen.let("data", data, !0);
+        dataContextProps(nextData), propertyName !== void 0 && (subschema.propertyName = propertyName);
+      }
+      dataTypes && (subschema.dataTypes = dataTypes);
+      function dataContextProps(_nextData) {
+        subschema.data = _nextData, subschema.dataLevel = it.dataLevel + 1, subschema.dataTypes = [], it.definedProperties = /* @__PURE__ */ new Set(), subschema.parentData = it.data, subschema.dataNames = [...it.dataNames, _nextData];
+      }
+    }
+    exports.extendSubschemaData = extendSubschemaData;
+    function extendSubschemaMode(subschema, { jtdDiscriminator, jtdMetadata, compositeRule, createErrors, allErrors }) {
+      compositeRule !== void 0 && (subschema.compositeRule = compositeRule), createErrors !== void 0 && (subschema.createErrors = createErrors), allErrors !== void 0 && (subschema.allErrors = allErrors), subschema.jtdDiscriminator = jtdDiscriminator, subschema.jtdMetadata = jtdMetadata;
+    }
+    exports.extendSubschemaMode = extendSubschemaMode;
+  }
+});
+
+// node_modules/fast-deep-equal/index.js
+var require_fast_deep_equal = __commonJS({
+  "node_modules/fast-deep-equal/index.js"(exports, module) {
+    "use strict";
+    module.exports = function equal(a, b) {
+      if (a === b) return !0;
+      if (a && b && typeof a == "object" && typeof b == "object") {
+        if (a.constructor !== b.constructor) return !1;
+        var length, i, keys;
+        if (Array.isArray(a)) {
+          if (length = a.length, length != b.length) return !1;
+          for (i = length; i-- !== 0; )
+            if (!equal(a[i], b[i])) return !1;
+          return !0;
+        }
+        if (a.constructor === RegExp) return a.source === b.source && a.flags === b.flags;
+        if (a.valueOf !== Object.prototype.valueOf) return a.valueOf() === b.valueOf();
+        if (a.toString !== Object.prototype.toString) return a.toString() === b.toString();
+        if (keys = Object.keys(a), length = keys.length, length !== Object.keys(b).length) return !1;
+        for (i = length; i-- !== 0; )
+          if (!Object.prototype.hasOwnProperty.call(b, keys[i])) return !1;
+        for (i = length; i-- !== 0; ) {
+          var key = keys[i];
+          if (!equal(a[key], b[key])) return !1;
+        }
+        return !0;
+      }
+      return a !== a && b !== b;
+    };
+  }
+});
+
+// node_modules/json-schema-traverse/index.js
+var require_json_schema_traverse = __commonJS({
+  "node_modules/json-schema-traverse/index.js"(exports, module) {
+    "use strict";
+    var traverse = module.exports = function(schema, opts, cb) {
+      typeof opts == "function" && (cb = opts, opts = {}), cb = opts.cb || cb;
+      var pre = typeof cb == "function" ? cb : cb.pre || function() {
+      }, post = cb.post || function() {
+      };
+      _traverse(opts, pre, post, schema, "", schema);
+    };
+    traverse.keywords = {
+      additionalItems: !0,
+      items: !0,
+      contains: !0,
+      additionalProperties: !0,
+      propertyNames: !0,
+      not: !0,
+      if: !0,
+      then: !0,
+      else: !0
+    };
+    traverse.arrayKeywords = {
+      items: !0,
+      allOf: !0,
+      anyOf: !0,
+      oneOf: !0
+    };
+    traverse.propsKeywords = {
+      $defs: !0,
+      definitions: !0,
+      properties: !0,
+      patternProperties: !0,
+      dependencies: !0
+    };
+    traverse.skipKeywords = {
+      default: !0,
+      enum: !0,
+      const: !0,
+      required: !0,
+      maximum: !0,
+      minimum: !0,
+      exclusiveMaximum: !0,
+      exclusiveMinimum: !0,
+      multipleOf: !0,
+      maxLength: !0,
+      minLength: !0,
+      pattern: !0,
+      format: !0,
+      maxItems: !0,
+      minItems: !0,
+      uniqueItems: !0,
+      maxProperties: !0,
+      minProperties: !0
+    };
+    function _traverse(opts, pre, post, schema, jsonPtr, rootSchema, parentJsonPtr, parentKeyword, parentSchema, keyIndex) {
+      if (schema && typeof schema == "object" && !Array.isArray(schema)) {
+        pre(schema, jsonPtr, rootSchema, parentJsonPtr, parentKeyword, parentSchema, keyIndex);
+        for (var key in schema) {
+          var sch = schema[key];
+          if (Array.isArray(sch)) {
+            if (key in traverse.arrayKeywords)
+              for (var i = 0; i < sch.length; i++)
+                _traverse(opts, pre, post, sch[i], jsonPtr + "/" + key + "/" + i, rootSchema, jsonPtr, key, schema, i);
+          } else if (key in traverse.propsKeywords) {
+            if (sch && typeof sch == "object")
+              for (var prop in sch)
+                _traverse(opts, pre, post, sch[prop], jsonPtr + "/" + key + "/" + escapeJsonPtr(prop), rootSchema, jsonPtr, key, schema, prop);
+          } else (key in traverse.keywords || opts.allKeys && !(key in traverse.skipKeywords)) && _traverse(opts, pre, post, sch, jsonPtr + "/" + key, rootSchema, jsonPtr, key, schema);
+        }
+        post(schema, jsonPtr, rootSchema, parentJsonPtr, parentKeyword, parentSchema, keyIndex);
+      }
+    }
+    function escapeJsonPtr(str) {
+      return str.replace(/~/g, "~0").replace(/\//g, "~1");
+    }
+  }
+});
+
+// node_modules/ajv/dist/compile/resolve.js
+var require_resolve = __commonJS({
+  "node_modules/ajv/dist/compile/resolve.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.getSchemaRefs = exports.resolveUrl = exports.normalizeId = exports._getFullPath = exports.getFullPath = exports.inlineRef = void 0;
+    var util_1 = require_util(), equal = require_fast_deep_equal(), traverse = require_json_schema_traverse(), SIMPLE_INLINED = /* @__PURE__ */ new Set([
+      "type",
+      "format",
+      "pattern",
+      "maxLength",
+      "minLength",
+      "maxProperties",
+      "minProperties",
+      "maxItems",
+      "minItems",
+      "maximum",
+      "minimum",
+      "uniqueItems",
+      "multipleOf",
+      "required",
+      "enum",
+      "const"
+    ]);
+    function inlineRef(schema, limit = !0) {
+      return typeof schema == "boolean" ? !0 : limit === !0 ? !hasRef(schema) : limit ? countKeys(schema) <= limit : !1;
+    }
+    exports.inlineRef = inlineRef;
+    var REF_KEYWORDS = /* @__PURE__ */ new Set([
+      "$ref",
+      "$recursiveRef",
+      "$recursiveAnchor",
+      "$dynamicRef",
+      "$dynamicAnchor"
+    ]);
+    function hasRef(schema) {
+      for (let key in schema) {
+        if (REF_KEYWORDS.has(key))
+          return !0;
+        let sch = schema[key];
+        if (Array.isArray(sch) && sch.some(hasRef) || typeof sch == "object" && hasRef(sch))
+          return !0;
+      }
+      return !1;
+    }
+    function countKeys(schema) {
+      let count = 0;
+      for (let key in schema) {
+        if (key === "$ref")
+          return 1 / 0;
+        if (count++, !SIMPLE_INLINED.has(key) && (typeof schema[key] == "object" && (0, util_1.eachItem)(schema[key], (sch) => count += countKeys(sch)), count === 1 / 0))
+          return 1 / 0;
+      }
+      return count;
+    }
+    function getFullPath(resolver, id = "", normalize) {
+      normalize !== !1 && (id = normalizeId(id));
+      let p = resolver.parse(id);
+      return _getFullPath(resolver, p);
+    }
+    exports.getFullPath = getFullPath;
+    function _getFullPath(resolver, p) {
+      return resolver.serialize(p).split("#")[0] + "#";
+    }
+    exports._getFullPath = _getFullPath;
+    var TRAILING_SLASH_HASH = /#\/?$/;
+    function normalizeId(id) {
+      return id ? id.replace(TRAILING_SLASH_HASH, "") : "";
+    }
+    exports.normalizeId = normalizeId;
+    function resolveUrl(resolver, baseId, id) {
+      return id = normalizeId(id), resolver.resolve(baseId, id);
+    }
+    exports.resolveUrl = resolveUrl;
+    var ANCHOR = /^[a-z_][-a-z0-9._]*$/i;
+    function getSchemaRefs(schema, baseId) {
+      if (typeof schema == "boolean")
+        return {};
+      let { schemaId, uriResolver } = this.opts, schId = normalizeId(schema[schemaId] || baseId), baseIds = { "": schId }, pathPrefix = getFullPath(uriResolver, schId, !1), localRefs = {}, schemaRefs = /* @__PURE__ */ new Set();
+      return traverse(schema, { allKeys: !0 }, (sch, jsonPtr, _, parentJsonPtr) => {
+        if (parentJsonPtr === void 0)
+          return;
+        let fullPath = pathPrefix + jsonPtr, innerBaseId = baseIds[parentJsonPtr];
+        typeof sch[schemaId] == "string" && (innerBaseId = addRef.call(this, sch[schemaId])), addAnchor.call(this, sch.$anchor), addAnchor.call(this, sch.$dynamicAnchor), baseIds[jsonPtr] = innerBaseId;
+        function addRef(ref) {
+          let _resolve = this.opts.uriResolver.resolve;
+          if (ref = normalizeId(innerBaseId ? _resolve(innerBaseId, ref) : ref), schemaRefs.has(ref))
+            throw ambiguos(ref);
+          schemaRefs.add(ref);
+          let schOrRef = this.refs[ref];
+          return typeof schOrRef == "string" && (schOrRef = this.refs[schOrRef]), typeof schOrRef == "object" ? checkAmbiguosRef(sch, schOrRef.schema, ref) : ref !== normalizeId(fullPath) && (ref[0] === "#" ? (checkAmbiguosRef(sch, localRefs[ref], ref), localRefs[ref] = sch) : this.refs[ref] = fullPath), ref;
+        }
+        function addAnchor(anchor) {
+          if (typeof anchor == "string") {
+            if (!ANCHOR.test(anchor))
+              throw new Error(`invalid anchor "${anchor}"`);
+            addRef.call(this, `#${anchor}`);
+          }
+        }
+      }), localRefs;
+      function checkAmbiguosRef(sch1, sch2, ref) {
+        if (sch2 !== void 0 && !equal(sch1, sch2))
+          throw ambiguos(ref);
+      }
+      function ambiguos(ref) {
+        return new Error(`reference "${ref}" resolves to more than one schema`);
+      }
+    }
+    exports.getSchemaRefs = getSchemaRefs;
+  }
+});
+
+// node_modules/ajv/dist/compile/validate/index.js
+var require_validate = __commonJS({
+  "node_modules/ajv/dist/compile/validate/index.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.getData = exports.KeywordCxt = exports.validateFunctionCode = void 0;
+    var boolSchema_1 = require_boolSchema(), dataType_1 = require_dataType(), applicability_1 = require_applicability(), dataType_2 = require_dataType(), defaults_1 = require_defaults(), keyword_1 = require_keyword(), subschema_1 = require_subschema(), codegen_1 = require_codegen(), names_1 = require_names(), resolve_1 = require_resolve(), util_1 = require_util(), errors_1 = require_errors2();
+    function validateFunctionCode(it) {
+      if (isSchemaObj(it) && (checkKeywords(it), schemaCxtHasRules(it))) {
+        topSchemaObjCode(it);
+        return;
+      }
+      validateFunction(it, () => (0, boolSchema_1.topBoolOrEmptySchema)(it));
+    }
+    exports.validateFunctionCode = validateFunctionCode;
+    function validateFunction({ gen, validateName, schema, schemaEnv, opts }, body) {
+      opts.code.es5 ? gen.func(validateName, (0, codegen_1._)`${names_1.default.data}, ${names_1.default.valCxt}`, schemaEnv.$async, () => {
+        gen.code((0, codegen_1._)`"use strict"; ${funcSourceUrl(schema, opts)}`), destructureValCxtES5(gen, opts), gen.code(body);
+      }) : gen.func(validateName, (0, codegen_1._)`${names_1.default.data}, ${destructureValCxt(opts)}`, schemaEnv.$async, () => gen.code(funcSourceUrl(schema, opts)).code(body));
+    }
+    function destructureValCxt(opts) {
+      return (0, codegen_1._)`{${names_1.default.instancePath}="", ${names_1.default.parentData}, ${names_1.default.parentDataProperty}, ${names_1.default.rootData}=${names_1.default.data}${opts.dynamicRef ? (0, codegen_1._)`, ${names_1.default.dynamicAnchors}={}` : codegen_1.nil}}={}`;
+    }
+    function destructureValCxtES5(gen, opts) {
+      gen.if(names_1.default.valCxt, () => {
+        gen.var(names_1.default.instancePath, (0, codegen_1._)`${names_1.default.valCxt}.${names_1.default.instancePath}`), gen.var(names_1.default.parentData, (0, codegen_1._)`${names_1.default.valCxt}.${names_1.default.parentData}`), gen.var(names_1.default.parentDataProperty, (0, codegen_1._)`${names_1.default.valCxt}.${names_1.default.parentDataProperty}`), gen.var(names_1.default.rootData, (0, codegen_1._)`${names_1.default.valCxt}.${names_1.default.rootData}`), opts.dynamicRef && gen.var(names_1.default.dynamicAnchors, (0, codegen_1._)`${names_1.default.valCxt}.${names_1.default.dynamicAnchors}`);
+      }, () => {
+        gen.var(names_1.default.instancePath, (0, codegen_1._)`""`), gen.var(names_1.default.parentData, (0, codegen_1._)`undefined`), gen.var(names_1.default.parentDataProperty, (0, codegen_1._)`undefined`), gen.var(names_1.default.rootData, names_1.default.data), opts.dynamicRef && gen.var(names_1.default.dynamicAnchors, (0, codegen_1._)`{}`);
+      });
+    }
+    function topSchemaObjCode(it) {
+      let { schema, opts, gen } = it;
+      validateFunction(it, () => {
+        opts.$comment && schema.$comment && commentKeyword(it), checkNoDefault(it), gen.let(names_1.default.vErrors, null), gen.let(names_1.default.errors, 0), opts.unevaluated && resetEvaluated(it), typeAndKeywords(it), returnResults(it);
+      });
+    }
+    function resetEvaluated(it) {
+      let { gen, validateName } = it;
+      it.evaluated = gen.const("evaluated", (0, codegen_1._)`${validateName}.evaluated`), gen.if((0, codegen_1._)`${it.evaluated}.dynamicProps`, () => gen.assign((0, codegen_1._)`${it.evaluated}.props`, (0, codegen_1._)`undefined`)), gen.if((0, codegen_1._)`${it.evaluated}.dynamicItems`, () => gen.assign((0, codegen_1._)`${it.evaluated}.items`, (0, codegen_1._)`undefined`));
+    }
+    function funcSourceUrl(schema, opts) {
+      let schId = typeof schema == "object" && schema[opts.schemaId];
+      return schId && (opts.code.source || opts.code.process) ? (0, codegen_1._)`/*# sourceURL=${schId} */` : codegen_1.nil;
+    }
+    function subschemaCode(it, valid) {
+      if (isSchemaObj(it) && (checkKeywords(it), schemaCxtHasRules(it))) {
+        subSchemaObjCode(it, valid);
+        return;
+      }
+      (0, boolSchema_1.boolOrEmptySchema)(it, valid);
+    }
+    function schemaCxtHasRules({ schema, self }) {
+      if (typeof schema == "boolean")
+        return !schema;
+      for (let key in schema)
+        if (self.RULES.all[key])
+          return !0;
+      return !1;
+    }
+    function isSchemaObj(it) {
+      return typeof it.schema != "boolean";
+    }
+    function subSchemaObjCode(it, valid) {
+      let { schema, gen, opts } = it;
+      opts.$comment && schema.$comment && commentKeyword(it), updateContext(it), checkAsyncSchema(it);
+      let errsCount = gen.const("_errs", names_1.default.errors);
+      typeAndKeywords(it, errsCount), gen.var(valid, (0, codegen_1._)`${errsCount} === ${names_1.default.errors}`);
+    }
+    function checkKeywords(it) {
+      (0, util_1.checkUnknownRules)(it), checkRefsAndKeywords(it);
+    }
+    function typeAndKeywords(it, errsCount) {
+      if (it.opts.jtd)
+        return schemaKeywords(it, [], !1, errsCount);
+      let types = (0, dataType_1.getSchemaTypes)(it.schema), checkedTypes = (0, dataType_1.coerceAndCheckDataType)(it, types);
+      schemaKeywords(it, types, !checkedTypes, errsCount);
+    }
+    function checkRefsAndKeywords(it) {
+      let { schema, errSchemaPath, opts, self } = it;
+      schema.$ref && opts.ignoreKeywordsWithRef && (0, util_1.schemaHasRulesButRef)(schema, self.RULES) && self.logger.warn(`$ref: keywords ignored in schema at path "${errSchemaPath}"`);
+    }
+    function checkNoDefault(it) {
+      let { schema, opts } = it;
+      schema.default !== void 0 && opts.useDefaults && opts.strictSchema && (0, util_1.checkStrictMode)(it, "default is ignored in the schema root");
+    }
+    function updateContext(it) {
+      let schId = it.schema[it.opts.schemaId];
+      schId && (it.baseId = (0, resolve_1.resolveUrl)(it.opts.uriResolver, it.baseId, schId));
+    }
+    function checkAsyncSchema(it) {
+      if (it.schema.$async && !it.schemaEnv.$async)
+        throw new Error("async schema in sync schema");
+    }
+    function commentKeyword({ gen, schemaEnv, schema, errSchemaPath, opts }) {
+      let msg = schema.$comment;
+      if (opts.$comment === !0)
+        gen.code((0, codegen_1._)`${names_1.default.self}.logger.log(${msg})`);
+      else if (typeof opts.$comment == "function") {
+        let schemaPath = (0, codegen_1.str)`${errSchemaPath}/$comment`, rootName = gen.scopeValue("root", { ref: schemaEnv.root });
+        gen.code((0, codegen_1._)`${names_1.default.self}.opts.$comment(${msg}, ${schemaPath}, ${rootName}.schema)`);
+      }
+    }
+    function returnResults(it) {
+      let { gen, schemaEnv, validateName, ValidationError, opts } = it;
+      schemaEnv.$async ? gen.if((0, codegen_1._)`${names_1.default.errors} === 0`, () => gen.return(names_1.default.data), () => gen.throw((0, codegen_1._)`new ${ValidationError}(${names_1.default.vErrors})`)) : (gen.assign((0, codegen_1._)`${validateName}.errors`, names_1.default.vErrors), opts.unevaluated && assignEvaluated(it), gen.return((0, codegen_1._)`${names_1.default.errors} === 0`));
+    }
+    function assignEvaluated({ gen, evaluated, props, items }) {
+      props instanceof codegen_1.Name && gen.assign((0, codegen_1._)`${evaluated}.props`, props), items instanceof codegen_1.Name && gen.assign((0, codegen_1._)`${evaluated}.items`, items);
+    }
+    function schemaKeywords(it, types, typeErrors, errsCount) {
+      let { gen, schema, data, allErrors, opts, self } = it, { RULES } = self;
+      if (schema.$ref && (opts.ignoreKeywordsWithRef || !(0, util_1.schemaHasRulesButRef)(schema, RULES))) {
+        gen.block(() => keywordCode(it, "$ref", RULES.all.$ref.definition));
+        return;
+      }
+      opts.jtd || checkStrictTypes(it, types), gen.block(() => {
+        for (let group of RULES.rules)
+          groupKeywords(group);
+        groupKeywords(RULES.post);
+      });
+      function groupKeywords(group) {
+        (0, applicability_1.shouldUseGroup)(schema, group) && (group.type ? (gen.if((0, dataType_2.checkDataType)(group.type, data, opts.strictNumbers)), iterateKeywords(it, group), types.length === 1 && types[0] === group.type && typeErrors && (gen.else(), (0, dataType_2.reportTypeError)(it)), gen.endIf()) : iterateKeywords(it, group), allErrors || gen.if((0, codegen_1._)`${names_1.default.errors} === ${errsCount || 0}`));
+      }
+    }
+    function iterateKeywords(it, group) {
+      let { gen, schema, opts: { useDefaults } } = it;
+      useDefaults && (0, defaults_1.assignDefaults)(it, group.type), gen.block(() => {
+        for (let rule of group.rules)
+          (0, applicability_1.shouldUseRule)(schema, rule) && keywordCode(it, rule.keyword, rule.definition, group.type);
+      });
+    }
+    function checkStrictTypes(it, types) {
+      it.schemaEnv.meta || !it.opts.strictTypes || (checkContextTypes(it, types), it.opts.allowUnionTypes || checkMultipleTypes(it, types), checkKeywordTypes(it, it.dataTypes));
+    }
+    function checkContextTypes(it, types) {
+      if (types.length) {
+        if (!it.dataTypes.length) {
+          it.dataTypes = types;
+          return;
+        }
+        types.forEach((t) => {
+          includesType(it.dataTypes, t) || strictTypesError(it, `type "${t}" not allowed by context "${it.dataTypes.join(",")}"`);
+        }), narrowSchemaTypes(it, types);
+      }
+    }
+    function checkMultipleTypes(it, ts) {
+      ts.length > 1 && !(ts.length === 2 && ts.includes("null")) && strictTypesError(it, "use allowUnionTypes to allow union type keyword");
+    }
+    function checkKeywordTypes(it, ts) {
+      let rules = it.self.RULES.all;
+      for (let keyword in rules) {
+        let rule = rules[keyword];
+        if (typeof rule == "object" && (0, applicability_1.shouldUseRule)(it.schema, rule)) {
+          let { type } = rule.definition;
+          type.length && !type.some((t) => hasApplicableType(ts, t)) && strictTypesError(it, `missing type "${type.join(",")}" for keyword "${keyword}"`);
+        }
+      }
+    }
+    function hasApplicableType(schTs, kwdT) {
+      return schTs.includes(kwdT) || kwdT === "number" && schTs.includes("integer");
+    }
+    function includesType(ts, t) {
+      return ts.includes(t) || t === "integer" && ts.includes("number");
+    }
+    function narrowSchemaTypes(it, withTypes) {
+      let ts = [];
+      for (let t of it.dataTypes)
+        includesType(withTypes, t) ? ts.push(t) : withTypes.includes("integer") && t === "number" && ts.push("integer");
+      it.dataTypes = ts;
+    }
+    function strictTypesError(it, msg) {
+      let schemaPath = it.schemaEnv.baseId + it.errSchemaPath;
+      msg += ` at "${schemaPath}" (strictTypes)`, (0, util_1.checkStrictMode)(it, msg, it.opts.strictTypes);
+    }
+    var KeywordCxt = class {
+      constructor(it, def, keyword) {
+        if ((0, keyword_1.validateKeywordUsage)(it, def, keyword), this.gen = it.gen, this.allErrors = it.allErrors, this.keyword = keyword, this.data = it.data, this.schema = it.schema[keyword], this.$data = def.$data && it.opts.$data && this.schema && this.schema.$data, this.schemaValue = (0, util_1.schemaRefOrVal)(it, this.schema, keyword, this.$data), this.schemaType = def.schemaType, this.parentSchema = it.schema, this.params = {}, this.it = it, this.def = def, this.$data)
+          this.schemaCode = it.gen.const("vSchema", getData(this.$data, it));
+        else if (this.schemaCode = this.schemaValue, !(0, keyword_1.validSchemaType)(this.schema, def.schemaType, def.allowUndefined))
+          throw new Error(`${keyword} value must be ${JSON.stringify(def.schemaType)}`);
+        ("code" in def ? def.trackErrors : def.errors !== !1) && (this.errsCount = it.gen.const("_errs", names_1.default.errors));
+      }
+      result(condition, successAction, failAction) {
+        this.failResult((0, codegen_1.not)(condition), successAction, failAction);
+      }
+      failResult(condition, successAction, failAction) {
+        this.gen.if(condition), failAction ? failAction() : this.error(), successAction ? (this.gen.else(), successAction(), this.allErrors && this.gen.endIf()) : this.allErrors ? this.gen.endIf() : this.gen.else();
+      }
+      pass(condition, failAction) {
+        this.failResult((0, codegen_1.not)(condition), void 0, failAction);
+      }
+      fail(condition) {
+        if (condition === void 0) {
+          this.error(), this.allErrors || this.gen.if(!1);
+          return;
+        }
+        this.gen.if(condition), this.error(), this.allErrors ? this.gen.endIf() : this.gen.else();
+      }
+      fail$data(condition) {
+        if (!this.$data)
+          return this.fail(condition);
+        let { schemaCode } = this;
+        this.fail((0, codegen_1._)`${schemaCode} !== undefined && (${(0, codegen_1.or)(this.invalid$data(), condition)})`);
+      }
+      error(append, errorParams, errorPaths) {
+        if (errorParams) {
+          this.setParams(errorParams), this._error(append, errorPaths), this.setParams({});
+          return;
+        }
+        this._error(append, errorPaths);
+      }
+      _error(append, errorPaths) {
+        (append ? errors_1.reportExtraError : errors_1.reportError)(this, this.def.error, errorPaths);
+      }
+      $dataError() {
+        (0, errors_1.reportError)(this, this.def.$dataError || errors_1.keyword$DataError);
+      }
+      reset() {
+        if (this.errsCount === void 0)
+          throw new Error('add "trackErrors" to keyword definition');
+        (0, errors_1.resetErrorsCount)(this.gen, this.errsCount);
+      }
+      ok(cond) {
+        this.allErrors || this.gen.if(cond);
+      }
+      setParams(obj, assign) {
+        assign ? Object.assign(this.params, obj) : this.params = obj;
+      }
+      block$data(valid, codeBlock, $dataValid = codegen_1.nil) {
+        this.gen.block(() => {
+          this.check$data(valid, $dataValid), codeBlock();
+        });
+      }
+      check$data(valid = codegen_1.nil, $dataValid = codegen_1.nil) {
+        if (!this.$data)
+          return;
+        let { gen, schemaCode, schemaType, def } = this;
+        gen.if((0, codegen_1.or)((0, codegen_1._)`${schemaCode} === undefined`, $dataValid)), valid !== codegen_1.nil && gen.assign(valid, !0), (schemaType.length || def.validateSchema) && (gen.elseIf(this.invalid$data()), this.$dataError(), valid !== codegen_1.nil && gen.assign(valid, !1)), gen.else();
+      }
+      invalid$data() {
+        let { gen, schemaCode, schemaType, def, it } = this;
+        return (0, codegen_1.or)(wrong$DataType(), invalid$DataSchema());
+        function wrong$DataType() {
+          if (schemaType.length) {
+            if (!(schemaCode instanceof codegen_1.Name))
+              throw new Error("ajv implementation error");
+            let st = Array.isArray(schemaType) ? schemaType : [schemaType];
+            return (0, codegen_1._)`${(0, dataType_2.checkDataTypes)(st, schemaCode, it.opts.strictNumbers, dataType_2.DataType.Wrong)}`;
+          }
+          return codegen_1.nil;
+        }
+        function invalid$DataSchema() {
+          if (def.validateSchema) {
+            let validateSchemaRef = gen.scopeValue("validate$data", { ref: def.validateSchema });
+            return (0, codegen_1._)`!${validateSchemaRef}(${schemaCode})`;
+          }
+          return codegen_1.nil;
+        }
+      }
+      subschema(appl, valid) {
+        let subschema = (0, subschema_1.getSubschema)(this.it, appl);
+        (0, subschema_1.extendSubschemaData)(subschema, this.it, appl), (0, subschema_1.extendSubschemaMode)(subschema, appl);
+        let nextContext = { ...this.it, ...subschema, items: void 0, props: void 0 };
+        return subschemaCode(nextContext, valid), nextContext;
+      }
+      mergeEvaluated(schemaCxt, toName) {
+        let { it, gen } = this;
+        it.opts.unevaluated && (it.props !== !0 && schemaCxt.props !== void 0 && (it.props = util_1.mergeEvaluated.props(gen, schemaCxt.props, it.props, toName)), it.items !== !0 && schemaCxt.items !== void 0 && (it.items = util_1.mergeEvaluated.items(gen, schemaCxt.items, it.items, toName)));
+      }
+      mergeValidEvaluated(schemaCxt, valid) {
+        let { it, gen } = this;
+        if (it.opts.unevaluated && (it.props !== !0 || it.items !== !0))
+          return gen.if(valid, () => this.mergeEvaluated(schemaCxt, codegen_1.Name)), !0;
+      }
+    };
+    exports.KeywordCxt = KeywordCxt;
+    function keywordCode(it, keyword, def, ruleType) {
+      let cxt = new KeywordCxt(it, def, keyword);
+      "code" in def ? def.code(cxt, ruleType) : cxt.$data && def.validate ? (0, keyword_1.funcKeywordCode)(cxt, def) : "macro" in def ? (0, keyword_1.macroKeywordCode)(cxt, def) : (def.compile || def.validate) && (0, keyword_1.funcKeywordCode)(cxt, def);
+    }
+    var JSON_POINTER = /^\/(?:[^~]|~0|~1)*$/, RELATIVE_JSON_POINTER = /^([0-9]+)(#|\/(?:[^~]|~0|~1)*)?$/;
+    function getData($data, { dataLevel, dataNames, dataPathArr }) {
+      let jsonPointer, data;
+      if ($data === "")
+        return names_1.default.rootData;
+      if ($data[0] === "/") {
+        if (!JSON_POINTER.test($data))
+          throw new Error(`Invalid JSON-pointer: ${$data}`);
+        jsonPointer = $data, data = names_1.default.rootData;
+      } else {
+        let matches = RELATIVE_JSON_POINTER.exec($data);
+        if (!matches)
+          throw new Error(`Invalid JSON-pointer: ${$data}`);
+        let up = +matches[1];
+        if (jsonPointer = matches[2], jsonPointer === "#") {
+          if (up >= dataLevel)
+            throw new Error(errorMsg("property/index", up));
+          return dataPathArr[dataLevel - up];
+        }
+        if (up > dataLevel)
+          throw new Error(errorMsg("data", up));
+        if (data = dataNames[dataLevel - up], !jsonPointer)
+          return data;
+      }
+      let expr = data, segments = jsonPointer.split("/");
+      for (let segment of segments)
+        segment && (data = (0, codegen_1._)`${data}${(0, codegen_1.getProperty)((0, util_1.unescapeJsonPointer)(segment))}`, expr = (0, codegen_1._)`${expr} && ${data}`);
+      return expr;
+      function errorMsg(pointerType, up) {
+        return `Cannot access ${pointerType} ${up} levels up, current level is ${dataLevel}`;
+      }
+    }
+    exports.getData = getData;
+  }
+});
+
+// node_modules/ajv/dist/runtime/validation_error.js
+var require_validation_error = __commonJS({
+  "node_modules/ajv/dist/runtime/validation_error.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var ValidationError = class extends Error {
+      constructor(errors) {
+        super("validation failed"), this.errors = errors, this.ajv = this.validation = !0;
+      }
+    };
+    exports.default = ValidationError;
+  }
+});
+
+// node_modules/ajv/dist/compile/ref_error.js
+var require_ref_error = __commonJS({
+  "node_modules/ajv/dist/compile/ref_error.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var resolve_1 = require_resolve(), MissingRefError = class extends Error {
+      constructor(resolver, baseId, ref, msg) {
+        super(msg || `can't resolve reference ${ref} from id ${baseId}`), this.missingRef = (0, resolve_1.resolveUrl)(resolver, baseId, ref), this.missingSchema = (0, resolve_1.normalizeId)((0, resolve_1.getFullPath)(resolver, this.missingRef));
+      }
+    };
+    exports.default = MissingRefError;
+  }
+});
+
+// node_modules/ajv/dist/compile/index.js
+var require_compile = __commonJS({
+  "node_modules/ajv/dist/compile/index.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.resolveSchema = exports.getCompilingSchema = exports.resolveRef = exports.compileSchema = exports.SchemaEnv = void 0;
+    var codegen_1 = require_codegen(), validation_error_1 = require_validation_error(), names_1 = require_names(), resolve_1 = require_resolve(), util_1 = require_util(), validate_1 = require_validate(), SchemaEnv = class {
+      constructor(env) {
+        var _a3;
+        this.refs = {}, this.dynamicAnchors = {};
+        let schema;
+        typeof env.schema == "object" && (schema = env.schema), this.schema = env.schema, this.schemaId = env.schemaId, this.root = env.root || this, this.baseId = (_a3 = env.baseId) !== null && _a3 !== void 0 ? _a3 : (0, resolve_1.normalizeId)(schema?.[env.schemaId || "$id"]), this.schemaPath = env.schemaPath, this.localRefs = env.localRefs, this.meta = env.meta, this.$async = schema?.$async, this.refs = {};
+      }
+    };
+    exports.SchemaEnv = SchemaEnv;
+    function compileSchema(sch) {
+      let _sch = getCompilingSchema.call(this, sch);
+      if (_sch)
+        return _sch;
+      let rootId = (0, resolve_1.getFullPath)(this.opts.uriResolver, sch.root.baseId), { es5, lines } = this.opts.code, { ownProperties } = this.opts, gen = new codegen_1.CodeGen(this.scope, { es5, lines, ownProperties }), _ValidationError;
+      sch.$async && (_ValidationError = gen.scopeValue("Error", {
+        ref: validation_error_1.default,
+        code: (0, codegen_1._)`require("ajv/dist/runtime/validation_error").default`
+      }));
+      let validateName = gen.scopeName("validate");
+      sch.validateName = validateName;
+      let schemaCxt = {
+        gen,
+        allErrors: this.opts.allErrors,
+        data: names_1.default.data,
+        parentData: names_1.default.parentData,
+        parentDataProperty: names_1.default.parentDataProperty,
+        dataNames: [names_1.default.data],
+        dataPathArr: [codegen_1.nil],
+        // TODO can its length be used as dataLevel if nil is removed?
+        dataLevel: 0,
+        dataTypes: [],
+        definedProperties: /* @__PURE__ */ new Set(),
+        topSchemaRef: gen.scopeValue("schema", this.opts.code.source === !0 ? { ref: sch.schema, code: (0, codegen_1.stringify)(sch.schema) } : { ref: sch.schema }),
+        validateName,
+        ValidationError: _ValidationError,
+        schema: sch.schema,
+        schemaEnv: sch,
+        rootId,
+        baseId: sch.baseId || rootId,
+        schemaPath: codegen_1.nil,
+        errSchemaPath: sch.schemaPath || (this.opts.jtd ? "" : "#"),
+        errorPath: (0, codegen_1._)`""`,
+        opts: this.opts,
+        self: this
+      }, sourceCode;
+      try {
+        this._compilations.add(sch), (0, validate_1.validateFunctionCode)(schemaCxt), gen.optimize(this.opts.code.optimize);
+        let validateCode = gen.toString();
+        sourceCode = `${gen.scopeRefs(names_1.default.scope)}return ${validateCode}`, this.opts.code.process && (sourceCode = this.opts.code.process(sourceCode, sch));
+        let validate = new Function(`${names_1.default.self}`, `${names_1.default.scope}`, sourceCode)(this, this.scope.get());
+        if (this.scope.value(validateName, { ref: validate }), validate.errors = null, validate.schema = sch.schema, validate.schemaEnv = sch, sch.$async && (validate.$async = !0), this.opts.code.source === !0 && (validate.source = { validateName, validateCode, scopeValues: gen._values }), this.opts.unevaluated) {
+          let { props, items } = schemaCxt;
+          validate.evaluated = {
+            props: props instanceof codegen_1.Name ? void 0 : props,
+            items: items instanceof codegen_1.Name ? void 0 : items,
+            dynamicProps: props instanceof codegen_1.Name,
+            dynamicItems: items instanceof codegen_1.Name
+          }, validate.source && (validate.source.evaluated = (0, codegen_1.stringify)(validate.evaluated));
+        }
+        return sch.validate = validate, sch;
+      } catch (e) {
+        throw delete sch.validate, delete sch.validateName, sourceCode && this.logger.error("Error compiling schema, function code:", sourceCode), e;
+      } finally {
+        this._compilations.delete(sch);
+      }
+    }
+    exports.compileSchema = compileSchema;
+    function resolveRef(root, baseId, ref) {
+      var _a3;
+      ref = (0, resolve_1.resolveUrl)(this.opts.uriResolver, baseId, ref);
+      let schOrFunc = root.refs[ref];
+      if (schOrFunc)
+        return schOrFunc;
+      let _sch = resolve4.call(this, root, ref);
+      if (_sch === void 0) {
+        let schema = (_a3 = root.localRefs) === null || _a3 === void 0 ? void 0 : _a3[ref], { schemaId } = this.opts;
+        schema && (_sch = new SchemaEnv({ schema, schemaId, root, baseId }));
+      }
+      if (_sch !== void 0)
+        return root.refs[ref] = inlineOrCompile.call(this, _sch);
+    }
+    exports.resolveRef = resolveRef;
+    function inlineOrCompile(sch) {
+      return (0, resolve_1.inlineRef)(sch.schema, this.opts.inlineRefs) ? sch.schema : sch.validate ? sch : compileSchema.call(this, sch);
+    }
+    function getCompilingSchema(schEnv) {
+      for (let sch of this._compilations)
+        if (sameSchemaEnv(sch, schEnv))
+          return sch;
+    }
+    exports.getCompilingSchema = getCompilingSchema;
+    function sameSchemaEnv(s1, s2) {
+      return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
+    }
+    function resolve4(root, ref) {
+      let sch;
+      for (; typeof (sch = this.refs[ref]) == "string"; )
+        ref = sch;
+      return sch || this.schemas[ref] || resolveSchema.call(this, root, ref);
+    }
+    function resolveSchema(root, ref) {
+      let p = this.opts.uriResolver.parse(ref), refPath = (0, resolve_1._getFullPath)(this.opts.uriResolver, p), baseId = (0, resolve_1.getFullPath)(this.opts.uriResolver, root.baseId, void 0);
+      if (Object.keys(root.schema).length > 0 && refPath === baseId)
+        return getJsonPointer.call(this, p, root);
+      let id = (0, resolve_1.normalizeId)(refPath), schOrRef = this.refs[id] || this.schemas[id];
+      if (typeof schOrRef == "string") {
+        let sch = resolveSchema.call(this, root, schOrRef);
+        return typeof sch?.schema != "object" ? void 0 : getJsonPointer.call(this, p, sch);
+      }
+      if (typeof schOrRef?.schema == "object") {
+        if (schOrRef.validate || compileSchema.call(this, schOrRef), id === (0, resolve_1.normalizeId)(ref)) {
+          let { schema } = schOrRef, { schemaId } = this.opts, schId = schema[schemaId];
+          return schId && (baseId = (0, resolve_1.resolveUrl)(this.opts.uriResolver, baseId, schId)), new SchemaEnv({ schema, schemaId, root, baseId });
+        }
+        return getJsonPointer.call(this, p, schOrRef);
+      }
+    }
+    exports.resolveSchema = resolveSchema;
+    var PREVENT_SCOPE_CHANGE = /* @__PURE__ */ new Set([
+      "properties",
+      "patternProperties",
+      "enum",
+      "dependencies",
+      "definitions"
+    ]);
+    function getJsonPointer(parsedRef, { baseId, schema, root }) {
+      var _a3;
+      if (((_a3 = parsedRef.fragment) === null || _a3 === void 0 ? void 0 : _a3[0]) !== "/")
+        return;
+      for (let part of parsedRef.fragment.slice(1).split("/")) {
+        if (typeof schema == "boolean")
+          return;
+        let partSchema = schema[(0, util_1.unescapeFragment)(part)];
+        if (partSchema === void 0)
+          return;
+        schema = partSchema;
+        let schId = typeof schema == "object" && schema[this.opts.schemaId];
+        !PREVENT_SCOPE_CHANGE.has(part) && schId && (baseId = (0, resolve_1.resolveUrl)(this.opts.uriResolver, baseId, schId));
+      }
+      let env;
+      if (typeof schema != "boolean" && schema.$ref && !(0, util_1.schemaHasRulesButRef)(schema, this.RULES)) {
+        let $ref = (0, resolve_1.resolveUrl)(this.opts.uriResolver, baseId, schema.$ref);
+        env = resolveSchema.call(this, root, $ref);
+      }
+      let { schemaId } = this.opts;
+      if (env = env || new SchemaEnv({ schema, schemaId, root, baseId }), env.schema !== env.root.schema)
+        return env;
+    }
+  }
+});
+
+// node_modules/ajv/dist/refs/data.json
+var require_data = __commonJS({
+  "node_modules/ajv/dist/refs/data.json"(exports, module) {
+    module.exports = {
+      $id: "https://raw.githubusercontent.com/ajv-validator/ajv/master/lib/refs/data.json#",
+      description: "Meta-schema for $data reference (JSON AnySchema extension proposal)",
+      type: "object",
+      required: ["$data"],
+      properties: {
+        $data: {
+          type: "string",
+          anyOf: [{ format: "relative-json-pointer" }, { format: "json-pointer" }]
+        }
+      },
+      additionalProperties: !1
+    };
+  }
+});
+
+// node_modules/fast-uri/lib/utils.js
+var require_utils = __commonJS({
+  "node_modules/fast-uri/lib/utils.js"(exports, module) {
+    "use strict";
+    var isUUID = RegExp.prototype.test.bind(/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/iu), isIPv4 = RegExp.prototype.test.bind(/^(?:(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)$/u), isHexPair = RegExp.prototype.test.bind(/^[\da-f]{2}$/iu), isUnreserved = RegExp.prototype.test.bind(/^[\da-z\-._~]$/iu), isPathCharacter = RegExp.prototype.test.bind(/^[\da-z\-._~!$&'()*+,;=:@/]$/iu);
+    function stringArrayToHexStripped(input) {
+      let acc = "", code = 0, i = 0;
+      for (i = 0; i < input.length; i++)
+        if (code = input[i].charCodeAt(0), code !== 48) {
+          if (!(code >= 48 && code <= 57 || code >= 65 && code <= 70 || code >= 97 && code <= 102))
+            return "";
+          acc += input[i];
+          break;
+        }
+      for (i += 1; i < input.length; i++) {
+        if (code = input[i].charCodeAt(0), !(code >= 48 && code <= 57 || code >= 65 && code <= 70 || code >= 97 && code <= 102))
+          return "";
+        acc += input[i];
+      }
+      return acc;
+    }
+    var nonSimpleDomain = RegExp.prototype.test.bind(/[^!"$&'()*+,\-.;=_`a-z{}~]/u);
+    function consumeIsZone(buffer) {
+      return buffer.length = 0, !0;
+    }
+    function consumeHextets(buffer, address, output) {
+      if (buffer.length) {
+        let hex = stringArrayToHexStripped(buffer);
+        if (hex !== "")
+          address.push(hex);
+        else
+          return output.error = !0, !1;
+        buffer.length = 0;
+      }
+      return !0;
+    }
+    function getIPV6(input) {
+      let tokenCount = 0, output = { error: !1, address: "", zone: "" }, address = [], buffer = [], endipv6Encountered = !1, endIpv6 = !1, consume = consumeHextets;
+      for (let i = 0; i < input.length; i++) {
+        let cursor = input[i];
+        if (!(cursor === "[" || cursor === "]"))
+          if (cursor === ":") {
+            if (endipv6Encountered === !0 && (endIpv6 = !0), !consume(buffer, address, output))
+              break;
+            if (++tokenCount > 7) {
+              output.error = !0;
+              break;
+            }
+            i > 0 && input[i - 1] === ":" && (endipv6Encountered = !0), address.push(":");
+            continue;
+          } else if (cursor === "%") {
+            if (!consume(buffer, address, output))
+              break;
+            consume = consumeIsZone;
+          } else {
+            buffer.push(cursor);
+            continue;
+          }
+      }
+      return buffer.length && (consume === consumeIsZone ? output.zone = buffer.join("") : endIpv6 ? address.push(buffer.join("")) : address.push(stringArrayToHexStripped(buffer))), output.address = address.join(""), output;
+    }
+    function normalizeIPv6(host) {
+      if (findToken(host, ":") < 2)
+        return { host, isIPV6: !1 };
+      let ipv62 = getIPV6(host);
+      if (ipv62.error)
+        return { host, isIPV6: !1 };
+      {
+        let newHost = ipv62.address, escapedHost = ipv62.address;
+        return ipv62.zone && (newHost += "%" + ipv62.zone, escapedHost += "%25" + ipv62.zone), { host: newHost, isIPV6: !0, escapedHost };
+      }
+    }
+    function findToken(str, token) {
+      let ind = 0;
+      for (let i = 0; i < str.length; i++)
+        str[i] === token && ind++;
+      return ind;
+    }
+    function removeDotSegments(path) {
+      let input = path, output = [], nextSlash = -1, len = 0;
+      for (; len = input.length; ) {
+        if (len === 1) {
+          if (input === ".")
+            break;
+          if (input === "/") {
+            output.push("/");
+            break;
+          } else {
+            output.push(input);
+            break;
+          }
+        } else if (len === 2) {
+          if (input[0] === ".") {
+            if (input[1] === ".")
+              break;
+            if (input[1] === "/") {
+              input = input.slice(2);
+              continue;
+            }
+          } else if (input[0] === "/" && (input[1] === "." || input[1] === "/")) {
+            output.push("/");
+            break;
+          }
+        } else if (len === 3 && input === "/..") {
+          output.length !== 0 && output.pop(), output.push("/");
+          break;
+        }
+        if (input[0] === ".") {
+          if (input[1] === ".") {
+            if (input[2] === "/") {
+              input = input.slice(3);
+              continue;
+            }
+          } else if (input[1] === "/") {
+            input = input.slice(2);
+            continue;
+          }
+        } else if (input[0] === "/" && input[1] === ".") {
+          if (input[2] === "/") {
+            input = input.slice(2);
+            continue;
+          } else if (input[2] === "." && input[3] === "/") {
+            input = input.slice(3), output.length !== 0 && output.pop();
+            continue;
+          }
+        }
+        if ((nextSlash = input.indexOf("/", 1)) === -1) {
+          output.push(input);
+          break;
+        } else
+          output.push(input.slice(0, nextSlash)), input = input.slice(nextSlash);
+      }
+      return output.join("");
+    }
+    var HOST_DELIMS = { "@": "%40", "/": "%2F", "?": "%3F", "#": "%23", ":": "%3A" }, HOST_DELIM_RE = /[@/?#:]/g, HOST_DELIM_NO_COLON_RE = /[@/?#]/g;
+    function reescapeHostDelimiters(host, isIP) {
+      let re = isIP ? HOST_DELIM_NO_COLON_RE : HOST_DELIM_RE;
+      return re.lastIndex = 0, host.replace(re, (ch) => HOST_DELIMS[ch]);
+    }
+    function normalizePercentEncoding(input, decodeUnreserved = !1) {
+      if (input.indexOf("%") === -1)
+        return input;
+      let output = "";
+      for (let i = 0; i < input.length; i++) {
+        if (input[i] === "%" && i + 2 < input.length) {
+          let hex = input.slice(i + 1, i + 3);
+          if (isHexPair(hex)) {
+            let normalizedHex = hex.toUpperCase(), decoded = String.fromCharCode(parseInt(normalizedHex, 16));
+            decodeUnreserved && isUnreserved(decoded) ? output += decoded : output += "%" + normalizedHex, i += 2;
+            continue;
+          }
+        }
+        output += input[i];
+      }
+      return output;
+    }
+    function normalizePathEncoding(input) {
+      let output = "";
+      for (let i = 0; i < input.length; i++) {
+        if (input[i] === "%" && i + 2 < input.length) {
+          let hex = input.slice(i + 1, i + 3);
+          if (isHexPair(hex)) {
+            let normalizedHex = hex.toUpperCase(), decoded = String.fromCharCode(parseInt(normalizedHex, 16));
+            decoded !== "." && isUnreserved(decoded) ? output += decoded : output += "%" + normalizedHex, i += 2;
+            continue;
+          }
+        }
+        isPathCharacter(input[i]) ? output += input[i] : output += escape(input[i]);
+      }
+      return output;
+    }
+    function escapePreservingEscapes(input) {
+      let output = "";
+      for (let i = 0; i < input.length; i++) {
+        if (input[i] === "%" && i + 2 < input.length) {
+          let hex = input.slice(i + 1, i + 3);
+          if (isHexPair(hex)) {
+            output += "%" + hex.toUpperCase(), i += 2;
+            continue;
+          }
+        }
+        output += escape(input[i]);
+      }
+      return output;
+    }
+    function recomposeAuthority(component) {
+      let uriTokens = [];
+      if (component.userinfo !== void 0 && (uriTokens.push(component.userinfo), uriTokens.push("@")), component.host !== void 0) {
+        let host = unescape(component.host);
+        if (!isIPv4(host)) {
+          let ipV6res = normalizeIPv6(host);
+          ipV6res.isIPV6 === !0 ? host = `[${ipV6res.escapedHost}]` : host = reescapeHostDelimiters(host, !1);
+        }
+        uriTokens.push(host);
+      }
+      return (typeof component.port == "number" || typeof component.port == "string") && (uriTokens.push(":"), uriTokens.push(String(component.port))), uriTokens.length ? uriTokens.join("") : void 0;
+    }
+    module.exports = {
+      nonSimpleDomain,
+      recomposeAuthority,
+      reescapeHostDelimiters,
+      normalizePercentEncoding,
+      normalizePathEncoding,
+      escapePreservingEscapes,
+      removeDotSegments,
+      isIPv4,
+      isUUID,
+      normalizeIPv6,
+      stringArrayToHexStripped
+    };
+  }
+});
+
+// node_modules/fast-uri/lib/schemes.js
+var require_schemes = __commonJS({
+  "node_modules/fast-uri/lib/schemes.js"(exports, module) {
+    "use strict";
+    var { isUUID } = require_utils(), URN_REG = /([\da-z][\d\-a-z]{0,31}):((?:[\w!$'()*+,\-.:;=@]|%[\da-f]{2})+)/iu, supportedSchemeNames = (
+      /** @type {const} */
+      [
+        "http",
+        "https",
+        "ws",
+        "wss",
+        "urn",
+        "urn:uuid"
+      ]
+    );
+    function isValidSchemeName(name) {
+      return supportedSchemeNames.indexOf(
+        /** @type {*} */
+        name
+      ) !== -1;
+    }
+    function wsIsSecure(wsComponent) {
+      return wsComponent.secure === !0 ? !0 : wsComponent.secure === !1 ? !1 : wsComponent.scheme ? wsComponent.scheme.length === 3 && (wsComponent.scheme[0] === "w" || wsComponent.scheme[0] === "W") && (wsComponent.scheme[1] === "s" || wsComponent.scheme[1] === "S") && (wsComponent.scheme[2] === "s" || wsComponent.scheme[2] === "S") : !1;
+    }
+    function httpParse(component) {
+      return component.host || (component.error = component.error || "HTTP URIs must have a host."), component;
+    }
+    function httpSerialize(component) {
+      let secure = String(component.scheme).toLowerCase() === "https";
+      return (component.port === (secure ? 443 : 80) || component.port === "") && (component.port = void 0), component.path || (component.path = "/"), component;
+    }
+    function wsParse(wsComponent) {
+      return wsComponent.secure = wsIsSecure(wsComponent), wsComponent.resourceName = (wsComponent.path || "/") + (wsComponent.query ? "?" + wsComponent.query : ""), wsComponent.path = void 0, wsComponent.query = void 0, wsComponent;
+    }
+    function wsSerialize(wsComponent) {
+      if ((wsComponent.port === (wsIsSecure(wsComponent) ? 443 : 80) || wsComponent.port === "") && (wsComponent.port = void 0), typeof wsComponent.secure == "boolean" && (wsComponent.scheme = wsComponent.secure ? "wss" : "ws", wsComponent.secure = void 0), wsComponent.resourceName) {
+        let [path, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path && path !== "/" ? path : void 0, wsComponent.query = query, wsComponent.resourceName = void 0;
+      }
+      return wsComponent.fragment = void 0, wsComponent;
+    }
+    function urnParse(urnComponent, options) {
+      if (!urnComponent.path)
+        return urnComponent.error = "URN can not be parsed", urnComponent;
+      let matches = urnComponent.path.match(URN_REG);
+      if (matches) {
+        let scheme = options.scheme || urnComponent.scheme || "urn";
+        urnComponent.nid = matches[1].toLowerCase(), urnComponent.nss = matches[2];
+        let urnScheme = `${scheme}:${options.nid || urnComponent.nid}`, schemeHandler = getSchemeHandler(urnScheme);
+        urnComponent.path = void 0, schemeHandler && (urnComponent = schemeHandler.parse(urnComponent, options));
+      } else
+        urnComponent.error = urnComponent.error || "URN can not be parsed.";
+      return urnComponent;
+    }
+    function urnSerialize(urnComponent, options) {
+      if (urnComponent.nid === void 0)
+        throw new Error("URN without nid cannot be serialized");
+      let scheme = options.scheme || urnComponent.scheme || "urn", nid = urnComponent.nid.toLowerCase(), urnScheme = `${scheme}:${options.nid || nid}`, schemeHandler = getSchemeHandler(urnScheme);
+      schemeHandler && (urnComponent = schemeHandler.serialize(urnComponent, options));
+      let uriComponent = urnComponent, nss = urnComponent.nss;
+      return uriComponent.path = `${nid || options.nid}:${nss}`, options.skipEscape = !0, uriComponent;
+    }
+    function urnuuidParse(urnComponent, options) {
+      let uuidComponent = urnComponent;
+      return uuidComponent.uuid = uuidComponent.nss, uuidComponent.nss = void 0, !options.tolerant && (!uuidComponent.uuid || !isUUID(uuidComponent.uuid)) && (uuidComponent.error = uuidComponent.error || "UUID is not valid."), uuidComponent;
+    }
+    function urnuuidSerialize(uuidComponent) {
+      let urnComponent = uuidComponent;
+      return urnComponent.nss = (uuidComponent.uuid || "").toLowerCase(), urnComponent;
+    }
+    var http = (
+      /** @type {SchemeHandler} */
+      {
+        scheme: "http",
+        domainHost: !0,
+        parse: httpParse,
+        serialize: httpSerialize
+      }
+    ), https = (
+      /** @type {SchemeHandler} */
+      {
+        scheme: "https",
+        domainHost: http.domainHost,
+        parse: httpParse,
+        serialize: httpSerialize
+      }
+    ), ws = (
+      /** @type {SchemeHandler} */
+      {
+        scheme: "ws",
+        domainHost: !0,
+        parse: wsParse,
+        serialize: wsSerialize
+      }
+    ), wss = (
+      /** @type {SchemeHandler} */
+      {
+        scheme: "wss",
+        domainHost: ws.domainHost,
+        parse: ws.parse,
+        serialize: ws.serialize
+      }
+    ), urn = (
+      /** @type {SchemeHandler} */
+      {
+        scheme: "urn",
+        parse: urnParse,
+        serialize: urnSerialize,
+        skipNormalize: !0
+      }
+    ), urnuuid = (
+      /** @type {SchemeHandler} */
+      {
+        scheme: "urn:uuid",
+        parse: urnuuidParse,
+        serialize: urnuuidSerialize,
+        skipNormalize: !0
+      }
+    ), SCHEMES = (
+      /** @type {Record<SchemeName, SchemeHandler>} */
+      {
+        http,
+        https,
+        ws,
+        wss,
+        urn,
+        "urn:uuid": urnuuid
+      }
+    );
+    Object.setPrototypeOf(SCHEMES, null);
+    function getSchemeHandler(scheme) {
+      return scheme && (SCHEMES[
+        /** @type {SchemeName} */
+        scheme
+      ] || SCHEMES[
+        /** @type {SchemeName} */
+        scheme.toLowerCase()
+      ]) || void 0;
+    }
+    module.exports = {
+      wsIsSecure,
+      SCHEMES,
+      isValidSchemeName,
+      getSchemeHandler
+    };
+  }
+});
+
+// node_modules/fast-uri/index.js
+var require_fast_uri = __commonJS({
+  "node_modules/fast-uri/index.js"(exports, module) {
+    "use strict";
+    var { normalizeIPv6, removeDotSegments, recomposeAuthority, normalizePercentEncoding, normalizePathEncoding, escapePreservingEscapes, reescapeHostDelimiters, isIPv4, nonSimpleDomain } = require_utils(), { SCHEMES, getSchemeHandler } = require_schemes();
+    function normalize(uri, options) {
+      return typeof uri == "string" ? uri = /** @type {T} */
+      normalizeString(uri, options) : typeof uri == "object" && (uri = /** @type {T} */
+      parse3(serialize(uri, options), options)), uri;
+    }
+    function resolve4(baseURI, relativeURI, options) {
+      let schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" }, resolved = resolveComponent(parse3(baseURI, schemelessOptions), parse3(relativeURI, schemelessOptions), schemelessOptions, !0);
+      return schemelessOptions.skipEscape = !0, serialize(resolved, schemelessOptions);
+    }
+    function resolveComponent(base, relative2, options, skipNormalization) {
+      let target = {};
+      return skipNormalization || (base = parse3(serialize(base, options), options), relative2 = parse3(serialize(relative2, options), options)), options = options || {}, !options.tolerant && relative2.scheme ? (target.scheme = relative2.scheme, target.userinfo = relative2.userinfo, target.host = relative2.host, target.port = relative2.port, target.path = removeDotSegments(relative2.path || ""), target.query = relative2.query) : (relative2.userinfo !== void 0 || relative2.host !== void 0 || relative2.port !== void 0 ? (target.userinfo = relative2.userinfo, target.host = relative2.host, target.port = relative2.port, target.path = removeDotSegments(relative2.path || ""), target.query = relative2.query) : (relative2.path ? (relative2.path[0] === "/" ? target.path = removeDotSegments(relative2.path) : ((base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0) && !base.path ? target.path = "/" + relative2.path : base.path ? target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative2.path : target.path = relative2.path, target.path = removeDotSegments(target.path)), target.query = relative2.query) : (target.path = base.path, relative2.query !== void 0 ? target.query = relative2.query : target.query = base.query), target.userinfo = base.userinfo, target.host = base.host, target.port = base.port), target.scheme = base.scheme), target.fragment = relative2.fragment, target;
+    }
+    function equal(uriA, uriB, options) {
+      let normalizedA = normalizeComparableURI(uriA, options), normalizedB = normalizeComparableURI(uriB, options);
+      return normalizedA !== void 0 && normalizedB !== void 0 && normalizedA.toLowerCase() === normalizedB.toLowerCase();
+    }
+    function serialize(cmpts, opts) {
+      let component = {
+        host: cmpts.host,
+        scheme: cmpts.scheme,
+        userinfo: cmpts.userinfo,
+        port: cmpts.port,
+        path: cmpts.path,
+        query: cmpts.query,
+        nid: cmpts.nid,
+        nss: cmpts.nss,
+        uuid: cmpts.uuid,
+        fragment: cmpts.fragment,
+        reference: cmpts.reference,
+        resourceName: cmpts.resourceName,
+        secure: cmpts.secure,
+        error: ""
+      }, options = Object.assign({}, opts), uriTokens = [], schemeHandler = getSchemeHandler(options.scheme || component.scheme);
+      schemeHandler && schemeHandler.serialize && schemeHandler.serialize(component, options), component.path !== void 0 && (options.skipEscape ? component.path = normalizePercentEncoding(component.path) : (component.path = escapePreservingEscapes(component.path), component.scheme !== void 0 && (component.path = component.path.split("%3A").join(":")))), options.reference !== "suffix" && component.scheme && uriTokens.push(component.scheme, ":");
+      let authority = recomposeAuthority(component);
+      if (authority !== void 0 && (options.reference !== "suffix" && uriTokens.push("//"), uriTokens.push(authority), component.path && component.path[0] !== "/" && uriTokens.push("/")), component.path !== void 0) {
+        let s = component.path;
+        !options.absolutePath && (!schemeHandler || !schemeHandler.absolutePath) && (s = removeDotSegments(s)), authority === void 0 && s[0] === "/" && s[1] === "/" && (s = "/%2F" + s.slice(2)), uriTokens.push(s);
+      }
+      return component.query !== void 0 && uriTokens.push("?", component.query), component.fragment !== void 0 && uriTokens.push("#", component.fragment), uriTokens.join("");
+    }
+    var URI_PARSE = /^(?:([^#/:?]+):)?(?:\/\/((?:([^#/?@]*)@)?(\[[^#/?\]]+\]|[^#/:?]*)(?::(\d*))?))?([^#?]*)(?:\?([^#]*))?(?:#((?:.|[\n\r])*))?/u, AUTHORITY_PREFIX = /^(?:[^#/:?]+:)?\/\/([^/?#]*)/;
+    function getParseError(parsed, matches) {
+      if (matches[2] !== void 0 && parsed.path && parsed.path[0] !== "/")
+        return 'URI path must start with "/" when authority is present.';
+      if (typeof parsed.port == "number" && (parsed.port < 0 || parsed.port > 65535))
+        return "URI port is malformed.";
+    }
+    function parseWithStatus(uri, opts) {
+      let options = Object.assign({}, opts), parsed = {
+        scheme: void 0,
+        userinfo: void 0,
+        host: "",
+        port: void 0,
+        path: "",
+        query: void 0,
+        fragment: void 0
+      }, malformedAuthorityOrPort = !1, isIP = !1;
+      options.reference === "suffix" && (options.scheme ? uri = options.scheme + ":" + uri : uri = "//" + uri);
+      let authorityMatch = uri.match(AUTHORITY_PREFIX);
+      authorityMatch !== null && authorityMatch[1].indexOf("\\") !== -1 && (parsed.error = "URI authority must not contain a literal backslash.", malformedAuthorityOrPort = !0);
+      let matches = uri.match(URI_PARSE);
+      if (matches) {
+        parsed.scheme = matches[1], parsed.userinfo = matches[3], parsed.host = matches[4], parsed.port = parseInt(matches[5], 10), parsed.path = matches[6] || "", parsed.query = matches[7], parsed.fragment = matches[8], isNaN(parsed.port) && (parsed.port = matches[5]);
+        let parseError = getParseError(parsed, matches);
+        if (parseError !== void 0 && (parsed.error = parsed.error || parseError, malformedAuthorityOrPort = !0), parsed.host)
+          if (isIPv4(parsed.host) === !1) {
+            let ipv6result = normalizeIPv6(parsed.host);
+            parsed.host = ipv6result.host.toLowerCase(), isIP = ipv6result.isIPV6;
+          } else
+            isIP = !0;
+        parsed.scheme === void 0 && parsed.userinfo === void 0 && parsed.host === void 0 && parsed.port === void 0 && parsed.query === void 0 && !parsed.path ? parsed.reference = "same-document" : parsed.scheme === void 0 ? parsed.reference = "relative" : parsed.fragment === void 0 ? parsed.reference = "absolute" : parsed.reference = "uri", options.reference && options.reference !== "suffix" && options.reference !== parsed.reference && (parsed.error = parsed.error || "URI is not a " + options.reference + " reference.");
+        let schemeHandler = getSchemeHandler(options.scheme || parsed.scheme);
+        if (!options.unicodeSupport && (!schemeHandler || !schemeHandler.unicodeSupport) && parsed.host && (options.domainHost || schemeHandler && schemeHandler.domainHost) && isIP === !1 && nonSimpleDomain(parsed.host))
+          try {
+            parsed.host = new URL("http://" + parsed.host).hostname;
+          } catch (e) {
+            parsed.error = parsed.error || "Host's domain name can not be converted to ASCII: " + e;
+          }
+        if ((!schemeHandler || schemeHandler && !schemeHandler.skipNormalize) && (uri.indexOf("%") !== -1 && (parsed.scheme !== void 0 && (parsed.scheme = unescape(parsed.scheme)), parsed.host !== void 0 && (parsed.host = reescapeHostDelimiters(unescape(parsed.host), isIP))), parsed.path && (parsed.path = normalizePathEncoding(parsed.path)), parsed.fragment))
+          try {
+            parsed.fragment = encodeURI(decodeURIComponent(parsed.fragment));
+          } catch {
+            parsed.error = parsed.error || "URI malformed";
+          }
+        schemeHandler && schemeHandler.parse && schemeHandler.parse(parsed, options);
+      } else
+        parsed.error = parsed.error || "URI can not be parsed.";
+      return { parsed, malformedAuthorityOrPort };
+    }
+    function parse3(uri, opts) {
+      return parseWithStatus(uri, opts).parsed;
+    }
+    function normalizeString(uri, opts) {
+      return normalizeStringWithStatus(uri, opts).normalized;
+    }
+    function normalizeStringWithStatus(uri, opts) {
+      let { parsed, malformedAuthorityOrPort } = parseWithStatus(uri, opts);
+      return {
+        normalized: malformedAuthorityOrPort ? uri : serialize(parsed, opts),
+        malformedAuthorityOrPort
+      };
+    }
+    function normalizeComparableURI(uri, opts) {
+      if (typeof uri == "string") {
+        let { normalized, malformedAuthorityOrPort } = normalizeStringWithStatus(uri, opts);
+        return malformedAuthorityOrPort ? void 0 : normalized;
+      }
+      if (typeof uri == "object")
+        return serialize(uri, opts);
+    }
+    var fastUri = {
+      SCHEMES,
+      normalize,
+      resolve: resolve4,
+      resolveComponent,
+      equal,
+      serialize,
+      parse: parse3
+    };
+    module.exports = fastUri;
+    module.exports.default = fastUri;
+    module.exports.fastUri = fastUri;
+  }
+});
+
+// node_modules/ajv/dist/runtime/uri.js
+var require_uri = __commonJS({
+  "node_modules/ajv/dist/runtime/uri.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var uri = require_fast_uri();
+    uri.code = 'require("ajv/dist/runtime/uri").default';
+    exports.default = uri;
+  }
+});
+
+// node_modules/ajv/dist/core.js
+var require_core = __commonJS({
+  "node_modules/ajv/dist/core.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.CodeGen = exports.Name = exports.nil = exports.stringify = exports.str = exports._ = exports.KeywordCxt = void 0;
+    var validate_1 = require_validate();
+    Object.defineProperty(exports, "KeywordCxt", { enumerable: !0, get: function() {
+      return validate_1.KeywordCxt;
+    } });
+    var codegen_1 = require_codegen();
+    Object.defineProperty(exports, "_", { enumerable: !0, get: function() {
+      return codegen_1._;
+    } });
+    Object.defineProperty(exports, "str", { enumerable: !0, get: function() {
+      return codegen_1.str;
+    } });
+    Object.defineProperty(exports, "stringify", { enumerable: !0, get: function() {
+      return codegen_1.stringify;
+    } });
+    Object.defineProperty(exports, "nil", { enumerable: !0, get: function() {
+      return codegen_1.nil;
+    } });
+    Object.defineProperty(exports, "Name", { enumerable: !0, get: function() {
+      return codegen_1.Name;
+    } });
+    Object.defineProperty(exports, "CodeGen", { enumerable: !0, get: function() {
+      return codegen_1.CodeGen;
+    } });
+    var validation_error_1 = require_validation_error(), ref_error_1 = require_ref_error(), rules_1 = require_rules(), compile_1 = require_compile(), codegen_2 = require_codegen(), resolve_1 = require_resolve(), dataType_1 = require_dataType(), util_1 = require_util(), $dataRefSchema = require_data(), uri_1 = require_uri(), defaultRegExp = (str, flags) => new RegExp(str, flags);
+    defaultRegExp.code = "new RegExp";
+    var META_IGNORE_OPTIONS = ["removeAdditional", "useDefaults", "coerceTypes"], EXT_SCOPE_NAMES = /* @__PURE__ */ new Set([
+      "validate",
+      "serialize",
+      "parse",
+      "wrapper",
+      "root",
+      "schema",
+      "keyword",
+      "pattern",
+      "formats",
+      "validate$data",
+      "func",
+      "obj",
+      "Error"
+    ]), removedOptions = {
+      errorDataPath: "",
+      format: "`validateFormats: false` can be used instead.",
+      nullable: '"nullable" keyword is supported by default.',
+      jsonPointers: "Deprecated jsPropertySyntax can be used instead.",
+      extendRefs: "Deprecated ignoreKeywordsWithRef can be used instead.",
+      missingRefs: "Pass empty schema with $id that should be ignored to ajv.addSchema.",
+      processCode: "Use option `code: {process: (code, schemaEnv: object) => string}`",
+      sourceCode: "Use option `code: {source: true}`",
+      strictDefaults: "It is default now, see option `strict`.",
+      strictKeywords: "It is default now, see option `strict`.",
+      uniqueItems: '"uniqueItems" keyword is always validated.',
+      unknownFormats: "Disable strict mode or pass `true` to `ajv.addFormat` (or `formats` option).",
+      cache: "Map is used as cache, schema object as key.",
+      serialize: "Map is used as cache, schema object as key.",
+      ajvErrors: "It is default now."
+    }, deprecatedOptions = {
+      ignoreKeywordsWithRef: "",
+      jsPropertySyntax: "",
+      unicode: '"minLength"/"maxLength" account for unicode characters by default.'
+    }, MAX_EXPRESSION = 200;
+    function requiredOptions(o) {
+      var _a3, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _0;
+      let s = o.strict, _optz = (_a3 = o.code) === null || _a3 === void 0 ? void 0 : _a3.optimize, optimize = _optz === !0 || _optz === void 0 ? 1 : _optz || 0, regExp = (_c = (_b = o.code) === null || _b === void 0 ? void 0 : _b.regExp) !== null && _c !== void 0 ? _c : defaultRegExp, uriResolver = (_d = o.uriResolver) !== null && _d !== void 0 ? _d : uri_1.default;
+      return {
+        strictSchema: (_f = (_e = o.strictSchema) !== null && _e !== void 0 ? _e : s) !== null && _f !== void 0 ? _f : !0,
+        strictNumbers: (_h = (_g = o.strictNumbers) !== null && _g !== void 0 ? _g : s) !== null && _h !== void 0 ? _h : !0,
+        strictTypes: (_k = (_j = o.strictTypes) !== null && _j !== void 0 ? _j : s) !== null && _k !== void 0 ? _k : "log",
+        strictTuples: (_m = (_l = o.strictTuples) !== null && _l !== void 0 ? _l : s) !== null && _m !== void 0 ? _m : "log",
+        strictRequired: (_p = (_o = o.strictRequired) !== null && _o !== void 0 ? _o : s) !== null && _p !== void 0 ? _p : !1,
+        code: o.code ? { ...o.code, optimize, regExp } : { optimize, regExp },
+        loopRequired: (_q = o.loopRequired) !== null && _q !== void 0 ? _q : MAX_EXPRESSION,
+        loopEnum: (_r = o.loopEnum) !== null && _r !== void 0 ? _r : MAX_EXPRESSION,
+        meta: (_s = o.meta) !== null && _s !== void 0 ? _s : !0,
+        messages: (_t = o.messages) !== null && _t !== void 0 ? _t : !0,
+        inlineRefs: (_u = o.inlineRefs) !== null && _u !== void 0 ? _u : !0,
+        schemaId: (_v = o.schemaId) !== null && _v !== void 0 ? _v : "$id",
+        addUsedSchema: (_w = o.addUsedSchema) !== null && _w !== void 0 ? _w : !0,
+        validateSchema: (_x = o.validateSchema) !== null && _x !== void 0 ? _x : !0,
+        validateFormats: (_y = o.validateFormats) !== null && _y !== void 0 ? _y : !0,
+        unicodeRegExp: (_z = o.unicodeRegExp) !== null && _z !== void 0 ? _z : !0,
+        int32range: (_0 = o.int32range) !== null && _0 !== void 0 ? _0 : !0,
+        uriResolver
+      };
+    }
+    var Ajv2 = class {
+      constructor(opts = {}) {
+        this.schemas = {}, this.refs = {}, this.formats = /* @__PURE__ */ Object.create(null), this._compilations = /* @__PURE__ */ new Set(), this._loading = {}, this._cache = /* @__PURE__ */ new Map(), opts = this.opts = { ...opts, ...requiredOptions(opts) };
+        let { es5, lines } = this.opts.code;
+        this.scope = new codegen_2.ValueScope({ scope: {}, prefixes: EXT_SCOPE_NAMES, es5, lines }), this.logger = getLogger(opts.logger);
+        let formatOpt = opts.validateFormats;
+        opts.validateFormats = !1, this.RULES = (0, rules_1.getRules)(), checkOptions.call(this, removedOptions, opts, "NOT SUPPORTED"), checkOptions.call(this, deprecatedOptions, opts, "DEPRECATED", "warn"), this._metaOpts = getMetaSchemaOptions.call(this), opts.formats && addInitialFormats.call(this), this._addVocabularies(), this._addDefaultMetaSchema(), opts.keywords && addInitialKeywords.call(this, opts.keywords), typeof opts.meta == "object" && this.addMetaSchema(opts.meta), addInitialSchemas.call(this), opts.validateFormats = formatOpt;
+      }
+      _addVocabularies() {
+        this.addKeyword("$async");
+      }
+      _addDefaultMetaSchema() {
+        let { $data, meta: meta2, schemaId } = this.opts, _dataRefSchema = $dataRefSchema;
+        schemaId === "id" && (_dataRefSchema = { ...$dataRefSchema }, _dataRefSchema.id = _dataRefSchema.$id, delete _dataRefSchema.$id), meta2 && $data && this.addMetaSchema(_dataRefSchema, _dataRefSchema[schemaId], !1);
+      }
+      defaultMeta() {
+        let { meta: meta2, schemaId } = this.opts;
+        return this.opts.defaultMeta = typeof meta2 == "object" ? meta2[schemaId] || meta2 : void 0;
+      }
+      validate(schemaKeyRef, data) {
+        let v;
+        if (typeof schemaKeyRef == "string") {
+          if (v = this.getSchema(schemaKeyRef), !v)
+            throw new Error(`no schema with key or ref "${schemaKeyRef}"`);
+        } else
+          v = this.compile(schemaKeyRef);
+        let valid = v(data);
+        return "$async" in v || (this.errors = v.errors), valid;
+      }
+      compile(schema, _meta) {
+        let sch = this._addSchema(schema, _meta);
+        return sch.validate || this._compileSchemaEnv(sch);
+      }
+      compileAsync(schema, meta2) {
+        if (typeof this.opts.loadSchema != "function")
+          throw new Error("options.loadSchema should be a function");
+        let { loadSchema } = this.opts;
+        return runCompileAsync.call(this, schema, meta2);
+        async function runCompileAsync(_schema, _meta) {
+          await loadMetaSchema.call(this, _schema.$schema);
+          let sch = this._addSchema(_schema, _meta);
+          return sch.validate || _compileAsync.call(this, sch);
+        }
+        async function loadMetaSchema($ref) {
+          $ref && !this.getSchema($ref) && await runCompileAsync.call(this, { $ref }, !0);
+        }
+        async function _compileAsync(sch) {
+          try {
+            return this._compileSchemaEnv(sch);
+          } catch (e) {
+            if (!(e instanceof ref_error_1.default))
+              throw e;
+            return checkLoaded.call(this, e), await loadMissingSchema.call(this, e.missingSchema), _compileAsync.call(this, sch);
+          }
+        }
+        function checkLoaded({ missingSchema: ref, missingRef }) {
+          if (this.refs[ref])
+            throw new Error(`AnySchema ${ref} is loaded but ${missingRef} cannot be resolved`);
+        }
+        async function loadMissingSchema(ref) {
+          let _schema = await _loadSchema.call(this, ref);
+          this.refs[ref] || await loadMetaSchema.call(this, _schema.$schema), this.refs[ref] || this.addSchema(_schema, ref, meta2);
+        }
+        async function _loadSchema(ref) {
+          let p = this._loading[ref];
+          if (p)
+            return p;
+          try {
+            return await (this._loading[ref] = loadSchema(ref));
+          } finally {
+            delete this._loading[ref];
+          }
+        }
+      }
+      // Adds schema to the instance
+      addSchema(schema, key, _meta, _validateSchema = this.opts.validateSchema) {
+        if (Array.isArray(schema)) {
+          for (let sch of schema)
+            this.addSchema(sch, void 0, _meta, _validateSchema);
+          return this;
+        }
+        let id;
+        if (typeof schema == "object") {
+          let { schemaId } = this.opts;
+          if (id = schema[schemaId], id !== void 0 && typeof id != "string")
+            throw new Error(`schema ${schemaId} must be string`);
+        }
+        return key = (0, resolve_1.normalizeId)(key || id), this._checkUnique(key), this.schemas[key] = this._addSchema(schema, _meta, key, _validateSchema, !0), this;
+      }
+      // Add schema that will be used to validate other schemas
+      // options in META_IGNORE_OPTIONS are alway set to false
+      addMetaSchema(schema, key, _validateSchema = this.opts.validateSchema) {
+        return this.addSchema(schema, key, !0, _validateSchema), this;
+      }
+      //  Validate schema against its meta-schema
+      validateSchema(schema, throwOrLogError) {
+        if (typeof schema == "boolean")
+          return !0;
+        let $schema;
+        if ($schema = schema.$schema, $schema !== void 0 && typeof $schema != "string")
+          throw new Error("$schema must be a string");
+        if ($schema = $schema || this.opts.defaultMeta || this.defaultMeta(), !$schema)
+          return this.logger.warn("meta-schema not available"), this.errors = null, !0;
+        let valid = this.validate($schema, schema);
+        if (!valid && throwOrLogError) {
+          let message = "schema is invalid: " + this.errorsText();
+          if (this.opts.validateSchema === "log")
+            this.logger.error(message);
+          else
+            throw new Error(message);
+        }
+        return valid;
+      }
+      // Get compiled schema by `key` or `ref`.
+      // (`key` that was passed to `addSchema` or full schema reference - `schema.$id` or resolved id)
+      getSchema(keyRef) {
+        let sch;
+        for (; typeof (sch = getSchEnv.call(this, keyRef)) == "string"; )
+          keyRef = sch;
+        if (sch === void 0) {
+          let { schemaId } = this.opts, root = new compile_1.SchemaEnv({ schema: {}, schemaId });
+          if (sch = compile_1.resolveSchema.call(this, root, keyRef), !sch)
+            return;
+          this.refs[keyRef] = sch;
+        }
+        return sch.validate || this._compileSchemaEnv(sch);
+      }
+      // Remove cached schema(s).
+      // If no parameter is passed all schemas but meta-schemas are removed.
+      // If RegExp is passed all schemas with key/id matching pattern but meta-schemas are removed.
+      // Even if schema is referenced by other schemas it still can be removed as other schemas have local references.
+      removeSchema(schemaKeyRef) {
+        if (schemaKeyRef instanceof RegExp)
+          return this._removeAllSchemas(this.schemas, schemaKeyRef), this._removeAllSchemas(this.refs, schemaKeyRef), this;
+        switch (typeof schemaKeyRef) {
+          case "undefined":
+            return this._removeAllSchemas(this.schemas), this._removeAllSchemas(this.refs), this._cache.clear(), this;
+          case "string": {
+            let sch = getSchEnv.call(this, schemaKeyRef);
+            return typeof sch == "object" && this._cache.delete(sch.schema), delete this.schemas[schemaKeyRef], delete this.refs[schemaKeyRef], this;
+          }
+          case "object": {
+            let cacheKey = schemaKeyRef;
+            this._cache.delete(cacheKey);
+            let id = schemaKeyRef[this.opts.schemaId];
+            return id && (id = (0, resolve_1.normalizeId)(id), delete this.schemas[id], delete this.refs[id]), this;
+          }
+          default:
+            throw new Error("ajv.removeSchema: invalid parameter");
+        }
+      }
+      // add "vocabulary" - a collection of keywords
+      addVocabulary(definitions) {
+        for (let def of definitions)
+          this.addKeyword(def);
+        return this;
+      }
+      addKeyword(kwdOrDef, def) {
+        let keyword;
+        if (typeof kwdOrDef == "string")
+          keyword = kwdOrDef, typeof def == "object" && (this.logger.warn("these parameters are deprecated, see docs for addKeyword"), def.keyword = keyword);
+        else if (typeof kwdOrDef == "object" && def === void 0) {
+          if (def = kwdOrDef, keyword = def.keyword, Array.isArray(keyword) && !keyword.length)
+            throw new Error("addKeywords: keyword must be string or non-empty array");
+        } else
+          throw new Error("invalid addKeywords parameters");
+        if (checkKeyword.call(this, keyword, def), !def)
+          return (0, util_1.eachItem)(keyword, (kwd) => addRule.call(this, kwd)), this;
+        keywordMetaschema.call(this, def);
+        let definition = {
+          ...def,
+          type: (0, dataType_1.getJSONTypes)(def.type),
+          schemaType: (0, dataType_1.getJSONTypes)(def.schemaType)
+        };
+        return (0, util_1.eachItem)(keyword, definition.type.length === 0 ? (k) => addRule.call(this, k, definition) : (k) => definition.type.forEach((t) => addRule.call(this, k, definition, t))), this;
+      }
+      getKeyword(keyword) {
+        let rule = this.RULES.all[keyword];
+        return typeof rule == "object" ? rule.definition : !!rule;
+      }
+      // Remove keyword
+      removeKeyword(keyword) {
+        let { RULES } = this;
+        delete RULES.keywords[keyword], delete RULES.all[keyword];
+        for (let group of RULES.rules) {
+          let i = group.rules.findIndex((rule) => rule.keyword === keyword);
+          i >= 0 && group.rules.splice(i, 1);
+        }
+        return this;
+      }
+      // Add format
+      addFormat(name, format) {
+        return typeof format == "string" && (format = new RegExp(format)), this.formats[name] = format, this;
+      }
+      errorsText(errors = this.errors, { separator = ", ", dataVar = "data" } = {}) {
+        return !errors || errors.length === 0 ? "No errors" : errors.map((e) => `${dataVar}${e.instancePath} ${e.message}`).reduce((text, msg) => text + separator + msg);
+      }
+      $dataMetaSchema(metaSchema, keywordsJsonPointers) {
+        let rules = this.RULES.all;
+        metaSchema = JSON.parse(JSON.stringify(metaSchema));
+        for (let jsonPointer of keywordsJsonPointers) {
+          let segments = jsonPointer.split("/").slice(1), keywords = metaSchema;
+          for (let seg of segments)
+            keywords = keywords[seg];
+          for (let key in rules) {
+            let rule = rules[key];
+            if (typeof rule != "object")
+              continue;
+            let { $data } = rule.definition, schema = keywords[key];
+            $data && schema && (keywords[key] = schemaOrData(schema));
+          }
+        }
+        return metaSchema;
+      }
+      _removeAllSchemas(schemas2, regex) {
+        for (let keyRef in schemas2) {
+          let sch = schemas2[keyRef];
+          (!regex || regex.test(keyRef)) && (typeof sch == "string" ? delete schemas2[keyRef] : sch && !sch.meta && (this._cache.delete(sch.schema), delete schemas2[keyRef]));
+        }
+      }
+      _addSchema(schema, meta2, baseId, validateSchema = this.opts.validateSchema, addSchema = this.opts.addUsedSchema) {
+        let id, { schemaId } = this.opts;
+        if (typeof schema == "object")
+          id = schema[schemaId];
+        else {
+          if (this.opts.jtd)
+            throw new Error("schema must be object");
+          if (typeof schema != "boolean")
+            throw new Error("schema must be object or boolean");
+        }
+        let sch = this._cache.get(schema);
+        if (sch !== void 0)
+          return sch;
+        baseId = (0, resolve_1.normalizeId)(id || baseId);
+        let localRefs = resolve_1.getSchemaRefs.call(this, schema, baseId);
+        return sch = new compile_1.SchemaEnv({ schema, schemaId, meta: meta2, baseId, localRefs }), this._cache.set(sch.schema, sch), addSchema && !baseId.startsWith("#") && (baseId && this._checkUnique(baseId), this.refs[baseId] = sch), validateSchema && this.validateSchema(schema, !0), sch;
+      }
+      _checkUnique(id) {
+        if (this.schemas[id] || this.refs[id])
+          throw new Error(`schema with key or id "${id}" already exists`);
+      }
+      _compileSchemaEnv(sch) {
+        if (sch.meta ? this._compileMetaSchema(sch) : compile_1.compileSchema.call(this, sch), !sch.validate)
+          throw new Error("ajv implementation error");
+        return sch.validate;
+      }
+      _compileMetaSchema(sch) {
+        let currentOpts = this.opts;
+        this.opts = this._metaOpts;
+        try {
+          compile_1.compileSchema.call(this, sch);
+        } finally {
+          this.opts = currentOpts;
+        }
+      }
+    };
+    Ajv2.ValidationError = validation_error_1.default;
+    Ajv2.MissingRefError = ref_error_1.default;
+    exports.default = Ajv2;
+    function checkOptions(checkOpts, options, msg, log = "error") {
+      for (let key in checkOpts) {
+        let opt = key;
+        opt in options && this.logger[log](`${msg}: option ${key}. ${checkOpts[opt]}`);
+      }
+    }
+    function getSchEnv(keyRef) {
+      return keyRef = (0, resolve_1.normalizeId)(keyRef), this.schemas[keyRef] || this.refs[keyRef];
+    }
+    function addInitialSchemas() {
+      let optsSchemas = this.opts.schemas;
+      if (optsSchemas)
+        if (Array.isArray(optsSchemas))
+          this.addSchema(optsSchemas);
+        else
+          for (let key in optsSchemas)
+            this.addSchema(optsSchemas[key], key);
+    }
+    function addInitialFormats() {
+      for (let name in this.opts.formats) {
+        let format = this.opts.formats[name];
+        format && this.addFormat(name, format);
+      }
+    }
+    function addInitialKeywords(defs) {
+      if (Array.isArray(defs)) {
+        this.addVocabulary(defs);
+        return;
+      }
+      this.logger.warn("keywords option as map is deprecated, pass array");
+      for (let keyword in defs) {
+        let def = defs[keyword];
+        def.keyword || (def.keyword = keyword), this.addKeyword(def);
+      }
+    }
+    function getMetaSchemaOptions() {
+      let metaOpts = { ...this.opts };
+      for (let opt of META_IGNORE_OPTIONS)
+        delete metaOpts[opt];
+      return metaOpts;
+    }
+    var noLogs = { log() {
+    }, warn() {
+    }, error() {
+    } };
+    function getLogger(logger) {
+      if (logger === !1)
+        return noLogs;
+      if (logger === void 0)
+        return console;
+      if (logger.log && logger.warn && logger.error)
+        return logger;
+      throw new Error("logger must implement log, warn and error methods");
+    }
+    var KEYWORD_NAME = /^[a-z_$][a-z0-9_$:-]*$/i;
+    function checkKeyword(keyword, def) {
+      let { RULES } = this;
+      if ((0, util_1.eachItem)(keyword, (kwd) => {
+        if (RULES.keywords[kwd])
+          throw new Error(`Keyword ${kwd} is already defined`);
+        if (!KEYWORD_NAME.test(kwd))
+          throw new Error(`Keyword ${kwd} has invalid name`);
+      }), !!def && def.$data && !("code" in def || "validate" in def))
+        throw new Error('$data keyword must have "code" or "validate" function');
+    }
+    function addRule(keyword, definition, dataType) {
+      var _a3;
+      let post = definition?.post;
+      if (dataType && post)
+        throw new Error('keyword with "post" flag cannot have "type"');
+      let { RULES } = this, ruleGroup = post ? RULES.post : RULES.rules.find(({ type: t }) => t === dataType);
+      if (ruleGroup || (ruleGroup = { type: dataType, rules: [] }, RULES.rules.push(ruleGroup)), RULES.keywords[keyword] = !0, !definition)
+        return;
+      let rule = {
+        keyword,
+        definition: {
+          ...definition,
+          type: (0, dataType_1.getJSONTypes)(definition.type),
+          schemaType: (0, dataType_1.getJSONTypes)(definition.schemaType)
+        }
+      };
+      definition.before ? addBeforeRule.call(this, ruleGroup, rule, definition.before) : ruleGroup.rules.push(rule), RULES.all[keyword] = rule, (_a3 = definition.implements) === null || _a3 === void 0 || _a3.forEach((kwd) => this.addKeyword(kwd));
+    }
+    function addBeforeRule(ruleGroup, rule, before) {
+      let i = ruleGroup.rules.findIndex((_rule) => _rule.keyword === before);
+      i >= 0 ? ruleGroup.rules.splice(i, 0, rule) : (ruleGroup.rules.push(rule), this.logger.warn(`rule ${before} is not defined`));
+    }
+    function keywordMetaschema(def) {
+      let { metaSchema } = def;
+      metaSchema !== void 0 && (def.$data && this.opts.$data && (metaSchema = schemaOrData(metaSchema)), def.validateSchema = this.compile(metaSchema, !0));
+    }
+    var $dataRef = {
+      $ref: "https://raw.githubusercontent.com/ajv-validator/ajv/master/lib/refs/data.json#"
+    };
+    function schemaOrData(schema) {
+      return { anyOf: [schema, $dataRef] };
+    }
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/core/id.js
+var require_id = __commonJS({
+  "node_modules/ajv/dist/vocabularies/core/id.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var def = {
+      keyword: "id",
+      code() {
+        throw new Error('NOT SUPPORTED: keyword "id", use "$id" for schema ID');
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/core/ref.js
+var require_ref = __commonJS({
+  "node_modules/ajv/dist/vocabularies/core/ref.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.callRef = exports.getValidate = void 0;
+    var ref_error_1 = require_ref_error(), code_1 = require_code2(), codegen_1 = require_codegen(), names_1 = require_names(), compile_1 = require_compile(), util_1 = require_util(), def = {
+      keyword: "$ref",
+      schemaType: "string",
+      code(cxt) {
+        let { gen, schema: $ref, it } = cxt, { baseId, schemaEnv: env, validateName, opts, self } = it, { root } = env;
+        if (($ref === "#" || $ref === "#/") && baseId === root.baseId)
+          return callRootRef();
+        let schOrEnv = compile_1.resolveRef.call(self, root, baseId, $ref);
+        if (schOrEnv === void 0)
+          throw new ref_error_1.default(it.opts.uriResolver, baseId, $ref);
+        if (schOrEnv instanceof compile_1.SchemaEnv)
+          return callValidate(schOrEnv);
+        return inlineRefSchema(schOrEnv);
+        function callRootRef() {
+          if (env === root)
+            return callRef(cxt, validateName, env, env.$async);
+          let rootName = gen.scopeValue("root", { ref: root });
+          return callRef(cxt, (0, codegen_1._)`${rootName}.validate`, root, root.$async);
+        }
+        function callValidate(sch) {
+          let v = getValidate(cxt, sch);
+          callRef(cxt, v, sch, sch.$async);
+        }
+        function inlineRefSchema(sch) {
+          let schName = gen.scopeValue("schema", opts.code.source === !0 ? { ref: sch, code: (0, codegen_1.stringify)(sch) } : { ref: sch }), valid = gen.name("valid"), schCxt = cxt.subschema({
+            schema: sch,
+            dataTypes: [],
+            schemaPath: codegen_1.nil,
+            topSchemaRef: schName,
+            errSchemaPath: $ref
+          }, valid);
+          cxt.mergeEvaluated(schCxt), cxt.ok(valid);
+        }
+      }
+    };
+    function getValidate(cxt, sch) {
+      let { gen } = cxt;
+      return sch.validate ? gen.scopeValue("validate", { ref: sch.validate }) : (0, codegen_1._)`${gen.scopeValue("wrapper", { ref: sch })}.validate`;
+    }
+    exports.getValidate = getValidate;
+    function callRef(cxt, v, sch, $async) {
+      let { gen, it } = cxt, { allErrors, schemaEnv: env, opts } = it, passCxt = opts.passContext ? names_1.default.this : codegen_1.nil;
+      $async ? callAsyncRef() : callSyncRef();
+      function callAsyncRef() {
+        if (!env.$async)
+          throw new Error("async schema referenced by sync schema");
+        let valid = gen.let("valid");
+        gen.try(() => {
+          gen.code((0, codegen_1._)`await ${(0, code_1.callValidateCode)(cxt, v, passCxt)}`), addEvaluatedFrom(v), allErrors || gen.assign(valid, !0);
+        }, (e) => {
+          gen.if((0, codegen_1._)`!(${e} instanceof ${it.ValidationError})`, () => gen.throw(e)), addErrorsFrom(e), allErrors || gen.assign(valid, !1);
+        }), cxt.ok(valid);
+      }
+      function callSyncRef() {
+        cxt.result((0, code_1.callValidateCode)(cxt, v, passCxt), () => addEvaluatedFrom(v), () => addErrorsFrom(v));
+      }
+      function addErrorsFrom(source) {
+        let errs = (0, codegen_1._)`${source}.errors`;
+        gen.assign(names_1.default.vErrors, (0, codegen_1._)`${names_1.default.vErrors} === null ? ${errs} : ${names_1.default.vErrors}.concat(${errs})`), gen.assign(names_1.default.errors, (0, codegen_1._)`${names_1.default.vErrors}.length`);
+      }
+      function addEvaluatedFrom(source) {
+        var _a3;
+        if (!it.opts.unevaluated)
+          return;
+        let schEvaluated = (_a3 = sch?.validate) === null || _a3 === void 0 ? void 0 : _a3.evaluated;
+        if (it.props !== !0)
+          if (schEvaluated && !schEvaluated.dynamicProps)
+            schEvaluated.props !== void 0 && (it.props = util_1.mergeEvaluated.props(gen, schEvaluated.props, it.props));
+          else {
+            let props = gen.var("props", (0, codegen_1._)`${source}.evaluated.props`);
+            it.props = util_1.mergeEvaluated.props(gen, props, it.props, codegen_1.Name);
+          }
+        if (it.items !== !0)
+          if (schEvaluated && !schEvaluated.dynamicItems)
+            schEvaluated.items !== void 0 && (it.items = util_1.mergeEvaluated.items(gen, schEvaluated.items, it.items));
+          else {
+            let items = gen.var("items", (0, codegen_1._)`${source}.evaluated.items`);
+            it.items = util_1.mergeEvaluated.items(gen, items, it.items, codegen_1.Name);
+          }
+      }
+    }
+    exports.callRef = callRef;
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/core/index.js
+var require_core2 = __commonJS({
+  "node_modules/ajv/dist/vocabularies/core/index.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var id_1 = require_id(), ref_1 = require_ref(), core = [
+      "$schema",
+      "$id",
+      "$defs",
+      "$vocabulary",
+      { keyword: "$comment" },
+      "definitions",
+      id_1.default,
+      ref_1.default
+    ];
+    exports.default = core;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/validation/limitNumber.js
+var require_limitNumber = __commonJS({
+  "node_modules/ajv/dist/vocabularies/validation/limitNumber.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var codegen_1 = require_codegen(), ops = codegen_1.operators, KWDs = {
+      maximum: { okStr: "<=", ok: ops.LTE, fail: ops.GT },
+      minimum: { okStr: ">=", ok: ops.GTE, fail: ops.LT },
+      exclusiveMaximum: { okStr: "<", ok: ops.LT, fail: ops.GTE },
+      exclusiveMinimum: { okStr: ">", ok: ops.GT, fail: ops.LTE }
+    }, error = {
+      message: ({ keyword, schemaCode }) => (0, codegen_1.str)`must be ${KWDs[keyword].okStr} ${schemaCode}`,
+      params: ({ keyword, schemaCode }) => (0, codegen_1._)`{comparison: ${KWDs[keyword].okStr}, limit: ${schemaCode}}`
+    }, def = {
+      keyword: Object.keys(KWDs),
+      type: "number",
+      schemaType: "number",
+      $data: !0,
+      error,
+      code(cxt) {
+        let { keyword, data, schemaCode } = cxt;
+        cxt.fail$data((0, codegen_1._)`${data} ${KWDs[keyword].fail} ${schemaCode} || isNaN(${data})`);
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/validation/multipleOf.js
+var require_multipleOf = __commonJS({
+  "node_modules/ajv/dist/vocabularies/validation/multipleOf.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var codegen_1 = require_codegen(), error = {
+      message: ({ schemaCode }) => (0, codegen_1.str)`must be multiple of ${schemaCode}`,
+      params: ({ schemaCode }) => (0, codegen_1._)`{multipleOf: ${schemaCode}}`
+    }, def = {
+      keyword: "multipleOf",
+      type: "number",
+      schemaType: "number",
+      $data: !0,
+      error,
+      code(cxt) {
+        let { gen, data, schemaCode, it } = cxt, prec = it.opts.multipleOfPrecision, res = gen.let("res"), invalid2 = prec ? (0, codegen_1._)`Math.abs(Math.round(${res}) - ${res}) > 1e-${prec}` : (0, codegen_1._)`${res} !== parseInt(${res})`;
+        cxt.fail$data((0, codegen_1._)`(${schemaCode} === 0 || (${res} = ${data}/${schemaCode}, ${invalid2}))`);
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/runtime/ucs2length.js
+var require_ucs2length = __commonJS({
+  "node_modules/ajv/dist/runtime/ucs2length.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    function ucs2length(str) {
+      let len = str.length, length = 0, pos = 0, value;
+      for (; pos < len; )
+        length++, value = str.charCodeAt(pos++), value >= 55296 && value <= 56319 && pos < len && (value = str.charCodeAt(pos), (value & 64512) === 56320 && pos++);
+      return length;
+    }
+    exports.default = ucs2length;
+    ucs2length.code = 'require("ajv/dist/runtime/ucs2length").default';
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/validation/limitLength.js
+var require_limitLength = __commonJS({
+  "node_modules/ajv/dist/vocabularies/validation/limitLength.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var codegen_1 = require_codegen(), util_1 = require_util(), ucs2length_1 = require_ucs2length(), error = {
+      message({ keyword, schemaCode }) {
+        let comp = keyword === "maxLength" ? "more" : "fewer";
+        return (0, codegen_1.str)`must NOT have ${comp} than ${schemaCode} characters`;
+      },
+      params: ({ schemaCode }) => (0, codegen_1._)`{limit: ${schemaCode}}`
+    }, def = {
+      keyword: ["maxLength", "minLength"],
+      type: "string",
+      schemaType: "number",
+      $data: !0,
+      error,
+      code(cxt) {
+        let { keyword, data, schemaCode, it } = cxt, op = keyword === "maxLength" ? codegen_1.operators.GT : codegen_1.operators.LT, len = it.opts.unicode === !1 ? (0, codegen_1._)`${data}.length` : (0, codegen_1._)`${(0, util_1.useFunc)(cxt.gen, ucs2length_1.default)}(${data})`;
+        cxt.fail$data((0, codegen_1._)`${len} ${op} ${schemaCode}`);
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/validation/pattern.js
+var require_pattern = __commonJS({
+  "node_modules/ajv/dist/vocabularies/validation/pattern.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var code_1 = require_code2(), util_1 = require_util(), codegen_1 = require_codegen(), error = {
+      message: ({ schemaCode }) => (0, codegen_1.str)`must match pattern "${schemaCode}"`,
+      params: ({ schemaCode }) => (0, codegen_1._)`{pattern: ${schemaCode}}`
+    }, def = {
+      keyword: "pattern",
+      type: "string",
+      schemaType: "string",
+      $data: !0,
+      error,
+      code(cxt) {
+        let { gen, data, $data, schema, schemaCode, it } = cxt, u = it.opts.unicodeRegExp ? "u" : "";
+        if ($data) {
+          let { regExp } = it.opts.code, regExpCode = regExp.code === "new RegExp" ? (0, codegen_1._)`new RegExp` : (0, util_1.useFunc)(gen, regExp), valid = gen.let("valid");
+          gen.try(() => gen.assign(valid, (0, codegen_1._)`${regExpCode}(${schemaCode}, ${u}).test(${data})`), () => gen.assign(valid, !1)), cxt.fail$data((0, codegen_1._)`!${valid}`);
+        } else {
+          let regExp = (0, code_1.usePattern)(cxt, schema);
+          cxt.fail$data((0, codegen_1._)`!${regExp}.test(${data})`);
+        }
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/validation/limitProperties.js
+var require_limitProperties = __commonJS({
+  "node_modules/ajv/dist/vocabularies/validation/limitProperties.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var codegen_1 = require_codegen(), error = {
+      message({ keyword, schemaCode }) {
+        let comp = keyword === "maxProperties" ? "more" : "fewer";
+        return (0, codegen_1.str)`must NOT have ${comp} than ${schemaCode} properties`;
+      },
+      params: ({ schemaCode }) => (0, codegen_1._)`{limit: ${schemaCode}}`
+    }, def = {
+      keyword: ["maxProperties", "minProperties"],
+      type: "object",
+      schemaType: "number",
+      $data: !0,
+      error,
+      code(cxt) {
+        let { keyword, data, schemaCode } = cxt, op = keyword === "maxProperties" ? codegen_1.operators.GT : codegen_1.operators.LT;
+        cxt.fail$data((0, codegen_1._)`Object.keys(${data}).length ${op} ${schemaCode}`);
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/validation/required.js
+var require_required = __commonJS({
+  "node_modules/ajv/dist/vocabularies/validation/required.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var code_1 = require_code2(), codegen_1 = require_codegen(), util_1 = require_util(), error = {
+      message: ({ params: { missingProperty } }) => (0, codegen_1.str)`must have required property '${missingProperty}'`,
+      params: ({ params: { missingProperty } }) => (0, codegen_1._)`{missingProperty: ${missingProperty}}`
+    }, def = {
+      keyword: "required",
+      type: "object",
+      schemaType: "array",
+      $data: !0,
+      error,
+      code(cxt) {
+        let { gen, schema, schemaCode, data, $data, it } = cxt, { opts } = it;
+        if (!$data && schema.length === 0)
+          return;
+        let useLoop = schema.length >= opts.loopRequired;
+        if (it.allErrors ? allErrorsMode() : exitOnErrorMode(), opts.strictRequired) {
+          let props = cxt.parentSchema.properties, { definedProperties } = cxt.it;
+          for (let requiredKey of schema)
+            if (props?.[requiredKey] === void 0 && !definedProperties.has(requiredKey)) {
+              let schemaPath = it.schemaEnv.baseId + it.errSchemaPath, msg = `required property "${requiredKey}" is not defined at "${schemaPath}" (strictRequired)`;
+              (0, util_1.checkStrictMode)(it, msg, it.opts.strictRequired);
+            }
+        }
+        function allErrorsMode() {
+          if (useLoop || $data)
+            cxt.block$data(codegen_1.nil, loopAllRequired);
+          else
+            for (let prop of schema)
+              (0, code_1.checkReportMissingProp)(cxt, prop);
+        }
+        function exitOnErrorMode() {
+          let missing = gen.let("missing");
+          if (useLoop || $data) {
+            let valid = gen.let("valid", !0);
+            cxt.block$data(valid, () => loopUntilMissing(missing, valid)), cxt.ok(valid);
+          } else
+            gen.if((0, code_1.checkMissingProp)(cxt, schema, missing)), (0, code_1.reportMissingProp)(cxt, missing), gen.else();
+        }
+        function loopAllRequired() {
+          gen.forOf("prop", schemaCode, (prop) => {
+            cxt.setParams({ missingProperty: prop }), gen.if((0, code_1.noPropertyInData)(gen, data, prop, opts.ownProperties), () => cxt.error());
+          });
+        }
+        function loopUntilMissing(missing, valid) {
+          cxt.setParams({ missingProperty: missing }), gen.forOf(missing, schemaCode, () => {
+            gen.assign(valid, (0, code_1.propertyInData)(gen, data, missing, opts.ownProperties)), gen.if((0, codegen_1.not)(valid), () => {
+              cxt.error(), gen.break();
+            });
+          }, codegen_1.nil);
+        }
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/validation/limitItems.js
+var require_limitItems = __commonJS({
+  "node_modules/ajv/dist/vocabularies/validation/limitItems.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var codegen_1 = require_codegen(), error = {
+      message({ keyword, schemaCode }) {
+        let comp = keyword === "maxItems" ? "more" : "fewer";
+        return (0, codegen_1.str)`must NOT have ${comp} than ${schemaCode} items`;
+      },
+      params: ({ schemaCode }) => (0, codegen_1._)`{limit: ${schemaCode}}`
+    }, def = {
+      keyword: ["maxItems", "minItems"],
+      type: "array",
+      schemaType: "number",
+      $data: !0,
+      error,
+      code(cxt) {
+        let { keyword, data, schemaCode } = cxt, op = keyword === "maxItems" ? codegen_1.operators.GT : codegen_1.operators.LT;
+        cxt.fail$data((0, codegen_1._)`${data}.length ${op} ${schemaCode}`);
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/runtime/equal.js
+var require_equal = __commonJS({
+  "node_modules/ajv/dist/runtime/equal.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var equal = require_fast_deep_equal();
+    equal.code = 'require("ajv/dist/runtime/equal").default';
+    exports.default = equal;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/validation/uniqueItems.js
+var require_uniqueItems = __commonJS({
+  "node_modules/ajv/dist/vocabularies/validation/uniqueItems.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var dataType_1 = require_dataType(), codegen_1 = require_codegen(), util_1 = require_util(), equal_1 = require_equal(), error = {
+      message: ({ params: { i, j } }) => (0, codegen_1.str)`must NOT have duplicate items (items ## ${j} and ${i} are identical)`,
+      params: ({ params: { i, j } }) => (0, codegen_1._)`{i: ${i}, j: ${j}}`
+    }, def = {
+      keyword: "uniqueItems",
+      type: "array",
+      schemaType: "boolean",
+      $data: !0,
+      error,
+      code(cxt) {
+        let { gen, data, $data, schema, parentSchema, schemaCode, it } = cxt;
+        if (!$data && !schema)
+          return;
+        let valid = gen.let("valid"), itemTypes = parentSchema.items ? (0, dataType_1.getSchemaTypes)(parentSchema.items) : [];
+        cxt.block$data(valid, validateUniqueItems, (0, codegen_1._)`${schemaCode} === false`), cxt.ok(valid);
+        function validateUniqueItems() {
+          let i = gen.let("i", (0, codegen_1._)`${data}.length`), j = gen.let("j");
+          cxt.setParams({ i, j }), gen.assign(valid, !0), gen.if((0, codegen_1._)`${i} > 1`, () => (canOptimize() ? loopN : loopN2)(i, j));
+        }
+        function canOptimize() {
+          return itemTypes.length > 0 && !itemTypes.some((t) => t === "object" || t === "array");
+        }
+        function loopN(i, j) {
+          let item = gen.name("item"), wrongType = (0, dataType_1.checkDataTypes)(itemTypes, item, it.opts.strictNumbers, dataType_1.DataType.Wrong), indices = gen.const("indices", (0, codegen_1._)`{}`);
+          gen.for((0, codegen_1._)`;${i}--;`, () => {
+            gen.let(item, (0, codegen_1._)`${data}[${i}]`), gen.if(wrongType, (0, codegen_1._)`continue`), itemTypes.length > 1 && gen.if((0, codegen_1._)`typeof ${item} == "string"`, (0, codegen_1._)`${item} += "_"`), gen.if((0, codegen_1._)`typeof ${indices}[${item}] == "number"`, () => {
+              gen.assign(j, (0, codegen_1._)`${indices}[${item}]`), cxt.error(), gen.assign(valid, !1).break();
+            }).code((0, codegen_1._)`${indices}[${item}] = ${i}`);
+          });
+        }
+        function loopN2(i, j) {
+          let eql = (0, util_1.useFunc)(gen, equal_1.default), outer = gen.name("outer");
+          gen.label(outer).for((0, codegen_1._)`;${i}--;`, () => gen.for((0, codegen_1._)`${j} = ${i}; ${j}--;`, () => gen.if((0, codegen_1._)`${eql}(${data}[${i}], ${data}[${j}])`, () => {
+            cxt.error(), gen.assign(valid, !1).break(outer);
+          })));
+        }
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/validation/const.js
+var require_const = __commonJS({
+  "node_modules/ajv/dist/vocabularies/validation/const.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var codegen_1 = require_codegen(), util_1 = require_util(), equal_1 = require_equal(), error = {
+      message: "must be equal to constant",
+      params: ({ schemaCode }) => (0, codegen_1._)`{allowedValue: ${schemaCode}}`
+    }, def = {
+      keyword: "const",
+      $data: !0,
+      error,
+      code(cxt) {
+        let { gen, data, $data, schemaCode, schema } = cxt;
+        $data || schema && typeof schema == "object" ? cxt.fail$data((0, codegen_1._)`!${(0, util_1.useFunc)(gen, equal_1.default)}(${data}, ${schemaCode})`) : cxt.fail((0, codegen_1._)`${schema} !== ${data}`);
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/validation/enum.js
+var require_enum = __commonJS({
+  "node_modules/ajv/dist/vocabularies/validation/enum.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var codegen_1 = require_codegen(), util_1 = require_util(), equal_1 = require_equal(), error = {
+      message: "must be equal to one of the allowed values",
+      params: ({ schemaCode }) => (0, codegen_1._)`{allowedValues: ${schemaCode}}`
+    }, def = {
+      keyword: "enum",
+      schemaType: "array",
+      $data: !0,
+      error,
+      code(cxt) {
+        let { gen, data, $data, schema, schemaCode, it } = cxt;
+        if (!$data && schema.length === 0)
+          throw new Error("enum must have non-empty array");
+        let useLoop = schema.length >= it.opts.loopEnum, eql, getEql = () => eql ?? (eql = (0, util_1.useFunc)(gen, equal_1.default)), valid;
+        if (useLoop || $data)
+          valid = gen.let("valid"), cxt.block$data(valid, loopEnum);
+        else {
+          if (!Array.isArray(schema))
+            throw new Error("ajv implementation error");
+          let vSchema = gen.const("vSchema", schemaCode);
+          valid = (0, codegen_1.or)(...schema.map((_x, i) => equalCode(vSchema, i)));
+        }
+        cxt.pass(valid);
+        function loopEnum() {
+          gen.assign(valid, !1), gen.forOf("v", schemaCode, (v) => gen.if((0, codegen_1._)`${getEql()}(${data}, ${v})`, () => gen.assign(valid, !0).break()));
+        }
+        function equalCode(vSchema, i) {
+          let sch = schema[i];
+          return typeof sch == "object" && sch !== null ? (0, codegen_1._)`${getEql()}(${data}, ${vSchema}[${i}])` : (0, codegen_1._)`${data} === ${sch}`;
+        }
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/validation/index.js
+var require_validation = __commonJS({
+  "node_modules/ajv/dist/vocabularies/validation/index.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var limitNumber_1 = require_limitNumber(), multipleOf_1 = require_multipleOf(), limitLength_1 = require_limitLength(), pattern_1 = require_pattern(), limitProperties_1 = require_limitProperties(), required_1 = require_required(), limitItems_1 = require_limitItems(), uniqueItems_1 = require_uniqueItems(), const_1 = require_const(), enum_1 = require_enum(), validation = [
+      // number
+      limitNumber_1.default,
+      multipleOf_1.default,
+      // string
+      limitLength_1.default,
+      pattern_1.default,
+      // object
+      limitProperties_1.default,
+      required_1.default,
+      // array
+      limitItems_1.default,
+      uniqueItems_1.default,
+      // any
+      { keyword: "type", schemaType: ["string", "array"] },
+      { keyword: "nullable", schemaType: "boolean" },
+      const_1.default,
+      enum_1.default
+    ];
+    exports.default = validation;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/applicator/additionalItems.js
+var require_additionalItems = __commonJS({
+  "node_modules/ajv/dist/vocabularies/applicator/additionalItems.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.validateAdditionalItems = void 0;
+    var codegen_1 = require_codegen(), util_1 = require_util(), error = {
+      message: ({ params: { len } }) => (0, codegen_1.str)`must NOT have more than ${len} items`,
+      params: ({ params: { len } }) => (0, codegen_1._)`{limit: ${len}}`
+    }, def = {
+      keyword: "additionalItems",
+      type: "array",
+      schemaType: ["boolean", "object"],
+      before: "uniqueItems",
+      error,
+      code(cxt) {
+        let { parentSchema, it } = cxt, { items } = parentSchema;
+        if (!Array.isArray(items)) {
+          (0, util_1.checkStrictMode)(it, '"additionalItems" is ignored when "items" is not an array of schemas');
+          return;
+        }
+        validateAdditionalItems(cxt, items);
+      }
+    };
+    function validateAdditionalItems(cxt, items) {
+      let { gen, schema, data, keyword, it } = cxt;
+      it.items = !0;
+      let len = gen.const("len", (0, codegen_1._)`${data}.length`);
+      if (schema === !1)
+        cxt.setParams({ len: items.length }), cxt.pass((0, codegen_1._)`${len} <= ${items.length}`);
+      else if (typeof schema == "object" && !(0, util_1.alwaysValidSchema)(it, schema)) {
+        let valid = gen.var("valid", (0, codegen_1._)`${len} <= ${items.length}`);
+        gen.if((0, codegen_1.not)(valid), () => validateItems(valid)), cxt.ok(valid);
+      }
+      function validateItems(valid) {
+        gen.forRange("i", items.length, len, (i) => {
+          cxt.subschema({ keyword, dataProp: i, dataPropType: util_1.Type.Num }, valid), it.allErrors || gen.if((0, codegen_1.not)(valid), () => gen.break());
+        });
+      }
+    }
+    exports.validateAdditionalItems = validateAdditionalItems;
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/applicator/items.js
+var require_items = __commonJS({
+  "node_modules/ajv/dist/vocabularies/applicator/items.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.validateTuple = void 0;
+    var codegen_1 = require_codegen(), util_1 = require_util(), code_1 = require_code2(), def = {
+      keyword: "items",
+      type: "array",
+      schemaType: ["object", "array", "boolean"],
+      before: "uniqueItems",
+      code(cxt) {
+        let { schema, it } = cxt;
+        if (Array.isArray(schema))
+          return validateTuple(cxt, "additionalItems", schema);
+        it.items = !0, !(0, util_1.alwaysValidSchema)(it, schema) && cxt.ok((0, code_1.validateArray)(cxt));
+      }
+    };
+    function validateTuple(cxt, extraItems, schArr = cxt.schema) {
+      let { gen, parentSchema, data, keyword, it } = cxt;
+      checkStrictTuple(parentSchema), it.opts.unevaluated && schArr.length && it.items !== !0 && (it.items = util_1.mergeEvaluated.items(gen, schArr.length, it.items));
+      let valid = gen.name("valid"), len = gen.const("len", (0, codegen_1._)`${data}.length`);
+      schArr.forEach((sch, i) => {
+        (0, util_1.alwaysValidSchema)(it, sch) || (gen.if((0, codegen_1._)`${len} > ${i}`, () => cxt.subschema({
+          keyword,
+          schemaProp: i,
+          dataProp: i
+        }, valid)), cxt.ok(valid));
+      });
+      function checkStrictTuple(sch) {
+        let { opts, errSchemaPath } = it, l = schArr.length, fullTuple = l === sch.minItems && (l === sch.maxItems || sch[extraItems] === !1);
+        if (opts.strictTuples && !fullTuple) {
+          let msg = `"${keyword}" is ${l}-tuple, but minItems or maxItems/${extraItems} are not specified or different at path "${errSchemaPath}"`;
+          (0, util_1.checkStrictMode)(it, msg, opts.strictTuples);
+        }
+      }
+    }
+    exports.validateTuple = validateTuple;
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/applicator/prefixItems.js
+var require_prefixItems = __commonJS({
+  "node_modules/ajv/dist/vocabularies/applicator/prefixItems.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var items_1 = require_items(), def = {
+      keyword: "prefixItems",
+      type: "array",
+      schemaType: ["array"],
+      before: "uniqueItems",
+      code: (cxt) => (0, items_1.validateTuple)(cxt, "items")
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/applicator/items2020.js
+var require_items2020 = __commonJS({
+  "node_modules/ajv/dist/vocabularies/applicator/items2020.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var codegen_1 = require_codegen(), util_1 = require_util(), code_1 = require_code2(), additionalItems_1 = require_additionalItems(), error = {
+      message: ({ params: { len } }) => (0, codegen_1.str)`must NOT have more than ${len} items`,
+      params: ({ params: { len } }) => (0, codegen_1._)`{limit: ${len}}`
+    }, def = {
+      keyword: "items",
+      type: "array",
+      schemaType: ["object", "boolean"],
+      before: "uniqueItems",
+      error,
+      code(cxt) {
+        let { schema, parentSchema, it } = cxt, { prefixItems } = parentSchema;
+        it.items = !0, !(0, util_1.alwaysValidSchema)(it, schema) && (prefixItems ? (0, additionalItems_1.validateAdditionalItems)(cxt, prefixItems) : cxt.ok((0, code_1.validateArray)(cxt)));
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/applicator/contains.js
+var require_contains = __commonJS({
+  "node_modules/ajv/dist/vocabularies/applicator/contains.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var codegen_1 = require_codegen(), util_1 = require_util(), error = {
+      message: ({ params: { min, max } }) => max === void 0 ? (0, codegen_1.str)`must contain at least ${min} valid item(s)` : (0, codegen_1.str)`must contain at least ${min} and no more than ${max} valid item(s)`,
+      params: ({ params: { min, max } }) => max === void 0 ? (0, codegen_1._)`{minContains: ${min}}` : (0, codegen_1._)`{minContains: ${min}, maxContains: ${max}}`
+    }, def = {
+      keyword: "contains",
+      type: "array",
+      schemaType: ["object", "boolean"],
+      before: "uniqueItems",
+      trackErrors: !0,
+      error,
+      code(cxt) {
+        let { gen, schema, parentSchema, data, it } = cxt, min, max, { minContains, maxContains } = parentSchema;
+        it.opts.next ? (min = minContains === void 0 ? 1 : minContains, max = maxContains) : min = 1;
+        let len = gen.const("len", (0, codegen_1._)`${data}.length`);
+        if (cxt.setParams({ min, max }), max === void 0 && min === 0) {
+          (0, util_1.checkStrictMode)(it, '"minContains" == 0 without "maxContains": "contains" keyword ignored');
+          return;
+        }
+        if (max !== void 0 && min > max) {
+          (0, util_1.checkStrictMode)(it, '"minContains" > "maxContains" is always invalid'), cxt.fail();
+          return;
+        }
+        if ((0, util_1.alwaysValidSchema)(it, schema)) {
+          let cond = (0, codegen_1._)`${len} >= ${min}`;
+          max !== void 0 && (cond = (0, codegen_1._)`${cond} && ${len} <= ${max}`), cxt.pass(cond);
+          return;
+        }
+        it.items = !0;
+        let valid = gen.name("valid");
+        max === void 0 && min === 1 ? validateItems(valid, () => gen.if(valid, () => gen.break())) : min === 0 ? (gen.let(valid, !0), max !== void 0 && gen.if((0, codegen_1._)`${data}.length > 0`, validateItemsWithCount)) : (gen.let(valid, !1), validateItemsWithCount()), cxt.result(valid, () => cxt.reset());
+        function validateItemsWithCount() {
+          let schValid = gen.name("_valid"), count = gen.let("count", 0);
+          validateItems(schValid, () => gen.if(schValid, () => checkLimits(count)));
+        }
+        function validateItems(_valid, block) {
+          gen.forRange("i", 0, len, (i) => {
+            cxt.subschema({
+              keyword: "contains",
+              dataProp: i,
+              dataPropType: util_1.Type.Num,
+              compositeRule: !0
+            }, _valid), block();
+          });
+        }
+        function checkLimits(count) {
+          gen.code((0, codegen_1._)`${count}++`), max === void 0 ? gen.if((0, codegen_1._)`${count} >= ${min}`, () => gen.assign(valid, !0).break()) : (gen.if((0, codegen_1._)`${count} > ${max}`, () => gen.assign(valid, !1).break()), min === 1 ? gen.assign(valid, !0) : gen.if((0, codegen_1._)`${count} >= ${min}`, () => gen.assign(valid, !0)));
+        }
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/applicator/dependencies.js
+var require_dependencies = __commonJS({
+  "node_modules/ajv/dist/vocabularies/applicator/dependencies.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.validateSchemaDeps = exports.validatePropertyDeps = exports.error = void 0;
+    var codegen_1 = require_codegen(), util_1 = require_util(), code_1 = require_code2();
+    exports.error = {
+      message: ({ params: { property, depsCount, deps } }) => {
+        let property_ies = depsCount === 1 ? "property" : "properties";
+        return (0, codegen_1.str)`must have ${property_ies} ${deps} when property ${property} is present`;
+      },
+      params: ({ params: { property, depsCount, deps, missingProperty } }) => (0, codegen_1._)`{property: ${property},
+    missingProperty: ${missingProperty},
+    depsCount: ${depsCount},
+    deps: ${deps}}`
+      // TODO change to reference
+    };
+    var def = {
+      keyword: "dependencies",
+      type: "object",
+      schemaType: "object",
+      error: exports.error,
+      code(cxt) {
+        let [propDeps, schDeps] = splitDependencies(cxt);
+        validatePropertyDeps(cxt, propDeps), validateSchemaDeps(cxt, schDeps);
+      }
+    };
+    function splitDependencies({ schema }) {
+      let propertyDeps = {}, schemaDeps = {};
+      for (let key in schema) {
+        if (key === "__proto__")
+          continue;
+        let deps = Array.isArray(schema[key]) ? propertyDeps : schemaDeps;
+        deps[key] = schema[key];
+      }
+      return [propertyDeps, schemaDeps];
+    }
+    function validatePropertyDeps(cxt, propertyDeps = cxt.schema) {
+      let { gen, data, it } = cxt;
+      if (Object.keys(propertyDeps).length === 0)
+        return;
+      let missing = gen.let("missing");
+      for (let prop in propertyDeps) {
+        let deps = propertyDeps[prop];
+        if (deps.length === 0)
+          continue;
+        let hasProperty = (0, code_1.propertyInData)(gen, data, prop, it.opts.ownProperties);
+        cxt.setParams({
+          property: prop,
+          depsCount: deps.length,
+          deps: deps.join(", ")
+        }), it.allErrors ? gen.if(hasProperty, () => {
+          for (let depProp of deps)
+            (0, code_1.checkReportMissingProp)(cxt, depProp);
+        }) : (gen.if((0, codegen_1._)`${hasProperty} && (${(0, code_1.checkMissingProp)(cxt, deps, missing)})`), (0, code_1.reportMissingProp)(cxt, missing), gen.else());
+      }
+    }
+    exports.validatePropertyDeps = validatePropertyDeps;
+    function validateSchemaDeps(cxt, schemaDeps = cxt.schema) {
+      let { gen, data, keyword, it } = cxt, valid = gen.name("valid");
+      for (let prop in schemaDeps)
+        (0, util_1.alwaysValidSchema)(it, schemaDeps[prop]) || (gen.if(
+          (0, code_1.propertyInData)(gen, data, prop, it.opts.ownProperties),
+          () => {
+            let schCxt = cxt.subschema({ keyword, schemaProp: prop }, valid);
+            cxt.mergeValidEvaluated(schCxt, valid);
+          },
+          () => gen.var(valid, !0)
+          // TODO var
+        ), cxt.ok(valid));
+    }
+    exports.validateSchemaDeps = validateSchemaDeps;
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/applicator/propertyNames.js
+var require_propertyNames = __commonJS({
+  "node_modules/ajv/dist/vocabularies/applicator/propertyNames.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var codegen_1 = require_codegen(), util_1 = require_util(), error = {
+      message: "property name must be valid",
+      params: ({ params }) => (0, codegen_1._)`{propertyName: ${params.propertyName}}`
+    }, def = {
+      keyword: "propertyNames",
+      type: "object",
+      schemaType: ["object", "boolean"],
+      error,
+      code(cxt) {
+        let { gen, schema, data, it } = cxt;
+        if ((0, util_1.alwaysValidSchema)(it, schema))
+          return;
+        let valid = gen.name("valid");
+        gen.forIn("key", data, (key) => {
+          cxt.setParams({ propertyName: key }), cxt.subschema({
+            keyword: "propertyNames",
+            data: key,
+            dataTypes: ["string"],
+            propertyName: key,
+            compositeRule: !0
+          }, valid), gen.if((0, codegen_1.not)(valid), () => {
+            cxt.error(!0), it.allErrors || gen.break();
+          });
+        }), cxt.ok(valid);
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/applicator/additionalProperties.js
+var require_additionalProperties = __commonJS({
+  "node_modules/ajv/dist/vocabularies/applicator/additionalProperties.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var code_1 = require_code2(), codegen_1 = require_codegen(), names_1 = require_names(), util_1 = require_util(), error = {
+      message: "must NOT have additional properties",
+      params: ({ params }) => (0, codegen_1._)`{additionalProperty: ${params.additionalProperty}}`
+    }, def = {
+      keyword: "additionalProperties",
+      type: ["object"],
+      schemaType: ["boolean", "object"],
+      allowUndefined: !0,
+      trackErrors: !0,
+      error,
+      code(cxt) {
+        let { gen, schema, parentSchema, data, errsCount, it } = cxt;
+        if (!errsCount)
+          throw new Error("ajv implementation error");
+        let { allErrors, opts } = it;
+        if (it.props = !0, opts.removeAdditional !== "all" && (0, util_1.alwaysValidSchema)(it, schema))
+          return;
+        let props = (0, code_1.allSchemaProperties)(parentSchema.properties), patProps = (0, code_1.allSchemaProperties)(parentSchema.patternProperties);
+        checkAdditionalProperties(), cxt.ok((0, codegen_1._)`${errsCount} === ${names_1.default.errors}`);
+        function checkAdditionalProperties() {
+          gen.forIn("key", data, (key) => {
+            !props.length && !patProps.length ? additionalPropertyCode(key) : gen.if(isAdditional(key), () => additionalPropertyCode(key));
+          });
+        }
+        function isAdditional(key) {
+          let definedProp;
+          if (props.length > 8) {
+            let propsSchema = (0, util_1.schemaRefOrVal)(it, parentSchema.properties, "properties");
+            definedProp = (0, code_1.isOwnProperty)(gen, propsSchema, key);
+          } else props.length ? definedProp = (0, codegen_1.or)(...props.map((p) => (0, codegen_1._)`${key} === ${p}`)) : definedProp = codegen_1.nil;
+          return patProps.length && (definedProp = (0, codegen_1.or)(definedProp, ...patProps.map((p) => (0, codegen_1._)`${(0, code_1.usePattern)(cxt, p)}.test(${key})`))), (0, codegen_1.not)(definedProp);
+        }
+        function deleteAdditional(key) {
+          gen.code((0, codegen_1._)`delete ${data}[${key}]`);
+        }
+        function additionalPropertyCode(key) {
+          if (opts.removeAdditional === "all" || opts.removeAdditional && schema === !1) {
+            deleteAdditional(key);
+            return;
+          }
+          if (schema === !1) {
+            cxt.setParams({ additionalProperty: key }), cxt.error(), allErrors || gen.break();
+            return;
+          }
+          if (typeof schema == "object" && !(0, util_1.alwaysValidSchema)(it, schema)) {
+            let valid = gen.name("valid");
+            opts.removeAdditional === "failing" ? (applyAdditionalSchema(key, valid, !1), gen.if((0, codegen_1.not)(valid), () => {
+              cxt.reset(), deleteAdditional(key);
+            })) : (applyAdditionalSchema(key, valid), allErrors || gen.if((0, codegen_1.not)(valid), () => gen.break()));
+          }
+        }
+        function applyAdditionalSchema(key, valid, errors) {
+          let subschema = {
+            keyword: "additionalProperties",
+            dataProp: key,
+            dataPropType: util_1.Type.Str
+          };
+          errors === !1 && Object.assign(subschema, {
+            compositeRule: !0,
+            createErrors: !1,
+            allErrors: !1
+          }), cxt.subschema(subschema, valid);
+        }
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/applicator/properties.js
+var require_properties = __commonJS({
+  "node_modules/ajv/dist/vocabularies/applicator/properties.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var validate_1 = require_validate(), code_1 = require_code2(), util_1 = require_util(), additionalProperties_1 = require_additionalProperties(), def = {
+      keyword: "properties",
+      type: "object",
+      schemaType: "object",
+      code(cxt) {
+        let { gen, schema, parentSchema, data, it } = cxt;
+        it.opts.removeAdditional === "all" && parentSchema.additionalProperties === void 0 && additionalProperties_1.default.code(new validate_1.KeywordCxt(it, additionalProperties_1.default, "additionalProperties"));
+        let allProps = (0, code_1.allSchemaProperties)(schema);
+        for (let prop of allProps)
+          it.definedProperties.add(prop);
+        it.opts.unevaluated && allProps.length && it.props !== !0 && (it.props = util_1.mergeEvaluated.props(gen, (0, util_1.toHash)(allProps), it.props));
+        let properties = allProps.filter((p) => !(0, util_1.alwaysValidSchema)(it, schema[p]));
+        if (properties.length === 0)
+          return;
+        let valid = gen.name("valid");
+        for (let prop of properties)
+          hasDefault(prop) ? applyPropertySchema(prop) : (gen.if((0, code_1.propertyInData)(gen, data, prop, it.opts.ownProperties)), applyPropertySchema(prop), it.allErrors || gen.else().var(valid, !0), gen.endIf()), cxt.it.definedProperties.add(prop), cxt.ok(valid);
+        function hasDefault(prop) {
+          return it.opts.useDefaults && !it.compositeRule && schema[prop].default !== void 0;
+        }
+        function applyPropertySchema(prop) {
+          cxt.subschema({
+            keyword: "properties",
+            schemaProp: prop,
+            dataProp: prop
+          }, valid);
+        }
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/applicator/patternProperties.js
+var require_patternProperties = __commonJS({
+  "node_modules/ajv/dist/vocabularies/applicator/patternProperties.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var code_1 = require_code2(), codegen_1 = require_codegen(), util_1 = require_util(), util_2 = require_util(), def = {
+      keyword: "patternProperties",
+      type: "object",
+      schemaType: "object",
+      code(cxt) {
+        let { gen, schema, data, parentSchema, it } = cxt, { opts } = it, patterns = (0, code_1.allSchemaProperties)(schema), alwaysValidPatterns = patterns.filter((p) => (0, util_1.alwaysValidSchema)(it, schema[p]));
+        if (patterns.length === 0 || alwaysValidPatterns.length === patterns.length && (!it.opts.unevaluated || it.props === !0))
+          return;
+        let checkProperties = opts.strictSchema && !opts.allowMatchingProperties && parentSchema.properties, valid = gen.name("valid");
+        it.props !== !0 && !(it.props instanceof codegen_1.Name) && (it.props = (0, util_2.evaluatedPropsToName)(gen, it.props));
+        let { props } = it;
+        validatePatternProperties();
+        function validatePatternProperties() {
+          for (let pat of patterns)
+            checkProperties && checkMatchingProperties(pat), it.allErrors ? validateProperties(pat) : (gen.var(valid, !0), validateProperties(pat), gen.if(valid));
+        }
+        function checkMatchingProperties(pat) {
+          for (let prop in checkProperties)
+            new RegExp(pat).test(prop) && (0, util_1.checkStrictMode)(it, `property ${prop} matches pattern ${pat} (use allowMatchingProperties)`);
+        }
+        function validateProperties(pat) {
+          gen.forIn("key", data, (key) => {
+            gen.if((0, codegen_1._)`${(0, code_1.usePattern)(cxt, pat)}.test(${key})`, () => {
+              let alwaysValid = alwaysValidPatterns.includes(pat);
+              alwaysValid || cxt.subschema({
+                keyword: "patternProperties",
+                schemaProp: pat,
+                dataProp: key,
+                dataPropType: util_2.Type.Str
+              }, valid), it.opts.unevaluated && props !== !0 ? gen.assign((0, codegen_1._)`${props}[${key}]`, !0) : !alwaysValid && !it.allErrors && gen.if((0, codegen_1.not)(valid), () => gen.break());
+            });
+          });
+        }
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/applicator/not.js
+var require_not = __commonJS({
+  "node_modules/ajv/dist/vocabularies/applicator/not.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var util_1 = require_util(), def = {
+      keyword: "not",
+      schemaType: ["object", "boolean"],
+      trackErrors: !0,
+      code(cxt) {
+        let { gen, schema, it } = cxt;
+        if ((0, util_1.alwaysValidSchema)(it, schema)) {
+          cxt.fail();
+          return;
+        }
+        let valid = gen.name("valid");
+        cxt.subschema({
+          keyword: "not",
+          compositeRule: !0,
+          createErrors: !1,
+          allErrors: !1
+        }, valid), cxt.failResult(valid, () => cxt.reset(), () => cxt.error());
+      },
+      error: { message: "must NOT be valid" }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/applicator/anyOf.js
+var require_anyOf = __commonJS({
+  "node_modules/ajv/dist/vocabularies/applicator/anyOf.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var code_1 = require_code2(), def = {
+      keyword: "anyOf",
+      schemaType: "array",
+      trackErrors: !0,
+      code: code_1.validateUnion,
+      error: { message: "must match a schema in anyOf" }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/applicator/oneOf.js
+var require_oneOf = __commonJS({
+  "node_modules/ajv/dist/vocabularies/applicator/oneOf.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var codegen_1 = require_codegen(), util_1 = require_util(), error = {
+      message: "must match exactly one schema in oneOf",
+      params: ({ params }) => (0, codegen_1._)`{passingSchemas: ${params.passing}}`
+    }, def = {
+      keyword: "oneOf",
+      schemaType: "array",
+      trackErrors: !0,
+      error,
+      code(cxt) {
+        let { gen, schema, parentSchema, it } = cxt;
+        if (!Array.isArray(schema))
+          throw new Error("ajv implementation error");
+        if (it.opts.discriminator && parentSchema.discriminator)
+          return;
+        let schArr = schema, valid = gen.let("valid", !1), passing = gen.let("passing", null), schValid = gen.name("_valid");
+        cxt.setParams({ passing }), gen.block(validateOneOf), cxt.result(valid, () => cxt.reset(), () => cxt.error(!0));
+        function validateOneOf() {
+          schArr.forEach((sch, i) => {
+            let schCxt;
+            (0, util_1.alwaysValidSchema)(it, sch) ? gen.var(schValid, !0) : schCxt = cxt.subschema({
+              keyword: "oneOf",
+              schemaProp: i,
+              compositeRule: !0
+            }, schValid), i > 0 && gen.if((0, codegen_1._)`${schValid} && ${valid}`).assign(valid, !1).assign(passing, (0, codegen_1._)`[${passing}, ${i}]`).else(), gen.if(schValid, () => {
+              gen.assign(valid, !0), gen.assign(passing, i), schCxt && cxt.mergeEvaluated(schCxt, codegen_1.Name);
+            });
+          });
+        }
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/applicator/allOf.js
+var require_allOf = __commonJS({
+  "node_modules/ajv/dist/vocabularies/applicator/allOf.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var util_1 = require_util(), def = {
+      keyword: "allOf",
+      schemaType: "array",
+      code(cxt) {
+        let { gen, schema, it } = cxt;
+        if (!Array.isArray(schema))
+          throw new Error("ajv implementation error");
+        let valid = gen.name("valid");
+        schema.forEach((sch, i) => {
+          if ((0, util_1.alwaysValidSchema)(it, sch))
+            return;
+          let schCxt = cxt.subschema({ keyword: "allOf", schemaProp: i }, valid);
+          cxt.ok(valid), cxt.mergeEvaluated(schCxt);
+        });
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/applicator/if.js
+var require_if = __commonJS({
+  "node_modules/ajv/dist/vocabularies/applicator/if.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var codegen_1 = require_codegen(), util_1 = require_util(), error = {
+      message: ({ params }) => (0, codegen_1.str)`must match "${params.ifClause}" schema`,
+      params: ({ params }) => (0, codegen_1._)`{failingKeyword: ${params.ifClause}}`
+    }, def = {
+      keyword: "if",
+      schemaType: ["object", "boolean"],
+      trackErrors: !0,
+      error,
+      code(cxt) {
+        let { gen, parentSchema, it } = cxt;
+        parentSchema.then === void 0 && parentSchema.else === void 0 && (0, util_1.checkStrictMode)(it, '"if" without "then" and "else" is ignored');
+        let hasThen = hasSchema(it, "then"), hasElse = hasSchema(it, "else");
+        if (!hasThen && !hasElse)
+          return;
+        let valid = gen.let("valid", !0), schValid = gen.name("_valid");
+        if (validateIf(), cxt.reset(), hasThen && hasElse) {
+          let ifClause = gen.let("ifClause");
+          cxt.setParams({ ifClause }), gen.if(schValid, validateClause("then", ifClause), validateClause("else", ifClause));
+        } else hasThen ? gen.if(schValid, validateClause("then")) : gen.if((0, codegen_1.not)(schValid), validateClause("else"));
+        cxt.pass(valid, () => cxt.error(!0));
+        function validateIf() {
+          let schCxt = cxt.subschema({
+            keyword: "if",
+            compositeRule: !0,
+            createErrors: !1,
+            allErrors: !1
+          }, schValid);
+          cxt.mergeEvaluated(schCxt);
+        }
+        function validateClause(keyword, ifClause) {
+          return () => {
+            let schCxt = cxt.subschema({ keyword }, schValid);
+            gen.assign(valid, schValid), cxt.mergeValidEvaluated(schCxt, valid), ifClause ? gen.assign(ifClause, (0, codegen_1._)`${keyword}`) : cxt.setParams({ ifClause: keyword });
+          };
+        }
+      }
+    };
+    function hasSchema(it, keyword) {
+      let schema = it.schema[keyword];
+      return schema !== void 0 && !(0, util_1.alwaysValidSchema)(it, schema);
+    }
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/applicator/thenElse.js
+var require_thenElse = __commonJS({
+  "node_modules/ajv/dist/vocabularies/applicator/thenElse.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var util_1 = require_util(), def = {
+      keyword: ["then", "else"],
+      schemaType: ["object", "boolean"],
+      code({ keyword, parentSchema, it }) {
+        parentSchema.if === void 0 && (0, util_1.checkStrictMode)(it, `"${keyword}" without "if" is ignored`);
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/applicator/index.js
+var require_applicator = __commonJS({
+  "node_modules/ajv/dist/vocabularies/applicator/index.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var additionalItems_1 = require_additionalItems(), prefixItems_1 = require_prefixItems(), items_1 = require_items(), items2020_1 = require_items2020(), contains_1 = require_contains(), dependencies_1 = require_dependencies(), propertyNames_1 = require_propertyNames(), additionalProperties_1 = require_additionalProperties(), properties_1 = require_properties(), patternProperties_1 = require_patternProperties(), not_1 = require_not(), anyOf_1 = require_anyOf(), oneOf_1 = require_oneOf(), allOf_1 = require_allOf(), if_1 = require_if(), thenElse_1 = require_thenElse();
+    function getApplicator(draft2020 = !1) {
+      let applicator = [
+        // any
+        not_1.default,
+        anyOf_1.default,
+        oneOf_1.default,
+        allOf_1.default,
+        if_1.default,
+        thenElse_1.default,
+        // object
+        propertyNames_1.default,
+        additionalProperties_1.default,
+        dependencies_1.default,
+        properties_1.default,
+        patternProperties_1.default
+      ];
+      return draft2020 ? applicator.push(prefixItems_1.default, items2020_1.default) : applicator.push(additionalItems_1.default, items_1.default), applicator.push(contains_1.default), applicator;
+    }
+    exports.default = getApplicator;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/format/format.js
+var require_format = __commonJS({
+  "node_modules/ajv/dist/vocabularies/format/format.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var codegen_1 = require_codegen(), error = {
+      message: ({ schemaCode }) => (0, codegen_1.str)`must match format "${schemaCode}"`,
+      params: ({ schemaCode }) => (0, codegen_1._)`{format: ${schemaCode}}`
+    }, def = {
+      keyword: "format",
+      type: ["number", "string"],
+      schemaType: "string",
+      $data: !0,
+      error,
+      code(cxt, ruleType) {
+        let { gen, data, $data, schema, schemaCode, it } = cxt, { opts, errSchemaPath, schemaEnv, self } = it;
+        if (!opts.validateFormats)
+          return;
+        $data ? validate$DataFormat() : validateFormat();
+        function validate$DataFormat() {
+          let fmts = gen.scopeValue("formats", {
+            ref: self.formats,
+            code: opts.code.formats
+          }), fDef = gen.const("fDef", (0, codegen_1._)`${fmts}[${schemaCode}]`), fType = gen.let("fType"), format = gen.let("format");
+          gen.if((0, codegen_1._)`typeof ${fDef} == "object" && !(${fDef} instanceof RegExp)`, () => gen.assign(fType, (0, codegen_1._)`${fDef}.type || "string"`).assign(format, (0, codegen_1._)`${fDef}.validate`), () => gen.assign(fType, (0, codegen_1._)`"string"`).assign(format, fDef)), cxt.fail$data((0, codegen_1.or)(unknownFmt(), invalidFmt()));
+          function unknownFmt() {
+            return opts.strictSchema === !1 ? codegen_1.nil : (0, codegen_1._)`${schemaCode} && !${format}`;
+          }
+          function invalidFmt() {
+            let callFormat = schemaEnv.$async ? (0, codegen_1._)`(${fDef}.async ? await ${format}(${data}) : ${format}(${data}))` : (0, codegen_1._)`${format}(${data})`, validData = (0, codegen_1._)`(typeof ${format} == "function" ? ${callFormat} : ${format}.test(${data}))`;
+            return (0, codegen_1._)`${format} && ${format} !== true && ${fType} === ${ruleType} && !${validData}`;
+          }
+        }
+        function validateFormat() {
+          let formatDef = self.formats[schema];
+          if (!formatDef) {
+            unknownFormat();
+            return;
+          }
+          if (formatDef === !0)
+            return;
+          let [fmtType, format, fmtRef] = getFormat(formatDef);
+          fmtType === ruleType && cxt.pass(validCondition());
+          function unknownFormat() {
+            if (opts.strictSchema === !1) {
+              self.logger.warn(unknownMsg());
+              return;
+            }
+            throw new Error(unknownMsg());
+            function unknownMsg() {
+              return `unknown format "${schema}" ignored in schema at path "${errSchemaPath}"`;
+            }
+          }
+          function getFormat(fmtDef) {
+            let code = fmtDef instanceof RegExp ? (0, codegen_1.regexpCode)(fmtDef) : opts.code.formats ? (0, codegen_1._)`${opts.code.formats}${(0, codegen_1.getProperty)(schema)}` : void 0, fmt = gen.scopeValue("formats", { key: schema, ref: fmtDef, code });
+            return typeof fmtDef == "object" && !(fmtDef instanceof RegExp) ? [fmtDef.type || "string", fmtDef.validate, (0, codegen_1._)`${fmt}.validate`] : ["string", fmtDef, fmt];
+          }
+          function validCondition() {
+            if (typeof formatDef == "object" && !(formatDef instanceof RegExp) && formatDef.async) {
+              if (!schemaEnv.$async)
+                throw new Error("async format in sync schema");
+              return (0, codegen_1._)`await ${fmtRef}(${data})`;
+            }
+            return typeof format == "function" ? (0, codegen_1._)`${fmtRef}(${data})` : (0, codegen_1._)`${fmtRef}.test(${data})`;
+          }
+        }
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/format/index.js
+var require_format2 = __commonJS({
+  "node_modules/ajv/dist/vocabularies/format/index.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var format_1 = require_format(), format = [format_1.default];
+    exports.default = format;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/metadata.js
+var require_metadata = __commonJS({
+  "node_modules/ajv/dist/vocabularies/metadata.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.contentVocabulary = exports.metadataVocabulary = void 0;
+    exports.metadataVocabulary = [
+      "title",
+      "description",
+      "default",
+      "deprecated",
+      "readOnly",
+      "writeOnly",
+      "examples"
+    ];
+    exports.contentVocabulary = [
+      "contentMediaType",
+      "contentEncoding",
+      "contentSchema"
+    ];
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/draft7.js
+var require_draft7 = __commonJS({
+  "node_modules/ajv/dist/vocabularies/draft7.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var core_1 = require_core2(), validation_1 = require_validation(), applicator_1 = require_applicator(), format_1 = require_format2(), metadata_1 = require_metadata(), draft7Vocabularies = [
+      core_1.default,
+      validation_1.default,
+      (0, applicator_1.default)(),
+      format_1.default,
+      metadata_1.metadataVocabulary,
+      metadata_1.contentVocabulary
+    ];
+    exports.default = draft7Vocabularies;
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/discriminator/types.js
+var require_types = __commonJS({
+  "node_modules/ajv/dist/vocabularies/discriminator/types.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.DiscrError = void 0;
+    var DiscrError;
+    (function(DiscrError2) {
+      DiscrError2.Tag = "tag", DiscrError2.Mapping = "mapping";
+    })(DiscrError || (exports.DiscrError = DiscrError = {}));
+  }
+});
+
+// node_modules/ajv/dist/vocabularies/discriminator/index.js
+var require_discriminator = __commonJS({
+  "node_modules/ajv/dist/vocabularies/discriminator/index.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var codegen_1 = require_codegen(), types_1 = require_types(), compile_1 = require_compile(), ref_error_1 = require_ref_error(), util_1 = require_util(), error = {
+      message: ({ params: { discrError, tagName } }) => discrError === types_1.DiscrError.Tag ? `tag "${tagName}" must be string` : `value of tag "${tagName}" must be in oneOf`,
+      params: ({ params: { discrError, tag, tagName } }) => (0, codegen_1._)`{error: ${discrError}, tag: ${tagName}, tagValue: ${tag}}`
+    }, def = {
+      keyword: "discriminator",
+      type: "object",
+      schemaType: "object",
+      error,
+      code(cxt) {
+        let { gen, data, schema, parentSchema, it } = cxt, { oneOf } = parentSchema;
+        if (!it.opts.discriminator)
+          throw new Error("discriminator: requires discriminator option");
+        let tagName = schema.propertyName;
+        if (typeof tagName != "string")
+          throw new Error("discriminator: requires propertyName");
+        if (schema.mapping)
+          throw new Error("discriminator: mapping is not supported");
+        if (!oneOf)
+          throw new Error("discriminator: requires oneOf keyword");
+        let valid = gen.let("valid", !1), tag = gen.const("tag", (0, codegen_1._)`${data}${(0, codegen_1.getProperty)(tagName)}`);
+        gen.if((0, codegen_1._)`typeof ${tag} == "string"`, () => validateMapping(), () => cxt.error(!1, { discrError: types_1.DiscrError.Tag, tag, tagName })), cxt.ok(valid);
+        function validateMapping() {
+          let mapping = getMapping();
+          gen.if(!1);
+          for (let tagValue in mapping)
+            gen.elseIf((0, codegen_1._)`${tag} === ${tagValue}`), gen.assign(valid, applyTagSchema(mapping[tagValue]));
+          gen.else(), cxt.error(!1, { discrError: types_1.DiscrError.Mapping, tag, tagName }), gen.endIf();
+        }
+        function applyTagSchema(schemaProp) {
+          let _valid = gen.name("valid"), schCxt = cxt.subschema({ keyword: "oneOf", schemaProp }, _valid);
+          return cxt.mergeEvaluated(schCxt, codegen_1.Name), _valid;
+        }
+        function getMapping() {
+          var _a3;
+          let oneOfMapping = {}, topRequired = hasRequired(parentSchema), tagRequired = !0;
+          for (let i = 0; i < oneOf.length; i++) {
+            let sch = oneOf[i];
+            if (sch?.$ref && !(0, util_1.schemaHasRulesButRef)(sch, it.self.RULES)) {
+              let ref = sch.$ref;
+              if (sch = compile_1.resolveRef.call(it.self, it.schemaEnv.root, it.baseId, ref), sch instanceof compile_1.SchemaEnv && (sch = sch.schema), sch === void 0)
+                throw new ref_error_1.default(it.opts.uriResolver, it.baseId, ref);
+            }
+            let propSch = (_a3 = sch?.properties) === null || _a3 === void 0 ? void 0 : _a3[tagName];
+            if (typeof propSch != "object")
+              throw new Error(`discriminator: oneOf subschemas (or referenced schemas) must have "properties/${tagName}"`);
+            tagRequired = tagRequired && (topRequired || hasRequired(sch)), addMappings(propSch, i);
+          }
+          if (!tagRequired)
+            throw new Error(`discriminator: "${tagName}" must be required`);
+          return oneOfMapping;
+          function hasRequired({ required: required2 }) {
+            return Array.isArray(required2) && required2.includes(tagName);
+          }
+          function addMappings(sch, i) {
+            if (sch.const)
+              addMapping(sch.const, i);
+            else if (sch.enum)
+              for (let tagValue of sch.enum)
+                addMapping(tagValue, i);
+            else
+              throw new Error(`discriminator: "properties/${tagName}" must have "const" or "enum"`);
+          }
+          function addMapping(tagValue, i) {
+            if (typeof tagValue != "string" || tagValue in oneOfMapping)
+              throw new Error(`discriminator: "${tagName}" values must be unique strings`);
+            oneOfMapping[tagValue] = i;
+          }
+        }
+      }
+    };
+    exports.default = def;
+  }
+});
+
+// node_modules/ajv/dist/refs/json-schema-draft-07.json
+var require_json_schema_draft_07 = __commonJS({
+  "node_modules/ajv/dist/refs/json-schema-draft-07.json"(exports, module) {
+    module.exports = {
+      $schema: "http://json-schema.org/draft-07/schema#",
+      $id: "http://json-schema.org/draft-07/schema#",
+      title: "Core schema meta-schema",
+      definitions: {
+        schemaArray: {
+          type: "array",
+          minItems: 1,
+          items: { $ref: "#" }
+        },
+        nonNegativeInteger: {
+          type: "integer",
+          minimum: 0
+        },
+        nonNegativeIntegerDefault0: {
+          allOf: [{ $ref: "#/definitions/nonNegativeInteger" }, { default: 0 }]
+        },
+        simpleTypes: {
+          enum: ["array", "boolean", "integer", "null", "number", "object", "string"]
+        },
+        stringArray: {
+          type: "array",
+          items: { type: "string" },
+          uniqueItems: !0,
+          default: []
+        }
+      },
+      type: ["object", "boolean"],
+      properties: {
+        $id: {
+          type: "string",
+          format: "uri-reference"
+        },
+        $schema: {
+          type: "string",
+          format: "uri"
+        },
+        $ref: {
+          type: "string",
+          format: "uri-reference"
+        },
+        $comment: {
+          type: "string"
+        },
+        title: {
+          type: "string"
+        },
+        description: {
+          type: "string"
+        },
+        default: !0,
+        readOnly: {
+          type: "boolean",
+          default: !1
+        },
+        examples: {
+          type: "array",
+          items: !0
+        },
+        multipleOf: {
+          type: "number",
+          exclusiveMinimum: 0
+        },
+        maximum: {
+          type: "number"
+        },
+        exclusiveMaximum: {
+          type: "number"
+        },
+        minimum: {
+          type: "number"
+        },
+        exclusiveMinimum: {
+          type: "number"
+        },
+        maxLength: { $ref: "#/definitions/nonNegativeInteger" },
+        minLength: { $ref: "#/definitions/nonNegativeIntegerDefault0" },
+        pattern: {
+          type: "string",
+          format: "regex"
+        },
+        additionalItems: { $ref: "#" },
+        items: {
+          anyOf: [{ $ref: "#" }, { $ref: "#/definitions/schemaArray" }],
+          default: !0
+        },
+        maxItems: { $ref: "#/definitions/nonNegativeInteger" },
+        minItems: { $ref: "#/definitions/nonNegativeIntegerDefault0" },
+        uniqueItems: {
+          type: "boolean",
+          default: !1
+        },
+        contains: { $ref: "#" },
+        maxProperties: { $ref: "#/definitions/nonNegativeInteger" },
+        minProperties: { $ref: "#/definitions/nonNegativeIntegerDefault0" },
+        required: { $ref: "#/definitions/stringArray" },
+        additionalProperties: { $ref: "#" },
+        definitions: {
+          type: "object",
+          additionalProperties: { $ref: "#" },
+          default: {}
+        },
+        properties: {
+          type: "object",
+          additionalProperties: { $ref: "#" },
+          default: {}
+        },
+        patternProperties: {
+          type: "object",
+          additionalProperties: { $ref: "#" },
+          propertyNames: { format: "regex" },
+          default: {}
+        },
+        dependencies: {
+          type: "object",
+          additionalProperties: {
+            anyOf: [{ $ref: "#" }, { $ref: "#/definitions/stringArray" }]
+          }
+        },
+        propertyNames: { $ref: "#" },
+        const: !0,
+        enum: {
+          type: "array",
+          items: !0,
+          minItems: 1,
+          uniqueItems: !0
+        },
+        type: {
+          anyOf: [
+            { $ref: "#/definitions/simpleTypes" },
+            {
+              type: "array",
+              items: { $ref: "#/definitions/simpleTypes" },
+              minItems: 1,
+              uniqueItems: !0
+            }
+          ]
+        },
+        format: { type: "string" },
+        contentMediaType: { type: "string" },
+        contentEncoding: { type: "string" },
+        if: { $ref: "#" },
+        then: { $ref: "#" },
+        else: { $ref: "#" },
+        allOf: { $ref: "#/definitions/schemaArray" },
+        anyOf: { $ref: "#/definitions/schemaArray" },
+        oneOf: { $ref: "#/definitions/schemaArray" },
+        not: { $ref: "#" }
+      },
+      default: !0
+    };
+  }
+});
+
+// node_modules/ajv/dist/ajv.js
+var require_ajv = __commonJS({
+  "node_modules/ajv/dist/ajv.js"(exports, module) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.MissingRefError = exports.ValidationError = exports.CodeGen = exports.Name = exports.nil = exports.stringify = exports.str = exports._ = exports.KeywordCxt = exports.Ajv = void 0;
+    var core_1 = require_core(), draft7_1 = require_draft7(), discriminator_1 = require_discriminator(), draft7MetaSchema = require_json_schema_draft_07(), META_SUPPORT_DATA = ["/properties"], META_SCHEMA_ID = "http://json-schema.org/draft-07/schema", Ajv2 = class extends core_1.default {
+      _addVocabularies() {
+        super._addVocabularies(), draft7_1.default.forEach((v) => this.addVocabulary(v)), this.opts.discriminator && this.addKeyword(discriminator_1.default);
+      }
+      _addDefaultMetaSchema() {
+        if (super._addDefaultMetaSchema(), !this.opts.meta)
+          return;
+        let metaSchema = this.opts.$data ? this.$dataMetaSchema(draft7MetaSchema, META_SUPPORT_DATA) : draft7MetaSchema;
+        this.addMetaSchema(metaSchema, META_SCHEMA_ID, !1), this.refs["http://json-schema.org/schema"] = META_SCHEMA_ID;
+      }
+      defaultMeta() {
+        return this.opts.defaultMeta = super.defaultMeta() || (this.getSchema(META_SCHEMA_ID) ? META_SCHEMA_ID : void 0);
+      }
+    };
+    exports.Ajv = Ajv2;
+    module.exports = exports = Ajv2;
+    module.exports.Ajv = Ajv2;
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.default = Ajv2;
+    var validate_1 = require_validate();
+    Object.defineProperty(exports, "KeywordCxt", { enumerable: !0, get: function() {
+      return validate_1.KeywordCxt;
+    } });
+    var codegen_1 = require_codegen();
+    Object.defineProperty(exports, "_", { enumerable: !0, get: function() {
+      return codegen_1._;
+    } });
+    Object.defineProperty(exports, "str", { enumerable: !0, get: function() {
+      return codegen_1.str;
+    } });
+    Object.defineProperty(exports, "stringify", { enumerable: !0, get: function() {
+      return codegen_1.stringify;
+    } });
+    Object.defineProperty(exports, "nil", { enumerable: !0, get: function() {
+      return codegen_1.nil;
+    } });
+    Object.defineProperty(exports, "Name", { enumerable: !0, get: function() {
+      return codegen_1.Name;
+    } });
+    Object.defineProperty(exports, "CodeGen", { enumerable: !0, get: function() {
+      return codegen_1.CodeGen;
+    } });
+    var validation_error_1 = require_validation_error();
+    Object.defineProperty(exports, "ValidationError", { enumerable: !0, get: function() {
+      return validation_error_1.default;
+    } });
+    var ref_error_1 = require_ref_error();
+    Object.defineProperty(exports, "MissingRefError", { enumerable: !0, get: function() {
+      return ref_error_1.default;
+    } });
+  }
+});
+
+// node_modules/ajv-formats/dist/formats.js
+var require_formats = __commonJS({
+  "node_modules/ajv-formats/dist/formats.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.formatNames = exports.fastFormats = exports.fullFormats = void 0;
+    function fmtDef(validate, compare) {
+      return { validate, compare };
+    }
+    exports.fullFormats = {
+      // date: http://tools.ietf.org/html/rfc3339#section-5.6
+      date: fmtDef(date3, compareDate),
+      // date-time: http://tools.ietf.org/html/rfc3339#section-5.6
+      time: fmtDef(getTime(!0), compareTime),
+      "date-time": fmtDef(getDateTime(!0), compareDateTime),
+      "iso-time": fmtDef(getTime(), compareIsoTime),
+      "iso-date-time": fmtDef(getDateTime(), compareIsoDateTime),
+      // duration: https://tools.ietf.org/html/rfc3339#appendix-A
+      duration: /^P(?!$)((\d+Y)?(\d+M)?(\d+D)?(T(?=\d)(\d+H)?(\d+M)?(\d+S)?)?|(\d+W)?)$/,
+      uri,
+      "uri-reference": /^(?:[a-z][a-z0-9+\-.]*:)?(?:\/?\/(?:(?:[a-z0-9\-._~!$&'()*+,;=:]|%[0-9a-f]{2})*@)?(?:\[(?:(?:(?:(?:[0-9a-f]{1,4}:){6}|::(?:[0-9a-f]{1,4}:){5}|(?:[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){4}|(?:(?:[0-9a-f]{1,4}:){0,1}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){3}|(?:(?:[0-9a-f]{1,4}:){0,2}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){2}|(?:(?:[0-9a-f]{1,4}:){0,3}[0-9a-f]{1,4})?::[0-9a-f]{1,4}:|(?:(?:[0-9a-f]{1,4}:){0,4}[0-9a-f]{1,4})?::)(?:[0-9a-f]{1,4}:[0-9a-f]{1,4}|(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?))|(?:(?:[0-9a-f]{1,4}:){0,5}[0-9a-f]{1,4})?::[0-9a-f]{1,4}|(?:(?:[0-9a-f]{1,4}:){0,6}[0-9a-f]{1,4})?::)|[Vv][0-9a-f]+\.[a-z0-9\-._~!$&'()*+,;=:]+)\]|(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)|(?:[a-z0-9\-._~!$&'"()*+,;=]|%[0-9a-f]{2})*)(?::\d*)?(?:\/(?:[a-z0-9\-._~!$&'"()*+,;=:@]|%[0-9a-f]{2})*)*|\/(?:(?:[a-z0-9\-._~!$&'"()*+,;=:@]|%[0-9a-f]{2})+(?:\/(?:[a-z0-9\-._~!$&'"()*+,;=:@]|%[0-9a-f]{2})*)*)?|(?:[a-z0-9\-._~!$&'"()*+,;=:@]|%[0-9a-f]{2})+(?:\/(?:[a-z0-9\-._~!$&'"()*+,;=:@]|%[0-9a-f]{2})*)*)?(?:\?(?:[a-z0-9\-._~!$&'"()*+,;=:@/?]|%[0-9a-f]{2})*)?(?:#(?:[a-z0-9\-._~!$&'"()*+,;=:@/?]|%[0-9a-f]{2})*)?$/i,
+      // uri-template: https://tools.ietf.org/html/rfc6570
+      "uri-template": /^(?:(?:[^\x00-\x20"'<>%\\^`{|}]|%[0-9a-f]{2})|\{[+#./;?&=,!@|]?(?:[a-z0-9_]|%[0-9a-f]{2})+(?::[1-9][0-9]{0,3}|\*)?(?:,(?:[a-z0-9_]|%[0-9a-f]{2})+(?::[1-9][0-9]{0,3}|\*)?)*\})*$/i,
+      // For the source: https://gist.github.com/dperini/729294
+      // For test cases: https://mathiasbynens.be/demo/url-regex
+      url: /^(?:https?|ftp):\/\/(?:\S+(?::\S*)?@)?(?:(?!(?:10|127)(?:\.\d{1,3}){3})(?!(?:169\.254|192\.168)(?:\.\d{1,3}){2})(?!172\.(?:1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2})(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])(?:\.(?:1?\d{1,2}|2[0-4]\d|25[0-5])){2}(?:\.(?:[1-9]\d?|1\d\d|2[0-4]\d|25[0-4]))|(?:(?:[a-z0-9\u{00a1}-\u{ffff}]+-)*[a-z0-9\u{00a1}-\u{ffff}]+)(?:\.(?:[a-z0-9\u{00a1}-\u{ffff}]+-)*[a-z0-9\u{00a1}-\u{ffff}]+)*(?:\.(?:[a-z\u{00a1}-\u{ffff}]{2,})))(?::\d{2,5})?(?:\/[^\s]*)?$/iu,
+      email: /^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i,
+      hostname: /^(?=.{1,253}\.?$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[-0-9a-z]{0,61}[0-9a-z])?)*\.?$/i,
+      // optimized https://www.safaribooksonline.com/library/view/regular-expressions-cookbook/9780596802837/ch07s16.html
+      ipv4: /^(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$/,
+      ipv6: /^((([0-9a-f]{1,4}:){7}([0-9a-f]{1,4}|:))|(([0-9a-f]{1,4}:){6}(:[0-9a-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9a-f]{1,4}:){5}(((:[0-9a-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9a-f]{1,4}:){4}(((:[0-9a-f]{1,4}){1,3})|((:[0-9a-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9a-f]{1,4}:){3}(((:[0-9a-f]{1,4}){1,4})|((:[0-9a-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9a-f]{1,4}:){2}(((:[0-9a-f]{1,4}){1,5})|((:[0-9a-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9a-f]{1,4}:){1}(((:[0-9a-f]{1,4}){1,6})|((:[0-9a-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9a-f]{1,4}){1,7})|((:[0-9a-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))$/i,
+      regex,
+      // uuid: http://tools.ietf.org/html/rfc4122
+      uuid: /^(?:urn:uuid:)?[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i,
+      // JSON-pointer: https://tools.ietf.org/html/rfc6901
+      // uri fragment: https://tools.ietf.org/html/rfc3986#appendix-A
+      "json-pointer": /^(?:\/(?:[^~/]|~0|~1)*)*$/,
+      "json-pointer-uri-fragment": /^#(?:\/(?:[a-z0-9_\-.!$&'()*+,;:=@]|%[0-9a-f]{2}|~0|~1)*)*$/i,
+      // relative JSON-pointer: http://tools.ietf.org/html/draft-luff-relative-json-pointer-00
+      "relative-json-pointer": /^(?:0|[1-9][0-9]*)(?:#|(?:\/(?:[^~/]|~0|~1)*)*)$/,
+      // the following formats are used by the openapi specification: https://spec.openapis.org/oas/v3.0.0#data-types
+      // byte: https://github.com/miguelmota/is-base64
+      byte,
+      // signed 32 bit integer
+      int32: { type: "number", validate: validateInt32 },
+      // signed 64 bit integer
+      int64: { type: "number", validate: validateInt64 },
+      // C-type float
+      float: { type: "number", validate: validateNumber },
+      // C-type double
+      double: { type: "number", validate: validateNumber },
+      // hint to the UI to hide input strings
+      password: !0,
+      // unchecked string payload
+      binary: !0
+    };
+    exports.fastFormats = {
+      ...exports.fullFormats,
+      date: fmtDef(/^\d\d\d\d-[0-1]\d-[0-3]\d$/, compareDate),
+      time: fmtDef(/^(?:[0-2]\d:[0-5]\d:[0-5]\d|23:59:60)(?:\.\d+)?(?:z|[+-]\d\d(?::?\d\d)?)$/i, compareTime),
+      "date-time": fmtDef(/^\d\d\d\d-[0-1]\d-[0-3]\dt(?:[0-2]\d:[0-5]\d:[0-5]\d|23:59:60)(?:\.\d+)?(?:z|[+-]\d\d(?::?\d\d)?)$/i, compareDateTime),
+      "iso-time": fmtDef(/^(?:[0-2]\d:[0-5]\d:[0-5]\d|23:59:60)(?:\.\d+)?(?:z|[+-]\d\d(?::?\d\d)?)?$/i, compareIsoTime),
+      "iso-date-time": fmtDef(/^\d\d\d\d-[0-1]\d-[0-3]\d[t\s](?:[0-2]\d:[0-5]\d:[0-5]\d|23:59:60)(?:\.\d+)?(?:z|[+-]\d\d(?::?\d\d)?)?$/i, compareIsoDateTime),
+      // uri: https://github.com/mafintosh/is-my-json-valid/blob/master/formats.js
+      uri: /^(?:[a-z][a-z0-9+\-.]*:)(?:\/?\/)?[^\s]*$/i,
+      "uri-reference": /^(?:(?:[a-z][a-z0-9+\-.]*:)?\/?\/)?(?:[^\\\s#][^\s#]*)?(?:#[^\\\s]*)?$/i,
+      // email (sources from jsen validator):
+      // http://stackoverflow.com/questions/201323/using-a-regular-expression-to-validate-an-email-address#answer-8829363
+      // http://www.w3.org/TR/html5/forms.html#valid-e-mail-address (search for 'wilful violation')
+      email: /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/i
+    };
+    exports.formatNames = Object.keys(exports.fullFormats);
+    function isLeapYear(year) {
+      return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+    }
+    var DATE = /^(\d\d\d\d)-(\d\d)-(\d\d)$/, DAYS = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    function date3(str) {
+      let matches = DATE.exec(str);
+      if (!matches)
+        return !1;
+      let year = +matches[1], month = +matches[2], day = +matches[3];
+      return month >= 1 && month <= 12 && day >= 1 && day <= (month === 2 && isLeapYear(year) ? 29 : DAYS[month]);
+    }
+    function compareDate(d1, d2) {
+      if (d1 && d2)
+        return d1 > d2 ? 1 : d1 < d2 ? -1 : 0;
+    }
+    var TIME = /^(\d\d):(\d\d):(\d\d(?:\.\d+)?)(z|([+-])(\d\d)(?::?(\d\d))?)?$/i;
+    function getTime(strictTimeZone) {
+      return function(str) {
+        let matches = TIME.exec(str);
+        if (!matches)
+          return !1;
+        let hr = +matches[1], min = +matches[2], sec = +matches[3], tz = matches[4], tzSign = matches[5] === "-" ? -1 : 1, tzH = +(matches[6] || 0), tzM = +(matches[7] || 0);
+        if (tzH > 23 || tzM > 59 || strictTimeZone && !tz)
+          return !1;
+        if (hr <= 23 && min <= 59 && sec < 60)
+          return !0;
+        let utcMin = min - tzM * tzSign, utcHr = hr - tzH * tzSign - (utcMin < 0 ? 1 : 0);
+        return (utcHr === 23 || utcHr === -1) && (utcMin === 59 || utcMin === -1) && sec < 61;
+      };
+    }
+    function compareTime(s1, s2) {
+      if (!(s1 && s2))
+        return;
+      let t1 = (/* @__PURE__ */ new Date("2020-01-01T" + s1)).valueOf(), t2 = (/* @__PURE__ */ new Date("2020-01-01T" + s2)).valueOf();
+      if (t1 && t2)
+        return t1 - t2;
+    }
+    function compareIsoTime(t1, t2) {
+      if (!(t1 && t2))
+        return;
+      let a1 = TIME.exec(t1), a2 = TIME.exec(t2);
+      if (a1 && a2)
+        return t1 = a1[1] + a1[2] + a1[3], t2 = a2[1] + a2[2] + a2[3], t1 > t2 ? 1 : t1 < t2 ? -1 : 0;
+    }
+    var DATE_TIME_SEPARATOR = /t|\s/i;
+    function getDateTime(strictTimeZone) {
+      let time3 = getTime(strictTimeZone);
+      return function(str) {
+        let dateTime = str.split(DATE_TIME_SEPARATOR);
+        return dateTime.length === 2 && date3(dateTime[0]) && time3(dateTime[1]);
+      };
+    }
+    function compareDateTime(dt1, dt2) {
+      if (!(dt1 && dt2))
+        return;
+      let d1 = new Date(dt1).valueOf(), d2 = new Date(dt2).valueOf();
+      if (d1 && d2)
+        return d1 - d2;
+    }
+    function compareIsoDateTime(dt1, dt2) {
+      if (!(dt1 && dt2))
+        return;
+      let [d1, t1] = dt1.split(DATE_TIME_SEPARATOR), [d2, t2] = dt2.split(DATE_TIME_SEPARATOR), res = compareDate(d1, d2);
+      if (res !== void 0)
+        return res || compareTime(t1, t2);
+    }
+    var NOT_URI_FRAGMENT = /\/|:/, URI = /^(?:[a-z][a-z0-9+\-.]*:)(?:\/?\/(?:(?:[a-z0-9\-._~!$&'()*+,;=:]|%[0-9a-f]{2})*@)?(?:\[(?:(?:(?:(?:[0-9a-f]{1,4}:){6}|::(?:[0-9a-f]{1,4}:){5}|(?:[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){4}|(?:(?:[0-9a-f]{1,4}:){0,1}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){3}|(?:(?:[0-9a-f]{1,4}:){0,2}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){2}|(?:(?:[0-9a-f]{1,4}:){0,3}[0-9a-f]{1,4})?::[0-9a-f]{1,4}:|(?:(?:[0-9a-f]{1,4}:){0,4}[0-9a-f]{1,4})?::)(?:[0-9a-f]{1,4}:[0-9a-f]{1,4}|(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?))|(?:(?:[0-9a-f]{1,4}:){0,5}[0-9a-f]{1,4})?::[0-9a-f]{1,4}|(?:(?:[0-9a-f]{1,4}:){0,6}[0-9a-f]{1,4})?::)|[Vv][0-9a-f]+\.[a-z0-9\-._~!$&'()*+,;=:]+)\]|(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)|(?:[a-z0-9\-._~!$&'()*+,;=]|%[0-9a-f]{2})*)(?::\d*)?(?:\/(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*|\/(?:(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})+(?:\/(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*)?|(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})+(?:\/(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*)(?:\?(?:[a-z0-9\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?(?:#(?:[a-z0-9\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?$/i;
+    function uri(str) {
+      return NOT_URI_FRAGMENT.test(str) && URI.test(str);
+    }
+    var BYTE = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/gm;
+    function byte(str) {
+      return BYTE.lastIndex = 0, BYTE.test(str);
+    }
+    var MIN_INT32 = -(2 ** 31), MAX_INT32 = 2 ** 31 - 1;
+    function validateInt32(value) {
+      return Number.isInteger(value) && value <= MAX_INT32 && value >= MIN_INT32;
+    }
+    function validateInt64(value) {
+      return Number.isInteger(value);
+    }
+    function validateNumber() {
+      return !0;
+    }
+    var Z_ANCHOR = /[^\\]\\Z/;
+    function regex(str) {
+      if (Z_ANCHOR.test(str))
+        return !1;
+      try {
+        return new RegExp(str), !0;
+      } catch {
+        return !1;
+      }
+    }
+  }
+});
+
+// node_modules/ajv-formats/dist/limit.js
+var require_limit = __commonJS({
+  "node_modules/ajv-formats/dist/limit.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.formatLimitDefinition = void 0;
+    var ajv_1 = require_ajv(), codegen_1 = require_codegen(), ops = codegen_1.operators, KWDs = {
+      formatMaximum: { okStr: "<=", ok: ops.LTE, fail: ops.GT },
+      formatMinimum: { okStr: ">=", ok: ops.GTE, fail: ops.LT },
+      formatExclusiveMaximum: { okStr: "<", ok: ops.LT, fail: ops.GTE },
+      formatExclusiveMinimum: { okStr: ">", ok: ops.GT, fail: ops.LTE }
+    }, error = {
+      message: ({ keyword, schemaCode }) => (0, codegen_1.str)`should be ${KWDs[keyword].okStr} ${schemaCode}`,
+      params: ({ keyword, schemaCode }) => (0, codegen_1._)`{comparison: ${KWDs[keyword].okStr}, limit: ${schemaCode}}`
+    };
+    exports.formatLimitDefinition = {
+      keyword: Object.keys(KWDs),
+      type: "string",
+      schemaType: "string",
+      $data: !0,
+      error,
+      code(cxt) {
+        let { gen, data, schemaCode, keyword, it } = cxt, { opts, self } = it;
+        if (!opts.validateFormats)
+          return;
+        let fCxt = new ajv_1.KeywordCxt(it, self.RULES.all.format.definition, "format");
+        fCxt.$data ? validate$DataFormat() : validateFormat();
+        function validate$DataFormat() {
+          let fmts = gen.scopeValue("formats", {
+            ref: self.formats,
+            code: opts.code.formats
+          }), fmt = gen.const("fmt", (0, codegen_1._)`${fmts}[${fCxt.schemaCode}]`);
+          cxt.fail$data((0, codegen_1.or)((0, codegen_1._)`typeof ${fmt} != "object"`, (0, codegen_1._)`${fmt} instanceof RegExp`, (0, codegen_1._)`typeof ${fmt}.compare != "function"`, compareCode(fmt)));
+        }
+        function validateFormat() {
+          let format = fCxt.schema, fmtDef = self.formats[format];
+          if (!fmtDef || fmtDef === !0)
+            return;
+          if (typeof fmtDef != "object" || fmtDef instanceof RegExp || typeof fmtDef.compare != "function")
+            throw new Error(`"${keyword}": format "${format}" does not define "compare" function`);
+          let fmt = gen.scopeValue("formats", {
+            key: format,
+            ref: fmtDef,
+            code: opts.code.formats ? (0, codegen_1._)`${opts.code.formats}${(0, codegen_1.getProperty)(format)}` : void 0
+          });
+          cxt.fail$data(compareCode(fmt));
+        }
+        function compareCode(fmt) {
+          return (0, codegen_1._)`${fmt}.compare(${data}, ${schemaCode}) ${KWDs[keyword].fail} 0`;
+        }
+      },
+      dependencies: ["format"]
+    };
+    var formatLimitPlugin = (ajv) => (ajv.addKeyword(exports.formatLimitDefinition), ajv);
+    exports.default = formatLimitPlugin;
+  }
+});
+
+// node_modules/ajv-formats/dist/index.js
+var require_dist2 = __commonJS({
+  "node_modules/ajv-formats/dist/index.js"(exports, module) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    var formats_1 = require_formats(), limit_1 = require_limit(), codegen_1 = require_codegen(), fullName = new codegen_1.Name("fullFormats"), fastName = new codegen_1.Name("fastFormats"), formatsPlugin = (ajv, opts = { keywords: !0 }) => {
+      if (Array.isArray(opts))
+        return addFormats2(ajv, opts, formats_1.fullFormats, fullName), ajv;
+      let [formats, exportName] = opts.mode === "fast" ? [formats_1.fastFormats, fastName] : [formats_1.fullFormats, fullName], list2 = opts.formats || formats_1.formatNames;
+      return addFormats2(ajv, list2, formats, exportName), opts.keywords && (0, limit_1.default)(ajv), ajv;
+    };
+    formatsPlugin.get = (name, mode = "full") => {
+      let f = (mode === "fast" ? formats_1.fastFormats : formats_1.fullFormats)[name];
+      if (!f)
+        throw new Error(`Unknown format "${name}"`);
+      return f;
+    };
+    function addFormats2(ajv, list2, fs, exportName) {
+      var _a3, _b;
+      (_a3 = (_b = ajv.opts.code).formats) !== null && _a3 !== void 0 || (_b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`);
+      for (let f of list2)
+        ajv.addFormat(f, fs[f]);
+    }
+    module.exports = exports = formatsPlugin;
+    Object.defineProperty(exports, "__esModule", { value: !0 });
+    exports.default = formatsPlugin;
+  }
+});
+
+// src/manual/manual-workflow.mjs
+import { createHash as createHash7 } from "node:crypto";
+import { readFileSync as readFileSync3, realpathSync as realpathSync3 } from "node:fs";
+import { fileURLToPath as fileURLToPath2 } from "node:url";
+
+// node_modules/zod/v4/core/core.js
+var _a;
+// @__NO_SIDE_EFFECTS__
+function $constructor(name, initializer3, params) {
+  function init(inst, def) {
+    if (inst._zod || Object.defineProperty(inst, "_zod", {
+      value: {
+        def,
+        constr: _,
+        traits: /* @__PURE__ */ new Set()
+      },
+      enumerable: !1
+    }), inst._zod.traits.has(name))
+      return;
+    inst._zod.traits.add(name), initializer3(inst, def);
+    let proto = _.prototype, keys = Object.keys(proto);
+    for (let i = 0; i < keys.length; i++) {
+      let k = keys[i];
+      k in inst || (inst[k] = proto[k].bind(inst));
+    }
+  }
+  let Parent = params?.Parent ?? Object;
+  class Definition extends Parent {
+  }
+  Object.defineProperty(Definition, "name", { value: name });
+  function _(def) {
+    var _a3;
+    let inst = params?.Parent ? new Definition() : this;
+    init(inst, def), (_a3 = inst._zod).deferred ?? (_a3.deferred = []);
+    for (let fn of inst._zod.deferred)
+      fn();
+    return inst;
+  }
+  return Object.defineProperty(_, "init", { value: init }), Object.defineProperty(_, Symbol.hasInstance, {
+    value: (inst) => params?.Parent && inst instanceof params.Parent ? !0 : inst?._zod?.traits?.has(name)
+  }), Object.defineProperty(_, "name", { value: name }), _;
+}
+var $brand = Symbol("zod_brand"), $ZodAsyncError = class extends Error {
+  constructor() {
+    super("Encountered Promise during synchronous parse. Use .parseAsync() instead.");
+  }
+}, $ZodEncodeError = class extends Error {
+  constructor(name) {
+    super(`Encountered unidirectional transform during encode: ${name}`), this.name = "ZodEncodeError";
+  }
+};
+(_a = globalThis).__zod_globalConfig ?? (_a.__zod_globalConfig = {});
+var globalConfig = globalThis.__zod_globalConfig;
+function config(newConfig) {
+  return newConfig && Object.assign(globalConfig, newConfig), globalConfig;
+}
+
+// node_modules/zod/v4/core/util.js
+var util_exports = {};
+__export(util_exports, {
+  BIGINT_FORMAT_RANGES: () => BIGINT_FORMAT_RANGES,
+  Class: () => Class,
+  NUMBER_FORMAT_RANGES: () => NUMBER_FORMAT_RANGES,
+  aborted: () => aborted,
+  allowsEval: () => allowsEval,
+  assert: () => assert,
+  assertEqual: () => assertEqual,
+  assertIs: () => assertIs,
+  assertNever: () => assertNever,
+  assertNotEqual: () => assertNotEqual,
+  assignProp: () => assignProp,
+  base64ToUint8Array: () => base64ToUint8Array,
+  base64urlToUint8Array: () => base64urlToUint8Array,
+  cached: () => cached,
+  captureStackTrace: () => captureStackTrace,
+  cleanEnum: () => cleanEnum,
+  cleanRegex: () => cleanRegex,
+  clone: () => clone,
+  cloneDef: () => cloneDef,
+  createTransparentProxy: () => createTransparentProxy,
+  defineLazy: () => defineLazy,
+  esc: () => esc,
+  escapeRegex: () => escapeRegex,
+  explicitlyAborted: () => explicitlyAborted,
+  extend: () => extend,
+  finalizeIssue: () => finalizeIssue,
+  floatSafeRemainder: () => floatSafeRemainder,
+  getElementAtPath: () => getElementAtPath,
+  getEnumValues: () => getEnumValues,
+  getLengthableOrigin: () => getLengthableOrigin,
+  getParsedType: () => getParsedType,
+  getSizableOrigin: () => getSizableOrigin,
+  hexToUint8Array: () => hexToUint8Array,
+  isObject: () => isObject,
+  isPlainObject: () => isPlainObject,
+  issue: () => issue,
+  joinValues: () => joinValues,
+  jsonStringifyReplacer: () => jsonStringifyReplacer,
+  merge: () => merge,
+  mergeDefs: () => mergeDefs,
+  normalizeParams: () => normalizeParams,
+  nullish: () => nullish,
+  numKeys: () => numKeys,
+  objectClone: () => objectClone,
+  omit: () => omit,
+  optionalKeys: () => optionalKeys,
+  parsedType: () => parsedType,
+  partial: () => partial,
+  pick: () => pick,
+  prefixIssues: () => prefixIssues,
+  primitiveTypes: () => primitiveTypes,
+  promiseAllObject: () => promiseAllObject,
+  propertyKeyTypes: () => propertyKeyTypes,
+  randomString: () => randomString,
+  required: () => required,
+  safeExtend: () => safeExtend,
+  shallowClone: () => shallowClone,
+  slugify: () => slugify,
+  stringifyPrimitive: () => stringifyPrimitive,
+  uint8ArrayToBase64: () => uint8ArrayToBase64,
+  uint8ArrayToBase64url: () => uint8ArrayToBase64url,
+  uint8ArrayToHex: () => uint8ArrayToHex,
+  unwrapMessage: () => unwrapMessage
+});
+function assertEqual(val) {
+  return val;
+}
+function assertNotEqual(val) {
+  return val;
+}
+function assertIs(_arg) {
+}
+function assertNever(_x) {
+  throw new Error("Unexpected value in exhaustive check");
+}
+function assert(_) {
+}
+function getEnumValues(entries) {
+  let numericValues = Object.values(entries).filter((v) => typeof v == "number");
+  return Object.entries(entries).filter(([k, _]) => numericValues.indexOf(+k) === -1).map(([_, v]) => v);
+}
+function joinValues(array2, separator = "|") {
+  return array2.map((val) => stringifyPrimitive(val)).join(separator);
+}
+function jsonStringifyReplacer(_, value) {
+  return typeof value == "bigint" ? value.toString() : value;
+}
+function cached(getter) {
+  return {
+    get value() {
+      {
+        let value = getter();
+        return Object.defineProperty(this, "value", { value }), value;
+      }
+      throw new Error("cached value already set");
+    }
+  };
+}
+function nullish(input) {
+  return input == null;
+}
+function cleanRegex(source) {
+  let start = source.startsWith("^") ? 1 : 0, end = source.endsWith("$") ? source.length - 1 : source.length;
+  return source.slice(start, end);
+}
+function floatSafeRemainder(val, step) {
+  let ratio = val / step, roundedRatio = Math.round(ratio), tolerance = Number.EPSILON * Math.max(Math.abs(ratio), 1);
+  return Math.abs(ratio - roundedRatio) < tolerance ? 0 : ratio - roundedRatio;
+}
+var EVALUATING = /* @__PURE__ */ Symbol("evaluating");
+function defineLazy(object2, key, getter) {
+  let value;
+  Object.defineProperty(object2, key, {
+    get() {
+      if (value !== EVALUATING)
+        return value === void 0 && (value = EVALUATING, value = getter()), value;
+    },
+    set(v) {
+      Object.defineProperty(object2, key, {
+        value: v
+        // configurable: true,
+      });
+    },
+    configurable: !0
+  });
+}
+function objectClone(obj) {
+  return Object.create(Object.getPrototypeOf(obj), Object.getOwnPropertyDescriptors(obj));
+}
+function assignProp(target, prop, value) {
+  Object.defineProperty(target, prop, {
+    value,
+    writable: !0,
+    enumerable: !0,
+    configurable: !0
+  });
+}
+function mergeDefs(...defs) {
+  let mergedDescriptors = {};
+  for (let def of defs) {
+    let descriptors = Object.getOwnPropertyDescriptors(def);
+    Object.assign(mergedDescriptors, descriptors);
+  }
+  return Object.defineProperties({}, mergedDescriptors);
+}
+function cloneDef(schema) {
+  return mergeDefs(schema._zod.def);
+}
+function getElementAtPath(obj, path) {
+  return path ? path.reduce((acc, key) => acc?.[key], obj) : obj;
+}
+function promiseAllObject(promisesObj) {
+  let keys = Object.keys(promisesObj), promises = keys.map((key) => promisesObj[key]);
+  return Promise.all(promises).then((results) => {
+    let resolvedObj = {};
+    for (let i = 0; i < keys.length; i++)
+      resolvedObj[keys[i]] = results[i];
+    return resolvedObj;
+  });
+}
+function randomString(length = 10) {
+  let chars = "abcdefghijklmnopqrstuvwxyz", str = "";
+  for (let i = 0; i < length; i++)
+    str += chars[Math.floor(Math.random() * chars.length)];
+  return str;
+}
+function esc(str) {
+  return JSON.stringify(str);
+}
+function slugify(input) {
+  return input.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "");
+}
+var captureStackTrace = "captureStackTrace" in Error ? Error.captureStackTrace : (..._args) => {
+};
+function isObject(data) {
+  return typeof data == "object" && data !== null && !Array.isArray(data);
+}
+var allowsEval = /* @__PURE__ */ cached(() => {
+  if (globalConfig.jitless || typeof navigator < "u" && navigator?.userAgent?.includes("Cloudflare"))
+    return !1;
+  try {
+    let F = Function;
+    return new F(""), !0;
+  } catch {
+    return !1;
+  }
+});
+function isPlainObject(o) {
+  if (isObject(o) === !1)
+    return !1;
+  let ctor = o.constructor;
+  if (ctor === void 0 || typeof ctor != "function")
+    return !0;
+  let prot = ctor.prototype;
+  return !(isObject(prot) === !1 || Object.prototype.hasOwnProperty.call(prot, "isPrototypeOf") === !1);
+}
+function shallowClone(o) {
+  return isPlainObject(o) ? { ...o } : Array.isArray(o) ? [...o] : o instanceof Map ? new Map(o) : o instanceof Set ? new Set(o) : o;
+}
+function numKeys(data) {
+  let keyCount = 0;
+  for (let key in data)
+    Object.prototype.hasOwnProperty.call(data, key) && keyCount++;
+  return keyCount;
+}
+var getParsedType = (data) => {
+  let t = typeof data;
+  switch (t) {
+    case "undefined":
+      return "undefined";
+    case "string":
+      return "string";
+    case "number":
+      return Number.isNaN(data) ? "nan" : "number";
+    case "boolean":
+      return "boolean";
+    case "function":
+      return "function";
+    case "bigint":
+      return "bigint";
+    case "symbol":
+      return "symbol";
+    case "object":
+      return Array.isArray(data) ? "array" : data === null ? "null" : data.then && typeof data.then == "function" && data.catch && typeof data.catch == "function" ? "promise" : typeof Map < "u" && data instanceof Map ? "map" : typeof Set < "u" && data instanceof Set ? "set" : typeof Date < "u" && data instanceof Date ? "date" : typeof File < "u" && data instanceof File ? "file" : "object";
+    default:
+      throw new Error(`Unknown data type: ${t}`);
+  }
+}, propertyKeyTypes = /* @__PURE__ */ new Set(["string", "number", "symbol"]), primitiveTypes = /* @__PURE__ */ new Set([
+  "string",
+  "number",
+  "bigint",
+  "boolean",
+  "symbol",
+  "undefined"
+]);
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function clone(inst, def, params) {
+  let cl = new inst._zod.constr(def ?? inst._zod.def);
+  return (!def || params?.parent) && (cl._zod.parent = inst), cl;
+}
+function normalizeParams(_params) {
+  let params = _params;
+  if (!params)
+    return {};
+  if (typeof params == "string")
+    return { error: () => params };
+  if (params?.message !== void 0) {
+    if (params?.error !== void 0)
+      throw new Error("Cannot specify both `message` and `error` params");
+    params.error = params.message;
+  }
+  return delete params.message, typeof params.error == "string" ? { ...params, error: () => params.error } : params;
+}
+function createTransparentProxy(getter) {
+  let target;
+  return new Proxy({}, {
+    get(_, prop, receiver) {
+      return target ?? (target = getter()), Reflect.get(target, prop, receiver);
+    },
+    set(_, prop, value, receiver) {
+      return target ?? (target = getter()), Reflect.set(target, prop, value, receiver);
+    },
+    has(_, prop) {
+      return target ?? (target = getter()), Reflect.has(target, prop);
+    },
+    deleteProperty(_, prop) {
+      return target ?? (target = getter()), Reflect.deleteProperty(target, prop);
+    },
+    ownKeys(_) {
+      return target ?? (target = getter()), Reflect.ownKeys(target);
+    },
+    getOwnPropertyDescriptor(_, prop) {
+      return target ?? (target = getter()), Reflect.getOwnPropertyDescriptor(target, prop);
+    },
+    defineProperty(_, prop, descriptor) {
+      return target ?? (target = getter()), Reflect.defineProperty(target, prop, descriptor);
+    }
+  });
+}
+function stringifyPrimitive(value) {
+  return typeof value == "bigint" ? value.toString() + "n" : typeof value == "string" ? `"${value}"` : `${value}`;
+}
+function optionalKeys(shape) {
+  return Object.keys(shape).filter((k) => shape[k]._zod.optin === "optional" && shape[k]._zod.optout === "optional");
+}
+var NUMBER_FORMAT_RANGES = {
+  safeint: [Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER],
+  int32: [-2147483648, 2147483647],
+  uint32: [0, 4294967295],
+  float32: [-34028234663852886e22, 34028234663852886e22],
+  float64: [-Number.MAX_VALUE, Number.MAX_VALUE]
+}, BIGINT_FORMAT_RANGES = {
+  int64: [/* @__PURE__ */ BigInt("-9223372036854775808"), /* @__PURE__ */ BigInt("9223372036854775807")],
+  uint64: [/* @__PURE__ */ BigInt(0), /* @__PURE__ */ BigInt("18446744073709551615")]
+};
+function pick(schema, mask) {
+  let currDef = schema._zod.def, checks = currDef.checks;
+  if (checks && checks.length > 0)
+    throw new Error(".pick() cannot be used on object schemas containing refinements");
+  let def = mergeDefs(schema._zod.def, {
+    get shape() {
+      let newShape = {};
+      for (let key in mask) {
+        if (!(key in currDef.shape))
+          throw new Error(`Unrecognized key: "${key}"`);
+        mask[key] && (newShape[key] = currDef.shape[key]);
+      }
+      return assignProp(this, "shape", newShape), newShape;
+    },
+    checks: []
+  });
+  return clone(schema, def);
+}
+function omit(schema, mask) {
+  let currDef = schema._zod.def, checks = currDef.checks;
+  if (checks && checks.length > 0)
+    throw new Error(".omit() cannot be used on object schemas containing refinements");
+  let def = mergeDefs(schema._zod.def, {
+    get shape() {
+      let newShape = { ...schema._zod.def.shape };
+      for (let key in mask) {
+        if (!(key in currDef.shape))
+          throw new Error(`Unrecognized key: "${key}"`);
+        mask[key] && delete newShape[key];
+      }
+      return assignProp(this, "shape", newShape), newShape;
+    },
+    checks: []
+  });
+  return clone(schema, def);
+}
+function extend(schema, shape) {
+  if (!isPlainObject(shape))
+    throw new Error("Invalid input to extend: expected a plain object");
+  let checks = schema._zod.def.checks;
+  if (checks && checks.length > 0) {
+    let existingShape = schema._zod.def.shape;
+    for (let key in shape)
+      if (Object.getOwnPropertyDescriptor(existingShape, key) !== void 0)
+        throw new Error("Cannot overwrite keys on object schemas containing refinements. Use `.safeExtend()` instead.");
+  }
+  let def = mergeDefs(schema._zod.def, {
+    get shape() {
+      let _shape = { ...schema._zod.def.shape, ...shape };
+      return assignProp(this, "shape", _shape), _shape;
+    }
+  });
+  return clone(schema, def);
+}
+function safeExtend(schema, shape) {
+  if (!isPlainObject(shape))
+    throw new Error("Invalid input to safeExtend: expected a plain object");
+  let def = mergeDefs(schema._zod.def, {
+    get shape() {
+      let _shape = { ...schema._zod.def.shape, ...shape };
+      return assignProp(this, "shape", _shape), _shape;
+    }
+  });
+  return clone(schema, def);
+}
+function merge(a, b) {
+  if (a._zod.def.checks?.length)
+    throw new Error(".merge() cannot be used on object schemas containing refinements. Use .safeExtend() instead.");
+  let def = mergeDefs(a._zod.def, {
+    get shape() {
+      let _shape = { ...a._zod.def.shape, ...b._zod.def.shape };
+      return assignProp(this, "shape", _shape), _shape;
+    },
+    get catchall() {
+      return b._zod.def.catchall;
+    },
+    checks: b._zod.def.checks ?? []
+  });
+  return clone(a, def);
+}
+function partial(Class2, schema, mask) {
+  let checks = schema._zod.def.checks;
+  if (checks && checks.length > 0)
+    throw new Error(".partial() cannot be used on object schemas containing refinements");
+  let def = mergeDefs(schema._zod.def, {
+    get shape() {
+      let oldShape = schema._zod.def.shape, shape = { ...oldShape };
+      if (mask)
+        for (let key in mask) {
+          if (!(key in oldShape))
+            throw new Error(`Unrecognized key: "${key}"`);
+          mask[key] && (shape[key] = Class2 ? new Class2({
+            type: "optional",
+            innerType: oldShape[key]
+          }) : oldShape[key]);
+        }
+      else
+        for (let key in oldShape)
+          shape[key] = Class2 ? new Class2({
+            type: "optional",
+            innerType: oldShape[key]
+          }) : oldShape[key];
+      return assignProp(this, "shape", shape), shape;
+    },
+    checks: []
+  });
+  return clone(schema, def);
+}
+function required(Class2, schema, mask) {
+  let def = mergeDefs(schema._zod.def, {
+    get shape() {
+      let oldShape = schema._zod.def.shape, shape = { ...oldShape };
+      if (mask)
+        for (let key in mask) {
+          if (!(key in shape))
+            throw new Error(`Unrecognized key: "${key}"`);
+          mask[key] && (shape[key] = new Class2({
+            type: "nonoptional",
+            innerType: oldShape[key]
+          }));
+        }
+      else
+        for (let key in oldShape)
+          shape[key] = new Class2({
+            type: "nonoptional",
+            innerType: oldShape[key]
+          });
+      return assignProp(this, "shape", shape), shape;
+    }
+  });
+  return clone(schema, def);
+}
+function aborted(x, startIndex = 0) {
+  if (x.aborted === !0)
+    return !0;
+  for (let i = startIndex; i < x.issues.length; i++)
+    if (x.issues[i]?.continue !== !0)
+      return !0;
+  return !1;
+}
+function explicitlyAborted(x, startIndex = 0) {
+  if (x.aborted === !0)
+    return !0;
+  for (let i = startIndex; i < x.issues.length; i++)
+    if (x.issues[i]?.continue === !1)
+      return !0;
+  return !1;
+}
+function prefixIssues(path, issues) {
+  return issues.map((iss) => {
+    var _a3;
+    return (_a3 = iss).path ?? (_a3.path = []), iss.path.unshift(path), iss;
+  });
+}
+function unwrapMessage(message) {
+  return typeof message == "string" ? message : message?.message;
+}
+function finalizeIssue(iss, ctx, config2) {
+  let message = iss.message ? iss.message : unwrapMessage(iss.inst?._zod.def?.error?.(iss)) ?? unwrapMessage(ctx?.error?.(iss)) ?? unwrapMessage(config2.customError?.(iss)) ?? unwrapMessage(config2.localeError?.(iss)) ?? "Invalid input", { inst: _inst, continue: _continue, input: _input, ...rest } = iss;
+  return rest.path ?? (rest.path = []), rest.message = message, ctx?.reportInput && (rest.input = _input), rest;
+}
+function getSizableOrigin(input) {
+  return input instanceof Set ? "set" : input instanceof Map ? "map" : input instanceof File ? "file" : "unknown";
+}
+function getLengthableOrigin(input) {
+  return Array.isArray(input) ? "array" : typeof input == "string" ? "string" : "unknown";
+}
+function parsedType(data) {
+  let t = typeof data;
+  switch (t) {
+    case "number":
+      return Number.isNaN(data) ? "nan" : "number";
+    case "object": {
+      if (data === null)
+        return "null";
+      if (Array.isArray(data))
+        return "array";
+      let obj = data;
+      if (obj && Object.getPrototypeOf(obj) !== Object.prototype && "constructor" in obj && obj.constructor)
+        return obj.constructor.name;
+    }
+  }
+  return t;
+}
+function issue(...args) {
+  let [iss, input, inst] = args;
+  return typeof iss == "string" ? {
+    message: iss,
+    code: "custom",
+    input,
+    inst
+  } : { ...iss };
+}
+function cleanEnum(obj) {
+  return Object.entries(obj).filter(([k, _]) => Number.isNaN(Number.parseInt(k, 10))).map((el) => el[1]);
+}
+function base64ToUint8Array(base642) {
+  let binaryString = atob(base642), bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++)
+    bytes[i] = binaryString.charCodeAt(i);
+  return bytes;
+}
+function uint8ArrayToBase64(bytes) {
+  let binaryString = "";
+  for (let i = 0; i < bytes.length; i++)
+    binaryString += String.fromCharCode(bytes[i]);
+  return btoa(binaryString);
+}
+function base64urlToUint8Array(base64url2) {
+  let base642 = base64url2.replace(/-/g, "+").replace(/_/g, "/"), padding = "=".repeat((4 - base642.length % 4) % 4);
+  return base64ToUint8Array(base642 + padding);
+}
+function uint8ArrayToBase64url(bytes) {
+  return uint8ArrayToBase64(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+function hexToUint8Array(hex) {
+  let cleanHex = hex.replace(/^0x/, "");
+  if (cleanHex.length % 2 !== 0)
+    throw new Error("Invalid hex string length");
+  let bytes = new Uint8Array(cleanHex.length / 2);
+  for (let i = 0; i < cleanHex.length; i += 2)
+    bytes[i / 2] = Number.parseInt(cleanHex.slice(i, i + 2), 16);
+  return bytes;
+}
+function uint8ArrayToHex(bytes) {
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+var Class = class {
+  constructor(..._args) {
+  }
+};
+
+// node_modules/zod/v4/core/errors.js
+var initializer = (inst, def) => {
+  inst.name = "$ZodError", Object.defineProperty(inst, "_zod", {
+    value: inst._zod,
+    enumerable: !1
+  }), Object.defineProperty(inst, "issues", {
+    value: def,
+    enumerable: !1
+  }), inst.message = JSON.stringify(def, jsonStringifyReplacer, 2), Object.defineProperty(inst, "toString", {
+    value: () => inst.message,
+    enumerable: !1
+  });
+}, $ZodError = $constructor("$ZodError", initializer), $ZodRealError = $constructor("$ZodError", initializer, { Parent: Error });
+function flattenError(error, mapper = (issue3) => issue3.message) {
+  let fieldErrors = {}, formErrors = [];
+  for (let sub of error.issues)
+    sub.path.length > 0 ? (fieldErrors[sub.path[0]] = fieldErrors[sub.path[0]] || [], fieldErrors[sub.path[0]].push(mapper(sub))) : formErrors.push(mapper(sub));
+  return { formErrors, fieldErrors };
+}
+function formatError(error, mapper = (issue3) => issue3.message) {
+  let fieldErrors = { _errors: [] }, processError = (error2, path = []) => {
+    for (let issue3 of error2.issues)
+      if (issue3.code === "invalid_union" && issue3.errors.length)
+        issue3.errors.map((issues) => processError({ issues }, [...path, ...issue3.path]));
+      else if (issue3.code === "invalid_key")
+        processError({ issues: issue3.issues }, [...path, ...issue3.path]);
+      else if (issue3.code === "invalid_element")
+        processError({ issues: issue3.issues }, [...path, ...issue3.path]);
+      else {
+        let fullpath = [...path, ...issue3.path];
+        if (fullpath.length === 0)
+          fieldErrors._errors.push(mapper(issue3));
+        else {
+          let curr = fieldErrors, i = 0;
+          for (; i < fullpath.length; ) {
+            let el = fullpath[i];
+            i === fullpath.length - 1 ? (curr[el] = curr[el] || { _errors: [] }, curr[el]._errors.push(mapper(issue3))) : curr[el] = curr[el] || { _errors: [] }, curr = curr[el], i++;
+          }
+        }
+      }
+  };
+  return processError(error), fieldErrors;
+}
+
+// node_modules/zod/v4/core/parse.js
+var _parse = (_Err) => (schema, value, _ctx, _params) => {
+  let ctx = _ctx ? { ..._ctx, async: !1 } : { async: !1 }, result = schema._zod.run({ value, issues: [] }, ctx);
+  if (result instanceof Promise)
+    throw new $ZodAsyncError();
+  if (result.issues.length) {
+    let e = new (_params?.Err ?? _Err)(result.issues.map((iss) => finalizeIssue(iss, ctx, config())));
+    throw captureStackTrace(e, _params?.callee), e;
+  }
+  return result.value;
+};
+var _parseAsync = (_Err) => async (schema, value, _ctx, params) => {
+  let ctx = _ctx ? { ..._ctx, async: !0 } : { async: !0 }, result = schema._zod.run({ value, issues: [] }, ctx);
+  if (result instanceof Promise && (result = await result), result.issues.length) {
+    let e = new (params?.Err ?? _Err)(result.issues.map((iss) => finalizeIssue(iss, ctx, config())));
+    throw captureStackTrace(e, params?.callee), e;
+  }
+  return result.value;
+};
+var _safeParse = (_Err) => (schema, value, _ctx) => {
+  let ctx = _ctx ? { ..._ctx, async: !1 } : { async: !1 }, result = schema._zod.run({ value, issues: [] }, ctx);
+  if (result instanceof Promise)
+    throw new $ZodAsyncError();
+  return result.issues.length ? {
+    success: !1,
+    error: new (_Err ?? $ZodError)(result.issues.map((iss) => finalizeIssue(iss, ctx, config())))
+  } : { success: !0, data: result.value };
+}, safeParse = /* @__PURE__ */ _safeParse($ZodRealError), _safeParseAsync = (_Err) => async (schema, value, _ctx) => {
+  let ctx = _ctx ? { ..._ctx, async: !0 } : { async: !0 }, result = schema._zod.run({ value, issues: [] }, ctx);
+  return result instanceof Promise && (result = await result), result.issues.length ? {
+    success: !1,
+    error: new _Err(result.issues.map((iss) => finalizeIssue(iss, ctx, config())))
+  } : { success: !0, data: result.value };
+}, safeParseAsync = /* @__PURE__ */ _safeParseAsync($ZodRealError), _encode = (_Err) => (schema, value, _ctx) => {
+  let ctx = _ctx ? { ..._ctx, direction: "backward" } : { direction: "backward" };
+  return _parse(_Err)(schema, value, ctx);
+};
+var _decode = (_Err) => (schema, value, _ctx) => _parse(_Err)(schema, value, _ctx);
+var _encodeAsync = (_Err) => async (schema, value, _ctx) => {
+  let ctx = _ctx ? { ..._ctx, direction: "backward" } : { direction: "backward" };
+  return _parseAsync(_Err)(schema, value, ctx);
+};
+var _decodeAsync = (_Err) => async (schema, value, _ctx) => _parseAsync(_Err)(schema, value, _ctx);
+var _safeEncode = (_Err) => (schema, value, _ctx) => {
+  let ctx = _ctx ? { ..._ctx, direction: "backward" } : { direction: "backward" };
+  return _safeParse(_Err)(schema, value, ctx);
+};
+var _safeDecode = (_Err) => (schema, value, _ctx) => _safeParse(_Err)(schema, value, _ctx);
+var _safeEncodeAsync = (_Err) => async (schema, value, _ctx) => {
+  let ctx = _ctx ? { ..._ctx, direction: "backward" } : { direction: "backward" };
+  return _safeParseAsync(_Err)(schema, value, ctx);
+};
+var _safeDecodeAsync = (_Err) => async (schema, value, _ctx) => _safeParseAsync(_Err)(schema, value, _ctx);
+
+// node_modules/zod/v4/core/regexes.js
+var cuid = /^[cC][0-9a-z]{6,}$/, cuid2 = /^[0-9a-z]+$/, ulid = /^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$/, xid = /^[0-9a-vA-V]{20}$/, ksuid = /^[A-Za-z0-9]{27}$/, nanoid = /^[a-zA-Z0-9_-]{21}$/, duration = /^P(?:(\d+W)|(?!.*W)(?=\d|T\d)(\d+Y)?(\d+M)?(\d+D)?(T(?=\d)(\d+H)?(\d+M)?(\d+([.,]\d+)?S)?)?)$/;
+var guid = /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$/, uuid = (version2) => version2 ? new RegExp(`^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-${version2}[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$`) : /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$/;
+var email = /^(?!\.)(?!.*\.\.)([A-Za-z0-9_'+\-\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\-]*\.)+[A-Za-z]{2,}$/;
+var _emoji = "^(\\p{Extended_Pictographic}|\\p{Emoji_Component})+$";
+function emoji() {
+  return new RegExp(_emoji, "u");
+}
+var ipv4 = /^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$/, ipv6 = /^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:))$/;
+var cidrv4 = /^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\/([0-9]|[1-2][0-9]|3[0-2])$/, cidrv6 = /^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|::|([0-9a-fA-F]{1,4})?::([0-9a-fA-F]{1,4}:?){0,6})\/(12[0-8]|1[01][0-9]|[1-9]?[0-9])$/, base64 = /^$|^(?:[0-9a-zA-Z+/]{4})*(?:(?:[0-9a-zA-Z+/]{2}==)|(?:[0-9a-zA-Z+/]{3}=))?$/, base64url = /^[A-Za-z0-9_-]*$/;
+var httpProtocol = /^https?$/, e164 = /^\+[1-9]\d{6,14}$/, dateSource = "(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))", date = /* @__PURE__ */ new RegExp(`^${dateSource}$`);
+function timeSource(args) {
+  let hhmm = "(?:[01]\\d|2[0-3]):[0-5]\\d";
+  return typeof args.precision == "number" ? args.precision === -1 ? `${hhmm}` : args.precision === 0 ? `${hhmm}:[0-5]\\d` : `${hhmm}:[0-5]\\d\\.\\d{${args.precision}}` : `${hhmm}(?::[0-5]\\d(?:\\.\\d+)?)?`;
+}
+function time(args) {
+  return new RegExp(`^${timeSource(args)}$`);
+}
+function datetime(args) {
+  let time3 = timeSource({ precision: args.precision }), opts = ["Z"];
+  args.local && opts.push(""), args.offset && opts.push("([+-](?:[01]\\d|2[0-3]):[0-5]\\d)");
+  let timeRegex = `${time3}(?:${opts.join("|")})`;
+  return new RegExp(`^${dateSource}T(?:${timeRegex})$`);
+}
+var string = (params) => {
+  let regex = params ? `[\\s\\S]{${params?.minimum ?? 0},${params?.maximum ?? ""}}` : "[\\s\\S]*";
+  return new RegExp(`^${regex}$`);
+};
+var number = /^-?\d+(?:\.\d+)?$/, boolean = /^(?:true|false)$/i;
+var lowercase = /^[^A-Z]*$/, uppercase = /^[^a-z]*$/;
+
+// node_modules/zod/v4/core/checks.js
+var $ZodCheck = /* @__PURE__ */ $constructor("$ZodCheck", (inst, def) => {
+  var _a3;
+  inst._zod ?? (inst._zod = {}), inst._zod.def = def, (_a3 = inst._zod).onattach ?? (_a3.onattach = []);
+});
+var $ZodCheckMaxLength = /* @__PURE__ */ $constructor("$ZodCheckMaxLength", (inst, def) => {
+  var _a3;
+  $ZodCheck.init(inst, def), (_a3 = inst._zod.def).when ?? (_a3.when = (payload) => {
+    let val = payload.value;
+    return !nullish(val) && val.length !== void 0;
+  }), inst._zod.onattach.push((inst2) => {
+    let curr = inst2._zod.bag.maximum ?? Number.POSITIVE_INFINITY;
+    def.maximum < curr && (inst2._zod.bag.maximum = def.maximum);
+  }), inst._zod.check = (payload) => {
+    let input = payload.value;
+    if (input.length <= def.maximum)
+      return;
+    let origin = getLengthableOrigin(input);
+    payload.issues.push({
+      origin,
+      code: "too_big",
+      maximum: def.maximum,
+      inclusive: !0,
+      input,
+      inst,
+      continue: !def.abort
+    });
+  };
+}), $ZodCheckMinLength = /* @__PURE__ */ $constructor("$ZodCheckMinLength", (inst, def) => {
+  var _a3;
+  $ZodCheck.init(inst, def), (_a3 = inst._zod.def).when ?? (_a3.when = (payload) => {
+    let val = payload.value;
+    return !nullish(val) && val.length !== void 0;
+  }), inst._zod.onattach.push((inst2) => {
+    let curr = inst2._zod.bag.minimum ?? Number.NEGATIVE_INFINITY;
+    def.minimum > curr && (inst2._zod.bag.minimum = def.minimum);
+  }), inst._zod.check = (payload) => {
+    let input = payload.value;
+    if (input.length >= def.minimum)
+      return;
+    let origin = getLengthableOrigin(input);
+    payload.issues.push({
+      origin,
+      code: "too_small",
+      minimum: def.minimum,
+      inclusive: !0,
+      input,
+      inst,
+      continue: !def.abort
+    });
+  };
+}), $ZodCheckLengthEquals = /* @__PURE__ */ $constructor("$ZodCheckLengthEquals", (inst, def) => {
+  var _a3;
+  $ZodCheck.init(inst, def), (_a3 = inst._zod.def).when ?? (_a3.when = (payload) => {
+    let val = payload.value;
+    return !nullish(val) && val.length !== void 0;
+  }), inst._zod.onattach.push((inst2) => {
+    let bag = inst2._zod.bag;
+    bag.minimum = def.length, bag.maximum = def.length, bag.length = def.length;
+  }), inst._zod.check = (payload) => {
+    let input = payload.value, length = input.length;
+    if (length === def.length)
+      return;
+    let origin = getLengthableOrigin(input), tooBig = length > def.length;
+    payload.issues.push({
+      origin,
+      ...tooBig ? { code: "too_big", maximum: def.length } : { code: "too_small", minimum: def.length },
+      inclusive: !0,
+      exact: !0,
+      input: payload.value,
+      inst,
+      continue: !def.abort
+    });
+  };
+}), $ZodCheckStringFormat = /* @__PURE__ */ $constructor("$ZodCheckStringFormat", (inst, def) => {
+  var _a3, _b;
+  $ZodCheck.init(inst, def), inst._zod.onattach.push((inst2) => {
+    let bag = inst2._zod.bag;
+    bag.format = def.format, def.pattern && (bag.patterns ?? (bag.patterns = /* @__PURE__ */ new Set()), bag.patterns.add(def.pattern));
+  }), def.pattern ? (_a3 = inst._zod).check ?? (_a3.check = (payload) => {
+    def.pattern.lastIndex = 0, !def.pattern.test(payload.value) && payload.issues.push({
+      origin: "string",
+      code: "invalid_format",
+      format: def.format,
+      input: payload.value,
+      ...def.pattern ? { pattern: def.pattern.toString() } : {},
+      inst,
+      continue: !def.abort
+    });
+  }) : (_b = inst._zod).check ?? (_b.check = () => {
+  });
+}), $ZodCheckRegex = /* @__PURE__ */ $constructor("$ZodCheckRegex", (inst, def) => {
+  $ZodCheckStringFormat.init(inst, def), inst._zod.check = (payload) => {
+    def.pattern.lastIndex = 0, !def.pattern.test(payload.value) && payload.issues.push({
+      origin: "string",
+      code: "invalid_format",
+      format: "regex",
+      input: payload.value,
+      pattern: def.pattern.toString(),
+      inst,
+      continue: !def.abort
+    });
+  };
+}), $ZodCheckLowerCase = /* @__PURE__ */ $constructor("$ZodCheckLowerCase", (inst, def) => {
+  def.pattern ?? (def.pattern = lowercase), $ZodCheckStringFormat.init(inst, def);
+}), $ZodCheckUpperCase = /* @__PURE__ */ $constructor("$ZodCheckUpperCase", (inst, def) => {
+  def.pattern ?? (def.pattern = uppercase), $ZodCheckStringFormat.init(inst, def);
+}), $ZodCheckIncludes = /* @__PURE__ */ $constructor("$ZodCheckIncludes", (inst, def) => {
+  $ZodCheck.init(inst, def);
+  let escapedRegex = escapeRegex(def.includes), pattern = new RegExp(typeof def.position == "number" ? `^.{${def.position}}${escapedRegex}` : escapedRegex);
+  def.pattern = pattern, inst._zod.onattach.push((inst2) => {
+    let bag = inst2._zod.bag;
+    bag.patterns ?? (bag.patterns = /* @__PURE__ */ new Set()), bag.patterns.add(pattern);
+  }), inst._zod.check = (payload) => {
+    payload.value.includes(def.includes, def.position) || payload.issues.push({
+      origin: "string",
+      code: "invalid_format",
+      format: "includes",
+      includes: def.includes,
+      input: payload.value,
+      inst,
+      continue: !def.abort
+    });
+  };
+}), $ZodCheckStartsWith = /* @__PURE__ */ $constructor("$ZodCheckStartsWith", (inst, def) => {
+  $ZodCheck.init(inst, def);
+  let pattern = new RegExp(`^${escapeRegex(def.prefix)}.*`);
+  def.pattern ?? (def.pattern = pattern), inst._zod.onattach.push((inst2) => {
+    let bag = inst2._zod.bag;
+    bag.patterns ?? (bag.patterns = /* @__PURE__ */ new Set()), bag.patterns.add(pattern);
+  }), inst._zod.check = (payload) => {
+    payload.value.startsWith(def.prefix) || payload.issues.push({
+      origin: "string",
+      code: "invalid_format",
+      format: "starts_with",
+      prefix: def.prefix,
+      input: payload.value,
+      inst,
+      continue: !def.abort
+    });
+  };
+}), $ZodCheckEndsWith = /* @__PURE__ */ $constructor("$ZodCheckEndsWith", (inst, def) => {
+  $ZodCheck.init(inst, def);
+  let pattern = new RegExp(`.*${escapeRegex(def.suffix)}$`);
+  def.pattern ?? (def.pattern = pattern), inst._zod.onattach.push((inst2) => {
+    let bag = inst2._zod.bag;
+    bag.patterns ?? (bag.patterns = /* @__PURE__ */ new Set()), bag.patterns.add(pattern);
+  }), inst._zod.check = (payload) => {
+    payload.value.endsWith(def.suffix) || payload.issues.push({
+      origin: "string",
+      code: "invalid_format",
+      format: "ends_with",
+      suffix: def.suffix,
+      input: payload.value,
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+var $ZodCheckOverwrite = /* @__PURE__ */ $constructor("$ZodCheckOverwrite", (inst, def) => {
+  $ZodCheck.init(inst, def), inst._zod.check = (payload) => {
+    payload.value = def.tx(payload.value);
+  };
+});
+
+// node_modules/zod/v4/core/doc.js
+var Doc = class {
+  constructor(args = []) {
+    this.content = [], this.indent = 0, this && (this.args = args);
+  }
+  indented(fn) {
+    this.indent += 1, fn(this), this.indent -= 1;
+  }
+  write(arg) {
+    if (typeof arg == "function") {
+      arg(this, { execution: "sync" }), arg(this, { execution: "async" });
+      return;
+    }
+    let lines = arg.split(`
+`).filter((x) => x), minIndent = Math.min(...lines.map((x) => x.length - x.trimStart().length)), dedented = lines.map((x) => x.slice(minIndent)).map((x) => " ".repeat(this.indent * 2) + x);
+    for (let line4 of dedented)
+      this.content.push(line4);
+  }
+  compile() {
+    let F = Function, args = this?.args, lines = [...(this?.content ?? [""]).map((x) => `  ${x}`)];
+    return new F(...args, lines.join(`
+`));
+  }
+};
+
+// node_modules/zod/v4/core/versions.js
+var version = {
+  major: 4,
+  minor: 4,
+  patch: 3
+};
+
+// node_modules/zod/v4/core/schemas.js
+var $ZodType = /* @__PURE__ */ $constructor("$ZodType", (inst, def) => {
+  var _a3;
+  inst ?? (inst = {}), inst._zod.def = def, inst._zod.bag = inst._zod.bag || {}, inst._zod.version = version;
+  let checks = [...inst._zod.def.checks ?? []];
+  inst._zod.traits.has("$ZodCheck") && checks.unshift(inst);
+  for (let ch of checks)
+    for (let fn of ch._zod.onattach)
+      fn(inst);
+  if (checks.length === 0)
+    (_a3 = inst._zod).deferred ?? (_a3.deferred = []), inst._zod.deferred?.push(() => {
+      inst._zod.run = inst._zod.parse;
+    });
+  else {
+    let runChecks = (payload, checks2, ctx) => {
+      let isAborted = aborted(payload), asyncResult;
+      for (let ch of checks2) {
+        if (ch._zod.def.when) {
+          if (explicitlyAborted(payload) || !ch._zod.def.when(payload))
+            continue;
+        } else if (isAborted)
+          continue;
+        let currLen = payload.issues.length, _ = ch._zod.check(payload);
+        if (_ instanceof Promise && ctx?.async === !1)
+          throw new $ZodAsyncError();
+        if (asyncResult || _ instanceof Promise)
+          asyncResult = (asyncResult ?? Promise.resolve()).then(async () => {
+            await _, payload.issues.length !== currLen && (isAborted || (isAborted = aborted(payload, currLen)));
+          });
+        else {
+          if (payload.issues.length === currLen)
+            continue;
+          isAborted || (isAborted = aborted(payload, currLen));
+        }
+      }
+      return asyncResult ? asyncResult.then(() => payload) : payload;
+    }, handleCanaryResult = (canary, payload, ctx) => {
+      if (aborted(canary))
+        return canary.aborted = !0, canary;
+      let checkResult = runChecks(payload, checks, ctx);
+      if (checkResult instanceof Promise) {
+        if (ctx.async === !1)
+          throw new $ZodAsyncError();
+        return checkResult.then((checkResult2) => inst._zod.parse(checkResult2, ctx));
+      }
+      return inst._zod.parse(checkResult, ctx);
+    };
+    inst._zod.run = (payload, ctx) => {
+      if (ctx.skipChecks)
+        return inst._zod.parse(payload, ctx);
+      if (ctx.direction === "backward") {
+        let canary = inst._zod.parse({ value: payload.value, issues: [] }, { ...ctx, skipChecks: !0 });
+        return canary instanceof Promise ? canary.then((canary2) => handleCanaryResult(canary2, payload, ctx)) : handleCanaryResult(canary, payload, ctx);
+      }
+      let result = inst._zod.parse(payload, ctx);
+      if (result instanceof Promise) {
+        if (ctx.async === !1)
+          throw new $ZodAsyncError();
+        return result.then((result2) => runChecks(result2, checks, ctx));
+      }
+      return runChecks(result, checks, ctx);
+    };
+  }
+  defineLazy(inst, "~standard", () => ({
+    validate: (value) => {
+      try {
+        let r = safeParse(inst, value);
+        return r.success ? { value: r.data } : { issues: r.error?.issues };
+      } catch {
+        return safeParseAsync(inst, value).then((r) => r.success ? { value: r.data } : { issues: r.error?.issues });
+      }
+    },
+    vendor: "zod",
+    version: 1
+  }));
+}), $ZodString = /* @__PURE__ */ $constructor("$ZodString", (inst, def) => {
+  $ZodType.init(inst, def), inst._zod.pattern = [...inst?._zod.bag?.patterns ?? []].pop() ?? string(inst._zod.bag), inst._zod.parse = (payload, _) => {
+    if (def.coerce)
+      try {
+        payload.value = String(payload.value);
+      } catch {
+      }
+    return typeof payload.value == "string" || payload.issues.push({
+      expected: "string",
+      code: "invalid_type",
+      input: payload.value,
+      inst
+    }), payload;
+  };
+}), $ZodStringFormat = /* @__PURE__ */ $constructor("$ZodStringFormat", (inst, def) => {
+  $ZodCheckStringFormat.init(inst, def), $ZodString.init(inst, def);
+}), $ZodGUID = /* @__PURE__ */ $constructor("$ZodGUID", (inst, def) => {
+  def.pattern ?? (def.pattern = guid), $ZodStringFormat.init(inst, def);
+}), $ZodUUID = /* @__PURE__ */ $constructor("$ZodUUID", (inst, def) => {
+  if (def.version) {
+    let v = {
+      v1: 1,
+      v2: 2,
+      v3: 3,
+      v4: 4,
+      v5: 5,
+      v6: 6,
+      v7: 7,
+      v8: 8
+    }[def.version];
+    if (v === void 0)
+      throw new Error(`Invalid UUID version: "${def.version}"`);
+    def.pattern ?? (def.pattern = uuid(v));
+  } else
+    def.pattern ?? (def.pattern = uuid());
+  $ZodStringFormat.init(inst, def);
+}), $ZodEmail = /* @__PURE__ */ $constructor("$ZodEmail", (inst, def) => {
+  def.pattern ?? (def.pattern = email), $ZodStringFormat.init(inst, def);
+}), $ZodURL = /* @__PURE__ */ $constructor("$ZodURL", (inst, def) => {
+  $ZodStringFormat.init(inst, def), inst._zod.check = (payload) => {
+    try {
+      let trimmed = payload.value.trim();
+      if (!def.normalize && def.protocol?.source === httpProtocol.source && !/^https?:\/\//i.test(trimmed)) {
+        payload.issues.push({
+          code: "invalid_format",
+          format: "url",
+          note: "Invalid URL format",
+          input: payload.value,
+          inst,
+          continue: !def.abort
+        });
+        return;
+      }
+      let url = new URL(trimmed);
+      def.hostname && (def.hostname.lastIndex = 0, def.hostname.test(url.hostname) || payload.issues.push({
+        code: "invalid_format",
+        format: "url",
+        note: "Invalid hostname",
+        pattern: def.hostname.source,
+        input: payload.value,
+        inst,
+        continue: !def.abort
+      })), def.protocol && (def.protocol.lastIndex = 0, def.protocol.test(url.protocol.endsWith(":") ? url.protocol.slice(0, -1) : url.protocol) || payload.issues.push({
+        code: "invalid_format",
+        format: "url",
+        note: "Invalid protocol",
+        pattern: def.protocol.source,
+        input: payload.value,
+        inst,
+        continue: !def.abort
+      })), def.normalize ? payload.value = url.href : payload.value = trimmed;
+      return;
+    } catch {
+      payload.issues.push({
+        code: "invalid_format",
+        format: "url",
+        input: payload.value,
+        inst,
+        continue: !def.abort
+      });
+    }
+  };
+}), $ZodEmoji = /* @__PURE__ */ $constructor("$ZodEmoji", (inst, def) => {
+  def.pattern ?? (def.pattern = emoji()), $ZodStringFormat.init(inst, def);
+}), $ZodNanoID = /* @__PURE__ */ $constructor("$ZodNanoID", (inst, def) => {
+  def.pattern ?? (def.pattern = nanoid), $ZodStringFormat.init(inst, def);
+}), $ZodCUID = /* @__PURE__ */ $constructor("$ZodCUID", (inst, def) => {
+  def.pattern ?? (def.pattern = cuid), $ZodStringFormat.init(inst, def);
+}), $ZodCUID2 = /* @__PURE__ */ $constructor("$ZodCUID2", (inst, def) => {
+  def.pattern ?? (def.pattern = cuid2), $ZodStringFormat.init(inst, def);
+}), $ZodULID = /* @__PURE__ */ $constructor("$ZodULID", (inst, def) => {
+  def.pattern ?? (def.pattern = ulid), $ZodStringFormat.init(inst, def);
+}), $ZodXID = /* @__PURE__ */ $constructor("$ZodXID", (inst, def) => {
+  def.pattern ?? (def.pattern = xid), $ZodStringFormat.init(inst, def);
+}), $ZodKSUID = /* @__PURE__ */ $constructor("$ZodKSUID", (inst, def) => {
+  def.pattern ?? (def.pattern = ksuid), $ZodStringFormat.init(inst, def);
+}), $ZodISODateTime = /* @__PURE__ */ $constructor("$ZodISODateTime", (inst, def) => {
+  def.pattern ?? (def.pattern = datetime(def)), $ZodStringFormat.init(inst, def);
+}), $ZodISODate = /* @__PURE__ */ $constructor("$ZodISODate", (inst, def) => {
+  def.pattern ?? (def.pattern = date), $ZodStringFormat.init(inst, def);
+}), $ZodISOTime = /* @__PURE__ */ $constructor("$ZodISOTime", (inst, def) => {
+  def.pattern ?? (def.pattern = time(def)), $ZodStringFormat.init(inst, def);
+}), $ZodISODuration = /* @__PURE__ */ $constructor("$ZodISODuration", (inst, def) => {
+  def.pattern ?? (def.pattern = duration), $ZodStringFormat.init(inst, def);
+}), $ZodIPv4 = /* @__PURE__ */ $constructor("$ZodIPv4", (inst, def) => {
+  def.pattern ?? (def.pattern = ipv4), $ZodStringFormat.init(inst, def), inst._zod.bag.format = "ipv4";
+}), $ZodIPv6 = /* @__PURE__ */ $constructor("$ZodIPv6", (inst, def) => {
+  def.pattern ?? (def.pattern = ipv6), $ZodStringFormat.init(inst, def), inst._zod.bag.format = "ipv6", inst._zod.check = (payload) => {
+    try {
+      new URL(`http://[${payload.value}]`);
+    } catch {
+      payload.issues.push({
+        code: "invalid_format",
+        format: "ipv6",
+        input: payload.value,
+        inst,
+        continue: !def.abort
+      });
+    }
+  };
+});
+var $ZodCIDRv4 = /* @__PURE__ */ $constructor("$ZodCIDRv4", (inst, def) => {
+  def.pattern ?? (def.pattern = cidrv4), $ZodStringFormat.init(inst, def);
+}), $ZodCIDRv6 = /* @__PURE__ */ $constructor("$ZodCIDRv6", (inst, def) => {
+  def.pattern ?? (def.pattern = cidrv6), $ZodStringFormat.init(inst, def), inst._zod.check = (payload) => {
+    let parts = payload.value.split("/");
+    try {
+      if (parts.length !== 2)
+        throw new Error();
+      let [address, prefix] = parts;
+      if (!prefix)
+        throw new Error();
+      let prefixNum = Number(prefix);
+      if (`${prefixNum}` !== prefix)
+        throw new Error();
+      if (prefixNum < 0 || prefixNum > 128)
+        throw new Error();
+      new URL(`http://[${address}]`);
+    } catch {
+      payload.issues.push({
+        code: "invalid_format",
+        format: "cidrv6",
+        input: payload.value,
+        inst,
+        continue: !def.abort
+      });
+    }
+  };
+});
+function isValidBase64(data) {
+  if (data === "")
+    return !0;
+  if (/\s/.test(data) || data.length % 4 !== 0)
+    return !1;
+  try {
+    return atob(data), !0;
+  } catch {
+    return !1;
+  }
+}
+var $ZodBase64 = /* @__PURE__ */ $constructor("$ZodBase64", (inst, def) => {
+  def.pattern ?? (def.pattern = base64), $ZodStringFormat.init(inst, def), inst._zod.bag.contentEncoding = "base64", inst._zod.check = (payload) => {
+    isValidBase64(payload.value) || payload.issues.push({
+      code: "invalid_format",
+      format: "base64",
+      input: payload.value,
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+function isValidBase64URL(data) {
+  if (!base64url.test(data))
+    return !1;
+  let base642 = data.replace(/[-_]/g, (c) => c === "-" ? "+" : "/"), padded = base642.padEnd(Math.ceil(base642.length / 4) * 4, "=");
+  return isValidBase64(padded);
+}
+var $ZodBase64URL = /* @__PURE__ */ $constructor("$ZodBase64URL", (inst, def) => {
+  def.pattern ?? (def.pattern = base64url), $ZodStringFormat.init(inst, def), inst._zod.bag.contentEncoding = "base64url", inst._zod.check = (payload) => {
+    isValidBase64URL(payload.value) || payload.issues.push({
+      code: "invalid_format",
+      format: "base64url",
+      input: payload.value,
+      inst,
+      continue: !def.abort
+    });
+  };
+}), $ZodE164 = /* @__PURE__ */ $constructor("$ZodE164", (inst, def) => {
+  def.pattern ?? (def.pattern = e164), $ZodStringFormat.init(inst, def);
+});
+function isValidJWT(token, algorithm = null) {
+  try {
+    let tokensParts = token.split(".");
+    if (tokensParts.length !== 3)
+      return !1;
+    let [header] = tokensParts;
+    if (!header)
+      return !1;
+    let parsedHeader = JSON.parse(atob(header));
+    return !("typ" in parsedHeader && parsedHeader?.typ !== "JWT" || !parsedHeader.alg || algorithm && (!("alg" in parsedHeader) || parsedHeader.alg !== algorithm));
+  } catch {
+    return !1;
+  }
+}
+var $ZodJWT = /* @__PURE__ */ $constructor("$ZodJWT", (inst, def) => {
+  $ZodStringFormat.init(inst, def), inst._zod.check = (payload) => {
+    isValidJWT(payload.value, def.alg) || payload.issues.push({
+      code: "invalid_format",
+      format: "jwt",
+      input: payload.value,
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+var $ZodBoolean = /* @__PURE__ */ $constructor("$ZodBoolean", (inst, def) => {
+  $ZodType.init(inst, def), inst._zod.pattern = boolean, inst._zod.parse = (payload, _ctx) => {
+    if (def.coerce)
+      try {
+        payload.value = !!payload.value;
+      } catch {
+      }
+    let input = payload.value;
+    return typeof input == "boolean" || payload.issues.push({
+      expected: "boolean",
+      code: "invalid_type",
+      input,
+      inst
+    }), payload;
+  };
+});
+var $ZodUnknown = /* @__PURE__ */ $constructor("$ZodUnknown", (inst, def) => {
+  $ZodType.init(inst, def), inst._zod.parse = (payload) => payload;
+}), $ZodNever = /* @__PURE__ */ $constructor("$ZodNever", (inst, def) => {
+  $ZodType.init(inst, def), inst._zod.parse = (payload, _ctx) => (payload.issues.push({
+    expected: "never",
+    code: "invalid_type",
+    input: payload.value,
+    inst
+  }), payload);
+});
+function handleArrayResult(result, final, index) {
+  result.issues.length && final.issues.push(...prefixIssues(index, result.issues)), final.value[index] = result.value;
+}
+var $ZodArray = /* @__PURE__ */ $constructor("$ZodArray", (inst, def) => {
+  $ZodType.init(inst, def), inst._zod.parse = (payload, ctx) => {
+    let input = payload.value;
+    if (!Array.isArray(input))
+      return payload.issues.push({
+        expected: "array",
+        code: "invalid_type",
+        input,
+        inst
+      }), payload;
+    payload.value = Array(input.length);
+    let proms = [];
+    for (let i = 0; i < input.length; i++) {
+      let item = input[i], result = def.element._zod.run({
+        value: item,
+        issues: []
+      }, ctx);
+      result instanceof Promise ? proms.push(result.then((result2) => handleArrayResult(result2, payload, i))) : handleArrayResult(result, payload, i);
+    }
+    return proms.length ? Promise.all(proms).then(() => payload) : payload;
+  };
+});
+function handlePropertyResult(result, final, key, input, isOptionalIn, isOptionalOut) {
+  let isPresent = key in input;
+  if (result.issues.length) {
+    if (isOptionalIn && isOptionalOut && !isPresent)
+      return;
+    final.issues.push(...prefixIssues(key, result.issues));
+  }
+  if (!isPresent && !isOptionalIn) {
+    result.issues.length || final.issues.push({
+      code: "invalid_type",
+      expected: "nonoptional",
+      input: void 0,
+      path: [key]
+    });
+    return;
+  }
+  result.value === void 0 ? isPresent && (final.value[key] = void 0) : final.value[key] = result.value;
+}
+function normalizeDef(def) {
+  let keys = Object.keys(def.shape);
+  for (let k of keys)
+    if (!def.shape?.[k]?._zod?.traits?.has("$ZodType"))
+      throw new Error(`Invalid element at key "${k}": expected a Zod schema`);
+  let okeys = optionalKeys(def.shape);
+  return {
+    ...def,
+    keys,
+    keySet: new Set(keys),
+    numKeys: keys.length,
+    optionalKeys: new Set(okeys)
+  };
+}
+function handleCatchall(proms, input, payload, ctx, def, inst) {
+  let unrecognized = [], keySet = def.keySet, _catchall = def.catchall._zod, t = _catchall.def.type, isOptionalIn = _catchall.optin === "optional", isOptionalOut = _catchall.optout === "optional";
+  for (let key in input) {
+    if (key === "__proto__" || keySet.has(key))
+      continue;
+    if (t === "never") {
+      unrecognized.push(key);
+      continue;
+    }
+    let r = _catchall.run({ value: input[key], issues: [] }, ctx);
+    r instanceof Promise ? proms.push(r.then((r2) => handlePropertyResult(r2, payload, key, input, isOptionalIn, isOptionalOut))) : handlePropertyResult(r, payload, key, input, isOptionalIn, isOptionalOut);
+  }
+  return unrecognized.length && payload.issues.push({
+    code: "unrecognized_keys",
+    keys: unrecognized,
+    input,
+    inst
+  }), proms.length ? Promise.all(proms).then(() => payload) : payload;
+}
+var $ZodObject = /* @__PURE__ */ $constructor("$ZodObject", (inst, def) => {
+  if ($ZodType.init(inst, def), !Object.getOwnPropertyDescriptor(def, "shape")?.get) {
+    let sh = def.shape;
+    Object.defineProperty(def, "shape", {
+      get: () => {
+        let newSh = { ...sh };
+        return Object.defineProperty(def, "shape", {
+          value: newSh
+        }), newSh;
+      }
+    });
+  }
+  let _normalized = cached(() => normalizeDef(def));
+  defineLazy(inst._zod, "propValues", () => {
+    let shape = def.shape, propValues = {};
+    for (let key in shape) {
+      let field = shape[key]._zod;
+      if (field.values) {
+        propValues[key] ?? (propValues[key] = /* @__PURE__ */ new Set());
+        for (let v of field.values)
+          propValues[key].add(v);
+      }
+    }
+    return propValues;
+  });
+  let isObject2 = isObject, catchall = def.catchall, value;
+  inst._zod.parse = (payload, ctx) => {
+    value ?? (value = _normalized.value);
+    let input = payload.value;
+    if (!isObject2(input))
+      return payload.issues.push({
+        expected: "object",
+        code: "invalid_type",
+        input,
+        inst
+      }), payload;
+    payload.value = {};
+    let proms = [], shape = value.shape;
+    for (let key of value.keys) {
+      let el = shape[key], isOptionalIn = el._zod.optin === "optional", isOptionalOut = el._zod.optout === "optional", r = el._zod.run({ value: input[key], issues: [] }, ctx);
+      r instanceof Promise ? proms.push(r.then((r2) => handlePropertyResult(r2, payload, key, input, isOptionalIn, isOptionalOut))) : handlePropertyResult(r, payload, key, input, isOptionalIn, isOptionalOut);
+    }
+    return catchall ? handleCatchall(proms, input, payload, ctx, _normalized.value, inst) : proms.length ? Promise.all(proms).then(() => payload) : payload;
+  };
+}), $ZodObjectJIT = /* @__PURE__ */ $constructor("$ZodObjectJIT", (inst, def) => {
+  $ZodObject.init(inst, def);
+  let superParse = inst._zod.parse, _normalized = cached(() => normalizeDef(def)), generateFastpass = (shape) => {
+    let doc = new Doc(["shape", "payload", "ctx"]), normalized = _normalized.value, parseStr = (key) => {
+      let k = esc(key);
+      return `shape[${k}]._zod.run({ value: input[${k}], issues: [] }, ctx)`;
+    };
+    doc.write("const input = payload.value;");
+    let ids3 = /* @__PURE__ */ Object.create(null), counter = 0;
+    for (let key of normalized.keys)
+      ids3[key] = `key_${counter++}`;
+    doc.write("const newResult = {};");
+    for (let key of normalized.keys) {
+      let id = ids3[key], k = esc(key), schema = shape[key], isOptionalIn = schema?._zod?.optin === "optional", isOptionalOut = schema?._zod?.optout === "optional";
+      doc.write(`const ${id} = ${parseStr(key)};`), isOptionalIn && isOptionalOut ? doc.write(`
+        if (${id}.issues.length) {
+          if (${k} in input) {
+            payload.issues = payload.issues.concat(${id}.issues.map(iss => ({
+              ...iss,
+              path: iss.path ? [${k}, ...iss.path] : [${k}]
+            })));
+          }
+        }
+
+        if (${id}.value === undefined) {
+          if (${k} in input) {
+            newResult[${k}] = undefined;
+          }
+        } else {
+          newResult[${k}] = ${id}.value;
+        }
+
+      `) : isOptionalIn ? doc.write(`
+        if (${id}.issues.length) {
+          payload.issues = payload.issues.concat(${id}.issues.map(iss => ({
+            ...iss,
+            path: iss.path ? [${k}, ...iss.path] : [${k}]
+          })));
+        }
+
+        if (${id}.value === undefined) {
+          if (${k} in input) {
+            newResult[${k}] = undefined;
+          }
+        } else {
+          newResult[${k}] = ${id}.value;
+        }
+
+      `) : doc.write(`
+        const ${id}_present = ${k} in input;
+        if (${id}.issues.length) {
+          payload.issues = payload.issues.concat(${id}.issues.map(iss => ({
+            ...iss,
+            path: iss.path ? [${k}, ...iss.path] : [${k}]
+          })));
+        }
+        if (!${id}_present && !${id}.issues.length) {
+          payload.issues.push({
+            code: "invalid_type",
+            expected: "nonoptional",
+            input: undefined,
+            path: [${k}]
+          });
+        }
+
+        if (${id}_present) {
+          if (${id}.value === undefined) {
+            newResult[${k}] = undefined;
+          } else {
+            newResult[${k}] = ${id}.value;
+          }
+        }
+
+      `);
+    }
+    doc.write("payload.value = newResult;"), doc.write("return payload;");
+    let fn = doc.compile();
+    return (payload, ctx) => fn(shape, payload, ctx);
+  }, fastpass, isObject2 = isObject, jit = !globalConfig.jitless, fastEnabled = jit && allowsEval.value, catchall = def.catchall, value;
+  inst._zod.parse = (payload, ctx) => {
+    value ?? (value = _normalized.value);
+    let input = payload.value;
+    return isObject2(input) ? jit && fastEnabled && ctx?.async === !1 && ctx.jitless !== !0 ? (fastpass || (fastpass = generateFastpass(def.shape)), payload = fastpass(payload, ctx), catchall ? handleCatchall([], input, payload, ctx, value, inst) : payload) : superParse(payload, ctx) : (payload.issues.push({
+      expected: "object",
+      code: "invalid_type",
+      input,
+      inst
+    }), payload);
+  };
+});
+function handleUnionResults(results, final, inst, ctx) {
+  for (let result of results)
+    if (result.issues.length === 0)
+      return final.value = result.value, final;
+  let nonaborted = results.filter((r) => !aborted(r));
+  return nonaborted.length === 1 ? (final.value = nonaborted[0].value, nonaborted[0]) : (final.issues.push({
+    code: "invalid_union",
+    input: final.value,
+    inst,
+    errors: results.map((result) => result.issues.map((iss) => finalizeIssue(iss, ctx, config())))
+  }), final);
+}
+var $ZodUnion = /* @__PURE__ */ $constructor("$ZodUnion", (inst, def) => {
+  $ZodType.init(inst, def), defineLazy(inst._zod, "optin", () => def.options.some((o) => o._zod.optin === "optional") ? "optional" : void 0), defineLazy(inst._zod, "optout", () => def.options.some((o) => o._zod.optout === "optional") ? "optional" : void 0), defineLazy(inst._zod, "values", () => {
+    if (def.options.every((o) => o._zod.values))
+      return new Set(def.options.flatMap((option) => Array.from(option._zod.values)));
+  }), defineLazy(inst._zod, "pattern", () => {
+    if (def.options.every((o) => o._zod.pattern)) {
+      let patterns = def.options.map((o) => o._zod.pattern);
+      return new RegExp(`^(${patterns.map((p) => cleanRegex(p.source)).join("|")})$`);
+    }
+  });
+  let first = def.options.length === 1 ? def.options[0]._zod.run : null;
+  inst._zod.parse = (payload, ctx) => {
+    if (first)
+      return first(payload, ctx);
+    let async = !1, results = [];
+    for (let option of def.options) {
+      let result = option._zod.run({
+        value: payload.value,
+        issues: []
+      }, ctx);
+      if (result instanceof Promise)
+        results.push(result), async = !0;
+      else {
+        if (result.issues.length === 0)
+          return result;
+        results.push(result);
+      }
+    }
+    return async ? Promise.all(results).then((results2) => handleUnionResults(results2, payload, inst, ctx)) : handleUnionResults(results, payload, inst, ctx);
+  };
+});
+var $ZodIntersection = /* @__PURE__ */ $constructor("$ZodIntersection", (inst, def) => {
+  $ZodType.init(inst, def), inst._zod.parse = (payload, ctx) => {
+    let input = payload.value, left = def.left._zod.run({ value: input, issues: [] }, ctx), right = def.right._zod.run({ value: input, issues: [] }, ctx);
+    return left instanceof Promise || right instanceof Promise ? Promise.all([left, right]).then(([left2, right2]) => handleIntersectionResults(payload, left2, right2)) : handleIntersectionResults(payload, left, right);
+  };
+});
+function mergeValues(a, b) {
+  if (a === b)
+    return { valid: !0, data: a };
+  if (a instanceof Date && b instanceof Date && +a == +b)
+    return { valid: !0, data: a };
+  if (isPlainObject(a) && isPlainObject(b)) {
+    let bKeys = Object.keys(b), sharedKeys = Object.keys(a).filter((key) => bKeys.indexOf(key) !== -1), newObj = { ...a, ...b };
+    for (let key of sharedKeys) {
+      let sharedValue = mergeValues(a[key], b[key]);
+      if (!sharedValue.valid)
+        return {
+          valid: !1,
+          mergeErrorPath: [key, ...sharedValue.mergeErrorPath]
+        };
+      newObj[key] = sharedValue.data;
+    }
+    return { valid: !0, data: newObj };
+  }
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length)
+      return { valid: !1, mergeErrorPath: [] };
+    let newArray = [];
+    for (let index = 0; index < a.length; index++) {
+      let itemA = a[index], itemB = b[index], sharedValue = mergeValues(itemA, itemB);
+      if (!sharedValue.valid)
+        return {
+          valid: !1,
+          mergeErrorPath: [index, ...sharedValue.mergeErrorPath]
+        };
+      newArray.push(sharedValue.data);
+    }
+    return { valid: !0, data: newArray };
+  }
+  return { valid: !1, mergeErrorPath: [] };
+}
+function handleIntersectionResults(result, left, right) {
+  let unrecKeys = /* @__PURE__ */ new Map(), unrecIssue;
+  for (let iss of left.issues)
+    if (iss.code === "unrecognized_keys") {
+      unrecIssue ?? (unrecIssue = iss);
+      for (let k of iss.keys)
+        unrecKeys.has(k) || unrecKeys.set(k, {}), unrecKeys.get(k).l = !0;
+    } else
+      result.issues.push(iss);
+  for (let iss of right.issues)
+    if (iss.code === "unrecognized_keys")
+      for (let k of iss.keys)
+        unrecKeys.has(k) || unrecKeys.set(k, {}), unrecKeys.get(k).r = !0;
+    else
+      result.issues.push(iss);
+  let bothKeys = [...unrecKeys].filter(([, f]) => f.l && f.r).map(([k]) => k);
+  if (bothKeys.length && unrecIssue && result.issues.push({ ...unrecIssue, keys: bothKeys }), aborted(result))
+    return result;
+  let merged = mergeValues(left.value, right.value);
+  if (!merged.valid)
+    throw new Error(`Unmergable intersection. Error path: ${JSON.stringify(merged.mergeErrorPath)}`);
+  return result.value = merged.data, result;
+}
+var $ZodRecord = /* @__PURE__ */ $constructor("$ZodRecord", (inst, def) => {
+  $ZodType.init(inst, def), inst._zod.parse = (payload, ctx) => {
+    let input = payload.value;
+    if (!isPlainObject(input))
+      return payload.issues.push({
+        expected: "record",
+        code: "invalid_type",
+        input,
+        inst
+      }), payload;
+    let proms = [], values = def.keyType._zod.values;
+    if (values) {
+      payload.value = {};
+      let recordKeys = /* @__PURE__ */ new Set();
+      for (let key of values)
+        if (typeof key == "string" || typeof key == "number" || typeof key == "symbol") {
+          recordKeys.add(typeof key == "number" ? key.toString() : key);
+          let keyResult = def.keyType._zod.run({ value: key, issues: [] }, ctx);
+          if (keyResult instanceof Promise)
+            throw new Error("Async schemas not supported in object keys currently");
+          if (keyResult.issues.length) {
+            payload.issues.push({
+              code: "invalid_key",
+              origin: "record",
+              issues: keyResult.issues.map((iss) => finalizeIssue(iss, ctx, config())),
+              input: key,
+              path: [key],
+              inst
+            });
+            continue;
+          }
+          let outKey = keyResult.value, result = def.valueType._zod.run({ value: input[key], issues: [] }, ctx);
+          result instanceof Promise ? proms.push(result.then((result2) => {
+            result2.issues.length && payload.issues.push(...prefixIssues(key, result2.issues)), payload.value[outKey] = result2.value;
+          })) : (result.issues.length && payload.issues.push(...prefixIssues(key, result.issues)), payload.value[outKey] = result.value);
+        }
+      let unrecognized;
+      for (let key in input)
+        recordKeys.has(key) || (unrecognized = unrecognized ?? [], unrecognized.push(key));
+      unrecognized && unrecognized.length > 0 && payload.issues.push({
+        code: "unrecognized_keys",
+        input,
+        inst,
+        keys: unrecognized
+      });
+    } else {
+      payload.value = {};
+      for (let key of Reflect.ownKeys(input)) {
+        if (key === "__proto__" || !Object.prototype.propertyIsEnumerable.call(input, key))
+          continue;
+        let keyResult = def.keyType._zod.run({ value: key, issues: [] }, ctx);
+        if (keyResult instanceof Promise)
+          throw new Error("Async schemas not supported in object keys currently");
+        if (typeof key == "string" && number.test(key) && keyResult.issues.length) {
+          let retryResult = def.keyType._zod.run({ value: Number(key), issues: [] }, ctx);
+          if (retryResult instanceof Promise)
+            throw new Error("Async schemas not supported in object keys currently");
+          retryResult.issues.length === 0 && (keyResult = retryResult);
+        }
+        if (keyResult.issues.length) {
+          def.mode === "loose" ? payload.value[key] = input[key] : payload.issues.push({
+            code: "invalid_key",
+            origin: "record",
+            issues: keyResult.issues.map((iss) => finalizeIssue(iss, ctx, config())),
+            input: key,
+            path: [key],
+            inst
+          });
+          continue;
+        }
+        let result = def.valueType._zod.run({ value: input[key], issues: [] }, ctx);
+        result instanceof Promise ? proms.push(result.then((result2) => {
+          result2.issues.length && payload.issues.push(...prefixIssues(key, result2.issues)), payload.value[keyResult.value] = result2.value;
+        })) : (result.issues.length && payload.issues.push(...prefixIssues(key, result.issues)), payload.value[keyResult.value] = result.value);
+      }
+    }
+    return proms.length ? Promise.all(proms).then(() => payload) : payload;
+  };
+});
+var $ZodEnum = /* @__PURE__ */ $constructor("$ZodEnum", (inst, def) => {
+  $ZodType.init(inst, def);
+  let values = getEnumValues(def.entries), valuesSet = new Set(values);
+  inst._zod.values = valuesSet, inst._zod.pattern = new RegExp(`^(${values.filter((k) => propertyKeyTypes.has(typeof k)).map((o) => typeof o == "string" ? escapeRegex(o) : o.toString()).join("|")})$`), inst._zod.parse = (payload, _ctx) => {
+    let input = payload.value;
+    return valuesSet.has(input) || payload.issues.push({
+      code: "invalid_value",
+      values,
+      input,
+      inst
+    }), payload;
+  };
+}), $ZodLiteral = /* @__PURE__ */ $constructor("$ZodLiteral", (inst, def) => {
+  if ($ZodType.init(inst, def), def.values.length === 0)
+    throw new Error("Cannot create literal schema with no valid values");
+  let values = new Set(def.values);
+  inst._zod.values = values, inst._zod.pattern = new RegExp(`^(${def.values.map((o) => typeof o == "string" ? escapeRegex(o) : o ? escapeRegex(o.toString()) : String(o)).join("|")})$`), inst._zod.parse = (payload, _ctx) => {
+    let input = payload.value;
+    return values.has(input) || payload.issues.push({
+      code: "invalid_value",
+      values: def.values,
+      input,
+      inst
+    }), payload;
+  };
+});
+var $ZodTransform = /* @__PURE__ */ $constructor("$ZodTransform", (inst, def) => {
+  $ZodType.init(inst, def), inst._zod.optin = "optional", inst._zod.parse = (payload, ctx) => {
+    if (ctx.direction === "backward")
+      throw new $ZodEncodeError(inst.constructor.name);
+    let _out = def.transform(payload.value, payload);
+    if (ctx.async)
+      return (_out instanceof Promise ? _out : Promise.resolve(_out)).then((output2) => (payload.value = output2, payload.fallback = !0, payload));
+    if (_out instanceof Promise)
+      throw new $ZodAsyncError();
+    return payload.value = _out, payload.fallback = !0, payload;
+  };
+});
+function handleOptionalResult(result, input) {
+  return input === void 0 && (result.issues.length || result.fallback) ? { issues: [], value: void 0 } : result;
+}
+var $ZodOptional = /* @__PURE__ */ $constructor("$ZodOptional", (inst, def) => {
+  $ZodType.init(inst, def), inst._zod.optin = "optional", inst._zod.optout = "optional", defineLazy(inst._zod, "values", () => def.innerType._zod.values ? /* @__PURE__ */ new Set([...def.innerType._zod.values, void 0]) : void 0), defineLazy(inst._zod, "pattern", () => {
+    let pattern = def.innerType._zod.pattern;
+    return pattern ? new RegExp(`^(${cleanRegex(pattern.source)})?$`) : void 0;
+  }), inst._zod.parse = (payload, ctx) => {
+    if (def.innerType._zod.optin === "optional") {
+      let input = payload.value, result = def.innerType._zod.run(payload, ctx);
+      return result instanceof Promise ? result.then((r) => handleOptionalResult(r, input)) : handleOptionalResult(result, input);
+    }
+    return payload.value === void 0 ? payload : def.innerType._zod.run(payload, ctx);
+  };
+}), $ZodExactOptional = /* @__PURE__ */ $constructor("$ZodExactOptional", (inst, def) => {
+  $ZodOptional.init(inst, def), defineLazy(inst._zod, "values", () => def.innerType._zod.values), defineLazy(inst._zod, "pattern", () => def.innerType._zod.pattern), inst._zod.parse = (payload, ctx) => def.innerType._zod.run(payload, ctx);
+}), $ZodNullable = /* @__PURE__ */ $constructor("$ZodNullable", (inst, def) => {
+  $ZodType.init(inst, def), defineLazy(inst._zod, "optin", () => def.innerType._zod.optin), defineLazy(inst._zod, "optout", () => def.innerType._zod.optout), defineLazy(inst._zod, "pattern", () => {
+    let pattern = def.innerType._zod.pattern;
+    return pattern ? new RegExp(`^(${cleanRegex(pattern.source)}|null)$`) : void 0;
+  }), defineLazy(inst._zod, "values", () => def.innerType._zod.values ? /* @__PURE__ */ new Set([...def.innerType._zod.values, null]) : void 0), inst._zod.parse = (payload, ctx) => payload.value === null ? payload : def.innerType._zod.run(payload, ctx);
+}), $ZodDefault = /* @__PURE__ */ $constructor("$ZodDefault", (inst, def) => {
+  $ZodType.init(inst, def), inst._zod.optin = "optional", defineLazy(inst._zod, "values", () => def.innerType._zod.values), inst._zod.parse = (payload, ctx) => {
+    if (ctx.direction === "backward")
+      return def.innerType._zod.run(payload, ctx);
+    if (payload.value === void 0)
+      return payload.value = def.defaultValue, payload;
+    let result = def.innerType._zod.run(payload, ctx);
+    return result instanceof Promise ? result.then((result2) => handleDefaultResult(result2, def)) : handleDefaultResult(result, def);
+  };
+});
+function handleDefaultResult(payload, def) {
+  return payload.value === void 0 && (payload.value = def.defaultValue), payload;
+}
+var $ZodPrefault = /* @__PURE__ */ $constructor("$ZodPrefault", (inst, def) => {
+  $ZodType.init(inst, def), inst._zod.optin = "optional", defineLazy(inst._zod, "values", () => def.innerType._zod.values), inst._zod.parse = (payload, ctx) => (ctx.direction === "backward" || payload.value === void 0 && (payload.value = def.defaultValue), def.innerType._zod.run(payload, ctx));
+}), $ZodNonOptional = /* @__PURE__ */ $constructor("$ZodNonOptional", (inst, def) => {
+  $ZodType.init(inst, def), defineLazy(inst._zod, "values", () => {
+    let v = def.innerType._zod.values;
+    return v ? new Set([...v].filter((x) => x !== void 0)) : void 0;
+  }), inst._zod.parse = (payload, ctx) => {
+    let result = def.innerType._zod.run(payload, ctx);
+    return result instanceof Promise ? result.then((result2) => handleNonOptionalResult(result2, inst)) : handleNonOptionalResult(result, inst);
+  };
+});
+function handleNonOptionalResult(payload, inst) {
+  return !payload.issues.length && payload.value === void 0 && payload.issues.push({
+    code: "invalid_type",
+    expected: "nonoptional",
+    input: payload.value,
+    inst
+  }), payload;
+}
+var $ZodCatch = /* @__PURE__ */ $constructor("$ZodCatch", (inst, def) => {
+  $ZodType.init(inst, def), inst._zod.optin = "optional", defineLazy(inst._zod, "optout", () => def.innerType._zod.optout), defineLazy(inst._zod, "values", () => def.innerType._zod.values), inst._zod.parse = (payload, ctx) => {
+    if (ctx.direction === "backward")
+      return def.innerType._zod.run(payload, ctx);
+    let result = def.innerType._zod.run(payload, ctx);
+    return result instanceof Promise ? result.then((result2) => (payload.value = result2.value, result2.issues.length && (payload.value = def.catchValue({
+      ...payload,
+      error: {
+        issues: result2.issues.map((iss) => finalizeIssue(iss, ctx, config()))
+      },
+      input: payload.value
+    }), payload.issues = [], payload.fallback = !0), payload)) : (payload.value = result.value, result.issues.length && (payload.value = def.catchValue({
+      ...payload,
+      error: {
+        issues: result.issues.map((iss) => finalizeIssue(iss, ctx, config()))
+      },
+      input: payload.value
+    }), payload.issues = [], payload.fallback = !0), payload);
+  };
+});
+var $ZodPipe = /* @__PURE__ */ $constructor("$ZodPipe", (inst, def) => {
+  $ZodType.init(inst, def), defineLazy(inst._zod, "values", () => def.in._zod.values), defineLazy(inst._zod, "optin", () => def.in._zod.optin), defineLazy(inst._zod, "optout", () => def.out._zod.optout), defineLazy(inst._zod, "propValues", () => def.in._zod.propValues), inst._zod.parse = (payload, ctx) => {
+    if (ctx.direction === "backward") {
+      let right = def.out._zod.run(payload, ctx);
+      return right instanceof Promise ? right.then((right2) => handlePipeResult(right2, def.in, ctx)) : handlePipeResult(right, def.in, ctx);
+    }
+    let left = def.in._zod.run(payload, ctx);
+    return left instanceof Promise ? left.then((left2) => handlePipeResult(left2, def.out, ctx)) : handlePipeResult(left, def.out, ctx);
+  };
+});
+function handlePipeResult(left, next, ctx) {
+  return left.issues.length ? (left.aborted = !0, left) : next._zod.run({ value: left.value, issues: left.issues, fallback: left.fallback }, ctx);
+}
+var $ZodReadonly = /* @__PURE__ */ $constructor("$ZodReadonly", (inst, def) => {
+  $ZodType.init(inst, def), defineLazy(inst._zod, "propValues", () => def.innerType._zod.propValues), defineLazy(inst._zod, "values", () => def.innerType._zod.values), defineLazy(inst._zod, "optin", () => def.innerType?._zod?.optin), defineLazy(inst._zod, "optout", () => def.innerType?._zod?.optout), inst._zod.parse = (payload, ctx) => {
+    if (ctx.direction === "backward")
+      return def.innerType._zod.run(payload, ctx);
+    let result = def.innerType._zod.run(payload, ctx);
+    return result instanceof Promise ? result.then(handleReadonlyResult) : handleReadonlyResult(result);
+  };
+});
+function handleReadonlyResult(payload) {
+  return payload.value = Object.freeze(payload.value), payload;
+}
+var $ZodCustom = /* @__PURE__ */ $constructor("$ZodCustom", (inst, def) => {
+  $ZodCheck.init(inst, def), $ZodType.init(inst, def), inst._zod.parse = (payload, _) => payload, inst._zod.check = (payload) => {
+    let input = payload.value, r = def.fn(input);
+    if (r instanceof Promise)
+      return r.then((r2) => handleRefineResult(r2, payload, input, inst));
+    handleRefineResult(r, payload, input, inst);
+  };
+});
+function handleRefineResult(result, payload, input, inst) {
+  if (!result) {
+    let _iss = {
+      code: "custom",
+      input,
+      inst,
+      // incorporates params.error into issue reporting
+      path: [...inst._zod.def.path ?? []],
+      // incorporates params.error into issue reporting
+      continue: !inst._zod.def.abort
+      // params: inst._zod.def.params,
+    };
+    inst._zod.def.params && (_iss.params = inst._zod.def.params), payload.issues.push(issue(_iss));
+  }
+}
+
+// node_modules/zod/v4/core/registries.js
+var _a2, $output = Symbol("ZodOutput"), $input = Symbol("ZodInput"), $ZodRegistry = class {
+  constructor() {
+    this._map = /* @__PURE__ */ new WeakMap(), this._idmap = /* @__PURE__ */ new Map();
+  }
+  add(schema, ..._meta) {
+    let meta2 = _meta[0];
+    return this._map.set(schema, meta2), meta2 && typeof meta2 == "object" && "id" in meta2 && this._idmap.set(meta2.id, schema), this;
+  }
+  clear() {
+    return this._map = /* @__PURE__ */ new WeakMap(), this._idmap = /* @__PURE__ */ new Map(), this;
+  }
+  remove(schema) {
+    let meta2 = this._map.get(schema);
+    return meta2 && typeof meta2 == "object" && "id" in meta2 && this._idmap.delete(meta2.id), this._map.delete(schema), this;
+  }
+  get(schema) {
+    let p = schema._zod.parent;
+    if (p) {
+      let pm = { ...this.get(p) ?? {} };
+      delete pm.id;
+      let f = { ...pm, ...this._map.get(schema) };
+      return Object.keys(f).length ? f : void 0;
+    }
+    return this._map.get(schema);
+  }
+  has(schema) {
+    return this._map.has(schema);
+  }
+};
+function registry() {
+  return new $ZodRegistry();
+}
+(_a2 = globalThis).__zod_globalRegistry ?? (_a2.__zod_globalRegistry = registry());
+var globalRegistry = globalThis.__zod_globalRegistry;
+
+// node_modules/zod/v4/core/api.js
+// @__NO_SIDE_EFFECTS__
+function _string(Class2, params) {
+  return new Class2({
+    type: "string",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _email(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "email",
+    check: "string_format",
+    abort: !1,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _guid(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "guid",
+    check: "string_format",
+    abort: !1,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _uuid(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "uuid",
+    check: "string_format",
+    abort: !1,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _uuidv4(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "uuid",
+    check: "string_format",
+    abort: !1,
+    version: "v4",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _uuidv6(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "uuid",
+    check: "string_format",
+    abort: !1,
+    version: "v6",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _uuidv7(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "uuid",
+    check: "string_format",
+    abort: !1,
+    version: "v7",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _url(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "url",
+    check: "string_format",
+    abort: !1,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _emoji2(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "emoji",
+    check: "string_format",
+    abort: !1,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _nanoid(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "nanoid",
+    check: "string_format",
+    abort: !1,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _cuid(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "cuid",
+    check: "string_format",
+    abort: !1,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _cuid2(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "cuid2",
+    check: "string_format",
+    abort: !1,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _ulid(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "ulid",
+    check: "string_format",
+    abort: !1,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _xid(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "xid",
+    check: "string_format",
+    abort: !1,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _ksuid(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "ksuid",
+    check: "string_format",
+    abort: !1,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _ipv4(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "ipv4",
+    check: "string_format",
+    abort: !1,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _ipv6(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "ipv6",
+    check: "string_format",
+    abort: !1,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _cidrv4(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "cidrv4",
+    check: "string_format",
+    abort: !1,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _cidrv6(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "cidrv6",
+    check: "string_format",
+    abort: !1,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _base64(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "base64",
+    check: "string_format",
+    abort: !1,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _base64url(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "base64url",
+    check: "string_format",
+    abort: !1,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _e164(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "e164",
+    check: "string_format",
+    abort: !1,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _jwt(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "jwt",
+    check: "string_format",
+    abort: !1,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _isoDateTime(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "datetime",
+    check: "string_format",
+    offset: !1,
+    local: !1,
+    precision: null,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _isoDate(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "date",
+    check: "string_format",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _isoTime(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "time",
+    check: "string_format",
+    precision: null,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _isoDuration(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "duration",
+    check: "string_format",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _boolean(Class2, params) {
+  return new Class2({
+    type: "boolean",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _unknown(Class2) {
+  return new Class2({
+    type: "unknown"
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _never(Class2, params) {
+  return new Class2({
+    type: "never",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _maxLength(maximum, params) {
+  return new $ZodCheckMaxLength({
+    check: "max_length",
+    ...normalizeParams(params),
+    maximum
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _minLength(minimum, params) {
+  return new $ZodCheckMinLength({
+    check: "min_length",
+    ...normalizeParams(params),
+    minimum
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _length(length, params) {
+  return new $ZodCheckLengthEquals({
+    check: "length_equals",
+    ...normalizeParams(params),
+    length
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _regex(pattern, params) {
+  return new $ZodCheckRegex({
+    check: "string_format",
+    format: "regex",
+    ...normalizeParams(params),
+    pattern
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _lowercase(params) {
+  return new $ZodCheckLowerCase({
+    check: "string_format",
+    format: "lowercase",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _uppercase(params) {
+  return new $ZodCheckUpperCase({
+    check: "string_format",
+    format: "uppercase",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _includes(includes, params) {
+  return new $ZodCheckIncludes({
+    check: "string_format",
+    format: "includes",
+    ...normalizeParams(params),
+    includes
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _startsWith(prefix, params) {
+  return new $ZodCheckStartsWith({
+    check: "string_format",
+    format: "starts_with",
+    ...normalizeParams(params),
+    prefix
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _endsWith(suffix, params) {
+  return new $ZodCheckEndsWith({
+    check: "string_format",
+    format: "ends_with",
+    ...normalizeParams(params),
+    suffix
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _overwrite(tx) {
+  return new $ZodCheckOverwrite({
+    check: "overwrite",
+    tx
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _normalize(form) {
+  return /* @__PURE__ */ _overwrite((input) => input.normalize(form));
+}
+// @__NO_SIDE_EFFECTS__
+function _trim() {
+  return /* @__PURE__ */ _overwrite((input) => input.trim());
+}
+// @__NO_SIDE_EFFECTS__
+function _toLowerCase() {
+  return /* @__PURE__ */ _overwrite((input) => input.toLowerCase());
+}
+// @__NO_SIDE_EFFECTS__
+function _toUpperCase() {
+  return /* @__PURE__ */ _overwrite((input) => input.toUpperCase());
+}
+// @__NO_SIDE_EFFECTS__
+function _slugify() {
+  return /* @__PURE__ */ _overwrite((input) => slugify(input));
+}
+// @__NO_SIDE_EFFECTS__
+function _array(Class2, element, params) {
+  return new Class2({
+    type: "array",
+    element,
+    // get element() {
+    //   return element;
+    // },
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _refine(Class2, fn, _params) {
+  return new Class2({
+    type: "custom",
+    check: "custom",
+    fn,
+    ...normalizeParams(_params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _superRefine(fn, params) {
+  let ch = /* @__PURE__ */ _check((payload) => (payload.addIssue = (issue3) => {
+    if (typeof issue3 == "string")
+      payload.issues.push(issue(issue3, payload.value, ch._zod.def));
+    else {
+      let _issue = issue3;
+      _issue.fatal && (_issue.continue = !1), _issue.code ?? (_issue.code = "custom"), _issue.input ?? (_issue.input = payload.value), _issue.inst ?? (_issue.inst = ch), _issue.continue ?? (_issue.continue = !ch._zod.def.abort), payload.issues.push(issue(_issue));
+    }
+  }, fn(payload.value, payload)), params);
+  return ch;
+}
+// @__NO_SIDE_EFFECTS__
+function _check(fn, params) {
+  let ch = new $ZodCheck({
+    check: "custom",
+    ...normalizeParams(params)
+  });
+  return ch._zod.check = fn, ch;
+}
+
+// node_modules/zod/v4/core/to-json-schema.js
+function initializeContext(params) {
+  let target = params?.target ?? "draft-2020-12";
+  return target === "draft-4" && (target = "draft-04"), target === "draft-7" && (target = "draft-07"), {
+    processors: params.processors ?? {},
+    metadataRegistry: params?.metadata ?? globalRegistry,
+    target,
+    unrepresentable: params?.unrepresentable ?? "throw",
+    override: params?.override ?? (() => {
+    }),
+    io: params?.io ?? "output",
+    counter: 0,
+    seen: /* @__PURE__ */ new Map(),
+    cycles: params?.cycles ?? "ref",
+    reused: params?.reused ?? "inline",
+    external: params?.external ?? void 0
+  };
+}
+function process2(schema, ctx, _params = { path: [], schemaPath: [] }) {
+  var _a3;
+  let def = schema._zod.def, seen = ctx.seen.get(schema);
+  if (seen)
+    return seen.count++, _params.schemaPath.includes(schema) && (seen.cycle = _params.path), seen.schema;
+  let result = { schema: {}, count: 1, cycle: void 0, path: _params.path };
+  ctx.seen.set(schema, result);
+  let overrideSchema = schema._zod.toJSONSchema?.();
+  if (overrideSchema)
+    result.schema = overrideSchema;
+  else {
+    let params = {
+      ..._params,
+      schemaPath: [..._params.schemaPath, schema],
+      path: _params.path
+    };
+    if (schema._zod.processJSONSchema)
+      schema._zod.processJSONSchema(ctx, result.schema, params);
+    else {
+      let _json = result.schema, processor = ctx.processors[def.type];
+      if (!processor)
+        throw new Error(`[toJSONSchema]: Non-representable type encountered: ${def.type}`);
+      processor(schema, ctx, _json, params);
+    }
+    let parent = schema._zod.parent;
+    parent && (result.ref || (result.ref = parent), process2(parent, ctx, params), ctx.seen.get(parent).isParent = !0);
+  }
+  let meta2 = ctx.metadataRegistry.get(schema);
+  return meta2 && Object.assign(result.schema, meta2), ctx.io === "input" && isTransforming(schema) && (delete result.schema.examples, delete result.schema.default), ctx.io === "input" && "_prefault" in result.schema && ((_a3 = result.schema).default ?? (_a3.default = result.schema._prefault)), delete result.schema._prefault, ctx.seen.get(schema).schema;
+}
+function extractDefs(ctx, schema) {
+  let root = ctx.seen.get(schema);
+  if (!root)
+    throw new Error("Unprocessed schema. This is a bug in Zod.");
+  let idToSchema = /* @__PURE__ */ new Map();
+  for (let entry of ctx.seen.entries()) {
+    let id = ctx.metadataRegistry.get(entry[0])?.id;
+    if (id) {
+      let existing = idToSchema.get(id);
+      if (existing && existing !== entry[0])
+        throw new Error(`Duplicate schema id "${id}" detected during JSON Schema conversion. Two different schemas cannot share the same id when converted together.`);
+      idToSchema.set(id, entry[0]);
+    }
+  }
+  let makeURI = (entry) => {
+    let defsSegment = ctx.target === "draft-2020-12" ? "$defs" : "definitions";
+    if (ctx.external) {
+      let externalId = ctx.external.registry.get(entry[0])?.id, uriGenerator = ctx.external.uri ?? ((id2) => id2);
+      if (externalId)
+        return { ref: uriGenerator(externalId) };
+      let id = entry[1].defId ?? entry[1].schema.id ?? `schema${ctx.counter++}`;
+      return entry[1].defId = id, { defId: id, ref: `${uriGenerator("__shared")}#/${defsSegment}/${id}` };
+    }
+    if (entry[1] === root)
+      return { ref: "#" };
+    let defUriPrefix = `#/${defsSegment}/`, defId = entry[1].schema.id ?? `__schema${ctx.counter++}`;
+    return { defId, ref: defUriPrefix + defId };
+  }, extractToDef = (entry) => {
+    if (entry[1].schema.$ref)
+      return;
+    let seen = entry[1], { ref, defId } = makeURI(entry);
+    seen.def = { ...seen.schema }, defId && (seen.defId = defId);
+    let schema2 = seen.schema;
+    for (let key in schema2)
+      delete schema2[key];
+    schema2.$ref = ref;
+  };
+  if (ctx.cycles === "throw")
+    for (let entry of ctx.seen.entries()) {
+      let seen = entry[1];
+      if (seen.cycle)
+        throw new Error(`Cycle detected: #/${seen.cycle?.join("/")}/<root>
+
+Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.`);
+    }
+  for (let entry of ctx.seen.entries()) {
+    let seen = entry[1];
+    if (schema === entry[0]) {
+      extractToDef(entry);
+      continue;
+    }
+    if (ctx.external) {
+      let ext = ctx.external.registry.get(entry[0])?.id;
+      if (schema !== entry[0] && ext) {
+        extractToDef(entry);
+        continue;
+      }
+    }
+    if (ctx.metadataRegistry.get(entry[0])?.id) {
+      extractToDef(entry);
+      continue;
+    }
+    if (seen.cycle) {
+      extractToDef(entry);
+      continue;
+    }
+    if (seen.count > 1 && ctx.reused === "ref") {
+      extractToDef(entry);
+      continue;
+    }
+  }
+}
+function finalize(ctx, schema) {
+  let root = ctx.seen.get(schema);
+  if (!root)
+    throw new Error("Unprocessed schema. This is a bug in Zod.");
+  let flattenRef = (zodSchema) => {
+    let seen = ctx.seen.get(zodSchema);
+    if (seen.ref === null)
+      return;
+    let schema2 = seen.def ?? seen.schema, _cached = { ...schema2 }, ref = seen.ref;
+    if (seen.ref = null, ref) {
+      flattenRef(ref);
+      let refSeen = ctx.seen.get(ref), refSchema = refSeen.schema;
+      if (refSchema.$ref && (ctx.target === "draft-07" || ctx.target === "draft-04" || ctx.target === "openapi-3.0") ? (schema2.allOf = schema2.allOf ?? [], schema2.allOf.push(refSchema)) : Object.assign(schema2, refSchema), Object.assign(schema2, _cached), zodSchema._zod.parent === ref)
+        for (let key in schema2)
+          key === "$ref" || key === "allOf" || key in _cached || delete schema2[key];
+      if (refSchema.$ref && refSeen.def)
+        for (let key in schema2)
+          key === "$ref" || key === "allOf" || key in refSeen.def && JSON.stringify(schema2[key]) === JSON.stringify(refSeen.def[key]) && delete schema2[key];
+    }
+    let parent = zodSchema._zod.parent;
+    if (parent && parent !== ref) {
+      flattenRef(parent);
+      let parentSeen = ctx.seen.get(parent);
+      if (parentSeen?.schema.$ref && (schema2.$ref = parentSeen.schema.$ref, parentSeen.def))
+        for (let key in schema2)
+          key === "$ref" || key === "allOf" || key in parentSeen.def && JSON.stringify(schema2[key]) === JSON.stringify(parentSeen.def[key]) && delete schema2[key];
+    }
+    ctx.override({
+      zodSchema,
+      jsonSchema: schema2,
+      path: seen.path ?? []
+    });
+  };
+  for (let entry of [...ctx.seen.entries()].reverse())
+    flattenRef(entry[0]);
+  let result = {};
+  if (ctx.target === "draft-2020-12" ? result.$schema = "https://json-schema.org/draft/2020-12/schema" : ctx.target === "draft-07" ? result.$schema = "http://json-schema.org/draft-07/schema#" : ctx.target === "draft-04" ? result.$schema = "http://json-schema.org/draft-04/schema#" : ctx.target, ctx.external?.uri) {
+    let id = ctx.external.registry.get(schema)?.id;
+    if (!id)
+      throw new Error("Schema is missing an `id` property");
+    result.$id = ctx.external.uri(id);
+  }
+  Object.assign(result, root.def ?? root.schema);
+  let rootMetaId = ctx.metadataRegistry.get(schema)?.id;
+  rootMetaId !== void 0 && result.id === rootMetaId && delete result.id;
+  let defs = ctx.external?.defs ?? {};
+  for (let entry of ctx.seen.entries()) {
+    let seen = entry[1];
+    seen.def && seen.defId && (seen.def.id === seen.defId && delete seen.def.id, defs[seen.defId] = seen.def);
+  }
+  ctx.external || Object.keys(defs).length > 0 && (ctx.target === "draft-2020-12" ? result.$defs = defs : result.definitions = defs);
+  try {
+    let finalized = JSON.parse(JSON.stringify(result));
+    return Object.defineProperty(finalized, "~standard", {
+      value: {
+        ...schema["~standard"],
+        jsonSchema: {
+          input: createStandardJSONSchemaMethod(schema, "input", ctx.processors),
+          output: createStandardJSONSchemaMethod(schema, "output", ctx.processors)
+        }
+      },
+      enumerable: !1,
+      writable: !1
+    }), finalized;
+  } catch {
+    throw new Error("Error converting schema to JSON.");
+  }
+}
+function isTransforming(_schema, _ctx) {
+  let ctx = _ctx ?? { seen: /* @__PURE__ */ new Set() };
+  if (ctx.seen.has(_schema))
+    return !1;
+  ctx.seen.add(_schema);
+  let def = _schema._zod.def;
+  if (def.type === "transform")
+    return !0;
+  if (def.type === "array")
+    return isTransforming(def.element, ctx);
+  if (def.type === "set")
+    return isTransforming(def.valueType, ctx);
+  if (def.type === "lazy")
+    return isTransforming(def.getter(), ctx);
+  if (def.type === "promise" || def.type === "optional" || def.type === "nonoptional" || def.type === "nullable" || def.type === "readonly" || def.type === "default" || def.type === "prefault")
+    return isTransforming(def.innerType, ctx);
+  if (def.type === "intersection")
+    return isTransforming(def.left, ctx) || isTransforming(def.right, ctx);
+  if (def.type === "record" || def.type === "map")
+    return isTransforming(def.keyType, ctx) || isTransforming(def.valueType, ctx);
+  if (def.type === "pipe")
+    return _schema._zod.traits.has("$ZodCodec") ? !0 : isTransforming(def.in, ctx) || isTransforming(def.out, ctx);
+  if (def.type === "object") {
+    for (let key in def.shape)
+      if (isTransforming(def.shape[key], ctx))
+        return !0;
+    return !1;
+  }
+  if (def.type === "union") {
+    for (let option of def.options)
+      if (isTransforming(option, ctx))
+        return !0;
+    return !1;
+  }
+  if (def.type === "tuple") {
+    for (let item of def.items)
+      if (isTransforming(item, ctx))
+        return !0;
+    return !!(def.rest && isTransforming(def.rest, ctx));
+  }
+  return !1;
+}
+var createToJSONSchemaMethod = (schema, processors = {}) => (params) => {
+  let ctx = initializeContext({ ...params, processors });
+  return process2(schema, ctx), extractDefs(ctx, schema), finalize(ctx, schema);
+}, createStandardJSONSchemaMethod = (schema, io, processors = {}) => (params) => {
+  let { libraryOptions, target } = params ?? {}, ctx = initializeContext({ ...libraryOptions ?? {}, target, io, processors });
+  return process2(schema, ctx), extractDefs(ctx, schema), finalize(ctx, schema);
+};
+
+// node_modules/zod/v4/core/json-schema-processors.js
+var formatMap = {
+  guid: "uuid",
+  url: "uri",
+  datetime: "date-time",
+  json_string: "json-string",
+  regex: ""
+  // do not set
+}, stringProcessor = (schema, ctx, _json, _params) => {
+  let json = _json;
+  json.type = "string";
+  let { minimum, maximum, format, patterns, contentEncoding } = schema._zod.bag;
+  if (typeof minimum == "number" && (json.minLength = minimum), typeof maximum == "number" && (json.maxLength = maximum), format && (json.format = formatMap[format] ?? format, json.format === "" && delete json.format, format === "time" && delete json.format), contentEncoding && (json.contentEncoding = contentEncoding), patterns && patterns.size > 0) {
+    let regexes = [...patterns];
+    regexes.length === 1 ? json.pattern = regexes[0].source : regexes.length > 1 && (json.allOf = [
+      ...regexes.map((regex) => ({
+        ...ctx.target === "draft-07" || ctx.target === "draft-04" || ctx.target === "openapi-3.0" ? { type: "string" } : {},
+        pattern: regex.source
+      }))
+    ]);
+  }
+};
+var booleanProcessor = (_schema, _ctx, json, _params) => {
+  json.type = "boolean";
+};
+var neverProcessor = (_schema, _ctx, json, _params) => {
+  json.not = {};
+};
+var unknownProcessor = (_schema, _ctx, _json, _params) => {
+};
+var enumProcessor = (schema, _ctx, json, _params) => {
+  let def = schema._zod.def, values = getEnumValues(def.entries);
+  values.every((v) => typeof v == "number") && (json.type = "number"), values.every((v) => typeof v == "string") && (json.type = "string"), json.enum = values;
+}, literalProcessor = (schema, ctx, json, _params) => {
+  let def = schema._zod.def, vals = [];
+  for (let val of def.values)
+    if (val === void 0) {
+      if (ctx.unrepresentable === "throw")
+        throw new Error("Literal `undefined` cannot be represented in JSON Schema");
+    } else if (typeof val == "bigint") {
+      if (ctx.unrepresentable === "throw")
+        throw new Error("BigInt literals cannot be represented in JSON Schema");
+      vals.push(Number(val));
+    } else
+      vals.push(val);
+  if (vals.length !== 0)
+    if (vals.length === 1) {
+      let val = vals[0];
+      json.type = val === null ? "null" : typeof val, ctx.target === "draft-04" || ctx.target === "openapi-3.0" ? json.enum = [val] : json.const = val;
+    } else
+      vals.every((v) => typeof v == "number") && (json.type = "number"), vals.every((v) => typeof v == "string") && (json.type = "string"), vals.every((v) => typeof v == "boolean") && (json.type = "boolean"), vals.every((v) => v === null) && (json.type = "null"), json.enum = vals;
+};
+var customProcessor = (_schema, ctx, _json, _params) => {
+  if (ctx.unrepresentable === "throw")
+    throw new Error("Custom types cannot be represented in JSON Schema");
+};
+var transformProcessor = (_schema, ctx, _json, _params) => {
+  if (ctx.unrepresentable === "throw")
+    throw new Error("Transforms cannot be represented in JSON Schema");
+};
+var arrayProcessor = (schema, ctx, _json, params) => {
+  let json = _json, def = schema._zod.def, { minimum, maximum } = schema._zod.bag;
+  typeof minimum == "number" && (json.minItems = minimum), typeof maximum == "number" && (json.maxItems = maximum), json.type = "array", json.items = process2(def.element, ctx, {
+    ...params,
+    path: [...params.path, "items"]
+  });
+}, objectProcessor = (schema, ctx, _json, params) => {
+  let json = _json, def = schema._zod.def;
+  json.type = "object", json.properties = {};
+  let shape = def.shape;
+  for (let key in shape)
+    json.properties[key] = process2(shape[key], ctx, {
+      ...params,
+      path: [...params.path, "properties", key]
+    });
+  let allKeys = new Set(Object.keys(shape)), requiredKeys = new Set([...allKeys].filter((key) => {
+    let v = def.shape[key]._zod;
+    return ctx.io === "input" ? v.optin === void 0 : v.optout === void 0;
+  }));
+  requiredKeys.size > 0 && (json.required = Array.from(requiredKeys)), def.catchall?._zod.def.type === "never" ? json.additionalProperties = !1 : def.catchall ? def.catchall && (json.additionalProperties = process2(def.catchall, ctx, {
+    ...params,
+    path: [...params.path, "additionalProperties"]
+  })) : ctx.io === "output" && (json.additionalProperties = !1);
+}, unionProcessor = (schema, ctx, json, params) => {
+  let def = schema._zod.def, isExclusive = def.inclusive === !1, options = def.options.map((x, i) => process2(x, ctx, {
+    ...params,
+    path: [...params.path, isExclusive ? "oneOf" : "anyOf", i]
+  }));
+  isExclusive ? json.oneOf = options : json.anyOf = options;
+}, intersectionProcessor = (schema, ctx, json, params) => {
+  let def = schema._zod.def, a = process2(def.left, ctx, {
+    ...params,
+    path: [...params.path, "allOf", 0]
+  }), b = process2(def.right, ctx, {
+    ...params,
+    path: [...params.path, "allOf", 1]
+  }), isSimpleIntersection = (val) => "allOf" in val && Object.keys(val).length === 1, allOf = [
+    ...isSimpleIntersection(a) ? a.allOf : [a],
+    ...isSimpleIntersection(b) ? b.allOf : [b]
+  ];
+  json.allOf = allOf;
+};
+var recordProcessor = (schema, ctx, _json, params) => {
+  let json = _json, def = schema._zod.def;
+  json.type = "object";
+  let keyType = def.keyType, patterns = keyType._zod.bag?.patterns;
+  if (def.mode === "loose" && patterns && patterns.size > 0) {
+    let valueSchema = process2(def.valueType, ctx, {
+      ...params,
+      path: [...params.path, "patternProperties", "*"]
+    });
+    json.patternProperties = {};
+    for (let pattern of patterns)
+      json.patternProperties[pattern.source] = valueSchema;
+  } else
+    (ctx.target === "draft-07" || ctx.target === "draft-2020-12") && (json.propertyNames = process2(def.keyType, ctx, {
+      ...params,
+      path: [...params.path, "propertyNames"]
+    })), json.additionalProperties = process2(def.valueType, ctx, {
+      ...params,
+      path: [...params.path, "additionalProperties"]
+    });
+  let keyValues = keyType._zod.values;
+  if (keyValues) {
+    let validKeyValues = [...keyValues].filter((v) => typeof v == "string" || typeof v == "number");
+    validKeyValues.length > 0 && (json.required = validKeyValues);
+  }
+}, nullableProcessor = (schema, ctx, json, params) => {
+  let def = schema._zod.def, inner = process2(def.innerType, ctx, params), seen = ctx.seen.get(schema);
+  ctx.target === "openapi-3.0" ? (seen.ref = def.innerType, json.nullable = !0) : json.anyOf = [inner, { type: "null" }];
+}, nonoptionalProcessor = (schema, ctx, _json, params) => {
+  let def = schema._zod.def;
+  process2(def.innerType, ctx, params);
+  let seen = ctx.seen.get(schema);
+  seen.ref = def.innerType;
+}, defaultProcessor = (schema, ctx, json, params) => {
+  let def = schema._zod.def;
+  process2(def.innerType, ctx, params);
+  let seen = ctx.seen.get(schema);
+  seen.ref = def.innerType, json.default = JSON.parse(JSON.stringify(def.defaultValue));
+}, prefaultProcessor = (schema, ctx, json, params) => {
+  let def = schema._zod.def;
+  process2(def.innerType, ctx, params);
+  let seen = ctx.seen.get(schema);
+  seen.ref = def.innerType, ctx.io === "input" && (json._prefault = JSON.parse(JSON.stringify(def.defaultValue)));
+}, catchProcessor = (schema, ctx, json, params) => {
+  let def = schema._zod.def;
+  process2(def.innerType, ctx, params);
+  let seen = ctx.seen.get(schema);
+  seen.ref = def.innerType;
+  let catchValue;
+  try {
+    catchValue = def.catchValue(void 0);
+  } catch {
+    throw new Error("Dynamic catch values are not supported in JSON Schema");
+  }
+  json.default = catchValue;
+}, pipeProcessor = (schema, ctx, _json, params) => {
+  let def = schema._zod.def, inIsTransform = def.in._zod.traits.has("$ZodTransform"), innerType = ctx.io === "input" ? inIsTransform ? def.out : def.in : def.out;
+  process2(innerType, ctx, params);
+  let seen = ctx.seen.get(schema);
+  seen.ref = innerType;
+}, readonlyProcessor = (schema, ctx, json, params) => {
+  let def = schema._zod.def;
+  process2(def.innerType, ctx, params);
+  let seen = ctx.seen.get(schema);
+  seen.ref = def.innerType, json.readOnly = !0;
+};
+var optionalProcessor = (schema, ctx, _json, params) => {
+  let def = schema._zod.def;
+  process2(def.innerType, ctx, params);
+  let seen = ctx.seen.get(schema);
+  seen.ref = def.innerType;
+};
+
+// node_modules/zod/v4/classic/iso.js
+var ZodISODateTime = /* @__PURE__ */ $constructor("ZodISODateTime", (inst, def) => {
+  $ZodISODateTime.init(inst, def), ZodStringFormat.init(inst, def);
+});
+function datetime2(params) {
+  return _isoDateTime(ZodISODateTime, params);
+}
+var ZodISODate = /* @__PURE__ */ $constructor("ZodISODate", (inst, def) => {
+  $ZodISODate.init(inst, def), ZodStringFormat.init(inst, def);
+});
+function date2(params) {
+  return _isoDate(ZodISODate, params);
+}
+var ZodISOTime = /* @__PURE__ */ $constructor("ZodISOTime", (inst, def) => {
+  $ZodISOTime.init(inst, def), ZodStringFormat.init(inst, def);
+});
+function time2(params) {
+  return _isoTime(ZodISOTime, params);
+}
+var ZodISODuration = /* @__PURE__ */ $constructor("ZodISODuration", (inst, def) => {
+  $ZodISODuration.init(inst, def), ZodStringFormat.init(inst, def);
+});
+function duration2(params) {
+  return _isoDuration(ZodISODuration, params);
+}
+
+// node_modules/zod/v4/classic/errors.js
+var initializer2 = (inst, issues) => {
+  $ZodError.init(inst, issues), inst.name = "ZodError", Object.defineProperties(inst, {
+    format: {
+      value: (mapper) => formatError(inst, mapper)
+      // enumerable: false,
+    },
+    flatten: {
+      value: (mapper) => flattenError(inst, mapper)
+      // enumerable: false,
+    },
+    addIssue: {
+      value: (issue3) => {
+        inst.issues.push(issue3), inst.message = JSON.stringify(inst.issues, jsonStringifyReplacer, 2);
+      }
+      // enumerable: false,
+    },
+    addIssues: {
+      value: (issues2) => {
+        inst.issues.push(...issues2), inst.message = JSON.stringify(inst.issues, jsonStringifyReplacer, 2);
+      }
+      // enumerable: false,
+    },
+    isEmpty: {
+      get() {
+        return inst.issues.length === 0;
+      }
+      // enumerable: false,
+    }
+  });
+};
+var ZodRealError = /* @__PURE__ */ $constructor("ZodError", initializer2, {
+  Parent: Error
+});
+
+// node_modules/zod/v4/classic/parse.js
+var parse2 = /* @__PURE__ */ _parse(ZodRealError), parseAsync2 = /* @__PURE__ */ _parseAsync(ZodRealError), safeParse2 = /* @__PURE__ */ _safeParse(ZodRealError), safeParseAsync2 = /* @__PURE__ */ _safeParseAsync(ZodRealError), encode = /* @__PURE__ */ _encode(ZodRealError), decode = /* @__PURE__ */ _decode(ZodRealError), encodeAsync = /* @__PURE__ */ _encodeAsync(ZodRealError), decodeAsync = /* @__PURE__ */ _decodeAsync(ZodRealError), safeEncode = /* @__PURE__ */ _safeEncode(ZodRealError), safeDecode = /* @__PURE__ */ _safeDecode(ZodRealError), safeEncodeAsync = /* @__PURE__ */ _safeEncodeAsync(ZodRealError), safeDecodeAsync = /* @__PURE__ */ _safeDecodeAsync(ZodRealError);
+
+// node_modules/zod/v4/classic/schemas.js
+var _installedGroups = /* @__PURE__ */ new WeakMap();
+function _installLazyMethods(inst, group, methods) {
+  let proto = Object.getPrototypeOf(inst), installed = _installedGroups.get(proto);
+  if (installed || (installed = /* @__PURE__ */ new Set(), _installedGroups.set(proto, installed)), !installed.has(group)) {
+    installed.add(group);
+    for (let key in methods) {
+      let fn = methods[key];
+      Object.defineProperty(proto, key, {
+        configurable: !0,
+        enumerable: !1,
+        get() {
+          let bound = fn.bind(this);
+          return Object.defineProperty(this, key, {
+            configurable: !0,
+            writable: !0,
+            enumerable: !0,
+            value: bound
+          }), bound;
+        },
+        set(v) {
+          Object.defineProperty(this, key, {
+            configurable: !0,
+            writable: !0,
+            enumerable: !0,
+            value: v
+          });
+        }
+      });
+    }
+  }
+}
+var ZodType = /* @__PURE__ */ $constructor("ZodType", (inst, def) => ($ZodType.init(inst, def), Object.assign(inst["~standard"], {
+  jsonSchema: {
+    input: createStandardJSONSchemaMethod(inst, "input"),
+    output: createStandardJSONSchemaMethod(inst, "output")
+  }
+}), inst.toJSONSchema = createToJSONSchemaMethod(inst, {}), inst.def = def, inst.type = def.type, Object.defineProperty(inst, "_def", { value: def }), inst.parse = (data, params) => parse2(inst, data, params, { callee: inst.parse }), inst.safeParse = (data, params) => safeParse2(inst, data, params), inst.parseAsync = async (data, params) => parseAsync2(inst, data, params, { callee: inst.parseAsync }), inst.safeParseAsync = async (data, params) => safeParseAsync2(inst, data, params), inst.spa = inst.safeParseAsync, inst.encode = (data, params) => encode(inst, data, params), inst.decode = (data, params) => decode(inst, data, params), inst.encodeAsync = async (data, params) => encodeAsync(inst, data, params), inst.decodeAsync = async (data, params) => decodeAsync(inst, data, params), inst.safeEncode = (data, params) => safeEncode(inst, data, params), inst.safeDecode = (data, params) => safeDecode(inst, data, params), inst.safeEncodeAsync = async (data, params) => safeEncodeAsync(inst, data, params), inst.safeDecodeAsync = async (data, params) => safeDecodeAsync(inst, data, params), _installLazyMethods(inst, "ZodType", {
+  check(...chks) {
+    let def2 = this.def;
+    return this.clone(util_exports.mergeDefs(def2, {
+      checks: [
+        ...def2.checks ?? [],
+        ...chks.map((ch) => typeof ch == "function" ? { _zod: { check: ch, def: { check: "custom" }, onattach: [] } } : ch)
+      ]
+    }), { parent: !0 });
+  },
+  with(...chks) {
+    return this.check(...chks);
+  },
+  clone(def2, params) {
+    return clone(this, def2, params);
+  },
+  brand() {
+    return this;
+  },
+  register(reg, meta2) {
+    return reg.add(this, meta2), this;
+  },
+  refine(check, params) {
+    return this.check(refine(check, params));
+  },
+  superRefine(refinement, params) {
+    return this.check(superRefine(refinement, params));
+  },
+  overwrite(fn) {
+    return this.check(_overwrite(fn));
+  },
+  optional() {
+    return optional(this);
+  },
+  exactOptional() {
+    return exactOptional(this);
+  },
+  nullable() {
+    return nullable(this);
+  },
+  nullish() {
+    return optional(nullable(this));
+  },
+  nonoptional(params) {
+    return nonoptional(this, params);
+  },
+  array() {
+    return array(this);
+  },
+  or(arg) {
+    return union([this, arg]);
+  },
+  and(arg) {
+    return intersection(this, arg);
+  },
+  transform(tx) {
+    return pipe(this, transform(tx));
+  },
+  default(d) {
+    return _default(this, d);
+  },
+  prefault(d) {
+    return prefault(this, d);
+  },
+  catch(params) {
+    return _catch(this, params);
+  },
+  pipe(target) {
+    return pipe(this, target);
+  },
+  readonly() {
+    return readonly(this);
+  },
+  describe(description) {
+    let cl = this.clone();
+    return globalRegistry.add(cl, { description }), cl;
+  },
+  meta(...args) {
+    if (args.length === 0)
+      return globalRegistry.get(this);
+    let cl = this.clone();
+    return globalRegistry.add(cl, args[0]), cl;
+  },
+  isOptional() {
+    return this.safeParse(void 0).success;
+  },
+  isNullable() {
+    return this.safeParse(null).success;
+  },
+  apply(fn) {
+    return fn(this);
+  }
+}), Object.defineProperty(inst, "description", {
+  get() {
+    return globalRegistry.get(inst)?.description;
+  },
+  configurable: !0
+}), inst)), _ZodString = /* @__PURE__ */ $constructor("_ZodString", (inst, def) => {
+  $ZodString.init(inst, def), ZodType.init(inst, def), inst._zod.processJSONSchema = (ctx, json, params) => stringProcessor(inst, ctx, json, params);
+  let bag = inst._zod.bag;
+  inst.format = bag.format ?? null, inst.minLength = bag.minimum ?? null, inst.maxLength = bag.maximum ?? null, _installLazyMethods(inst, "_ZodString", {
+    regex(...args) {
+      return this.check(_regex(...args));
+    },
+    includes(...args) {
+      return this.check(_includes(...args));
+    },
+    startsWith(...args) {
+      return this.check(_startsWith(...args));
+    },
+    endsWith(...args) {
+      return this.check(_endsWith(...args));
+    },
+    min(...args) {
+      return this.check(_minLength(...args));
+    },
+    max(...args) {
+      return this.check(_maxLength(...args));
+    },
+    length(...args) {
+      return this.check(_length(...args));
+    },
+    nonempty(...args) {
+      return this.check(_minLength(1, ...args));
+    },
+    lowercase(params) {
+      return this.check(_lowercase(params));
+    },
+    uppercase(params) {
+      return this.check(_uppercase(params));
+    },
+    trim() {
+      return this.check(_trim());
+    },
+    normalize(...args) {
+      return this.check(_normalize(...args));
+    },
+    toLowerCase() {
+      return this.check(_toLowerCase());
+    },
+    toUpperCase() {
+      return this.check(_toUpperCase());
+    },
+    slugify() {
+      return this.check(_slugify());
+    }
+  });
+}), ZodString = /* @__PURE__ */ $constructor("ZodString", (inst, def) => {
+  $ZodString.init(inst, def), _ZodString.init(inst, def), inst.email = (params) => inst.check(_email(ZodEmail, params)), inst.url = (params) => inst.check(_url(ZodURL, params)), inst.jwt = (params) => inst.check(_jwt(ZodJWT, params)), inst.emoji = (params) => inst.check(_emoji2(ZodEmoji, params)), inst.guid = (params) => inst.check(_guid(ZodGUID, params)), inst.uuid = (params) => inst.check(_uuid(ZodUUID, params)), inst.uuidv4 = (params) => inst.check(_uuidv4(ZodUUID, params)), inst.uuidv6 = (params) => inst.check(_uuidv6(ZodUUID, params)), inst.uuidv7 = (params) => inst.check(_uuidv7(ZodUUID, params)), inst.nanoid = (params) => inst.check(_nanoid(ZodNanoID, params)), inst.guid = (params) => inst.check(_guid(ZodGUID, params)), inst.cuid = (params) => inst.check(_cuid(ZodCUID, params)), inst.cuid2 = (params) => inst.check(_cuid2(ZodCUID2, params)), inst.ulid = (params) => inst.check(_ulid(ZodULID, params)), inst.base64 = (params) => inst.check(_base64(ZodBase64, params)), inst.base64url = (params) => inst.check(_base64url(ZodBase64URL, params)), inst.xid = (params) => inst.check(_xid(ZodXID, params)), inst.ksuid = (params) => inst.check(_ksuid(ZodKSUID, params)), inst.ipv4 = (params) => inst.check(_ipv4(ZodIPv4, params)), inst.ipv6 = (params) => inst.check(_ipv6(ZodIPv6, params)), inst.cidrv4 = (params) => inst.check(_cidrv4(ZodCIDRv4, params)), inst.cidrv6 = (params) => inst.check(_cidrv6(ZodCIDRv6, params)), inst.e164 = (params) => inst.check(_e164(ZodE164, params)), inst.datetime = (params) => inst.check(datetime2(params)), inst.date = (params) => inst.check(date2(params)), inst.time = (params) => inst.check(time2(params)), inst.duration = (params) => inst.check(duration2(params));
+});
+function string2(params) {
+  return _string(ZodString, params);
+}
+var ZodStringFormat = /* @__PURE__ */ $constructor("ZodStringFormat", (inst, def) => {
+  $ZodStringFormat.init(inst, def), _ZodString.init(inst, def);
+}), ZodEmail = /* @__PURE__ */ $constructor("ZodEmail", (inst, def) => {
+  $ZodEmail.init(inst, def), ZodStringFormat.init(inst, def);
+});
+var ZodGUID = /* @__PURE__ */ $constructor("ZodGUID", (inst, def) => {
+  $ZodGUID.init(inst, def), ZodStringFormat.init(inst, def);
+});
+var ZodUUID = /* @__PURE__ */ $constructor("ZodUUID", (inst, def) => {
+  $ZodUUID.init(inst, def), ZodStringFormat.init(inst, def);
+});
+var ZodURL = /* @__PURE__ */ $constructor("ZodURL", (inst, def) => {
+  $ZodURL.init(inst, def), ZodStringFormat.init(inst, def);
+});
+var ZodEmoji = /* @__PURE__ */ $constructor("ZodEmoji", (inst, def) => {
+  $ZodEmoji.init(inst, def), ZodStringFormat.init(inst, def);
+});
+var ZodNanoID = /* @__PURE__ */ $constructor("ZodNanoID", (inst, def) => {
+  $ZodNanoID.init(inst, def), ZodStringFormat.init(inst, def);
+});
+var ZodCUID = /* @__PURE__ */ $constructor("ZodCUID", (inst, def) => {
+  $ZodCUID.init(inst, def), ZodStringFormat.init(inst, def);
+});
+var ZodCUID2 = /* @__PURE__ */ $constructor("ZodCUID2", (inst, def) => {
+  $ZodCUID2.init(inst, def), ZodStringFormat.init(inst, def);
+});
+var ZodULID = /* @__PURE__ */ $constructor("ZodULID", (inst, def) => {
+  $ZodULID.init(inst, def), ZodStringFormat.init(inst, def);
+});
+var ZodXID = /* @__PURE__ */ $constructor("ZodXID", (inst, def) => {
+  $ZodXID.init(inst, def), ZodStringFormat.init(inst, def);
+});
+var ZodKSUID = /* @__PURE__ */ $constructor("ZodKSUID", (inst, def) => {
+  $ZodKSUID.init(inst, def), ZodStringFormat.init(inst, def);
+});
+var ZodIPv4 = /* @__PURE__ */ $constructor("ZodIPv4", (inst, def) => {
+  $ZodIPv4.init(inst, def), ZodStringFormat.init(inst, def);
+});
+var ZodIPv6 = /* @__PURE__ */ $constructor("ZodIPv6", (inst, def) => {
+  $ZodIPv6.init(inst, def), ZodStringFormat.init(inst, def);
+});
+var ZodCIDRv4 = /* @__PURE__ */ $constructor("ZodCIDRv4", (inst, def) => {
+  $ZodCIDRv4.init(inst, def), ZodStringFormat.init(inst, def);
+});
+var ZodCIDRv6 = /* @__PURE__ */ $constructor("ZodCIDRv6", (inst, def) => {
+  $ZodCIDRv6.init(inst, def), ZodStringFormat.init(inst, def);
+});
+var ZodBase64 = /* @__PURE__ */ $constructor("ZodBase64", (inst, def) => {
+  $ZodBase64.init(inst, def), ZodStringFormat.init(inst, def);
+});
+var ZodBase64URL = /* @__PURE__ */ $constructor("ZodBase64URL", (inst, def) => {
+  $ZodBase64URL.init(inst, def), ZodStringFormat.init(inst, def);
+});
+var ZodE164 = /* @__PURE__ */ $constructor("ZodE164", (inst, def) => {
+  $ZodE164.init(inst, def), ZodStringFormat.init(inst, def);
+});
+var ZodJWT = /* @__PURE__ */ $constructor("ZodJWT", (inst, def) => {
+  $ZodJWT.init(inst, def), ZodStringFormat.init(inst, def);
+});
+var ZodBoolean = /* @__PURE__ */ $constructor("ZodBoolean", (inst, def) => {
+  $ZodBoolean.init(inst, def), ZodType.init(inst, def), inst._zod.processJSONSchema = (ctx, json, params) => booleanProcessor(inst, ctx, json, params);
+});
+function boolean2(params) {
+  return _boolean(ZodBoolean, params);
+}
+var ZodUnknown = /* @__PURE__ */ $constructor("ZodUnknown", (inst, def) => {
+  $ZodUnknown.init(inst, def), ZodType.init(inst, def), inst._zod.processJSONSchema = (ctx, json, params) => unknownProcessor(inst, ctx, json, params);
+});
+function unknown() {
+  return _unknown(ZodUnknown);
+}
+var ZodNever = /* @__PURE__ */ $constructor("ZodNever", (inst, def) => {
+  $ZodNever.init(inst, def), ZodType.init(inst, def), inst._zod.processJSONSchema = (ctx, json, params) => neverProcessor(inst, ctx, json, params);
+});
+function never(params) {
+  return _never(ZodNever, params);
+}
+var ZodArray = /* @__PURE__ */ $constructor("ZodArray", (inst, def) => {
+  $ZodArray.init(inst, def), ZodType.init(inst, def), inst._zod.processJSONSchema = (ctx, json, params) => arrayProcessor(inst, ctx, json, params), inst.element = def.element, _installLazyMethods(inst, "ZodArray", {
+    min(n, params) {
+      return this.check(_minLength(n, params));
+    },
+    nonempty(params) {
+      return this.check(_minLength(1, params));
+    },
+    max(n, params) {
+      return this.check(_maxLength(n, params));
+    },
+    length(n, params) {
+      return this.check(_length(n, params));
+    },
+    unwrap() {
+      return this.element;
+    }
+  });
+});
+function array(element, params) {
+  return _array(ZodArray, element, params);
+}
+var ZodObject = /* @__PURE__ */ $constructor("ZodObject", (inst, def) => {
+  $ZodObjectJIT.init(inst, def), ZodType.init(inst, def), inst._zod.processJSONSchema = (ctx, json, params) => objectProcessor(inst, ctx, json, params), util_exports.defineLazy(inst, "shape", () => def.shape), _installLazyMethods(inst, "ZodObject", {
+    keyof() {
+      return _enum(Object.keys(this._zod.def.shape));
+    },
+    catchall(catchall) {
+      return this.clone({ ...this._zod.def, catchall });
+    },
+    passthrough() {
+      return this.clone({ ...this._zod.def, catchall: unknown() });
+    },
+    loose() {
+      return this.clone({ ...this._zod.def, catchall: unknown() });
+    },
+    strict() {
+      return this.clone({ ...this._zod.def, catchall: never() });
+    },
+    strip() {
+      return this.clone({ ...this._zod.def, catchall: void 0 });
+    },
+    extend(incoming) {
+      return util_exports.extend(this, incoming);
+    },
+    safeExtend(incoming) {
+      return util_exports.safeExtend(this, incoming);
+    },
+    merge(other) {
+      return util_exports.merge(this, other);
+    },
+    pick(mask) {
+      return util_exports.pick(this, mask);
+    },
+    omit(mask) {
+      return util_exports.omit(this, mask);
+    },
+    partial(...args) {
+      return util_exports.partial(ZodOptional, this, args[0]);
+    },
+    required(...args) {
+      return util_exports.required(ZodNonOptional, this, args[0]);
+    }
+  });
+});
+function strictObject(shape, params) {
+  return new ZodObject({
+    type: "object",
+    shape,
+    catchall: never(),
+    ...util_exports.normalizeParams(params)
+  });
+}
+var ZodUnion = /* @__PURE__ */ $constructor("ZodUnion", (inst, def) => {
+  $ZodUnion.init(inst, def), ZodType.init(inst, def), inst._zod.processJSONSchema = (ctx, json, params) => unionProcessor(inst, ctx, json, params), inst.options = def.options;
+});
+function union(options, params) {
+  return new ZodUnion({
+    type: "union",
+    options,
+    ...util_exports.normalizeParams(params)
+  });
+}
+var ZodIntersection = /* @__PURE__ */ $constructor("ZodIntersection", (inst, def) => {
+  $ZodIntersection.init(inst, def), ZodType.init(inst, def), inst._zod.processJSONSchema = (ctx, json, params) => intersectionProcessor(inst, ctx, json, params);
+});
+function intersection(left, right) {
+  return new ZodIntersection({
+    type: "intersection",
+    left,
+    right
+  });
+}
+var ZodRecord = /* @__PURE__ */ $constructor("ZodRecord", (inst, def) => {
+  $ZodRecord.init(inst, def), ZodType.init(inst, def), inst._zod.processJSONSchema = (ctx, json, params) => recordProcessor(inst, ctx, json, params), inst.keyType = def.keyType, inst.valueType = def.valueType;
+});
+function record(keyType, valueType, params) {
+  return !valueType || !valueType._zod ? new ZodRecord({
+    type: "record",
+    keyType: string2(),
+    valueType: keyType,
+    ...util_exports.normalizeParams(valueType)
+  }) : new ZodRecord({
+    type: "record",
+    keyType,
+    valueType,
+    ...util_exports.normalizeParams(params)
+  });
+}
+var ZodEnum = /* @__PURE__ */ $constructor("ZodEnum", (inst, def) => {
+  $ZodEnum.init(inst, def), ZodType.init(inst, def), inst._zod.processJSONSchema = (ctx, json, params) => enumProcessor(inst, ctx, json, params), inst.enum = def.entries, inst.options = Object.values(def.entries);
+  let keys = new Set(Object.keys(def.entries));
+  inst.extract = (values, params) => {
+    let newEntries = {};
+    for (let value of values)
+      if (keys.has(value))
+        newEntries[value] = def.entries[value];
+      else
+        throw new Error(`Key ${value} not found in enum`);
+    return new ZodEnum({
+      ...def,
+      checks: [],
+      ...util_exports.normalizeParams(params),
+      entries: newEntries
+    });
+  }, inst.exclude = (values, params) => {
+    let newEntries = { ...def.entries };
+    for (let value of values)
+      if (keys.has(value))
+        delete newEntries[value];
+      else
+        throw new Error(`Key ${value} not found in enum`);
+    return new ZodEnum({
+      ...def,
+      checks: [],
+      ...util_exports.normalizeParams(params),
+      entries: newEntries
+    });
+  };
+});
+function _enum(values, params) {
+  let entries = Array.isArray(values) ? Object.fromEntries(values.map((v) => [v, v])) : values;
+  return new ZodEnum({
+    type: "enum",
+    entries,
+    ...util_exports.normalizeParams(params)
+  });
+}
+var ZodLiteral = /* @__PURE__ */ $constructor("ZodLiteral", (inst, def) => {
+  $ZodLiteral.init(inst, def), ZodType.init(inst, def), inst._zod.processJSONSchema = (ctx, json, params) => literalProcessor(inst, ctx, json, params), inst.values = new Set(def.values), Object.defineProperty(inst, "value", {
+    get() {
+      if (def.values.length > 1)
+        throw new Error("This schema contains multiple valid literal values. Use `.values` instead.");
+      return def.values[0];
+    }
+  });
+});
+function literal(value, params) {
+  return new ZodLiteral({
+    type: "literal",
+    values: Array.isArray(value) ? value : [value],
+    ...util_exports.normalizeParams(params)
+  });
+}
+var ZodTransform = /* @__PURE__ */ $constructor("ZodTransform", (inst, def) => {
+  $ZodTransform.init(inst, def), ZodType.init(inst, def), inst._zod.processJSONSchema = (ctx, json, params) => transformProcessor(inst, ctx, json, params), inst._zod.parse = (payload, _ctx) => {
+    if (_ctx.direction === "backward")
+      throw new $ZodEncodeError(inst.constructor.name);
+    payload.addIssue = (issue3) => {
+      if (typeof issue3 == "string")
+        payload.issues.push(util_exports.issue(issue3, payload.value, def));
+      else {
+        let _issue = issue3;
+        _issue.fatal && (_issue.continue = !1), _issue.code ?? (_issue.code = "custom"), _issue.input ?? (_issue.input = payload.value), _issue.inst ?? (_issue.inst = inst), payload.issues.push(util_exports.issue(_issue));
+      }
+    };
+    let output = def.transform(payload.value, payload);
+    return output instanceof Promise ? output.then((output2) => (payload.value = output2, payload.fallback = !0, payload)) : (payload.value = output, payload.fallback = !0, payload);
+  };
+});
+function transform(fn) {
+  return new ZodTransform({
+    type: "transform",
+    transform: fn
+  });
+}
+var ZodOptional = /* @__PURE__ */ $constructor("ZodOptional", (inst, def) => {
+  $ZodOptional.init(inst, def), ZodType.init(inst, def), inst._zod.processJSONSchema = (ctx, json, params) => optionalProcessor(inst, ctx, json, params), inst.unwrap = () => inst._zod.def.innerType;
+});
+function optional(innerType) {
+  return new ZodOptional({
+    type: "optional",
+    innerType
+  });
+}
+var ZodExactOptional = /* @__PURE__ */ $constructor("ZodExactOptional", (inst, def) => {
+  $ZodExactOptional.init(inst, def), ZodType.init(inst, def), inst._zod.processJSONSchema = (ctx, json, params) => optionalProcessor(inst, ctx, json, params), inst.unwrap = () => inst._zod.def.innerType;
+});
+function exactOptional(innerType) {
+  return new ZodExactOptional({
+    type: "optional",
+    innerType
+  });
+}
+var ZodNullable = /* @__PURE__ */ $constructor("ZodNullable", (inst, def) => {
+  $ZodNullable.init(inst, def), ZodType.init(inst, def), inst._zod.processJSONSchema = (ctx, json, params) => nullableProcessor(inst, ctx, json, params), inst.unwrap = () => inst._zod.def.innerType;
+});
+function nullable(innerType) {
+  return new ZodNullable({
+    type: "nullable",
+    innerType
+  });
+}
+var ZodDefault = /* @__PURE__ */ $constructor("ZodDefault", (inst, def) => {
+  $ZodDefault.init(inst, def), ZodType.init(inst, def), inst._zod.processJSONSchema = (ctx, json, params) => defaultProcessor(inst, ctx, json, params), inst.unwrap = () => inst._zod.def.innerType, inst.removeDefault = inst.unwrap;
+});
+function _default(innerType, defaultValue) {
+  return new ZodDefault({
+    type: "default",
+    innerType,
+    get defaultValue() {
+      return typeof defaultValue == "function" ? defaultValue() : util_exports.shallowClone(defaultValue);
+    }
+  });
+}
+var ZodPrefault = /* @__PURE__ */ $constructor("ZodPrefault", (inst, def) => {
+  $ZodPrefault.init(inst, def), ZodType.init(inst, def), inst._zod.processJSONSchema = (ctx, json, params) => prefaultProcessor(inst, ctx, json, params), inst.unwrap = () => inst._zod.def.innerType;
+});
+function prefault(innerType, defaultValue) {
+  return new ZodPrefault({
+    type: "prefault",
+    innerType,
+    get defaultValue() {
+      return typeof defaultValue == "function" ? defaultValue() : util_exports.shallowClone(defaultValue);
+    }
+  });
+}
+var ZodNonOptional = /* @__PURE__ */ $constructor("ZodNonOptional", (inst, def) => {
+  $ZodNonOptional.init(inst, def), ZodType.init(inst, def), inst._zod.processJSONSchema = (ctx, json, params) => nonoptionalProcessor(inst, ctx, json, params), inst.unwrap = () => inst._zod.def.innerType;
+});
+function nonoptional(innerType, params) {
+  return new ZodNonOptional({
+    type: "nonoptional",
+    innerType,
+    ...util_exports.normalizeParams(params)
+  });
+}
+var ZodCatch = /* @__PURE__ */ $constructor("ZodCatch", (inst, def) => {
+  $ZodCatch.init(inst, def), ZodType.init(inst, def), inst._zod.processJSONSchema = (ctx, json, params) => catchProcessor(inst, ctx, json, params), inst.unwrap = () => inst._zod.def.innerType, inst.removeCatch = inst.unwrap;
+});
+function _catch(innerType, catchValue) {
+  return new ZodCatch({
+    type: "catch",
+    innerType,
+    catchValue: typeof catchValue == "function" ? catchValue : () => catchValue
+  });
+}
+var ZodPipe = /* @__PURE__ */ $constructor("ZodPipe", (inst, def) => {
+  $ZodPipe.init(inst, def), ZodType.init(inst, def), inst._zod.processJSONSchema = (ctx, json, params) => pipeProcessor(inst, ctx, json, params), inst.in = def.in, inst.out = def.out;
+});
+function pipe(in_, out) {
+  return new ZodPipe({
+    type: "pipe",
+    in: in_,
+    out
+    // ...util.normalizeParams(params),
+  });
+}
+var ZodReadonly = /* @__PURE__ */ $constructor("ZodReadonly", (inst, def) => {
+  $ZodReadonly.init(inst, def), ZodType.init(inst, def), inst._zod.processJSONSchema = (ctx, json, params) => readonlyProcessor(inst, ctx, json, params), inst.unwrap = () => inst._zod.def.innerType;
+});
+function readonly(innerType) {
+  return new ZodReadonly({
+    type: "readonly",
+    innerType
+  });
+}
+var ZodCustom = /* @__PURE__ */ $constructor("ZodCustom", (inst, def) => {
+  $ZodCustom.init(inst, def), ZodType.init(inst, def), inst._zod.processJSONSchema = (ctx, json, params) => customProcessor(inst, ctx, json, params);
+});
+function refine(fn, _params = {}) {
+  return _refine(ZodCustom, fn, _params);
+}
+function superRefine(fn, params) {
+  return _superRefine(fn, params);
+}
+
+// scripts/validate-artifact.source.mjs
+import { existsSync as existsSync2, readFileSync as readFileSync2, realpathSync } from "node:fs";
+import { createHash as createHash2 } from "node:crypto";
+import { basename, dirname, resolve as resolve2 } from "node:path";
+import { fileURLToPath } from "node:url";
+
+// scripts/artifact-validator/evidence.mjs
+function schema6EvidenceData(fields) {
+  let objectiveStatus = fields.status === "complete" ? "achieved" : fields.status === "blocked" ? "blocked" : "partially-achieved";
+  return {
+    objectiveStates: new Map((fields.affected_objectives ?? []).map((id) => [id, {
+      status: objectiveStatus,
+      evidence: `Schema-6 Evidence ${fields.id}`
+    }])),
+    checkStates: new Map((fields.check_evidence ?? []).map((entry) => [entry.check_id, {
+      status: entry.grade === "verified" ? "passed" : entry.grade === "failed" ? "failed" : "unavailable",
+      observed: entry.observed,
+      evidence_hashes: entry.evidence_hashes ?? []
+    }])),
+    changedPaths: [...fields.changed_paths ?? []],
+    workspaceSnapshotHash: fields.workspace_snapshot_hash ?? null
+  };
+}
+function evidenceHasKnownFailure(fields) {
+  return fields.status === "blocked" || fields.overall_grade === "failed" || (fields.check_evidence ?? []).some((entry) => entry.grade === "failed");
+}
+
+// scripts/artifact-validator/lineage.mjs
+function linearChain(items, predecessorField, label, failures) {
+  if (items.length === 0) return [];
+  let byId = new Map(items.map((item) => [item.fields.id, item])), starts = items.filter((item) => !item.fields[predecessorField]);
+  starts.length !== 1 && failures.push(`${label}: chain requires exactly one initial artifact`);
+  let successors = /* @__PURE__ */ new Map();
+  for (let item of items) {
+    let predecessor = item.fields[predecessorField];
+    if (!predecessor) continue;
+    byId.has(predecessor) || failures.push(`${item.label}: missing predecessor ${predecessor}`);
+    let list2 = successors.get(predecessor) ?? [];
+    list2.push(item), successors.set(predecessor, list2);
+  }
+  for (let [id, list2] of successors) list2.length > 1 && failures.push(`${label}: chain branches after ${id}`);
+  let ordered = [], seen = /* @__PURE__ */ new Set(), cursor = starts[0];
+  for (; cursor && !seen.has(cursor.fields.id); )
+    seen.add(cursor.fields.id), ordered.push(cursor), cursor = successors.get(cursor.fields.id)?.[0];
+  return (cursor || ordered.length !== items.length) && failures.push(`${label}: chain is cyclic or disconnected`), ordered;
+}
+function lineageTips(items, predecessorField) {
+  let referenced = new Set(items.map((item) => item.fields[predecessorField]).filter(Boolean));
+  return items.filter((item) => !referenced.has(item.fields.id));
+}
+
+// scripts/artifact-validator/parser.mjs
+var import_yaml = __toESM(require_dist(), 1);
+function yamlObject(source, label, failures) {
+  let document = (0, import_yaml.parseDocument)(source, { prettyErrors: !1, uniqueKeys: !0 });
+  for (let error of document.errors) failures.push(`${label}: invalid YAML: ${error.message}`);
+  if (document.errors.length > 0) return null;
+  let value = document.toJS();
+  return !value || typeof value != "object" || Array.isArray(value) ? (failures.push(`${label} must be a YAML object`), null) : value;
+}
+function visibleH2Headings(source) {
+  let headings = [], fenced = !1;
+  for (let line4 of String(source).split(/\r?\n/)) {
+    if (/^```/.test(line4)) {
+      fenced = !fenced;
+      continue;
+    }
+    if (fenced) continue;
+    let match = line4.match(/^## ([^#].*)$/);
+    match && headings.push(match[1].trim());
+  }
+  return headings;
+}
+function validateHumanFirstNextStep(projection, failures) {
+  let source = String(projection);
+  if ([...source.matchAll(/^### Next step\s*$/gm)].length !== 1) {
+    failures.push("human-first native plan projection requires exactly one complete ### Next step block");
+    return;
+  }
+  let quick = source.match(/^## Quick decision\s*$([\s\S]*?)(?=^## Details\s*$)/m)?.[1] ?? "", block = quick.match(/^### Next step\s*$([\s\S]*)$/m);
+  if (!block || !quick.trimEnd().endsWith(block[0].trimEnd())) {
+    failures.push("human-first native plan projection requires ### Next step at the end of Quick decision");
+    return;
+  }
+  let lines = block[1].trim().split(/\r?\n/).filter(Boolean), expected = ["Now", "How", "Why"];
+  (lines.length !== expected.length || expected.some((label, index) => !new RegExp(`^- ${label}:\\s*\\S`).test(lines[index]))) && failures.push("human-first native plan projection requires complete Now, How, and Why lines in ### Next step");
+}
+function parsePlanContainer(text, wrapper, failures, normalizations = []) {
+  let match = String(text).match(/(?:^|\n)# ([^\r\n]+)\r?\n([\s\S]*?)```yaml artifact-envelope\r?\n([\s\S]*?)\r?\n```(?:\r?\n|$)/);
+  if (!match)
+    return failures.push("native plan must contain one H1 and one yaml artifact-envelope"), null;
+  let projection = match[2].trim();
+  if (projection) {
+    let headings = visibleH2Headings(projection), expected = ["Quick decision", "Details", "Agent and machine contract (authoritative)"];
+    if (headings.length !== expected.length || headings.some((heading, index) => heading !== expected[index]))
+      return failures.push("human-first native plan projection must order Quick decision, Details, then Agent and machine contract (authoritative)"), null;
+    if (validateHumanFirstNextStep(projection, failures), failures.length > 0) return null;
+  }
+  let fields = yamlObject(match[3], "artifact envelope", failures);
+  return fields ? (fields.artifact !== "work-plan" && failures.push("native plan containers may contain only work-plan"), match.index + (match[0].startsWith(`
+`) ? 1 : 0) > 0 && normalizations.push("ignored Cursor progress text before native plan"), projection && normalizations.push("validated human-first native plan projection"), { fields, body: String(text).slice(match.index + match[0].length), wrapper, container: "cursor-plan", title: match[1], normalizations }) : null;
+}
+function parseArtifact(text, failures = [], normalizations = []) {
+  let source = String(text), candidates = [], expression = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/gm;
+  for (let match2 of source.matchAll(expression)) {
+    let probeFailures = [], fields2 = yamlObject(match2[1], "frontmatter", probeFailures);
+    if (!fields2) continue;
+    (typeof fields2.artifact == "string" || ["name", "overview", "todos", "isProject"].some((field) => field in fields2)) && candidates.push({ match: match2, fields: fields2 });
+  }
+  let envelopes = [], envelopeExpression = /```yaml(?: artifact-envelope)?\r?\n([\s\S]*?)\r?\n```(?:\r?\n|$)/g;
+  for (let match2 of source.matchAll(envelopeExpression)) {
+    let probeFailures = [], fields2 = yamlObject(match2[1], "artifact envelope", probeFailures);
+    fields2?.artifact && envelopes.push({ match: match2, fields: fields2 });
+  }
+  if (candidates.length === 0) {
+    if (envelopes.length > 1)
+      return failures.push("response contains multiple workflow artifact candidates"), null;
+    if (envelopes.length === 1) {
+      let [{ match: match2, fields: fields2 }] = envelopes;
+      return normalizations.push("normalized fenced Workflow artifact to chat artifact"), match2.index > 0 && normalizations.push("ignored Cursor progress preamble"), { fields: fields2, body: source.slice(match2.index + match2[0].length), wrapper: null, container: "normalized-envelope", normalizations };
+    }
+    return failures.push("response is missing workflow YAML frontmatter"), null;
+  }
+  if (candidates.length > 1 || envelopes.length > 1)
+    return failures.push("response contains multiple workflow artifact candidates"), null;
+  let [{ match, fields }] = candidates;
+  return typeof fields.artifact == "string" && envelopes.length > 0 ? (failures.push("response contains multiple workflow artifact candidates"), null) : (match.index > 0 && normalizations.push("ignored Cursor progress preamble"), typeof fields.artifact == "string" ? { fields, body: source.slice(match.index + match[0].length), wrapper: null, container: "chat-artifact", normalizations } : ["name", "overview", "todos", "isProject"].some((field) => field in fields) ? parsePlanContainer(source.slice(match.index + match[0].length), fields, failures, normalizations) : (failures.push("artifact type is missing"), null));
+}
+
+// scripts/artifact-validator/schema.mjs
+var import_ajv = __toESM(require_ajv(), 1), import_ajv_formats = __toESM(require_dist2(), 1);
+import { existsSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+function formatAjv(error) {
+  let location = error.instancePath || "/";
+  return error.keyword === "additionalProperties" ? `${location}: additional property ${error.params.additionalProperty}` : `${location}: ${error.message}`;
+}
+function schemaFor(root, artifact, schema = null) {
+  return schema !== null && Number(schema) !== 6 ? null : join(resolve(root), "schemas", "artifacts", `${artifact}-6.schema.json`);
+}
+function validateArtifactSchema(root, parsed, failures) {
+  if (parsed.fields.schema !== 6)
+    return failures.push("unsupported Workflow artifact schema; only Schema 6 is supported"), null;
+  let path = schemaFor(root, parsed.fields.artifact, parsed.fields.schema);
+  if (!path || !existsSync(path))
+    return failures.push(`unsupported artifact type: ${parsed.fields.artifact}`), null;
+  let ajv = new import_ajv.default({ allErrors: !0, strict: !1 });
+  if ((0, import_ajv_formats.default)(ajv), parsed.wrapper) {
+    let wrapperSchema = JSON.parse(readFileSync(join(resolve(root), "schemas", "cursor-plan-wrapper.schema.json"), "utf8")), validateWrapper = ajv.compile(wrapperSchema);
+    validateWrapper(parsed.wrapper) || failures.push(...validateWrapper.errors.map((error) => `Cursor wrapper ${formatAjv(error)}`));
+  }
+  let schema = JSON.parse(readFileSync(path, "utf8")), validate = ajv.compile(schema);
+  return validate(parsed.fields) || failures.push(...validate.errors.map(formatAjv)), schema;
+}
+
+// src/core/state-paths.mjs
+import { createHash } from "node:crypto";
+function rootContentHash(rootPlanText) {
+  if (typeof rootPlanText != "string" || !rootPlanText.trim())
+    throw new Error("root content hash requires exact non-empty Root text");
+  return createHash("sha256").update(rootPlanText).digest("hex");
+}
+
+// scripts/validate-artifact.source.mjs
+var scriptDirectory = dirname(fileURLToPath(import.meta.url)), defaultRoot = dirname(scriptDirectory), knownArtifacts = /* @__PURE__ */ new Set([
+  "work-plan",
+  "delivery-evidence",
+  "work-review"
+]), riskRank = Object.freeze({ low: 1, medium: 2, high: 3 });
+var objectivePattern = /\bOBJ-[1-9][0-9]*\b/g, fixPattern = /\bFIX-[1-9][0-9]*\b/g, checkPattern = /\bCHECK-[1-9][0-9]*\b/g, learningPattern = /\bLRN-[A-Za-z0-9][A-Za-z0-9-]*\b/g, sectionAliases = Object.freeze({
+  Intent: ["intent", "goal", "intent contract"],
+  Acceptance: ["acceptance", "acceptance outcomes", "success criteria"],
+  Boundaries: ["boundaries", "authority", "authority envelope"],
+  Risks: ["risks", "risk summary"],
+  Verification: ["verification", "root checks", "planned checks"],
+  Summary: ["summary", "delivery summary"],
+  Assessment: ["assessment", "result", "review result"],
+  "Evidence coverage": ["coverage", "evidence coverage"],
+  Findings: ["findings", "issues"],
+  "Next action": ["next action", "recommendation"],
+  "Correction plan": ["correction", "correction plan"]
+}), headerAliases = Object.freeze({
+  "objective id": ["objective", "objective id"],
+  "check id": ["check", "check id"],
+  "step id": ["step", "step id"],
+  "observed result": ["observed", "observed result", "actual result"],
+  "expected result": ["expected", "expected result", "pass condition"],
+  "cost class": ["cost", "cost class"],
+  "evidence class": ["evidence class", "verification owner", "evidence owner"],
+  prerequisites: ["prerequisite", "prerequisites", "dependencies"],
+  "finding key": ["finding", "finding key"],
+  "learning id": ["learning", "learning id", "candidate", "candidate id"]
+}), optionalTableCells = /* @__PURE__ */ new Set(), tables = Object.freeze({
+  verificationIntent: ["Check ID", "Objectives", "Verification Intent", "Expected Evidence", "Required", "Evidence Class", "Cost Class", "Prerequisites"],
+  coverage: ["Kind", "Inspected", "Reused", "Result", "Evidence"],
+  findings: ["Finding key", "Severity", "Objectives", "Checks", "Evidence", "Reasoning"],
+  correctionMeta: ["Correction ID", "Root Plan", "Source Review", "Base Evidence", "Predecessor Correction", "Risk"],
+  fixes: ["FIX ID", "Finding keys", "Root Objectives", "Root Checks", "Required outcome", "Evidence"],
+  correctionSteps: ["Step ID", "FIX IDs", "Targets", "Required outcome", "Implementation latitude", "Completion probe", "Check IDs", "Deviation action"],
+  correctionIntentChecks: ["Check ID", "FIX IDs", "Verification Intent", "Expected Evidence", "Required", "Evidence Class", "Cost Class", "Prerequisites"],
+  learningCandidates: ["Learning ID", "Finding keys", "Reusable guidance", "Candidate targets", "Confirmation evidence"]
+}), costRank = Object.freeze({ cheap: 1, standard: 2, expensive: 3 });
+function unique(values) {
+  return [...new Set(values)];
+}
+function ids(value, pattern) {
+  return unique(String(value ?? "").match(pattern) ?? []);
+}
+function sameSet(left, right) {
+  return left.size === right.size && [...left].every((value) => right.has(value));
+}
+function stableValue(value) {
+  return Array.isArray(value) ? value.map(stableValue) : !value || typeof value != "object" ? value : Object.fromEntries(Object.keys(value).sort().map((key) => [key, stableValue(value[key])]));
+}
+function sha256(value) {
+  return createHash2("sha256").update(String(value)).digest("hex");
+}
+function maskFences(text) {
+  let fence = null;
+  return String(text).split(/(?<=\n)/).map((line4) => {
+    if (!fence) {
+      let marker = line4.match(/^[ \t]*(`{3,}|~{3,})/);
+      return marker ? (fence = { char: marker[1][0], size: marker[1].length }, line4.replace(/[^\r\n]/g, " ")) : line4;
+    }
+    let masked = line4.replace(/[^\r\n]/g, " ");
+    return new RegExp(`^[ \\t]*${fence.char}{${fence.size},}[ \\t]*(?:\\r?\\n)?$`).test(line4) && (fence = null), masked;
+  }).join("");
+}
+function sectionMap(body, required2, failures, normalizations = []) {
+  let matches = [...maskFences(body).matchAll(/^## ([^\r\n]+)$/gm)], actual = matches.map((match) => match[1].trim()), sections = /* @__PURE__ */ new Map();
+  matches.forEach((match, index) => {
+    let start = match.index + match[0].length, end = matches[index + 1]?.index ?? body.length, content = body.slice(start, end).trim(), actualName = match[1].trim(), normalizedActual = normalizedHeader(actualName), canonical = Object.entries(sectionAliases).find(
+      ([name, aliases]) => normalizedHeader(name) === normalizedActual || aliases.some((alias) => normalizedHeader(alias) === normalizedActual)
+    )?.[0] ?? actualName;
+    canonical !== actualName && normalizations.push(`normalized section ${actualName} to ${canonical}`), sections.has(canonical) && failures.push(`${canonical}: duplicate section`), sections.set(canonical, content);
+  });
+  for (let name of required2) sections.has(name) || failures.push(`missing required section ${name}`);
+  return actual.filter((name) => required2.some((candidate) => candidate.toLowerCase() === name.toLowerCase())).map((name) => name.toLowerCase()).join(`
+`) !== required2.filter((name) => sections.has(name)).map((name) => name.toLowerCase()).join(`
+`) && normalizations.push("normalized Markdown section order"), sections;
+}
+function trimTrailingNotes(body, required2, normalizations) {
+  let separators = [...maskFences(body).matchAll(/^---[ \t]*$/gm)];
+  for (let separator of separators.toReversed()) {
+    let prefix = body.slice(0, separator.index), headings = new Set([...maskFences(prefix).matchAll(/^## ([^\r\n]+)$/gm)].map((match) => match[1].trim().toLowerCase()));
+    if (required2.every((name) => headings.has(name.toLowerCase())))
+      return normalizations.push("ignored trailing explanation after workflow artifact"), prefix.trimEnd();
+  }
+  return body;
+}
+function cells(line4) {
+  let parsed = [], current = "", escaped = !1;
+  for (let char of String(line4).trim()) {
+    if (escaped) {
+      current += char, escaped = !1;
+      continue;
+    }
+    if (char === "\\") {
+      escaped = !0;
+      continue;
+    }
+    if (char === "|") {
+      parsed.push(current.trim()), current = "";
+      continue;
+    }
+    current += char;
+  }
+  return parsed.push(current.trim()), parsed[0] === "" && parsed.shift(), parsed.at(-1) === "" && parsed.pop(), parsed;
+}
+function markdownTables(content) {
+  let lines = maskFences(content).split(/\r?\n/), found = [];
+  for (let index = 0; index < lines.length - 1; index += 1) {
+    let headers = cells(lines[index]), separator = cells(lines[index + 1]);
+    if (headers.length < 2 || separator.length !== headers.length || !separator.every((cell2) => /^:?-{3,}:?$/.test(cell2))) continue;
+    let rows = [];
+    for (index += 2; index < lines.length && lines[index].includes("|"); ) {
+      let row = cells(lines[index]);
+      if (row.length !== headers.length) break;
+      rows.push(Object.fromEntries(headers.map((header, cellIndex) => [header, row[cellIndex]]))), index += 1;
+    }
+    index -= 1, found.push({ headers, rows });
+  }
+  return found;
+}
+function normalizedHeader(value) {
+  return String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+function tableMatching(content, headers) {
+  let resolveHeader = (candidate, expected) => {
+    let normalizedCandidate = normalizedHeader(candidate), normalizedExpected = normalizedHeader(expected);
+    return normalizedCandidate === normalizedExpected || (headerAliases[normalizedExpected] ?? []).some((alias) => normalizedHeader(alias) === normalizedCandidate);
+  };
+  return markdownTables(content).flatMap((candidate) => {
+    let mapping = /* @__PURE__ */ new Map();
+    for (let expected of headers) {
+      let matches = candidate.headers.filter((actual) => resolveHeader(actual, expected));
+      if (matches.length !== 1) return [];
+      mapping.set(expected, matches[0]);
+    }
+    return [{
+      headers,
+      rows: candidate.rows.map((row) => Object.fromEntries(headers.map((expected) => [expected, row[mapping.get(expected)]]))),
+      normalized: candidate.headers.length !== headers.length || candidate.headers.some((header, index) => header !== headers[index])
+    }];
+  });
+}
+function tableRows(content, headers) {
+  return tableMatching(content, headers)[0]?.rows ?? [];
+}
+function subsection(content, name) {
+  let matches = [...maskFences(content).matchAll(/^### ([^\r\n]+)$/gm)], index = matches.findIndex((match) => normalizedHeader(match[1]) === normalizedHeader(name));
+  if (index < 0) return "";
+  let start = matches[index].index + matches[index][0].length, end = matches[index + 1]?.index ?? content.length;
+  return content.slice(start, end).trim();
+}
+function verificationSectionContent(artifact) {
+  let sections = artifact?.sections instanceof Map ? artifact.sections : /* @__PURE__ */ new Map(), topLevel = sections.get("Verification") ?? "";
+  if (tableRows(topLevel, tables.verificationIntent).length > 0) return topLevel;
+  let nested = subsection(sections.get("Acceptance") ?? "", "Verification");
+  return nested.trim() ? nested : "";
+}
+function noneLike(value) {
+  return /^(?:none\.?|no (?:findings|changes|deviations|candidates|correction|open decisions)\.?)$/i.test(String(value).trim());
+}
+function hasStandaloneNone(content) {
+  return String(content).split(/\r?\n/).some((line4) => /^(?:\*\*[^*\r\n]+:\*\*\s*)?None\.?$/i.test(line4.trim()));
+}
+function requireTable(sections, sectionName, headers, failures, { allowNone = !1, optional: optional2 = !1, normalizations = [] } = {}) {
+  let content = sections.get(sectionName) ?? "";
+  if (allowNone && noneLike(content))
+    return content.trim() !== "None." && normalizations.push(`${sectionName}: normalized empty marker`), { headers, rows: [], none: !0 };
+  if (optional2 && !content.trim()) return { headers, rows: [], none: !0 };
+  let matches = tableMatching(content, headers);
+  return allowNone && matches.length === 0 && hasStandaloneNone(content) ? (normalizations.push(`${sectionName}: materialized embedded empty marker`), { headers, rows: [], none: !0 }) : matches.length !== 1 ? (failures.push(`${sectionName}: requires exactly one table [${headers.join(", ")}]`), { headers, rows: [] }) : (matches[0].normalized && normalizations.push(`${sectionName}: normalized table column order or casing`), matches[0].rows.length === 0 && failures.push(`${sectionName}: required table must contain a row`), matches[0].rows.forEach((row, index) => {
+    for (let header of headers) !row[header] && !optionalTableCells.has(normalizedHeader(header)) && failures.push(`${sectionName}: row ${index + 1} has empty ${header}`);
+  }), matches[0]);
+}
+function placeholder(value) {
+  return /<(?:placeholder|replace[-_ ]?me|insert[-_ ][^>\r\n]+|[^>\r\n]*\.{3}[^>\r\n]*)>/i.test(String(value)) || /\b(?:TBD|TODO|UNKNOWN)\b/.test(String(value));
+}
+function rejectPlaceholders(parsed, schema, sections, failures) {
+  if (["ready", "complete", "current", "active"].includes(parsed.fields.status)) {
+    for (let field of schema.required ?? []) placeholder(parsed.fields[field]) && failures.push(`frontmatter ${field} contains a placeholder`);
+    for (let [name, content] of sections) placeholder(content) && failures.push(`${name}: contains a placeholder`);
+  }
+}
+function exactIdSet(rows, column, pattern, label, failures) {
+  let values = rows.map((row) => row[column]);
+  for (let value of values) new RegExp(`^(?:${pattern.source})$`).test(value) || failures.push(`${label}: invalid ID ${value}`);
+  return new Set(values).size !== values.length && failures.push(`${label}: IDs must be unique`), new Set(values);
+}
+function targetTokens(value) {
+  let inline = [...String(value).matchAll(/`([^`]+)`/g)].map((match) => match[1]);
+  return (inline.length ? inline : String(value).split(",")).map((entry) => entry.trim().replace(/^\.\//, "")).filter(Boolean);
+}
+function targetMatches(value, scope) {
+  let target = value.replace(/^\.\//, ""), candidate = scope.replace(/^\.\//, "");
+  if (/^all other (?:files|paths|targets)$/i.test(candidate) || target === candidate || target.startsWith(`${candidate}/`) || target.startsWith(`${candidate}#`) || target.startsWith(`${candidate}:`)) return !0;
+  if (!candidate.includes("*")) return !1;
+  let expression = candidate.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replaceAll("**", "\xA7\xA7").replaceAll("*", "[^/]*").replaceAll("\xA7\xA7", ".*");
+  return new RegExp(`^${expression}$`).test(target);
+}
+function authorityTargetState(target, authority = {}) {
+  let allowed = (authority.allowed_roots ?? []).some((scope) => targetMatches(target, scope)), protectedTarget = (authority.protected_paths ?? []).some((scope) => targetMatches(target, scope)), approvalRequired = (authority.approval_required_paths ?? []).some((scope) => targetMatches(target, scope));
+  return { allowed, protected: protectedTarget, approval_required: approvalRequired };
+}
+function acceptanceChangeTargets(parsed) {
+  let sources = [
+    ...parsed.fields.acceptance ?? [],
+    parsed.sections?.get("Acceptance") ?? ""
+  ], pathLike = (value) => !/^(?:https?:|[A-Za-z][A-Za-z0-9+.-]*:)/.test(value) && !value.startsWith("/") && value !== ".." && !value.startsWith("../") && !/\s/.test(value) && (value.includes("/") || /^\.[A-Za-z0-9_-]/.test(value) || /^[A-Za-z0-9_-]+\.[A-Za-z0-9_.-]+$/.test(value)), targets = [];
+  for (let source of sources)
+    for (let match of String(source).matchAll(/`([^`]+)`/g)) {
+      let target = match[1].trim().replace(/^\.\//, "");
+      pathLike(target) && targets.push(target);
+    }
+  return unique(targets);
+}
+function issue2(code, message, details = {}) {
+  return { code, message, ...details };
+}
+function validateCostOrder(rows, column, label, parsed) {
+  let previous = 0;
+  for (let row of rows) {
+    let current = costRank[row[column]] ?? 99;
+    if (current < previous) {
+      parsed.normalizations.push(`${label}: normalized economic check order cheap, standard, expensive`);
+      return;
+    }
+    previous = current;
+  }
+}
+function planData(artifact) {
+  let objectives = artifact.fields.acceptance.map((outcome, index) => ({
+    "Objective ID": `OBJ-${index + 1}`,
+    "Observable outcome": outcome,
+    "Acceptance evidence": outcome
+  })), checks = tableRows(verificationSectionContent(artifact), tables.verificationIntent), objectiveIds = objectives.map((row) => row["Objective ID"]);
+  return {
+    objectives: new Set(objectiveIds),
+    checks: new Set(checks.map((row) => row["Check ID"])),
+    checkRows: new Map(checks.map((row) => [row["Check ID"], row])),
+    evidenceClasses: new Map(checks.map((row) => [row["Check ID"], row["Evidence Class"]])),
+    slices: [{
+      "Slice ID": "SLICE-1",
+      Objectives: objectiveIds.join(", "),
+      Dependencies: "None.",
+      Targets: artifact.fields.authority.allowed_roots.join(", "),
+      "Observable outcome": artifact.fields.goal,
+      "Check IDs": checks.map((row) => row["Check ID"]).join(", "),
+      "Human review": "no"
+    }],
+    steps: /* @__PURE__ */ new Set(["STEP-1"]),
+    requiredChecks: new Set(checks.filter((row) => row.Required === "yes").map((row) => row["Check ID"])),
+    allowedTargets: [...artifact.fields.authority.allowed_roots],
+    prohibitedTargets: [...artifact.fields.authority.protected_paths, ...artifact.fields.authority.approval_required_paths]
+  };
+}
+function validatePlan6(parsed, sections, failures) {
+  for (let section of ["Intent", "Acceptance", "Boundaries", "Risks"])
+    (sections.get(section) ?? "").trim() || failures.push(`${section}: section must not be empty`);
+  let expectedLevel = { manual: "lean", supervised: "controlled", autonomous: "certified" }[parsed.fields.profile_max];
+  parsed.fields.contract_level !== expectedLevel && failures.push(`contract_level must be ${expectedLevel} for ${parsed.fields.profile_max}`), parsed.fields.status === "ready" && parsed.fields.intent_ready !== !0 && failures.push("ready work-plan requires intent_ready true"), parsed.fields.profile_max === "autonomous" && (parsed.fields.hard_triggers ?? []).length > 0 && failures.push("hard-trigger work cannot be autonomous");
+  let authority = parsed.fields.authority ?? {};
+  for (let path of [...authority.allowed_roots ?? [], ...authority.protected_paths ?? [], ...authority.approval_required_paths ?? []])
+    (path.startsWith("/") || path === ".." || path.startsWith("../")) && failures.push(`authority path must remain repository-relative: ${path}`);
+  if (["controlled", "certified"].includes(parsed.fields.contract_level))
+    for (let field of ["max_active_minutes", "max_total_tokens", "max_cost_usd"]) (!Number.isFinite(authority[field]) || authority[field] <= 0) && failures.push(`controlled authority requires ${field}`);
+  let data = planData(parsed), verification = tableRows(
+    verificationSectionContent(parsed),
+    tables.verificationIntent
+  );
+  for (let row of verification)
+    /^CHECK-[1-9][0-9]*$/.test(row["Check ID"]) || failures.push(`Verification: invalid Check ID ${row["Check ID"]}`), /^(?:yes|no)$/.test(row.Required) || failures.push(`Verification: ${row["Check ID"]} Required must be yes|no`), /^(?:harness-verifiable|reviewer-observable|human-decision-required)$/.test(row["Evidence Class"]) || failures.push(`Verification: ${row["Check ID"]} invalid Evidence Class`);
+  verification.length === 0 && parsed.normalizations.push("synthesized strategy checks from acceptance outcomes"), data.objectives.size !== parsed.fields.acceptance.length && failures.push("acceptance outcomes must map one-to-one to objectives"), parsed.wrapper && (parsed.wrapper.todos ?? []).length === 0 && failures.push("native Plan must include at least one implementation todo");
+}
+function evidenceData(artifact) {
+  return schema6EvidenceData(artifact.fields);
+}
+function reviewData(artifact) {
+  let coverage = tableRows(artifact.sections.get("Evidence coverage") ?? "", tables.coverage), findings = tableRows(artifact.sections.get("Findings") ?? "", tables.findings);
+  return { coverage, findings };
+}
+function validateEvidenceGrades(parsed, failures) {
+  let entries = parsed.fields.check_evidence ?? [], grades = entries.map((entry) => entry.grade);
+  grades.includes("failed") && parsed.fields.overall_grade !== "failed" && failures.push("failed check evidence requires overall_grade failed"), parsed.fields.status === "complete" && parsed.fields.overall_grade !== "verified" && failures.push("complete evidence requires overall_grade verified"), parsed.fields.status === "complete" && entries.some((entry) => entry.grade !== "verified") && failures.push("complete evidence requires every Check grade verified"), parsed.fields.status === "provisional" && !["supported", "partial", "unavailable"].includes(parsed.fields.overall_grade) && failures.push("provisional evidence requires supported, partial, or unavailable grade"), parsed.fields.status !== "blocked" && grades.includes("failed") && failures.push("failed check evidence must be blocked");
+}
+function validateLeanEvidence(parsed, sections, failures) {
+  (sections.get("Summary") ?? "").trim() || failures.push("Summary: section must not be empty");
+  let affected = new Set(parsed.fields.affected_objectives ?? []), reusedObjectives = new Set(parsed.fields.reused_objectives ?? []);
+  for (let id of affected) reusedObjectives.has(id) && failures.push(`Objective ${id} cannot be both affected and reused`);
+  let executed = new Set(parsed.fields.executed_checks ?? []), reusedChecks = new Set(parsed.fields.reused_checks ?? []);
+  for (let id of executed) reusedChecks.has(id) && failures.push(`Check ${id} cannot be both executed and reused`);
+  let checkIds = (parsed.fields.check_evidence ?? []).map((entry) => entry.check_id);
+  new Set(checkIds).size !== checkIds.length && failures.push("check_evidence Check IDs must be unique"), sameSet(new Set(checkIds), executed) || failures.push("check_evidence must exactly match executed_checks");
+  for (let path of parsed.fields.changed_paths ?? [])
+    (path.startsWith("/") || path === ".." || path.startsWith("../")) && failures.push(`changed path must remain repository-relative: ${path}`);
+  validateEvidenceGrades(parsed, failures), parsed.effective = {
+    checkEvidence: (parsed.fields.check_evidence ?? []).map((entry) => ({ ...entry }))
+  };
+}
+function validateEvidence(parsed, sections, failures) {
+  validateLeanEvidence(parsed, sections, failures);
+}
+function parseCorrection(parsed, sections, failures) {
+  let content = sections.get("Correction plan") ?? "";
+  if (parsed.fields.next_action !== "correct")
+    return content.trim() && !noneLike(content) && failures.push("Correction plan is allowed only when next_action is correct"), null;
+  let headings = [...maskFences(content).matchAll(/^### (cp-[^\r\n]+)$/gm)].map((match) => match[1]);
+  headings.length !== 1 && failures.push("correct review must embed exactly one cp-* correction as an H3"), headings.length === 1 && parsed.fields.correction_id !== headings[0] && failures.push("embedded correction ID conflicts with frontmatter");
+  let metadata = requireTable(/* @__PURE__ */ new Map([["Correction plan", content]]), "Correction plan", tables.correctionMeta, failures, { normalizations: parsed.normalizations }), fixes = { rows: tableRows(content, tables.fixes) }, steps = { rows: tableRows(content, tables.correctionSteps) }, checks = { rows: tableRows(content, tables.correctionIntentChecks) };
+  fixes.rows.length === 0 && failures.push("Correction plan requires a FIX table"), steps.rows.length === 0 && failures.push("Correction plan requires a step table"), checks.rows.length === 0 && failures.push("Correction plan requires a Check table");
+  let declaredLearnings = Array.isArray(parsed.fields.learning_candidates) ? parsed.fields.learning_candidates : [], learnings = requireTable(/* @__PURE__ */ new Map([["Correction plan", content]]), "Correction plan", tables.learningCandidates, failures, { normalizations: parsed.normalizations }), learningIds = exactIdSet(learnings.rows, "Learning ID", learningPattern, "Correction learning", failures);
+  sameSet(learningIds, new Set(declaredLearnings)) || failures.push("Correction learning table must exactly match learning_candidates");
+  for (let row of learnings.rows) {
+    let keys = String(row["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean);
+    (keys.length === 0 || keys.some((key) => !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(key))) && failures.push(`Learning ${row["Learning ID"]} needs valid source Finding keys`);
+  }
+  let fixIds = exactIdSet(fixes.rows, "FIX ID", /FIX-[1-9][0-9]*/, "Correction FIX", failures);
+  exactIdSet(steps.rows, "Step ID", /STEP-[1-9][0-9]*/, "Correction steps", failures);
+  let checkIds = exactIdSet(checks.rows, "Check ID", /CHECK-[1-9][0-9]*/, "Correction checks", failures);
+  for (let row of fixes.rows) {
+    let keys = String(row["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean);
+    (keys.length === 0 || keys.some((key) => !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(key))) && failures.push(`Correction ${row["FIX ID"]} needs valid source Finding keys`), ids(row["Root Objectives"], objectivePattern).length === 0 && failures.push(`Correction ${row["FIX ID"]} needs root objectives`), ids(row["Root Checks"], checkPattern).length === 0 && failures.push(`Correction ${row["FIX ID"]} needs root Checks`);
+  }
+  let coveredFixes = /* @__PURE__ */ new Set();
+  for (let row of steps.rows)
+    ids(row["FIX IDs"], fixPattern).forEach((id) => coveredFixes.add(id)), /PROBE-[1-9][0-9]*:/.test(row["Completion probe"]) || failures.push(`Correction ${row["Step ID"]} needs a PROBE-N completion probe`), ids(row["Check IDs"], checkPattern).forEach((id) => {
+      checkIds.has(id) || failures.push(`Correction step references unknown ${id}`);
+    });
+  for (let fix of fixIds) coveredFixes.has(fix) || failures.push(`Correction steps do not cover ${fix}`);
+  for (let row of checks.rows)
+    /^(?:yes|no)$/.test(row.Required) || failures.push(`Correction check ${row["Check ID"]} Required must be yes|no`), /^(?:cheap|standard|expensive)$/.test(row["Cost Class"]) || failures.push(`Correction check ${row["Check ID"]} invalid Cost Class`), /^(?:harness-verifiable|reviewer-observable|human-decision-required)$/.test(row["Evidence Class"]) || failures.push(`Correction check ${row["Check ID"]} invalid Evidence Class`), targetTokens(row.Prerequisites).length === 0 && failures.push(`Correction check ${row["Check ID"]} needs concrete Prerequisites`), ids(row["FIX IDs"], fixPattern).forEach((id) => {
+      fixIds.has(id) || failures.push(`Correction check references unknown ${id}`);
+    });
+  return validateCostOrder(checks.rows, "Cost Class", "Correction checks", parsed), { id: headings[0], metadata: metadata.rows[0], fixes: fixes.rows, steps: steps.rows, checks: checks.rows, learnings: learnings.rows };
+}
+function validateCompactReview(parsed, sections, failures) {
+  let options = { normalizations: parsed.normalizations };
+  (sections.get("Assessment") ?? "").toLowerCase().includes(String(parsed.fields.assessment).toLowerCase()) || failures.push("Assessment section must state frontmatter assessment");
+  let coverage = requireTable(sections, "Evidence coverage", tables.coverage, failures, { optional: !0, normalizations: parsed.normalizations }), coverageByKind = /* @__PURE__ */ new Map();
+  for (let row of coverage.rows) {
+    let kind = normalizedHeader(row.Kind), rows = coverageByKind.get(kind) ?? [];
+    rows.push(row), coverageByKind.set(kind, rows);
+  }
+  let inspectedObjectives = new Set(parsed.fields.inspected_objectives ?? []), reusedObjectives = new Set(parsed.fields.reused_objectives ?? []), inspectedChecks = new Set(parsed.fields.inspected_checks ?? []), reusedChecks = new Set(parsed.fields.reused_checks ?? []);
+  for (let id of inspectedObjectives) reusedObjectives.has(id) && failures.push(`Objective ${id} cannot be both inspected and reused`);
+  for (let id of inspectedChecks) reusedChecks.has(id) && failures.push(`Check ${id} cannot be both inspected and reused`);
+  let coverageLists = [
+    ["Objectives", "Inspected", inspectedObjectives, objectivePattern],
+    ["Objectives", "Reused", reusedObjectives, objectivePattern],
+    ["Checks", "Inspected", inspectedChecks, checkPattern],
+    ["Checks", "Reused", reusedChecks, checkPattern]
+  ];
+  for (let [kind, column, expected, pattern] of coverageLists) {
+    let row = coverageByKind.get(normalizedHeader(kind))?.[0], visible = new Set(ids(row?.[column], pattern));
+    sameSet(visible, expected) || parsed.normalizations.push(`Evidence coverage: ${kind} ${column.toLowerCase()} summary derived from frontmatter`);
+  }
+  let findingContent = sections.get("Findings") ?? "", findings = { rows: [], none: !0 };
+  findingContent.trim() && (findings = requireTable(sections, "Findings", tables.findings, failures, { allowNone: !0, normalizations: parsed.normalizations }));
+  let keys = /* @__PURE__ */ new Set();
+  for (let row of findings.rows) {
+    let key = row["Finding key"];
+    /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(key) || failures.push(`Findings: invalid Finding key ${key}`), keys.has(key) && failures.push(`Findings: duplicate Finding key ${key}`), keys.add(key), /^(?:low|medium|high|critical)$/.test(row.Severity) || failures.push(`Findings: ${key} has invalid Severity`), ids(row.Objectives, objectivePattern).length === 0 && failures.push(`Findings: ${key} needs root Objectives`), ids(row.Checks, checkPattern).length === 0 && failures.push(`Findings: ${key} needs root Checks`);
+  }
+  if (parsed.fields.review_basis === "root-boundary" && findings.rows.length > 0 && failures.push("root-boundary review cannot contain delivery findings"), parsed.findings = findings.rows, (sections.get("Next action") ?? "").toLowerCase().includes(String(parsed.fields.next_action).toLowerCase()) || failures.push("Next action section must state frontmatter next_action"), parsed.fields.assessment === "achieved") {
+    parsed.fields.next_action !== "none" && failures.push("achieved review requires next_action none"), findings.rows.length > 0 && failures.push("achieved review cannot contain findings");
+    let snapshotRow = coverageByKind.get(normalizedHeader("Snapshot"))?.[0];
+    coverage.rows.length > 0 && (normalizedHeader(snapshotRow?.Result) !== "consistent" || noneLike(snapshotRow?.Inspected)) && failures.push("achieved review coverage contradicts current snapshot consistency");
+  }
+  parsed.fields.next_action === "none" && parsed.fields.assessment !== "achieved" && failures.push("next_action none requires assessment achieved"), parsed.fields.delivery_status === "verified" && parsed.fields.assessment !== "achieved" && failures.push("verified delivery requires achieved assessment"), parsed.fields.delivery_status === "provisional" && parsed.fields.next_action !== "accept-provisional" && failures.push("provisional delivery requires accept-provisional"), parsed.fields.next_action === "accept-provisional" && parsed.fields.delivery_status !== "provisional" && failures.push("accept-provisional requires provisional delivery"), parsed.fields.next_action === "correct" && findings.rows.length === 0 && failures.push("correct review requires findings"), parsed.fields.next_action !== "correct" && Array.isArray(parsed.fields.learning_candidates) && failures.push("learning_candidates are allowed only when next_action is correct"), parsed.fields.next_action === "retry-review" && parsed.fields.assessment !== "insufficient-evidence" && failures.push("retry-review requires assessment insufficient-evidence");
+  let correction2 = parseCorrection(parsed, sections, failures);
+  if (correction2) {
+    for (let fix of correction2.fixes) {
+      let referenced = String(fix["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean);
+      for (let key of referenced) keys.has(key) || failures.push(`Correction ${fix["FIX ID"]} references unknown Finding key ${key}`);
+    }
+    for (let learning of correction2.learnings) {
+      let referenced = String(learning["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean);
+      for (let key of referenced) keys.has(key) || failures.push(`Learning ${learning["Learning ID"]} references unknown Finding key ${key}`);
+    }
+  }
+  return parsed.effective = {
+    inspectedObjectives: [...inspectedObjectives],
+    reusedObjectives: [...reusedObjectives],
+    inspectedChecks: [...inspectedChecks],
+    reusedChecks: [...reusedChecks],
+    findings: findings.rows
+  }, correction2;
+}
+function buildArtifact(text, root, options = {}) {
+  let failures = [], diagnostics = [], normalizations = [], parsed = parseArtifact(text, failures, normalizations);
+  if (!parsed) return { failures, diagnostics, normalizations, parsed: null };
+  parsed.normalizations = normalizations;
+  let schema = validateArtifactSchema(root, parsed, failures);
+  if (!schema) return { failures, diagnostics, normalizations, parsed };
+  let requiredSections = schema["x-required-sections"] ?? schema["x-markdown-sections"] ?? [], sections = sectionMap(trimTrailingNotes(parsed.body, requiredSections, normalizations), requiredSections, failures, normalizations);
+  return parsed.sections = sections, sections.size > 0 && (rejectPlaceholders(parsed, schema, sections, failures), parsed.fields.artifact === "work-plan" && validatePlan6(parsed, sections, failures), parsed.fields.artifact === "delivery-evidence" && validateEvidence(parsed, sections, failures), parsed.fields.artifact === "work-review" && (parsed.correction = validateCompactReview(parsed, sections, failures))), { failures: unique(failures), diagnostics: unique(diagnostics), normalizations: unique(normalizations), parsed };
+}
+function inspectArtifactText(text, root = defaultRoot, options = {}) {
+  let built = buildArtifact(text, root, options);
+  return {
+    errors: built.failures,
+    diagnostics: built.diagnostics,
+    normalizations: built.normalizations,
+    effective: built.parsed?.effective ?? null,
+    artifact: built.parsed ?? null
+  };
+}
+function preflightRootPlan(text, root = defaultRoot) {
+  let inspected = inspectArtifactText(text, root), parsed = inspected.artifact;
+  if (inspected.errors.length > 0 || parsed?.fields?.artifact !== "work-plan" || parsed.fields.schema !== 6)
+    return {
+      feasible: !1,
+      root_plan_id: parsed?.fields?.id ?? null,
+      root_projection_hash: null,
+      blocking_issues: (inspected.errors.length > 0 ? inspected.errors : ["input must be one Schema-6 work-plan"]).map((message) => issue2("invalid-root", message)),
+      advisories: [],
+      required_checks: [],
+      deferred_checks: [],
+      cost_classes: { cheap: 0, standard: 0, expensive: 0 },
+      approval_granted: !1,
+      mutation_performed: !1
+    };
+  let blocking = [], advisories = [], authority = parsed.fields.authority ?? {}, denied = [
+    ...(authority.protected_paths ?? []).map((path) => ({ kind: "protected", path })),
+    ...(authority.approval_required_paths ?? []).map((path) => ({ kind: "approval-required", path }))
+  ];
+  for (let allowed of authority.allowed_roots ?? []) {
+    let shadow = denied.find((entry) => targetMatches(allowed, entry.path));
+    shadow && blocking.push(issue2(
+      "shadowed-allowed-root",
+      `allowed root ${allowed} is fully shadowed by ${shadow.kind} path ${shadow.path}`,
+      { target: allowed, boundary: shadow.path, boundary_kind: shadow.kind }
+    ));
+  }
+  for (let target of acceptanceChangeTargets(parsed)) {
+    let state = authorityTargetState(target, authority);
+    (!state.allowed || state.protected || state.approval_required) && blocking.push(issue2(
+      "acceptance-path-outside-authority",
+      `Acceptance requires changing ${target}, but the current Root does not authorize that target`,
+      { target, ...state }
+    ));
+  }
+  let rows = tableRows(verificationSectionContent(parsed), tables.verificationIntent), objectiveIds = new Set((parsed.fields.acceptance ?? []).map((_, index) => `OBJ-${index + 1}`)), requiredChecks2 = [], deferredChecks = [], costs = { cheap: 0, standard: 0, expensive: 0 };
+  if (rows.length === 0)
+    blocking.push(issue2("explicit-verification-required", "new Schema-6 roots require an explicit intent-only Verification table for Pareto check selection"));
+  else {
+    let seenIds = /* @__PURE__ */ new Set(), signatures = /* @__PURE__ */ new Map(), requiredObjectives = /* @__PURE__ */ new Set(), classifiedChecks = [];
+    for (let row of rows) {
+      let checkId2 = row["Check ID"];
+      /^CHECK-[1-9][0-9]*$/.test(checkId2) ? seenIds.has(checkId2) ? blocking.push(issue2("duplicate-check-id", `Verification repeats ${checkId2}`, { check_id: checkId2 })) : seenIds.add(checkId2) : blocking.push(issue2("invalid-check-id", `Verification has invalid Check ID ${checkId2 || "<missing>"}`));
+      let boundObjectives = ids(row.Objectives, objectivePattern);
+      if ((boundObjectives.length === 0 || boundObjectives.some((id) => !objectiveIds.has(id))) && blocking.push(issue2(
+        "invalid-check-objectives",
+        `${checkId2 || "Verification Check"} must reference only current Acceptance objectives`,
+        { check_id: checkId2 || null, objectives: boundObjectives }
+      )), /^(?:yes|no)$/.test(row.Required) || blocking.push(issue2("invalid-required-value", `${checkId2 || "Verification Check"} Required must be yes or no`, { check_id: checkId2 || null })), /^(?:harness-verifiable|reviewer-observable|human-decision-required)$/.test(row["Evidence Class"]) || blocking.push(issue2("invalid-evidence-class", `${checkId2 || "Verification Check"} has an invalid Evidence Class`, { check_id: checkId2 || null })), /^(?:cheap|standard|expensive)$/.test(row["Cost Class"]) ? costs[row["Cost Class"]] += 1 : blocking.push(issue2("invalid-cost-class", `${checkId2 || "Verification Check"} has an invalid Cost Class`, { check_id: checkId2 || null })), row.Required === "yes") {
+        requiredChecks2.push(checkId2), boundObjectives.forEach((id) => requiredObjectives.add(id));
+        let signature = [boundObjectives.sort().join(","), row["Verification Intent"], row["Expected Evidence"], targetTokens(row.Prerequisites).sort().join(",")].map((value) => normalizedHeader(value)).join("|");
+        classifiedChecks.push({ check_id: checkId2, required: !0, cost: row["Cost Class"], signature });
+        let prior = signatures.get(signature);
+        prior ? blocking.push(issue2("duplicate-required-check", `${checkId2} duplicates required Check ${prior}`, { check_id: checkId2, duplicate_of: prior })) : signatures.set(signature, checkId2), row["Cost Class"] === "expensive" && parsed.fields.risk !== "high" && (parsed.fields.hard_triggers ?? []).length === 0 && advisories.push(issue2(
+          "expensive-required-check",
+          `${checkId2} is expensive and required; retain it only when no cheaper equivalent proves the same essential outcome`,
+          { check_id: checkId2 }
+        ));
+      } else row.Required === "no" && (deferredChecks.push(checkId2), classifiedChecks.push({
+        check_id: checkId2,
+        required: !1,
+        cost: row["Cost Class"],
+        signature: [boundObjectives.sort().join(","), row["Verification Intent"], row["Expected Evidence"], targetTokens(row.Prerequisites).sort().join(",")].map((value) => normalizedHeader(value)).join("|")
+      }));
+    }
+    for (let check of classifiedChecks.filter((entry) => entry.required && entry.cost === "expensive")) {
+      let cheaper = classifiedChecks.find((entry) => entry.check_id !== check.check_id && entry.signature === check.signature && entry.cost !== "expensive");
+      cheaper && blocking.push(issue2(
+        "expensive-required-equivalent",
+        `${check.check_id} is required despite cheaper equivalent ${cheaper.check_id}`,
+        { check_id: check.check_id, cheaper_check_id: cheaper.check_id }
+      ));
+    }
+    for (let objective of objectiveIds) requiredObjectives.has(objective) || blocking.push(issue2(
+      "missing-required-check",
+      `${objective} needs at least one required falsifiable Check`,
+      { objective_id: objective }
+    ));
+  }
+  let projection = authoritativeArtifactProjectionFromText(text, root);
+  return {
+    feasible: blocking.length === 0,
+    root_plan_id: parsed.fields.id,
+    root_projection_hash: projection.projection_hash ?? null,
+    blocking_issues: blocking,
+    advisories,
+    required_checks: requiredChecks2.filter(Boolean),
+    deferred_checks: deferredChecks.filter(Boolean),
+    cost_classes: costs,
+    approval_granted: !1,
+    mutation_performed: !1
+  };
+}
+function authoritativeArtifactProjection(artifact, root) {
+  let schema = JSON.parse(readFileSync2(schemaFor(root, artifact.fields.artifact, artifact.fields.schema), "utf8")), fields = Object.fromEntries(Object.keys(schema.properties ?? {}).filter((key) => key !== "extensions" && Object.hasOwn(artifact.fields, key)).map((key) => [key, structuredClone(artifact.fields[key])])), sections = (schema["x-required-sections"] ?? schema["x-markdown-sections"] ?? []).map((name) => ({ name, content: artifact.sections.get(name) ?? "" })), projection = stableValue({ fields, sections }), projectionText = JSON.stringify(projection, null, 2);
+  return {
+    errors: [],
+    projection,
+    projection_text: projectionText,
+    projection_hash: sha256(projectionText)
+  };
+}
+function authoritativeArtifactProjectionFromText(text, root = defaultRoot) {
+  let inspected = inspectArtifactText(text, root);
+  return inspected.errors.length > 0 || !inspected.artifact?.fields?.artifact ? { errors: inspected.errors.length > 0 ? inspected.errors : ["input is not a Workflow artifact"] } : authoritativeArtifactProjection(inspected.artifact, root);
+}
+function executionContractFromArtifactText(text, root = defaultRoot) {
+  let inspected = inspectArtifactText(text, root);
+  if (inspected.errors.length > 0 || inspected.artifact?.fields.artifact !== "work-plan")
+    return { errors: inspected.errors.length > 0 ? inspected.errors : ["input is not a work-plan"] };
+  let artifact = inspected.artifact, data = planData(artifact), authoritative = authoritativeArtifactProjectionFromText(text, root);
+  return {
+    errors: [],
+    fields: structuredClone(authoritative.projection.fields),
+    objectives: [...data.objectives],
+    checks: [...data.checkRows.values()].map((row) => ({ ...row, "Evidence Class": data.evidenceClasses.get(row["Check ID"]) })),
+    allowedTargets: [...data.allowedTargets],
+    prohibitedTargets: [...data.prohibitedTargets],
+    authoritative_projection: authoritative.projection,
+    authoritative_projection_text: authoritative.projection_text,
+    authoritative_projection_hash: authoritative.projection_hash
+  };
+}
+function setUnion(left, right) {
+  return /* @__PURE__ */ new Set([...left ?? [], ...right ?? []]);
+}
+function disjointCoverage(left, right, expected, label, failures) {
+  let a = new Set(left ?? []), b = new Set(right ?? []);
+  for (let value of a) b.has(value) && failures.push(`${label}: ${value} appears in both fresh and reused coverage`);
+  sameSet(setUnion(a, b), new Set(expected)) || failures.push(`${label}: fresh and reused coverage must exactly partition the root set`);
+}
+function correctionForId(artifacts, id) {
+  return [...artifacts.values()].find((artifact) => artifact.fields.artifact === "work-review" && artifact.fields.correction_id === id)?.correction ?? null;
+}
+function materializeEvidence(artifact, artifacts, cache, failures, rootDirectory, active = /* @__PURE__ */ new Set()) {
+  if (cache.has(artifact.fields.id)) return cache.get(artifact.fields.id);
+  if (active.has(artifact.fields.id))
+    return failures.push(`${artifact.label}: cyclic evidence chain`), null;
+  active.add(artifact.fields.id);
+  let root = artifacts.get(artifact.fields.root_plan_id);
+  if (!root || root.fields.artifact !== "work-plan")
+    return failures.push(`${artifact.label}: missing root plan ${artifact.fields.root_plan_id}`), null;
+  let authoritativeRoot = authoritativeArtifactProjection(root, rootDirectory);
+  artifact.fields.intent_hash !== authoritativeRoot.projection_hash && failures.push(`${artifact.label}: intent_hash does not match authoritative Root projection`);
+  let plan = planData(root), data = evidenceData(artifact);
+  (root.fields.profile_max !== "manual" || root.fields.risk === "high" || (root.fields.hard_triggers ?? []).length > 0) && artifact.fields.evidence_mode === "lean" && failures.push(`${artifact.label}: ${root.fields.profile_max} ${root.fields.risk}-risk root requires evidence_mode full`);
+  let predecessor = artifact.fields.predecessor_evidence_id ? artifacts.get(artifact.fields.predecessor_evidence_id) : null, predecessorEffective = predecessor?.fields.artifact === "delivery-evidence" ? materializeEvidence(predecessor, artifacts, cache, failures, rootDirectory, active) : null;
+  artifact.fields.predecessor_evidence_id && !predecessorEffective && failures.push(`${artifact.label}: missing predecessor evidence ${artifact.fields.predecessor_evidence_id}`), predecessor && predecessor.fields.root_plan_id !== artifact.fields.root_plan_id && failures.push(`${artifact.label}: predecessor evidence must use the same root plan`);
+  let affected = new Set(artifact.fields.affected_objectives ?? []), reusedObjectives = new Set(artifact.fields.reused_objectives ?? []), executed = new Set(artifact.fields.executed_checks ?? []), reusedChecks = new Set(artifact.fields.reused_checks ?? []);
+  disjointCoverage(affected, reusedObjectives, plan.objectives, `${artifact.label}: objective`, failures), disjointCoverage([...executed].filter((id) => plan.requiredChecks.has(id)), reusedChecks, plan.requiredChecks, `${artifact.label}: root Check`, failures);
+  let initial = artifact.fields.representation === "full", seal = artifact.fields.representation === "seal", correction2 = artifact.fields.representation === "delta";
+  initial && artifact.fields.subject_id !== root.fields.id && failures.push(`${artifact.label}: initial full evidence must use the Root as subject`), seal && artifact.fields.subject_id !== root.fields.id && failures.push(`${artifact.label}: seal evidence must use the Root as subject`), correction2 && !String(artifact.fields.subject_id).startsWith("cp-") && failures.push(`${artifact.label}: delta evidence must use a correction subject`), !initial && !predecessorEffective && failures.push(`${artifact.label}: ${seal ? "seal" : "correction"} evidence requires direct predecessor evidence`), ["full", "seal"].includes(artifact.fields.representation) && (reusedObjectives.size > 0 || reusedChecks.size > 0) && failures.push(`${artifact.label}: ${artifact.fields.representation} representation cannot declare reused root state`);
+  let objectives = /* @__PURE__ */ new Map();
+  for (let objective of affected) {
+    let state = data.objectiveStates.get(objective);
+    state ? objectives.set(objective, { ...state, source: artifact.fields.id }) : failures.push(`${artifact.label}: affected ${objective} lacks Schema-6 objective evidence`);
+  }
+  for (let objective of reusedObjectives) {
+    let previous = predecessorEffective?.objectives.get(objective);
+    previous ? objectives.set(objective, { ...previous, reusedFrom: predecessor.fields.id }) : failures.push(`${artifact.label}: reused ${objective} is absent from direct predecessor evidence`);
+  }
+  let checks = /* @__PURE__ */ new Map();
+  for (let id of executed) {
+    let state = data.checkStates.get(id);
+    if (!state) {
+      failures.push(`${artifact.label}: executed ${id} lacks Schema-6 Check evidence`);
+      continue;
+    }
+    (plan.checkRows.get(id) ?? correctionForId(artifacts, artifact.fields.subject_id)?.checks.find((candidate) => candidate["Check ID"] === id)) || failures.push(`${artifact.label}: executed unknown ${id}`), checks.set(id, { ...state, source: artifact.fields.id });
+  }
+  for (let id of reusedChecks) {
+    let previous = predecessorEffective?.checks.get(id), planned = plan.checkRows.get(id);
+    !previous || !planned ? failures.push(`${artifact.label}: reused ${id} is absent from direct predecessor root evidence`) : checks.set(id, { ...previous, reusedFrom: predecessor.fields.id });
+  }
+  for (let target of data.changedPaths) {
+    let allowed = plan.allowedTargets.some((scope) => targetMatches(target, scope)), prohibited = plan.prohibitedTargets.filter((scope) => !/^all other (?:files|paths|targets)$/i.test(scope)).some((scope) => targetMatches(target, scope));
+    (!allowed || prohibited) && failures.push(`${artifact.label}: changed target ${target} is outside root scope`);
+  }
+  if (initial) {
+    let delivered = new Set(data.objectiveStates.keys());
+    sameSet(delivered, plan.objectives) || failures.push(`${artifact.label}: initial evidence must cover every root objective`), (artifact.fields.source_review_id || artifact.fields.predecessor_evidence_id) && failures.push(`${artifact.label}: initial evidence cannot reference review or predecessor evidence`);
+  } else if (seal) {
+    let sourceReview = artifacts.get(artifact.fields.source_review_id);
+    !sourceReview || sourceReview.fields.artifact !== "work-review" ? failures.push(`${artifact.label}: seal evidence requires its exact source Review`) : ((sourceReview.fields.root_plan_id !== root.fields.id || sourceReview.fields.latest_evidence_id !== artifact.fields.predecessor_evidence_id) && failures.push(`${artifact.label}: seal source Review must bind the direct predecessor Evidence`), (sourceReview.fields.delivery_status !== "provisional" || sourceReview.fields.next_action !== "accept-provisional" || sourceReview.fields.correction_id || reviewData(sourceReview).findings.length > 0) && failures.push(`${artifact.label}: seal source Review must be a finding-free provisional acceptance tip`)), (artifact.fields.status !== "complete" || artifact.fields.overall_grade !== "verified" || (artifact.fields.check_evidence ?? []).some((entry) => entry.grade !== "verified")) && failures.push(`${artifact.label}: seal evidence requires fresh verified coverage for every required Check`);
+  } else {
+    let sourceReview = artifacts.get(artifact.fields.source_review_id), correction3 = correctionForId(artifacts, artifact.fields.subject_id);
+    if (!sourceReview || sourceReview.fields.correction_id !== artifact.fields.subject_id || !correction3) failures.push(`${artifact.label}: correction evidence does not resolve its source review and correction`);
+    else
+      for (let check of correction3.checks.filter((row) => row.Required === "yes")) executed.has(check["Check ID"]) || failures.push(`${artifact.label}: missing executed correction Check ${check["Check ID"]}`);
+  }
+  let reviewReady = artifact.fields.status === "complete" && artifact.fields.overall_grade === "verified" && [...plan.requiredChecks].every((id) => checks.get(id)?.status === "passed"), effective = {
+    root,
+    plan,
+    objectives,
+    checks,
+    workspaceSnapshotHash: data.workspaceSnapshotHash,
+    reviewReady,
+    predecessor: predecessorEffective
+  };
+  return artifact.effective = effective, cache.set(artifact.fields.id, effective), active.delete(artifact.fields.id), effective;
+}
+function validateCompactCorrection(review, root, evidence, artifacts, failures) {
+  let correction2 = review.correction;
+  if (!correction2) return;
+  let metadata = correction2.metadata ?? {};
+  metadata["Correction ID"] !== review.fields.correction_id && failures.push(`${review.label}: correction metadata ID mismatch`), metadata["Root Plan"] !== root.fields.id && failures.push(`${review.label}: correction root mismatch`), metadata["Source Review"] !== review.fields.id && failures.push(`${review.label}: correction source review mismatch`), metadata["Base Evidence"] !== evidence.fields.id && failures.push(`${review.label}: correction base evidence mismatch`), (riskRank[metadata.Risk] ?? 99) > (riskRank[root.fields.risk] ?? 0) && failures.push(`${review.label}: correction raises root risk and requires replan`);
+  let plan = planData(root), findingKeys = new Set(reviewData(review).findings.map((row) => row["Finding key"]));
+  for (let fix of correction2.fixes) {
+    for (let key of String(fix["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean)) findingKeys.has(key) || failures.push(`${review.label}: correction references unknown Finding key ${key}`);
+    for (let objective of ids(fix["Root Objectives"], objectivePattern)) plan.objectives.has(objective) || failures.push(`${review.label}: correction references unknown root ${objective}`);
+    for (let check of ids(fix["Root Checks"], checkPattern)) plan.checks.has(check) || failures.push(`${review.label}: correction references unknown root ${check}`);
+  }
+  for (let step of correction2.steps) for (let target of targetTokens(step.Targets)) {
+    let allowed = plan.allowedTargets.some((scope) => targetMatches(target, scope)), prohibited = plan.prohibitedTargets.filter((scope) => !/^all other (?:files|paths|targets)$/i.test(scope)).some((scope) => targetMatches(target, scope));
+    (!allowed || prohibited) && failures.push(`${review.label}: correction target ${target} is outside root scope`);
+  }
+}
+function progressState(review, artifacts) {
+  let effective = artifacts.get(review.fields.latest_evidence_id)?.effective, findings = reviewData(review).findings;
+  return new Map(findings.map((finding2) => {
+    let objectives = ids(finding2.Objectives, objectivePattern), checks = ids(finding2.Checks, checkPattern), objectiveRank = objectives.reduce((sum, id) => sum + ({ blocked: 0, "not-achieved": 1, "partially-achieved": 2, achieved: 3 }[effective?.objectives.get(id)?.status] ?? 0), 0), passedChecks = checks.filter((id) => effective?.checks.get(id)?.status === "passed").length, snapshotSignature = effective?.workspaceSnapshotHash ?? "missing";
+    return [finding2["Finding key"], { severity: { critical: 4, high: 3, medium: 2, low: 1 }[finding2.Severity] ?? 9, objectiveRank, passedChecks, snapshotSignature }];
+  }));
+}
+function measurableProgress(previous, current) {
+  return !previous || !current ? !1 : current.severity < previous.severity || current.objectiveRank > previous.objectiveRank || current.passedChecks > previous.passedChecks || current.snapshotSignature !== previous.snapshotSignature;
+}
+function validatePlanLineage(artifacts, failures) {
+  let plans = [...artifacts.values()].filter((artifact) => artifact.fields.artifact === "work-plan"), plansById = new Map(plans.map((plan) => [plan.fields.id, plan])), successors = /* @__PURE__ */ new Map();
+  for (let plan of plans) {
+    let predecessorId = plan.fields.predecessor_plan_id, sourceReviewId = plan.fields.replan_source_review_id;
+    if (!predecessorId && !sourceReviewId || !predecessorId || !sourceReviewId) continue;
+    predecessorId === plan.fields.id && failures.push(`${plan.label}: replan root cannot reference itself`), plansById.get(predecessorId) || failures.push(`${plan.label}: missing predecessor plan ${predecessorId}`);
+    let sourceReview = artifacts.get(sourceReviewId);
+    if (!sourceReview || sourceReview.fields.artifact !== "work-review") failures.push(`${plan.label}: missing replan source review ${sourceReviewId}`);
+    else {
+      sourceReview.fields.root_plan_id !== predecessorId && failures.push(`${plan.label}: replan source review must belong to predecessor plan ${predecessorId}`), sourceReview.fields.next_action !== "replan" && failures.push(`${plan.label}: replan source review must require next_action replan`);
+      let predecessorReviews = [...artifacts.values()].filter((artifact) => artifact.fields.artifact === "work-review" && artifact.fields.root_plan_id === predecessorId), referencedReviews = new Set(predecessorReviews.map((review) => review.fields.predecessor_review_id).filter(Boolean)), reviewTips = predecessorReviews.filter((review) => !referencedReviews.has(review.fields.id));
+      (reviewTips.length !== 1 || reviewTips[0].fields.id !== sourceReviewId) && failures.push(`${plan.label}: replan source review must be the unique current predecessor review tip`);
+    }
+    let list2 = successors.get(predecessorId) ?? [];
+    list2.push(plan), successors.set(predecessorId, list2);
+  }
+  for (let [predecessorId, list2] of successors) list2.length > 1 && failures.push(`work-plan lineage branches after ${predecessorId}`);
+  let visiting = /* @__PURE__ */ new Set(), visited = /* @__PURE__ */ new Set(), visit = (plan) => {
+    if (visited.has(plan.fields.id)) return;
+    if (visiting.has(plan.fields.id)) {
+      failures.push(`work-plan lineage is cyclic at ${plan.fields.id}`);
+      return;
+    }
+    visiting.add(plan.fields.id);
+    let predecessor = plansById.get(plan.fields.predecessor_plan_id);
+    predecessor && visit(predecessor), visiting.delete(plan.fields.id), visited.add(plan.fields.id);
+  };
+  plans.forEach(visit);
+  let referencedPlans = new Set(plans.map((plan) => plan.fields.predecessor_plan_id).filter(Boolean));
+  return plans.filter((plan) => !referencedPlans.has(plan.fields.id)).map((plan) => plan.fields.id).sort();
+}
+function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
+  let errors = [], diagnostics = [], normalizations = [], artifacts = /* @__PURE__ */ new Map();
+  for (let [label, text] of entries) {
+    let probe = parseArtifact(text, [], []), type = probe?.fields.artifact;
+    if (type && !knownArtifacts.has(type) && !existsSync2(schemaFor(root, type))) {
+      (/^(?:work|delivery)-/.test(type) || /^(?:wp|de|wr|cp|rs)-/.test(String(probe?.fields.id ?? ""))) && errors.push(`${label}: unsupported workflow artifact type`);
+      continue;
+    }
+    let built = buildArtifact(text, root, { deferReferences: !0 });
+    built.failures.forEach((failure) => errors.push(`${label}: ${failure}`)), built.diagnostics.forEach((item) => diagnostics.push(`${label}: ${item}`)), built.normalizations.forEach((item) => normalizations.push(`${label}: ${item}`)), !(built.failures.length > 0 || !built.parsed?.fields.id) && (artifacts.has(built.parsed.fields.id) && errors.push(`${label}: duplicate artifact ID ${built.parsed.fields.id}`), artifacts.set(built.parsed.fields.id, { label, text, ...built.parsed }));
+  }
+  let rootTips = validatePlanLineage(artifacts, errors), evidenceCache = /* @__PURE__ */ new Map(), evidenceByRoot = /* @__PURE__ */ new Map(), orderedEvidenceByRoot = /* @__PURE__ */ new Map(), reviewsByRoot = /* @__PURE__ */ new Map();
+  for (let artifact of artifacts.values()) {
+    if (artifact.fields.artifact === "delivery-evidence") {
+      materializeEvidence(artifact, artifacts, evidenceCache, errors, root);
+      let list2 = evidenceByRoot.get(artifact.fields.root_plan_id) ?? [];
+      list2.push(artifact), evidenceByRoot.set(artifact.fields.root_plan_id, list2);
+    }
+    if (artifact.fields.artifact === "work-review") {
+      let list2 = reviewsByRoot.get(artifact.fields.root_plan_id) ?? [];
+      list2.push(artifact), reviewsByRoot.set(artifact.fields.root_plan_id, list2);
+    }
+  }
+  for (let [rootId, evidence] of evidenceByRoot)
+    evidence.filter((item) => item.fields.representation === "full").length !== 1 && errors.push(`${rootId}: evidence chain requires exactly one initial root delivery`), orderedEvidenceByRoot.set(rootId, linearChain(evidence, "predecessor_evidence_id", `${rootId}: evidence`, errors));
+  for (let [rootId, reviews] of reviewsByRoot) {
+    let rootPlan = artifacts.get(rootId);
+    if (!rootPlan || rootPlan.fields.artifact !== "work-plan") {
+      errors.push(`${rootId}: reviews require a root plan`);
+      continue;
+    }
+    let plan = planData(rootPlan), ordered = linearChain(reviews, "predecessor_review_id", `${rootId}: review`, errors), learningOwners = /* @__PURE__ */ new Map();
+    for (let review of ordered) for (let learning of review.correction?.learnings ?? []) {
+      let id = learning["Learning ID"];
+      learningOwners.has(id) ? errors.push(`${review.label}: learning candidate ${id} duplicates ${learningOwners.get(id)} within root ${rootId}`) : learningOwners.set(id, review.label);
+    }
+    let reviewIndex = new Map(ordered.map((review, index) => [review.fields.id, index])), rootEvidence = orderedEvidenceByRoot.get(rootId) ?? [];
+    for (let index = 0; index < ordered.length; index += 1) {
+      let review = ordered[index];
+      if (review.fields.review_basis === "root-boundary") {
+        let receipt = review.fields.boundary_receipt ?? {};
+        receipt.root_content_hash !== sha256(rootPlan.text) && errors.push(`${review.label}: boundary receipt root_content_hash does not match exact Root bytes`);
+        for (let path of receipt.observed_paths ?? [])
+          (path.startsWith("/") || path === ".." || path.startsWith("../") || path.includes("\\")) && errors.push(`${review.label}: boundary receipt path must remain normalized and repository-relative: ${path}`);
+        if (typeof options.boundaryReceiptVerifier != "function")
+          errors.push(`${review.label}: root-boundary review requires a fresh protected host receipt; portable or rootless validation fails closed`);
+        else
+          try {
+            let trusted = options.boundaryReceiptVerifier({ receipt, rootPlanText: rootPlan.text, reviewFields: review.fields });
+            trusted?.ok !== !0 && errors.push(`${review.label}: boundary receipt is not trusted: ${trusted?.reason ?? "host verification failed"}`);
+          } catch (error) {
+            errors.push(`${review.label}: boundary receipt host verification failed: ${String(error?.message ?? error)}`);
+          }
+        review.effective = {
+          ...review.effective,
+          contractLevel: rootPlan.fields.contract_level,
+          workspaceSnapshotHash: receipt.repository_snapshot_hash ?? null,
+          correctionRound: rootEvidence.length > 0 ? rootEvidence.length - 1 : 0,
+          reviewReady: !1,
+          loopState: "blocked",
+          boundaryReview: !0,
+          coverage: {
+            objectivesInspected: 0,
+            objectivesReused: 0,
+            checksExecuted: 0,
+            checksReused: 0
+          }
+        };
+        continue;
+      }
+      let evidence = artifacts.get(review.fields.latest_evidence_id);
+      if (!evidence || evidence.fields.artifact !== "delivery-evidence") {
+        errors.push(`${review.label}: missing latest evidence ${review.fields.latest_evidence_id}`);
+        continue;
+      }
+      let effective = evidence.effective;
+      evidence.fields.root_plan_id !== rootId && errors.push(`${review.label}: latest evidence belongs to another root`), evidence.fields.representation === "seal" && (review.fields.predecessor_review_id !== evidence.fields.source_review_id && errors.push(`${review.label}: sealed Review must directly follow its source provisional Review`), (review.fields.assessment !== "achieved" || review.fields.delivery_status !== "verified" || review.fields.next_action !== "none") && errors.push(`${review.label}: sealed Review must be achieved, verified, and terminal`));
+      let knownFailedEvidence = evidenceHasKnownFailure(evidence.fields);
+      knownFailedEvidence && review.fields.delivery_status !== "blocked" && errors.push(`${review.label}: known failed or blocked evidence requires blocked delivery_status`), knownFailedEvidence && ["accept-provisional", "none"].includes(review.fields.next_action) && errors.push(`${review.label}: known failed or blocked evidence cannot be accepted or achieved`);
+      let candidates = rootEvidence.filter((item) => item.fields.source_review_id === null || (reviewIndex.get(item.fields.source_review_id) ?? Number.POSITIVE_INFINITY) < index);
+      candidates.at(-1)?.fields.id !== review.fields.latest_evidence_id && errors.push(`${review.label}: latest_evidence_id is not the evidence tip at review time`), disjointCoverage(review.fields.inspected_objectives, review.fields.reused_objectives, plan.objectives, `${review.label}: objective review`, errors), disjointCoverage(review.fields.inspected_checks, review.fields.reused_checks, plan.requiredChecks, `${review.label}: Check review`, errors), index === 0 && ((review.fields.reused_objectives ?? []).length > 0 || (review.fields.reused_checks ?? []).length > 0) && errors.push(`${review.label}: first review must inspect all root evidence`);
+      for (let objective of review.fields.reused_objectives ?? [])
+        evidence.fields.reused_objectives.includes(objective) || errors.push(`${review.label}: reused review objective ${objective} lacks delta-evidence reuse`), (index > 0 ? artifacts.get(ordered[index - 1].fields.latest_evidence_id)?.effective : null)?.objectives.get(objective)?.status !== "achieved" && errors.push(`${review.label}: reused objective ${objective} requires achieved predecessor status`), reviewData(review).findings.some((finding2) => ids(finding2.Objectives, objectivePattern).includes(objective)) && errors.push(`${review.label}: reused objective ${objective} has a current finding`);
+      for (let check of review.fields.reused_checks ?? []) (!evidence.fields.reused_checks.includes(check) || effective?.checks.get(check)?.status !== "passed") && errors.push(`${review.label}: reused Check ${check} lacks valid passed delta evidence`);
+      review.fields.assessment === "achieved" && (effective?.reviewReady || errors.push(`${review.label}: achieved requires complete effective root-check evidence`), [...plan.objectives].some((id) => effective?.objectives.get(id)?.status !== "achieved") && errors.push(`${review.label}: achieved requires every effective root objective achieved`), reviewData(review).findings.length > 0 && errors.push(`${review.label}: achieved cannot contain findings`)), review.effective = {
+        ...review.effective,
+        contractLevel: rootPlan.fields.contract_level,
+        workspaceSnapshotHash: evidence.fields.workspace_snapshot_hash ?? null,
+        correctionRound: candidates.length - 1,
+        reviewReady: effective?.reviewReady ?? !1,
+        loopState: reviewData(review).findings.length > 0 ? "degraded" : "healthy",
+        coverage: {
+          objectivesInspected: review.fields.inspected_objectives.length,
+          objectivesReused: review.fields.reused_objectives.length,
+          checksExecuted: review.fields.inspected_checks.length,
+          checksReused: review.fields.reused_checks.length
+        }
+      }, validateCompactCorrection(review, rootPlan, evidence, artifacts, errors);
+    }
+    for (let index = 2; index < ordered.length; index += 1) {
+      let window = ordered.slice(index - 2, index + 1);
+      if (window.some((review) => review.fields.review_basis === "root-boundary") || !window.slice(0, 2).every((review) => review.fields.correction_id && [...artifacts.values()].some((candidate) => candidate.fields.artifact === "delivery-evidence" && candidate.fields.subject_id === review.fields.correction_id))) continue;
+      let states2 = window.map((review) => progressState(review, artifacts));
+      for (let key of states2[2].keys()) {
+        if (!states2[0].has(key) || !states2[1].has(key)) continue;
+        if (!(measurableProgress(states2[0].get(key), states2[1].get(key)) || measurableProgress(states2[1].get(key), states2[2].get(key)))) {
+          let current = window[2];
+          current.effective.loopState = "stalled", diagnostics.push(`${current.label}: Finding key ${key} survived two corrections without measurable progress; clarify or replan is recommended`), ["clarify", "replan"].includes(current.fields.next_action) || errors.push(`${current.label}: two correction rounds without measurable progress require next_action clarify or replan`);
+        }
+      }
+      window[2].effective.loopState || (window[2].effective.loopState = reviewData(window[2]).findings.length > 0 ? "degraded" : "healthy");
+    }
+  }
+  return { errors: unique(errors), diagnostics: unique(diagnostics), normalizations: unique(normalizations), effective: artifacts, root_tips: rootTips };
+}
+function inspectArtifactSet(entries, root = defaultRoot, options = {}) {
+  return inspectCompactArtifactSet(entries, root, options);
+}
+function effectiveCliSummary(inspection) {
+  if (!(inspection.effective instanceof Map)) return { active_root_id: null, root_tips: [], evidence_tips: {}, review_tips: {}, actionable_reviews: [], learning_candidates: [] };
+  let artifacts = [...inspection.effective.values()], tips = (type, predecessorField) => {
+    let items = artifacts.filter((artifact) => artifact.fields.artifact === type);
+    return Object.fromEntries(lineageTips(items, predecessorField).map((artifact) => [artifact.fields.root_plan_id, artifact.fields.id]));
+  }, rootTips = inspection.root_tips ?? validatePlanLineage(inspection.effective, []), activeRootId = rootTips.length === 1 ? rootTips[0] : null, evidenceTips = tips("delivery-evidence", "predecessor_evidence_id"), reviewTips = tips("work-review", "predecessor_review_id"), activeReview = activeRootId && reviewTips[activeRootId] ? inspection.effective.get(reviewTips[activeRootId]) : null, learningCandidates = artifacts.filter((artifact) => artifact.fields.artifact === "work-review" && artifact.fields.root_plan_id === activeRootId && activeReview?.fields.assessment === "achieved" && activeReview?.fields.delivery_status === "verified" && artifact.correction?.learnings?.length > 0).flatMap((artifact) => artifact.correction.learnings.map((learning) => {
+    let evidence = artifacts.find((candidate) => candidate.fields.artifact === "delivery-evidence" && candidate.fields.subject_id === artifact.fields.correction_id && candidate.fields.status === "complete");
+    return {
+      source_kind: "manual-correction",
+      root_plan_id: artifact.fields.root_plan_id,
+      review_id: artifact.fields.id,
+      correction_id: artifact.fields.correction_id,
+      learning_id: learning["Learning ID"],
+      finding_keys: String(learning["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean),
+      reusable_guidance: learning["Reusable guidance"],
+      candidate_targets: targetTokens(learning["Candidate targets"]),
+      confirmation_evidence: learning["Confirmation evidence"],
+      correction_evidence_id: evidence?.fields.id ?? null,
+      evidence_confirmed: !!evidence
+    };
+  })).toSorted((left, right) => left.review_id.localeCompare(right.review_id) || left.learning_id.localeCompare(right.learning_id));
+  return {
+    active_root_id: activeRootId,
+    root_tips: rootTips,
+    evidence_tips: evidenceTips,
+    review_tips: reviewTips,
+    actionable_reviews: artifacts.filter((artifact) => artifact.fields.artifact === "work-review" && artifact.fields.root_plan_id === activeRootId && artifact.fields.id === reviewTips[activeRootId] && artifact.fields.next_action === "correct").map((artifact) => ({ root_plan_id: artifact.fields.root_plan_id, review_id: artifact.fields.id, correction_id: artifact.fields.correction_id, base_evidence_id: artifact.fields.latest_evidence_id })),
+    learning_candidates: learningCandidates
+  };
+}
+function runCli() {
+  let diagnosticsRequested = process.argv.includes("--diagnostics"), effectiveRequested = process.argv.includes("--effective"), paths = process.argv.slice(2).filter((value) => !["--diagnostics", "--effective"].includes(value));
+  if (paths.length === 0) {
+    console.error("Usage: validate-artifact.mjs [--diagnostics] [--effective] <artifact.md> [related-artifact.md ...]"), process.exitCode = 2;
+    return;
+  }
+  let entries = paths.map((path) => [path, readFileSync2(resolve2(path), "utf8")]), inspection = entries.length === 1 ? inspectArtifactText(entries[0][1]) : inspectArtifactSet(entries);
+  if (inspection.errors.length > 0) {
+    console.error("Artifact validation failed:"), inspection.errors.forEach((failure) => console.error(`- ${failure}`)), process.exitCode = 1;
+    return;
+  }
+  if (effectiveRequested) {
+    console.log(JSON.stringify({ status: "passed", ...effectiveCliSummary(inspection), normalizations: diagnosticsRequested ? inspection.normalizations : void 0, diagnostics: diagnosticsRequested ? inspection.diagnostics : void 0 }, null, 2));
+    return;
+  }
+  console.log(entries.length === 1 ? "Artifact validation passed." : "Artifact chain validation passed."), diagnosticsRequested && (inspection.normalizations.forEach((item) => console.log(`NORMALIZED: ${item}`)), inspection.diagnostics.forEach((item) => console.log(`DIAGNOSTIC: ${item}`)));
+}
+process.argv[1] && ["validate-artifact.source.mjs", "validate-artifact.mjs"].includes(basename(process.argv[1])) && realpathSync(resolve2(process.argv[1])) === realpathSync(fileURLToPath(import.meta.url)) && runCli();
+
+// src/core/manual-path-authority.mjs
+import { existsSync as existsSync3, realpathSync as realpathSync2 } from "node:fs";
+import { dirname as dirname2, isAbsolute, relative, resolve as resolve3, sep } from "node:path";
+function uniqueSorted(values) {
+  return [...new Set((values ?? []).map(String).map((value) => value.trim()).filter(Boolean))].sort();
+}
+function pathMatchesRoot(path, root) {
+  return path === root || path.startsWith(`${root}/`);
+}
+function repositoryAuthorityPaths(repositoryRoot, repositoryPath) {
+  let root = realpathSync2(repositoryRoot), lexical = resolve3(root, repositoryPath);
+  if (lexical !== root && !lexical.startsWith(`${root}${sep}`))
+    throw new Error(`native closeout path escapes the repository: ${repositoryPath}`);
+  let existing = lexical;
+  for (; !existsSync3(existing) && existing !== root; ) existing = dirname2(existing);
+  let resolvedExisting = realpathSync2(existing);
+  if (resolvedExisting !== root && !resolvedExisting.startsWith(`${root}${sep}`))
+    throw new Error(`native closeout path resolves outside the repository: ${repositoryPath}`);
+  let unresolved = relative(existing, lexical), resolved = resolve3(resolvedExisting, unresolved);
+  if (resolved !== root && !resolved.startsWith(`${root}${sep}`))
+    throw new Error(`native closeout path resolves outside the repository: ${repositoryPath}`);
+  let normalizeRelative = (value) => relative(root, value).replaceAll("\\", "/") || ".";
+  return {
+    lexical: normalizeRelative(lexical),
+    resolved: normalizeRelative(resolved)
+  };
+}
+function authorityViolation(authorityPath, { allowed, protectedPaths, approvalRequired }) {
+  return protectedPaths.some((entry) => pathMatchesRoot(authorityPath, entry)) ? `native closeout path is protected by the Root: ${authorityPath}` : approvalRequired.some((entry) => pathMatchesRoot(authorityPath, entry)) ? `native closeout path requires separate human approval that the closeout report cannot grant: ${authorityPath}` : allowed.some((entry) => pathMatchesRoot(authorityPath, entry)) ? null : `native closeout path is outside Root authority: ${authorityPath}`;
+}
+function assertChangedPathAuthority(rootFields, changedPaths, repositoryRoot) {
+  let authority = rootFields?.authority ?? {}, allowed = uniqueSorted(authority.allowed_roots), protectedPaths = uniqueSorted(authority.protected_paths), approvalRequired = uniqueSorted(authority.approval_required_paths);
+  if (allowed.length === 0) throw new Error("native closeout Root has no allowed path authority");
+  for (let path of uniqueSorted(changedPaths)) {
+    if (isAbsolute(path) || path.includes("\\") || path.includes("\0"))
+      throw new Error(`native closeout path is not repository-relative: ${path}`);
+    let candidates = repositoryAuthorityPaths(repositoryRoot, path);
+    for (let candidate of uniqueSorted([candidates.lexical, candidates.resolved])) {
+      let violation = authorityViolation(candidate, { allowed, protectedPaths, approvalRequired });
+      if (violation) throw new Error(violation);
+    }
+  }
+}
+
+// src/controller/delivery-closeout.mjs
+var import_yaml2 = __toESM(require_dist(), 1);
+import { createHash as createHash4 } from "node:crypto";
+
+// src/core/harness-attestations.mjs
+import { createHash as createHash3 } from "node:crypto";
+var HARNESS_CHECK_ATTESTATION_SCHEMA = 1, hashPattern = /^[a-f0-9]{64}$/, checkPattern2 = /^CHECK-[1-9][0-9]*$/;
+var attestationStatuses = /* @__PURE__ */ new Set(["passed", "failed", "unavailable"]);
+function stable(value) {
+  return Array.isArray(value) ? value.map(stable) : !value || typeof value != "object" ? value : Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])]));
+}
+function harnessContractHash(value) {
+  return createHash3("sha256").update(JSON.stringify(stable(value))).digest("hex");
+}
+function closed(value, keys, label) {
+  if (!value || typeof value != "object" || Array.isArray(value)) throw new Error(`${label} must be an object`);
+  let extras = Object.keys(value).filter((key) => !keys.includes(key));
+  if (extras.length > 0) throw new Error(`${label} contains unsupported fields: ${extras.join(", ")}`);
+  return value;
+}
+function exactHash(value, label) {
+  if (!hashPattern.test(String(value ?? ""))) throw new Error(`${label} must be a SHA-256 hash`);
+  return value;
+}
+function strings(value, label, { min = 0 } = {}) {
+  if (!Array.isArray(value) || value.length < min || value.some((entry) => typeof entry != "string" || !entry.trim()))
+    throw new Error(`${label} must be an array of non-empty strings`);
+  return [...new Set(value.map((entry) => entry.trim()))];
+}
+function verificationIntentHash(check) {
+  if (!check || !checkPattern2.test(String(check["Check ID"] ?? ""))) throw new Error("verification intent requires one Check ID");
+  closed(check, [
+    "Check ID",
+    "Objectives",
+    "Verification Intent",
+    "Expected Evidence",
+    "Required",
+    "Evidence Class",
+    "Cost Class",
+    "Prerequisites"
+  ], `verification intent ${check["Check ID"]}`);
+  for (let field of ["Objectives", "Verification Intent", "Expected Evidence", "Evidence Class", "Prerequisites"])
+    if (typeof check[field] != "string" || !check[field].trim()) throw new Error(`verification intent ${check["Check ID"]} is missing ${field}`);
+  return harnessContractHash({
+    check_id: check["Check ID"],
+    objectives: check.Objectives,
+    verification_intent: check["Verification Intent"],
+    expected_evidence: check["Expected Evidence"],
+    required: check.Required,
+    evidence_class: check["Evidence Class"],
+    cost_class: check["Cost Class"],
+    prerequisites: check.Prerequisites
+  });
+}
+function validateHarnessCheckAttestation(input, expected = {}) {
+  let value = closed(input, [
+    "schema",
+    "kind",
+    "harness_id",
+    "check_id",
+    "root_hash",
+    "verification_intent_hash",
+    "workspace_binding",
+    "workspace_snapshot_hash",
+    "status",
+    "observed",
+    "evidence_hashes",
+    "issued_at",
+    "content_hash"
+  ], "harness Check attestation");
+  if (value.schema !== HARNESS_CHECK_ATTESTATION_SCHEMA || value.kind !== "harness-check-attestation") throw new Error("unsupported harness Check attestation");
+  if (typeof value.harness_id != "string" || !value.harness_id.trim()) throw new Error("harness Check attestation requires harness_id");
+  if (!checkPattern2.test(String(value.check_id ?? ""))) throw new Error("harness Check attestation requires check_id");
+  if (exactHash(value.root_hash, "harness Check root_hash"), exactHash(value.verification_intent_hash, "harness Check verification_intent_hash"), exactHash(value.workspace_binding, "harness Check workspace_binding"), exactHash(value.workspace_snapshot_hash, "harness Check workspace_snapshot_hash"), !attestationStatuses.has(value.status)) throw new Error(`unsupported harness Check status: ${value.status}`);
+  if (typeof value.observed != "string" || !value.observed.trim()) throw new Error("harness Check attestation requires observed");
+  let evidenceHashes = strings(value.evidence_hashes ?? [], "harness Check evidence_hashes");
+  if (value.status === "passed" && evidenceHashes.length === 0) throw new Error("passed harness Check attestation requires evidence_hashes");
+  for (let hash of evidenceHashes) exactHash(hash, "harness Check evidence hash");
+  if (!Number.isFinite(Date.parse(value.issued_at))) throw new Error("harness Check attestation requires issued_at");
+  let attestation = { ...value, evidence_hashes: evidenceHashes }, { content_hash: contentHash, ...content } = attestation;
+  if (harnessContractHash(content) !== contentHash) throw new Error("harness Check attestation content hash mismatch");
+  for (let [key, expectedValue] of Object.entries(expected))
+    if (expectedValue != null && attestation[key] !== expectedValue) throw new Error(`harness Check attestation ${key} mismatch`);
+  return attestation;
+}
+function calibrateHarnessCheckEvidence({
+  entries,
+  plannedChecks,
+  attestations = [],
+  rootHash,
+  workspaceBinding,
+  workspaceSnapshotHash,
+  expectedHarnessId = null,
+  protectedAttestationHash = null
+}) {
+  let planned = plannedChecks instanceof Map ? plannedChecks : new Map((plannedChecks ?? []).map((check) => [check["Check ID"], check])), validated = /* @__PURE__ */ new Map();
+  for (let input of attestations) {
+    let check = planned.get(input?.check_id);
+    if (!check) throw new Error(`harness attestation references unknown Check ${input?.check_id}`);
+    let attestation = validateHarnessCheckAttestation(input, {
+      harness_id: expectedHarnessId,
+      root_hash: rootHash,
+      verification_intent_hash: verificationIntentHash(check),
+      workspace_binding: workspaceBinding,
+      workspace_snapshot_hash: workspaceSnapshotHash
+    });
+    if (validated.has(attestation.check_id)) throw new Error(`multiple harness attestations for ${attestation.check_id}`);
+    validated.set(attestation.check_id, attestation);
+  }
+  return entries.map((entry) => {
+    let check = planned.get(entry.check_id);
+    if (!check) return entry;
+    let attestation = validated.get(entry.check_id) ?? null;
+    return attestation?.status === "failed" ? {
+      ...entry,
+      grade: "failed",
+      observed: attestation.observed,
+      evidence_hashes: attestation.evidence_hashes,
+      ...protectedAttestationHash ? { attestation_hash: protectedAttestationHash } : {},
+      limitations: [.../* @__PURE__ */ new Set([...entry.limitations ?? [], "The project harness attested a failed Check for the current repository snapshot."])]
+    } : attestation?.status === "passed" && protectedAttestationHash ? {
+      ...entry,
+      grade: check["Evidence Class"] === "human-decision-required" ? "supported" : "verified",
+      observed: attestation.observed,
+      evidence_hashes: attestation.evidence_hashes,
+      attestation_hash: protectedAttestationHash,
+      limitations: check["Evidence Class"] === "human-decision-required" ? [.../* @__PURE__ */ new Set([
+        ...(entry.limitations ?? []).filter((limitation) => !/harness|attestation/i.test(limitation)),
+        "The project harness attested its observation, but this Check still requires an explicit human decision."
+      ])] : (entry.limitations ?? []).filter((limitation) => !/harness|attestation/i.test(limitation))
+    } : attestation?.status === "unavailable" ? {
+      ...entry,
+      grade: "unavailable",
+      observed: attestation.observed,
+      evidence_hashes: attestation.evidence_hashes,
+      ...protectedAttestationHash ? { attestation_hash: protectedAttestationHash } : {},
+      limitations: [.../* @__PURE__ */ new Set([...entry.limitations ?? [], "The project harness reported this Check as unavailable."])]
+    } : attestation?.status === "passed" && !protectedAttestationHash ? {
+      ...entry,
+      grade: "supported",
+      observed: attestation.observed,
+      evidence_hashes: attestation.evidence_hashes,
+      limitations: [.../* @__PURE__ */ new Set([
+        ...entry.limitations ?? [],
+        "The project harness reported a passing Check, but no protected host receipt binds it to this transition."
+      ])]
+    } : entry.grade !== "verified" ? entry : {
+      ...entry,
+      grade: "supported",
+      evidence_hashes: entry.evidence_hashes ?? [],
+      limitations: [.../* @__PURE__ */ new Set([
+        ...entry.limitations ?? [],
+        "No protected project-harness attestation binds this Check to the current Root and repository snapshot."
+      ])]
+    };
+  });
+}
+function harnessConstraintProjection({ checks = [], evidence = [], pending = !1 }) {
+  let required2 = checks.filter((check) => check.Required === "yes"), byId = new Map((evidence ?? []).map((entry) => [entry.check_id, entry])), ids3 = (predicate) => required2.filter(predicate).map((check) => check["Check ID"]), attested = ids3((check) => {
+    let entry = byId.get(check["Check ID"]);
+    return entry?.grade === "verified" && hashPattern.test(String(entry.attestation_hash ?? ""));
+  }), failed = ids3((check) => byId.get(check["Check ID"])?.grade === "failed"), gaps = pending ? [] : ids3((check) => {
+    let entry = byId.get(check["Check ID"]);
+    return !entry || ["supported", "partial", "unavailable"].includes(entry.grade);
+  }), humanDecision = ids3((check) => check["Evidence Class"] === "human-decision-required"), reasons = pending ? [] : [
+    ...failed.map((checkId2) => ({ code: "check-failed", check_id: checkId2, message: `${checkId2} failed and blocks delivery.`, recovery: `Resolve the cause and ask the project harness to attest ${checkId2} again.` })),
+    ...gaps.map((checkId2) => ({ code: "harness-evidence-gap", check_id: checkId2, message: `${checkId2} is not bound to sufficient project-harness evidence.`, recovery: `Have the active project harness observe ${checkId2} and return a protected attestation.` })),
+    ...humanDecision.map((checkId2) => ({ code: "human-decision-required", check_id: checkId2, message: `${checkId2} requires an explicit human decision.`, recovery: "Request the named human decision before continuing." }))
+  ];
+  return {
+    constraint_summary: {
+      schema: 2,
+      scope: "current-delivery",
+      required_checks: required2.map((check) => check["Check ID"]),
+      harness_attested_checks: attested,
+      human_decision_checks: humanDecision,
+      failed_checks: failed,
+      evidence_gap_checks: gaps,
+      attestation_coverage: { attested: attested.length, eligible: required2.length }
+    },
+    human_attention: { required: reasons.length > 0, reasons },
+    problem_details: reasons.map((reason) => ({
+      problem: reason.message,
+      why: reason.code === "check-failed" ? "A required failed Check blocks delivery." : reason.code === "harness-evidence-gap" ? "Workflow does not interpret concrete execution and therefore needs a protected harness attestation for verified evidence." : "This Check is reserved for human authority.",
+      resolution: reason.recovery,
+      blocking: ["check-failed", "human-decision-required"].includes(reason.code),
+      check_id: reason.check_id
+    }))
+  };
+}
+
+// src/controller/delivery-closeout.mjs
+var GRADES = /* @__PURE__ */ new Set(["verified", "supported", "partial", "unavailable", "failed"]);
+function sha2562(value) {
+  return createHash4("sha256").update(String(value)).digest("hex");
+}
+function stable2(value) {
+  return Array.isArray(value) ? value.map(stable2) : !value || typeof value != "object" ? value : Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable2(value[key])]));
+}
+function unique2(values) {
+  return [...new Set(values)];
+}
+function normalizeArtifacts(rootPlanText, artifacts, pluginRoot) {
+  let root = inspectArtifactText(rootPlanText, pluginRoot);
+  if (root.errors.length > 0 || root.artifact?.fields?.artifact !== "work-plan" || root.artifact.fields.schema !== 6)
+    throw new Error(`closeout requires an exact valid Schema-6 Root: ${root.errors.join("; ") || "not a work-plan"}`);
+  let rootId = root.artifact.fields.id, byId = /* @__PURE__ */ new Map([[rootId, { label: rootId, text: rootPlanText }]]);
+  for (let [index, entry] of (artifacts ?? []).entries()) {
+    if (!entry || typeof entry.text != "string" || !entry.text.trim()) throw new Error(`closeout artifact ${index + 1} requires exact text`);
+    let inspected = inspectArtifactText(entry.text, pluginRoot);
+    if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) throw new Error(`closeout artifact ${entry.label ?? index + 1} is invalid: ${inspected.errors.join("; ")}`);
+    let id = inspected.artifact.fields.id, prior = byId.get(id);
+    if (prior && prior.text !== entry.text) throw new Error(`closeout artifact ${id} has conflicting immutable bytes`);
+    byId.set(id, { ...entry, label: id });
+  }
+  return { rootId, entries: [...byId.values()] };
+}
+function ids2(value, pattern) {
+  return unique2(String(value ?? "").match(pattern) ?? []);
+}
+function correctionRootChecks(correction2) {
+  return unique2((correction2?.fixes ?? []).flatMap((fix) => ids2(fix["Root Checks"], /CHECK-[1-9][0-9]*/g)));
+}
+function correctionCheckIntent(correction2, check) {
+  let fixIds = new Set(ids2(check["FIX IDs"], /FIX-[1-9][0-9]*/g)), objectives = unique2((correction2?.fixes ?? []).filter((fix) => fixIds.has(fix["FIX ID"])).flatMap((fix) => ids2(fix["Root Objectives"], /OBJ-[1-9][0-9]*/g)));
+  return {
+    "Check ID": check["Check ID"],
+    Objectives: objectives.join(", "),
+    "Verification Intent": check["Verification Intent"],
+    "Expected Evidence": check["Expected Evidence"],
+    Required: check.Required,
+    "Evidence Class": check["Evidence Class"],
+    "Cost Class": check["Cost Class"],
+    Prerequisites: check.Prerequisites
+  };
+}
+function requiredChecks(contract, correction2) {
+  let root = contract.checks.filter((check) => check.Required === "yes");
+  if (!correction2) return new Map(root.map((check) => [check["Check ID"], check]));
+  let correctionChecks = (correction2.checks ?? []).filter((check) => check.Required === "yes").map((check) => correctionCheckIntent(correction2, check)), referencedRootIds = new Set(correctionRootChecks(correction2)), referencedRoot = root.filter((check) => referencedRootIds.has(check["Check ID"]));
+  return new Map([...correctionChecks, ...referencedRoot, ...root].map((check) => [check["Check ID"], check]));
+}
+function normalizeEvidence(input, plannedChecks) {
+  if (!Array.isArray(input)) throw new Error("closeout Check evidence must be an array");
+  let ids3 = input.map((entry) => entry?.check_id);
+  if (new Set(ids3).size !== ids3.length) throw new Error("closeout Check evidence IDs must be unique");
+  let supplied = new Map(input.map((entry) => [entry?.check_id, entry]));
+  for (let checkId2 of supplied.keys()) if (!plannedChecks.has(checkId2)) throw new Error(`closeout received unknown Check ${checkId2}`);
+  return [...plannedChecks.keys()].map((checkId2) => supplied.get(checkId2) ?? {
+    check_id: checkId2,
+    grade: "unavailable",
+    observed: "No project-harness observation was available for this verification intent.",
+    evidence_hashes: [],
+    limitations: ["The active project harness did not return evidence for this Check."]
+  }).map((entry) => {
+    if (!plannedChecks.has(entry?.check_id)) throw new Error(`closeout received unknown Check ${entry?.check_id}`);
+    if (!GRADES.has(entry.grade)) throw new Error(`closeout Check ${entry.check_id} has invalid grade`);
+    let limitations = unique2((entry.limitations ?? []).map(String).map((value) => value.trim()).filter(Boolean));
+    if (entry.grade === "unavailable" && limitations.length === 0) throw new Error(`unavailable Check ${entry.check_id} requires a concrete limitation`);
+    return {
+      check_id: entry.check_id,
+      grade: entry.grade,
+      observed: String(entry.observed ?? "not fully observed").trim() || "not fully observed",
+      evidence_hashes: unique2((entry.evidence_hashes ?? []).map(String).filter((value) => /^[a-f0-9]{64}$/.test(value))),
+      ...typeof entry.attestation_hash == "string" ? { attestation_hash: entry.attestation_hash } : {},
+      limitations
+    };
+  });
+}
+function aggregate(entries) {
+  let grades = entries.map((entry) => entry.grade);
+  return grades.includes("failed") ? "failed" : entries.length > 0 && grades.every((grade) => grade === "verified") ? "verified" : grades.includes("unavailable") ? "unavailable" : grades.includes("partial") ? "partial" : "supported";
+}
+function artifactStatus(grade) {
+  return grade === "failed" ? "blocked" : grade === "verified" ? "complete" : "provisional";
+}
+function summaryText(summary2, status, grade, entries) {
+  let supplied = String(summary2 ?? "").trim();
+  if (supplied) return supplied;
+  if (status === "blocked") return "BLOCKER: at least one required verification intent failed.";
+  if (status === "complete") return "Every required verification intent is bound to a passing project-harness attestation.";
+  let limitations = unique2(entries.flatMap((entry) => entry.limitations ?? []));
+  return `Delivery remains provisional with evidence grade ${grade}.${limitations.length > 0 ? ` Limitations: ${limitations.join(" ")}` : ""}`;
+}
+function buildDeliveryEvidence({
+  rootPlanText,
+  artifacts = [],
+  checkEvidence: checkEvidence2,
+  changedPaths = [],
+  effectiveProfile = null,
+  summary: summary2 = null,
+  harnessAttestations = [],
+  harnessId = null,
+  protectedAttestationHash = null,
+  enforceHarnessAttestations = !0,
+  workspaceBinding = null,
+  workspaceSnapshotHash = null,
+  seal = !1,
+  pluginRoot
+}) {
+  let normalized = normalizeArtifacts(rootPlanText, artifacts, pluginRoot), contract = executionContractFromArtifactText(rootPlanText, pluginRoot);
+  if (contract.errors.length > 0 || contract.fields.schema !== 6) throw new Error(`closeout Root is invalid: ${contract.errors.join("; ")}`);
+  let prior = inspectArtifactSet(normalized.entries.map((entry) => [entry.label, entry.text]), pluginRoot);
+  if (prior.errors.length > 0) throw new Error(`closeout input chain is invalid: ${prior.errors.join("; ")}`);
+  let tips = effectiveCliSummary(prior), evidenceTipId = tips.evidence_tips[normalized.rootId] ?? null, reviewTipId = tips.review_tips[normalized.rootId] ?? null, review = reviewTipId ? prior.effective.get(reviewTipId) : null, correction2 = evidenceTipId && review?.fields?.latest_evidence_id === evidenceTipId && review?.fields?.next_action === "correct" && review?.correction ? review.correction : null;
+  if (seal) {
+    if (!evidenceTipId || !review || review.fields.latest_evidence_id !== evidenceTipId)
+      throw new Error("protected sealing requires one exact current provisional Evidence/Review tip");
+    if (review.fields.delivery_status !== "provisional" || review.fields.next_action !== "accept-provisional" || review.fields.correction_id || (review.findings ?? []).length > 0)
+      throw new Error(`protected sealing rejects non-provisional Review tip ${review.fields.id}`);
+  } else if (evidenceTipId && !correction2) {
+    let existing = normalized.entries.find((entry) => entry.label === evidenceTipId);
+    if ((checkEvidence2 ?? []).length > 0 || (changedPaths ?? []).length > 0)
+      throw new Error(`stale or competing closeout conflicts with current Evidence tip ${evidenceTipId}`);
+    let fields2 = prior.effective.get(evidenceTipId)?.fields ?? null;
+    return {
+      duplicate: !0,
+      artifact: existing?.text ?? null,
+      artifact_hash: existing ? sha2562(existing.text) : null,
+      fields: fields2,
+      ...harnessConstraintProjection({ checks: contract.checks, evidence: fields2?.check_evidence ?? [] })
+    };
+  }
+  let planned = requiredChecks(contract, correction2), entries = normalizeEvidence(checkEvidence2, planned), rootHash = sha2562(rootPlanText), effectiveWorkspaceBinding = workspaceBinding ?? harnessContractHash({ workspace: "not-established" }), effectiveSnapshotHash = workspaceSnapshotHash ?? harnessContractHash({ snapshot: "not-attested" });
+  enforceHarnessAttestations && (entries = calibrateHarnessCheckEvidence({
+    entries,
+    plannedChecks: planned,
+    attestations: harnessAttestations,
+    rootHash,
+    workspaceBinding: effectiveWorkspaceBinding,
+    workspaceSnapshotHash: effectiveSnapshotHash,
+    expectedHarnessId: harnessId,
+    protectedAttestationHash
+  }));
+  let grade = aggregate(entries), status = artifactStatus(grade);
+  if (seal && (grade !== "verified" || status !== "complete" || entries.some((entry) => entry.grade !== "verified"))) {
+    let error = new Error("protected sealing requires fresh verified evidence for every required Check");
+    throw error.code = "protected-seal-not-verified", error;
+  }
+  let subjectId = correction2 ? review.fields.correction_id : normalized.rootId, sourceReviewId = correction2 || seal ? review.fields.id : null, predecessorEvidenceId = correction2 || seal ? evidenceTipId : null, paths = unique2((changedPaths ?? []).map(String).map((path) => path.trim()).filter(Boolean)).sort(), affectedObjectives = [...contract.objectives], seed = sha2562(JSON.stringify(stable2({
+    root_projection_hash: contract.authoritative_projection_hash,
+    subject_id: subjectId,
+    source_review_id: sourceReviewId,
+    predecessor_evidence_id: predecessorEvidenceId,
+    workspace_snapshot_hash: effectiveSnapshotHash,
+    changed_paths: paths,
+    check_evidence: entries,
+    summary: summary2 ?? null
+  }))), id = `de-${subjectId.replace(/^(?:wp|cp)-/, "")}-${seed.slice(0, 12)}`, mode = effectiveProfile === "manual" && contract.fields.risk !== "high" && (contract.fields.hard_triggers ?? []).length === 0 ? "lean" : "full", fields = {
+    artifact: "delivery-evidence",
+    schema: 6,
+    id,
+    status,
+    root_plan_id: normalized.rootId,
+    subject_id: subjectId,
+    source_review_id: sourceReviewId,
+    predecessor_evidence_id: predecessorEvidenceId,
+    representation: correction2 ? "delta" : seal ? "seal" : "full",
+    intent_hash: contract.authoritative_projection_hash,
+    evidence_mode: mode,
+    overall_grade: grade,
+    workspace_snapshot_hash: effectiveSnapshotHash,
+    changed_paths: paths,
+    affected_objectives: affectedObjectives,
+    reused_objectives: [],
+    executed_checks: entries.map((entry) => entry.check_id),
+    reused_checks: [],
+    check_evidence: entries
+  }, artifact = `---
+${(0, import_yaml2.stringify)(fields, { lineWidth: 0 }).trimEnd()}
+---
+
+## Summary
+
+${summaryText(summary2, status, grade, entries)}
+`, final = inspectArtifactSet([...normalized.entries, { label: id, text: artifact }].map((entry) => [entry.label, entry.text]), pluginRoot);
+  if (final.errors.length > 0) throw new Error(`generated delivery evidence is invalid: ${final.errors.join("; ")}`);
+  return {
+    duplicate: !1,
+    artifact,
+    artifact_hash: sha2562(artifact),
+    fields,
+    evidence_mode: mode,
+    overall_grade: grade,
+    status,
+    ...harnessConstraintProjection({ checks: contract.checks, evidence: entries })
+  };
+}
+
+// src/controller/manual-status.mjs
+import { createHash as createHash5 } from "node:crypto";
+
+// scripts/derive-workflow-state.mjs
+var states = /* @__PURE__ */ new Set([
+  "intake",
+  "intent-clarification",
+  "root-plan-review",
+  "implementing",
+  "reviewing",
+  "correcting",
+  "delivery-ready-verified",
+  "delivery-ready-provisional",
+  "waiting-human",
+  "replan",
+  "achieved",
+  "accepted-provisional",
+  "blocked",
+  "paused",
+  "interrupted",
+  "stopped",
+  "failed"
+]), terminalLifecycle = /* @__PURE__ */ new Set(["achieved", "accepted-provisional", "blocked", "stopped", "failed"]);
+function snapshot(input, state, overrides = {}) {
+  if (!states.has(state)) throw new Error(`unsupported workflow state ${state}`);
+  return {
+    run_id: input.run_id ?? null,
+    root_plan_id: input.root_plan_id ?? null,
+    requested_profile: input.requested_profile ?? "manual",
+    effective_profile: input.effective_profile ?? input.requested_profile ?? "manual",
+    contract_level: input.plan?.fields?.contract_level ?? input.contract_level ?? null,
+    state,
+    snapshot_source: input.snapshot_source ?? (input.run_id ? "harness-run" : "artifact-chain"),
+    allowed_actions: [],
+    required_actor: "none",
+    next_action: "none",
+    evidence_tip: input.evidence_tip ?? null,
+    review_tip: input.review_tip ?? null,
+    blockers: [...new Set(input.blockers ?? [])],
+    downgrade_reason: input.downgrade_reason ?? null,
+    intent_hash: input.intent_hash ?? input.root_authoritative_projection_hash ?? null,
+    evidence_grade: input.evidence_grade ?? null,
+    delivery_status: input.delivery_status ?? null,
+    qualification_key: input.qualification_key ?? null,
+    artifact_set_hash: input.artifact_set_hash ?? null,
+    observed_at: input.observed_at ?? (/* @__PURE__ */ new Date()).toISOString(),
+    ...overrides
+  };
+}
+function waiting(input, blocker, nextAction = "answer") {
+  return snapshot(input, "waiting-human", {
+    allowed_actions: ["answer", "pause", "stop"],
+    required_actor: "human",
+    next_action: nextAction,
+    blockers: [...new Set([...input.blockers ?? [], blocker].filter(Boolean))]
+  });
+}
+function deriveWorkflowState(input = {}) {
+  let manualArtifacts = (input.snapshot_source ?? (input.run_id ? "harness-run" : "artifact-chain")) === "artifact-chain";
+  if (terminalLifecycle.has(input.lifecycle)) return snapshot(input, input.lifecycle);
+  if (input.lifecycle === "paused") return snapshot(input, "paused", { allowed_actions: ["resume", "stop"], required_actor: "human", next_action: "resume" });
+  if (input.lifecycle === "interrupted") return snapshot(input, "interrupted", { allowed_actions: ["resume", "stop"], required_actor: "human", next_action: "reconcile-and-resume" });
+  if (input.manual_context_incomplete) return snapshot(input, "waiting-human", { allowed_actions: ["provide-artifacts"], required_actor: "human", next_action: "provide-artifacts" });
+  if (input.artifact_chain_valid === !1 || input.root_schema_valid === !1) return snapshot(input, "replan", {
+    allowed_actions: ["replan"],
+    required_actor: "human",
+    next_action: "create-schema-6-root",
+    blockers: [.../* @__PURE__ */ new Set([...input.blockers ?? [], "schema-6-replan-required"])]
+  });
+  if ((input.blockers ?? []).length > 0 || input.lifecycle === "waiting-human") return waiting(input, null, input.next_action ?? "answer");
+  if (!input.goal && !input.root_plan_id) return snapshot(input, "intake", { allowed_actions: ["provide-goal", "provide-root-plan"], required_actor: "human", next_action: "provide-intent" });
+  if (input.material_open_decisions) return snapshot(input, "intent-clarification", { allowed_actions: ["answer", "replan"], required_actor: "human", next_action: "resolve-intent" });
+  if (!input.root_plan_id || input.plan_status === "draft") return snapshot(input, "root-plan-review", { allowed_actions: ["inspect", "approve", "stop"], required_actor: "human", next_action: input.plan_status === "draft" ? "approve-plan" : "create-root-plan" });
+  if (!input.plan_approved) return snapshot(input, "root-plan-review", { allowed_actions: ["inspect", "implement", "replan"], required_actor: "human", next_action: "implement-plan" });
+  if (!input.intent_ready) return snapshot(input, "replan", { allowed_actions: ["replan"], required_actor: "human", next_action: "replan", blockers: ["root-plan-not-intent-ready"] });
+  if (input.harness_status === "failed" || input.phase_status === "failed") return snapshot(input, "blocked", {
+    allowed_actions: ["inspect", "correct", "replan"],
+    required_actor: "human",
+    next_action: "inspect-failure",
+    blockers: [.../* @__PURE__ */ new Set([...input.blockers ?? [], "harness-phase-failed"])]
+  });
+  if (input.harness_status === "unavailable" || input.phase_status === "unavailable") return snapshot(input, "waiting-human", {
+    allowed_actions: ["retry", "replan", "stop"],
+    required_actor: "human",
+    next_action: "retry-or-replan",
+    blockers: [.../* @__PURE__ */ new Set([...input.blockers ?? [], "harness-unavailable"])]
+  });
+  if (!input.execution_started && !input.phase && !input.delivery_status && !input.review)
+    return snapshot(input, "root-plan-review", { allowed_actions: ["inspect", "implement", "replan"], required_actor: "human", next_action: "implement-plan" });
+  if (input.phase === "implement" && input.phase_status !== "complete") return snapshot(input, "implementing", { allowed_actions: ["pause", "stop"], required_actor: "harness", next_action: "complete-implementation" });
+  if (input.phase === "correct" && input.phase_status !== "complete") return snapshot(input, "correcting", { allowed_actions: ["pause", "stop"], required_actor: "harness", next_action: "complete-correction" });
+  if ((input.phase === "review" || input.execution_started) && !input.root_review_complete && !input.review) return snapshot(input, "reviewing", { allowed_actions: ["review", "pause", "stop"], required_actor: "reviewer", next_action: "review-root" });
+  let nextAction = input.review?.next_action;
+  return nextAction === "clarify" ? waiting(input, "review-requires-clarification", "answer") : nextAction === "replan" ? snapshot(input, "replan", { allowed_actions: ["replan"], required_actor: "human", next_action: "replan" }) : nextAction === "correct" ? snapshot(input, "waiting-human", { allowed_actions: ["inspect", "correct", "replan"], required_actor: "human", next_action: "approve-correction" }) : nextAction === "retry-review" ? snapshot(input, "reviewing", { allowed_actions: ["review"], required_actor: "reviewer", next_action: "retry-review" }) : input.delivery_status === "provisional" ? manualArtifacts && input.manual_acceptance === "provisional" ? snapshot(input, "accepted-provisional", {
+    allowed_actions: ["inspect"],
+    acceptance_persisted: !1,
+    acceptance_basis_hash: input.acceptance_basis_hash ?? input.artifact_set_hash ?? null
+  }) : snapshot(input, "delivery-ready-provisional", { allowed_actions: ["accept-provisional", "inspect"], required_actor: "human", next_action: "accept-provisional" }) : input.delivery_status === "verified" && input.review?.assessment !== "achieved" ? snapshot(input, "delivery-ready-verified", { allowed_actions: ["inspect", "review"], required_actor: "reviewer", next_action: "review-root" }) : input.review?.assessment !== "achieved" ? snapshot(input, "reviewing", { allowed_actions: ["review"], required_actor: "reviewer", next_action: "review-root" }) : snapshot(input, "achieved", { allowed_actions: ["explain", "learn"] });
+}
+var workflowStates = Object.freeze([...states]);
+
+// src/controller/manual-status.mjs
+function unique3(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+function artifactSetHash(entries) {
+  let observations = entries.map(({ label, text }) => ({ label, text_hash: createHash5("sha256").update(String(text)).digest("hex") })).sort((left, right) => left.label.localeCompare(right.label) || left.text_hash.localeCompare(right.text_hash));
+  return createHash5("sha256").update(JSON.stringify(observations)).digest("hex");
+}
+function baseInput(rootPlanId, entries, observedAt) {
+  return {
+    run_id: null,
+    root_plan_id: rootPlanId,
+    requested_profile: "manual",
+    effective_profile: "manual",
+    snapshot_source: "artifact-chain",
+    artifact_set_hash: artifactSetHash(entries),
+    observed_at: observedAt,
+    revision: null
+  };
+}
+function summary(rootPlanId, entries, evidenceTip = null, reviewTip = null, learningCandidates = [], traceability = {}) {
+  return {
+    root_plan_id: rootPlanId,
+    artifact_count: entries.length,
+    evidence_tip: evidenceTip,
+    review_tip: reviewTip,
+    learning_candidates: learningCandidates,
+    ...traceability
+  };
+}
+function incomplete(rootPlanId, entries, observedAt, blockers) {
+  let input = baseInput(rootPlanId, entries, observedAt);
+  return {
+    snapshot: deriveWorkflowState({ ...input, manual_context_incomplete: !0, blockers: unique3(blockers) }),
+    artifact_summary: summary(rootPlanId, entries),
+    diagnostics: []
+  };
+}
+function invalid(rootPlanId, entries, observedAt, blockers, diagnostics = []) {
+  let input = baseInput(rootPlanId, entries, observedAt);
+  return {
+    snapshot: deriveWorkflowState({ ...input, artifact_chain_valid: !1, root_schema_valid: !1, blockers: unique3(blockers) }),
+    artifact_summary: summary(rootPlanId, entries),
+    diagnostics: unique3(diagnostics)
+  };
+}
+function referencedIds(fields) {
+  return fields.artifact === "work-plan" ? [fields.predecessor_plan_id, fields.replan_source_review_id] : fields.artifact === "delivery-evidence" ? [fields.predecessor_evidence_id, fields.source_review_id] : fields.artifact === "work-review" ? [fields.latest_evidence_id, fields.predecessor_review_id] : [];
+}
+function normalizeEntries(artifacts) {
+  if (!Array.isArray(artifacts) || artifacts.length === 0) return [];
+  let entries = artifacts.map((entry, index) => {
+    if (!entry || typeof entry.label != "string" || entry.label.trim() === "" || typeof entry.text != "string" || entry.text.trim() === "")
+      throw new Error(`manual status artifact ${index + 1} requires non-empty label and text`);
+    return { label: entry.label, text: entry.text };
+  });
+  if (new Set(entries.map((entry) => entry.label)).size !== entries.length) throw new Error("manual status artifact labels must be unique");
+  return entries;
+}
+function activeRootFromEntries(entries, pluginRoot) {
+  let roots = entries.map((entry) => inspectArtifactText(entry.text, pluginRoot).artifact).filter((artifact) => artifact?.fields?.artifact === "work-plan");
+  if (roots.length === 0) throw new Error("manual active root resolution requires a current work-plan artifact");
+  let ids3 = new Set(roots.map((root) => root.fields.id));
+  if (ids3.size !== roots.length) throw new Error("manual active root resolution found duplicate work-plan IDs");
+  let referenced = new Set(roots.map((root) => root.fields.predecessor_plan_id).filter((id) => ids3.has(id))), tips = roots.filter((root) => !referenced.has(root.fields.id)).map((root) => root.fields.id).sort();
+  if (tips.length === 0) throw new Error("manual active root resolution found cyclic work-plan lineage");
+  if (tips.length > 1) throw new Error(`manual active root resolution is ambiguous: ${tips.join(", ")}`);
+  return tips[0];
+}
+function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot, observedAt = (/* @__PURE__ */ new Date()).toISOString(), manualAcceptance = null, boundaryReceiptVerifier = null }) {
+  if (manualAcceptance !== null && manualAcceptance !== "provisional") throw new Error("manual acceptance must be provisional");
+  if (!Array.isArray(artifacts) || artifacts.length === 0) {
+    if (manualAcceptance) throw new Error("manual provisional acceptance requires a complete current Schema-6 artifact chain");
+    if (!rootPlanId) throw new Error("manual active root resolution requires current-task artifacts");
+    return incomplete(rootPlanId, [], observedAt, ["manual-artifact-context-missing"]);
+  }
+  let entries = normalizeEntries(artifacts);
+  if (rootPlanId ??= activeRootFromEntries(entries, pluginRoot), !/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(rootPlanId))) throw new Error("manual status requires a valid wp-* root_plan_id");
+  let inspected = entries.map((entry) => ({ entry, inspection: inspectArtifactText(entry.text, pluginRoot) })), unparseable = inspected.filter(({ inspection }) => !inspection.artifact?.fields?.artifact);
+  if (unparseable.length > 0) {
+    if (manualAcceptance) throw new Error("manual provisional acceptance requires a parseable current Schema-6 artifact chain");
+    return invalid(rootPlanId, entries, observedAt, unparseable.flatMap(({ entry, inspection }) => inspection.errors.map((error) => `${entry.label}: ${error}`)));
+  }
+  let rootById = new Map(inspected.filter(({ inspection }) => inspection.artifact?.fields?.artifact === "work-plan").map(({ inspection }) => [inspection.artifact.fields.id, inspection.artifact])), lineageRootIds = /* @__PURE__ */ new Set(), lineageCursor = rootPlanId;
+  for (; lineageCursor && !lineageRootIds.has(lineageCursor); )
+    lineageRootIds.add(lineageCursor), lineageCursor = rootById.get(lineageCursor)?.fields.predecessor_plan_id ?? null;
+  let related = inspected.filter(({ inspection }) => {
+    let fields = inspection.artifact.fields;
+    return lineageRootIds.has(fields.id) || lineageRootIds.has(fields.root_plan_id);
+  }), rootRecords = related.filter(({ inspection }) => inspection.artifact.fields.artifact === "work-plan" && inspection.artifact.fields.id === rootPlanId);
+  if (rootRecords.length === 0) {
+    if (manualAcceptance) throw new Error("manual provisional acceptance requires the current root artifact");
+    return incomplete(rootPlanId, entries, observedAt, ["manual-root-artifact-missing"]);
+  }
+  if (rootRecords.length > 1) {
+    if (manualAcceptance) throw new Error("manual provisional acceptance requires one unambiguous root artifact");
+    return invalid(rootPlanId, entries, observedAt, ["manual-root-artifact-ambiguous"]);
+  }
+  let relatedEntries = related.map(({ entry }) => entry), schemas2 = new Set(related.map(({ inspection }) => inspection.artifact.fields.schema));
+  if (schemas2.size > 1 || !schemas2.has(6)) {
+    if (manualAcceptance) throw new Error("manual provisional acceptance rejects unsupported Workflow artifact schemas");
+    return invalid(rootPlanId, relatedEntries, observedAt, ["unsupported Workflow artifact schema; only Schema 6 is supported"]);
+  }
+  let individualErrors = related.flatMap(({ entry, inspection }) => inspection.errors.map((error) => `${entry.label}: ${error}`));
+  if (individualErrors.length > 0) {
+    if (manualAcceptance) throw new Error(`manual provisional acceptance rejects an invalid artifact chain: ${individualErrors.join("; ")}`);
+    return invalid(rootPlanId, relatedEntries, observedAt, individualErrors, related.flatMap(({ inspection }) => inspection.diagnostics));
+  }
+  let ids3 = new Set(related.map(({ inspection }) => inspection.artifact.fields.id)), missingReferences = [];
+  for (let { entry, inspection } of related)
+    for (let reference of referencedIds(inspection.artifact.fields)) reference && !ids3.has(reference) && missingReferences.push(`${entry.label}: manual-artifact-context-missing:${reference}`);
+  if (missingReferences.length > 0) {
+    if (manualAcceptance) throw new Error("manual provisional acceptance requires every referenced artifact");
+    return incomplete(rootPlanId, relatedEntries, observedAt, missingReferences);
+  }
+  let chain = inspectArtifactSet(
+    relatedEntries.map(({ label, text }) => [label, text]),
+    pluginRoot,
+    { boundaryReceiptVerifier }
+  );
+  if (chain.errors.length > 0) {
+    if (manualAcceptance) throw new Error(`manual provisional acceptance rejects an invalid artifact chain: ${chain.errors.join("; ")}`);
+    let boundaryTrustErrors = chain.errors.filter((error) => /root-boundary review requires a fresh protected host receipt|boundary receipt is not trusted|boundary receipt host verification failed/.test(error));
+    if (boundaryTrustErrors.length > 0) {
+      let blocked = incomplete(rootPlanId, relatedEntries, observedAt, boundaryTrustErrors);
+      return { ...blocked, diagnostics: unique3([...blocked.diagnostics, ...chain.diagnostics]) };
+    }
+    return invalid(rootPlanId, relatedEntries, observedAt, chain.errors, chain.diagnostics);
+  }
+  let tips = effectiveCliSummary(chain), evidenceTipId = tips.evidence_tips[rootPlanId] ?? null, reviewTipId = tips.review_tips[rootPlanId] ?? null, root = chain.effective.get(rootPlanId), evidence = evidenceTipId ? chain.effective.get(evidenceTipId) : null, review = reviewTipId ? chain.effective.get(reviewTipId) : null, boundaryReview = review?.fields.review_basis === "root-boundary", correctionEvidencePendingReview = !!(review && evidence?.fields.source_review_id === review.fields.id && evidence?.fields.subject_id === review.fields.correction_id), contract = executionContractFromArtifactText(rootRecords[0].entry.text, pluginRoot), constraintProjection = contract.errors.length === 0 ? harnessConstraintProjection({
+    checks: contract.checks,
+    evidence: evidence?.fields.check_evidence ?? [],
+    pending: !evidence
+  }) : {}, acceptanceEligible = root?.fields.profile_max === "manual" && evidence && review && evidence.fields.status !== "blocked" && evidence.fields.overall_grade !== "failed" && !(evidence.fields.check_evidence ?? []).some((check) => check.grade === "failed") && review.fields.delivery_status === "provisional" && review.fields.next_action === "accept-provisional" && !correctionEvidencePendingReview;
+  if (manualAcceptance && !acceptanceEligible)
+    throw new Error("manual provisional acceptance requires the unique current provisional review tip, no failed check, no blocked artifact, and no correction awaiting review");
+  let input = {
+    ...baseInput(rootPlanId, relatedEntries, observedAt),
+    contract_level: root.fields.contract_level,
+    root_schema_valid: !0,
+    artifact_chain_valid: !0,
+    plan_status: root.fields.status,
+    plan_approved: !!(evidence || boundaryReview),
+    intent_ready: root.fields.intent_ready === !0,
+    material_open_decisions: root.fields.status !== "ready" || root.fields.intent_ready !== !0,
+    product_aligned: !0,
+    architecture_aligned: !0,
+    program_design_aligned: !0,
+    slices_ready: !0,
+    execution_started: !!(evidence || boundaryReview),
+    evidence_tip: evidenceTipId,
+    review_tip: reviewTipId,
+    review: review?.fields ?? null,
+    evidence_grade: evidence?.fields.overall_grade ?? null,
+    delivery_status: review?.fields.delivery_status ?? null,
+    intent_hash: evidence?.fields.intent_hash ?? null,
+    manual_acceptance: manualAcceptance,
+    acceptance_basis_hash: manualAcceptance ? artifactSetHash(relatedEntries) : null,
+    correction_evidence_pending_review: correctionEvidencePendingReview,
+    boundary_review: boundaryReview,
+    root_review_complete: review?.fields.assessment === "achieved" && review?.fields.next_action === "none",
+    more_slices: !1
+  };
+  return {
+    snapshot: deriveWorkflowState(input),
+    artifact_summary: summary(rootPlanId, relatedEntries, evidenceTipId, reviewTipId, tips.learning_candidates, {
+      artifact_set_hash: artifactSetHash(relatedEntries),
+      root_content_hash: createHash5("sha256").update(root.text).digest("hex"),
+      evidence_hash: evidence ? createHash5("sha256").update(evidence.text).digest("hex") : null,
+      review_hash: review ? createHash5("sha256").update(review.text).digest("hex") : null,
+      finding_ids: (review?.findings ?? []).map((finding2) => finding2["Finding key"]).filter(Boolean),
+      receipt_ids: [...new Set((evidence?.fields.check_evidence ?? []).map((check) => check.attestation_hash).filter(Boolean))]
+    }),
+    diagnostics: unique3([...chain.normalizations, ...chain.diagnostics]),
+    changed_paths: evidence?.fields.changed_paths ?? [],
+    ...constraintProjection
+  };
+}
+
+// src/controller/work-review-builder.mjs
+var import_yaml3 = __toESM(require_dist(), 1);
+import { createHash as createHash6 } from "node:crypto";
+var ASSESSMENTS = /* @__PURE__ */ new Set([
+  "achieved",
+  "provisional",
+  "mostly-achieved",
+  "partially-achieved",
+  "not-achieved",
+  "insufficient-evidence"
+]), ACTIONS = /* @__PURE__ */ new Set(["none", "accept-provisional", "correct", "clarify", "replan", "retry-review"]), SEVERITIES = /* @__PURE__ */ new Set(["low", "medium", "high", "critical"]), RESOLUTIONS = /* @__PURE__ */ new Set(["correct", "clarify", "replan"]), SNAPSHOT_ASSESSMENTS = /* @__PURE__ */ new Set(["consistent", "contradicted", "incomplete"]), COSTS = /* @__PURE__ */ new Set(["cheap", "standard", "expensive"]), EVIDENCE_CLASSES = /* @__PURE__ */ new Set(["harness-verifiable", "reviewer-observable", "human-decision-required"]), KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+function sha2563(value) {
+  return createHash6("sha256").update(String(value)).digest("hex");
+}
+function compareCanonical(left, right) {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+function codedError(code, message) {
+  let error = new Error(message);
+  return error.code = code, error;
+}
+function stable3(value) {
+  return Array.isArray(value) ? value.map(stable3) : !value || typeof value != "object" ? value : Object.fromEntries(Object.keys(value).sort(compareCanonical).map((key) => [key, stable3(value[key])]));
+}
+function stableJson(value) {
+  return JSON.stringify(stable3(value));
+}
+function object(value, label) {
+  if (!value || typeof value != "object" || Array.isArray(value)) throw new Error(`${label} must be an object`);
+  return value;
+}
+function closed2(value, allowed, label) {
+  let unknown2 = Object.keys(value).filter((key) => !allowed.includes(key));
+  if (unknown2.length > 0) throw new Error(`${label} contains unsupported field ${unknown2[0]}`);
+}
+function requiredField(value, key, label = "review_input") {
+  if (!Object.prototype.hasOwnProperty.call(value, key)) throw new Error(`${label}.${key} is required`);
+  return value[key];
+}
+function line(value, label, { required: required2 = !0, max = 2e3 } = {}) {
+  if (typeof value != "string") throw new Error(`${label} must be a string`);
+  let normalized = value.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
+  if (required2 && !normalized) throw new Error(`${label} is required`);
+  if (normalized.length > max) throw new Error(`${label} exceeds ${max} characters`);
+  return normalized;
+}
+function enumValue(value, values, label) {
+  let normalized = String(value ?? "").trim();
+  if (!values.has(normalized)) throw new Error(`${label} has invalid value ${normalized || "<missing>"}`);
+  return normalized;
+}
+function list(value, label, { max = 64, required: required2 = !1 } = {}) {
+  if (!Array.isArray(value)) throw new Error(`${label} must be an array`);
+  if (required2 && value.length === 0) throw new Error(`${label} must not be empty`);
+  if (value.length > max) throw new Error(`${label} exceeds ${max} items`);
+  return value;
+}
+function uniqueSorted2(values) {
+  return [...new Set(values)].sort(compareCanonical);
+}
+function normalizeIds(value, pattern, allowed, label) {
+  let normalized = uniqueSorted2(list(value, label, { required: !0 }).map((entry) => line(entry, label, { max: 80 })));
+  for (let id of normalized)
+    if (!pattern.test(id) || !allowed.has(id)) throw new Error(`${label} contains unknown ${id}`);
+  return normalized;
+}
+function localKey(value, label) {
+  let normalized = line(value, label, { max: 80 });
+  if (!KEY.test(normalized)) throw new Error(`${label} must be a lowercase semantic key`);
+  return normalized;
+}
+function normalizeFindings(value, contract) {
+  let objectiveIds = new Set(contract.objectives), checkIds = new Set(contract.checks.filter((check) => check.Required === "yes").map((check) => check["Check ID"])), findings = list(value, "review_input.findings", { max: 32 }).map((entry, index) => {
+    let item = object(entry, `review_input.findings[${index}]`);
+    return closed2(item, ["key", "severity", "objective_ids", "check_ids", "evidence", "reasoning", "resolution"], `review_input.findings[${index}]`), {
+      key: localKey(item.key, `review_input.findings[${index}].key`),
+      severity: enumValue(item.severity, SEVERITIES, `review_input.findings[${index}].severity`),
+      objective_ids: normalizeIds(item.objective_ids, /^OBJ-[1-9][0-9]*$/, objectiveIds, `review_input.findings[${index}].objective_ids`),
+      check_ids: normalizeIds(item.check_ids, /^CHECK-[1-9][0-9]*$/, checkIds, `review_input.findings[${index}].check_ids`),
+      evidence: line(item.evidence, `review_input.findings[${index}].evidence`, { max: 4e3 }),
+      reasoning: line(item.reasoning, `review_input.findings[${index}].reasoning`, { max: 4e3 }),
+      resolution: enumValue(item.resolution, RESOLUTIONS, `review_input.findings[${index}].resolution`)
+    };
+  }).sort((left, right) => compareCanonical(left.key, right.key));
+  if (new Set(findings.map((finding2) => finding2.key)).size !== findings.length) throw new Error("review_input.findings keys must be unique");
+  return findings;
+}
+function normalizeCorrection(value, findingKeys) {
+  if (value == null) return null;
+  let correction2 = object(value, "review_input.correction");
+  closed2(correction2, ["fixes", "steps", "checks", "learning_candidates"], "review_input.correction");
+  let fixes = list(correction2.fixes, "review_input.correction.fixes", { max: 32, required: !0 }).map((entry, index) => {
+    let item = object(entry, `review_input.correction.fixes[${index}]`);
+    closed2(item, ["key", "finding_keys", "required_outcome", "evidence"], `review_input.correction.fixes[${index}]`);
+    let keys = uniqueSorted2(list(item.finding_keys, `review_input.correction.fixes[${index}].finding_keys`, { required: !0 }).map((key) => localKey(key, `review_input.correction.fixes[${index}].finding_keys`)));
+    if (keys.some((key) => !findingKeys.has(key))) throw new Error(`review_input.correction.fixes[${index}] references an unknown finding`);
+    return {
+      key: localKey(item.key, `review_input.correction.fixes[${index}].key`),
+      finding_keys: keys,
+      required_outcome: line(item.required_outcome, `review_input.correction.fixes[${index}].required_outcome`, { max: 2e3 }),
+      evidence: line(item.evidence, `review_input.correction.fixes[${index}].evidence`, { max: 2e3 })
+    };
+  }).sort((left, right) => compareCanonical(left.key, right.key)), fixKeys = new Set(fixes.map((fix) => fix.key));
+  if (fixKeys.size !== fixes.length) throw new Error("review_input.correction.fixes keys must be unique");
+  let checks = list(correction2.checks, "review_input.correction.checks", { max: 32, required: !0 }).map((entry, index) => {
+    let item = object(entry, `review_input.correction.checks[${index}]`);
+    closed2(item, ["key", "fix_keys", "verification_intent", "expected_evidence", "evidence_class", "required", "cost_class", "prerequisites"], `review_input.correction.checks[${index}]`);
+    let referencedFixes = uniqueSorted2(list(item.fix_keys, `review_input.correction.checks[${index}].fix_keys`, { required: !0 }).map((key) => localKey(key, `review_input.correction.checks[${index}].fix_keys`)));
+    if (referencedFixes.some((key) => !fixKeys.has(key))) throw new Error(`review_input.correction.checks[${index}] references an unknown fix`);
+    let prerequisites = uniqueSorted2(list(item.prerequisites, `review_input.correction.checks[${index}].prerequisites`, { required: !0 }).map((entryValue) => line(entryValue, `review_input.correction.checks[${index}].prerequisites`, { max: 1e3 })));
+    if (typeof item.required != "boolean") throw new Error(`review_input.correction.checks[${index}].required must be a boolean`);
+    return {
+      key: localKey(item.key, `review_input.correction.checks[${index}].key`),
+      fix_keys: referencedFixes,
+      verification_intent: line(item.verification_intent, `review_input.correction.checks[${index}].verification_intent`, { max: 2e3 }),
+      expected_evidence: line(item.expected_evidence, `review_input.correction.checks[${index}].expected_evidence`, { max: 2e3 }),
+      evidence_class: enumValue(item.evidence_class, EVIDENCE_CLASSES, `review_input.correction.checks[${index}].evidence_class`),
+      required: item.required,
+      cost_class: enumValue(item.cost_class, COSTS, `review_input.correction.checks[${index}].cost_class`),
+      prerequisites
+    };
+  }).sort((left, right) => ({ cheap: 0, standard: 1, expensive: 2 })[left.cost_class] - { cheap: 0, standard: 1, expensive: 2 }[right.cost_class] || compareCanonical(left.key, right.key)), checkKeys = new Set(checks.map((check) => check.key));
+  if (checkKeys.size !== checks.length) throw new Error("review_input.correction.checks keys must be unique");
+  let steps = list(correction2.steps, "review_input.correction.steps", { max: 32, required: !0 }).map((entry, index) => {
+    let item = object(entry, `review_input.correction.steps[${index}]`);
+    closed2(item, ["key", "fix_keys", "targets", "required_outcome", "implementation_latitude", "completion_probe", "check_keys", "deviation_action"], `review_input.correction.steps[${index}]`);
+    let referencedFixes = uniqueSorted2(list(item.fix_keys, `review_input.correction.steps[${index}].fix_keys`, { required: !0 }).map((key) => localKey(key, `review_input.correction.steps[${index}].fix_keys`))), referencedChecks = uniqueSorted2(list(item.check_keys, `review_input.correction.steps[${index}].check_keys`, { required: !0 }).map((key) => localKey(key, `review_input.correction.steps[${index}].check_keys`)));
+    if (referencedFixes.some((key) => !fixKeys.has(key))) throw new Error(`review_input.correction.steps[${index}] references an unknown fix`);
+    if (referencedChecks.some((key) => !checkKeys.has(key))) throw new Error(`review_input.correction.steps[${index}] references an unknown check`);
+    return {
+      key: localKey(item.key, `review_input.correction.steps[${index}].key`),
+      fix_keys: referencedFixes,
+      targets: uniqueSorted2(list(item.targets, `review_input.correction.steps[${index}].targets`, { required: !0 }).map((target) => line(target, `review_input.correction.steps[${index}].targets`, { max: 1e3 }))),
+      required_outcome: line(item.required_outcome, `review_input.correction.steps[${index}].required_outcome`, { max: 2e3 }),
+      implementation_latitude: line(item.implementation_latitude, `review_input.correction.steps[${index}].implementation_latitude`, { max: 2e3 }),
+      completion_probe: line(item.completion_probe, `review_input.correction.steps[${index}].completion_probe`, { max: 2e3 }),
+      check_keys: referencedChecks,
+      deviation_action: line(item.deviation_action, `review_input.correction.steps[${index}].deviation_action`, { max: 2e3 })
+    };
+  }).sort((left, right) => compareCanonical(left.key, right.key));
+  if (new Set(steps.map((step) => step.key)).size !== steps.length) throw new Error("review_input.correction.steps keys must be unique");
+  for (let fix of fixKeys) if (!steps.some((step) => step.fix_keys.includes(fix))) throw new Error(`review_input.correction.steps do not cover ${fix}`);
+  let learningCandidates = list(correction2.learning_candidates, "review_input.correction.learning_candidates", { max: 32, required: !0 }).map((entry, index) => {
+    let item = object(entry, `review_input.correction.learning_candidates[${index}]`);
+    closed2(item, ["key", "finding_keys", "reusable_guidance", "candidate_targets", "confirmation_evidence"], `review_input.correction.learning_candidates[${index}]`);
+    let keys = uniqueSorted2(list(item.finding_keys, `review_input.correction.learning_candidates[${index}].finding_keys`, { required: !0 }).map((key) => localKey(key, `review_input.correction.learning_candidates[${index}].finding_keys`)));
+    if (keys.some((key) => !findingKeys.has(key))) throw new Error(`review_input.correction.learning_candidates[${index}] references an unknown finding`);
+    return {
+      key: localKey(item.key, `review_input.correction.learning_candidates[${index}].key`),
+      finding_keys: keys,
+      reusable_guidance: line(item.reusable_guidance, `review_input.correction.learning_candidates[${index}].reusable_guidance`, { max: 2e3 }),
+      candidate_targets: uniqueSorted2(list(item.candidate_targets, `review_input.correction.learning_candidates[${index}].candidate_targets`, { required: !0 }).map((target) => line(target, `review_input.correction.learning_candidates[${index}].candidate_targets`, { max: 1e3 }))),
+      confirmation_evidence: line(item.confirmation_evidence, `review_input.correction.learning_candidates[${index}].confirmation_evidence`, { max: 2e3 })
+    };
+  }).sort((left, right) => compareCanonical(left.key, right.key));
+  if (new Set(learningCandidates.map((candidate) => candidate.key)).size !== learningCandidates.length) throw new Error("review_input.correction.learning_candidates keys must be unique");
+  return { fixes, checks, steps, learning_candidates: learningCandidates };
+}
+function normalizeReviewInput(input, contract) {
+  let value = object(input, "review_input");
+  if (closed2(value, ["schema", "kind", "assessment", "recommended_action", "assessment_summary", "snapshot_assessment", "snapshot_summary", "findings", "missing_evidence", "correction"], "review_input"), value.schema !== 1) throw new Error("review_input.schema must be 1");
+  if (value.kind !== "review-input") throw new Error("review_input.kind must be review-input");
+  let findings = normalizeFindings(requiredField(value, "findings"), contract), findingKeys = new Set(findings.map((finding2) => finding2.key)), normalized = {
+    schema: 1,
+    kind: "review-input",
+    assessment: enumValue(requiredField(value, "assessment"), ASSESSMENTS, "review_input.assessment"),
+    recommended_action: enumValue(requiredField(value, "recommended_action"), ACTIONS, "review_input.recommended_action"),
+    assessment_summary: line(requiredField(value, "assessment_summary"), "review_input.assessment_summary", { max: 2e3 }),
+    snapshot_assessment: enumValue(requiredField(value, "snapshot_assessment"), SNAPSHOT_ASSESSMENTS, "review_input.snapshot_assessment"),
+    snapshot_summary: line(requiredField(value, "snapshot_summary"), "review_input.snapshot_summary", { max: 2e3 }),
+    findings,
+    missing_evidence: uniqueSorted2(list(requiredField(value, "missing_evidence"), "review_input.missing_evidence", { max: 32 }).map((entry) => line(entry, "review_input.missing_evidence", { max: 2e3 }))),
+    correction: normalizeCorrection(value.correction, findingKeys)
+  };
+  if (normalized.recommended_action === "correct") {
+    if (normalized.findings.length === 0) throw new Error("review_input correct requires at least one finding");
+    if (!normalized.correction) throw new Error("review_input correct requires a correction proposal");
+  } else if (normalized.correction)
+    throw new Error("review_input.correction is allowed only for recommended_action correct");
+  return normalized;
+}
+function mergeChain(rootPlanText, artifacts, pluginRoot, { allowUnprovenancedReviews = !1 } = {}) {
+  let rootInspection = inspectArtifactText(rootPlanText, pluginRoot);
+  if (rootInspection.errors.length > 0 || rootInspection.artifact?.fields?.artifact !== "work-plan" || rootInspection.artifact.fields.schema !== 6)
+    throw new Error(`review builder requires an exact valid Schema-6 Root: ${rootInspection.errors.join("; ") || "not a work-plan"}`);
+  let byId = /* @__PURE__ */ new Map([[rootInspection.artifact.fields.id, { label: rootInspection.artifact.fields.id, text: rootPlanText }]]);
+  for (let [index, entry] of (artifacts ?? []).entries()) {
+    if (!entry || typeof entry.text != "string" || !entry.text.trim()) throw new Error(`review builder artifact ${index + 1} requires exact text`);
+    let inspected = inspectArtifactText(entry.text, pluginRoot);
+    if (inspected.errors.length > 0 || !inspected.artifact?.fields?.id) throw new Error(`review builder artifact ${entry.label ?? index + 1} is invalid: ${inspected.errors.join("; ")}`);
+    let id = inspected.artifact.fields.id, builderProvenance = entry.builder_provenance ?? entry.provenance ?? null;
+    if (inspected.artifact.fields.artifact === "work-review") {
+      let validBuilderProvenance = builderProvenance?.schema === 1 && builderProvenance?.kind === "host-work-review-builder" && /^[a-f0-9]{64}$/.test(String(builderProvenance?.review_input_hash ?? "")) && builderProvenance?.artifact_hash === sha2563(entry.text) && Object.keys(builderProvenance).every((key) => ["schema", "kind", "review_input_hash", "artifact_hash"].includes(key));
+      if (builderProvenance && !validBuilderProvenance)
+        throw codedError("review-artifact-rejected", `review builder artifact ${id} has invalid host builder provenance`);
+      if (!validBuilderProvenance && !allowUnprovenancedReviews)
+        throw codedError("review-artifact-rejected", `review builder rejects newly imported work-review ${id} without protected builder provenance; Root, Evidence, and repository work remain unchanged, so repeat Review from the exact Root/Evidence chain in this task`);
+    }
+    let prior = byId.get(id);
+    if (prior && prior.text !== entry.text) throw new Error(`review builder artifact ${id} has conflicting immutable bytes`);
+    byId.set(id, {
+      label: id,
+      text: entry.text,
+      ...builderProvenance ? { builder_provenance: builderProvenance } : {}
+    });
+  }
+  return { rootFields: rootInspection.artifact.fields, entries: [...byId.values()] };
+}
+function knownFailure(evidence) {
+  return evidence?.fields?.status === "blocked" || (evidence?.fields?.check_evidence ?? []).some((entry) => entry.grade === "failed");
+}
+function decision(input, evidence) {
+  let failed = knownFailure(evidence), reviewReady = evidence?.effective?.reviewReady === !0 && evidence?.fields?.status === "complete", hasFindings = input.findings.length > 0, contradicted = input.snapshot_assessment === "contradicted", assessment = input.assessment, nextAction = input.recommended_action, deliveryStatus = "blocked";
+  if (failed)
+    return nextAction === "replan" || nextAction === "clarify" ? assessment = ["achieved", "provisional"].includes(assessment) ? "not-achieved" : assessment : hasFindings && input.correction ? (nextAction = "correct", assessment = ["achieved", "provisional"].includes(assessment) ? "not-achieved" : assessment) : (nextAction = "retry-review", assessment = "insufficient-evidence"), { assessment, delivery_status: "blocked", next_action: nextAction, review_ready: reviewReady, known_failure: !0 };
+  if (nextAction === "replan" || nextAction === "clarify")
+    return assessment = ["achieved", "provisional"].includes(assessment) ? "partially-achieved" : assessment, { assessment, delivery_status: "blocked", next_action: nextAction, review_ready: reviewReady, known_failure: !1 };
+  if (nextAction === "correct" || hasFindings) {
+    if (!input.correction || !hasFindings) throw new Error("review findings requiring correction need one complete correction proposal");
+    return assessment = ["achieved", "provisional"].includes(assessment) ? "mostly-achieved" : assessment, { assessment, delivery_status: "blocked", next_action: "correct", review_ready: reviewReady, known_failure: !1 };
+  }
+  if (contradicted || nextAction === "retry-review" || assessment === "insufficient-evidence")
+    return { assessment: "insufficient-evidence", delivery_status: "blocked", next_action: "retry-review", review_ready: reviewReady, known_failure: !1 };
+  if (reviewReady && assessment === "achieved" && nextAction === "none")
+    return { assessment: "achieved", delivery_status: "verified", next_action: "none", review_ready: !0, known_failure: !1 };
+  if (!["none", "accept-provisional"].includes(nextAction)) throw new Error(`review_input recommended_action ${nextAction} is inconsistent with an evidence-only provisional result`);
+  if (!["achieved", "provisional"].includes(assessment))
+    throw new Error(`review_input.assessment ${assessment} is inconsistent with review_input.recommended_action ${nextAction}; provide the missing Evidence or choose correct, clarify, replan, or retry-review`);
+  return { assessment: "provisional", delivery_status: "provisional", next_action: "accept-provisional", review_ready: reviewReady, known_failure: !1 };
+}
+function cell(value) {
+  return String(value ?? "").replace(/\r?\n/g, "<br>").replace(/\|/g, "\\|").trim() || "none";
+}
+function table(headers, rows) {
+  return [
+    `| ${headers.join(" | ")} |`,
+    `|${headers.map(() => "---").join("|")}|`,
+    ...rows.map((row) => `| ${headers.map((header) => cell(row[header])).join(" | ")} |`)
+  ].join(`
+`);
+}
+function nextCheckNumber(entries, pluginRoot) {
+  let maximum = 0;
+  for (let entry of entries) {
+    let inspected = inspectArtifactText(entry.text, pluginRoot), matches = entry.text.match(/\bCHECK-([1-9][0-9]*)\b/g) ?? [];
+    for (let match of matches) maximum = Math.max(maximum, Number(match.slice(6)));
+    inspected.errors.length > 0;
+  }
+  return maximum + 1;
+}
+function correctionProjection({ normalized, findings, seed, rootFields, evidenceId, reviewId, predecessorReview, entries, pluginRoot }) {
+  if (!normalized.correction) return null;
+  let correctionId = `cp-${rootFields.id.replace(/^wp-/, "")}-${seed.slice(0, 12)}`, fixIds = new Map(normalized.correction.fixes.map((fix, index) => [fix.key, `FIX-${index + 1}`])), stepIds = new Map(normalized.correction.steps.map((step, index) => [step.key, `STEP-${index + 1}`])), checkStart = nextCheckNumber(entries, pluginRoot), checkIds = new Map(normalized.correction.checks.map((check, index) => [check.key, `CHECK-${checkStart + index}`])), learningIds = new Map(normalized.correction.learning_candidates.map((candidate, index) => [candidate.key, `LRN-${seed.slice(0, 8)}-${index + 1}`])), findingsByKey = new Map(findings.map((finding2) => [finding2.key, finding2])), fixes = normalized.correction.fixes.map((fix) => {
+    let mapped = fix.finding_keys.map((key) => findingsByKey.get(key));
+    return {
+      "FIX ID": fixIds.get(fix.key),
+      "Finding keys": fix.finding_keys.join(", "),
+      "Root Objectives": uniqueSorted2(mapped.flatMap((finding2) => finding2.objective_ids)).join(", "),
+      "Root Checks": uniqueSorted2(mapped.flatMap((finding2) => finding2.check_ids)).join(", "),
+      "Required outcome": fix.required_outcome,
+      Evidence: fix.evidence
+    };
+  }), steps = normalized.correction.steps.map((step, index) => ({
+    "Step ID": stepIds.get(step.key),
+    "FIX IDs": step.fix_keys.map((key) => fixIds.get(key)).join(", "),
+    Targets: step.targets.join(", "),
+    "Required outcome": step.required_outcome,
+    "Implementation latitude": step.implementation_latitude,
+    "Completion probe": `PROBE-${index + 1}: ${step.completion_probe}`,
+    "Check IDs": step.check_keys.map((key) => checkIds.get(key)).join(", "),
+    "Deviation action": step.deviation_action
+  })), checks = normalized.correction.checks.map((check) => ({
+    "Check ID": checkIds.get(check.key),
+    "FIX IDs": check.fix_keys.map((key) => fixIds.get(key)).join(", "),
+    "Verification Intent": check.verification_intent,
+    "Expected Evidence": check.expected_evidence,
+    "Evidence Class": check.evidence_class,
+    Required: check.required ? "yes" : "no",
+    "Cost Class": check.cost_class,
+    Prerequisites: check.prerequisites.join(", ")
+  })), learnings = normalized.correction.learning_candidates.map((candidate) => ({
+    "Learning ID": learningIds.get(candidate.key),
+    "Finding keys": candidate.finding_keys.join(", "),
+    "Reusable guidance": candidate.reusable_guidance,
+    "Candidate targets": candidate.candidate_targets.join(", "),
+    "Confirmation evidence": candidate.confirmation_evidence
+  })), predecessorCorrection = predecessorReview?.fields?.correction_id ?? "None.", body = [
+    `## Correction plan
+
+### ${correctionId}`,
+    table(["Correction ID", "Root Plan", "Source Review", "Base Evidence", "Predecessor Correction", "Risk"], [{
+      "Correction ID": correctionId,
+      "Root Plan": rootFields.id,
+      "Source Review": reviewId,
+      "Base Evidence": evidenceId,
+      "Predecessor Correction": predecessorCorrection,
+      Risk: rootFields.risk
+    }]),
+    table(["FIX ID", "Finding keys", "Root Objectives", "Root Checks", "Required outcome", "Evidence"], fixes),
+    table(["Step ID", "FIX IDs", "Targets", "Required outcome", "Implementation latitude", "Completion probe", "Check IDs", "Deviation action"], steps),
+    table(["Check ID", "FIX IDs", "Verification Intent", "Expected Evidence", "Required", "Evidence Class", "Cost Class", "Prerequisites"], checks),
+    table(["Learning ID", "Finding keys", "Reusable guidance", "Candidate targets", "Confirmation evidence"], learnings)
+  ].join(`
+
+`);
+  return { correction_id: correctionId, learning_ids: [...learningIds.values()], body };
+}
+function reviewBody({ normalized, outcome, coverage, evidenceId, correction: correction2 }) {
+  let sections = [
+    `## Assessment
+
+${outcome.assessment}: ${normalized.assessment_summary}`,
+    `## Evidence coverage
+
+${table(["Kind", "Inspected", "Reused", "Result", "Evidence"], [
+      { Kind: "Objectives", Inspected: coverage.inspectedObjectives.join(", ") || "none", Reused: coverage.reusedObjectives.join(", ") || "none", Result: outcome.assessment, Evidence: `exact Evidence ${evidenceId}` },
+      { Kind: "Checks", Inspected: coverage.inspectedChecks.join(", ") || "none", Reused: coverage.reusedChecks.join(", ") || "none", Result: outcome.delivery_status === "verified" ? "passed" : outcome.delivery_status, Evidence: `exact Evidence ${evidenceId}` },
+      { Kind: "Snapshot", Inspected: evidenceId, Reused: "none", Result: normalized.snapshot_assessment, Evidence: normalized.snapshot_summary }
+    ])}`,
+    normalized.findings.length === 0 ? `## Findings
+
+None.` : `## Findings
+
+${table(["Finding key", "Severity", "Objectives", "Checks", "Evidence", "Reasoning"], normalized.findings.map((finding2) => ({
+      "Finding key": finding2.key,
+      Severity: finding2.severity,
+      Objectives: finding2.objective_ids.join(", "),
+      Checks: finding2.check_ids.join(", "),
+      Evidence: finding2.evidence,
+      Reasoning: finding2.reasoning
+    })))}`,
+    `## Next action
+
+${outcome.next_action}: ${outcome.next_action === "none" ? "No further Workflow action is required." : `Continue through the bounded ${outcome.next_action} phase in this task.`}`
+  ];
+  return correction2 && sections.push(correction2.body), sections.join(`
+
+`);
+}
+function boundaryBody(receipt) {
+  return [
+    `## Assessment
+
+insufficient-evidence: deterministic Evidence recovery is unavailable for the exact current boundary.`,
+    `## Evidence coverage
+
+${table(["Kind", "Inspected", "Reused", "Result", "Evidence"], [
+      { Kind: "Objectives", Inspected: "none", Reused: "none", Result: "blocked", Evidence: "protected root-boundary receipt" },
+      { Kind: "Checks", Inspected: "none", Reused: "none", Result: "blocked", Evidence: "protected root-boundary receipt" },
+      { Kind: "Snapshot", Inspected: receipt.repository_snapshot_hash, Reused: "none", Result: "incomplete", Evidence: receipt.recovery_error_code }
+    ])}`,
+    `## Findings
+
+None.`,
+    `## Next action
+
+replan: create a fresh Root through separate human approval.`
+  ].join(`
+
+`);
+}
+function buildWorkReview({
+  rootPlanText,
+  artifacts = [],
+  reviewInput = null,
+  boundaryReceipt = null,
+  boundaryReceiptVerifier = null,
+  allowUnprovenancedReviews = !1,
+  pluginRoot
+}) {
+  let merged = mergeChain(rootPlanText, artifacts, pluginRoot, { allowUnprovenancedReviews }), contract = executionContractFromArtifactText(rootPlanText, pluginRoot);
+  if (contract.errors.length > 0 || contract.fields.schema !== 6) throw new Error(`review builder Root is invalid: ${contract.errors.join("; ")}`);
+  let inspectionOptions = boundaryReceipt && typeof boundaryReceiptVerifier == "function" ? { boundaryReceiptVerifier } : {}, prior = inspectArtifactSet(merged.entries.map((entry) => [entry.label, entry.text]), pluginRoot, inspectionOptions);
+  if (prior.errors.length > 0) throw new Error(`review builder input chain is invalid: ${prior.errors.join("; ")}`);
+  let tips = effectiveCliSummary(prior), predecessorReviewId = tips.review_tips[merged.rootFields.id] ?? null, predecessorReview = predecessorReviewId ? prior.effective.get(predecessorReviewId) : null, predecessorReviewText = predecessorReviewId ? merged.entries.find((entry) => entry.label === predecessorReviewId)?.text ?? "" : "";
+  if (boundaryReceipt) {
+    if (typeof boundaryReceiptVerifier != "function") throw new Error("root-boundary review requires a protected host verifier");
+    let trusted = boundaryReceiptVerifier({ receipt: boundaryReceipt, rootPlanText, reviewFields: null });
+    if (trusted?.ok !== !0) throw new Error(`root-boundary receipt is not trusted: ${trusted?.reason ?? "host verification failed"}`);
+    let seedInput2 = {
+      schema: 1,
+      root_content_hash: rootContentHash(rootPlanText),
+      root_projection_hash: contract.authoritative_projection_hash,
+      predecessor_review_id: predecessorReviewId,
+      predecessor_review_hash: predecessorReviewText ? sha2563(predecessorReviewText) : null,
+      boundary_receipt: boundaryReceipt
+    }, reviewInputHash2 = sha2563(stableJson(seedInput2)), id2 = `wr-${merged.rootFields.id.replace(/^wp-/, "")}-${reviewInputHash2.slice(0, 12)}`, fields2 = {
+      artifact: "work-review",
+      schema: 6,
+      id: id2,
+      status: "complete",
+      root_plan_id: merged.rootFields.id,
+      latest_evidence_id: null,
+      review_basis: "root-boundary",
+      boundary_receipt: boundaryReceipt,
+      assessment: "insufficient-evidence",
+      delivery_status: "blocked",
+      next_action: "replan",
+      correction_id: null,
+      predecessor_review_id: predecessorReviewId,
+      inspected_objectives: [],
+      reused_objectives: [],
+      inspected_checks: [],
+      reused_checks: []
+    }, artifact2 = `---
+${(0, import_yaml3.stringify)(fields2, { lineWidth: 0 }).trimEnd()}
+---
+
+${boundaryBody(boundaryReceipt)}
+`, duplicate2 = merged.entries.find((entry) => entry.label === id2);
+    if (duplicate2 && duplicate2.text !== artifact2) throw new Error(`review builder generated conflicting immutable bytes for ${id2}`);
+    let finalEntries2 = duplicate2 ? merged.entries : [...merged.entries, { label: id2, text: artifact2 }], validated2 = inspectArtifactSet(finalEntries2.map((entry) => [entry.label, entry.text]), pluginRoot, { boundaryReceiptVerifier });
+    if (validated2.errors.length > 0) throw new Error(`generated work-review is invalid: ${validated2.errors.join("; ")}`);
+    let artifactHash2 = sha2563(artifact2);
+    return { duplicate: !!duplicate2, artifact: artifact2, artifact_hash: artifactHash2, review_input_hash: reviewInputHash2, fields: fields2, provenance: { schema: 1, kind: "host-work-review-builder", review_input_hash: reviewInputHash2, artifact_hash: artifactHash2 } };
+  }
+  let evidenceId = tips.evidence_tips[merged.rootFields.id] ?? null;
+  if (!evidenceId) throw new Error("review builder requires the exact current Evidence tip");
+  let evidence = prior.effective.get(evidenceId), evidenceText = merged.entries.find((entry) => entry.label === evidenceId)?.text;
+  if (!evidence || !evidenceText) throw new Error(`review builder cannot resolve exact Evidence ${evidenceId}`);
+  let normalized, outcome;
+  try {
+    normalized = normalizeReviewInput(reviewInput, contract), outcome = decision(normalized, evidence);
+  } catch (error) {
+    throw error?.code ? error : codedError("review-input-invalid", error?.message ?? "review_input is invalid");
+  }
+  let currentReviewEntry = predecessorReviewId ? merged.entries.find((entry) => entry.label === predecessorReviewId) : null, currentProvenance = currentReviewEntry?.builder_provenance;
+  if (currentProvenance?.schema === 1 && currentProvenance?.kind === "host-work-review-builder" && currentProvenance?.artifact_hash === sha2563(currentReviewEntry.text) && predecessorReview?.fields?.latest_evidence_id === evidenceId) {
+    let priorPredecessorId = predecessorReview.fields.predecessor_review_id ?? null, priorPredecessorText = priorPredecessorId ? merged.entries.find((entry) => entry.label === priorPredecessorId)?.text ?? "" : "", retrySeed = {
+      schema: 1,
+      root_content_hash: rootContentHash(rootPlanText),
+      root_projection_hash: contract.authoritative_projection_hash,
+      evidence_id: evidenceId,
+      evidence_hash: sha2563(evidenceText),
+      predecessor_review_id: priorPredecessorId,
+      predecessor_review_hash: priorPredecessorText ? sha2563(priorPredecessorText) : null,
+      review_input: normalized
+    }, retryInputHash = sha2563(stableJson(retrySeed));
+    if (retryInputHash === currentProvenance.review_input_hash && predecessorReviewId === `wr-${merged.rootFields.id.replace(/^wp-/, "")}-${retryInputHash.slice(0, 12)}`)
+      return {
+        duplicate: !0,
+        artifact: currentReviewEntry.text,
+        artifact_hash: currentProvenance.artifact_hash,
+        review_input_hash: retryInputHash,
+        fields: predecessorReview.fields,
+        normalized_review_input: normalized,
+        outcome,
+        provenance: currentProvenance
+      };
+  }
+  let rootChecks = contract.checks.filter((check) => check.Required === "yes").map((check) => check["Check ID"]), reusedObjectives = predecessorReviewId ? (evidence.fields.reused_objectives ?? []).filter((id2) => contract.objectives.includes(id2)).sort(compareCanonical) : [], reusedChecks = predecessorReviewId ? (evidence.fields.reused_checks ?? []).filter((id2) => rootChecks.includes(id2)).sort(compareCanonical) : [], coverage = {
+    reusedObjectives,
+    inspectedObjectives: contract.objectives.filter((id2) => !reusedObjectives.includes(id2)),
+    reusedChecks,
+    inspectedChecks: rootChecks.filter((id2) => !reusedChecks.includes(id2))
+  }, seedInput = {
+    schema: 1,
+    root_content_hash: rootContentHash(rootPlanText),
+    root_projection_hash: contract.authoritative_projection_hash,
+    evidence_id: evidenceId,
+    evidence_hash: sha2563(evidenceText),
+    predecessor_review_id: predecessorReviewId,
+    predecessor_review_hash: predecessorReviewText ? sha2563(predecessorReviewText) : null,
+    review_input: normalized
+  }, reviewInputHash = sha2563(stableJson(seedInput)), id = `wr-${merged.rootFields.id.replace(/^wp-/, "")}-${reviewInputHash.slice(0, 12)}`, correction2 = correctionProjection({ normalized, findings: normalized.findings, seed: reviewInputHash, rootFields: merged.rootFields, evidenceId, reviewId: id, predecessorReview, entries: merged.entries, pluginRoot }), fields = {
+    artifact: "work-review",
+    schema: 6,
+    id,
+    status: "complete",
+    root_plan_id: merged.rootFields.id,
+    latest_evidence_id: evidenceId,
+    assessment: outcome.assessment,
+    delivery_status: outcome.delivery_status,
+    next_action: outcome.next_action,
+    correction_id: correction2?.correction_id ?? null,
+    predecessor_review_id: predecessorReviewId,
+    inspected_objectives: coverage.inspectedObjectives,
+    reused_objectives: coverage.reusedObjectives,
+    inspected_checks: coverage.inspectedChecks,
+    reused_checks: coverage.reusedChecks,
+    ...correction2 ? { learning_candidates: correction2.learning_ids } : {}
+  }, artifact = `---
+${(0, import_yaml3.stringify)(fields, { lineWidth: 0 }).trimEnd()}
+---
+
+${reviewBody({ normalized, outcome, coverage, evidenceId, correction: correction2 })}
+`, duplicate = merged.entries.find((entry) => entry.label === id);
+  if (duplicate && duplicate.text !== artifact) throw new Error(`review builder generated conflicting immutable bytes for ${id}`);
+  let finalEntries = duplicate ? merged.entries : [...merged.entries, { label: id, text: artifact }], validated = inspectArtifactSet(finalEntries.map((entry) => [entry.label, entry.text]), pluginRoot);
+  if (validated.errors.length > 0) throw new Error(`generated work-review is invalid: ${validated.errors.join("; ")}`);
+  let artifactHash = sha2563(artifact);
+  return {
+    duplicate: !!duplicate,
+    artifact,
+    artifact_hash: artifactHash,
+    review_input_hash: reviewInputHash,
+    fields,
+    normalized_review_input: normalized,
+    outcome,
+    provenance: { schema: 1, kind: "host-work-review-builder", review_input_hash: reviewInputHash, artifact_hash: artifactHash }
+  };
+}
+
+// src/mcp/review-input-contract.mjs
+var semanticKey = string2().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(80), objectiveId = string2().regex(/^OBJ-[1-9][0-9]*$/), checkId = string2().regex(/^CHECK-[1-9][0-9]*$/), line2 = (max = 2e3) => string2().min(1).max(max), finding = strictObject({
+  key: semanticKey,
+  severity: _enum(["low", "medium", "high", "critical"]),
+  objective_ids: array(objectiveId).min(1).max(64),
+  check_ids: array(checkId).min(1).max(128),
+  evidence: line2(4e3),
+  reasoning: line2(4e3),
+  resolution: _enum(["correct", "clarify", "replan"])
+}), correction = strictObject({
+  fixes: array(strictObject({
+    key: semanticKey,
+    finding_keys: array(semanticKey).min(1).max(32),
+    required_outcome: line2(),
+    evidence: line2()
+  })).min(1).max(32),
+  checks: array(strictObject({
+    key: semanticKey,
+    fix_keys: array(semanticKey).min(1).max(32),
+    verification_intent: line2(),
+    expected_evidence: line2(),
+    evidence_class: _enum(["harness-verifiable", "reviewer-observable", "human-decision-required"]),
+    required: boolean2(),
+    cost_class: _enum(["cheap", "standard", "expensive"]),
+    prerequisites: array(line2(1e3)).min(1).max(64)
+  })).min(1).max(32),
+  steps: array(strictObject({
+    key: semanticKey,
+    fix_keys: array(semanticKey).min(1).max(32),
+    targets: array(line2(1e3)).min(1).max(64),
+    required_outcome: line2(),
+    implementation_latitude: line2(),
+    completion_probe: line2(),
+    check_keys: array(semanticKey).min(1).max(32),
+    deviation_action: line2()
+  })).min(1).max(32),
+  learning_candidates: array(strictObject({
+    key: semanticKey,
+    finding_keys: array(semanticKey).min(1).max(32),
+    reusable_guidance: line2(),
+    candidate_targets: array(line2(1e3)).min(1).max(64),
+    confirmation_evidence: line2()
+  })).min(1).max(32)
+}), reviewInputSchema = strictObject({
+  schema: literal(1),
+  kind: literal("review-input"),
+  assessment: _enum(["achieved", "provisional", "mostly-achieved", "partially-achieved", "not-achieved", "insufficient-evidence"]),
+  recommended_action: _enum(["none", "accept-provisional", "correct", "clarify", "replan", "retry-review"]),
+  assessment_summary: line2(),
+  snapshot_assessment: _enum(["consistent", "contradicted", "incomplete"]),
+  snapshot_summary: line2(),
+  findings: array(finding).max(32),
+  missing_evidence: array(line2()).max(32),
+  correction: correction.optional()
+}), malformedReviewInputCandidate = record(string2().max(200), unknown()).refine((value) => Object.keys(value).length <= 32, "review_input recovery candidate exceeds 32 fields").describe("Recovery-only malformed review_input object. The host-owned builder still requires the closed Schema-1 branch and never infers missing judgments."), reviewInputTransportSchema = union([
+  reviewInputSchema,
+  malformedReviewInputCandidate
+]);
+
+// src/manual/manual-workflow.mjs
+var DETERMINISTIC_OBSERVED_AT = "1970-01-01T00:00:00.000Z", line3 = (maximum = 8e3) => string2().min(1).max(maximum), artifactEntrySchema = strictObject({
+  label: line3(200),
+  text: line3(1e6)
+}), artifactEntriesSchema = array(artifactEntrySchema).max(256), validatePlanRequestSchema = strictObject({
+  schema: literal(1),
+  operation: literal("validate-plan"),
+  root_plan: line3(1e6)
+}), repositoryObservationSchema = strictObject({
+  schema: literal(1),
+  kind: literal("unprotected-repository-observation"),
+  repository_root: line3(8e3),
+  changed_paths: array(line3(8e3)).max(2e4),
+  snapshot_material: array(line3(1e5)).min(1).max(2e3),
+  limitations: array(line3(8e3)).max(128)
+}), checkObservationSchema = strictObject({
+  check_id: string2().regex(/^CHECK-[1-9][0-9]*$/),
+  grade: _enum(["supported", "partial", "unavailable", "failed"]),
+  observed: line3(8e3),
+  evidence_material: array(line3(1e5)).max(2e3),
+  limitations: array(line3(8e3)).max(128)
+}).superRefine((value, context) => {
+  value.grade !== "unavailable" && value.evidence_material.length === 0 && context.addIssue({ code: "custom", path: ["evidence_material"], message: `${value.grade} observations require evidence_material` }), ["partial", "unavailable"].includes(value.grade) && value.limitations.length === 0 && context.addIssue({ code: "custom", path: ["limitations"], message: `${value.grade} observations require a concrete limitation` });
+}), buildReviewRequestSchema = strictObject({
+  schema: literal(1),
+  operation: literal("build-review"),
+  root_plan: line3(1e6),
+  artifacts: artifactEntriesSchema,
+  review_input: reviewInputSchema,
+  repository_observation: repositoryObservationSchema,
+  check_observations: array(checkObservationSchema).max(512)
+}), statusRequestSchema = strictObject({
+  schema: literal(1),
+  operation: literal("status"),
+  root_plan: line3(1e6),
+  artifacts: artifactEntriesSchema
+}), acceptRequestSchema = strictObject({
+  schema: literal(1),
+  operation: literal("accept-provisional"),
+  root_plan: line3(1e6),
+  artifacts: artifactEntriesSchema
+}), schemas = Object.freeze({
+  "validate-plan": validatePlanRequestSchema,
+  "build-review": buildReviewRequestSchema,
+  status: statusRequestSchema,
+  "accept-provisional": acceptRequestSchema
+});
+function sha2564(value) {
+  return createHash7("sha256").update(String(value), "utf8").digest("hex");
+}
+function stable4(value) {
+  return Array.isArray(value) ? value.map(stable4) : !value || typeof value != "object" ? value : Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable4(value[key])]));
+}
+function stableJson2(value) {
+  return JSON.stringify(stable4(value));
+}
+function unique4(values) {
+  return [...new Set((values ?? []).map(String).map((value) => value.trim()).filter(Boolean))];
+}
+function codedError2(code, message) {
+  let error = new Error(message);
+  return error.code = code, error;
+}
+function parseRequest(operation, input) {
+  let schema = schemas[operation];
+  if (!schema) throw codedError2("unsupported-operation", `Unsupported manual-workflow operation: ${operation}`);
+  let parsed = schema.safeParse(input);
+  if (parsed.success) return parsed.data;
+  let issue3 = parsed.error.issues[0], location = issue3?.path?.length ? ` at ${issue3.path.join(".")}` : "";
+  throw codedError2("manual-input-invalid", `Closed Schema-1 ${operation} input is invalid${location}: ${issue3?.message ?? "invalid input"}`);
+}
+function exactRoot(rootPlan, pluginRoot) {
+  let inspected = inspectArtifactText(rootPlan, pluginRoot);
+  if (inspected.errors.length > 0 || inspected.artifact?.fields?.artifact !== "work-plan" || inspected.artifact.fields.schema !== 6)
+    throw codedError2("schema-6-root-invalid", `An exact valid Schema-6 Root is required: ${inspected.errors.join("; ") || "input is not a work-plan"}`);
+  return inspected.artifact.fields;
+}
+function exactChain(rootPlan, artifacts, pluginRoot) {
+  let rootFields = exactRoot(rootPlan, pluginRoot), byId = /* @__PURE__ */ new Map([[rootFields.id, { label: rootFields.id, text: rootPlan }]]);
+  for (let entry of artifacts) {
+    let inspected = inspectArtifactText(entry.text, pluginRoot), fields = inspected.artifact?.fields;
+    if (inspected.errors.length > 0 || !fields?.id || fields.schema !== 6)
+      throw codedError2("schema-6-chain-invalid", `Artifact ${entry.label} is not an exact valid Schema-6 artifact: ${inspected.errors.join("; ") || "unsupported artifact"}`);
+    let prior = byId.get(fields.id);
+    if (prior && prior.text !== entry.text) throw codedError2("artifact-bytes-conflict", `Artifact ${fields.id} has conflicting immutable bytes`);
+    byId.set(fields.id, { label: fields.id, text: entry.text });
+  }
+  let entries = [...byId.values()], chain = inspectArtifactSet(entries.map((entry) => [entry.label, entry.text]), pluginRoot);
+  if (chain.errors.length > 0) throw codedError2("schema-6-chain-invalid", `The exact Schema-6 chain is invalid: ${chain.errors.join("; ")}`);
+  let fieldsById = new Map(entries.map((entry) => {
+    let fields = inspectArtifactText(entry.text, pluginRoot).artifact.fields;
+    return [fields.id, fields];
+  })), lineageRootIds = /* @__PURE__ */ new Set(), cursor = rootFields.id;
+  for (; cursor && !lineageRootIds.has(cursor); )
+    lineageRootIds.add(cursor), cursor = fieldsById.get(cursor)?.predecessor_plan_id ?? null;
+  for (let fields of fieldsById.values())
+    if (!(fields.artifact === "work-plan" ? lineageRootIds.has(fields.id) : lineageRootIds.has(fields.root_plan_id))) throw codedError2("foreign-artifact-chain", `Artifact ${fields.id} is foreign to current Root ${rootFields.id}`);
+  return { rootFields, entries, chain, tips: effectiveCliSummary(chain) };
+}
+function observationHashes(observation) {
+  let canonicalRepositoryRoot = realpathSync3(observation.repository_root), normalized = stable4({
+    schema: observation.schema,
+    kind: observation.kind,
+    repository_root: canonicalRepositoryRoot,
+    changed_paths: unique4(observation.changed_paths).sort(),
+    snapshot_material: observation.snapshot_material,
+    limitations: unique4(observation.limitations)
+  }), workspaceBindingHash = sha2564(stableJson2({ repository_root: canonicalRepositoryRoot }));
+  return {
+    normalized,
+    workspaceBindingHash,
+    snapshotHash: sha2564(stableJson2({ ...normalized, workspace_binding_hash: workspaceBindingHash }))
+  };
+}
+function checkEvidence(observations) {
+  let ids3 = observations.map((entry) => entry.check_id);
+  if (new Set(ids3).size !== ids3.length) throw codedError2("check-observation-ambiguous", "Check observations must use unique Check IDs");
+  return observations.map((entry) => ({
+    check_id: entry.check_id,
+    grade: entry.grade,
+    observed: entry.observed,
+    evidence_hashes: unique4(entry.evidence_material.map(sha2564)).sort(),
+    limitations: unique4([
+      ...entry.limitations,
+      "This Check is based on an unprotected Manual observation and cannot establish verified evidence."
+    ])
+  }));
+}
+function boundedLine(value, maximum = 1900) {
+  let source = String(value ?? "").trim();
+  if (source.length <= maximum) return source;
+  let suffix = " \u2026 [bounded]";
+  return `${source.slice(0, maximum - suffix.length).trimEnd()}${suffix}`;
+}
+function authorityLimitedReviewInput(reviewInput, message) {
+  let limitation = boundedLine(message);
+  return {
+    ...reviewInput,
+    assessment: ["achieved", "provisional"].includes(reviewInput.assessment) ? "partially-achieved" : reviewInput.assessment,
+    recommended_action: "clarify",
+    snapshot_assessment: "incomplete",
+    snapshot_summary: boundedLine(`${reviewInput.snapshot_summary} ${limitation}`),
+    missing_evidence: unique4([...reviewInput.missing_evidence ?? [], limitation]),
+    correction: void 0
+  };
+}
+function authorityProjection(rootFields, changedPaths, repositoryRoot) {
+  try {
+    return assertChangedPathAuthority(rootFields, changedPaths, repositoryRoot), { authorizedPaths: unique4(changedPaths).sort(), limitation: null };
+  } catch (error) {
+    return {
+      authorizedPaths: unique4(changedPaths).filter((path) => {
+        try {
+          return assertChangedPathAuthority(rootFields, [path], repositoryRoot), !0;
+        } catch {
+          return !1;
+        }
+      }).sort(),
+      limitation: `Observed repository paths exceed the Root authority: ${String(error?.message ?? error)}`
+    };
+  }
+}
+function findingLine(finding2) {
+  return `- [${finding2.severity.toUpperCase()}] ${finding2.key} \u2014 ${finding2.evidence} Reasoning: ${finding2.reasoning} Resolution: ${finding2.resolution}.`;
+}
+function reviewPresentation({ rootFields, evidence, review, reviewInput, repositoryObservation, authorityLimitation }) {
+  let findings = reviewInput.findings.map(findingLine), limitations = unique4([
+    ...repositoryObservation.limitations,
+    ...authorityLimitation ? [authorityLimitation] : [],
+    ...reviewInput.missing_evidence,
+    ...(evidence.fields.check_evidence ?? []).flatMap((entry) => entry.limitations ?? [])
+  ]), checkLines = (evidence.fields.check_evidence ?? []).map((entry) => `- ${entry.check_id}: ${entry.grade} \u2014 ${entry.observed}`), presentation = {
+    schema: 1,
+    kind: "manual-review-presentation",
+    root_plan_id: rootFields.id,
+    evidence_id: evidence.fields.id,
+    review_id: review.fields.id,
+    assessment: review.fields.assessment,
+    delivery_status: review.fields.delivery_status,
+    evidence_grade: evidence.fields.overall_grade,
+    findings: reviewInput.findings,
+    limitations,
+    checks: evidence.fields.check_evidence,
+    next_action: review.fields.next_action
+  }, humanOutput = [
+    `## Workflow \xB7 ${review.fields.delivery_status}`,
+    "### Quick decision",
+    `- Repository outcome: ${reviewInput.assessment_summary}`,
+    `- Evidence status: ${evidence.fields.overall_grade}; unprotected Manual observations cannot be verified.`,
+    "### Findings",
+    findings.length > 0 ? findings.join(`
+`) : "- None.",
+    "### Checks",
+    checkLines.length > 0 ? checkLines.join(`
+`) : "- No required Check observations were supplied.",
+    "### Limitations",
+    limitations.length > 0 ? limitations.map((entry) => `- ${entry}`).join(`
+`) : "- None.",
+    "### Next step",
+    `- Now: ${review.fields.next_action}`,
+    "### Details",
+    `Root ${rootFields.id}, Evidence ${evidence.fields.id}, and Review ${review.fields.id} are bound to snapshot ${evidence.fields.workspace_snapshot_hash}.`,
+    "The machine artifacts below are the authoritative result; this presentation is derived from the same decision."
+  ].join(`
+
+`);
+  return { presentation, humanOutput: `${humanOutput}
+` };
+}
+function planPresentation(result, rootPlan) {
+  let state = result.feasible ? "ready" : "blocked", blockers = result.blocking_issues.map((entry) => `- ${entry.message ?? entry.code ?? String(entry)}`);
+  return [
+    `## Workflow Plan \xB7 ${state}`,
+    "### Quick decision",
+    result.feasible ? "- The exact Schema-6 Root is valid and ready for separate human implementation approval." : "- The Root is not valid and must be corrected before implementation.",
+    ...blockers.length > 0 ? ["### Blockers", blockers.join(`
+`)] : [],
+    "### Next step",
+    `- Now: ${result.feasible ? "implement-plan" : "correct-plan"}`,
+    "### Details",
+    `Root bytes SHA-256: ${sha2564(rootPlan)}`
+  ].join(`
+
+`) + `
+`;
+}
+function statusPresentation(status, accepted = !1) {
+  let snapshot2 = status.snapshot;
+  return [
+    `## Workflow \xB7 ${snapshot2.state}`,
+    "### Quick decision",
+    `- Manual state: ${snapshot2.state}`,
+    `- Delivery status: ${snapshot2.delivery_status ?? "none"}`,
+    `- Evidence grade: ${snapshot2.evidence_grade ?? "none"}`,
+    "### Next step",
+    `- Now: ${snapshot2.next_action}`,
+    "### Details",
+    accepted ? "The provisional acceptance is explicit, ephemeral, and not persisted." : "Status is derived only from the exact supplied Schema-6 artifact bytes."
+  ].join(`
+
+`) + `
+`;
+}
+function validatePlan(request, pluginRoot) {
+  let result = preflightRootPlan(request.root_plan, pluginRoot);
+  return {
+    schema: 1,
+    kind: "manual-plan-validation",
+    ok: result.feasible,
+    root_plan_id: result.root_plan_id,
+    root_content_hash: sha2564(request.root_plan),
+    result,
+    human_output: planPresentation(result, request.root_plan),
+    artifacts: []
+  };
+}
+function buildReview(request, pluginRoot) {
+  let exact = exactChain(request.root_plan, request.artifacts, pluginRoot), contract = executionContractFromArtifactText(request.root_plan, pluginRoot);
+  if (contract.errors.length > 0) throw codedError2("schema-6-root-invalid", `Root execution contract is invalid: ${contract.errors.join("; ")}`);
+  let hashes = observationHashes(request.repository_observation), authority = authorityProjection(exact.rootFields, hashes.normalized.changed_paths, hashes.normalized.repository_root), effectiveReviewInput = authority.limitation ? authorityLimitedReviewInput(request.review_input, authority.limitation) : request.review_input, localCheckEvidence = checkEvidence(request.check_observations), evidenceTipId = exact.tips.evidence_tips[exact.rootFields.id] ?? null, reviewTipId = exact.tips.review_tips[exact.rootFields.id] ?? null, reviewTip = reviewTipId ? exact.chain.effective.get(reviewTipId) : null, correctionPending = !!(evidenceTipId && reviewTip?.fields?.latest_evidence_id === evidenceTipId && reviewTip?.fields?.next_action === "correct" && reviewTip?.fields?.correction_id), evidence, reviewArtifacts, chainUpdate;
+  if (!evidenceTipId || correctionPending)
+    evidence = buildDeliveryEvidence({
+      rootPlanText: request.root_plan,
+      artifacts: exact.entries,
+      checkEvidence: localCheckEvidence,
+      changedPaths: authority.authorizedPaths,
+      effectiveProfile: "manual",
+      harnessAttestations: [],
+      enforceHarnessAttestations: !0,
+      workspaceBinding: hashes.workspaceBindingHash,
+      workspaceSnapshotHash: hashes.snapshotHash,
+      pluginRoot
+    }), reviewArtifacts = [...exact.entries, { label: evidence.fields.id, text: evidence.artifact }], chainUpdate = "append";
+  else {
+    let refreshBaseEntries = exact.entries.filter((entry) => ![evidenceTipId, reviewTipId].includes(entry.label)), candidate = buildDeliveryEvidence({
+      rootPlanText: request.root_plan,
+      artifacts: refreshBaseEntries,
+      checkEvidence: localCheckEvidence,
+      changedPaths: authority.authorizedPaths,
+      effectiveProfile: "manual",
+      harnessAttestations: [],
+      enforceHarnessAttestations: !0,
+      workspaceBinding: hashes.workspaceBindingHash,
+      workspaceSnapshotHash: hashes.snapshotHash,
+      pluginRoot
+    });
+    (exact.entries.find((entry) => entry.label === evidenceTipId)?.text ?? null) === candidate.artifact ? (evidence = { ...candidate, duplicate: !0 }, reviewArtifacts = exact.entries, chainUpdate = "reuse") : (evidence = candidate, reviewArtifacts = [...refreshBaseEntries, { label: candidate.fields.id, text: candidate.artifact }], chainUpdate = candidate.fields.representation === "delta" ? "replace-delta-suffix" : "replace-full-tip");
+  }
+  let review = buildWorkReview({
+    rootPlanText: request.root_plan,
+    artifacts: reviewArtifacts,
+    reviewInput: effectiveReviewInput,
+    allowUnprovenancedReviews: !0,
+    pluginRoot
+  }), shown = reviewPresentation({
+    rootFields: exact.rootFields,
+    evidence,
+    review,
+    reviewInput: review.normalized_review_input,
+    repositoryObservation: request.repository_observation,
+    authorityLimitation: authority.limitation
+  });
+  return {
+    schema: 1,
+    kind: "manual-review-result",
+    ok: !0,
+    mode: "manual-local",
+    root_plan_id: exact.rootFields.id,
+    root_content_hash: sha2564(request.root_plan),
+    intent_hash: contract.authoritative_projection_hash,
+    workspace_binding_hash: hashes.workspaceBindingHash,
+    repository_snapshot_hash: hashes.snapshotHash,
+    chain_update: chainUpdate,
+    presentation: shown.presentation,
+    human_output: shown.humanOutput,
+    artifacts: [
+      { artifact: "delivery-evidence", label: evidence.fields.id, text: evidence.artifact, artifact_hash: evidence.artifact_hash },
+      { artifact: "work-review", label: review.fields.id, text: review.artifact, artifact_hash: review.artifact_hash }
+    ]
+  };
+}
+function deriveStatus(request, pluginRoot, manualAcceptance = null) {
+  let exact = exactChain(request.root_plan, request.artifacts, pluginRoot), status = deriveManualWorkflowSnapshot({
+    rootPlanId: exact.rootFields.id,
+    artifacts: exact.entries,
+    pluginRoot,
+    observedAt: DETERMINISTIC_OBSERVED_AT,
+    manualAcceptance
+  });
+  return {
+    schema: 1,
+    kind: manualAcceptance ? "manual-provisional-acceptance" : "manual-workflow-status",
+    ok: !0,
+    accepted: manualAcceptance === "provisional",
+    persisted: !1,
+    snapshot: status.snapshot,
+    artifact_summary: status.artifact_summary,
+    diagnostics: status.diagnostics,
+    changed_paths: status.changed_paths,
+    human_output: statusPresentation(status, manualAcceptance === "provisional"),
+    artifacts: []
+  };
+}
+function acceptProvisional(request, pluginRoot) {
+  let exact = exactChain(request.root_plan, request.artifacts, pluginRoot), reviewTipId = exact.tips.review_tips[exact.rootFields.id] ?? null, reviewTip = reviewTipId ? exact.chain.effective.get(reviewTipId) : null, current = deriveStatus(request, pluginRoot);
+  if (current.snapshot.delivery_status !== "provisional" || current.snapshot.next_action !== "accept-provisional") {
+    let nextAction = reviewTip?.fields?.next_action ?? "provide-artifacts", error = codedError2("manual-acceptance-denied", `The current exact chain cannot be accepted provisionally; it requires ${nextAction}.`);
+    throw error.nextAction = nextAction, error;
+  }
+  return deriveStatus(request, pluginRoot, "provisional");
+}
+function shadowError(operation, input, error) {
+  let code = error?.code ?? "manual-workflow-failed", message = String(error?.message ?? error), nextAction = error?.nextAction ?? (operation === "validate-plan" ? "correct-plan" : ["status", "accept-provisional"].includes(operation) ? "provide-artifacts" : "retry-review");
+  return {
+    schema: 1,
+    kind: "manual-workflow-error",
+    ok: !1,
+    mode: "shadow",
+    operation,
+    error: { code, message },
+    input_preserved: !0,
+    supplied_root_retained: typeof input?.root_plan == "string",
+    supplied_artifact_count: Array.isArray(input?.artifacts) ? input.artifacts.length : 0,
+    next_action: nextAction,
+    human_output: `## Workflow \xB7 shadow
+
+### Quick decision
+
+- ${message}
+- No Schema-6 Evidence or Review artifact was created.
+
+### Next step
+
+- Now: ${nextAction}
+`,
+    artifacts: []
+  };
+}
+function executeManualOperation(operation, input, { pluginRoot = defaultRoot } = {}) {
+  try {
+    let request = parseRequest(operation, input);
+    if (operation === "validate-plan") return validatePlan(request, pluginRoot);
+    if (operation === "build-review") return buildReview(request, pluginRoot);
+    if (operation === "status") return deriveStatus(request, pluginRoot);
+    if (operation === "accept-provisional") return acceptProvisional(request, pluginRoot);
+    throw codedError2("unsupported-operation", `Unsupported manual-workflow operation: ${operation}`);
+  } catch (error) {
+    return shadowError(operation, input, error);
+  }
+}
+function serializeManualResult(value) {
+  return `${JSON.stringify(stable4(value), null, 2)}
+`;
+}
+function main() {
+  let operation = process.argv[2], input;
+  try {
+    input = JSON.parse(readFileSync3(0, "utf8"));
+  } catch (error) {
+    let result2 = shadowError(operation ?? "unknown", null, codedError2("manual-json-invalid", `Manual input must be one JSON object: ${error.message}`));
+    process.stdout.write(serializeManualResult(result2)), process.exitCode = 2;
+    return;
+  }
+  let result = executeManualOperation(operation, input);
+  process.stdout.write(serializeManualResult(result)), result.ok || (process.exitCode = 2);
+}
+process.argv[1] && realpathSync3(fileURLToPath2(import.meta.url)) === realpathSync3(process.argv[1]) && main();
+export {
+  executeManualOperation,
+  serializeManualResult
+};

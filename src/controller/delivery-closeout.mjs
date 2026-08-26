@@ -136,7 +136,7 @@ function artifactStatus(grade) {
 function summaryText(summary, status, grade, entries) {
   const supplied = String(summary ?? "").trim();
   if (supplied) return supplied;
-  if (status === "blocked") return "BLOCKER: at least one required verification intent has a harness-attested failure.";
+  if (status === "blocked") return "BLOCKER: at least one required verification intent failed.";
   if (status === "complete") return "Every required verification intent is bound to a passing project-harness attestation.";
   const limitations = unique(entries.flatMap((entry) => entry.limitations ?? []));
   return `Delivery remains provisional with evidence grade ${grade}.${limitations.length > 0 ? ` Limitations: ${limitations.join(" ")}` : ""}`;
@@ -155,6 +155,7 @@ export function buildDeliveryEvidence({
   enforceHarnessAttestations = true,
   workspaceBinding = null,
   workspaceSnapshotHash = null,
+  seal = false,
   pluginRoot,
 }) {
   const normalized = normalizeArtifacts(rootPlanText, artifacts, pluginRoot);
@@ -173,7 +174,17 @@ export function buildDeliveryEvidence({
     ? review.correction
     : null;
 
-  if (evidenceTipId && !correction) {
+  if (seal) {
+    if (!evidenceTipId || !review || review.fields.latest_evidence_id !== evidenceTipId) {
+      throw new Error("protected sealing requires one exact current provisional Evidence/Review tip");
+    }
+    if (review.fields.delivery_status !== "provisional"
+      || review.fields.next_action !== "accept-provisional"
+      || review.fields.correction_id
+      || (review.findings ?? []).length > 0) {
+      throw new Error(`protected sealing rejects non-provisional Review tip ${review.fields.id}`);
+    }
+  } else if (evidenceTipId && !correction) {
     const existing = normalized.entries.find((entry) => entry.label === evidenceTipId);
     if ((checkEvidence ?? []).length > 0 || (changedPaths ?? []).length > 0) {
       throw new Error(`stale or competing closeout conflicts with current Evidence tip ${evidenceTipId}`);
@@ -208,9 +219,14 @@ export function buildDeliveryEvidence({
 
   const grade = aggregate(entries);
   const status = artifactStatus(grade);
+  if (seal && (grade !== "verified" || status !== "complete" || entries.some((entry) => entry.grade !== "verified"))) {
+    const error = new Error("protected sealing requires fresh verified evidence for every required Check");
+    error.code = "protected-seal-not-verified";
+    throw error;
+  }
   const subjectId = correction ? review.fields.correction_id : normalized.rootId;
-  const sourceReviewId = correction ? review.fields.id : null;
-  const predecessorEvidenceId = correction ? evidenceTipId : null;
+  const sourceReviewId = correction || seal ? review.fields.id : null;
+  const predecessorEvidenceId = correction || seal ? evidenceTipId : null;
   const paths = unique((changedPaths ?? []).map(String).map((path) => path.trim()).filter(Boolean)).sort();
   const affectedObjectives = [...contract.objectives];
   const seed = sha256(JSON.stringify(stable({
@@ -234,7 +250,7 @@ export function buildDeliveryEvidence({
     subject_id: subjectId,
     source_review_id: sourceReviewId,
     predecessor_evidence_id: predecessorEvidenceId,
-    representation: correction ? "delta" : "full",
+    representation: correction ? "delta" : seal ? "seal" : "full",
     intent_hash: contract.authoritative_projection_hash,
     evidence_mode: mode,
     overall_grade: grade,

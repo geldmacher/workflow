@@ -20,6 +20,7 @@ const mcpSchemaId = "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json";
 const expectedSkills = [
   "accept-work",
   "correct-work",
+  "engineering-work",
   "explain-work",
   "implement-work",
   "learn-from-work",
@@ -136,7 +137,7 @@ function validatePackageSurface(pluginRoot, files, failures) {
     if (!allowedTopLevel.has(entry.name)) failures.push(`${entry.name}: top-level package entry is not allowlisted`);
     if (forbiddenTopLevel.has(entry.name)) failures.push(`${entry.name}: native or development surface leaked into portable target`);
   }
-  for (const required of ["LICENSE", "README.md", "THIRD_PARTY_NOTICES.md", "dist/workflow-mcp.mjs", "mcp.json", "plugin.json", "scripts/validate-artifact.mjs", "skills"]) {
+  for (const required of ["LICENSE", "README.md", "THIRD_PARTY_NOTICES.md", "dist/manual-workflow.mjs", "dist/workflow-mcp.mjs", "mcp.json", "plugin.json", "scripts/validate-artifact.mjs", "skills"]) {
     if (!existsSync(join(pluginRoot, required))) failures.push(`${required}: required portable package entry is missing`);
   }
   for (const path of files) {

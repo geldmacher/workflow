@@ -4,6 +4,7 @@
     ".cursor-plugin/plugin.json",
     "assets",
     "commands",
+    "dist/manual-workflow.mjs",
     "dist/workflow-mcp.mjs",
     "hooks",
     "mcp.json",

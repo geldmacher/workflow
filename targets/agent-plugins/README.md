@@ -1,6 +1,6 @@
 # Workflow — Agent Plugins v1 target
 
-This package provides Workflow's portable Manual profile through eight Agent Skills and five MCP tools. It targets Agent Plugins Specification 1.0.0.
+This package provides Workflow's portable Manual profile through 9 Agent Skills and five MCP tools. It targets Agent Plugins Specification 1.0.0.
 
 ## Requirements
 

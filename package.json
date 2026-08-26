@@ -9,6 +9,7 @@
     "CHANGELOG.md",
     "commands",
     "CONTROLLER_THIRD_PARTY_NOTICES.md",
+    "dist/manual-workflow.mjs",
     "dist/workflow-mcp.mjs",
     "docs",
     "hooks",

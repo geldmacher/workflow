@@ -158,6 +158,7 @@ function readJson(path) {
 
 function validConversation(value) {
   return value?.schema === 6
+    && value?.state_version === 2
     && value?.kind === "cursor-native-task-review-context"
     && typeof value.conversation_hash === "string"
     && Number.isInteger(value.revision)
@@ -278,10 +279,10 @@ export function validateConsumedNativeReviewReceipt({ stateRoot, receipt, option
     if (current.revision !== receipt.context_revision) return { status: "drift", reason: "context-revision-drift" };
     if (current.active?.root_hash !== receipt.root_hash) return { status: "drift", reason: "root-drift" };
     if (current.mutation_epoch?.id !== receipt.mutation_epoch?.id) return { status: "drift", reason: "mutation-epoch-drift" };
-    if (current.inflight?.token_hash !== receipt.token_hash
-      || current.inflight?.tool_hash !== receipt.tool_hash
-      || current.inflight?.generation_hash !== receipt.generation_hash) {
-      return { status: "drift", reason: "review-inflight-drift" };
+    if (current.review_invocation?.token_hash !== receipt.token_hash
+      || current.review_invocation?.tool_hash !== receipt.tool_hash
+      || current.review_invocation?.generation_hash !== receipt.generation_hash) {
+      return { status: "drift", reason: "review-invocation-drift" };
     }
     return { status: "valid" };
   }, options);

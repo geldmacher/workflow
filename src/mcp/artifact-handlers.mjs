@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import {
   createContentAddressedHandoffStore,
@@ -18,13 +18,26 @@ import {
 } from "../harness/native-task-review-state.mjs";
 import { inspectArtifactText } from "../../scripts/validate-artifact.source.mjs";
 import {
+  commitNativeReviewInvocationResult,
   consumeNativeReviewReceipt,
   nativeReviewReceiptBindingHash,
+  replayNativeReviewInvocationResult,
 } from "../../hooks/native-review-receipt.mjs";
 import { isWorkspaceRootsUnavailable } from "./workspace-roots.mjs";
+import { reviewInputSchema } from "./review-input-contract.mjs";
 
 const bundleSize = (artifacts = []) => artifacts.reduce((total, artifact) => total + artifact.text.length, 0);
 const sha256 = (text) => createHash("sha256").update(text, "utf8").digest("hex");
+const sanitizedShadowFindings = (reviewInput) => {
+  const parsed = reviewInputSchema.safeParse(reviewInput);
+  if (!parsed.success) return [];
+  return parsed.data.findings.map(({ key, severity, evidence, reasoning }) => ({
+    key,
+    severity,
+    evidence: evidence.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim(),
+    reasoning: reasoning.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim(),
+  }));
+};
 
 export function createArtifactHandlers({
   pluginRoot,
@@ -55,6 +68,31 @@ export function createArtifactHandlers({
     error.code = code;
     Object.assign(error, details);
     return error;
+  };
+
+  const shadowReview = (input, reasonCode, limitation, recoveryAction = "establish-formal-review-binding") => {
+    const repositoryFindings = sanitizedShadowFindings(input.review_input);
+    const findingLabel = repositoryFindings.length === 1 ? "finding is" : "findings are";
+    return toolResult("workflow_closeout", {
+      artifact_kind: "work-review",
+      mode: "shadow",
+      status: "unavailable",
+      assessment: "shadow",
+      ...(input.root_plan_id ? { root_plan_id: input.root_plan_id } : {}),
+      repository_outcome: `${repositoryFindings.length} non-authoritative repository ${findingLabel} available; formal Plan conformance was not assessed.`,
+      repository_findings_authoritative: false,
+      repository_findings: repositoryFindings,
+      evidence_status: "No Workflow Evidence or Work Review artifact was created.",
+      reason_code: reasonCode,
+      limitations: [limitation],
+      artifacts_persisted: false,
+      workflow_state_changed: false,
+      persistence_scope: "none",
+      recovery_action: recoveryAction,
+      harness_mode: "shadow",
+      harness_status: "unavailable",
+      harness_limitations: [limitation],
+    });
   };
 
   const mergeArtifacts = (entries) => {
@@ -455,15 +493,25 @@ export function createArtifactHandlers({
   const closeout = async (input) => {
     try {
       if (bundleSize(input.artifacts) > 1_000_000) throw new Error("closeout artifact bundle exceeds 1000000 characters");
+      const requestedArtifactKind = input.artifact_kind ?? "delivery-evidence";
+      if (requestedArtifactKind === "work-review" && clientHost !== "cursor") {
+        return shadowReview(
+          input,
+          "protected-review-binding-unavailable",
+          `${clientHost} does not currently provide a protected host Root and Review invocation binding. Exact caller bytes and harness self-attestation cannot establish formal Review authority.`,
+        );
+      }
       let operational = await optionalOperational(input.workspace_root);
 
-      if ((input.artifact_kind ?? "delivery-evidence") !== "work-review" && !input.root_plan_id) {
+      if (requestedArtifactKind !== "work-review" && !input.root_plan_id) {
         throw codedError("root-plan-id-required", "workflow_closeout delivery-evidence mode requires root_plan_id");
       }
 
       // Manual Review is task-bound. Cursor consumes protected native-task
-      // transport; Codex and portable clients supply exact task artifacts.
-      if ((input.artifact_kind ?? "delivery-evidence") === "work-review") {
+      // transport. Current Codex and portable adapters cannot establish an
+      // equivalent protected host binding, so exact caller bytes remain
+      // context only and must stop at Shadow Review.
+      if (requestedArtifactKind === "work-review") {
         let rootPlanText = input.root_plan ?? null;
         let rootPlanId = input.root_plan_id ?? null;
         let taskArtifacts = input.artifacts ?? [];
@@ -474,12 +522,17 @@ export function createArtifactHandlers({
             const rootsFailure = operational.workspace_error?.message
               ? ` MCP workspace discovery also failed: ${operational.workspace_error.message}`
               : "";
-            throw codedError("native-task-receipt-unavailable", `Cursor work-review requires the opaque receipt injected by the native preToolUse hook. Repeat /review-work in the same task; do not set native_review_receipt yourself.${rootsFailure}`);
+            return shadowReview(
+              input,
+              "native-task-receipt-unavailable",
+              `The protected Cursor Root/workspace receipt is unavailable.${rootsFailure}`,
+            );
           }
           let receiptFallback = false;
           if (!operational.workspace || !operational.stateRoot) {
             if (typeof resolveCursorReceiptContext !== "function") {
-              throw codedError(
+              return shadowReview(
+                input,
                 "native-task-receipt-unavailable",
                 `Cursor work-review could not establish the workspace needed for its native task receipt${operational.workspace_error?.message ? `: ${operational.workspace_error.message}` : ""}`,
               );
@@ -494,7 +547,8 @@ export function createArtifactHandlers({
               };
               receiptFallback = true;
             } catch (error) {
-              throw codedError(
+              return shadowReview(
+                input,
                 "native-task-receipt-unavailable",
                 `Cursor work-review could not establish a receipt-bound repository${rootsFailure?.message ? ` after MCP workspace discovery failed: ${rootsFailure.message}` : ""}; workspace locator rejected: ${error.message}`,
               );
@@ -516,10 +570,28 @@ export function createArtifactHandlers({
             invalid: ["native-task-receipt-invalid", "The protected Cursor task receipt is invalid. Create a fresh Plan and repeat /review-work."],
           };
           if (consumed.status !== "resolved") {
+            if (consumed.status === "replayed") {
+              const replay = replayNativeReviewInvocationResult({
+                stateRoot: operational.stateRoot,
+                token: input.native_review_receipt,
+                input,
+                receipt: consumed.receipt,
+              });
+              if (replay.status === "resolved") {
+                const repositoryHash = repositorySnapshotHash(captureRepositorySnapshot(operational.workspace));
+                if (repositoryHash !== replay.payload.repository_state_hash) {
+                  throw codedError("native-task-receipt-stale", "The repository changed after this Review result was committed. Start a fresh /review-work turn.");
+                }
+                return toolResult("workflow_closeout", replay.payload);
+              }
+            }
             const [code, message] = receiptFailures[consumed.status] ?? receiptFailures.unavailable;
             const rootsFailure = receiptFallback && operational.workspace_error?.message
               ? ` MCP workspace discovery failed before the receipt-bound fallback: ${operational.workspace_error.message}`
               : "";
+            if (["unavailable", "expired"].includes(consumed.status)) {
+              return shadowReview(input, code, `${message}${rootsFailure}`);
+            }
             throw codedError(code, `${message}${rootsFailure}`);
           }
           if (receiptFallback && resolve(consumed.receipt.workspace_root) !== resolve(operational.workspace)) {
@@ -552,6 +624,14 @@ export function createArtifactHandlers({
           pluginRoot,
         });
         if (nativePlan.status !== "resolved") {
+          if (nativePlan.status === "unavailable") {
+            return shadowReview(
+              input,
+              "native-plan-unavailable",
+              `No exact current-task Schema-6 Root is available from the formal Review transport. Inspected: ${nativePlan.attempted_sources.join(", ") || "no native source was supplied"}.`,
+              "create-formal-plan-binding",
+            );
+          }
           throw codedError(
             `native-plan-${nativePlan.status}`,
             `workflow_closeout work-review native Root is ${nativePlan.status}. Inspected: ${nativePlan.attempted_sources.join(", ") || "no native source was supplied"}. ${nativePlan.resolution}`,
@@ -562,7 +642,8 @@ export function createArtifactHandlers({
           throw codedError("native-task-receipt-mismatch", "Cursor work-review native task receipt Root hash changed before review construction");
         }
         if (!operational.workspace) {
-          throw codedError(
+          return shadowReview(
+            input,
             "review-workspace-unavailable",
             `workflow_closeout could not inspect the current repository${operational.workspace_error?.message ? `: ${operational.workspace_error.message}` : ""}`,
           );
@@ -570,14 +651,7 @@ export function createArtifactHandlers({
         let harnessOrchestration = null;
         if (typeof reviewHarnessPhase === "function") {
           try {
-            const reviewTransitionBindingHash = nativeReceipt
-              ? nativeReviewReceiptBindingHash(nativeReceipt)
-              : sha256(JSON.stringify({
-                kind: "manual-review-invocation",
-                invocation_id: randomUUID(),
-                root_hash: nativePlan.root_hash,
-                workspace_root: operational.workspace,
-              }));
+            const reviewTransitionBindingHash = nativeReviewReceiptBindingHash(nativeReceipt);
             harnessOrchestration = await reviewHarnessPhase({
               rootPlanText: nativePlan.root_text,
               workspaceRoot: operational.workspace,
@@ -618,6 +692,7 @@ export function createArtifactHandlers({
           harnessPhaseResult: harnessOrchestration?.result ?? null,
           harnessProtectionHash,
           workspaceBinding: harnessOrchestration?.request?.workspace_binding ?? null,
+          seal: nativeReceipt?.predecessor_mode === "provisional-seal",
         });
         if (!rootPlanId || nativePlan.root_id !== rootPlanId || bundle.root_plan_id !== rootPlanId) {
           throw new Error(`workflow_closeout Root ID mismatch: expected ${rootPlanId ?? "<unavailable>"}, received ${bundle.root_plan_id}`);
@@ -651,12 +726,28 @@ export function createArtifactHandlers({
           rootContentHashValue: nativePlan.root_hash,
           nativeBinding,
         });
-        return toolResult("workflow_closeout", {
+        const response = {
           ...payload,
+          mode: "formal",
+          artifacts_persisted: true,
+          workflow_state_changed: true,
+          persistence_scope: "native-review-invocation",
           harness_mode: harnessOrchestration?.mode ?? "shadow",
           harness_status: harnessOrchestration?.status ?? "unavailable",
           harness_limitations: harnessOrchestration?.blockers ?? ["harness-protection-unavailable"],
+        };
+        const committed = commitNativeReviewInvocationResult({
+          stateRoot: operational.stateRoot,
+          token: input.native_review_receipt,
+          input,
+          receipt: nativeReceipt,
+          payload: response,
+          options: receiptOptions,
         });
+        if (committed.status !== "committed") {
+          throw codedError("native-review-result-commit-failed", `Cursor could not commit the idempotent Review result (${committed.status}). Start a fresh /review-work turn.`);
+        }
+        return toolResult("workflow_closeout", committed.payload);
       }
 
       let handoff;

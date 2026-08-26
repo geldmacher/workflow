@@ -239,7 +239,7 @@ export function parseReviewInputFromText(source) {
   }
 }
 
-function mergeChain(rootPlanText, artifacts, pluginRoot) {
+function mergeChain(rootPlanText, artifacts, pluginRoot, { allowUnprovenancedReviews = false } = {}) {
   const rootInspection = inspectArtifactText(rootPlanText, pluginRoot);
   if (rootInspection.errors.length > 0 || rootInspection.artifact?.fields?.artifact !== "work-plan" || rootInspection.artifact.fields.schema !== 6) {
     throw new Error(`review builder requires an exact valid Schema-6 Root: ${rootInspection.errors.join("; ") || "not a work-plan"}`);
@@ -260,7 +260,7 @@ function mergeChain(rootPlanText, artifacts, pluginRoot) {
       if (builderProvenance && !validBuilderProvenance) {
         throw codedError("review-artifact-rejected", `review builder artifact ${id} has invalid host builder provenance`);
       }
-      if (!validBuilderProvenance) {
+      if (!validBuilderProvenance && !allowUnprovenancedReviews) {
         throw codedError("review-artifact-rejected", `review builder rejects newly imported work-review ${id} without protected builder provenance; Root, Evidence, and repository work remain unchanged, so repeat Review from the exact Root/Evidence chain in this task`);
       }
     }
@@ -455,9 +455,10 @@ export function buildWorkReview({
   reviewInput = null,
   boundaryReceipt = null,
   boundaryReceiptVerifier = null,
+  allowUnprovenancedReviews = false,
   pluginRoot,
 }) {
-  const merged = mergeChain(rootPlanText, artifacts, pluginRoot);
+  const merged = mergeChain(rootPlanText, artifacts, pluginRoot, { allowUnprovenancedReviews });
   const contract = executionContractFromArtifactText(rootPlanText, pluginRoot);
   if (contract.errors.length > 0 || contract.fields.schema !== 6) throw new Error(`review builder Root is invalid: ${contract.errors.join("; ")}`);
   const inspectionOptions = boundaryReceipt && typeof boundaryReceiptVerifier === "function" ? { boundaryReceiptVerifier } : {};

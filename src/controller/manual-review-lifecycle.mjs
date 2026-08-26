@@ -28,12 +28,13 @@ function validReviewProvenance(provenance, text) {
     && Object.keys(provenance).every((key) => ["schema", "kind", "review_input_hash", "artifact_hash"].includes(key));
 }
 
-function exactEntries(rootPlanText, artifacts, pluginRoot) {
+function exactEntries(rootPlanText, artifacts, pluginRoot, { seal = false } = {}) {
   const root = inspectArtifactText(rootPlanText, pluginRoot);
   if (root.errors.length > 0 || root.artifact?.fields?.artifact !== "work-plan" || root.artifact.fields.schema !== 6) {
     throw new Error(`manual Review requires the exact native Schema-6 Root: ${root.errors.join("; ") || "not a work-plan"}`);
   }
   const byId = new Map([[root.artifact.fields.id, { label: root.artifact.fields.id, text: rootPlanText }]]);
+  const unprovenancedReviewIds = [];
   for (const entry of artifacts ?? []) {
     if (!entry || typeof entry.text !== "string" || !entry.text.trim()) continue;
     const inspected = inspectArtifactText(entry.text, pluginRoot);
@@ -47,7 +48,7 @@ function exactEntries(rootPlanText, artifacts, pluginRoot) {
         throw codedError("review-artifact-rejected", `manual Review artifact ${id} has invalid host builder provenance`);
       }
       if (!provenance) {
-        throw codedError("review-artifact-rejected", `manual Review rejects newly imported work-review ${id} without protected builder provenance`);
+        unprovenancedReviewIds.push(id);
       }
     }
     const prior = byId.get(id);
@@ -58,7 +59,43 @@ function exactEntries(rootPlanText, artifacts, pluginRoot) {
       ...(entry.builder_provenance ? { builder_provenance: entry.builder_provenance } : {}),
     });
   }
-  return { rootFields: root.artifact.fields, entries: [...byId.values()] };
+  const entries = [...byId.values()];
+  if (!seal && unprovenancedReviewIds.length > 0) {
+    const sealedSourceReviewIds = new Set(entries.flatMap((entry) => {
+      const inspected = inspectArtifactText(entry.text, pluginRoot);
+      return inspected.artifact?.fields?.artifact === "delivery-evidence" && inspected.artifact.fields.representation === "seal"
+        ? [inspected.artifact.fields.source_review_id]
+        : [];
+    }).filter(Boolean));
+    const rejected = unprovenancedReviewIds.find((id) => !sealedSourceReviewIds.has(id));
+    if (rejected) throw codedError("review-artifact-rejected", `manual Review rejects newly imported work-review ${rejected} without protected builder provenance`);
+  }
+  return { rootFields: root.artifact.fields, entries, unprovenancedReviewIds };
+}
+
+function assertSealPredecessor(exact, pluginRoot) {
+  const current = currentTips(exact.entries, pluginRoot);
+  const rootId = exact.rootFields.id;
+  const evidenceTipId = current.tips.evidence_tips[rootId] ?? null;
+  const reviewTipId = current.tips.review_tips[rootId] ?? null;
+  const evidenceTip = evidenceTipId ? current.inspected.effective.get(evidenceTipId) : null;
+  const reviewTip = reviewTipId ? current.inspected.effective.get(reviewTipId) : null;
+  if (exact.unprovenancedReviewIds.length !== 1 || exact.unprovenancedReviewIds[0] !== reviewTipId) {
+    throw codedError("protected-seal-chain-invalid", "protected sealing requires exactly one unprovenanced current Review tip");
+  }
+  if (!evidenceTip || !reviewTip
+    || evidenceTip.fields.representation !== "full"
+    || reviewTip.fields.latest_evidence_id !== evidenceTipId
+    || reviewTip.fields.predecessor_review_id
+    || reviewTip.fields.delivery_status !== "provisional"
+    || reviewTip.fields.next_action !== "accept-provisional"
+    || reviewTip.fields.correction_id
+    || (reviewTip.findings ?? []).length > 0
+    || evidenceTip.fields.status === "blocked"
+    || (evidenceTip.fields.check_evidence ?? []).some((entry) => entry.grade === "failed")) {
+    throw codedError("protected-seal-chain-invalid", "protected sealing requires one finding-free initial provisional Evidence/Review pair");
+  }
+  return { current, evidenceTipId, reviewTipId };
 }
 
 function currentTips(entries, pluginRoot) {
@@ -167,13 +204,15 @@ export function buildManualReviewLifecycle({
   harnessPhaseResult = null,
   harnessProtectionHash = null,
   workspaceBinding = null,
+  seal = false,
   captureSnapshot = captureRepositorySnapshot,
 }) {
   if (!reviewInput) throw new Error("manual Review requires review_input schema 1");
   if (!workspaceRoot) throw new Error("manual Review could not resolve the current repository root");
 
-  const exact = exactEntries(rootPlanText, artifacts, pluginRoot);
-  const initial = currentTips(exact.entries, pluginRoot);
+  const exact = exactEntries(rootPlanText, artifacts, pluginRoot, { seal });
+  const sealedPredecessor = seal ? assertSealPredecessor(exact, pluginRoot) : null;
+  const initial = sealedPredecessor?.current ?? currentTips(exact.entries, pluginRoot);
   const evidenceTipId = initial.tips.evidence_tips[exact.rootFields.id] ?? null;
   const reviewTipId = initial.tips.review_tips[exact.rootFields.id] ?? null;
   const reviewTip = reviewTipId ? initial.inspected.effective.get(reviewTipId) : null;
@@ -258,7 +297,26 @@ export function buildManualReviewLifecycle({
   let evidence = null;
   let reviewArtifacts = exact.entries;
   let chainUpdate = "reuse";
-  if (!evidenceTipId || correctionPending) {
+  if (seal) {
+    evidence = buildDeliveryEvidence({
+      rootPlanText,
+      artifacts: exact.entries,
+      checkEvidence: effectiveCheckEvidence,
+      changedPaths: evidenceChangedPaths,
+      effectiveProfile: "manual",
+      summary,
+      harnessAttestations,
+      harnessId: harnessPhaseResult?.harness_id ?? null,
+      protectedAttestationHash: harnessProtectionHash,
+      enforceHarnessAttestations: true,
+      workspaceBinding: workspaceBinding ?? createHash("sha256").update(current.repository_root).digest("hex"),
+      workspaceSnapshotHash: harnessSnapshotHash,
+      seal: true,
+      pluginRoot,
+    });
+    reviewArtifacts = [...exact.entries, { label: evidence.fields.id, text: evidence.artifact }];
+    chainUpdate = "append-seal";
+  } else if (!evidenceTipId || correctionPending) {
     evidence = buildDeliveryEvidence({
       rootPlanText,
       artifacts: exact.entries,
@@ -309,8 +367,16 @@ export function buildManualReviewLifecycle({
     rootPlanText,
     artifacts: reviewArtifacts,
     reviewInput: effectiveReviewInput,
+    allowUnprovenancedReviews: exact.unprovenancedReviewIds.length > 0,
     pluginRoot,
   });
+  if (seal && (evidence.fields.status !== "complete"
+    || evidence.fields.overall_grade !== "verified"
+    || review.fields.assessment !== "achieved"
+    || review.fields.delivery_status !== "verified"
+    || review.fields.next_action !== "none")) {
+    throw codedError("protected-seal-not-achieved", "protected sealing produced no artifacts because the fresh protected Review was not achieved and verified");
+  }
 
   return {
     artifact_kind: "work-review",

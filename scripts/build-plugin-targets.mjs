@@ -24,8 +24,8 @@ const cursorExcludedPaths = new Set([
   "schemas/agent-plugins/1.0.0/mcp.schema.json",
   "schemas/agent-plugins/1.0.0/plugin.schema.json",
 ]);
-const expectedCodexSkills = ["accept-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-status"];
-const expectedAgentPluginSkills = ["accept-work", "correct-work", "explain-work", "implement-work", "learn-from-work", "plan-work", "review-work", "work-status"];
+const expectedCodexSkills = ["accept-work", "correct-work", "engineering-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-status"];
+const expectedAgentPluginSkills = ["accept-work", "correct-work", "engineering-work", "explain-work", "implement-work", "learn-from-work", "plan-work", "review-work", "work-status"];
 const manualTools = ["workflow_artifact_context", "workflow_artifact_record", "workflow_closeout", "workflow_plan_preflight", "workflow_status"];
 const forbiddenCodexText = [
   "@cursor/sdk",
@@ -48,9 +48,14 @@ const sharedReferences = [
   "design-contract.md",
   "executable-contract.md",
   "explanation-contract.md",
+  "engineering-continuity-playbooks.md",
+  "engineering-delivery-playbooks.md",
+  "engineering-diagnostic-playbooks.md",
+  "engineering-playbooks.md",
   "learning-contract.md",
   "host-approval-contract.md",
   "manual-workflow-contract.md",
+  "manual-builder-contract.md",
   "manual-mcp-output-contract.md",
   "plan-container-contract.md",
   "review-contract.md",
@@ -58,14 +63,15 @@ const sharedReferences = [
   "state-contract.md",
 ];
 const portableSkillReferences = Object.freeze({
-  "accept-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "state-contract.md"],
-  "correct-work": ["portable-manual.md", "manual-workflow-contract.md", "correction-contract.md", "artifact-protocol.md"],
-  "explain-work": ["portable-manual.md", "manual-workflow-contract.md", "state-contract.md", "explanation-contract.md"],
-  "implement-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "executable-contract.md"],
-  "learn-from-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "learning-contract.md"],
-  "plan-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "executable-contract.md", "design-contract.md"],
-  "review-work": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "delivery-evidence-contract.md", "review-contract.md", "work-review-input-contract.md", "explanation-contract.md"],
-  "work-status": ["portable-manual.md", "manual-workflow-contract.md", "artifact-protocol.md", "state-contract.md"],
+  "accept-work": ["portable-manual.md", "manual-workflow-contract.md", "manual-builder-contract.md", "artifact-protocol.md", "state-contract.md"],
+  "correct-work": ["portable-manual.md", "manual-workflow-contract.md", "manual-builder-contract.md", "correction-contract.md", "artifact-protocol.md"],
+  "engineering-work": ["portable-manual.md", "manual-workflow-contract.md", "engineering-playbooks.md", "engineering-diagnostic-playbooks.md", "engineering-delivery-playbooks.md", "engineering-continuity-playbooks.md"],
+  "explain-work": ["portable-manual.md", "manual-workflow-contract.md", "manual-builder-contract.md", "state-contract.md", "explanation-contract.md"],
+  "implement-work": ["portable-manual.md", "manual-workflow-contract.md", "manual-builder-contract.md", "artifact-protocol.md", "executable-contract.md"],
+  "learn-from-work": ["portable-manual.md", "manual-workflow-contract.md", "manual-builder-contract.md", "artifact-protocol.md", "learning-contract.md"],
+  "plan-work": ["portable-manual.md", "manual-workflow-contract.md", "manual-builder-contract.md", "artifact-protocol.md", "executable-contract.md", "design-contract.md"],
+  "review-work": ["portable-manual.md", "manual-workflow-contract.md", "manual-builder-contract.md", "artifact-protocol.md", "delivery-evidence-contract.md", "review-contract.md", "work-review-input-contract.md", "explanation-contract.md"],
+  "work-status": ["portable-manual.md", "manual-workflow-contract.md", "manual-builder-contract.md", "artifact-protocol.md", "state-contract.md"],
 });
 
 function inside(base, path) {
@@ -146,8 +152,10 @@ function buildCodex(destination, version) {
   for (const name of sharedReferences) copyRelative(join(root, "references"), join(destination, "references"), name);
   copyRelative(codexTargetRoot, destination, "references/codex-manual.md", "references/codex-manual.md");
   copyRelative(root, destination, "schemas/artifacts");
+  copyRelative(root, destination, "schemas/manual-workflow");
   copyRelative(root, destination, "schemas/cursor-plan-wrapper.schema.json");
   copyRelative(root, destination, "scripts/validate-artifact.mjs");
+  copyRelative(root, destination, "dist/codex/manual-workflow.mjs", "dist/manual-workflow.mjs");
   copyRelative(root, destination, "dist/codex/workflow-mcp.mjs", "dist/workflow-mcp.mjs");
   copyRelative(root, destination, "dist/codex/workflow-hook.mjs", "dist/workflow-hook.mjs");
   for (const item of ["CODEX_THIRD_PARTY_NOTICES.md", "LICENSE", "THIRD_PARTY_NOTICES.md"]) copyRelative(root, destination, item);
@@ -209,7 +217,9 @@ function buildAgentPlugins(destination, version) {
     }
   }
   copyRelative(root, destination, "schemas/artifacts");
+  copyRelative(root, destination, "schemas/manual-workflow");
   copyRelative(root, destination, "scripts/validate-artifact.mjs");
+  copyRelative(root, destination, "dist/portable/manual-workflow.mjs", "dist/manual-workflow.mjs");
   copyRelative(root, destination, "dist/portable/workflow-mcp.mjs", "dist/workflow-mcp.mjs");
   for (const item of ["LICENSE", "THIRD_PARTY_NOTICES.md"]) copyRelative(root, destination, item);
 

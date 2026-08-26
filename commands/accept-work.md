@@ -5,6 +5,6 @@ description: Ephemerally acknowledge one current provisional Manual delivery.
 
 # /accept-work
 
-Read [work-automation](../skills/work-automation/SKILL.md). Acknowledge only one current Schema-6 `delivery-ready-provisional` chain through `workflow_status` with `manual_acceptance: provisional`.
+Read [Manual local state](../skills/manual-workflow/SKILL.md). Acknowledge only one exact current Schema-6 `delivery-ready-provisional` chain through the bundled builder's `accept-provisional` operation.
 
-The acknowledgement is ephemeral, unverified, non-qualifying, and grants no implementation, learning, deployment, or publication authority. Reject verified, blocked, failed, unsupported, ambiguous, or correction-pending chains.
+Return the builder's human output unchanged. The acknowledgement is ephemeral, unverified, non-qualifying, and grants no implementation, learning, deployment, or publication authority. Reject verified, blocked, failed, unsupported, ambiguous, or correction-pending chains.

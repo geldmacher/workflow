@@ -93,6 +93,13 @@ const groups = [
     tests: ["tests/delivery-closeout.test.mjs", "tests/work-review-builder.test.mjs", "tests/manual-review-lifecycle.test.mjs"],
   },
   {
+    name: "Skills-first stateless Manual builder",
+    include: ["src/manual/manual-workflow.mjs"],
+    tests: ["tests/manual-workflow-builder.test.mjs"],
+    lines: 80,
+    branches: 70,
+  },
+  {
     name: "release surface",
     include: ["src/controller/release-surface.mjs"],
     tests: ["tests/release-surface.test.mjs"],

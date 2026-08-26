@@ -185,9 +185,8 @@ test("recoverable observer loss restores only exact Review selection", () => {
         tool_input: { name: "Workflow 6", plan: rootPlan, todos: [] },
       }), options(otherState));
       writeFileSync(transcript, `${JSON.stringify({ role: "user", message: { content: [{ type: "text", text: "not exact /review-work" }] } })}\n`);
-      const denied = evaluateCloseoutGuard(reviewCall({ transcript_path: transcript }), options(otherState));
-      assert.equal(denied.permission, "deny");
-      assert.match(denied.user_message, /review-observer-unavailable/);
+      const shadowEligible = evaluateCloseoutGuard(reviewCall({ transcript_path: transcript }), options(otherState));
+      assert.deepEqual(shadowEligible, {});
     } finally {
       rmSync(otherState, { recursive: true, force: true });
     }
@@ -197,13 +196,12 @@ test("recoverable observer loss restores only exact Review selection", () => {
   }
 });
 
-test("targeted Review denials distinguish no Root, repository drift, and an inflight call", () => {
+test("targeted Review falls back only for unavailable authority and still denies drift or a busy call", () => {
   const emptyState = mkdtempSync(join(tmpdir(), "workflow-v6-hook-empty-"));
   const driftState = mkdtempSync(join(tmpdir(), "workflow-v6-hook-drift-"));
   try {
     const noRoot = evaluateCloseoutGuard(reviewCall(), options(emptyState));
-    assert.equal(noRoot.permission, "deny");
-    assert.match(noRoot.user_message, /review-observer-unavailable|native-task-root-unavailable/);
+    assert.deepEqual(noRoot, {});
 
     establish(driftState);
     let captures = 0;
@@ -377,6 +375,10 @@ test("native Plan observer limitations remain precise at the Review boundary", (
       }), observerOptions);
       evaluateCloseoutGuard(base({ hook_event_name: "beforeSubmitPrompt", prompt: "/review-work" }), observerOptions);
       const denied = evaluateCloseoutGuard(reviewCall(), observerOptions);
+      if (scenario === "missing") {
+        assert.deepEqual(denied, {});
+        continue;
+      }
       assert.equal(denied.permission, "deny", scenario);
       const expected = scenario === "missing"
         ? /native-plan-root-unavailable/

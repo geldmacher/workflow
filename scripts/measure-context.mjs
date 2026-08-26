@@ -45,8 +45,8 @@ export const flowMatrix = Object.freeze({
   }),
   automation_flows: Object.freeze({
     prepare_or_approve: Object.freeze(["commands/auto-work.md", "skills/work-automation/SKILL.md", "references/automation-contract.md"]),
-    status: Object.freeze(["commands/work-status.md", "skills/work-automation/SKILL.md", "references/state-contract.md"]),
-    acceptance: Object.freeze(["commands/accept-work.md", "skills/work-automation/SKILL.md", "references/state-contract.md"]),
+    status: Object.freeze(["commands/work-status.md", "skills/manual-workflow/SKILL.md"]),
+    acceptance: Object.freeze(["commands/accept-work.md", "skills/manual-workflow/SKILL.md"]),
   }),
 });
 

@@ -5,12 +5,14 @@ description: Perform a fresh repository-read-only Review against an exact Schema
 
 # $review-work
 
-Start a fresh repository-read-only Review. Read [Manual Workflow](../../references/manual-workflow-contract.md), [artifact protocol](../../references/artifact-protocol.md), [delivery evidence](../../references/delivery-evidence-contract.md), and [review contract](../../references/review-contract.md) completely.
+Start a fresh repository-read-only Review. Read [Manual Workflow](../../references/manual-workflow-contract.md), [local builder](../../references/manual-builder-contract.md), [artifact protocol](../../references/artifact-protocol.md), [delivery evidence](../../references/delivery-evidence-contract.md), and [review contract](../../references/review-contract.md) completely.
 
-Use the exact current-task Schema-6 Root from Codex Plan mode and exact predecessor bytes already present in this task. Cache and handoff are transport only. Reject every unsupported artifact schema. Recoverable transport defects do not erase a valid Root.
+Use the exact current-task Schema-6 Root from Codex Plan mode and exact predecessor bytes already present in this task. In a fresh task, require explicit attachment of the exact Root and every referenced artifact. Cache, handoff, hook state, IDs, and MCP state are not authority. Reject every unsupported artifact schema.
 
-Assess acceptance, authority, verification intents, repository state, findings, and limitations. The active project harness chooses every concrete inspection mechanism and attests matching before/after snapshots. Workflow never evaluates commands, tools, models, frameworks, routes, retries, sandboxes, or worktrees.
+Assess every acceptance objective, authority boundary, verification intent, repository observation, finding, and limitation. The active project harness chooses every concrete read-only inspection mechanism and supplies opaque observations. Workflow never evaluates commands, tools, models, frameworks, routes, retries, sandboxes, or worktrees.
 
-Missing harness evidence keeps the Root and yields provisional Evidence. Verified requires protected Check attestations bound to Root, workspace, intent, and snapshot. Attested failure remains failed; contradictory bindings are rejected; human-decision Checks remain human gates.
+Create the closed review, repository-observation, and Check-observation inputs described by the local contract. Use only `supported`, `partial`, `unavailable`, or `failed`; never supply IDs, hashes, attestations, receipts, or verified claims. Invoke `../../dist/manual-workflow.mjs build-review` once. It creates the Evidence/Review pair atomically without MCP, adapters, MCP Roots, hooks, cache, or state.
 
-Call `workflow_closeout` once with `artifact_kind: work-review`, exact current-task bytes, and one closed `review_input`. It returns Delivery Evidence and Work Review atomically or neither. Never mutate during Review. Present a concise outcome, limitations, technical traceability, and one lifecycle-level next action.
+On success, present the returned `human_output` and then both returned artifact texts unchanged. Do not independently summarize findings or next action. Unprotected success is at most provisional; failed required Checks remain blocking. On a Shadow error, present its single recovery action and create no pseudo-artifact while retaining the supplied bytes in the task.
+
+Never mutate during Review. Optional protected sealing is a separate explicit capability; it may append a new protected result but never edits the Manual artifacts.

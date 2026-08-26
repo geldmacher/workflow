@@ -35,3 +35,9 @@ Workflow must never parse, classify, allowlist, rewrite, compare, or execute tho
 ## Change guardrails
 
 Keep this root `AGENTS.md` as the one contributor Northstar for Cursor and Codex. Extend the existing lifecycle and artifact contracts before adding surfaces. Core modules must not depend on process execution, host SDKs, model catalogs, command parsers, or project-framework rules. Repository build, test, and deployment scripts are this repository's own development harness and are outside the shipped Workflow runtime boundary.
+
+Manual lifecycle orchestration is Skills-first. The bundled stateless local builder may validate closed inputs, calculate hashes and IDs, enforce Schema-6 lineage and path authority, construct artifacts atomically, and project their presentation. It must not discover or mutate a repository, run Checks or tools, call MCP, depend on hooks or adapters, or persist authority. Registered MCP automation and optional protected sealing remain isolated opt-in capabilities.
+
+## Optional engineering methodology
+
+Workflow may ship human-confirmed engineering playbooks as Skills. They are non-authoritative methodology: suggestion is read-only, application never grants phase or repository authority, and selection never enters Root, Evidence, Review, PhaseRequest, PhaseResult, qualification, or evidence grade. Mutating playbooks require an already approved Root and implementation action. Concrete execution remains entirely project-harness owned.

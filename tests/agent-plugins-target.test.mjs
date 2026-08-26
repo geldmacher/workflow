@@ -24,6 +24,7 @@ import { workflowClient } from "./mcp-client.mjs";
 const expectedSkills = [
   "accept-work",
   "correct-work",
+  "engineering-work",
   "explain-work",
   "implement-work",
   "learn-from-work",
@@ -38,7 +39,7 @@ const expectedTools = [
   "workflow_plan_preflight",
   "workflow_status",
 ];
-const compatibility = "Requires an Agent Plugins v1 client with Agent Skills and stdio MCP support, Node.js 22+, and PLUGIN_ROOT/PLUGIN_DATA support.";
+const compatibility = "Requires an Agent Plugins v1 client with Agent Skills, Node.js 22+, and PLUGIN_ROOT support; Manual use does not require MCP.";
 const rootPlan = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
 
 function paths(root) {
@@ -78,9 +79,13 @@ test("Agent Plugins v1 target is deterministic, closed, and immediately discover
     assert.deepEqual(validated.servers, ["geldmacher-workflow"]);
     assert.equal(existsSync(join(plugin, "plugin.json")), true);
     assert.equal(existsSync(join(plugin, "mcp.json")), true);
+    assert.equal(existsSync(join(plugin, "dist", "manual-workflow.mjs")), true);
     assert.equal(existsSync(join(plugin, ".cursor-plugin")), false);
     assert.equal(existsSync(join(plugin, ".codex-plugin")), false);
     assert.equal(existsSync(join(plugin, ".mcp.json")), false);
+    const packagedReadme = readFileSync(join(plugin, "README.md"), "utf8");
+    const documentedSkillCount = packagedReadme.match(/through ([0-9]+) Agent Skills/)?.[1];
+    assert.equal(Number(documentedSkillCount), expectedSkills.length, "portable README skill count must match the generated Skill directories");
     for (const excluded of [".agents", ".build", ".cursor", ".git", "agents", "commands", "hooks", "node_modules", "src", "targets", "tests"]) {
       assert.equal(existsSync(join(plugin, excluded)), false, `${excluded} leaked into portable target`);
     }
@@ -117,6 +122,7 @@ test("Agent Plugins v1 target is deterministic, closed, and immediately discover
       const source = readFileSync(join(skillRoot, "SKILL.md"), "utf8");
       assert.match(source, new RegExp(`^---\\nname: ${skill}\\n`));
       assert.equal(source.split(`compatibility: ${compatibility}`).length - 1, 1, `${skill} must declare exact runtime compatibility once`);
+      assert.doesNotMatch(source, /workflow_[a-z_]+/, `${skill} must not call an MCP tool in the Manual path`);
       assert.doesNotMatch(source, /^(?:allowed-tools|license|metadata):/m, `${skill} must not predeclare optional permissions or metadata`);
       for (const match of source.matchAll(/\]\((references\/[^)]+)\)/g)) {
         assert.equal(existsSync(join(skillRoot, match[1])), true, `${skill} misses ${match[1]}`);
@@ -124,12 +130,18 @@ test("Agent Plugins v1 target is deterministic, closed, and immediately discover
     }
     const portableReview = readFileSync(join(plugin, "skills", "review-work", "SKILL.md"), "utf8");
     const portableImplement = readFileSync(join(plugin, "skills", "implement-work", "SKILL.md"), "utf8");
+    const portableEngineering = readFileSync(join(plugin, "skills", "engineering-work", "SKILL.md"), "utf8");
     assert.match(portableReview, /repository-read-only/i);
     assert.match(portableReview, /project harness/i);
-    assert.match(portableReview, /Schema-1 `review_input`.*workflow_closeout.*artifact_kind: work-review/is);
+    assert.match(portableReview, /manual-workflow\.mjs build-review/i);
+    assert.match(portableReview, /without MCP, adapters, MCP Roots, hooks, cache, or state/i);
     assert.doesNotMatch(portableReview, /Schema-5|auditor|model pool|planned command/i);
     assert.match(portableImplement, /project harness chooses all commands, tools, models/i);
     assert.doesNotMatch(portableImplement, /exact standalone|planned director|one leading `rtk`/i);
+    assert.match(portableEngineering, /recommend exactly one playbook/i);
+    assert.match(portableEngineering, /never grants Workflow authority or evidence/i);
+    assert.match(portableEngineering, /Never become sticky/i);
+    assert.doesNotMatch(portableEngineering, /gpt-|claude|grok/i);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -398,6 +410,42 @@ test("portable MCP expands standard variables, exposes five tools, and writes on
     assert.equal(preflight.structuredContent.feasible, true);
     assert.equal(preflight.structuredContent.root_plan_id, "wp-adaptive-retry");
     assert.equal(preflight.structuredContent.presentation.client_host, "portable");
+
+    const shadow = await client.callTool({
+      name: "workflow_closeout",
+      arguments: {
+        workspace_root: workspace,
+        root_plan_id: "wp-adaptive-retry",
+        root_plan: rootPlan,
+        artifact_kind: "work-review",
+        review_input: {
+          schema: 1,
+          kind: "review-input",
+          assessment: "partially-achieved",
+          recommended_action: "correct",
+          assessment_summary: "Repository observation only.",
+          snapshot_assessment: "incomplete",
+          snapshot_summary: "Formal host binding is unavailable.",
+          findings: [{
+            key: "repository-observation",
+            severity: "medium",
+            objective_ids: ["OBJ-1"],
+            check_ids: ["CHECK-1"],
+            evidence: "A repository-level observation is available.",
+            reasoning: "The observation remains non-authoritative.",
+            resolution: "correct",
+          }],
+          missing_evidence: ["Protected portable Review binding."],
+        },
+      },
+    });
+    assert.equal(shadow.isError, false, JSON.stringify(shadow.structuredContent));
+    assert.equal(shadow.structuredContent.mode, "shadow");
+    assert.equal(shadow.structuredContent.reason_code, "protected-review-binding-unavailable");
+    assert.equal(shadow.structuredContent.persistence_scope, "none");
+    assert.deepEqual(Object.keys(shadow.structuredContent.repository_findings[0]), ["key", "severity", "evidence", "reasoning"]);
+    assert.equal(shadow.structuredContent.delivery_evidence_id, undefined);
+    assert.equal(shadow.structuredContent.work_review_id, undefined);
 
     const recorded = await client.callTool({
       name: "workflow_artifact_record",

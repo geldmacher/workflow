@@ -11340,8 +11340,8 @@ function materializeEvidence(artifact, artifacts, cache, failures, rootDirectory
   artifact.fields.predecessor_evidence_id && !predecessorEffective && failures.push(`${artifact.label}: missing predecessor evidence ${artifact.fields.predecessor_evidence_id}`), predecessor && predecessor.fields.root_plan_id !== artifact.fields.root_plan_id && failures.push(`${artifact.label}: predecessor evidence must use the same root plan`);
   let affected = new Set(artifact.fields.affected_objectives ?? []), reusedObjectives = new Set(artifact.fields.reused_objectives ?? []), executed = new Set(artifact.fields.executed_checks ?? []), reusedChecks = new Set(artifact.fields.reused_checks ?? []);
   disjointCoverage(affected, reusedObjectives, plan.objectives, `${artifact.label}: objective`, failures), disjointCoverage([...executed].filter((id) => plan.requiredChecks.has(id)), reusedChecks, plan.requiredChecks, `${artifact.label}: root Check`, failures);
-  let initial = artifact.fields.subject_id === root.fields.id;
-  initial && artifact.fields.representation !== "full" && failures.push(`${artifact.label}: initial evidence must use full representation`), !initial && !predecessorEffective && failures.push(`${artifact.label}: correction evidence requires direct predecessor evidence`), artifact.fields.representation === "full" && (reusedObjectives.size > 0 || reusedChecks.size > 0) && failures.push(`${artifact.label}: full representation cannot declare reused root state`);
+  let initial = artifact.fields.representation === "full", seal = artifact.fields.representation === "seal", correction = artifact.fields.representation === "delta";
+  initial && artifact.fields.subject_id !== root.fields.id && failures.push(`${artifact.label}: initial full evidence must use the Root as subject`), seal && artifact.fields.subject_id !== root.fields.id && failures.push(`${artifact.label}: seal evidence must use the Root as subject`), correction && !String(artifact.fields.subject_id).startsWith("cp-") && failures.push(`${artifact.label}: delta evidence must use a correction subject`), !initial && !predecessorEffective && failures.push(`${artifact.label}: ${seal ? "seal" : "correction"} evidence requires direct predecessor evidence`), ["full", "seal"].includes(artifact.fields.representation) && (reusedObjectives.size > 0 || reusedChecks.size > 0) && failures.push(`${artifact.label}: ${artifact.fields.representation} representation cannot declare reused root state`);
   let objectives = /* @__PURE__ */ new Map();
   for (let objective of affected) {
     let state = data.objectiveStates.get(objective);
@@ -11371,11 +11371,14 @@ function materializeEvidence(artifact, artifacts, cache, failures, rootDirectory
   if (initial) {
     let delivered = new Set(data.objectiveStates.keys());
     sameSet(delivered, plan.objectives) || failures.push(`${artifact.label}: initial evidence must cover every root objective`), (artifact.fields.source_review_id || artifact.fields.predecessor_evidence_id) && failures.push(`${artifact.label}: initial evidence cannot reference review or predecessor evidence`);
+  } else if (seal) {
+    let sourceReview = artifacts.get(artifact.fields.source_review_id);
+    !sourceReview || sourceReview.fields.artifact !== "work-review" ? failures.push(`${artifact.label}: seal evidence requires its exact source Review`) : ((sourceReview.fields.root_plan_id !== root.fields.id || sourceReview.fields.latest_evidence_id !== artifact.fields.predecessor_evidence_id) && failures.push(`${artifact.label}: seal source Review must bind the direct predecessor Evidence`), (sourceReview.fields.delivery_status !== "provisional" || sourceReview.fields.next_action !== "accept-provisional" || sourceReview.fields.correction_id || reviewData(sourceReview).findings.length > 0) && failures.push(`${artifact.label}: seal source Review must be a finding-free provisional acceptance tip`)), (artifact.fields.status !== "complete" || artifact.fields.overall_grade !== "verified" || (artifact.fields.check_evidence ?? []).some((entry) => entry.grade !== "verified")) && failures.push(`${artifact.label}: seal evidence requires fresh verified coverage for every required Check`);
   } else {
-    let sourceReview = artifacts.get(artifact.fields.source_review_id), correction = correctionForId(artifacts, artifact.fields.subject_id);
-    if (!sourceReview || sourceReview.fields.correction_id !== artifact.fields.subject_id || !correction) failures.push(`${artifact.label}: correction evidence does not resolve its source review and correction`);
+    let sourceReview = artifacts.get(artifact.fields.source_review_id), correction2 = correctionForId(artifacts, artifact.fields.subject_id);
+    if (!sourceReview || sourceReview.fields.correction_id !== artifact.fields.subject_id || !correction2) failures.push(`${artifact.label}: correction evidence does not resolve its source review and correction`);
     else
-      for (let check of correction.checks.filter((row) => row.Required === "yes")) executed.has(check["Check ID"]) || failures.push(`${artifact.label}: missing executed correction Check ${check["Check ID"]}`);
+      for (let check of correction2.checks.filter((row) => row.Required === "yes")) executed.has(check["Check ID"]) || failures.push(`${artifact.label}: missing executed correction Check ${check["Check ID"]}`);
   }
   let reviewReady = artifact.fields.status === "complete" && artifact.fields.overall_grade === "verified" && [...plan.requiredChecks].every((id) => checks.get(id)?.status === "passed"), effective = {
     root,
@@ -11469,7 +11472,7 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
     }
   }
   for (let [rootId, evidence] of evidenceByRoot)
-    evidence.filter((item) => item.fields.subject_id === rootId).length !== 1 && errors.push(`${rootId}: evidence chain requires exactly one initial root delivery`), orderedEvidenceByRoot.set(rootId, linearChain(evidence, "predecessor_evidence_id", `${rootId}: evidence`, errors));
+    evidence.filter((item) => item.fields.representation === "full").length !== 1 && errors.push(`${rootId}: evidence chain requires exactly one initial root delivery`), orderedEvidenceByRoot.set(rootId, linearChain(evidence, "predecessor_evidence_id", `${rootId}: evidence`, errors));
   for (let [rootId, reviews] of reviewsByRoot) {
     let rootPlan = artifacts.get(rootId);
     if (!rootPlan || rootPlan.fields.artifact !== "work-plan") {
@@ -11521,7 +11524,7 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
         continue;
       }
       let effective = evidence.effective;
-      evidence.fields.root_plan_id !== rootId && errors.push(`${review.label}: latest evidence belongs to another root`);
+      evidence.fields.root_plan_id !== rootId && errors.push(`${review.label}: latest evidence belongs to another root`), evidence.fields.representation === "seal" && (review.fields.predecessor_review_id !== evidence.fields.source_review_id && errors.push(`${review.label}: sealed Review must directly follow its source provisional Review`), (review.fields.assessment !== "achieved" || review.fields.delivery_status !== "verified" || review.fields.next_action !== "none") && errors.push(`${review.label}: sealed Review must be achieved, verified, and terminal`));
       let knownFailedEvidence = evidenceHasKnownFailure(evidence.fields);
       knownFailedEvidence && review.fields.delivery_status !== "blocked" && errors.push(`${review.label}: known failed or blocked evidence requires blocked delivery_status`), knownFailedEvidence && ["accept-provisional", "none"].includes(review.fields.next_action) && errors.push(`${review.label}: known failed or blocked evidence cannot be accepted or achieved`);
       let candidates = rootEvidence.filter((item) => item.fields.source_review_id === null || (reviewIndex.get(item.fields.source_review_id) ?? Number.POSITIVE_INFINITY) < index);

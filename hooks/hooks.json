@@ -4,19 +4,7 @@
     "beforeSubmitPrompt": [
       {
         "type": "command",
-        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/closeout-guard.mjs\"",
-        "failClosed": false
-      },
-      {
-        "type": "command",
         "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/automation-guard.mjs\"",
-        "failClosed": false
-      }
-    ],
-    "stop": [
-      {
-        "type": "command",
-        "command": "node \"${CURSOR_PLUGIN_ROOT}/hooks/closeout-guard.mjs\"",
         "failClosed": false
       }
     ],

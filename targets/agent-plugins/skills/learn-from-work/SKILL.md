@@ -1,14 +1,14 @@
 ---
 name: learn-from-work
 description: Persist bounded confirmed repository learnings from an achieved portable Workflow chain when explicitly authorized.
-compatibility: Requires an Agent Plugins v1 client with Agent Skills and stdio MCP support, Node.js 22+, and PLUGIN_ROOT/PLUGIN_DATA support.
+compatibility: Requires an Agent Plugins v1 client with Agent Skills, Node.js 22+, and PLUGIN_ROOT support; Manual use does not require MCP.
 ---
 
 # Learn from work
 
-Read [portable Manual boundaries](../../references/portable-manual.md), [Manual Workflow](../../../../references/manual-workflow-contract.md), [artifact protocol](../../../../references/artifact-protocol.md), and [learning contract](../../../../references/learning-contract.md) completely.
+Read [portable Manual boundaries](../../references/portable-manual.md), [Manual Workflow](../../../../references/manual-workflow-contract.md), [local builder](../../../../references/manual-builder-contract.md), [artifact protocol](../../../../references/artifact-protocol.md), and [learning contract](../../../../references/learning-contract.md) completely.
 
-Treat this explicit invocation as human authorization only for bounded repository-guidance edits. Require the exact current achieved and verified Schema-6 Root, Evidence, and Review chain. Call `workflow_status` before mutation and proceed only when learning is eligible.
+Treat this explicit invocation as human authorization only for bounded repository-guidance edits. Require the exact current achieved and verified Schema-6 Root, Evidence, and Review chain. Confirm it through `${PLUGIN_ROOT}/dist/manual-workflow.mjs status` before mutation and proceed only when learning is eligible.
 
 Treat candidates as advisory until current repository proof confirms them. Trailing human text is one supplemental candidate, never a selector. Deduplicate and use existing guidance conventions.
 

@@ -27,13 +27,19 @@ Current contract versions:
 
 ## Usage
 
-Manual is the default:
+Manual is the default and has no MCP dependency:
 
 1. `/plan-work <goal>` or `$plan-work <goal>` creates a human-approved Schema-6 Root.
 2. The host's native implementation action authorizes repository work.
-3. `/review-work` or `$review-work` starts fresh repository-read-only Review.
-4. Workflow asks the active harness for bound evidence and atomically builds Evidence plus Review.
-5. Use correction, replan, or ephemeral provisional acknowledgement only when the Review requests it.
+3. `/review-work` or `$review-work` starts fresh repository-read-only Review. The project harness supplies closed unprotected observations to the bundled stateless local builder.
+4. The local builder validates lineage and authority, computes IDs and hashes, and atomically returns exact Evidence plus Review together with the human presentation. Unprotected success is capped at provisional.
+5. Use correction, replan, another fresh Review, or `/accept-work provisional` only when the Review requests it.
+
+The Manual path uses neither MCP, Host Adapter, MCP Roots, Hook Trust, cache, nor persistent Workflow state. If local input is missing, malformed, foreign, stale, conflicting, or ambiguous, the builder returns a clearly labelled Shadow result with no pseudo-artifacts and retains the task's Root and predecessor bytes for retry. A fresh task must receive those exact bytes explicitly.
+
+The MCP server remains registered for `/auto-work`, automation status, and optional protected sealing. Protected sealing binds the exact local provisional pair through `seal_artifacts` and may append a fresh fully verified `seal` Evidence/Review pair; it never edits or upgrades previously returned artifacts. An incomplete or failed sealing attempt creates no artifacts and changes no Manual status. Automation, adapter, MCP, Roots, timeout, and Hook failures affect only that requested automation phase and never ordinary host use.
+
+`$engineering-work suggest` optionally recommends one adapted engineering playbook. `$engineering-work use <playbook-id>` confirms that methodology, but never grants implementation authority or changes Workflow evidence. The curated catalog covers diagnosis, bug and feature work, refactoring, performance, bounded experimentation, skill evaluation, and safe continuity; shipping, merge, deployment, autopilot landing, and destructive cleanup stay outside Workflow.
 
 `/auto-work` advances a revisioned Schema-6 Run through protected implementation and fresh Review until its next human gate or terminal state. Only an external Host Adapter can protect Harness provenance; a directly configured Harness remains Shadow Mode. Cursor human decisions use exactly `/auto-work accept-delivery <run-id>@<revision>`, `/auto-work approve-correction <run-id>@<revision>`, or `/auto-work stop <run-id>@<revision>` so the host can inject a receipt outside model context. Codex and portable targets remain Manual-only.
 
@@ -53,7 +59,8 @@ See [overview](docs/overview.md), [profiles](docs/profiles.md), [Manual Workflow
 
 ## Components
 
-- Commands and Skills define the conceptual lifecycle.
+- Commands and Skills define the Manual lifecycle and collect closed semantic observations.
+- The bundled `dist/manual-workflow.mjs` program validates and deterministically constructs Manual artifacts without repository discovery, execution, MCP, or state.
 - Schemas and the validator define closed Schema-6 artifacts.
 - Core modules validate authority, lineage, evidence, generic PhaseRequest and PhaseResult contracts.
 - Host adapters bind the exact Root, canonical workspace, Review selection, and protected receipts.

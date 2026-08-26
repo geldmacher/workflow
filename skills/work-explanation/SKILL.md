@@ -3,7 +3,7 @@ name: work-explanation
 description: Explain one Workflow chain read-only.
 ---
 
-Use a read-only host mode and read [explanation](../../references/explanation-contract.md). Resolve exact Schema-6 Root/Evidence/Review bytes from the current task. Reject every unsupported artifact schema. Never mutate or emit artifacts.
+Read [explanation](../../references/explanation-contract.md). Validate exact task Root/Evidence/Review bytes with local `status`. Reject unsupported schemas; never mutate or emit artifacts.
 
 If there is no unique Root, name the source inspected and request exact bytes or a new native Plan. Do not recover authority from IDs, cache, or host state.
 

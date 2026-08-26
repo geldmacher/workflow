@@ -3,16 +3,14 @@ name: work-review
 description: Review one Schema-6 Workflow root repository-read-only.
 ---
 
-Start a fresh repository-read-only Review. Read [protocol](../../references/artifact-protocol.md) and [review](../../references/review-contract.md). The atomic builder owns Evidence construction.
+Start a fresh repository-read-only Review. Read [protocol](../../references/artifact-protocol.md) and [review](../../references/review-contract.md). Use the closed `schemas/manual-workflow/request-1.schema.json` contract. The atomic local builder owns Evidence and Review construction.
 
-Use the exact current-task Schema-6 Root selected by the host. Presentation defects and recoverable MCP transport failures do not erase a valid active Root or selection. Caches and handoff are transport only. Reject every unsupported artifact schema.
+Use the exact task Root and predecessor Evidence/Review bytes. A fresh task requires human attachment of every exact referenced artifact. Cache, handoff, hooks, IDs, and transport are not authority. Reject unsupported, ambiguous, foreign, replayed, mismatched, or drifting input.
 
-Assess acceptance, authority, boundaries, verification intents, repository state, and limitations. The project harness chooses how to inspect them and attests before and after snapshots. Workflow never parses or classifies its commands, tools, models, framework, or host choices.
+Assess every acceptance objective, boundary, verification intent, repository observation, and limitation. The project harness owns read-only inspection and supplies opaque observations; Workflow interprets no execution detail.
 
-No exact active Root means no substantive Review. Missing harness evidence is different: keep the Root, create unavailable or supported Evidence, and return a provisional decision with the limitation.
+Create closed Schema-1 Review, repository, and Check observations. Local grades are only `supported`, `partial`, `unavailable`, or `failed`; never author IDs, hashes, attestations, receipts, or verified claims. Run local `build-review` once. It validates, hashes, enforces authority/lineage, and constructs the pair plus presentation atomically without MCP or state.
 
-A Check is verified only when a protected harness attestation binds its verification intent, Root hash, workspace binding, and current snapshot. Missing attestation stays provisional; attested failure stays failed; contradictory binding is rejected. Human-decision Checks remain human gates.
+On Shadow, present its one recovery action, create no pseudo-artifact, and retain exact task bytes. Unprotected success is at most provisional; failed required Checks block. Optional protected sealing is separate and never edits Manual artifacts.
 
-Call `workflow_closeout` once with `artifact_kind: work-review` and closed `review_input`. Cursor uses its single-use Root/workspace receipt; Codex and portable clients supply exact bytes. The builder asks the configured project harness through the generic phase interface and returns Delivery Evidence plus Work Review together or neither. Harness unavailability caps evidence but never invents Root-unavailable.
-
-Verified completes. Provisional may offer ephemeral `/accept-work provisional`. Failed required Checks route to correction, clarification, retry, or replan. Never mutate during Review.
+Present `human_output`, Evidence, and Review unchanged; never resummarize. Provisional may offer `/accept-work provisional`; findings route to correction, clarification, retry, or replan. Never mutate.

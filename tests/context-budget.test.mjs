@@ -56,7 +56,7 @@ test("load graph matches direct Command and Skill contract links", () => {
   assert.match(validateFlowMatrix(defaultRoot, phantomContract).join("\n"), /review_base: references\/learning-contract\.md is not linked from skills\/work-review\/SKILL\.md/);
 
   const duplicateFile = structuredClone(flowMatrix);
-  duplicateFile.automation_flows.status.push("references/state-contract.md");
+  duplicateFile.automation_flows.status.push("skills/manual-workflow/SKILL.md");
   assert.match(validateFlowMatrix(defaultRoot, duplicateFile).join("\n"), /automation_flows\.status: duplicate file entry/);
 
   const missingFile = structuredClone(flowMatrix);

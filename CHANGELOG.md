@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Added exact `seal_artifacts` receipt binding and linear Schema-6 `seal` Evidence so protected verification can append a new achieved pair without rewriting local provisional bytes; incomplete sealing remains atomic and state-neutral.
+- Aligned Manual request length limits with runtime validation, preserved exact Review actions on denied provisional acceptance, removed false attestation wording for unprotected failures, and synchronized the portable nine-Skill description.
+- Reoriented Manual Plan, Review, status, correction, explanation, provisional acceptance, and learning to Skills plus a bundled stateless local builder with closed Schema-1 inputs, deterministic Schema-6 artifacts, and no MCP, adapter, Root-transport, Hook, cache, or persistent-state dependency.
+- Capped unprotected Manual observations below verified, rejected caller-authored hashes and attestations, kept failed Checks blocking, and derived complete human findings plus the exact next action from the same atomic Evidence/Review result.
+- Isolated the registered MCP server to `/auto-work`, automation status, and optional protected sealing; removed global Manual closeout prompt/Stop hooks while retaining explicit fail-open automation and sealing guards.
+- Added non-authoritative Shadow Review for unavailable formal Root/workspace bindings while retaining hard receipt, workspace, snapshot, replay, mismatch, and drift enforcement; Codex and portable Review now stop at Shadow before harness or artifact construction until they expose protected host bindings.
+- Preserve sanitized repository findings in Shadow output and distinguish committed native Review-invocation persistence from non-authoritative handoff cache state.
+- Consolidated Cursor Plan binding precedence and idempotent Review invocation state, including exact result replay after recoverable transport loss and fail-quiet replacement of stale ephemeral state.
+- Added the human-confirmed `$engineering-work` Gateway with fourteen Workflow-adapted pstack-inspired engineering playbooks across Cursor, Codex, and Agent Plugins targets.
 - Fixed release-check regressions: Host Adapter redirect rejection is exercised through a parent-directory symlink (Linux-stable), and Cursor plugin validator tests build the generated target instead of assuming `.build/plugins`.
 - Removed direct project-Harness trust: only an external canonical Host Adapter outside the workspace may protect deployment-bound Capability and PhaseResult provenance.
 - Added exact Cursor `/auto-work` human-decision prompts with task-, generation-, workspace-, Run-, revision-, and artifact-tip-bound host receipt injection plus narrow transport retry.

@@ -22,10 +22,10 @@ const globPattern = /[*?[{]/;
 const expected = Object.freeze({
   commands: ["accept-work", "auto-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-status"],
   agents: [],
-  skills: ["work-automation", "work-execution", "work-explanation", "work-learning", "work-planning", "work-review"],
+  skills: ["engineering-work", "manual-workflow", "work-automation", "work-execution", "work-explanation", "work-learning", "work-planning", "work-review"],
   rules: [],
   artifacts: ["delivery-evidence-6", "work-plan-6", "work-review-6"],
-  references: ["artifact-protocol", "automation-contract", "closeout-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "host-approval-contract", "learning-contract", "manual-workflow-contract", "plan-container-contract", "review-contract", "state-contract", "work-review-input-contract"],
+  references: ["artifact-protocol", "automation-contract", "closeout-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "host-approval-contract", "learning-contract", "manual-builder-contract", "manual-workflow-contract", "plan-container-contract", "review-contract", "state-contract", "work-review-input-contract"],
 });
 
 const readText = (path) => readFileSync(path, "utf8");
@@ -218,7 +218,6 @@ function validateHookSurface(root, manifest, failures) {
     if (config.version !== 1) failures.push("hooks/hooks.json version must equal 1");
     const expectedEvents = [
       "beforeSubmitPrompt",
-      "stop",
       "preToolUse",
       "postToolUse",
       "postToolUseFailure",
@@ -227,10 +226,8 @@ function validateHookSurface(root, manifest, failures) {
     if (eventNames.join("\n") !== expectedEvents.join("\n")) failures.push(`hooks/hooks.json must declare ${expectedEvents.join(", ")} in order`);
     const expectedByEvent = {
       beforeSubmitPrompt: [
-        { command: expectedCloseoutCommand, failClosed: false },
         { command: expectedAutomationCommand, failClosed: false },
       ],
-      stop: [{ command: expectedCloseoutCommand, failClosed: false }],
       preToolUse: [
         { command: expectedPlanCommand, matcher: "CreatePlan", failClosed: false },
         { command: expectedEnforcementCommand, matcher: "MCP:workflow_closeout", failClosed: false },
@@ -408,6 +405,7 @@ export function validatePlugin(root = defaultRoot, options = {}) {
       } catch (error) { failures.push(`mcp.json is invalid JSON: ${error.message}`); }
     }
     if (!existsSync(join(rootPath, "dist", "workflow-mcp.mjs"))) failures.push("dist/workflow-mcp.mjs is missing");
+    if (!existsSync(join(rootPath, "dist", "manual-workflow.mjs"))) failures.push("dist/manual-workflow.mjs is missing");
     if (existsSync(join(rootPath, "dist", "node_modules"))) failures.push("dist/node_modules must not vendor the external Cursor SDK runtime");
   }
   for (const name of expected.references) {

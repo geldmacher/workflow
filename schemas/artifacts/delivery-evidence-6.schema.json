@@ -20,7 +20,7 @@
     "subject_id": { "type": "string", "pattern": "^(?:wp|cp)-[A-Za-z0-9][A-Za-z0-9-]*$" },
     "source_review_id": { "type": ["string", "null"], "pattern": "^wr-[A-Za-z0-9][A-Za-z0-9-]*$" },
     "predecessor_evidence_id": { "type": ["string", "null"], "pattern": "^de-[A-Za-z0-9][A-Za-z0-9-]*$" },
-    "representation": { "enum": ["full", "delta"] },
+    "representation": { "enum": ["full", "delta", "seal"] },
     "intent_hash": { "$ref": "#/$defs/hash" },
     "evidence_mode": { "enum": ["lean", "full"] },
     "overall_grade": { "enum": ["verified", "supported", "partial", "unavailable", "failed"] },
@@ -59,22 +59,42 @@
     "reused_checks": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^CHECK-[1-9][0-9]*$" } },
     "extensions": { "type": "object", "additionalProperties": true }
   },
-  "allOf": [{
-    "if": { "properties": { "subject_id": { "pattern": "^wp-" } } },
-    "then": {
-      "properties": {
-        "source_review_id": { "type": ["null"] },
-        "predecessor_evidence_id": { "type": ["null"] },
-        "representation": { "const": "full" },
-        "reused_objectives": { "maxItems": 0 },
-        "reused_checks": { "maxItems": 0 }
+  "allOf": [
+    {
+      "if": { "properties": { "representation": { "const": "full" } }, "required": ["representation"] },
+      "then": {
+        "properties": {
+          "subject_id": { "pattern": "^wp-" },
+          "source_review_id": { "type": ["null"] },
+          "predecessor_evidence_id": { "type": ["null"] },
+          "reused_objectives": { "maxItems": 0 },
+          "reused_checks": { "maxItems": 0 }
+        }
       }
     },
-    "else": {
-      "required": ["source_review_id", "predecessor_evidence_id"],
-      "properties": { "source_review_id": { "type": "string" }, "predecessor_evidence_id": { "type": "string" } }
+    {
+      "if": { "properties": { "representation": { "const": "seal" } }, "required": ["representation"] },
+      "then": {
+        "properties": {
+          "subject_id": { "pattern": "^wp-" },
+          "source_review_id": { "type": "string" },
+          "predecessor_evidence_id": { "type": "string" },
+          "reused_objectives": { "maxItems": 0 },
+          "reused_checks": { "maxItems": 0 }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "representation": { "const": "delta" } }, "required": ["representation"] },
+      "then": {
+        "properties": {
+          "subject_id": { "pattern": "^cp-" },
+          "source_review_id": { "type": "string" },
+          "predecessor_evidence_id": { "type": "string" }
+        }
+      }
     }
-  }],
+  ],
   "$defs": { "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" } },
   "x-required-sections": ["Summary"]
 }

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
@@ -28,13 +29,20 @@ import {
 } from "../hooks/native-task-review-context.mjs";
 import {
   atomicNativeReviewReceipt,
+  commitNativeReviewInvocationResult,
   nativeReviewReceiptBindingHash,
   nativeReviewReceiptPath,
   nativeReviewRequestHash,
+  replayNativeReviewInvocationResult,
 } from "../hooks/native-review-receipt.mjs";
 import { hashWorkflowIdentifier } from "../hooks/workflow-state.mjs";
-import { defaultRoot } from "../scripts/validate-artifact.source.mjs";
+import { defaultRoot, executionContractFromArtifactText } from "../scripts/validate-artifact.source.mjs";
 import { buildManualReviewLifecycle } from "../src/controller/manual-review-lifecycle.mjs";
+import {
+  HARNESS_CHECK_ATTESTATION_SCHEMA,
+  harnessContractHash,
+  verificationIntentHash,
+} from "../src/core/harness-attestations.mjs";
 import { withNativeStateLock } from "../src/harness/native-task-review-state.mjs";
 
 const rootPlan = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
@@ -165,6 +173,42 @@ function provisionalReviewInput() {
     snapshot_summary: "No repository contradiction was observed.",
     findings: [],
     missing_evidence: ["CHECK-1"],
+  };
+}
+
+function verifiedReviewInput() {
+  return {
+    ...provisionalReviewInput(),
+    assessment: "achieved",
+    recommended_action: "none",
+    assessment_summary: "Fresh protected evidence satisfies the exact Root.",
+    missing_evidence: [],
+  };
+}
+
+function verifiedPhaseResult(workspaceBinding, snapshotHash) {
+  const check = executionContractFromArtifactText(rootPlan, defaultRoot).checks[0];
+  const raw = {
+    schema: HARNESS_CHECK_ATTESTATION_SCHEMA,
+    kind: "harness-check-attestation",
+    harness_id: "project-harness",
+    check_id: "CHECK-1",
+    root_hash: createHash("sha256").update(rootPlan).digest("hex"),
+    verification_intent_hash: verificationIntentHash(check),
+    workspace_binding: workspaceBinding,
+    workspace_snapshot_hash: snapshotHash,
+    status: "passed",
+    observed: "The protected sealing verification passed.",
+    evidence_hashes: ["f".repeat(64)],
+    issued_at: "2026-08-25T10:00:00.000Z",
+  };
+  return {
+    status: "completed",
+    harness_id: "project-harness",
+    workspace_snapshot_before: snapshotHash,
+    workspace_snapshot_after: snapshotHash,
+    changed_paths: [],
+    check_attestations: [{ ...raw, content_hash: harnessContractHash(raw) }],
   };
 }
 
@@ -562,7 +606,10 @@ test("a syntactically valid Root with infeasible authority never becomes active"
       pluginRoot: defaultRoot,
       options: options(),
     });
-    assert.equal(result.status, "ignored");
+    assert.equal(result.status, "superseded");
+    const stored = JSON.parse(readFileSync(conversationFile(stateRoot), "utf8"));
+    assert.equal(stored.root_status, "superseded");
+    assert.deepEqual(stored.last_plan_observation.reason_codes, ["native-plan-root-invalid"]);
   } finally {
     rmSync(stateRoot, { recursive: true, force: true });
   }
@@ -579,6 +626,67 @@ test("CreatePlan transitions are exact, idempotent, and fail closed on ambiguity
     conflicting.tool_input = { ...conflicting.tool_input, plan: rootPlan.replace("wp-adaptive-retry", "wp-adaptive-retry-conflict") };
     assert.equal(observeNativeCreatePlan({ stateRoots: [stateRoot], input: conflicting, pluginRoot: defaultRoot, options: options() }).status, "ambiguous");
     assert.equal(selectNativeReviewRoot({ stateRoots: [stateRoot], input: selectionEvent(), pluginRoot: defaultRoot, options: options() }).status, "ambiguous");
+  } finally {
+    rmSync(stateRoot, { recursive: true, force: true });
+  }
+});
+
+test("direct CreatePlan binding outranks transcript and Plan-file recovery", () => {
+  const directState = mkdtempSync(join(tmpdir(), "workflow-v6-native-priority-"));
+  const recoveredState = mkdtempSync(join(tmpdir(), "workflow-v6-native-priority-"));
+  const planDirectory = mkdtempSync(join(tmpdir(), "workflow-v6-plan-priority-"));
+  try {
+    const direct = observeNativeCreatePlan({ stateRoots: [directState], input: planEvent(), pluginRoot: defaultRoot, options: options() });
+    assert.equal(direct.root_binding.priority, 3);
+    const preserved = observeNativeCreatePlanAtStop({
+      stateRoots: [directState],
+      input: planEvent(),
+      markerStartedAt: new Date(Date.now() - 1_000).toISOString(),
+      pluginRoot: defaultRoot,
+      options: { ...options(), planDirectory },
+    });
+    assert.equal(preserved.preserved, true);
+    assert.equal(preserved.root_binding.priority, 3);
+
+    const planFile = `---\nname: Workflow 6\ntodos: []\n---\n${rootPlan}`;
+    writeFileSync(join(planDirectory, "priority.plan.md"), planFile);
+    const provisional = observeNativeCreatePlanAtStop({
+      stateRoots: [recoveredState],
+      input: planEvent(),
+      markerStartedAt: new Date(Date.now() - 1_000).toISOString(),
+      pluginRoot: defaultRoot,
+      options: { ...options(), planDirectory },
+    });
+    assert.equal(provisional.root_binding.priority, 1);
+    const upgraded = observeNativeCreatePlan({ stateRoots: [recoveredState], input: planEvent(), pluginRoot: defaultRoot, options: options() });
+    assert.equal(upgraded.upgraded, true);
+    assert.equal(upgraded.root_binding.priority, 3);
+    const stored = JSON.parse(readFileSync(conversationFile(recoveredState), "utf8"));
+    assert.equal(stored.active.root_binding.priority, 3);
+  } finally {
+    rmSync(directState, { recursive: true, force: true });
+    rmSync(recoveredState, { recursive: true, force: true });
+    rmSync(planDirectory, { recursive: true, force: true });
+  }
+});
+
+test("stale ephemeral native state grants no authority and a fresh CreatePlan replaces it", () => {
+  const stateRoot = mkdtempSync(join(tmpdir(), "workflow-v6-native-version-"));
+  try {
+    establish(stateRoot);
+    const path = conversationFile(stateRoot);
+    const stale = JSON.parse(readFileSync(path, "utf8"));
+    delete stale.state_version;
+    writeFileSync(path, `${JSON.stringify(stale)}\n`);
+    const unavailable = selectNativeReviewRoot({ stateRoots: [stateRoot], input: selectionEvent(), pluginRoot: defaultRoot, options: options() });
+    assert.equal(unavailable.status, "unavailable");
+    assert.equal(unavailable.reason, "state-version-unavailable");
+    assert.deepEqual(unavailable.reason_codes, ["native-state-version-unavailable"]);
+
+    assert.equal(observeNativeCreatePlan({ stateRoots: [stateRoot], input: planEvent(), pluginRoot: defaultRoot, options: options() }).status, "observed");
+    const refreshed = JSON.parse(readFileSync(path, "utf8"));
+    assert.equal(refreshed.state_version, 2);
+    assert.equal(selectNativeReviewRoot({ stateRoots: [stateRoot], input: selectionEvent(), pluginRoot: defaultRoot, options: options() }).status, "selected");
   } finally {
     rmSync(stateRoot, { recursive: true, force: true });
   }
@@ -738,6 +846,11 @@ test("receipt binding rejects caller tokens, semantic drift, expiration, replay,
 test("receipt request and binding hashes are canonical and lifecycle-neutral", () => {
   const semantic = { artifact_kind: "work-review", check_evidence: [], review_input: provisionalReviewInput() };
   assert.equal(nativeReviewRequestHash(semantic), nativeReviewRequestHash({ review_input: semantic.review_input, check_evidence: [], artifact_kind: "work-review" }));
+  const sealArtifacts = [{ label: "evidence", text: "exact evidence bytes" }, { label: "review", text: "exact review bytes" }];
+  assert.notEqual(
+    nativeReviewRequestHash({ ...semantic, seal_artifacts: sealArtifacts }),
+    nativeReviewRequestHash({ ...semantic, seal_artifacts: [{ ...sealArtifacts[0], text: "changed evidence bytes" }, sealArtifacts[1]] }),
+  );
   const receipt = { schema: 6, kind: "cursor-native-review-receipt", nested: { b: 2, a: 1 } };
   const binding = nativeReviewReceiptBindingHash(receipt);
   assert.equal(binding, nativeReviewReceiptBindingHash({ ...receipt, consumed_at: "later", binding_hash: "ignored" }));
@@ -752,6 +865,64 @@ test("receipt request and binding hashes are canonical and lifecycle-neutral", (
     );
   } finally {
     rmSync(receiptRoot, { recursive: true, force: true });
+  }
+});
+
+test("native Review result commit is idempotent and input-bound", () => {
+  const stateRoot = mkdtempSync(join(tmpdir(), "workflow-v6-native-result-"));
+  try {
+    assert.equal(commitNativeReviewInvocationResult({ stateRoot, token: "invalid", input: {}, receipt: null, payload: null }).status, "unavailable");
+    assert.equal(replayNativeReviewInvocationResult({ stateRoot, token: "invalid", input: {}, receipt: null }).status, "unavailable");
+    establish(stateRoot);
+    const prepared = prepareNativeReviewReceipt({ stateRoots: [stateRoot], input: reviewEvent(), pluginRoot: defaultRoot, options: options() });
+    const consumed = consumeNativeReviewReceipt({ stateRoot, token: prepared.token, input: prepared.updated_input });
+    assert.equal(consumed.status, "resolved");
+    assert.equal(replayNativeReviewInvocationResult({
+      stateRoot,
+      token: prepared.token,
+      input: prepared.updated_input,
+      receipt: consumed.receipt,
+    }).status, "unavailable");
+    const payload = {
+      artifact_kind: "work-review",
+      root_plan_id: consumed.receipt.root_plan_id,
+      repository_state_hash: "f".repeat(64),
+      assessment: "provisional",
+    };
+    const commit = (candidate) => commitNativeReviewInvocationResult({
+      stateRoot,
+      token: prepared.token,
+      input: prepared.updated_input,
+      receipt: consumed.receipt,
+      payload: candidate,
+      options: options(),
+    });
+    assert.equal(commitNativeReviewInvocationResult({
+      stateRoot,
+      token: prepared.token,
+      input: prepared.updated_input,
+      receipt: { ...consumed.receipt, binding_hash: "invalid" },
+      payload,
+      options: options(),
+    }).status, "mismatch");
+    assert.equal(commit({ ...payload, artifact_kind: "delivery-evidence" }).status, "invalid");
+    assert.equal(commit(payload).status, "committed");
+    assert.equal(commit(payload).duplicate, true);
+    assert.equal(commit({ ...payload, assessment: "blocked" }).status, "conflict");
+    assert.equal(replayNativeReviewInvocationResult({
+      stateRoot,
+      token: prepared.token,
+      input: prepared.updated_input,
+      receipt: consumed.receipt,
+    }).status, "resolved");
+    assert.equal(replayNativeReviewInvocationResult({
+      stateRoot,
+      token: prepared.token,
+      input: { ...prepared.updated_input, summary: "changed" },
+      receipt: consumed.receipt,
+    }).status, "mismatch");
+  } finally {
+    rmSync(stateRoot, { recursive: true, force: true });
   }
 });
 
@@ -784,10 +955,12 @@ test("every protected receipt binding rejects its own forged or malformed value"
     reject((value) => { value.root_text = `${value.root_text}\nforged`; });
     reject((value) => { value.root_binding = null; });
     reject((value) => { value.root_binding.source = "foreign"; });
+    reject((value) => { delete value.root_binding.priority; });
+    reject((value) => { value.root_binding.priority = 1; });
     reject((value) => { value.root_binding.reason_codes = [7]; });
     reject((value) => { value.root_binding.reason_codes = ["unexpected"]; });
     reject((value) => {
-      value.root_binding = { status: "provisional", source: "recent-plan-file-stop", reason_codes: ["native-plan-transcript-unavailable"] };
+      value.root_binding = { status: "provisional", source: "recent-plan-file-stop", priority: 1, reason_codes: ["native-plan-transcript-unavailable"] };
     });
     reject((value) => { value.artifacts = null; });
     reject((value) => { value.predecessor_mode = "foreign"; });
@@ -837,9 +1010,9 @@ test("consumed receipt validation names every protected state drift", () => {
     validate((value) => { value.revision += 1; }, { status: "drift", reason: "context-revision-drift" });
     validate((value) => { value.active.root_hash = "0".repeat(64); }, { status: "drift", reason: "root-drift" });
     validate((value) => { value.mutation_epoch.id = "0".repeat(64); }, { status: "drift", reason: "mutation-epoch-drift" });
-    validate((value) => { value.inflight.token_hash = "0".repeat(64); }, { status: "drift", reason: "review-inflight-drift" });
-    validate((value) => { value.inflight.tool_hash = "0".repeat(32); }, { status: "drift", reason: "review-inflight-drift" });
-    validate((value) => { value.inflight.generation_hash = "0".repeat(32); }, { status: "drift", reason: "review-inflight-drift" });
+    validate((value) => { value.review_invocation.token_hash = "0".repeat(64); }, { status: "drift", reason: "review-invocation-drift" });
+    validate((value) => { value.review_invocation.tool_hash = "0".repeat(32); }, { status: "drift", reason: "review-invocation-drift" });
+    validate((value) => { value.review_invocation.generation_hash = "0".repeat(32); }, { status: "drift", reason: "review-invocation-drift" });
     writeFileSync(conversationPath, "{}\n");
     assert.deepEqual(validateConsumedNativeReviewReceipt({ stateRoot, receipt: consumed.receipt }), { status: "drift", reason: "context-unavailable" });
   } finally {
@@ -928,6 +1101,88 @@ test("successful Review output records one protected predecessor pair for later 
       pluginRoot: defaultRoot,
       options: driftOptions,
     }).status, "recorded");
+  } finally {
+    rmSync(stateRoot, { recursive: true, force: true });
+  }
+});
+
+test("protected seal receipt binds local bytes and records one linear four-artifact chain", () => {
+  const stateRoot = mkdtempSync(join(tmpdir(), "workflow-v6-native-seal-"));
+  try {
+    establish(stateRoot);
+    const local = buildManualReviewLifecycle({
+      rootPlanText: rootPlan,
+      reviewInput: provisionalReviewInput(),
+      checkEvidence: [],
+      workspaceRoot: defaultRoot,
+      pluginRoot: defaultRoot,
+      repositoryBaseline: baseline,
+      repositoryAttribution: { status: "attributed", boundary: "create-plan", reason_codes: [] },
+      captureSnapshot: () => structuredClone(baseline),
+    });
+    const localArtifacts = [
+      { label: local.delivery_evidence.fields.id, text: local.delivery_evidence.artifact },
+      { label: local.review.fields.id, text: local.review.artifact },
+    ];
+    const event = reviewEvent({
+      tool_input: {
+        ...reviewEvent().tool_input,
+        review_input: verifiedReviewInput(),
+        seal_artifacts: localArtifacts,
+      },
+    });
+    const malformed = prepareNativeReviewReceipt({
+      stateRoots: [stateRoot],
+      input: { ...event, tool_input: { ...event.tool_input, seal_artifacts: [localArtifacts[1], localArtifacts[1]] } },
+      pluginRoot: defaultRoot,
+      options: options(),
+    });
+    assert.equal(malformed.status, "invalid");
+
+    const prepared = prepareNativeReviewReceipt({ stateRoots: [stateRoot], input: event, pluginRoot: defaultRoot, options: options() });
+    assert.equal(prepared.status, "prepared");
+    const tamperedInput = structuredClone(prepared.updated_input);
+    tamperedInput.seal_artifacts[0].text += "\n";
+    assert.equal(consumeNativeReviewReceipt({ stateRoot, token: prepared.token, input: tamperedInput }).status, "mismatch");
+    const consumed = consumeNativeReviewReceipt({ stateRoot, token: prepared.token, input: prepared.updated_input });
+    assert.equal(consumed.status, "resolved");
+    assert.equal(consumed.receipt.predecessor_mode, "provisional-seal");
+    assert.deepEqual(consumed.receipt.artifacts, localArtifacts);
+
+    const workspaceBinding = harnessContractHash({ workspace_root: defaultRoot });
+    const snapshotHash = "e".repeat(64);
+    const sealed = buildManualReviewLifecycle({
+      rootPlanText: consumed.receipt.root_text,
+      artifacts: consumed.receipt.artifacts,
+      reviewInput: verifiedReviewInput(),
+      checkEvidence: [],
+      workspaceRoot: defaultRoot,
+      pluginRoot: defaultRoot,
+      repositoryBaseline: consumed.receipt.baseline,
+      repositoryAttribution: { status: "attributed", boundary: "protected-seal", reason_codes: [] },
+      harnessPhaseResult: verifiedPhaseResult(workspaceBinding, snapshotHash),
+      harnessProtectionHash: "1".repeat(64),
+      workspaceBinding,
+      seal: true,
+      captureSnapshot: () => structuredClone(baseline),
+    });
+    assert.equal(sealed.chain_update, "append-seal");
+    const recorded = observeNativeReviewResult({
+      stateRoots: [stateRoot],
+      input: { ...event, tool_input: prepared.updated_input, tool_output: reviewOutput(sealed) },
+      pluginRoot: defaultRoot,
+      options: options(),
+    });
+    assert.equal(recorded.status, "recorded", JSON.stringify(recorded));
+
+    assert.equal(selectNativeReviewRoot({ stateRoots: [stateRoot], input: selectionEvent(), pluginRoot: defaultRoot, options: options() }).status, "selected");
+    const next = prepareNativeReviewReceipt({ stateRoots: [stateRoot], input: reviewEvent(), pluginRoot: defaultRoot, options: options() });
+    const nextConsumed = consumeNativeReviewReceipt({ stateRoot, token: next.token, input: next.updated_input });
+    assert.equal(nextConsumed.status, "resolved");
+    assert.equal(nextConsumed.receipt.predecessor_mode, "task-chain");
+    assert.equal(nextConsumed.receipt.artifacts.length, 4);
+    assert.equal(nextConsumed.receipt.artifacts[0].text, localArtifacts[0].text);
+    assert.equal(nextConsumed.receipt.artifacts[1].text, localArtifacts[1].text);
   } finally {
     rmSync(stateRoot, { recursive: true, force: true });
   }

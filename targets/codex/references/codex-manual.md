@@ -1,13 +1,15 @@
-# Codex Manual Facade
+# Codex Manual facade
 
-Workflow on Codex implements the Manual Schema-6 lifecycle. Codex Plan mode and the exact `<proposed_plan>` provide Root authority. The path is Plan → implementation → fresh same-task Review → human decision. Implementation and correction finish normally; fresh Review constructs Evidence and Review atomically through the generic project-harness boundary.
+Workflow on Codex implements the complete Skills-first Manual Schema-6 lifecycle: Plan → Implement → Review → Correct or Replan → Review → provisional Accept.
+
+Codex Plan mode and the exact `<proposed_plan>` provide implementation Root authority after separate human approval. The bundled `dist/manual-workflow.mjs` validates Root bytes, constructs Review artifacts, derives status, and performs ephemeral provisional acceptance. Manual use requires no MCP, Host Adapter, MCP Roots, Hook Trust, cache, handoff, or persistent Workflow state.
 
 The host sandbox and human approvals remain authoritative. Workflow chooses no command, tool, model, route, retry, sandbox, worktree, or framework strategy. There is no Workflow execution engine, model pool, Verification Profile, automatic merge, push, publication, or deployment.
 
-Every skill reads the shared [Manual Workflow contract](./manual-workflow-contract.md) and the task-specific Schema-6 references it names. Host settings and project-harness configuration remain outside Workflow.
+Every skill reads the shared Manual and builder contracts plus its task-specific Schema-6 references. Host settings and project-harness configuration remain outside Workflow.
 
-Manual authority is task-local. Review resolves exact Schema-6 Root bytes from the current Plan-mode context and extends only exact predecessor bytes already present in this task. Hook state, handoff/cache, IDs without bytes, and another task cannot restore authority. Every other artifact schema is unsupported.
+Manual authority is task-local. A fresh task must receive the exact current Root and every referenced Evidence/Review artifact explicitly. Hook state, handoff/cache, MCP state, random server values, IDs without bytes, harness self-assertion, and another task cannot reconstruct authority. Every other artifact schema is unsupported.
 
-Fresh `$review-work` declares repository-read-only intent and invokes `workflow_closeout` once in `work-review` mode. The project harness alone selects inspection details and returns protected before/after snapshots plus Check attestations. Missing attestations cap Evidence at provisional; failed attestations block; contradictory bindings are rejected.
+Fresh `$review-work` is repository-read-only. The project harness supplies opaque unprotected observations; the local builder computes IDs and hashes and returns Evidence plus Review atomically. Unprotected success is at most provisional, failed required Checks remain blocking, and invalid or ambiguous input returns Shadow with no pseudo-artifact.
 
-If no exact native Root is available, only Review blocks. Recoverable MCP transport or presentation failure preserves a valid active Root and selection. Ordinary Codex use remains available when Workflow or the harness is unavailable.
+The MCP server remains registered for optional automation-compatible surfaces and protected sealing. Those failures never change Manual status or ordinary Codex availability. A future protected sealing result appends new artifacts and never edits an existing provisional pair.

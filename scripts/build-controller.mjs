@@ -23,10 +23,12 @@ const common = {
 };
 
 const cursor = await build({ ...common, entryPoints: [join(root, "src", "mcp", "workflow-mcp.mjs")], outfile: join(dist, "workflow-mcp.mjs") });
+const cursorManual = await build({ ...common, entryPoints: [join(root, "src", "manual", "manual-workflow.mjs")], outfile: join(dist, "manual-workflow.mjs") });
 const codex = await build({
   ...common,
   define: { __GELDMACHER_WORKFLOW_MANUAL_CLIENT_HOST__: JSON.stringify("codex") },
   entryPoints: {
+    "manual-workflow": join(root, "src", "manual", "manual-workflow.mjs"),
     "workflow-mcp": join(root, "src", "mcp", "workflow-mcp-manual.mjs"),
     "workflow-hook": join(root, "src", "hosts", "codex", "workflow-hook.mjs"),
   },
@@ -37,13 +39,16 @@ const codex = await build({
 const portable = await build({
   ...common,
   define: { __GELDMACHER_WORKFLOW_MANUAL_CLIENT_HOST__: JSON.stringify("portable") },
-  entryPoints: { "workflow-mcp": join(root, "src", "mcp", "workflow-mcp-manual.mjs") },
+  entryPoints: {
+    "manual-workflow": join(root, "src", "manual", "manual-workflow.mjs"),
+    "workflow-mcp": join(root, "src", "mcp", "workflow-mcp-manual.mjs"),
+  },
   outdir: join(dist, "portable"),
   entryNames: "[name]",
   outExtension: { ".js": ".mjs" },
 });
 
-const generated = new Map([cursor, codex, portable].flatMap((result) => result.outputFiles.map((output) => [
+const generated = new Map([cursor, cursorManual, codex, portable].flatMap((result) => result.outputFiles.map((output) => [
   relative(dist, output.path),
   `${output.text.replace(/[ \t]+$/gm, "").trimEnd()}\n`,
 ])));

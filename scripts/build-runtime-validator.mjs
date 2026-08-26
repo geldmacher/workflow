@@ -58,7 +58,38 @@ for network-free build validation.
 The Agent Plugins project licenses schemas and other software material under
 the [Apache License 2.0](https://github.com/agentplugins/agent-plugins-spec/blob/main/LICENSE.md).
 No schema is fetched from the network while building, validating, or loading a Workflow package.`;
-const generatedNotices = `# Third-party notices\n\nThe self-contained runtime validator bundles the following packages. Their notices are reproduced verbatim.\n\n${agentPluginsSchemaNotice}\n\n${noticeSections.join("\n\n")}\n`;
+const pstackNotice = `## pstack engineering playbooks
+
+Workflow's \`engineering-work\` taxonomy and methodology were independently adapted from pstack at commit \`bdf7aa355337897f167153e05069aca505dae17c\`:
+
+https://github.com/cursor/plugins/tree/bdf7aa355337897f167153e05069aca505dae17c/pstack
+
+Declared license: MIT
+
+\`\`\`text
+MIT License
+
+Copyright (c) 2026 Lauren Tan
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+\`\`\``;
+const generatedNotices = `# Third-party notices\n\nThe self-contained runtime validator bundles the following packages. Their notices are reproduced verbatim.\n\n${pstackNotice}\n\n${agentPluginsSchemaNotice}\n\n${noticeSections.join("\n\n")}\n`;
 if (check) {
   const committed = readFileSync(output);
   if (!generated.equals(committed)) {

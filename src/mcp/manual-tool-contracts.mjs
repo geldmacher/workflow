@@ -33,12 +33,13 @@ const contracts = Object.freeze({
     },
   },
   workflow_closeout: {
-    description: "Build one host-owned Schema-6 delivery-evidence or work-review artifact. Concrete execution is never accepted or interpreted; verified evidence requires protected harness attestations.",
+    description: "Build one formally bound Schema-6 delivery-evidence or work-review artifact, or return a chat-only Shadow Review when the formal Review binding is merely unavailable. Concrete execution is never accepted or interpreted; verified evidence requires protected harness attestations.",
     inputSchema: {
       workspace_root: workspaceRoot,
       root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
       root_plan: z.string().min(1).max(250_000).optional(),
       artifacts: z.array(artifact).min(1).max(32).optional(),
+      seal_artifacts: z.array(artifact).length(2).optional(),
       artifact_kind: z.enum(["delivery-evidence", "work-review"]).default("delivery-evidence"),
       review_input: reviewInputTransportSchema.optional(),
       effective_profile: z.literal("manual").default("manual"),

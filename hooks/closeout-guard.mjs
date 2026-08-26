@@ -194,6 +194,14 @@ function nativeReviewDenial(value) {
   return deny(`[${code}] ${message}`);
 }
 
+function shadowEligibleNativeReview(value, authorityStatus = "selected") {
+  const reasons = value?.reason_codes ?? [];
+  const integrityFailure = reasons.some((reason) => /(?:invalid|ambiguous|mismatch|drift|replayed|tamper)/i.test(reason));
+  if (integrityFailure) return false;
+  return value?.status === "unavailable"
+    || (value?.status === "ambiguous" && authorityStatus === "unavailable");
+}
+
 export function evaluateCloseoutGuard(input, options = {}) {
   if (!input || typeof input !== "object" || Array.isArray(input)) return {};
   const event = input.hook_event_name;
@@ -331,8 +339,10 @@ export function evaluateCloseoutGuard(input, options = {}) {
       };
       writeTurn(input, turn, options);
       turnState = { status: "valid", value: turn };
+    } else if (shadowEligibleNativeReview(recovered, authority.status)) {
+      return {};
     } else {
-      return deny("[review-observer-unavailable] Workflow could not confirm this Review activation. Verify Hook Trust, reload Cursor, then submit exactly /review-work again in this task.");
+      return nativeReviewDenial(recovered);
     }
   }
   if (closeoutCall && turn?.phase === "review") {
@@ -347,6 +357,7 @@ export function evaluateCloseoutGuard(input, options = {}) {
     } catch (error) {
       prepared = { status: error?.code === "native-state-busy" ? "busy" : "invalid" };
     }
+    if (shadowEligibleNativeReview(prepared, authority.status)) return {};
     if (!["ignored", "prepared"].includes(prepared.status)) return nativeReviewDenial(prepared);
     if (prepared.status === "prepared") return { updated_input: prepared.updated_input };
   }

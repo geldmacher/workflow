@@ -17,8 +17,10 @@ Render `Quick decision` → `Details` → `Agent and machine contract (authorita
 
 Define goal, acceptance, non-goals, constraints, authority, risk, Hard Triggers, and profile. Each objective needs a falsifiable verification intent. The Verification table contains only `Check ID | Objectives | Verification Intent | Expected Evidence | Required | Evidence Class | Cost Class | Prerequisites`.
 
-Never add a command, working directory, tool, model, sandbox, worktree, route, retry, or task recipe. The project harness owns every concrete execution choice. Do not evaluate whether any program or wrapper is appropriate.
+Never add or judge commands, working directories, tools, models, sandboxes, worktrees, routes, retries, or task recipes. The project harness owns them.
 
-The host guard validates the exact Root but grants no approval. `workflow_plan_preflight` is optional transport. A replan creates a fresh `wp-*` with exact predecessor and review binding plus renewed human approval. Caches and handoff never grant authority. `extensions` is opaque trace only.
+For multi-phase outcomes, encode prerequisites and falsifiable phase outcomes as verification intent, never implementation steps or harness sequences.
+
+Before presenting the Root, run local `validate-plan` on its exact bytes and require a feasible result with the same Root ID. Validation creates no artifact, makes no MCP call, and grants no approval. Replan needs a fresh `wp-*`, exact predecessor/review binding, and renewed approval. Cache and handoff grant no authority; `extensions` is opaque.
 
 Use the native Plan as container. Implementation still requires explicit human selection. Do not add closeout or Evidence execution steps. End with `### Next step`.

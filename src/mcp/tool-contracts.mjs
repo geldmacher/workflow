@@ -34,6 +34,7 @@ export const WORKFLOW_TOOL_CONTRACTS = Object.freeze({
       root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/).optional(),
       root_plan: z.string().min(1).max(250_000).optional(),
       artifacts: z.array(artifact).min(1).max(32).optional(),
+      seal_artifacts: z.array(artifact).length(2).optional(),
       artifact_kind: z.enum(["delivery-evidence", "work-review"]).default("delivery-evidence"),
       review_input: reviewInputTransportSchema.optional(),
       effective_profile: z.enum(["manual", "supervised", "autonomous"]).default("manual"),

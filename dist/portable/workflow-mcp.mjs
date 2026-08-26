@@ -22950,8 +22950,8 @@ function materializeEvidence(artifact2, artifacts, cache, failures, rootDirector
   artifact2.fields.predecessor_evidence_id && !predecessorEffective && failures.push(`${artifact2.label}: missing predecessor evidence ${artifact2.fields.predecessor_evidence_id}`), predecessor && predecessor.fields.root_plan_id !== artifact2.fields.root_plan_id && failures.push(`${artifact2.label}: predecessor evidence must use the same root plan`);
   let affected = new Set(artifact2.fields.affected_objectives ?? []), reusedObjectives = new Set(artifact2.fields.reused_objectives ?? []), executed = new Set(artifact2.fields.executed_checks ?? []), reusedChecks = new Set(artifact2.fields.reused_checks ?? []);
   disjointCoverage(affected, reusedObjectives, plan.objectives, `${artifact2.label}: objective`, failures), disjointCoverage([...executed].filter((id) => plan.requiredChecks.has(id)), reusedChecks, plan.requiredChecks, `${artifact2.label}: root Check`, failures);
-  let initial = artifact2.fields.subject_id === root.fields.id;
-  initial && artifact2.fields.representation !== "full" && failures.push(`${artifact2.label}: initial evidence must use full representation`), !initial && !predecessorEffective && failures.push(`${artifact2.label}: correction evidence requires direct predecessor evidence`), artifact2.fields.representation === "full" && (reusedObjectives.size > 0 || reusedChecks.size > 0) && failures.push(`${artifact2.label}: full representation cannot declare reused root state`);
+  let initial = artifact2.fields.representation === "full", seal = artifact2.fields.representation === "seal", correction2 = artifact2.fields.representation === "delta";
+  initial && artifact2.fields.subject_id !== root.fields.id && failures.push(`${artifact2.label}: initial full evidence must use the Root as subject`), seal && artifact2.fields.subject_id !== root.fields.id && failures.push(`${artifact2.label}: seal evidence must use the Root as subject`), correction2 && !String(artifact2.fields.subject_id).startsWith("cp-") && failures.push(`${artifact2.label}: delta evidence must use a correction subject`), !initial && !predecessorEffective && failures.push(`${artifact2.label}: ${seal ? "seal" : "correction"} evidence requires direct predecessor evidence`), ["full", "seal"].includes(artifact2.fields.representation) && (reusedObjectives.size > 0 || reusedChecks.size > 0) && failures.push(`${artifact2.label}: ${artifact2.fields.representation} representation cannot declare reused root state`);
   let objectives = /* @__PURE__ */ new Map();
   for (let objective of affected) {
     let state = data.objectiveStates.get(objective);
@@ -22981,11 +22981,14 @@ function materializeEvidence(artifact2, artifacts, cache, failures, rootDirector
   if (initial) {
     let delivered = new Set(data.objectiveStates.keys());
     sameSet(delivered, plan.objectives) || failures.push(`${artifact2.label}: initial evidence must cover every root objective`), (artifact2.fields.source_review_id || artifact2.fields.predecessor_evidence_id) && failures.push(`${artifact2.label}: initial evidence cannot reference review or predecessor evidence`);
+  } else if (seal) {
+    let sourceReview = artifacts.get(artifact2.fields.source_review_id);
+    !sourceReview || sourceReview.fields.artifact !== "work-review" ? failures.push(`${artifact2.label}: seal evidence requires its exact source Review`) : ((sourceReview.fields.root_plan_id !== root.fields.id || sourceReview.fields.latest_evidence_id !== artifact2.fields.predecessor_evidence_id) && failures.push(`${artifact2.label}: seal source Review must bind the direct predecessor Evidence`), (sourceReview.fields.delivery_status !== "provisional" || sourceReview.fields.next_action !== "accept-provisional" || sourceReview.fields.correction_id || reviewData(sourceReview).findings.length > 0) && failures.push(`${artifact2.label}: seal source Review must be a finding-free provisional acceptance tip`)), (artifact2.fields.status !== "complete" || artifact2.fields.overall_grade !== "verified" || (artifact2.fields.check_evidence ?? []).some((entry) => entry.grade !== "verified")) && failures.push(`${artifact2.label}: seal evidence requires fresh verified coverage for every required Check`);
   } else {
-    let sourceReview = artifacts.get(artifact2.fields.source_review_id), correction2 = correctionForId(artifacts, artifact2.fields.subject_id);
-    if (!sourceReview || sourceReview.fields.correction_id !== artifact2.fields.subject_id || !correction2) failures.push(`${artifact2.label}: correction evidence does not resolve its source review and correction`);
+    let sourceReview = artifacts.get(artifact2.fields.source_review_id), correction3 = correctionForId(artifacts, artifact2.fields.subject_id);
+    if (!sourceReview || sourceReview.fields.correction_id !== artifact2.fields.subject_id || !correction3) failures.push(`${artifact2.label}: correction evidence does not resolve its source review and correction`);
     else
-      for (let check of correction2.checks.filter((row) => row.Required === "yes")) executed.has(check["Check ID"]) || failures.push(`${artifact2.label}: missing executed correction Check ${check["Check ID"]}`);
+      for (let check of correction3.checks.filter((row) => row.Required === "yes")) executed.has(check["Check ID"]) || failures.push(`${artifact2.label}: missing executed correction Check ${check["Check ID"]}`);
   }
   let reviewReady = artifact2.fields.status === "complete" && artifact2.fields.overall_grade === "verified" && [...plan.requiredChecks].every((id) => checks.get(id)?.status === "passed"), effective = {
     root,
@@ -23079,7 +23082,7 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
     }
   }
   for (let [rootId, evidence] of evidenceByRoot)
-    evidence.filter((item) => item.fields.subject_id === rootId).length !== 1 && errors.push(`${rootId}: evidence chain requires exactly one initial root delivery`), orderedEvidenceByRoot.set(rootId, linearChain(evidence, "predecessor_evidence_id", `${rootId}: evidence`, errors));
+    evidence.filter((item) => item.fields.representation === "full").length !== 1 && errors.push(`${rootId}: evidence chain requires exactly one initial root delivery`), orderedEvidenceByRoot.set(rootId, linearChain(evidence, "predecessor_evidence_id", `${rootId}: evidence`, errors));
   for (let [rootId, reviews] of reviewsByRoot) {
     let rootPlan = artifacts.get(rootId);
     if (!rootPlan || rootPlan.fields.artifact !== "work-plan") {
@@ -23131,7 +23134,7 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
         continue;
       }
       let effective = evidence.effective;
-      evidence.fields.root_plan_id !== rootId && errors.push(`${review.label}: latest evidence belongs to another root`);
+      evidence.fields.root_plan_id !== rootId && errors.push(`${review.label}: latest evidence belongs to another root`), evidence.fields.representation === "seal" && (review.fields.predecessor_review_id !== evidence.fields.source_review_id && errors.push(`${review.label}: sealed Review must directly follow its source provisional Review`), (review.fields.assessment !== "achieved" || review.fields.delivery_status !== "verified" || review.fields.next_action !== "none") && errors.push(`${review.label}: sealed Review must be achieved, verified, and terminal`));
       let knownFailedEvidence = evidenceHasKnownFailure(evidence.fields);
       knownFailedEvidence && review.fields.delivery_status !== "blocked" && errors.push(`${review.label}: known failed or blocked evidence requires blocked delivery_status`), knownFailedEvidence && ["accept-provisional", "none"].includes(review.fields.next_action) && errors.push(`${review.label}: known failed or blocked evidence cannot be accepted or achieved`);
       let candidates = rootEvidence.filter((item) => item.fields.source_review_id === null || (reviewIndex.get(item.fields.source_review_id) ?? Number.POSITIVE_INFINITY) < index);
@@ -23571,7 +23574,7 @@ function artifactStatus(grade) {
 function summaryText(summary2, status, grade, entries) {
   let supplied = String(summary2 ?? "").trim();
   if (supplied) return supplied;
-  if (status === "blocked") return "BLOCKER: at least one required verification intent has a harness-attested failure.";
+  if (status === "blocked") return "BLOCKER: at least one required verification intent failed.";
   if (status === "complete") return "Every required verification intent is bound to a passing project-harness attestation.";
   let limitations = unique2(entries.flatMap((entry) => entry.limitations ?? []));
   return `Delivery remains provisional with evidence grade ${grade}.${limitations.length > 0 ? ` Limitations: ${limitations.join(" ")}` : ""}`;
@@ -23589,6 +23592,7 @@ function buildDeliveryEvidence({
   enforceHarnessAttestations = !0,
   workspaceBinding = null,
   workspaceSnapshotHash = null,
+  seal = !1,
   pluginRoot: pluginRoot2
 }) {
   let normalized = normalizeArtifacts(rootPlanText, artifacts, pluginRoot2), contract = executionContractFromArtifactText(rootPlanText, pluginRoot2);
@@ -23596,7 +23600,12 @@ function buildDeliveryEvidence({
   let prior = inspectArtifactSet(normalized.entries.map((entry) => [entry.label, entry.text]), pluginRoot2);
   if (prior.errors.length > 0) throw new Error(`closeout input chain is invalid: ${prior.errors.join("; ")}`);
   let tips = effectiveCliSummary(prior), evidenceTipId = tips.evidence_tips[normalized.rootId] ?? null, reviewTipId = tips.review_tips[normalized.rootId] ?? null, review = reviewTipId ? prior.effective.get(reviewTipId) : null, correction2 = evidenceTipId && review?.fields?.latest_evidence_id === evidenceTipId && review?.fields?.next_action === "correct" && review?.correction ? review.correction : null;
-  if (evidenceTipId && !correction2) {
+  if (seal) {
+    if (!evidenceTipId || !review || review.fields.latest_evidence_id !== evidenceTipId)
+      throw new Error("protected sealing requires one exact current provisional Evidence/Review tip");
+    if (review.fields.delivery_status !== "provisional" || review.fields.next_action !== "accept-provisional" || review.fields.correction_id || (review.findings ?? []).length > 0)
+      throw new Error(`protected sealing rejects non-provisional Review tip ${review.fields.id}`);
+  } else if (evidenceTipId && !correction2) {
     let existing = normalized.entries.find((entry) => entry.label === evidenceTipId);
     if ((checkEvidence2 ?? []).length > 0 || (changedPaths ?? []).length > 0)
       throw new Error(`stale or competing closeout conflicts with current Evidence tip ${evidenceTipId}`);
@@ -23620,7 +23629,12 @@ function buildDeliveryEvidence({
     expectedHarnessId: harnessId,
     protectedAttestationHash
   }));
-  let grade = aggregate(entries), status = artifactStatus(grade), subjectId = correction2 ? review.fields.correction_id : normalized.rootId, sourceReviewId = correction2 ? review.fields.id : null, predecessorEvidenceId = correction2 ? evidenceTipId : null, paths = unique2((changedPaths ?? []).map(String).map((path) => path.trim()).filter(Boolean)).sort(), affectedObjectives = [...contract.objectives], seed = sha2563(JSON.stringify(stable3({
+  let grade = aggregate(entries), status = artifactStatus(grade);
+  if (seal && (grade !== "verified" || status !== "complete" || entries.some((entry) => entry.grade !== "verified"))) {
+    let error2 = new Error("protected sealing requires fresh verified evidence for every required Check");
+    throw error2.code = "protected-seal-not-verified", error2;
+  }
+  let subjectId = correction2 ? review.fields.correction_id : normalized.rootId, sourceReviewId = correction2 || seal ? review.fields.id : null, predecessorEvidenceId = correction2 || seal ? evidenceTipId : null, paths = unique2((changedPaths ?? []).map(String).map((path) => path.trim()).filter(Boolean)).sort(), affectedObjectives = [...contract.objectives], seed = sha2563(JSON.stringify(stable3({
     root_projection_hash: contract.authoritative_projection_hash,
     subject_id: subjectId,
     source_review_id: sourceReviewId,
@@ -23638,7 +23652,7 @@ function buildDeliveryEvidence({
     subject_id: subjectId,
     source_review_id: sourceReviewId,
     predecessor_evidence_id: predecessorEvidenceId,
-    representation: correction2 ? "delta" : "full",
+    representation: correction2 ? "delta" : seal ? "seal" : "full",
     intent_hash: contract.authoritative_projection_hash,
     evidence_mode: mode,
     overall_grade: grade,
@@ -23874,7 +23888,7 @@ function normalizeReviewInput(input, contract) {
     throw new Error("review_input.correction is allowed only for recommended_action correct");
   return normalized;
 }
-function mergeChain(rootPlanText, artifacts, pluginRoot2) {
+function mergeChain(rootPlanText, artifacts, pluginRoot2, { allowUnprovenancedReviews = !1 } = {}) {
   let rootInspection = inspectArtifactText(rootPlanText, pluginRoot2);
   if (rootInspection.errors.length > 0 || rootInspection.artifact?.fields?.artifact !== "work-plan" || rootInspection.artifact.fields.schema !== 6)
     throw new Error(`review builder requires an exact valid Schema-6 Root: ${rootInspection.errors.join("; ") || "not a work-plan"}`);
@@ -23888,7 +23902,7 @@ function mergeChain(rootPlanText, artifacts, pluginRoot2) {
       let validBuilderProvenance = builderProvenance?.schema === 1 && builderProvenance?.kind === "host-work-review-builder" && /^[a-f0-9]{64}$/.test(String(builderProvenance?.review_input_hash ?? "")) && builderProvenance?.artifact_hash === sha2564(entry.text) && Object.keys(builderProvenance).every((key) => ["schema", "kind", "review_input_hash", "artifact_hash"].includes(key));
       if (builderProvenance && !validBuilderProvenance)
         throw codedError("review-artifact-rejected", `review builder artifact ${id} has invalid host builder provenance`);
-      if (!validBuilderProvenance)
+      if (!validBuilderProvenance && !allowUnprovenancedReviews)
         throw codedError("review-artifact-rejected", `review builder rejects newly imported work-review ${id} without protected builder provenance; Root, Evidence, and repository work remain unchanged, so repeat Review from the exact Root/Evidence chain in this task`);
     }
     let prior = byId.get(id);
@@ -24060,9 +24074,10 @@ function buildWorkReview({
   reviewInput = null,
   boundaryReceipt = null,
   boundaryReceiptVerifier: boundaryReceiptVerifier2 = null,
+  allowUnprovenancedReviews = !1,
   pluginRoot: pluginRoot2
 }) {
-  let merged = mergeChain(rootPlanText, artifacts, pluginRoot2), contract = executionContractFromArtifactText(rootPlanText, pluginRoot2);
+  let merged = mergeChain(rootPlanText, artifacts, pluginRoot2, { allowUnprovenancedReviews }), contract = executionContractFromArtifactText(rootPlanText, pluginRoot2);
   if (contract.errors.length > 0 || contract.fields.schema !== 6) throw new Error(`review builder Root is invalid: ${contract.errors.join("; ")}`);
   let inspectionOptions = boundaryReceipt && typeof boundaryReceiptVerifier2 == "function" ? { boundaryReceiptVerifier: boundaryReceiptVerifier2 } : {}, prior = inspectArtifactSet(merged.entries.map((entry) => [entry.label, entry.text]), pluginRoot2, inspectionOptions);
   if (prior.errors.length > 0) throw new Error(`review builder input chain is invalid: ${prior.errors.join("; ")}`);
@@ -25802,7 +25817,7 @@ function readJson(path) {
   }
 }
 function validConversation(value) {
-  return value?.schema === 6 && value?.kind === "cursor-native-task-review-context" && typeof value.conversation_hash == "string" && Number.isInteger(value.revision) && value.revision > 0;
+  return value?.schema === 6 && value?.state_version === 2 && value?.kind === "cursor-native-task-review-context" && typeof value.conversation_hash == "string" && Number.isInteger(value.revision) && value.revision > 0;
 }
 function readNativeTaskReviewConversation(stateRoot, conversationHash) {
   let value = readJson(nativeConversationPath(stateRoot, conversationHash));
@@ -25886,7 +25901,7 @@ function withNativeTaskReviewLock(stateRoot, conversationHash, callback, options
 function validateConsumedNativeReviewReceipt({ stateRoot, receipt, options = {} }) {
   return !receipt || receipt.schema !== 6 || typeof receipt.conversation_hash != "string" ? { status: "invalid" } : withNativeTaskReviewLock(stateRoot, receipt.conversation_hash, () => {
     let current = readNativeTaskReviewConversation(stateRoot, receipt.conversation_hash);
-    return current ? current.revision !== receipt.context_revision ? { status: "drift", reason: "context-revision-drift" } : current.active?.root_hash !== receipt.root_hash ? { status: "drift", reason: "root-drift" } : current.mutation_epoch?.id !== receipt.mutation_epoch?.id ? { status: "drift", reason: "mutation-epoch-drift" } : current.inflight?.token_hash !== receipt.token_hash || current.inflight?.tool_hash !== receipt.tool_hash || current.inflight?.generation_hash !== receipt.generation_hash ? { status: "drift", reason: "review-inflight-drift" } : { status: "valid" } : { status: "drift", reason: "context-unavailable" };
+    return current ? current.revision !== receipt.context_revision ? { status: "drift", reason: "context-revision-drift" } : current.active?.root_hash !== receipt.root_hash ? { status: "drift", reason: "root-drift" } : current.mutation_epoch?.id !== receipt.mutation_epoch?.id ? { status: "drift", reason: "mutation-epoch-drift" } : current.review_invocation?.token_hash !== receipt.token_hash || current.review_invocation?.tool_hash !== receipt.tool_hash || current.review_invocation?.generation_hash !== receipt.generation_hash ? { status: "drift", reason: "review-invocation-drift" } : { status: "valid" } : { status: "drift", reason: "context-unavailable" };
   }, options);
 }
 
@@ -26065,7 +26080,7 @@ function boundaryReceiptVerifier({ pluginRoot: pluginRoot2, workspaceRoot: works
 }
 
 // src/mcp/artifact-handlers.mjs
-import { createHash as createHash15, randomUUID as randomUUID6 } from "node:crypto";
+import { createHash as createHash15 } from "node:crypto";
 import { resolve as resolve13 } from "node:path";
 
 // src/controller/manual-review-lifecycle.mjs
@@ -26123,11 +26138,11 @@ function codedError2(code, message2) {
 function validReviewProvenance(provenance, text) {
   return provenance?.schema === 1 && provenance?.kind === "host-work-review-builder" && /^[a-f0-9]{64}$/.test(String(provenance.review_input_hash ?? "")) && provenance.artifact_hash === createHash12("sha256").update(text, "utf8").digest("hex") && Object.keys(provenance).every((key) => ["schema", "kind", "review_input_hash", "artifact_hash"].includes(key));
 }
-function exactEntries(rootPlanText, artifacts, pluginRoot2) {
+function exactEntries(rootPlanText, artifacts, pluginRoot2, { seal = !1 } = {}) {
   let root = inspectArtifactText(rootPlanText, pluginRoot2);
   if (root.errors.length > 0 || root.artifact?.fields?.artifact !== "work-plan" || root.artifact.fields.schema !== 6)
     throw new Error(`manual Review requires the exact native Schema-6 Root: ${root.errors.join("; ") || "not a work-plan"}`);
-  let byId = /* @__PURE__ */ new Map([[root.artifact.fields.id, { label: root.artifact.fields.id, text: rootPlanText }]]);
+  let byId = /* @__PURE__ */ new Map([[root.artifact.fields.id, { label: root.artifact.fields.id, text: rootPlanText }]]), unprovenancedReviewIds = [];
   for (let entry of artifacts ?? []) {
     if (!entry || typeof entry.text != "string" || !entry.text.trim()) continue;
     let inspected = inspectArtifactText(entry.text, pluginRoot2);
@@ -26138,8 +26153,7 @@ function exactEntries(rootPlanText, artifacts, pluginRoot2) {
       let provenance = entry.builder_provenance ?? null;
       if (provenance && !validReviewProvenance(provenance, entry.text))
         throw codedError2("review-artifact-rejected", `manual Review artifact ${id} has invalid host builder provenance`);
-      if (!provenance)
-        throw codedError2("review-artifact-rejected", `manual Review rejects newly imported work-review ${id} without protected builder provenance`);
+      provenance || unprovenancedReviewIds.push(id);
     }
     let prior = byId.get(id);
     if (prior && prior.text !== entry.text) throw new Error(`manual Review artifact ${id} has conflicting immutable bytes`);
@@ -26149,7 +26163,23 @@ function exactEntries(rootPlanText, artifacts, pluginRoot2) {
       ...entry.builder_provenance ? { builder_provenance: entry.builder_provenance } : {}
     });
   }
-  return { rootFields: root.artifact.fields, entries: [...byId.values()] };
+  let entries = [...byId.values()];
+  if (!seal && unprovenancedReviewIds.length > 0) {
+    let sealedSourceReviewIds = new Set(entries.flatMap((entry) => {
+      let inspected = inspectArtifactText(entry.text, pluginRoot2);
+      return inspected.artifact?.fields?.artifact === "delivery-evidence" && inspected.artifact.fields.representation === "seal" ? [inspected.artifact.fields.source_review_id] : [];
+    }).filter(Boolean)), rejected = unprovenancedReviewIds.find((id) => !sealedSourceReviewIds.has(id));
+    if (rejected) throw codedError2("review-artifact-rejected", `manual Review rejects newly imported work-review ${rejected} without protected builder provenance`);
+  }
+  return { rootFields: root.artifact.fields, entries, unprovenancedReviewIds };
+}
+function assertSealPredecessor(exact, pluginRoot2) {
+  let current = currentTips(exact.entries, pluginRoot2), rootId = exact.rootFields.id, evidenceTipId = current.tips.evidence_tips[rootId] ?? null, reviewTipId = current.tips.review_tips[rootId] ?? null, evidenceTip = evidenceTipId ? current.inspected.effective.get(evidenceTipId) : null, reviewTip = reviewTipId ? current.inspected.effective.get(reviewTipId) : null;
+  if (exact.unprovenancedReviewIds.length !== 1 || exact.unprovenancedReviewIds[0] !== reviewTipId)
+    throw codedError2("protected-seal-chain-invalid", "protected sealing requires exactly one unprovenanced current Review tip");
+  if (!evidenceTip || !reviewTip || evidenceTip.fields.representation !== "full" || reviewTip.fields.latest_evidence_id !== evidenceTipId || reviewTip.fields.predecessor_review_id || reviewTip.fields.delivery_status !== "provisional" || reviewTip.fields.next_action !== "accept-provisional" || reviewTip.fields.correction_id || (reviewTip.findings ?? []).length > 0 || evidenceTip.fields.status === "blocked" || (evidenceTip.fields.check_evidence ?? []).some((entry) => entry.grade === "failed"))
+    throw codedError2("protected-seal-chain-invalid", "protected sealing requires one finding-free initial provisional Evidence/Review pair");
+  return { current, evidenceTipId, reviewTipId };
 }
 function currentTips(entries, pluginRoot2) {
   let inspected = inspectArtifactSet(entries.map((entry) => [entry.label, entry.text]), pluginRoot2);
@@ -26230,11 +26260,12 @@ function buildManualReviewLifecycle({
   harnessPhaseResult = null,
   harnessProtectionHash = null,
   workspaceBinding = null,
+  seal = !1,
   captureSnapshot = captureRepositorySnapshot
 }) {
   if (!reviewInput) throw new Error("manual Review requires review_input schema 1");
   if (!workspaceRoot2) throw new Error("manual Review could not resolve the current repository root");
-  let exact = exactEntries(rootPlanText, artifacts, pluginRoot2), initial = currentTips(exact.entries, pluginRoot2), evidenceTipId = initial.tips.evidence_tips[exact.rootFields.id] ?? null, reviewTipId = initial.tips.review_tips[exact.rootFields.id] ?? null, reviewTip = reviewTipId ? initial.inspected.effective.get(reviewTipId) : null, correctionPending = !!(evidenceTipId && reviewTip?.fields?.latest_evidence_id === evidenceTipId && reviewTip?.fields?.next_action === "correct" && reviewTip?.fields?.correction_id), current = captureSnapshot(workspaceRoot2), harnessSnapshotHash = harnessPhaseResult?.workspace_snapshot_after ?? repositorySnapshotHash(current), harnessAttestations = harnessPhaseResult?.check_attestations ?? [], suppliedReasonCodes = [
+  let exact = exactEntries(rootPlanText, artifacts, pluginRoot2, { seal }), initial = (seal ? assertSealPredecessor(exact, pluginRoot2) : null)?.current ?? currentTips(exact.entries, pluginRoot2), evidenceTipId = initial.tips.evidence_tips[exact.rootFields.id] ?? null, reviewTipId = initial.tips.review_tips[exact.rootFields.id] ?? null, reviewTip = reviewTipId ? initial.inspected.effective.get(reviewTipId) : null, correctionPending = !!(evidenceTipId && reviewTip?.fields?.latest_evidence_id === evidenceTipId && reviewTip?.fields?.next_action === "correct" && reviewTip?.fields?.correction_id), current = captureSnapshot(workspaceRoot2), harnessSnapshotHash = harnessPhaseResult?.workspace_snapshot_after ?? repositorySnapshotHash(current), harnessAttestations = harnessPhaseResult?.check_attestations ?? [], suppliedReasonCodes = [
     ...repositoryAttribution?.reason_codes ?? [],
     ...repositoryAttribution?.status === "provisional" && (repositoryAttribution?.reason_codes ?? []).length === 0 ? ["attribution-unavailable"] : []
   ], observedRepositoryDelta = deriveRepositoryDelta(repositoryBaseline, current, {
@@ -26269,7 +26300,24 @@ function buildManualReviewLifecycle({
     effectiveReviewInput = authorityLimitation(effectiveReviewInput, message2), effectiveCheckEvidence = supportedOnBoundary(effectiveCheckEvidence, message2);
   }
   let evidence = null, reviewArtifacts = exact.entries, chainUpdate = "reuse";
-  if (!evidenceTipId || correctionPending)
+  if (seal)
+    evidence = buildDeliveryEvidence({
+      rootPlanText,
+      artifacts: exact.entries,
+      checkEvidence: effectiveCheckEvidence,
+      changedPaths: evidenceChangedPaths,
+      effectiveProfile: "manual",
+      summary: summary2,
+      harnessAttestations,
+      harnessId: harnessPhaseResult?.harness_id ?? null,
+      protectedAttestationHash: harnessProtectionHash,
+      enforceHarnessAttestations: !0,
+      workspaceBinding: workspaceBinding ?? createHash12("sha256").update(current.repository_root).digest("hex"),
+      workspaceSnapshotHash: harnessSnapshotHash,
+      seal: !0,
+      pluginRoot: pluginRoot2
+    }), reviewArtifacts = [...exact.entries, { label: evidence.fields.id, text: evidence.artifact }], chainUpdate = "append-seal";
+  else if (!evidenceTipId || correctionPending)
     evidence = buildDeliveryEvidence({
       rootPlanText,
       artifacts: exact.entries,
@@ -26307,8 +26355,11 @@ function buildManualReviewLifecycle({
     rootPlanText,
     artifacts: reviewArtifacts,
     reviewInput: effectiveReviewInput,
+    allowUnprovenancedReviews: exact.unprovenancedReviewIds.length > 0,
     pluginRoot: pluginRoot2
   });
+  if (seal && (evidence.fields.status !== "complete" || evidence.fields.overall_grade !== "verified" || review.fields.assessment !== "achieved" || review.fields.delivery_status !== "verified" || review.fields.next_action !== "none"))
+    throw codedError2("protected-seal-not-achieved", "protected sealing produced no artifacts because the fresh protected Review was not achieved and verified");
   return {
     artifact_kind: "work-review",
     root_plan_id: exact.rootFields.id,
@@ -26384,7 +26435,7 @@ import {
 } from "node:fs";
 import { dirname as dirname5, join as join8 } from "node:path";
 import { resolve as resolve11 } from "node:path";
-var MAX_RECEIPT_BYTES = 2 * 1024 * 1024, TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/, sha25610 = (value) => createHash14("sha256").update(String(value), "utf8").digest("hex");
+var MAX_RECEIPT_BYTES = 2 * 1024 * 1024, MAX_INVOCATION_RESULT_BYTES = 4 * 1024 * 1024, TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/, sha25610 = (value) => createHash14("sha256").update(String(value), "utf8").digest("hex");
 function timestamp2(options = {}) {
   let value = options.now ? options.now() : /* @__PURE__ */ new Date();
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
@@ -26404,6 +26455,18 @@ function atomicNativeReviewReceipt(path, value) {
   let source = `${JSON.stringify(value, null, 2)}
 `;
   if (Buffer.byteLength(source) > MAX_RECEIPT_BYTES) throw new Error("native Review receipt exceeds size limit");
+  let temporary = `${path}.${process.pid}.${randomUUID5()}.tmp`;
+  writeFileSync4(temporary, source, { encoding: "utf8", mode: 384 }), renameSync5(temporary, path);
+  try {
+    chmodSync2(path, 384);
+  } catch {
+  }
+}
+function atomicInvocationResult(path, value) {
+  ensureDirectory2(dirname5(path));
+  let source = `${JSON.stringify(value, null, 2)}
+`;
+  if (Buffer.byteLength(source) > MAX_INVOCATION_RESULT_BYTES) throw new Error("native Review invocation result exceeds size limit");
   let temporary = `${path}.${process.pid}.${randomUUID5()}.tmp`;
   writeFileSync4(temporary, source, { encoding: "utf8", mode: 384 }), renameSync5(temporary, path);
   try {
@@ -26439,9 +26502,13 @@ function nativeReviewRequestHash(input = {}) {
     effective_profile: input.effective_profile ?? "manual",
     check_evidence: input.check_evidence ?? [],
     review_input: input.review_input ?? null,
+    seal_artifacts: input.seal_artifacts ?? null,
     summary: input.summary ?? null
   };
   return sha25610(JSON.stringify(canonicalValue2(semantic)));
+}
+function nativeReviewResultHash(value) {
+  return sha25610(JSON.stringify(canonicalValue2(value)));
 }
 function nativeReviewReceiptDirectory(stateRoot, bucket = "pending") {
   return join8(stateRoot, "manual-native-task-review", "receipts", bucket);
@@ -26449,11 +26516,47 @@ function nativeReviewReceiptDirectory(stateRoot, bucket = "pending") {
 function nativeReviewReceiptPath(stateRoot, token, bucket = "pending") {
   return typeof token != "string" || !TOKEN_PATTERN.test(token) ? null : join8(nativeReviewReceiptDirectory(stateRoot, bucket), `${sha25610(token)}.json`);
 }
+function nativeReviewInvocationResultPath(stateRoot, token) {
+  return typeof token != "string" || !TOKEN_PATTERN.test(token) ? null : join8(stateRoot, "manual-native-task-review", "invocations", "completed", `${sha25610(token)}.json`);
+}
 function validReceipt(receipt, stateRoot, tokenHash, requestHash) {
-  return receipt?.schema === 6 && receipt?.kind === "cursor-native-review-receipt" && /^[a-f0-9]{64}$/.test(String(receipt.binding_hash ?? "")) && receipt.binding_hash === nativeReviewReceiptBindingHash(receipt) && receipt.token_hash === tokenHash && receipt.request_hash === requestHash && receipt.workspace_hash === sha25610(stateRoot).slice(0, 32) && /^[a-f0-9]{32}$/.test(String(receipt.conversation_hash ?? "")) && /^[a-f0-9]{32}$/.test(String(receipt.generation_hash ?? "")) && /^[a-f0-9]{32}$/.test(String(receipt.tool_hash ?? "")) && Number.isInteger(receipt.context_revision) && receipt.context_revision > 0 && /^[a-f0-9]{64}$/.test(String(receipt.root_hash ?? "")) && typeof receipt.root_text == "string" && receipt.root_hash === sha25610(receipt.root_text) && validRootBinding(receipt.root_binding, receipt.root_source) && Array.isArray(receipt.artifacts) && ["task-chain", "full-rebuild"].includes(receipt.predecessor_mode) && receipt.artifacts.length > 0 == (receipt.predecessor_mode === "task-chain") && validBaselineBinding(receipt) && validReviewEnforcement(receipt.review_enforcement) && Number.isFinite(Date.parse(receipt.expires_at));
+  return receipt?.schema === 6 && receipt?.kind === "cursor-native-review-receipt" && /^[a-f0-9]{64}$/.test(String(receipt.binding_hash ?? "")) && receipt.binding_hash === nativeReviewReceiptBindingHash(receipt) && receipt.token_hash === tokenHash && receipt.request_hash === requestHash && receipt.workspace_hash === sha25610(stateRoot).slice(0, 32) && /^[a-f0-9]{32}$/.test(String(receipt.conversation_hash ?? "")) && /^[a-f0-9]{32}$/.test(String(receipt.generation_hash ?? "")) && /^[a-f0-9]{32}$/.test(String(receipt.tool_hash ?? "")) && Number.isInteger(receipt.context_revision) && receipt.context_revision > 0 && /^[a-f0-9]{64}$/.test(String(receipt.root_hash ?? "")) && typeof receipt.root_text == "string" && receipt.root_hash === sha25610(receipt.root_text) && validRootBinding(receipt.root_binding, receipt.root_source) && Array.isArray(receipt.artifacts) && ["task-chain", "full-rebuild", "provisional-seal"].includes(receipt.predecessor_mode) && receipt.artifacts.length > 0 == (receipt.predecessor_mode !== "full-rebuild") && validBaselineBinding(receipt) && validReviewEnforcement(receipt.review_enforcement) && Number.isFinite(Date.parse(receipt.expires_at));
 }
 function validRootBinding(value, rootSource) {
-  return !value || typeof value != "object" || Array.isArray(value) || !Array.isArray(value.reason_codes) || value.reason_codes.some((reason) => typeof reason != "string") ? !1 : value.status === "enforced" ? ["post-tool-use", "task-transcript-stop"].includes(value.source) && value.reason_codes.length === 0 && rootSource === "cursor-create-plan" : value.status === "provisional" && value.source === "recent-plan-file-stop" && value.reason_codes.includes("native-plan-transcript-unavailable") && rootSource === "cursor-plan-file";
+  return !value || typeof value != "object" || Array.isArray(value) || !Array.isArray(value.reason_codes) || value.reason_codes.some((reason) => typeof reason != "string") ? !1 : value.status === "enforced" ? ["post-tool-use", "task-transcript-stop"].includes(value.source) && value.priority === (value.source === "post-tool-use" ? 3 : 2) && value.reason_codes.length === 0 && rootSource === "cursor-create-plan" : value.status === "provisional" && value.source === "recent-plan-file-stop" && value.priority === 1 && value.reason_codes.includes("native-plan-transcript-unavailable") && rootSource === "cursor-plan-file";
+}
+function validInvocationResult(record2, receipt, input) {
+  if (!record2 || typeof record2 != "object" || Array.isArray(record2)) return !1;
+  let payloadHash = nativeReviewResultHash(record2.payload);
+  return record2.schema === 2 && record2.kind === "cursor-native-review-invocation-result" && record2.invocation_id === receipt.receipt_id && record2.token_hash === receipt.token_hash && record2.request_hash === nativeReviewRequestHash(input) && record2.request_hash === receipt.request_hash && record2.root_hash === receipt.root_hash && record2.workspace_root === receipt.workspace_root && record2.repository_hash === record2.payload?.repository_state_hash && /^[a-f0-9]{64}$/.test(String(record2.payload_hash ?? "")) && record2.payload_hash === payloadHash && record2.payload?.artifact_kind === "work-review" && record2.payload?.root_plan_id === receipt.root_plan_id && Number.isFinite(Date.parse(record2.completed_at));
+}
+function commitNativeReviewInvocationResult({ stateRoot, token, input = {}, receipt, payload, options = {} }) {
+  let path = nativeReviewInvocationResultPath(stateRoot, token), consumedPath = nativeReviewReceiptPath(stateRoot, token, "consumed");
+  if (!path || !consumedPath || !existsSync7(consumedPath)) return { status: "unavailable" };
+  let consumed = readJson2(consumedPath), tokenHash = sha25610(token), requestHash = nativeReviewRequestHash(input);
+  if (!validReceipt(consumed, stateRoot, tokenHash, requestHash) || consumed.binding_hash !== receipt?.binding_hash) return { status: "mismatch" };
+  let record2 = {
+    schema: 2,
+    kind: "cursor-native-review-invocation-result",
+    invocation_id: consumed.receipt_id,
+    token_hash: consumed.token_hash,
+    request_hash: consumed.request_hash,
+    root_hash: consumed.root_hash,
+    workspace_root: consumed.workspace_root,
+    repository_hash: payload?.repository_state_hash ?? null,
+    payload_hash: nativeReviewResultHash(payload),
+    payload,
+    completed_at: timestamp2(options)
+  };
+  if (!validInvocationResult(record2, consumed, input)) return { status: "invalid" };
+  let prior = readJson2(path);
+  return existsSync7(path) && !prior ? { status: "conflict" } : prior ? validInvocationResult(prior, consumed, input) && prior.payload_hash === record2.payload_hash ? { status: "committed", duplicate: !0, payload: prior.payload, payload_hash: prior.payload_hash } : { status: "conflict" } : (atomicInvocationResult(path, record2), { status: "committed", payload: record2.payload, payload_hash: record2.payload_hash });
+}
+function replayNativeReviewInvocationResult({ stateRoot, token, input = {}, receipt }) {
+  let path = nativeReviewInvocationResultPath(stateRoot, token);
+  if (!path) return { status: "unavailable" };
+  let record2 = readJson2(path);
+  return validInvocationResult(record2, receipt, input) ? { status: "resolved", payload: record2.payload, payload_hash: record2.payload_hash } : { status: record2 ? "mismatch" : "unavailable" };
 }
 function validReviewEnforcement(value) {
   return value && ["enforced", "unavailable"].includes(value.status) && Array.isArray(value.reason_codes) && value.reason_codes.every((reason) => typeof reason == "string") && (value.status === "enforced" ? value.reason_codes.length === 0 : value.reason_codes.includes("review-observer-unavailable"));
@@ -26480,7 +26583,7 @@ function consumeNativeReviewReceipt({ stateRoot, token, input = {}, options = {}
   if (!existsSync7(pendingPath)) {
     let consumed = readJson2(consumedPath);
     if (consumed)
-      return validReceipt(consumed, stateRoot, tokenHash, consumed.request_hash) ? consumed.request_hash === requestHash ? { status: "replayed" } : { status: "mismatch" } : { status: "mismatch" };
+      return validReceipt(consumed, stateRoot, tokenHash, consumed.request_hash) ? consumed.request_hash === requestHash ? { status: "replayed", receipt: consumed } : { status: "mismatch" } : { status: "mismatch" };
     let expired = readJson2(expiredPath);
     return expired ? validReceipt(expired, stateRoot, tokenHash, expired.request_hash) ? expired.request_hash === requestHash ? { status: "expired" } : { status: "mismatch" } : { status: "mismatch" } : { status: "unavailable" };
   }
@@ -26640,8 +26743,75 @@ var WorkspaceRootAuthority = class {
   }
 };
 
+// src/mcp/review-input-contract.mjs
+var semanticKey = string2().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(80), objectiveId = string2().regex(/^OBJ-[1-9][0-9]*$/), checkId = string2().regex(/^CHECK-[1-9][0-9]*$/), line2 = (max = 2e3) => string2().min(1).max(max), finding = strictObject({
+  key: semanticKey,
+  severity: _enum(["low", "medium", "high", "critical"]),
+  objective_ids: array(objectiveId).min(1).max(64),
+  check_ids: array(checkId).min(1).max(128),
+  evidence: line2(4e3),
+  reasoning: line2(4e3),
+  resolution: _enum(["correct", "clarify", "replan"])
+}), correction = strictObject({
+  fixes: array(strictObject({
+    key: semanticKey,
+    finding_keys: array(semanticKey).min(1).max(32),
+    required_outcome: line2(),
+    evidence: line2()
+  })).min(1).max(32),
+  checks: array(strictObject({
+    key: semanticKey,
+    fix_keys: array(semanticKey).min(1).max(32),
+    verification_intent: line2(),
+    expected_evidence: line2(),
+    evidence_class: _enum(["harness-verifiable", "reviewer-observable", "human-decision-required"]),
+    required: boolean2(),
+    cost_class: _enum(["cheap", "standard", "expensive"]),
+    prerequisites: array(line2(1e3)).min(1).max(64)
+  })).min(1).max(32),
+  steps: array(strictObject({
+    key: semanticKey,
+    fix_keys: array(semanticKey).min(1).max(32),
+    targets: array(line2(1e3)).min(1).max(64),
+    required_outcome: line2(),
+    implementation_latitude: line2(),
+    completion_probe: line2(),
+    check_keys: array(semanticKey).min(1).max(32),
+    deviation_action: line2()
+  })).min(1).max(32),
+  learning_candidates: array(strictObject({
+    key: semanticKey,
+    finding_keys: array(semanticKey).min(1).max(32),
+    reusable_guidance: line2(),
+    candidate_targets: array(line2(1e3)).min(1).max(64),
+    confirmation_evidence: line2()
+  })).min(1).max(32)
+}), reviewInputSchema = strictObject({
+  schema: literal(1),
+  kind: literal("review-input"),
+  assessment: _enum(["achieved", "provisional", "mostly-achieved", "partially-achieved", "not-achieved", "insufficient-evidence"]),
+  recommended_action: _enum(["none", "accept-provisional", "correct", "clarify", "replan", "retry-review"]),
+  assessment_summary: line2(),
+  snapshot_assessment: _enum(["consistent", "contradicted", "incomplete"]),
+  snapshot_summary: line2(),
+  findings: array(finding).max(32),
+  missing_evidence: array(line2()).max(32),
+  correction: correction.optional()
+}), malformedReviewInputCandidate = record(string2().max(200), unknown()).refine((value) => Object.keys(value).length <= 32, "review_input recovery candidate exceeds 32 fields").describe("Recovery-only malformed review_input object. The host-owned builder still requires the closed Schema-1 branch and never infers missing judgments."), reviewInputTransportSchema = union([
+  reviewInputSchema,
+  malformedReviewInputCandidate
+]);
+
 // src/mcp/artifact-handlers.mjs
-var bundleSize = (artifacts = []) => artifacts.reduce((total, artifact2) => total + artifact2.text.length, 0), sha25611 = (text) => createHash15("sha256").update(text, "utf8").digest("hex");
+var bundleSize = (artifacts = []) => artifacts.reduce((total, artifact2) => total + artifact2.text.length, 0), sha25611 = (text) => createHash15("sha256").update(text, "utf8").digest("hex"), sanitizedShadowFindings = (reviewInput) => {
+  let parsed = reviewInputSchema.safeParse(reviewInput);
+  return parsed.success ? parsed.data.findings.map(({ key, severity, evidence, reasoning }) => ({
+    key,
+    severity,
+    evidence: evidence.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim(),
+    reasoning: reasoning.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim()
+  })) : [];
+};
 function createArtifactHandlers({
   pluginRoot: pluginRoot2,
   resolveOperationalContext,
@@ -26663,6 +26833,28 @@ function createArtifactHandlers({
   }, !0), codedError3 = (code, message2, details = {}) => {
     let error2 = new Error(message2);
     return error2.code = code, Object.assign(error2, details), error2;
+  }, shadowReview = (input, reasonCode, limitation, recoveryAction = "establish-formal-review-binding") => {
+    let repositoryFindings2 = sanitizedShadowFindings(input.review_input), findingLabel = repositoryFindings2.length === 1 ? "finding is" : "findings are";
+    return toolResult("workflow_closeout", {
+      artifact_kind: "work-review",
+      mode: "shadow",
+      status: "unavailable",
+      assessment: "shadow",
+      ...input.root_plan_id ? { root_plan_id: input.root_plan_id } : {},
+      repository_outcome: `${repositoryFindings2.length} non-authoritative repository ${findingLabel} available; formal Plan conformance was not assessed.`,
+      repository_findings_authoritative: !1,
+      repository_findings: repositoryFindings2,
+      evidence_status: "No Workflow Evidence or Work Review artifact was created.",
+      reason_code: reasonCode,
+      limitations: [limitation],
+      artifacts_persisted: !1,
+      workflow_state_changed: !1,
+      persistence_scope: "none",
+      recovery_action: recoveryAction,
+      harness_mode: "shadow",
+      harness_status: "unavailable",
+      harness_limitations: [limitation]
+    });
   }, mergeArtifacts = (entries) => {
     let merged = /* @__PURE__ */ new Map();
     for (let entry of entries) {
@@ -27010,20 +27202,32 @@ function createArtifactHandlers({
   }, closeout: async (input) => {
     try {
       if (bundleSize(input.artifacts) > 1e6) throw new Error("closeout artifact bundle exceeds 1000000 characters");
+      let requestedArtifactKind = input.artifact_kind ?? "delivery-evidence";
+      if (requestedArtifactKind === "work-review" && clientHost !== "cursor")
+        return shadowReview(
+          input,
+          "protected-review-binding-unavailable",
+          `${clientHost} does not currently provide a protected host Root and Review invocation binding. Exact caller bytes and harness self-attestation cannot establish formal Review authority.`
+        );
       let operational = await optionalOperational(input.workspace_root);
-      if ((input.artifact_kind ?? "delivery-evidence") !== "work-review" && !input.root_plan_id)
+      if (requestedArtifactKind !== "work-review" && !input.root_plan_id)
         throw codedError3("root-plan-id-required", "workflow_closeout delivery-evidence mode requires root_plan_id");
-      if ((input.artifact_kind ?? "delivery-evidence") === "work-review") {
+      if (requestedArtifactKind === "work-review") {
         let rootPlanText2 = input.root_plan ?? null, rootPlanId = input.root_plan_id ?? null, taskArtifacts = input.artifacts ?? [], nativeBinding = null, nativeReceipt = null;
         if (clientHost === "cursor") {
           if (!input.native_review_receipt) {
             let rootsFailure = operational.workspace_error?.message ? ` MCP workspace discovery also failed: ${operational.workspace_error.message}` : "";
-            throw codedError3("native-task-receipt-unavailable", `Cursor work-review requires the opaque receipt injected by the native preToolUse hook. Repeat /review-work in the same task; do not set native_review_receipt yourself.${rootsFailure}`);
+            return shadowReview(
+              input,
+              "native-task-receipt-unavailable",
+              `The protected Cursor Root/workspace receipt is unavailable.${rootsFailure}`
+            );
           }
           let receiptFallback = !1;
           if (!operational.workspace || !operational.stateRoot) {
             if (typeof resolveCursorReceiptContext != "function")
-              throw codedError3(
+              return shadowReview(
+                input,
                 "native-task-receipt-unavailable",
                 `Cursor work-review could not establish the workspace needed for its native task receipt${operational.workspace_error?.message ? `: ${operational.workspace_error.message}` : ""}`
               );
@@ -27035,7 +27239,8 @@ function createArtifactHandlers({
                 workspace_error: rootsFailure
               }, receiptFallback = !0;
             } catch (error2) {
-              throw codedError3(
+              return shadowReview(
+                input,
                 "native-task-receipt-unavailable",
                 `Cursor work-review could not establish a receipt-bound repository${rootsFailure?.message ? ` after MCP workspace discovery failed: ${rootsFailure.message}` : ""}; workspace locator rejected: ${error2.message}`
               );
@@ -27056,7 +27261,22 @@ function createArtifactHandlers({
             invalid: ["native-task-receipt-invalid", "The protected Cursor task receipt is invalid. Create a fresh Plan and repeat /review-work."]
           };
           if (consumed.status !== "resolved") {
+            if (consumed.status === "replayed") {
+              let replay = replayNativeReviewInvocationResult({
+                stateRoot: operational.stateRoot,
+                token: input.native_review_receipt,
+                input,
+                receipt: consumed.receipt
+              });
+              if (replay.status === "resolved") {
+                if (repositorySnapshotHash(captureRepositorySnapshot(operational.workspace)) !== replay.payload.repository_state_hash)
+                  throw codedError3("native-task-receipt-stale", "The repository changed after this Review result was committed. Start a fresh /review-work turn.");
+                return toolResult("workflow_closeout", replay.payload);
+              }
+            }
             let [code, message2] = receiptFailures[consumed.status] ?? receiptFailures.unavailable, rootsFailure = receiptFallback && operational.workspace_error?.message ? ` MCP workspace discovery failed before the receipt-bound fallback: ${operational.workspace_error.message}` : "";
+            if (["unavailable", "expired"].includes(consumed.status))
+              return shadowReview(input, code, `${message2}${rootsFailure}`);
             throw codedError3(code, `${message2}${rootsFailure}`);
           }
           if (receiptFallback && resolve13(consumed.receipt.workspace_root) !== resolve13(operational.workspace))
@@ -27077,28 +27297,32 @@ function createArtifactHandlers({
           attemptedSources: [nativeBinding ? "protected Cursor native task receipt" : "workflow_closeout.root_plan from current Review task"],
           pluginRoot: pluginRoot2
         });
-        if (nativePlan.status !== "resolved")
+        if (nativePlan.status !== "resolved") {
+          if (nativePlan.status === "unavailable")
+            return shadowReview(
+              input,
+              "native-plan-unavailable",
+              `No exact current-task Schema-6 Root is available from the formal Review transport. Inspected: ${nativePlan.attempted_sources.join(", ") || "no native source was supplied"}.`,
+              "create-formal-plan-binding"
+            );
           throw codedError3(
             `native-plan-${nativePlan.status}`,
             `workflow_closeout work-review native Root is ${nativePlan.status}. Inspected: ${nativePlan.attempted_sources.join(", ") || "no native source was supplied"}. ${nativePlan.resolution}`,
             nativePlan
           );
+        }
         if (nativeReceipt && nativePlan.root_hash !== nativeReceipt.root_hash)
           throw codedError3("native-task-receipt-mismatch", "Cursor work-review native task receipt Root hash changed before review construction");
         if (!operational.workspace)
-          throw codedError3(
+          return shadowReview(
+            input,
             "review-workspace-unavailable",
             `workflow_closeout could not inspect the current repository${operational.workspace_error?.message ? `: ${operational.workspace_error.message}` : ""}`
           );
         let harnessOrchestration = null;
         if (typeof reviewHarnessPhase2 == "function")
           try {
-            let reviewTransitionBindingHash = nativeReceipt ? nativeReviewReceiptBindingHash(nativeReceipt) : sha25611(JSON.stringify({
-              kind: "manual-review-invocation",
-              invocation_id: randomUUID6(),
-              root_hash: nativePlan.root_hash,
-              workspace_root: operational.workspace
-            }));
+            let reviewTransitionBindingHash = nativeReviewReceiptBindingHash(nativeReceipt);
             harnessOrchestration = await reviewHarnessPhase2({
               rootPlanText: nativePlan.root_text,
               workspaceRoot: operational.workspace,
@@ -27132,7 +27356,8 @@ function createArtifactHandlers({
           } : null,
           harnessPhaseResult: harnessOrchestration?.result ?? null,
           harnessProtectionHash,
-          workspaceBinding: harnessOrchestration?.request?.workspace_binding ?? null
+          workspaceBinding: harnessOrchestration?.request?.workspace_binding ?? null,
+          seal: nativeReceipt?.predecessor_mode === "provisional-seal"
         });
         if (!rootPlanId || nativePlan.root_id !== rootPlanId || bundle.root_plan_id !== rootPlanId)
           throw new Error(`workflow_closeout Root ID mismatch: expected ${rootPlanId ?? "<unavailable>"}, received ${bundle.root_plan_id}`);
@@ -27154,21 +27379,34 @@ function createArtifactHandlers({
               `Cursor work-review authority changed during repository observation (${revalidated.reason ?? revalidated.status}). Start a fresh /review-work turn.`
             );
         }
-        let payload2 = reviewBundlePayload({
-          input,
-          workspace: operational.workspace,
-          workspaceBinding: operational.workspace_binding,
-          bundle,
-          rootPlanId,
-          rootContentHashValue: nativePlan.root_hash,
-          nativeBinding
-        });
-        return toolResult("workflow_closeout", {
-          ...payload2,
+        let response = {
+          ...reviewBundlePayload({
+            input,
+            workspace: operational.workspace,
+            workspaceBinding: operational.workspace_binding,
+            bundle,
+            rootPlanId,
+            rootContentHashValue: nativePlan.root_hash,
+            nativeBinding
+          }),
+          mode: "formal",
+          artifacts_persisted: !0,
+          workflow_state_changed: !0,
+          persistence_scope: "native-review-invocation",
           harness_mode: harnessOrchestration?.mode ?? "shadow",
           harness_status: harnessOrchestration?.status ?? "unavailable",
           harness_limitations: harnessOrchestration?.blockers ?? ["harness-protection-unavailable"]
+        }, committed = commitNativeReviewInvocationResult({
+          stateRoot: operational.stateRoot,
+          token: input.native_review_receipt,
+          input,
+          receipt: nativeReceipt,
+          payload: response,
+          options: receiptOptions
         });
+        if (committed.status !== "committed")
+          throw codedError3("native-review-result-commit-failed", `Cursor could not commit the idempotent Review result (${committed.status}). Start a fresh /review-work turn.`);
+        return toolResult("workflow_closeout", committed.payload);
       }
       let handoff;
       try {
@@ -27255,20 +27493,27 @@ function message(value) {
   return typeof value == "string" ? value : value?.message ?? JSON.stringify(value);
 }
 function stateOf(toolName, value, isError) {
-  return isError || value?.error ? "failed" : toolName === "workflow_plan_preflight" ? value?.feasible ? "root-plan-review" : "blocked" : toolName === "workflow_status" ? value?.snapshot?.state ?? value?.state ?? "status-available" : toolName === "workflow_closeout" && value?.artifact_kind === "work-review" ? value.delivery_status === "verified" ? "achieved" : value.delivery_status === "provisional" ? "delivery-ready-provisional" : "blocked" : toolName === "workflow_closeout" ? value?.status === "blocked" ? "blocked" : "root-review" : "context-available";
+  return isError || value?.error ? "failed" : toolName === "workflow_plan_preflight" ? value?.feasible ? "root-plan-review" : "blocked" : toolName === "workflow_status" ? value?.snapshot?.state ?? value?.state ?? "status-available" : toolName === "workflow_closeout" && value?.artifact_kind === "work-review" ? value?.mode === "shadow" && value?.status === "unavailable" ? "shadow-review" : value.delivery_status === "verified" ? "achieved" : value.delivery_status === "provisional" ? "delivery-ready-provisional" : "blocked" : toolName === "workflow_closeout" ? value?.status === "blocked" ? "blocked" : "root-review" : "context-available";
 }
 function outcomeOf(state, value, isError) {
-  return isError || value?.error || state === "failed" ? "failed" : state === "blocked" || value?.status === "blocked" ? "blocked" : ["delivery-ready-provisional", "root-review", "root-plan-review"].includes(state) ? "partial" : "ready";
+  return isError || value?.error || state === "failed" ? "failed" : state === "blocked" || value?.status === "blocked" ? "blocked" : ["delivery-ready-provisional", "root-review", "root-plan-review", "shadow-review"].includes(state) ? "partial" : "ready";
 }
 function actionOf(toolName, state, value) {
-  return state === "root-plan-review" ? { id: "implement-plan", label: "Implement Plan", why: "The Schema-6 Root is ready for explicit human approval." } : state === "root-review" ? { id: "review-root", label: "Run fresh Review", why: "Evidence exists and needs a fresh read-only delivery decision." } : state === "delivery-ready-provisional" ? { id: "accept-provisional", label: "Decide on provisional delivery", why: "Evidence is honest but not fully harness-attested." } : state === "achieved" ? null : toolName === "workflow_status" && value?.snapshot?.next_action ? {
+  return state === "root-plan-review" ? { id: "implement-plan", label: "Implement Plan", why: "The Schema-6 Root is ready for explicit human approval." } : state === "root-review" ? { id: "review-root", label: "Run fresh Review", why: "Evidence exists and needs a fresh read-only delivery decision." } : state === "delivery-ready-provisional" ? { id: "accept-provisional", label: "Decide on provisional delivery", why: "Evidence is honest but not fully harness-attested." } : state === "shadow-review" ? {
+    id: value?.recovery_action ?? "establish-formal-review-binding",
+    label: value?.recovery_action === "create-formal-plan-binding" ? "Create a formal Plan binding" : "Establish formal Review binding",
+    why: "Shadow findings are useful but cannot create Workflow evidence or change lifecycle state."
+  } : state === "achieved" ? null : toolName === "workflow_status" && value?.snapshot?.next_action ? {
     id: value.snapshot.next_action,
     label: String(value.snapshot.next_action).replaceAll("-", " "),
     why: "This is the next lifecycle action derived from the exact artifact chain."
   } : state === "blocked" || state === "failed" ? { id: "resolve-blocker", label: "Resolve the reported blocker", why: "Workflow cannot advance this phase while the named condition remains." } : null;
 }
 function summaryOf(toolName, state, value) {
-  return value?.error ? message(value.error) : toolName === "workflow_plan_preflight" ? value.feasible ? "The Schema-6 Intent Root is feasible and ready for human approval." : "The proposed Root is not ready; its intent or authority contract needs correction." : toolName === "workflow_closeout" && value?.artifact_kind === "work-review" ? value?.assessment ? `Fresh repository Review concluded ${value.assessment}.` : "Fresh repository Review completed." : toolName === "workflow_closeout" ? `Delivery Evidence is ${value?.status ?? "available"} with grade ${value?.overall_grade ?? "unknown"}.` : toolName === "workflow_status" ? `Workflow state is ${state}.` : toolName === "workflow_artifact_record" ? "Exact Root transport was recorded; transport does not grant authority." : "Exact Workflow context is available.";
+  return value?.error ? message(value.error) : toolName === "workflow_plan_preflight" ? value.feasible ? "The Schema-6 Intent Root is feasible and ready for human approval." : "The proposed Root is not ready; its intent or authority contract needs correction." : state === "shadow-review" ? value?.repository_outcome ?? "A read-only repository assessment may continue, but formal Plan conformance is unavailable." : toolName === "workflow_closeout" && value?.artifact_kind === "work-review" ? value?.assessment ? `Fresh repository Review concluded ${value.assessment}.` : "Fresh repository Review completed." : toolName === "workflow_closeout" ? `Delivery Evidence is ${value?.status ?? "available"} with grade ${value?.overall_grade ?? "unknown"}.` : toolName === "workflow_status" ? `Workflow state is ${state}.` : toolName === "workflow_artifact_record" ? "Exact Root transport was recorded; transport does not grant authority." : "Exact Workflow context is available.";
+}
+function evidenceStatusOf(toolName, state, value) {
+  return state === "shadow-review" ? value?.evidence_status ?? "No Workflow Evidence or Work Review artifact was created." : toolName === "workflow_closeout" && value?.artifact_kind === "work-review" ? state === "achieved" ? "Protected Evidence verifies the delivery on the bound repository snapshot." : state === "delivery-ready-provisional" ? "Formal Evidence exists, but its declared limitation prevents a verified claim." : "Formal Review did not establish a delivery-ready evidence state." : "Workflow evidence status follows the lifecycle result reported below.";
 }
 function limitationLines(value) {
   return unique4([
@@ -27287,14 +27532,27 @@ function blockerLines(value, state) {
     ...state === "blocked" && value?.error ? [message(value.error)] : []
   ]);
 }
+function repositoryFindings(value, state) {
+  return state !== "shadow-review" || value?.repository_findings_authoritative !== !1 || !Array.isArray(value?.repository_findings) ? [] : value.repository_findings.slice(0, 32).flatMap((finding2) => {
+    if (!finding2 || typeof finding2 != "object" || Array.isArray(finding2)) return [];
+    let { key, severity, evidence, reasoning } = finding2;
+    if (![key, severity, evidence, reasoning].every((entry) => typeof entry == "string" && entry.trim())) return [];
+    let inline = (entry) => entry.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
+    return [{ key: inline(key), severity: inline(severity), evidence: inline(evidence), reasoning: inline(reasoning) }];
+  });
+}
 function buildPresentation(toolName, value, { isError = !1, clientHost = "portable" } = {}) {
-  let state = stateOf(toolName, value, isError), outcome = outcomeOf(state, value, isError), action = actionOf(toolName, state, value), checks = value?.check_evidence ?? [];
+  let state = stateOf(toolName, value, isError), outcome = outcomeOf(state, value, isError), action = actionOf(toolName, state, value), checks = value?.check_evidence ?? [], findings = repositoryFindings(value, state);
   return {
     schema: 1,
     tool: toolName,
     workflow_state: state,
     outcome,
     summary: summaryOf(toolName, state, value),
+    repository_outcome: summaryOf(toolName, state, value),
+    evidence_status: evidenceStatusOf(toolName, state, value),
+    repository_findings_authoritative: state === "shadow-review" ? !1 : null,
+    repository_findings: findings,
     checks: checks.map((entry) => `${entry.check_id}: ${entry.grade}`),
     blockers: blockerLines(value, state),
     limitations: limitationLines(value),
@@ -27310,6 +27568,12 @@ function buildPresentation(toolName, value, { isError = !1, clientHost = "portab
       repository_snapshot_hash: value?.repository_state_hash ?? value?.repository_snapshot?.snapshot_hash ?? null,
       harness_mode: value?.harness_mode ?? null,
       harness_status: value?.harness_status ?? null,
+      review_mode: value?.mode ?? null,
+      reason_code: value?.reason_code ?? null,
+      artifacts_persisted: value?.artifacts_persisted ?? null,
+      workflow_state_changed: value?.workflow_state_changed ?? null,
+      persistence_scope: value?.persistence_scope ?? null,
+      handoff_persisted: value?.handoff_persisted ?? null,
       changed_paths: value?.changed_paths ?? []
     }
   };
@@ -27330,24 +27594,36 @@ function formatManualToolContent(presentation) {
 
 ### Done
 
-No further Workflow action is required for this result.`, trace = presentation.technical_traceability, technical = [
+No further Workflow action is required for this result.`, trace = presentation.technical_traceability, findings = presentation.workflow_state === "shadow-review" ? `
+
+### Repository findings (non-authoritative)
+
+${presentation.repository_findings.length > 0 ? presentation.repository_findings.map((finding2) => `- **${finding2.key}** (${finding2.severity}) \u2014 Evidence: ${finding2.evidence} Reasoning: ${finding2.reasoning}`).join(`
+`) : "- No findings were available from a valid closed Schema-1 review input."}` : "", technical = [
     `Root: ${trace.root_plan_id ?? "none"}`,
     `Evidence: ${trace.evidence_id ?? "none"}`,
     `Review: ${trace.review_id ?? "none"}`,
     `Artifact hash: ${trace.artifact_hash ?? "none"}`,
     `Repository snapshot hash: ${trace.repository_snapshot_hash ?? "none"}`,
     `Harness: ${trace.harness_mode ?? "not reported"} / ${trace.harness_status ?? "not reported"}`,
+    `Review mode: ${trace.review_mode ?? "not reported"}`,
+    `Reason: ${trace.reason_code ?? "none"}`,
+    `Artifacts persisted: ${trace.artifacts_persisted ?? "not reported"}`,
+    `Workflow state changed: ${trace.workflow_state_changed ?? "not reported"}`,
+    `Persistence scope: ${trace.persistence_scope ?? "not reported"}`,
+    `Task-local handoff persisted: ${trace.handoff_persisted ?? "not reported"}`,
     `Changed paths: ${(trace.changed_paths ?? []).join(", ") || "none"}`
   ];
   return `## Workflow \xB7 ${presentation.workflow_state}
 
 ### Quick decision
 
-${presentation.summary}${section("Blockers", presentation.blockers)}${section("Limitations", presentation.limitations)}${next}
+- Repository outcome: ${presentation.repository_outcome}
+- Evidence status: ${presentation.evidence_status}${section("Blockers", presentation.blockers)}${section("Limitations", presentation.limitations)}${findings}${next}
 
 ### Details
 
-Workflow reports lifecycle state, authority and evidence only. Concrete execution remains owned by the active project harness.
+Workflow reports lifecycle state, authority and evidence only. Concrete execution remains owned by the active project harness. Task-local handoff cache is separate from committed native Review-invocation persistence.
 
 <details><summary>Agent and machine contract (authoritative) \xB7 Technical traceability</summary>
 
@@ -27428,65 +27704,6 @@ function manualToolAnnotations(name) {
   return value;
 }
 
-// src/mcp/review-input-contract.mjs
-var semanticKey = string2().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(80), objectiveId = string2().regex(/^OBJ-[1-9][0-9]*$/), checkId = string2().regex(/^CHECK-[1-9][0-9]*$/), line2 = (max = 2e3) => string2().min(1).max(max), finding = strictObject({
-  key: semanticKey,
-  severity: _enum(["low", "medium", "high", "critical"]),
-  objective_ids: array(objectiveId).min(1).max(64),
-  check_ids: array(checkId).min(1).max(128),
-  evidence: line2(4e3),
-  reasoning: line2(4e3),
-  resolution: _enum(["correct", "clarify", "replan"])
-}), correction = strictObject({
-  fixes: array(strictObject({
-    key: semanticKey,
-    finding_keys: array(semanticKey).min(1).max(32),
-    required_outcome: line2(),
-    evidence: line2()
-  })).min(1).max(32),
-  checks: array(strictObject({
-    key: semanticKey,
-    fix_keys: array(semanticKey).min(1).max(32),
-    verification_intent: line2(),
-    expected_evidence: line2(),
-    evidence_class: _enum(["harness-verifiable", "reviewer-observable", "human-decision-required"]),
-    required: boolean2(),
-    cost_class: _enum(["cheap", "standard", "expensive"]),
-    prerequisites: array(line2(1e3)).min(1).max(64)
-  })).min(1).max(32),
-  steps: array(strictObject({
-    key: semanticKey,
-    fix_keys: array(semanticKey).min(1).max(32),
-    targets: array(line2(1e3)).min(1).max(64),
-    required_outcome: line2(),
-    implementation_latitude: line2(),
-    completion_probe: line2(),
-    check_keys: array(semanticKey).min(1).max(32),
-    deviation_action: line2()
-  })).min(1).max(32),
-  learning_candidates: array(strictObject({
-    key: semanticKey,
-    finding_keys: array(semanticKey).min(1).max(32),
-    reusable_guidance: line2(),
-    candidate_targets: array(line2(1e3)).min(1).max(64),
-    confirmation_evidence: line2()
-  })).min(1).max(32)
-}), reviewInputSchema = strictObject({
-  schema: literal(1),
-  kind: literal("review-input"),
-  assessment: _enum(["achieved", "provisional", "mostly-achieved", "partially-achieved", "not-achieved", "insufficient-evidence"]),
-  recommended_action: _enum(["none", "accept-provisional", "correct", "clarify", "replan", "retry-review"]),
-  assessment_summary: line2(),
-  snapshot_assessment: _enum(["consistent", "contradicted", "incomplete"]),
-  snapshot_summary: line2(),
-  findings: array(finding).max(32),
-  missing_evidence: array(line2()).max(32),
-  correction: correction.optional()
-}), malformedReviewInputCandidate = record(string2().max(200), unknown()).refine((value) => Object.keys(value).length <= 32, "review_input recovery candidate exceeds 32 fields").describe("Recovery-only malformed review_input object. The host-owned builder still requires the closed Schema-1 branch and never infers missing judgments."), reviewInputTransportSchema = union([
-  reviewInputSchema,
-  malformedReviewInputCandidate
-]);
-
 // src/mcp/manual-tool-contracts.mjs
 var workspaceRoot = string2().min(1).optional(), artifact = object2({
   label: string2().min(1).max(200),
@@ -27515,12 +27732,13 @@ var workspaceRoot = string2().min(1).optional(), artifact = object2({
     }
   },
   workflow_closeout: {
-    description: "Build one host-owned Schema-6 delivery-evidence or work-review artifact. Concrete execution is never accepted or interpreted; verified evidence requires protected harness attestations.",
+    description: "Build one formally bound Schema-6 delivery-evidence or work-review artifact, or return a chat-only Shadow Review when the formal Review binding is merely unavailable. Concrete execution is never accepted or interpreted; verified evidence requires protected harness attestations.",
     inputSchema: {
       workspace_root: workspaceRoot,
       root_plan_id: string2().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/),
       root_plan: string2().min(1).max(25e4).optional(),
       artifacts: array(artifact).min(1).max(32).optional(),
+      seal_artifacts: array(artifact).length(2).optional(),
       artifact_kind: _enum(["delivery-evidence", "work-review"]).default("delivery-evidence"),
       review_input: reviewInputTransportSchema.optional(),
       effective_profile: literal("manual").default("manual"),

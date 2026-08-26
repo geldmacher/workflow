@@ -1,27 +1,27 @@
 # Portable Manual facade
 
-This Agent Plugins target implements Workflow's Manual Schema-6 lifecycle. Agent Plugins standardizes skill and MCP discovery; the client and project harness own permissions and all concrete execution.
+This Agent Plugins target implements Workflow's complete Skills-first Manual Schema-6 lifecycle. Agent Plugins standardizes Skill and optional MCP discovery; the client and project harness own permissions and all concrete execution.
 
 ## Hard boundaries
 
-- The human authorizes planning, implementation, correction, review, provisional acceptance, and learning as separate actions.
-- The exact Schema-6 Root text in the current conversation is authority. Cached MCP artifacts are transport enrichment only. Every other artifact schema is unsupported.
-- `workflow_plan_preflight` validates the exact portable Root but grants no approval.
-- Fresh `review-work` calls `workflow_closeout` in work-review mode; Evidence and Review are created atomically.
-- Missing compatible protected harness attestations cap Evidence at provisional. Repetition or user-authored trace cannot manufacture verification.
-- The client sandbox, permission system, and human approvals remain authoritative. A skill never grants itself permissions.
-- If the exact Root or workspace binding is invalid, conflicting, stale, or ambiguous, stop only the affected phase. Missing harness evidence is a limitation, not an invented missing Root.
-- Review and explanation do not edit the repository. Correction and learning require their own explicit skill invocation.
+- The human separately authorizes planning, implementation, correction, review, provisional acceptance, and learning.
+- Exact Schema-6 bytes in the current conversation are the normal Manual transport. A fresh task requires explicit attachment of the current Root and every referenced artifact. Cache, MCP state, hooks, random server values, and IDs without bytes are not authority.
+- The bundled `${PLUGIN_ROOT}/dist/manual-workflow.mjs` program validates Roots, atomically builds Evidence/Review, derives Manual status, and performs ephemeral provisional acceptance without MCP or persistent state.
+- The project harness owns every repository discovery, command, tool, model, framework, sandbox, worktree, retry, and verification choice. The local builder consumes only closed opaque observations.
+- Unprotected observations are capped to `supported`, `partial`, `unavailable`, or `failed`. They never become verified. Failed required Checks remain blocking.
+- Invalid, stale, foreign, mixed, conflicting, or ambiguous input returns Shadow with no pseudo-artifact and affects only the requested phase.
+- The client sandbox, permission system, and human approvals remain authoritative. A Skill never grants itself permissions.
+- Review and explanation do not edit the repository. Correction and learning require their own explicit invocation.
 - No action may merge, push, publish, deploy, install, or create external effects unless a separate user request grants that authority outside Workflow.
 
 ## Portable flow
 
-1. `plan-work` constructs one exact Schema-6 Root and obtains MCP preflight.
+1. `plan-work` constructs one exact Schema-6 Root and validates it through the local builder.
 2. The human approves that Root by separately invoking `implement-work` with the exact Root available.
-3. `implement-work` revalidates preflight and implements outcomes inside Root authority using the active project harness.
-4. `review-work` declares repository-read-only intent; the harness returns protected snapshots and Check attestations, and `workflow_closeout` builds Evidence plus Review.
-5. `correct-work`, `accept-work`, and `learn-from-work` remain separate human decisions.
+3. `implement-work` implements outcomes inside Root authority using the active project harness and creates no Evidence or state.
+4. `review-work` declares repository-read-only intent and passes closed unprotected observations to the local builder, which returns exact Evidence and Review artifacts atomically.
+5. `correct-work`, replan, another Review, `accept-work`, and `learn-from-work` remain separate human decisions.
 
-All MCP persistence must remain below the client-provided `PLUGIN_DATA`. The package is immutable runtime material below `PLUGIN_ROOT`.
+The MCP server remains registered for optional automation-compatible status and protected sealing. MCP, adapter, Root, timeout, or hook failure never changes Manual status or ordinary client availability. Protected sealing may append a new pair but never modifies existing Manual artifacts.
 
-Human-facing status and review lead with outcome, limitations, and one lifecycle action. IDs, paths, receipts, and hashes stay in secondary technical traceability. Opaque execution trace is never interpreted as authority.
+Human-facing output is the builder projection: outcome, every finding, evidence grade, limitations, and the artifact's exact next action. IDs and hashes remain in technical traceability. Opaque execution trace is never interpreted as authority.

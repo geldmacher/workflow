@@ -12,7 +12,7 @@ import { WORKFLOW_TOOL_ANNOTATIONS } from "../src/mcp/tool-annotations.mjs";
 import { workflowClient } from "./mcp-client.mjs";
 
 const expectedTools = ["workflow_artifact_context", "workflow_artifact_record", "workflow_closeout", "workflow_plan_preflight", "workflow_status"];
-const expectedCodexSkills = ["accept-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-status"];
+const expectedCodexSkills = ["accept-work", "correct-work", "engineering-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-status"];
 const rootPlan = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
 const manualGuide = readFileSync(join(defaultRoot, "docs", "manual-workflow.md"), "utf8");
 
@@ -56,10 +56,72 @@ test("deterministic target build isolates Codex and exposes exactly five Manual 
       }
       assert.equal(existsSync(join(target, "agents")), false, `Workflow-owned agents leaked into ${target}`);
       const manualRuntime = readFileSync(join(target, "dist", "workflow-mcp.mjs"), "utf8");
+      const localBuilder = readFileSync(join(target, "dist", "manual-workflow.mjs"), "utf8");
+      assert.equal(existsSync(join(target, "schemas", "manual-workflow", "request-1.schema.json")), true);
       for (const forbidden of ["program-not-classified", "unapproved-root-check", "parseHostCommand", "runHostCheck"]) {
         assert.doesNotMatch(manualRuntime, new RegExp(forbidden), `${target} leaked execution policy ${forbidden}`);
       }
+      assert.doesNotMatch(localBuilder, /workflow_closeout|workflow_status|node:child_process|captureRepositorySnapshot/);
     }
+    const localValidationInput = JSON.stringify({ schema: 1, operation: "validate-plan", root_plan: rootPlan });
+    const localValidationOutputs = [first.cursor.path, first.codex.path, first.agentPlugins.path].map((target) => {
+      const result = spawnSync(process.execPath, [join(target, "dist", "manual-workflow.mjs"), "validate-plan"], {
+        cwd: defaultRoot,
+        input: localValidationInput,
+        encoding: "utf8",
+        env: { PATH: process.env.PATH ?? "", HOME: pluginData },
+      });
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      assert.equal(JSON.parse(result.stdout).ok, true);
+      return result.stdout;
+    });
+    assert.equal(new Set(localValidationOutputs).size, 1, "all targets must return byte-identical local validation output");
+    const localReviewInput = JSON.stringify({
+      schema: 1,
+      operation: "build-review",
+      root_plan: rootPlan,
+      artifacts: [],
+      review_input: {
+        schema: 1,
+        kind: "review-input",
+        assessment: "achieved",
+        recommended_action: "none",
+        assessment_summary: "The target smoke observes the required repository outcome.",
+        snapshot_assessment: "consistent",
+        snapshot_summary: "The same closed observation is supplied to every target.",
+        findings: [],
+        missing_evidence: [],
+      },
+      repository_observation: {
+        schema: 1,
+        kind: "unprotected-repository-observation",
+        repository_root: defaultRoot,
+        changed_paths: ["src/controller/manual-status.mjs"],
+        snapshot_material: ["target-smoke-tree", "target-smoke-diff"],
+        limitations: ["No protected host attestation is available in this MCP-disabled target smoke."],
+      },
+      check_observations: [{
+        check_id: "CHECK-1",
+        grade: "supported",
+        observed: "The target smoke observation passed.",
+        evidence_material: ["target-smoke-check-1-pass"],
+        limitations: [],
+      }],
+    });
+    const localReviewOutputs = [first.cursor.path, first.codex.path, first.agentPlugins.path].map((target) => {
+      const result = spawnSync(process.execPath, [join(target, "dist", "manual-workflow.mjs"), "build-review"], {
+        cwd: defaultRoot,
+        input: localReviewInput,
+        encoding: "utf8",
+        env: { PATH: process.env.PATH ?? "", HOME: pluginData },
+      });
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      const parsed = JSON.parse(result.stdout);
+      assert.equal(parsed.ok, true);
+      assert.equal(parsed.presentation.next_action, "accept-provisional");
+      return result.stdout;
+    });
+    assert.equal(new Set(localReviewOutputs).size, 1, "all targets must return byte-identical local Review artifacts");
     const cursorHookConfig = JSON.parse(readFileSync(join(first.cursor.path, "hooks", "hooks.json"), "utf8"));
     assert.ok(Object.values(cursorHookConfig.hooks).flat().every((entry) => entry.failClosed === false));
     const cursorHook = spawnSync(process.execPath, [join(first.cursor.path, "hooks", "closeout-guard.mjs"), "--enforce"], {
@@ -111,7 +173,15 @@ test("deterministic target build isolates Codex and exposes exactly five Manual 
     const codexReview = readFileSync(join(codex, "skills", "review-work", "SKILL.md"), "utf8");
     assert.match(codexReview, /repository-read-only/i);
     assert.match(codexReview, /project harness/i);
+    assert.match(codexReview, /manual-workflow\.mjs build-review/i);
+    assert.match(codexReview, /without MCP, adapters, MCP Roots, hooks, cache, or state/i);
+    assert.doesNotMatch(codexReview, /workflow_[a-z_]+/);
     assert.doesNotMatch(codexReview, /command allowlist|model pool|review route/i);
+    const codexEngineering = readFileSync(join(codex, "skills", "engineering-work", "SKILL.md"), "utf8");
+    assert.match(codexEngineering, /recommend exactly one playbook/i);
+    assert.match(codexEngineering, /never grants Workflow authority or evidence/i);
+    assert.match(codexEngineering, /Do not mutate or auto-apply/i);
+    assert.doesNotMatch(codexEngineering, /model pool|gpt-|claude|grok/i);
     const transport = new StdioClientTransport({
       command: process.execPath,
       args: [join(codex, "dist", "workflow-mcp.mjs")],
@@ -136,6 +206,41 @@ test("deterministic target build isolates Codex and exposes exactly five Manual 
     assert.equal(preflight.structuredContent.feasible, true);
     assert.equal(preflight.structuredContent.root_plan_id, "wp-adaptive-retry");
     assert.equal(preflight.structuredContent.presentation.client_host, "codex");
+    const shadow = await client.callTool({
+      name: "workflow_closeout",
+      arguments: {
+        workspace_root: codex,
+        root_plan_id: "wp-adaptive-retry",
+        root_plan: rootPlan,
+        artifact_kind: "work-review",
+        review_input: {
+          schema: 1,
+          kind: "review-input",
+          assessment: "partially-achieved",
+          recommended_action: "correct",
+          assessment_summary: "Repository observation only.",
+          snapshot_assessment: "incomplete",
+          snapshot_summary: "Formal host binding is unavailable.",
+          findings: [{
+            key: "repository-observation",
+            severity: "medium",
+            objective_ids: ["OBJ-1"],
+            check_ids: ["CHECK-1"],
+            evidence: "A repository-level observation is available.",
+            reasoning: "The observation remains non-authoritative.",
+            resolution: "correct",
+          }],
+          missing_evidence: ["Protected Codex Review binding."],
+        },
+      },
+    });
+    assert.equal(shadow.isError, false, JSON.stringify(shadow.structuredContent));
+    assert.equal(shadow.structuredContent.mode, "shadow");
+    assert.equal(shadow.structuredContent.reason_code, "protected-review-binding-unavailable");
+    assert.equal(shadow.structuredContent.persistence_scope, "none");
+    assert.deepEqual(Object.keys(shadow.structuredContent.repository_findings[0]), ["key", "severity", "evidence", "reasoning"]);
+    assert.equal(shadow.structuredContent.delivery_evidence_id, undefined);
+    assert.equal(shadow.structuredContent.work_review_id, undefined);
     const mcp = JSON.parse(readFileSync(join(codex, ".mcp.json"), "utf8"));
     assert.deepEqual(Object.keys(mcp.mcpServers), ["geldmacher-workflow"]);
   } finally {

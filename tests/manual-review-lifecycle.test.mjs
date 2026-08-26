@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
-import { defaultRoot, executionContractFromArtifactText } from "../scripts/validate-artifact.source.mjs";
+import { defaultRoot, executionContractFromArtifactText, inspectArtifactSet } from "../scripts/validate-artifact.source.mjs";
 import { buildManualReviewLifecycle } from "../src/controller/manual-review-lifecycle.mjs";
 import {
   HARNESS_CHECK_ATTESTATION_SCHEMA,
@@ -168,6 +168,82 @@ test("protected harness evidence enables verified Review independent of executio
   assert.equal(bundle.delivery_evidence.fields.overall_grade, "verified");
   assert.equal(bundle.review.fields.delivery_status, "verified");
   assert.equal(bundle.review.fields.next_action, "none");
+});
+
+test("protected sealing appends one verified pair after an exact unprotected provisional pair", () => {
+  const local = buildManualReviewLifecycle({
+    rootPlanText: root,
+    reviewInput: reviewInput(false),
+    workspaceRoot: defaultRoot,
+    pluginRoot: defaultRoot,
+    repositoryBaseline: cleanBaseline,
+    repositoryAttribution: { status: "attributed", boundary: "create-plan", reason_codes: [] },
+    captureSnapshot: () => current,
+  });
+  const localArtifacts = [
+    { label: local.delivery_evidence.fields.id, text: local.delivery_evidence.artifact },
+    { label: local.review.fields.id, text: local.review.artifact },
+  ];
+  const sealed = buildManualReviewLifecycle({
+    rootPlanText: root,
+    artifacts: localArtifacts,
+    reviewInput: reviewInput(true),
+    workspaceRoot: defaultRoot,
+    pluginRoot: defaultRoot,
+    repositoryBaseline: cleanBaseline,
+    repositoryAttribution: { status: "attributed", boundary: "protected-seal", reason_codes: [] },
+    harnessPhaseResult: { ...phaseResult(), changed_paths: ["src/retry.mjs"] },
+    harnessProtectionHash: "1".repeat(64),
+    workspaceBinding,
+    seal: true,
+    captureSnapshot: () => current,
+  });
+  assert.equal(sealed.chain_update, "append-seal");
+  assert.equal(sealed.delivery_evidence.fields.representation, "seal");
+  assert.equal(sealed.delivery_evidence.fields.predecessor_evidence_id, local.delivery_evidence.fields.id);
+  assert.equal(sealed.delivery_evidence.fields.source_review_id, local.review.fields.id);
+  assert.equal(sealed.delivery_evidence.fields.status, "complete");
+  assert.equal(sealed.delivery_evidence.fields.overall_grade, "verified");
+  assert.equal(sealed.review.fields.predecessor_review_id, local.review.fields.id);
+  assert.equal(sealed.review.fields.delivery_status, "verified");
+  assert.equal(sealed.review.fields.next_action, "none");
+  assert.equal(localArtifacts[0].text, local.delivery_evidence.artifact);
+  assert.equal(localArtifacts[1].text, local.review.artifact);
+  const exactChain = [
+    ["root", root],
+    [localArtifacts[0].label, localArtifacts[0].text],
+    [localArtifacts[1].label, localArtifacts[1].text],
+    [sealed.delivery_evidence.fields.id, sealed.delivery_evidence.artifact],
+    [sealed.review.fields.id, sealed.review.artifact],
+  ];
+  assert.deepEqual(inspectArtifactSet(exactChain, defaultRoot).errors, []);
+  const rejectSeal = (text) => {
+    const inspected = inspectArtifactSet(exactChain.map(([label, source]) => [
+      label,
+      label === sealed.delivery_evidence.fields.id ? text : source,
+    ]), defaultRoot);
+    assert.ok(inspected.errors.length > 0);
+  };
+  rejectSeal(sealed.delivery_evidence.artifact.replace("representation: seal", "representation: delta"));
+  rejectSeal(sealed.delivery_evidence.artifact.replace(`source_review_id: ${local.review.fields.id}`, "source_review_id: wr-foreign-review"));
+  rejectSeal(sealed.delivery_evidence.artifact.replace("reused_checks: []", "reused_checks:\n  - CHECK-1"));
+  const branchedEvidence = sealed.delivery_evidence.artifact.replace(
+    `id: ${sealed.delivery_evidence.fields.id}`,
+    "id: de-adaptive-retry-branch",
+  );
+  assert.ok(inspectArtifactSet([...exactChain, ["de-adaptive-retry-branch", branchedEvidence]], defaultRoot).errors.length > 0);
+
+  assert.throws(() => buildManualReviewLifecycle({
+    rootPlanText: root,
+    artifacts: localArtifacts,
+    reviewInput: reviewInput(true),
+    workspaceRoot: defaultRoot,
+    pluginRoot: defaultRoot,
+    repositoryBaseline: cleanBaseline,
+    repositoryAttribution: { status: "attributed", boundary: "protected-seal", reason_codes: [] },
+    seal: true,
+    captureSnapshot: () => current,
+  }), (error) => error?.code === "protected-seal-not-verified");
 });
 
 test("manual Review rejects invalid Roots, missing inputs, and unprotected Review bytes", () => {

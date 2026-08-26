@@ -44,6 +44,45 @@ test("provisional Review exposes limitations without inventing failure or succes
   assert.match(response.content[0].text, /Decide on provisional delivery/);
 });
 
+test("Shadow Review separates repository utility from absent formal evidence", () => {
+  const response = manualMcpResult("workflow_closeout", {
+    artifact_kind: "work-review",
+    mode: "shadow",
+    status: "unavailable",
+    assessment: "shadow",
+    repository_outcome: "Read-only findings are available without a Root comparison.",
+    evidence_status: "No Workflow Evidence or Work Review artifact was created.",
+    reason_code: "native-task-receipt-unavailable",
+    limitations: ["Formal Root and workspace binding are unavailable."],
+    artifacts_persisted: false,
+    workflow_state_changed: false,
+    persistence_scope: "none",
+    handoff_persisted: false,
+    repository_findings_authoritative: false,
+    repository_findings: [{
+      key: "binding-gap",
+      severity: "high",
+      evidence: "The host supplied no protected Review receipt.",
+      reasoning: "Conversation Root bytes alone cannot establish host authority.",
+    }],
+    recovery_action: "establish-formal-review-binding",
+  }, false, { clientHost: "cursor" });
+  assert.equal(response.isError, false);
+  assert.equal(response.structuredContent.presentation.workflow_state, "shadow-review");
+  assert.equal(response.structuredContent.presentation.outcome, "partial");
+  assert.equal(response.structuredContent.presentation.primary_action.id, "establish-formal-review-binding");
+  assert.match(response.content[0].text, /Repository outcome: Read-only findings/);
+  assert.match(response.content[0].text, /Evidence status: No Workflow Evidence or Work Review artifact was created/);
+  assert.match(response.content[0].text, /Artifacts persisted: false/);
+  assert.match(response.content[0].text, /Workflow state changed: false/);
+  assert.match(response.content[0].text, /Persistence scope: none/);
+  assert.match(response.content[0].text, /Task-local handoff persisted: false/);
+  assert.match(response.content[0].text, /### Repository findings \(non-authoritative\)/);
+  assert.match(response.content[0].text, /binding-gap/);
+  assert.deepEqual(Object.keys(response.structuredContent.presentation.repository_findings[0]), ["key", "severity", "evidence", "reasoning"]);
+  assert.equal((response.content[0].text.match(/### Next step/g) ?? []).length, 1);
+});
+
 test("presentation scope excludes generic harness orchestration", () => {
   for (const name of [
     "workflow_plan_preflight",

@@ -1,7 +1,7 @@
 # Delivery Evidence output
 
-Do not author `delivery-evidence` directly. Fresh Review calls the deterministic builder with exact Schema-6 Root and lineage plus closed semantic input. Cursor supplies a protected Root/workspace receipt; Codex and portable clients supply exact bytes.
+Do not author `delivery-evidence` directly. Fresh Manual Review invokes the bundled deterministic local builder with exact Schema-6 Root and lineage, closed semantic input, and unprotected observations. The builder computes every ID and hash and rejects caller-provided verified claims, hashes, attestations, or receipts.
 
-The builder asks the configured project harness for a generic PhaseResult, validates attestation bindings, derives evidence grades, and returns paired Evidence and Review or neither. Missing harness capability creates provisional evidence and a limitation. Failed attestations remain failed.
+The builder returns paired Evidence and Review or neither. Local observations are limited to supported, partial, unavailable, or failed, so unprotected success remains provisional. Failed required Checks remain failed. Optional protected sealing may later append a new pair after validating protected attestations; it never edits the local pair.
 
-Output leads with lifecycle outcome, Check grades, limitations, and one next action. Technical traceability includes Root, Evidence, Review, artifact, workspace snapshot, and harness receipt hashes. It excludes concrete execution data.
+Output leads with lifecycle outcome, every finding, Check grades, limitations, and the Review artifact's exact next action. Technical traceability includes Root, Evidence, Review, artifact, workspace, and snapshot hashes. It excludes concrete execution data.
