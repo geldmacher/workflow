@@ -2,6 +2,7 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import {
+  chmodSync,
   copyFileSync,
   existsSync,
   lstatSync,
@@ -125,19 +126,57 @@ function normalizeRepository(value) {
 }
 
 function changelogSections(source) {
-  const headings = [...source.matchAll(/^##\s+(?:\[([^\]]+)\]|([^\s]+))(?:\s.*)?$/gm)];
+  const headings = [...source.matchAll(/^##[ \t]+(?:\[([^\]]+)\]|([^\s]+))(?:[ \t].*)?$/gm)];
   return headings.map((match, index) => ({
     name: match[1] ?? match[2],
+    start: match.index,
+    headingEnd: match.index + match[0].length,
+    end: headings[index + 1]?.index ?? source.length,
     body: source.slice(match.index + match[0].length, headings[index + 1]?.index ?? source.length).trim(),
   }));
 }
 
-export function releaseNotesFromChangelog(source, version) {
+function releaseChangelogSections(source, version) {
   const sections = changelogSections(source);
-  const unreleased = sections.find((section) => section.name.toLowerCase() === "unreleased");
-  if (!unreleased) throw new Error("CHANGELOG.md has no Unreleased section");
+  const unreleasedSections = sections.filter((section) => section.name.toLowerCase() === "unreleased");
+  if (unreleasedSections.length !== 1) {
+    throw new Error(`CHANGELOG.md must contain exactly one Unreleased section; found ${unreleasedSections.length}`);
+  }
+  const versionSections = sections.filter((section) => section.name === version);
+  if (versionSections.length > 1) {
+    throw new Error(`CHANGELOG.md must contain at most one ${version} release section; found ${versionSections.length}`);
+  }
+  const unreleased = unreleasedSections[0];
+  if (sections[0] !== unreleased) throw new Error("CHANGELOG.md Unreleased must be the first release section");
+  return { sections, unreleased, released: versionSections[0] ?? null };
+}
+
+export function createReleaseCut(source, version) {
+  const { sections, unreleased, released } = releaseChangelogSections(source, version);
+  if (unreleased.body === "") {
+    if (!released || released.body === "") throw new Error(`CHANGELOG.md has no notes to release as ${version}`);
+    return source;
+  }
+  if (released && sections.indexOf(released) !== sections.indexOf(unreleased) + 1) {
+    throw new Error(`CHANGELOG.md ${version} must immediately follow Unreleased before it can be consolidated`);
+  }
+
+  const notes = unreleased.body;
+  if (!released) {
+    const suffix = unreleased.end < source.length ? "\n\n" : "\n";
+    return `${source.slice(0, unreleased.headingEnd)}\n\n## ${version}\n\n${notes}${suffix}${source.slice(unreleased.end)}`;
+  }
+
+  const releasedBody = released.body === "" ? notes : `${notes}\n\n${released.body}`;
+  const releasedSuffix = released.end < source.length ? "\n\n" : "\n";
+  let result = `${source.slice(0, released.headingEnd)}\n\n${releasedBody}${releasedSuffix}${source.slice(released.end)}`;
+  result = `${result.slice(0, unreleased.headingEnd)}\n\n${result.slice(unreleased.end)}`;
+  return result;
+}
+
+export function releaseNotesFromChangelog(source, version) {
+  const { unreleased, released } = releaseChangelogSections(source, version);
   if (unreleased.body !== "") throw new Error("CHANGELOG.md Unreleased must be empty before preparing a release");
-  const released = sections.find((section) => section.name === version);
   if (!released || released.body === "") throw new Error(`CHANGELOG.md has no non-empty ${version} release section`);
   return `# Workflow ${version}\n\n${released.body}\n`;
 }
@@ -405,6 +444,123 @@ export function verifyPreparedRelease(directory, expectedReceipt) {
     throw new Error("SHA256SUMS differs from the prepared release files");
   }
   return { provenance, receipt: computedReceipt, paths: expectedReleasePaths(directory, provenance) };
+}
+
+function atomicWriteText(path, source) {
+  const temporary = mkdtempSync(join(dirname(path), ".release-cut-"));
+  const staged = join(temporary, basename(path));
+  try {
+    writeFileSync(staged, source);
+    chmodSync(staged, lstatSync(path).mode & 0o777);
+    renameSync(staged, path);
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
+  }
+}
+
+function assertReleaseTagAbsent(root, tag, runner) {
+  const local = git(root, ["tag", "--list", tag], runner);
+  if (local !== "") throw new Error(`local tag ${tag} already exists; release cut will not rewrite its notes`);
+  const remote = runChecked(runner, "git", [
+    "ls-remote", "--tags", "origin", `refs/tags/${tag}`, `refs/tags/${tag}^{}`,
+  ], {
+    cwd: root,
+    env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+  }, `remote tag absence check for ${tag}`);
+  if (remote !== "") throw new Error(`remote tag ${tag} already exists; release cut will not rewrite its notes`);
+}
+
+function changedRepositoryPaths(root, runner) {
+  const values = [
+    git(root, ["diff", "--name-only"], runner),
+    git(root, ["diff", "--cached", "--name-only"], runner),
+    git(root, ["ls-files", "--others", "--exclude-standard"], runner),
+  ];
+  return [...new Set(values.flatMap((value) => value.split(/\r?\n/).filter(Boolean)))].sort();
+}
+
+export function ensureRelease({
+  root = defaultRoot,
+  releaseRoot = join(root, ".build", "releases"),
+  runner = defaultRunner,
+  targetBuilder = buildPluginTargets,
+  releaseGate = defaultReleaseGate,
+} = {}) {
+  const resolvedRoot = resolve(root);
+  const source = sourceState(resolvedRoot, runner, { requireClean: true });
+  const directory = releaseDirectory(releaseRoot, source.version);
+
+  if (source.changelog_ready) {
+    if (existsSync(directory)) {
+      const prepared = verifyPreparedRelease(directory);
+      assertSourceBinding(source, prepared.provenance, "prepared release differs from the current repository");
+      return {
+        action: "ensure",
+        status: "current",
+        version: source.version,
+        tag: source.tag,
+        directory,
+        commit_required: false,
+        receipt: prepared.receipt,
+        provenance: prepared.provenance,
+        next_action: "review-prepared-release",
+      };
+    }
+    const prepared = prepareRelease({ root: resolvedRoot, releaseRoot, runner, targetBuilder, releaseGate });
+    return {
+      action: "ensure",
+      ...prepared,
+      version: source.version,
+      tag: source.tag,
+      commit_required: false,
+      next_action: "review-prepared-release",
+    };
+  }
+
+  if (existsSync(directory)) throw new Error(`prepared release directory already exists before the ${source.version} release cut: ${directory}`);
+  const changelogPath = join(resolvedRoot, "CHANGELOG.md");
+  const original = readFileSync(changelogPath, "utf8");
+  const released = createReleaseCut(original, source.version);
+  if (released === original) throw new Error(`CHANGELOG.md ${source.version} release cut is already current`);
+
+  assertReleaseTagAbsent(resolvedRoot, source.tag, runner);
+  const beforeWrite = sourceState(resolvedRoot, runner, { requireClean: true });
+  assertSameSource(source, beforeWrite, "repository drifted before the release cut");
+  if (readFileSync(changelogPath, "utf8") !== original) throw new Error("CHANGELOG.md drifted before the release cut");
+
+  let wroteReleaseCut = false;
+  try {
+    atomicWriteText(changelogPath, released);
+    wroteReleaseCut = true;
+    const afterWrite = sourceState(resolvedRoot, runner);
+    assertSameSource(source, afterWrite, "repository drifted while creating the release cut");
+    if (!afterWrite.changelog_ready) throw new Error("release cut did not produce release-ready changelog notes");
+    const changedPaths = changedRepositoryPaths(resolvedRoot, runner);
+    if (changedPaths.join("\n") !== "CHANGELOG.md") {
+      throw new Error(`release cut changed unexpected repository paths: ${changedPaths.join(", ") || "none"}`);
+    }
+    if (readFileSync(changelogPath, "utf8") !== released) {
+      throw new Error("CHANGELOG.md drifted after the release cut");
+    }
+    return {
+      action: "ensure",
+      status: "release-cut-created",
+      version: source.version,
+      tag: source.tag,
+      changed_paths: changedPaths,
+      commit_required: true,
+      prepared: null,
+      receipt: null,
+      blockers: [],
+      next_action: "commit-release-cut",
+    };
+  } catch (error) {
+    let current = null;
+    try { current = readFileSync(changelogPath, "utf8"); }
+    catch {}
+    if (wroteReleaseCut && current === released) atomicWriteText(changelogPath, original);
+    throw error;
+  }
 }
 
 export function prepareRelease({
@@ -704,11 +860,15 @@ export function releaseStatus({ root = defaultRoot, releaseRoot = join(root, ".b
 }
 
 function usage() {
-  return "Usage: node scripts/plugin-github-release.mjs [status|prepare|publish <receipt-sha256>]";
+  return "Usage: node scripts/plugin-github-release.mjs [ensure|status|prepare|publish <receipt-sha256>]";
 }
 
 function runCli() {
-  const [action = "status", ...args] = process.argv.slice(2);
+  const [action = "ensure", ...args] = process.argv.slice(2);
+  if (action === "ensure" && args.length === 0) {
+    process.stdout.write(`${JSON.stringify(ensureRelease(), null, 2)}\n`);
+    return;
+  }
   if (action === "status" && args.length === 0) {
     process.stdout.write(`${JSON.stringify(releaseStatus(), null, 2)}\n`);
     return;

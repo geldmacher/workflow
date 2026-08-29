@@ -56,6 +56,20 @@ function exactArtifacts(result) {
   return result.artifacts.map(({ label, text }) => ({ label, text }));
 }
 
+function occurrences(value, needle) {
+  return value.split(needle).length - 1;
+}
+
+function assertDecisionFirstOutput(result, expectedAction) {
+  assert.equal(result.ok, true, result.error?.message);
+  assert.match(result.human_output, /^## (?:Review result|Plan validation|Manual workflow status|Provisional acceptance)/);
+  assert.match(result.human_output, /### Decision/);
+  assert.match(result.human_output, /### Next action/);
+  assert.equal(occurrences(result.human_output, "Action token:"), 1);
+  assert.match(result.human_output, new RegExp("Action token: `" + expectedAction + "`"));
+  assert.doesNotMatch(result.human_output, /Workflow · blocked|Now:/);
+}
+
 function correctionContractInput(overrides = {}) {
   return reviewInput({
     assessment: "mostly-achieved",
@@ -115,6 +129,15 @@ test("public Manual request schema is closed and matches the runtime contract", 
   const schema = JSON.parse(readFileSync(join(root, "schemas", "manual-workflow", "request-1.schema.json"), "utf8"));
   const validate = new Ajv({ allErrors: true, strict: false }).compile(schema);
   assert.equal(validate(request()), true, JSON.stringify(validate.errors));
+  for (const operationRequest of [
+    { schema: 1, operation: "validate-plan", root_plan: rootPlan, presentation_locale: "de" },
+    request({ presentation_locale: "de" }),
+    { schema: 1, operation: "status", root_plan: rootPlan, artifacts: [], presentation_locale: "de" },
+    { schema: 1, operation: "accept-provisional", root_plan: rootPlan, artifacts: [], presentation_locale: "de" },
+  ]) {
+    assert.equal(validate(operationRequest), true, `${operationRequest.operation} accepts the closed de locale: ${JSON.stringify(validate.errors)}`);
+    assert.equal(validate({ ...operationRequest, presentation_locale: "fr" }), false, `${operationRequest.operation} rejects an unknown locale`);
+  }
   const invalid = request();
   invalid.repository_observation.attestation_hash = "a".repeat(64);
   assert.equal(validate(invalid), false);
@@ -181,7 +204,150 @@ test("Manual builder deterministically creates one provisional Evidence and Revi
   assert.equal(review.delivery_status, "provisional");
   assert.equal(review.next_action, "accept-provisional");
   assert.equal(first.presentation.next_action, review.next_action);
-  assert.match(first.human_output, /Now: accept-provisional/);
+  assert.match(first.human_output, /Action token: `accept-provisional`/);
+});
+
+test("presentation locale is deterministic, defaults to English, and cannot change authoritative Review identity", () => {
+  const canonicalUnprotectedLimitation = "This Check is based on an unprotected Manual observation and cannot establish verified evidence.";
+  const defaultReview = executeManualOperation("build-review", request());
+  const englishReview = executeManualOperation("build-review", request({ presentation_locale: "en" }));
+  const germanReview = executeManualOperation("build-review", request({ presentation_locale: "de" }));
+
+  assert.equal(defaultReview.human_output, englishReview.human_output);
+  assert.match(englishReview.human_output, /^## Review result ·/);
+  assert.match(germanReview.human_output, /^## Review-Ergebnis ·/);
+  assert.match(germanReview.human_output, /### Entscheidung/);
+  assert.match(germanReview.human_output, /### Nächste Aktion/);
+  assert.match(germanReview.human_output, /Aktions-Token: `accept-provisional`/);
+  assert.doesNotMatch(germanReview.human_output, /weiter über|continue through/, "the host-neutral builder must not map actions for a facade");
+  assert.match(germanReview.human_output, /Umfang: 1 geänderter Pfad;/);
+  assert.match(germanReview.human_output, /Dieser Check basiert auf einer ungeschützten Manual-Beobachtung und kann keine verifizierte Evidenz begründen\./);
+  assert.match(germanReview.human_output, /The relevant repository verification completed successfully\./, "arbitrary supplied observations stay unchanged");
+  assert.doesNotMatch(germanReview.human_output, new RegExp(canonicalUnprotectedLimitation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.notEqual(germanReview.human_output, englishReview.human_output);
+  assert.deepEqual(germanReview.artifacts, englishReview.artifacts);
+  assert.deepEqual(germanReview.presentation, englishReview.presentation);
+  assert.match(germanReview.artifacts[0].text, new RegExp(canonicalUnprotectedLimitation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), "presentation localization must not alter artifact bytes");
+  for (const key of ["root_plan_id", "root_content_hash", "intent_hash", "workspace_binding_hash", "repository_snapshot_hash", "chain_update"]) {
+    assert.equal(germanReview[key], englishReview[key], `${key} must not depend on presentation locale`);
+  }
+
+  const englishPlan = executeManualOperation("validate-plan", {
+    schema: 1,
+    operation: "validate-plan",
+    root_plan: rootPlan,
+    presentation_locale: "en",
+  });
+  const germanPlan = executeManualOperation("validate-plan", {
+    schema: 1,
+    operation: "validate-plan",
+    root_plan: rootPlan,
+    presentation_locale: "de",
+  });
+  assertDecisionFirstOutput(englishPlan, "implement-plan");
+  assert.match(germanPlan.human_output, /^## Planvalidierung ·/);
+  assert.match(germanPlan.human_output, /Aktions-Token: `implement-plan`/);
+  assert.equal(germanPlan.root_plan_id, englishPlan.root_plan_id);
+  assert.equal(germanPlan.root_content_hash, englishPlan.root_content_hash);
+  assert.deepEqual(germanPlan.artifacts, englishPlan.artifacts);
+
+  const exact = exactArtifacts(englishReview);
+  const englishStatus = executeManualOperation("status", {
+    schema: 1,
+    operation: "status",
+    root_plan: rootPlan,
+    artifacts: exact,
+    presentation_locale: "en",
+  });
+  const germanStatus = executeManualOperation("status", {
+    schema: 1,
+    operation: "status",
+    root_plan: rootPlan,
+    artifacts: exact,
+    presentation_locale: "de",
+  });
+  assertDecisionFirstOutput(englishStatus, "accept-provisional");
+  assert.match(germanStatus.human_output, /^## Manueller Workflow-Status · vorläufig lieferbereit/);
+  assert.match(germanStatus.human_output, /1 Nachweisgrenze verhindert eine verifizierte Aussage\./);
+  assert.match(germanStatus.human_output, /CHECK-1 ist nicht an ausreichende Projektharness-Evidenz gebunden\./);
+  assert.match(germanStatus.human_output, /Workflow interpretiert keine konkrete Ausführung und benötigt deshalb für verifizierte Evidenz eine geschützte Harness-Attestierung\./);
+  assert.match(germanStatus.human_output, /Lasse den aktiven Projektharness CHECK-1 beobachten und eine geschützte Attestierung zurückgeben\./);
+  for (const englishLeak of [
+    "delivery-ready-provisional",
+    canonicalUnprotectedLimitation,
+    "CHECK-1 is not bound to sufficient project-harness evidence.",
+    "Workflow does not interpret concrete execution and therefore needs a protected harness attestation for verified evidence.",
+    "Have the active project harness observe CHECK-1 and return a protected attestation.",
+  ]) assert.doesNotMatch(germanStatus.human_output, new RegExp(englishLeak.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.deepEqual(germanStatus.snapshot, englishStatus.snapshot);
+  assert.deepEqual(germanStatus.artifact_summary, englishStatus.artifact_summary);
+
+  const englishAccepted = executeManualOperation("accept-provisional", {
+    schema: 1,
+    operation: "accept-provisional",
+    root_plan: rootPlan,
+    artifacts: exact,
+    presentation_locale: "en",
+  });
+  const germanAccepted = executeManualOperation("accept-provisional", {
+    schema: 1,
+    operation: "accept-provisional",
+    root_plan: rootPlan,
+    artifacts: exact,
+    presentation_locale: "de",
+  });
+  assertDecisionFirstOutput(englishAccepted, englishAccepted.snapshot.next_action);
+  assert.match(germanAccepted.human_output, /^## Vorläufige Annahme · angenommen/);
+  assert.match(germanAccepted.human_output, /für diese Aufgabe ausdrücklich angenommen; die Annahme wird nicht gespeichert und ändert den Evidenzgrad nicht/);
+  assert.match(germanAccepted.human_output, /1 Nachweisgrenze verhindert eine verifizierte Aussage\./);
+  assert.match(germanAccepted.human_output, /<summary>Statusprobleme und Lösungen \(1\)<\/summary>/);
+  assert.doesNotMatch(germanAccepted.human_output, /<summary>Blocker und Nachweisgrenzen/);
+  assert.doesNotMatch(germanAccepted.human_output, /delivery-ready-provisional|This Check is based on an unprotected Manual observation|CHECK-1 is not bound to sufficient project-harness evidence/);
+  assert.deepEqual(germanAccepted.snapshot, englishAccepted.snapshot);
+  assert.equal(germanAccepted.persisted, false);
+
+  const invalidLocale = executeManualOperation("build-review", request({ presentation_locale: "fr" }));
+  assert.equal(invalidLocale.ok, false);
+  assert.equal(invalidLocale.mode, "shadow");
+  assert.equal(invalidLocale.error.code, "manual-input-invalid");
+  assert.deepEqual(invalidLocale.artifacts, []);
+  assert.match(invalidLocale.human_output, /^## Manual workflow · shadow/);
+  assert.match(invalidLocale.human_output, /Action token: `retry-review`/);
+  assert.match(invalidLocale.human_output, /Only this Manual operation is affected; normal host and Workflow use remains available/);
+  assert.doesNotMatch(invalidLocale.human_output, /Now:/);
+
+  const germanInvalidRequest = executeManualOperation("build-review", request({ presentation_locale: "de", unexpected: true }));
+  assert.equal(germanInvalidRequest.error.code, "manual-input-invalid");
+  assert.match(germanInvalidRequest.human_output, /Grund: Die geschlossene Eingabe entspricht nicht dem erforderlichen Manual-Anfrageformat\./);
+  assert.doesNotMatch(germanInvalidRequest.human_output.split("<details>")[0], /Unrecognized key|Closed Schema-1/);
+  assert.match(germanInvalidRequest.human_output, /<summary>Rückverfolgbarkeit<\/summary>[\s\S]*Unrecognized key/, "raw parser diagnostics stay available only in closed traceability");
+});
+
+test("German Manual status localizes known blocking problem copy without translating supplied observations", () => {
+  const built = executeManualOperation("build-review", request({
+    presentation_locale: "de",
+    check_observations: [{
+      check_id: "CHECK-1",
+      grade: "failed",
+      observed: "The required verification failed.",
+      evidence_material: ["CHECK-1:failed:german-status"],
+      limitations: [],
+    }],
+  }));
+  const status = executeManualOperation("status", {
+    schema: 1,
+    operation: "status",
+    root_plan: rootPlan,
+    artifacts: exactArtifacts(built),
+    presentation_locale: "de",
+  });
+  assert.equal(status.ok, true, status.error?.message);
+  assert.match(status.human_output, /1 Lieferblocker \(CHECK-1\) benötigt Aufmerksamkeit\./);
+  assert.match(status.human_output, /CHECK-1 ist fehlgeschlagen und blockiert die Lieferung\./);
+  assert.match(status.human_output, /Ein fehlgeschlagener erforderlicher Check blockiert die Lieferung\./);
+  assert.match(status.human_output, /Behebe die Ursache und lasse den Projektharness CHECK-1 erneut attestieren\./);
+  assert.match(status.human_output, /The required verification failed\./, "arbitrary supplied observations stay unchanged");
+  assert.doesNotMatch(status.human_output, /CHECK-1 failed and blocks delivery|A required failed Check blocks delivery|Resolve the cause and ask the project harness/);
 });
 
 test("changed observation bytes create newly bound IDs", () => {
@@ -209,6 +375,61 @@ test("Manual status and provisional acceptance use only exact artifact bytes", (
   assert.equal(accepted.persisted, false);
   assert.equal(accepted.snapshot.state, "accepted-provisional");
   assert.equal(accepted.snapshot.acceptance_persisted, false);
+});
+
+test("Manual status preserves the Evidence-only reviewing state and review-root action", () => {
+  const built = executeManualOperation("build-review", request());
+  assert.equal(built.ok, true, built.error?.message);
+  const status = executeManualOperation("status", {
+    schema: 1,
+    operation: "status",
+    root_plan: rootPlan,
+    artifacts: exactArtifacts(built).slice(0, 1),
+  });
+  assert.equal(status.ok, true, status.error?.message);
+  assert.equal(status.snapshot.state, "reviewing");
+  assert.equal(status.snapshot.next_action, "review-root");
+  assertDecisionFirstOutput(status, "review-root");
+  assert.doesNotMatch(status.human_output, /continue through|weiter über/, "host action decoration belongs to the facade");
+});
+
+test("status and acceptance retain complete current evidence details without duplicate limitations", () => {
+  const repeatedLimitation = "This Check is based on an unprotected Manual observation and cannot establish verified evidence.";
+  const built = executeManualOperation("build-review", request({
+    check_observations: [{
+      check_id: "CHECK-1",
+      grade: "partial",
+      observed: "The required outcome is present with a bounded proof limitation.",
+      evidence_material: ["CHECK-1:partial:status-detail"],
+      limitations: [repeatedLimitation, repeatedLimitation],
+    }],
+  }));
+  assert.equal(built.ok, true, built.error?.message);
+  const input = { schema: 1, root_plan: rootPlan, artifacts: exactArtifacts(built) };
+  const status = executeManualOperation("status", { ...input, operation: "status" });
+  assertDecisionFirstOutput(status, "accept-provisional");
+  assert.match(status.human_output, /<summary>Checks \(1\)<\/summary>/);
+  assert.match(status.human_output, /<summary>(?:Proof and delivery limitations|Limitations) \(1\)<\/summary>/);
+  assert.match(status.human_output, /<summary>Changed paths \(1\)<\/summary>/);
+  assert.match(status.human_output, /<summary>(?:Technical traceability|Traceability)<\/summary>/);
+  assert.equal(occurrences(status.human_output, repeatedLimitation), 1);
+  assert.doesNotMatch(status.human_output, /<details\s+open(?:\s|>)/i);
+
+  const accepted = executeManualOperation("accept-provisional", { ...input, operation: "accept-provisional" });
+  assert.equal(accepted.ok, true, accepted.error?.message);
+  assert.match(accepted.human_output, /<summary>Checks \(1\)<\/summary>/);
+  assert.equal(occurrences(accepted.human_output, repeatedLimitation), 1);
+  assert.match(accepted.human_output, /Acceptance is ephemeral(?:, is not persisted,)? and grants no (?:durable Workflow|persistent) authority\./);
+
+  const correction = executeManualOperation("build-review", request({ review_input: correctionContractInput() }));
+  const correctionStatus = executeManualOperation("status", {
+    schema: 1,
+    operation: "status",
+    root_plan: rootPlan,
+    artifacts: exactArtifacts(correction),
+  });
+  assert.match(correctionStatus.human_output, /<summary>Findings \(1\)<\/summary>/);
+  assert.equal(occurrences(correctionStatus.human_output, "contract-gap"), 1);
 });
 
 test("failed required Checks remain blocking and cannot be accepted", () => {
@@ -290,7 +511,7 @@ test("approval-required paths also force clarify", () => {
   assert.equal(evidence.status, "blocked");
   assert.equal(review.next_action, "clarify");
   assert.equal(built.path_authority.status, "approval-required");
-  assert.match(built.human_output, /requiring separate human approval/);
+  assert.match(built.human_output, /requires? separate human approval/);
   const status = executeManualOperation("status", {
     schema: 1,
     operation: "status",
@@ -396,9 +617,101 @@ test("plan validation advises ordinary acceptance drift and rejects malformed au
   });
   assert.equal(malformed.ok, false);
   assert.ok(malformed.result.blocking_issues.some((entry) => entry.code === "invalid-authority-pattern"));
+  assert.match(malformed.human_output, /^## Plan validation · blocked/);
+  assert.match(malformed.human_output, /Action token: `correct-plan`/);
+  assert.doesNotMatch(malformed.human_output, /Workflow · blocked|Now:/);
 });
 
-test("presentation includes every finding and uses the artifact next action", () => {
+test("Review output is decision-first across actionable delivery outcomes", () => {
+  const cases = [
+    { name: "provisional acceptance", input: request(), action: "accept-provisional" },
+    { name: "bounded correction", input: request({ review_input: correctionContractInput() }), action: "correct" },
+    {
+      name: "human clarification",
+      input: request({
+        review_input: reviewInput({
+          assessment: "partially-achieved",
+          recommended_action: "clarify",
+          assessment_summary: "One authority decision remains unclear.",
+          findings: [{
+            key: "authority-gap",
+            severity: "high",
+            objective_ids: ["OBJ-1"],
+            check_ids: ["CHECK-1"],
+            evidence: "The exact authority decision is absent.",
+            reasoning: "Implementation must not infer human authority.",
+            resolution: "clarify",
+          }],
+        }),
+      }),
+      action: "clarify",
+    },
+    {
+      name: "replan",
+      input: request({
+        review_input: reviewInput({
+          assessment: "not-achieved",
+          recommended_action: "replan",
+          assessment_summary: "The accepted outcome requires new Root authority.",
+        }),
+      }),
+      action: "replan",
+    },
+    {
+      name: "failed required Check",
+      input: request({
+        check_observations: [{
+          check_id: "CHECK-1",
+          grade: "failed",
+          observed: "The required verification failed in the current snapshot.",
+          evidence_material: ["CHECK-1:failed:decision-first"],
+          limitations: [],
+        }],
+      }),
+      action: "retry-review",
+    },
+  ];
+
+  for (const item of cases) {
+    const built = executeManualOperation("build-review", item.input);
+    assertDecisionFirstOutput(built, item.action);
+    assert.match(built.human_output, /^## Review result ·/, item.name);
+    assert.equal(built.presentation.next_action, item.action, item.name);
+    assert.ok(
+      built.human_output.indexOf(item.input.review_input.assessment_summary) < built.human_output.indexOf("### Next action"),
+      `${item.name} must explain the repository outcome before the action`,
+    );
+    if (built.presentation.delivery_status === "blocked") {
+      assert.match(built.human_output, /Only this delivery snapshot is blocked; normal host and Workflow use remains available\./);
+    }
+  }
+});
+
+test("blocked Review distinguishes the failed required Check from the proof boundary", () => {
+  const failed = request({
+    check_observations: [{
+      check_id: "CHECK-1",
+      grade: "failed",
+      observed: "The required verification failed in the current snapshot.",
+      evidence_material: ["CHECK-1:failed:proof-order"],
+      limitations: [],
+    }],
+  });
+  const built = executeManualOperation("build-review", failed);
+  assert.equal(built.presentation.delivery_status, "blocked");
+  assert.match(built.human_output, /^## Review result · Delivery blocked/);
+  assert.match(built.human_output, /Reason: Required Check CHECK-1 failed and blocks this delivery\./);
+  assert.equal(occurrences(built.human_output, "The required verification failed in the current snapshot."), 1);
+  assert.match(built.human_output, /Proof boundary:/);
+  assert.ok(
+    built.human_output.indexOf("Reason: Required Check CHECK-1 failed") < built.human_output.indexOf("Proof boundary:"),
+    "the delivery blocker must precede the separate proof boundary",
+  );
+  assert.doesNotMatch(built.human_output, /Workflow · blocked|Now:/);
+});
+
+test("Review details stay complete, deduplicated, bounded, and default-closed", () => {
+  const repeatedLimitation = "This Check is based on an unprotected Manual observation and cannot establish verified evidence.";
   const findingRequest = request({
     review_input: reviewInput({
       assessment: "partially-achieved",
@@ -409,7 +722,7 @@ test("presentation includes every finding and uses the artifact next action", ()
           severity: "high",
           objective_ids: ["OBJ-1"],
           check_ids: ["CHECK-1"],
-          evidence: "src/controller/manual-status.mjs does not establish the missing contract.",
+          evidence: "The inspected outcome does not establish the missing contract.",
           reasoning: "The objective remains ambiguous at the repository boundary.",
           resolution: "clarify",
         },
@@ -423,15 +736,41 @@ test("presentation includes every finding and uses the artifact next action", ()
           resolution: "clarify",
         },
       ],
+      missing_evidence: [repeatedLimitation, repeatedLimitation],
     }),
+    repository_observation: {
+      ...request().repository_observation,
+      changed_paths: ["README.md", "src/controller/manual-status.mjs"],
+      limitations: [repeatedLimitation, repeatedLimitation],
+    },
   });
   const built = executeManualOperation("build-review", findingRequest);
   assert.equal(built.ok, true);
-  assert.match(built.human_output, /high-contract-gap/);
-  assert.match(built.human_output, /critical-authority-gap/);
+  assertDecisionFirstOutput(built, "clarify");
+  assert.equal(occurrences(built.human_output, "Proof boundary:"), 1);
+  assert.match(built.human_output, /<summary>Findings \(2\)<\/summary>/);
+  assert.match(built.human_output, /<summary>Checks \(1\)<\/summary>/);
+  assert.match(built.human_output, /<summary>Limitations \([1-9][0-9]*\)<\/summary>/);
+  assert.match(built.human_output, /<summary>Changed paths \(2\)<\/summary>/);
+  assert.match(built.human_output, /<summary>Traceability<\/summary>/);
+  assert.doesNotMatch(built.human_output, /<details\s+open(?:\s|>)/i);
+  for (const value of [
+    "high-contract-gap",
+    "critical-authority-gap",
+    repeatedLimitation,
+    "README.md",
+    "src/controller/manual-status.mjs",
+    "wp-adaptive-retry",
+  ]) {
+    assert.equal(occurrences(built.human_output, value), 1, `${value} must appear exactly once`);
+  }
+  const firstDetails = built.human_output.indexOf("<details>");
+  assert.ok(firstDetails > 0);
+  assert.ok(firstDetails < 1_800, "the decision layer must remain bounded before progressive detail");
+  assert.ok(firstDetails < built.human_output.indexOf("wp-adaptive-retry"), "raw Root identity belongs below the first detail boundary");
   const review = inspectArtifactText(built.artifacts[1].text, root).artifact.fields;
   assert.equal(built.presentation.next_action, review.next_action);
-  assert.match(built.human_output, new RegExp(`Now: ${review.next_action}`));
+  assert.match(built.human_output, new RegExp("Action token: `" + review.next_action + "`"));
 });
 
 test("explicitly attached correction chains produce delta Evidence and a fresh provisional Review", () => {
@@ -632,9 +971,9 @@ test("Manual Review guidance requires conclusive current-snapshot evidence and e
     join(root, "targets", "agent-plugins", "skills", "review-work", "SKILL.md"),
   ]) {
     const source = readFileSync(path, "utf8");
-    assert.match(source, /masked exit status/i, `${path} must reject masked outcomes`);
-    assert.match(source, /same-task observations.*snapshot is unchanged/i, `${path} must allow exact current-snapshot reuse`);
-    assert.match(source, /no independent postscript/i, `${path} must preserve the builder decision`);
+    assert.match(source, /masked (?:exit )?status/i, `${path} must reject masked outcomes`);
+    assert.match(source, /(?:same-task observations.*snapshot is unchanged|reuse observations only on the same snapshot)/i, `${path} must allow exact current-snapshot reuse`);
+    assert.match(source, /(?:no independent postscript|do not independently assess or add a postscript|add no assessment or postscript)/i, `${path} must preserve the builder decision`);
   }
 });
 

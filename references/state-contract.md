@@ -8,4 +8,4 @@ Capability protection is atomic per deployment/workspace. A Run has one pending 
 
 Trace is not authority. Status never runs work, approves tools, restores prose, or mutates the repository.
 
-Manual status derives path classification from the exact Root and Evidence `changed_paths`. It preserves the Review action token exactly: `clarify`, `correct`, `replan`, `retry-review`, `accept-provisional`, or `none` is never renamed for presentation. Ephemeral provisional acceptance may include ordinary outside-allowed drift but cannot persist or create verified authority.
+Manual status derives path classification from the exact Root and Evidence `changed_paths`. It preserves every action token exactly, including `implement-plan`, `review-root`, `create-schema-6-root`, `create-root-plan`, `clarify`, `correct`, `replan`, `retry-review`, `accept-provisional`, `provide-artifacts`, and `none`. A target facade may add only its fixed human invocation label. Locale and labels are presentation, not state. Ephemeral provisional acceptance may include ordinary outside-allowed drift but cannot persist or create verified authority.

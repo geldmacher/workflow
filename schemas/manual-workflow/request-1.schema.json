@@ -14,6 +14,7 @@
     "findingLine": { "type": "string", "minLength": 1, "maxLength": 4000 },
     "targetLine": { "type": "string", "minLength": 1, "maxLength": 1000 },
     "artifactText": { "type": "string", "minLength": 1, "maxLength": 1000000 },
+    "presentationLocale": { "enum": ["de", "en"], "default": "en" },
     "artifactEntry": {
       "type": "object",
       "additionalProperties": false,
@@ -161,7 +162,8 @@
       "properties": {
         "schema": { "const": 1 },
         "operation": { "const": "validate-plan" },
-        "root_plan": { "$ref": "#/$defs/artifactText" }
+        "root_plan": { "$ref": "#/$defs/artifactText" },
+        "presentation_locale": { "$ref": "#/$defs/presentationLocale" }
       }
     },
     "buildReview": {
@@ -175,7 +177,8 @@
         "artifacts": { "$ref": "#/$defs/artifacts" },
         "review_input": { "$ref": "#/$defs/reviewInput" },
         "repository_observation": { "$ref": "#/$defs/repositoryObservation" },
-        "check_observations": { "type": "array", "maxItems": 512, "items": { "$ref": "#/$defs/checkObservation" } }
+        "check_observations": { "type": "array", "maxItems": 512, "items": { "$ref": "#/$defs/checkObservation" } },
+        "presentation_locale": { "$ref": "#/$defs/presentationLocale" }
       }
     },
     "status": {
@@ -186,7 +189,8 @@
         "schema": { "const": 1 },
         "operation": { "const": "status" },
         "root_plan": { "$ref": "#/$defs/artifactText" },
-        "artifacts": { "$ref": "#/$defs/artifacts" }
+        "artifacts": { "$ref": "#/$defs/artifacts" },
+        "presentation_locale": { "$ref": "#/$defs/presentationLocale" }
       }
     },
     "acceptProvisional": {
@@ -197,7 +201,8 @@
         "schema": { "const": 1 },
         "operation": { "const": "accept-provisional" },
         "root_plan": { "$ref": "#/$defs/artifactText" },
-        "artifacts": { "$ref": "#/$defs/artifacts" }
+        "artifacts": { "$ref": "#/$defs/artifacts" },
+        "presentation_locale": { "$ref": "#/$defs/presentationLocale" }
       }
     }
   }

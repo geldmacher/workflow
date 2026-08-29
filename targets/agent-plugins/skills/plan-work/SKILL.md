@@ -12,6 +12,6 @@ Inspect read-only and clarify only choices that materially change outcome, scope
 
 Verification contains only `Check ID | Objectives | Verification Intent | Expected Evidence | Required | Evidence Class | Cost Class | Prerequisites`. Never prescribe or evaluate commands, working directories, tools, models, routes, retries, sandboxes, worktrees, or task recipes. The active project harness owns every concrete execution choice.
 
-Invoke `${PLUGIN_ROOT}/dist/manual-workflow.mjs validate-plan` with the exact Root. Present it only when the result is feasible and binds the same Root ID. Local validation creates no artifact and grants no approval.
+Set `presentation_locale` to `de` only when the human's active request is German, otherwise `en`. Invoke `${PLUGIN_ROOT}/dist/manual-workflow.mjs validate-plan` with the exact Root. Present it only when the result is feasible and binds the same Root ID. Decorate only the derived `implement-plan` or `correct-plan` action through the portable mapping; do not reassess it. Local validation creates no artifact or approval.
 
-Return the exact Root and tell the human to invoke `implement-work` after approval. Do not edit files or begin implementation.
+Return the exact Root. State readiness, one concrete reason, and exactly one next action: invoke `implement-work` after approval. Never edit, implement, claim completion, or add a Review action.

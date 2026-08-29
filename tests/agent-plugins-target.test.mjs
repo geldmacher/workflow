@@ -129,15 +129,46 @@ test("Agent Plugins v1 target is deterministic, closed, and immediately discover
       }
     }
     const portableReview = readFileSync(join(plugin, "skills", "review-work", "SKILL.md"), "utf8");
+    const portablePlan = readFileSync(join(plugin, "skills", "plan-work", "SKILL.md"), "utf8");
     const portableImplement = readFileSync(join(plugin, "skills", "implement-work", "SKILL.md"), "utf8");
+    const portableCorrect = readFileSync(join(plugin, "skills", "correct-work", "SKILL.md"), "utf8");
     const portableEngineering = readFileSync(join(plugin, "skills", "engineering-work", "SKILL.md"), "utf8");
+    const portableManual = readFileSync(join(plugin, "skills", "review-work", "references", "portable-manual.md"), "utf8");
+    const sharedManualContract = readFileSync(join(plugin, "skills", "review-work", "references", "manual-workflow-contract.md"), "utf8");
     assert.match(portableReview, /repository-read-only/i);
     assert.match(portableReview, /project harness/i);
     assert.match(portableReview, /manual-workflow\.mjs build-review/i);
     assert.match(portableReview, /without MCP, adapters, MCP Roots, hooks, cache, or state/i);
+    assert.match(portableReview, /presentation_locale.*active request is German.*otherwise `en`/i);
+    assert.match(portableReview, /each returned artifact text exactly once, unchanged and unquoted, inside its own default-closed `<details>` block/i);
+    assert.match(portableReview, /only `presentation\.next_action` through the fixed portable mapping/i);
     assert.doesNotMatch(portableReview, /Schema-5|auditor|model pool|planned command/i);
+    assert.match(portablePlan, /State readiness, one concrete reason, and exactly one next action: invoke `implement-work` after approval/i);
+    assert.doesNotMatch(portablePlan, /implementation(?: phase)? (?:is )?complete/i);
+    assert.doesNotMatch(portablePlan, /fresh [^\n.]{0,40}review-work[^\n.]{0,20}pending/i);
+    assert.doesNotMatch(portablePlan, /`review-work`/);
     assert.match(portableImplement, /project harness chooses all commands, tools, models/i);
+    assert.match(portableImplement, /implementation phase is complete and fresh `review-work` is pending/i);
+    assert.match(portableImplement, /Never claim that delivery or Workflow is complete/i);
+    assert.match(portableCorrect, /correction phase is complete and fresh `review-work` is pending/i);
+    assert.match(portableCorrect, /Never claim that delivery or Workflow is complete/i);
     assert.doesNotMatch(portableImplement, /exact standalone|planned director|one leading `rtk`/i);
+    assert.match(portableManual, /shared Manual Workflow contract; that contract is the single mapping source/i);
+    assert.doesNotMatch(portableManual, /\| Token \| Portable action \|/);
+    for (const [token, action] of [
+      ["implement-plan", "`implement-work`"],
+      ["correct-plan", "revise the Root with `plan-work`"],
+      ["create-schema-6-root", "`plan-work`"],
+      ["create-root-plan", "`plan-work`"],
+      ["review-root", "`review-work`"],
+      ["correct", "`correct-work`"],
+      ["accept-provisional", "`accept-work`"],
+      ["replan", "`plan-work replan`"],
+      ["retry-review", "`review-work`"],
+      ["clarify", "answer the named decision"],
+      ["provide-artifacts", "provide the exact chain"],
+      ["none", "no further Workflow action"],
+    ]) assert.equal(sharedManualContract.includes(`| \`${token}\` | ${action} |`), true, `${token} must retain its canonical portable action`);
     assert.match(portableEngineering, /recommend exactly one playbook/i);
     assert.match(portableEngineering, /never grants Workflow authority or evidence/i);
     assert.match(portableEngineering, /Never become sticky/i);

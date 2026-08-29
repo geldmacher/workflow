@@ -2,7 +2,7 @@
 
 `dist/manual-workflow.mjs` is the host-neutral, repository-read-only construction boundary for the Schema-6 Manual lifecycle. It requires Node.js 22, reads one closed JSON object from standard input, writes one deterministic JSON result to standard output, and accepts the operation name as its sole positional argument.
 
-The public input schema is `schemas/manual-workflow/request-1.schema.json`. Every operation uses `schema: 1` and an exact matching `operation`. Unknown properties are rejected.
+The public input schema is `schemas/manual-workflow/request-1.schema.json`. Every operation uses `schema: 1` and an exact matching `operation`. Unknown properties are rejected. Every request may include `presentation_locale: de|en`; omission defaults to `en`. Locale affects fixed presentation text only and never enters artifact bytes, IDs, hashes, lineage, authority, grades, or action tokens.
 
 ## Stable operations
 
@@ -33,7 +33,11 @@ A successful `build-review` result contains:
 - Root, intent, workspace, snapshot, Evidence, and Review hashes computed by the builder;
 - exactly one `delivery-evidence` entry and one `work-review` entry with immutable Markdown bytes;
 - one `presentation` whose assessment, evidence grade, findings, limitations, and `next_action` are projected from the same authoritative result;
-- `human_output` ready to present before the two exact artifact texts.
+- localized `human_output` ready for the target facade to decorate the authoritative action and then present before the two exact artifact texts.
+
+`human_output` is a non-authoritative progressive projection. Its bounded first layer names the delivery or lifecycle subject, human decision, concrete reason, required-Check outcome, scope impact, at most one primary proof boundary, and one next action. It never labels ordinary host or Workflow availability as blocked. Full findings, Checks, distinct limitations, path details, IDs, and hashes remain exactly once in default-closed details; empty sections and repeated limitations are omitted. A failed required Check is a delivery blocker even when its finding severity is lower, while absent protected proof is described separately as an evidence boundary.
+
+Action authority remains operation-specific: Review uses `presentation.next_action`, status and provisional acceptance use `snapshot.next_action`, Shadow uses its top-level `next_action`, and plan validation derives `implement-plan` or `correct-plan` only from `result.feasible`. The builder emits canonical tokens and no host invocation syntax. A facade may decorate only that token and must not reassess the result.
 
 Invalid JSON, unsupported schemas, invalid or ambiguous lineage, conflicting bytes, foreign or stale chain material, unknown Checks, and malformed observations return `kind: manual-workflow-error`, `mode: shadow`, `artifacts: []`, and a stable recovery action. The builder never deletes or changes the Root or predecessor bytes held in the task.
 
@@ -43,6 +47,6 @@ Authority patterns are repository-relative POSIX paths. Literal roots match them
 
 ## Transport and authority
 
-The normal transport is the current task. A fresh task must receive the exact current Root and every referenced Evidence/Review artifact explicitly. IDs, cache, handoff, hook state, MCP state, or host memory without those bytes are insufficient.
+The normal transport is the current task. A fresh task must receive the exact current Root and every referenced Evidence/Review artifact explicitly. Review facades place each returned artifact text exactly once, unchanged and unquoted, inside its own default-closed disclosure block. Wrapper markup is presentation only. IDs, cache, handoff, hook state, MCP state, or host memory without the exact bytes are insufficient.
 
 The local builder is deterministic construction, not protected execution. A successful unprotected Review therefore ends at most `provisional`. Optional protected sealing may later append new Evidence and Review artifacts, but it never edits or upgrades already emitted Manual artifacts.

@@ -3,8 +3,8 @@ name: manual-workflow
 description: Validate Manual state and acceptance locally.
 ---
 
-Use the bundled `dist/manual-workflow.mjs` program and the closed `schemas/manual-workflow/request-1.schema.json` contract. It is stateless, repository-read-only, and independent of MCP, adapters, Roots, hooks, cache, and persistent state.
+Run `dist/manual-workflow.mjs` read-only; no MCP/state. German request→`de`; else `en`.
 
-For status, require the exact current Schema-6 Root and every referenced Evidence/Review byte, then invoke `status`. For explicit `/accept-work provisional`, invoke `accept-provisional` with the same exact chain and succeed only when the returned unique tip is current, provisional, non-failed, and not correction-pending.
+Status: exact Root/artifacts. Acceptance: unique current provisional nonfailed/noncorrection tip.
 
-Return `human_output` unchanged. Never persist acceptance, create an artifact, infer missing bytes, restore authority from an ID, or turn provisional evidence into verified.
+Render `human_output` once. Closed Cursor map, `snapshot.next_action`: `implement-plan`→**Implement Plan**; `correct-plan`→Plan revision; `review-root|retry-review`→`/review-work`; `correct`→`/correct-work`; `accept-provisional`→`/accept-work provisional`; `replan`→`/plan-work replan`; `create-schema-6-root|create-root-plan`→`/plan-work`; `clarify`→answer; `provide-artifacts`→exact chain; `none`→no action. No fallback; token stays in trace. Never reassess/mutate evidence/state.

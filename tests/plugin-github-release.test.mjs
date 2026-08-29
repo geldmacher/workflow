@@ -22,7 +22,9 @@ import { buildPluginTargets } from "../scripts/build-plugin-targets.mjs";
 import {
   PLUGIN_NAME,
   canonicalJson,
+  createReleaseCut,
   defaultRunner,
+  ensureRelease,
   inspectReleaseTarget,
   prepareRelease,
   publishRelease,
@@ -122,6 +124,34 @@ function prepareFixture(item, releaseRoot = join(item.fixtureRoot, "releases")) 
     targetBuilder,
     releaseGate: () => ({ command: "npm run release-check", result: "passed" }),
   });
+}
+
+function commitChangelog(item, source, message = "update changelog fixture") {
+  writeFileSync(join(item.repository, "CHANGELOG.md"), source);
+  git(item.repository, "add", "CHANGELOG.md");
+  execFileSync("git", [
+    "-c", "user.name=Workflow Release Test",
+    "-c", "user.email=workflow-release@invalid.local",
+    "commit", "--quiet", "-m", message,
+  ], { cwd: item.repository });
+}
+
+function releaseCutRunner({ remoteTag = false, remoteFailure = false, onRemote = null } = {}) {
+  const calls = [];
+  const runner = (command, args, options = {}) => {
+    calls.push([command, [...args]]);
+    if (command === "git" && args[0] === "ls-remote") {
+      onRemote?.();
+      if (remoteFailure) return { status: 1, stdout: "", stderr: "remote unavailable" };
+      return {
+        status: 0,
+        stdout: remoteTag ? `${"a".repeat(40)}\trefs/tags/v${version}\n` : "",
+        stderr: "",
+      };
+    }
+    return defaultRunner(command, args, options);
+  };
+  return { calls, runner };
 }
 
 function zipEntries(path) {
@@ -243,6 +273,7 @@ test("release Skill is explicit-only and stays in parity with the Cursor command
   assert.match(skill, /only when the user explicitly invokes \$release-plugin/i);
   assert.match(metadata, /allow_implicit_invocation:\s*false/);
   for (const invocation of [
+    "npm run release:ensure",
     "npm run release:status",
     "npm run release:prepare",
     "npm run release:publish -- <receipt-sha256>",
@@ -250,11 +281,12 @@ test("release Skill is explicit-only and stays in parity with the Cursor command
     assert.match(skill, new RegExp(invocation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     assert.match(command, new RegExp(invocation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
+  assert.equal(packageJson.scripts["release:ensure"], "node scripts/plugin-github-release.mjs ensure");
   assert.equal(packageJson.scripts["release:status"], "node scripts/plugin-github-release.mjs status");
   assert.equal(packageJson.scripts["release:prepare"], "node scripts/plugin-github-release.mjs prepare");
   assert.equal(packageJson.scripts["release:publish"], "node scripts/plugin-github-release.mjs publish");
   for (const source of [skill, command]) {
-    assert.match(source, /must not commit|Never infer publication|Never infer publication authority/i);
+    assert.match(source, /must not commit|Never infer (?:commit or )?publication authority/i);
     assert.match(source, /--clobber/);
     assert.match(source, /delete/i);
   }
@@ -267,6 +299,170 @@ test("release notes require an empty Unreleased section and an exact non-empty v
   );
   assert.throws(() => releaseNotesFromChangelog(`# Changelog\n\n## Unreleased\n\n- Pending.\n\n## ${version}\n\n- Ready.\n`, version), /Unreleased must be empty/);
   assert.throws(() => releaseNotesFromChangelog("# Changelog\n\n## Unreleased\n", version), /no non-empty/);
+  assert.throws(() => releaseNotesFromChangelog(`# Changelog\n\n## Unreleased\n\n## Unreleased\n\n## ${version}\n\n- Ready.\n`, version), /exactly one Unreleased/);
+  assert.throws(() => releaseNotesFromChangelog(`# Changelog\n\n## Unreleased\n\n## ${version}\n\n- Ready.\n\n## ${version}\n\n- Duplicate.\n`, version), /at most one/);
+});
+
+test("release cut deterministically creates or consolidates the current version section", () => {
+  const pending = `# Changelog\n\n## Unreleased\n\n- New first.\n- New second.\n\n## ${version}\n\n- Existing.\n\n## 1.2.2\n\n- Older.\n`;
+  const consolidated = createReleaseCut(pending, version);
+  assert.equal(consolidated, `# Changelog\n\n## Unreleased\n\n## ${version}\n\n- New first.\n- New second.\n\n- Existing.\n\n## 1.2.2\n\n- Older.\n`);
+  assert.equal(createReleaseCut(consolidated, version), consolidated);
+  assert.equal(
+    createReleaseCut("# Changelog\n\n## Unreleased\n\n- First release.\n\n## 1.2.2\n\n- Older.\n", version),
+    `# Changelog\n\n## Unreleased\n\n## ${version}\n\n- First release.\n\n## 1.2.2\n\n- Older.\n`,
+  );
+  assert.throws(() => createReleaseCut(`# Changelog\n\n## Unreleased\n\n- Pending.\n\n## 1.2.2\n\n- Older.\n\n## ${version}\n\n- Existing.\n`, version), /immediately follow/);
+});
+
+test("ensure cuts once, stops at the commit boundary, then prepares only the later clean commit", () => {
+  const item = repositoryFixture();
+  const releaseRoot = join(item.fixtureRoot, "releases");
+  try {
+    commitChangelog(item, `# Changelog\n\n## Unreleased\n\n- Pending release note.\n\n## ${version}\n\n- Existing release note.\n`);
+    const stub = releaseCutRunner();
+    let gateCalls = 0;
+    const options = {
+      root: item.repository,
+      releaseRoot,
+      runner: stub.runner,
+      targetBuilder,
+      releaseGate: () => {
+        gateCalls += 1;
+        return { command: "npm run release-check", result: "passed" };
+      },
+    };
+
+    const cut = ensureRelease(options);
+    assert.equal(cut.status, "release-cut-created");
+    assert.equal(cut.commit_required, true);
+    assert.deepEqual(cut.changed_paths, ["CHANGELOG.md"]);
+    assert.equal(cut.receipt, null);
+    assert.equal(gateCalls, 0);
+    assert.equal(existsSync(join(releaseRoot, `v${version}`)), false);
+    assert.match(readFileSync(join(item.repository, "CHANGELOG.md"), "utf8"), new RegExp(`## Unreleased\\n\\n## ${version}\\n\\n- Pending release note\\.\\n\\n- Existing release note\\.`));
+
+    assert.throws(() => ensureRelease(options), /repository must be clean/);
+    assert.equal(gateCalls, 0);
+    commitChangelog(item, readFileSync(join(item.repository, "CHANGELOG.md"), "utf8"), "commit release cut");
+
+    const prepared = ensureRelease(options);
+    assert.equal(prepared.status, "prepared");
+    assert.equal(prepared.commit_required, false);
+    assert.match(prepared.receipt, /^[0-9a-f]{64}$/);
+    assert.equal(gateCalls, 1);
+
+    const current = ensureRelease(options);
+    assert.equal(current.status, "current");
+    assert.equal(current.receipt, prepared.receipt);
+    assert.equal(gateCalls, 1, "an exact current set must not rerun the release gate");
+    assert.equal(stub.calls.some(([command]) => command === "gh"), false);
+  } finally {
+    rmSync(item.fixtureRoot, { recursive: true, force: true });
+  }
+});
+
+test("ensure release cut fails closed on dirty, malformed, tagged, unavailable, conflicting, and drifting states", () => {
+  const pending = `# Changelog\n\n## Unreleased\n\n- Pending release note.\n\n## ${version}\n\n- Existing release note.\n`;
+  const cases = [
+    {
+      name: "dirty source",
+      arrange(item) { writeFileSync(join(item.repository, "dirty.txt"), "dirty\n"); },
+      runner: releaseCutRunner().runner,
+      error: /repository must be clean/,
+    },
+    {
+      name: "duplicate Unreleased",
+      source: `# Changelog\n\n## Unreleased\n\n- One.\n\n## Unreleased\n\n- Two.\n\n## ${version}\n\n- Existing.\n`,
+      runner: releaseCutRunner().runner,
+      error: /exactly one Unreleased/,
+    },
+    {
+      name: "local tag",
+      arrange(item) { git(item.repository, "tag", `v${version}`); },
+      runner: releaseCutRunner().runner,
+      error: /local tag .* already exists/,
+    },
+    {
+      name: "remote tag",
+      runner: releaseCutRunner({ remoteTag: true }).runner,
+      error: /remote tag .* already exists/,
+    },
+    {
+      name: "unavailable remote proof",
+      runner: releaseCutRunner({ remoteFailure: true }).runner,
+      error: /remote tag absence check.*remote unavailable/,
+    },
+    {
+      name: "prepared directory conflict",
+      arrange(item) {
+        mkdirSync(join(item.fixtureRoot, "releases", `v${version}`), { recursive: true });
+        writeFileSync(join(item.fixtureRoot, "releases", `v${version}`, "sentinel"), "conflict\n");
+      },
+      runner: releaseCutRunner().runner,
+      error: /prepared release directory already exists/,
+    },
+    {
+      name: "source drift during remote proof",
+      runnerFactory(item) {
+        return releaseCutRunner({ onRemote: () => writeFileSync(join(item.repository, "remote-drift.txt"), "drift\n") }).runner;
+      },
+      error: /repository must be clean|drifted before the release cut/,
+    },
+  ];
+
+  for (const scenario of cases) {
+    const item = repositoryFixture();
+    try {
+      commitChangelog(item, scenario.source ?? pending, scenario.name);
+      scenario.arrange?.(item);
+      const original = readFileSync(join(item.repository, "CHANGELOG.md"), "utf8");
+      const runner = scenario.runnerFactory?.(item) ?? scenario.runner;
+      assert.throws(() => ensureRelease({
+        root: item.repository,
+        releaseRoot: join(item.fixtureRoot, "releases"),
+        runner,
+        targetBuilder,
+        releaseGate: () => { throw new Error("release gate must not run"); },
+      }), scenario.error, scenario.name);
+      assert.equal(readFileSync(join(item.repository, "CHANGELOG.md"), "utf8"), original, scenario.name);
+    } finally {
+      rmSync(item.fixtureRoot, { recursive: true, force: true });
+    }
+  }
+});
+
+test("ensure rejects post-write same-path drift without overwriting foreign changelog bytes", () => {
+  const item = repositoryFixture();
+  const releaseRoot = join(item.fixtureRoot, "releases");
+  const changelogPath = join(item.repository, "CHANGELOG.md");
+  const pending = `# Changelog\n\n## Unreleased\n\n- Intended release note.\n\n## ${version}\n\n- Existing release note.\n`;
+  const drifted = `# Changelog\n\n## Unreleased\n\n## ${version}\n\n- Concurrent different notes.\n`;
+  try {
+    commitChangelog(item, pending, "post-write drift fixture");
+    let injected = false;
+    const runner = (command, args, options = {}) => {
+      if (command === "git" && args[0] === "ls-remote") return { status: 0, stdout: "", stderr: "" };
+      if (!injected && command === "git" && args[0] === "diff" && args[1] === "--name-only") {
+        injected = true;
+        writeFileSync(changelogPath, drifted);
+      }
+      return defaultRunner(command, args, options);
+    };
+
+    assert.throws(() => ensureRelease({
+      root: item.repository,
+      releaseRoot,
+      runner,
+      targetBuilder,
+      releaseGate: () => { throw new Error("release gate must not run"); },
+    }), /CHANGELOG\.md drifted after the release cut/);
+    assert.equal(injected, true);
+    assert.equal(readFileSync(changelogPath, "utf8"), drifted, "foreign concurrent bytes must not be overwritten");
+    assert.equal(existsSync(join(releaseRoot, `v${version}`)), false);
+  } finally {
+    rmSync(item.fixtureRoot, { recursive: true, force: true });
+  }
 });
 
 test("status is read-only, defaults preparation readiness correctly, and includes remote tag readiness", () => {

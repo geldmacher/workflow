@@ -1,11 +1,13 @@
 # Review Schema 6
 
-Review is fresh and repository-read-only. Workflow resolves the exact current-task Root and lineage while the project harness alone selects concrete inspection mechanisms and supplies opaque unprotected repository and Check observations.
+Review is fresh and repository-read-only. Workflow resolves exact current-task Root and lineage; the harness alone selects inspection and supplies opaque unprotected repository and Check observations.
 
-Workflow never parses, classifies, compares, allows, denies, rewrites, or launches a command, program, tool, model, framework, retry, sandbox, or worktree. Harness unavailability limits Evidence and the affected review phase but leaves ordinary host use free.
+Workflow never interprets or launches commands, tools, models, frameworks, retries, sandboxes, or worktrees. Harness unavailability limits Evidence and this phase, not ordinary host use.
 
-The local Manual builder accepts one closed Schema-1 Review input, exact predecessor bytes, one unprotected repository observation, and Check observations capped to `supported`, `partial`, `unavailable`, or `failed`. It computes IDs and hashes, validates authority and lineage, and returns Evidence plus Review atomically. It performs no repository discovery, Check execution, MCP call, adapter access, Hook access, cache lookup, or state write.
+The local builder accepts closed Schema-1 Review input, exact predecessors, one repository observation, and Check observations capped to `supported|partial|unavailable|failed`. It validates, hashes, and returns Evidence plus Review atomically without discovery, Checks, MCP, adapters, hooks, cache, or state.
 
-The human presentation is generated from the same authoritative decision as the artifacts. It includes every finding, all limitations and Check grades, and exactly the Review artifact's `next_action`. The Skill presents it and both artifact texts unchanged.
+Presentation derives from that decision. Its bounded first layer has delivery decision, reason, required-Check outcome, scope impact, at most one proof boundary, and exact `next_action`. Complete findings, Checks, distinct limitations, paths, IDs, and hashes occur once in closed details; omit empty sections. `blocked` applies only to this delivery snapshot, never ordinary host or Workflow use.
 
-Invalid, conflicting, ambiguous, stale, foreign, mixed-schema, or incomplete input returns Shadow and no artifacts. Path authority violations force `clarify` and never enter Evidence as authorized paths. Verified requires optional protected sealing with sufficient attestations and no failed required Check. Findings may request correction, clarification, retry, or replan. Review itself never mutates the repository.
+The Skill passes `presentation_locale` (`de` for active German, else `en`), decorates only `presentation.next_action`, and adds no assessment. It renders `human_output` once, then each exact artifact once, unchanged and unquoted, in its own default-closed `<details>`.
+
+Invalid, conflicting, stale, foreign, mixed, ambiguous, or incomplete input returns Shadow without artifacts. Authority violations force `clarify`. Verified needs separate protected sealing and no failed required Check. Review never mutates.

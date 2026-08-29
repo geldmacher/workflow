@@ -16275,10 +16275,11 @@ var semanticKey = string2().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(80), objecti
 var DETERMINISTIC_OBSERVED_AT = "1970-01-01T00:00:00.000Z", line3 = (maximum = 8e3) => string2().min(1).max(maximum), artifactEntrySchema = strictObject({
   label: line3(200),
   text: line3(1e6)
-}), artifactEntriesSchema = array(artifactEntrySchema).max(256), validatePlanRequestSchema = strictObject({
+}), artifactEntriesSchema = array(artifactEntrySchema).max(256), presentationLocaleSchema = _enum(["de", "en"]).optional().default("en"), validatePlanRequestSchema = strictObject({
   schema: literal(1),
   operation: literal("validate-plan"),
-  root_plan: line3(1e6)
+  root_plan: line3(1e6),
+  presentation_locale: presentationLocaleSchema
 }), repositoryObservationSchema = strictObject({
   schema: literal(1),
   kind: literal("unprotected-repository-observation"),
@@ -16301,17 +16302,20 @@ var DETERMINISTIC_OBSERVED_AT = "1970-01-01T00:00:00.000Z", line3 = (maximum = 8
   artifacts: artifactEntriesSchema,
   review_input: reviewInputSchema,
   repository_observation: repositoryObservationSchema,
-  check_observations: array(checkObservationSchema).max(512)
+  check_observations: array(checkObservationSchema).max(512),
+  presentation_locale: presentationLocaleSchema
 }), statusRequestSchema = strictObject({
   schema: literal(1),
   operation: literal("status"),
   root_plan: line3(1e6),
-  artifacts: artifactEntriesSchema
+  artifacts: artifactEntriesSchema,
+  presentation_locale: presentationLocaleSchema
 }), acceptRequestSchema = strictObject({
   schema: literal(1),
   operation: literal("accept-provisional"),
   root_plan: line3(1e6),
-  artifacts: artifactEntriesSchema
+  artifacts: artifactEntriesSchema,
+  presentation_locale: presentationLocaleSchema
 }), schemas = Object.freeze({
   "validate-plan": validatePlanRequestSchema,
   "build-review": buildReviewRequestSchema,
@@ -16427,17 +16431,248 @@ function authorityBlockingLimitation(projection) {
 function authorityScopeLimitation(projection) {
   return projection.outside_allowed_paths.length === 0 ? null : `Provisional scope drift remains visible without granting authority: ${projection.outside_allowed_paths.join(", ")}.`;
 }
-function findingLine(finding2) {
-  return `- [${finding2.severity.toUpperCase()}] ${finding2.key} \u2014 ${finding2.evidence} Reasoning: ${finding2.reasoning} Resolution: ${finding2.resolution}.`;
+var PRESENTATION_LABELS = Object.freeze({
+  en: Object.freeze({
+    decision: "Decision",
+    nextAction: "Next action",
+    actionToken: "Action token",
+    repositoryOutcome: "Repository outcome",
+    reason: "Reason",
+    evidenceGrade: "Evidence grade",
+    proofBoundary: "Proof boundary",
+    scope: "Scope",
+    findings: "Findings",
+    checks: "Checks",
+    limitations: "Limitations",
+    changedPaths: "Changed paths",
+    traceability: "Traceability",
+    planBlockers: "Plan blockers",
+    advisories: "Advisories",
+    root: "Root",
+    evidence: "Evidence",
+    review: "Review",
+    artifactHash: "artifact hash",
+    rootHash: "Root content hash",
+    intentHash: "Intent hash",
+    workspaceBindingHash: "Workspace binding hash",
+    repositorySnapshotHash: "Repository snapshot hash",
+    artifactSetHash: "Artifact-set hash"
+  }),
+  de: Object.freeze({
+    decision: "Entscheidung",
+    nextAction: "N\xE4chste Aktion",
+    actionToken: "Aktions-Token",
+    repositoryOutcome: "Repository-Ergebnis",
+    reason: "Grund",
+    evidenceGrade: "Evidenzgrad",
+    proofBoundary: "Nachweisgrenze",
+    scope: "Umfang",
+    findings: "Feststellungen",
+    checks: "Checks",
+    limitations: "Grenzen",
+    changedPaths: "Ge\xE4nderte Pfade",
+    traceability: "R\xFCckverfolgbarkeit",
+    planBlockers: "Planblocker",
+    advisories: "Hinweise",
+    root: "Root",
+    evidence: "Evidence",
+    review: "Review",
+    artifactHash: "Artefakt-Hash",
+    rootHash: "Root-Inhalts-Hash",
+    intentHash: "Intent-Hash",
+    workspaceBindingHash: "Workspace-Bindungs-Hash",
+    repositorySnapshotHash: "Repository-Snapshot-Hash",
+    artifactSetHash: "Artefaktmengen-Hash"
+  })
+}), GERMAN_VALUES = Object.freeze({
+  ready: "bereit",
+  blocked: "blockiert",
+  verified: "verifiziert",
+  provisional: "vorl\xE4ufig",
+  failed: "fehlgeschlagen",
+  supported: "gest\xFCtzt",
+  partial: "teilweise",
+  unavailable: "nicht verf\xFCgbar",
+  none: "keiner",
+  "within-authority": "innerhalb der erkl\xE4rten Autorit\xE4t",
+  "provisional-drift": "vorl\xE4ufige Scope-Abweichung",
+  protected: "Grenze eines gesch\xFCtzten Pfads",
+  "approval-required": "separate Freigabe erforderlich",
+  intake: "Aufnahme",
+  "intent-clarification": "Intent-Kl\xE4rung",
+  "root-plan-review": "Root-Plan-Review",
+  implementing: "Implementierung l\xE4uft",
+  reviewing: "Review l\xE4uft",
+  correcting: "Korrektur l\xE4uft",
+  "delivery-ready-verified": "verifiziert lieferbereit",
+  "delivery-ready-provisional": "vorl\xE4ufig lieferbereit",
+  "waiting-human": "wartet auf eine menschliche Entscheidung",
+  replan: "Neuplanung",
+  achieved: "erreicht",
+  "accepted-provisional": "vorl\xE4ufig angenommen",
+  paused: "pausiert",
+  interrupted: "unterbrochen",
+  stopped: "gestoppt",
+  "review-requires-clarification": "Review ben\xF6tigt Kl\xE4rung",
+  "schema-6-replan-required": "Schema-6-Neuplanung erforderlich",
+  "root-plan-not-intent-ready": "Root-Plan noch nicht intent-bereit",
+  "harness-phase-failed": "Harness-Phase fehlgeschlagen",
+  "harness-unavailable": "Harness nicht verf\xFCgbar",
+  "manual-artifact-context-missing": "Manual-Artefaktkontext fehlt"
+}), KNOWN_GERMAN_TEXT = Object.freeze({
+  "This Check is based on an unprotected Manual observation and cannot establish verified evidence.": "Dieser Check basiert auf einer ungesch\xFCtzten Manual-Beobachtung und kann keine verifizierte Evidenz begr\xFCnden.",
+  "No project-harness observation was available for this verification intent.": "F\xFCr diese Verifikationsabsicht lag keine Beobachtung des Projektharness vor.",
+  "The active project harness did not return evidence for this Check.": "Der aktive Projektharness lieferte f\xFCr diesen Check keine Evidenz.",
+  "The project harness attested a failed Check for the current repository snapshot.": "Der Projektharness attestierte einen fehlgeschlagenen Check f\xFCr den aktuellen Repository-Snapshot.",
+  "The project harness attested its observation, but this Check still requires an explicit human decision.": "Der Projektharness attestierte seine Beobachtung, aber dieser Check ben\xF6tigt weiterhin eine ausdr\xFCckliche menschliche Entscheidung.",
+  "The project harness reported this Check as unavailable.": "Der Projektharness meldete diesen Check als nicht verf\xFCgbar.",
+  "The project harness reported a passing Check, but no protected host receipt binds it to this transition.": "Der Projektharness meldete einen bestandenen Check, aber kein gesch\xFCtzter Host-Beleg bindet ihn an diesen \xDCbergang.",
+  "No protected project-harness attestation binds this Check to the current Root and repository snapshot.": "Keine gesch\xFCtzte Projektharness-Attestierung bindet diesen Check an den aktuellen Root und Repository-Snapshot.",
+  "A required failed Check blocks delivery.": "Ein fehlgeschlagener erforderlicher Check blockiert die Lieferung.",
+  "Workflow does not interpret concrete execution and therefore needs a protected harness attestation for verified evidence.": "Workflow interpretiert keine konkrete Ausf\xFChrung und ben\xF6tigt deshalb f\xFCr verifizierte Evidenz eine gesch\xFCtzte Harness-Attestierung.",
+  "This Check is reserved for human authority.": "Dieser Check ist menschlicher Autorit\xE4t vorbehalten.",
+  "Request the named human decision before continuing.": "Fordere vor dem Fortfahren die benannte menschliche Entscheidung an."
+});
+function localeOf(value) {
+  return value === "de" ? "de" : "en";
 }
-function reviewPresentation({ rootFields, evidence, review, reviewInput, repositoryObservation, pathAuthority }) {
-  let findings = reviewInput.findings.map(findingLine), scopeLimitation = authorityScopeLimitation(pathAuthority), blockingLimitation = authorityBlockingLimitation(pathAuthority), limitations = unique4([
+function labels(locale) {
+  return PRESENTATION_LABELS[localeOf(locale)];
+}
+function displayValue(locale, value) {
+  let token = String(value ?? "none");
+  return localeOf(locale) === "de" ? GERMAN_VALUES[token] ?? token.replaceAll("-", " ") : token.replaceAll("-", " ");
+}
+function safeInline(value) {
+  return String(value ?? "").replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim().replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+function localizedKnownText(value, locale) {
+  let source = String(value ?? "").trim();
+  if (localeOf(locale) !== "de") return safeInline(source);
+  if (KNOWN_GERMAN_TEXT[source]) return safeInline(KNOWN_GERMAN_TEXT[source]);
+  let problem = source.match(/^(CHECK-[1-9][0-9]*) (failed and blocks delivery|is not bound to sufficient project-harness evidence|requires an explicit human decision)\.$/);
+  if (problem) {
+    let [, checkId2, kind] = problem, message = {
+      "failed and blocks delivery": `${checkId2} ist fehlgeschlagen und blockiert die Lieferung.`,
+      "is not bound to sufficient project-harness evidence": `${checkId2} ist nicht an ausreichende Projektharness-Evidenz gebunden.`,
+      "requires an explicit human decision": `${checkId2} ben\xF6tigt eine ausdr\xFCckliche menschliche Entscheidung.`
+    }[kind];
+    return safeInline(message);
+  }
+  let attest = source.match(/^Resolve the cause and ask the project harness to attest (CHECK-[1-9][0-9]*) again\.$/);
+  if (attest) return safeInline(`Behebe die Ursache und lasse den Projektharness ${attest[1]} erneut attestieren.`);
+  let observe = source.match(/^Have the active project harness observe (CHECK-[1-9][0-9]*) and return a protected attestation\.$/);
+  return safeInline(observe ? `Lasse den aktiven Projektharness ${observe[1]} beobachten und eine gesch\xFCtzte Attestierung zur\xFCckgeben.` : source);
+}
+function counted(count, singular, plural) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+function concise(value, maximum = 320) {
+  let source = safeInline(value);
+  if (source.length <= maximum) return source;
+  let suffix = " \u2026";
+  return `${source.slice(0, maximum - suffix.length).trimEnd()}${suffix}`;
+}
+function detailBlock(summary2, lines) {
+  let content = (lines ?? []).filter(Boolean);
+  return content.length === 0 ? null : `<details>
+<summary>${safeInline(summary2)}</summary>
+
+${content.join(`
+`)}
+
+</details>`;
+}
+function actionLine(action, locale) {
+  let copy = labels(locale), token = safeInline(action);
+  return `- ${copy.actionToken}: \`${token}\``;
+}
+function shadowReason(code, locale) {
+  let de = localeOf(locale) === "de";
+  return (de ? {
+    "manual-input-invalid": "Die geschlossene Eingabe entspricht nicht dem erforderlichen Manual-Anfrageformat.",
+    "manual-json-invalid": "Die Manual-Eingabe ist kein g\xFCltiges JSON-Objekt.",
+    "schema-6-root-invalid": "Der bereitgestellte Root ist kein g\xFCltiger exakter Schema-6-Root.",
+    "schema-6-chain-invalid": "Die bereitgestellte Schema-6-Artefaktkette ist ung\xFCltig oder unvollst\xE4ndig.",
+    "artifact-bytes-conflict": "F\xFCr dieselbe Artefakt-ID wurden widerspr\xFCchliche Bytes bereitgestellt.",
+    "foreign-artifact-chain": "Mindestens ein Artefakt geh\xF6rt nicht zum aktuellen Root.",
+    "check-observation-ambiguous": "Die Check-Beobachtungen sind nicht eindeutig.",
+    "manual-acceptance-denied": "Die aktuelle exakte Artefaktkette kann nicht vorl\xE4ufig angenommen werden.",
+    "unsupported-operation": "Die angeforderte Manual-Operation wird nicht unterst\xFCtzt."
+  } : {
+    "manual-input-invalid": "The closed input does not match the required Manual request shape.",
+    "manual-json-invalid": "The Manual input is not a valid JSON object.",
+    "schema-6-root-invalid": "The supplied Root is not a valid exact Schema-6 Root.",
+    "schema-6-chain-invalid": "The supplied Schema-6 artifact chain is invalid or incomplete.",
+    "artifact-bytes-conflict": "Conflicting bytes were supplied for the same artifact ID.",
+    "foreign-artifact-chain": "At least one artifact does not belong to the current Root.",
+    "check-observation-ambiguous": "The Check observations are ambiguous.",
+    "manual-acceptance-denied": "The current exact artifact chain is not eligible for provisional acceptance.",
+    "unsupported-operation": "The requested Manual operation is not supported."
+  })[code] ?? (de ? "Die Manual-Operation konnte ihre geschlossene Eingabe nicht sicher verarbeiten." : "The Manual operation could not safely process its closed input.");
+}
+function issueLine(issue3) {
+  return !issue3 || typeof issue3 != "object" ? `- ${safeInline(issue3)}` : `- ${safeInline(issue3.code ?? "issue")}: ${safeInline(issue3.message ?? JSON.stringify(issue3))}`;
+}
+function findingLine(finding2, locale) {
+  let de = localeOf(locale) === "de", key = finding2.key ?? finding2["Finding key"], severity = finding2.severity ?? finding2.Severity, objectives = finding2.objective_ids ?? String(finding2.Objectives ?? "").split(",").map((entry) => entry.trim()).filter(Boolean), checks = finding2.check_ids ?? String(finding2.Checks ?? "").split(",").map((entry) => entry.trim()).filter(Boolean), evidence = finding2.evidence ?? finding2.Evidence, reasoning = finding2.reasoning ?? finding2.Reasoning, resolution = finding2.resolution ?? finding2.Resolution;
+  return [
+    `- [${safeInline(severity).toUpperCase()}] ${safeInline(key)} \u2014 ${de ? "Ziele" : "Objectives"}: ${objectives.map(safeInline).join(", ")}; Checks: ${checks.map(safeInline).join(", ")}; ${de ? "Evidenz" : "Evidence"}: ${safeInline(evidence)} ${de ? "Begr\xFCndung" : "Reasoning"}: ${safeInline(reasoning)}`,
+    ...resolution ? [` ${de ? "L\xF6sung" : "Resolution"}: ${safeInline(resolution)}`] : [],
+    "."
+  ].join("");
+}
+function checkLine(check, locale) {
+  let de = localeOf(locale) === "de", hashes = (check.evidence_hashes ?? []).map(safeInline), attestation = typeof check.attestation_hash == "string" ? safeInline(check.attestation_hash) : null;
+  return [
+    `- ${safeInline(check.check_id)} \u2014 ${de ? "Grad" : "grade"}: ${displayValue(locale, check.grade)}; ${de ? "Beobachtung" : "observed"}: ${localizedKnownText(check.observed, locale)}`,
+    ...hashes.length > 0 ? [`  - ${de ? "Evidenz-Hashes" : "Evidence hashes"}: ${hashes.join(", ")}`] : [],
+    ...attestation ? [`  - ${de ? "Attestierungs-Hash" : "Attestation hash"}: ${attestation}`] : []
+  ].join(`
+`);
+}
+function pathLines(pathAuthority, locale) {
+  let de = localeOf(locale) === "de";
+  return [
+    [de ? "Erlaubt" : "Allowed", pathAuthority?.allowed_paths],
+    [de ? "Au\xDFerhalb erlaubter Roots" : "Outside allowed roots", pathAuthority?.outside_allowed_paths],
+    [de ? "Freigabepflichtig" : "Approval required", pathAuthority?.approval_required_paths],
+    [de ? "Gesch\xFCtzt" : "Protected", pathAuthority?.protected_paths]
+  ].flatMap(([title, paths]) => (paths ?? []).length > 0 ? [`- ${title} (${paths.length})`, ...paths.map((path) => `  - ${safeInline(path)}`)] : []);
+}
+function changedPathCount(pathAuthority) {
+  return ["allowed_paths", "outside_allowed_paths", "approval_required_paths", "protected_paths"].reduce((total, key) => total + (pathAuthority?.[key]?.length ?? 0), 0);
+}
+function scopeSummary(pathAuthority, locale) {
+  let total = changedPathCount(pathAuthority);
+  return `${localeOf(locale) === "de" ? counted(total, "ge\xE4nderter Pfad", "ge\xE4nderte Pfade") : counted(total, "changed path", "changed paths")}; ${displayValue(locale, pathAuthority?.status ?? "unknown")}`;
+}
+function authorityScopePresentation(pathAuthority, locale) {
+  let count = pathAuthority?.outside_allowed_paths?.length ?? 0;
+  return count === 0 ? null : localeOf(locale) === "de" ? `Vorl\xE4ufige Scope-Abweichung bleibt f\xFCr ${count === 1 ? "1 Pfad" : `${count} Pfade`} sichtbar, ohne Autorit\xE4t zu verleihen.` : `Provisional scope drift remains visible for ${counted(count, "path", "paths")} without granting authority.`;
+}
+function reviewDecision(review, locale) {
+  let de = localeOf(locale) === "de";
+  return review.fields.delivery_status === "blocked" ? de ? "Dieser Liefer-Snapshot ist blockiert." : "This delivery snapshot is blocked." : review.fields.delivery_status === "provisional" ? de ? "Diese Lieferung ist vorl\xE4ufig und ben\xF6tigt eine menschliche Entscheidung." : "This delivery is provisional and needs a human decision." : de ? "Diese Lieferung ist verifiziert." : "This delivery is verified.";
+}
+function reviewReason({ review, reviewInput, pathAuthority, checks }, locale) {
+  let de = localeOf(locale) === "de", failed = checks.find((entry) => entry.grade === "failed");
+  return failed ? de ? `Erforderlicher Check ${safeInline(failed.check_id)} ist fehlgeschlagen und blockiert diese Lieferung.` : `Required Check ${safeInline(failed.check_id)} failed and blocks this delivery.` : (pathAuthority?.protected_paths ?? []).length > 0 ? de ? pathAuthority.protected_paths.length === 1 ? "1 gesch\xFCtzter ge\xE4nderter Pfad blockiert diese Lieferung." : `${pathAuthority.protected_paths.length} gesch\xFCtzte ge\xE4nderte Pfade blockieren diese Lieferung.` : `${counted(pathAuthority.protected_paths.length, "protected changed path blocks", "protected changed paths block")} this delivery.` : (pathAuthority?.approval_required_paths ?? []).length > 0 ? de ? pathAuthority.approval_required_paths.length === 1 ? "1 ge\xE4nderter Pfad ben\xF6tigt eine separate menschliche Freigabe." : `${pathAuthority.approval_required_paths.length} ge\xE4nderte Pfade ben\xF6tigen eine separate menschliche Freigabe.` : `${counted(pathAuthority.approval_required_paths.length, "changed path requires", "changed paths require")} separate human approval.` : reviewInput.findings.length > 0 ? de ? `${counted(reviewInput.findings.length, "Feststellung f\xFChrt", "Feststellungen f\xFChren")} zur Aktion ${safeInline(review.fields.next_action)}.` : `${counted(reviewInput.findings.length, "finding requires", "findings require")} the ${safeInline(review.fields.next_action)} action.` : {
+    "accept-provisional": de ? "Die Review fand keinen Lieferblocker; die Evidenz bleibt vorl\xE4ufig." : "The Review found no delivery blocker; the evidence remains provisional.",
+    replan: de ? "Das beabsichtigte Ergebnis ben\xF6tigt eine neu freigegebene Root-Autorit\xE4t." : "The intended outcome requires newly approved Root authority.",
+    clarify: de ? "Eine benannte menschliche Entscheidung bleibt offen." : "A named human decision remains open.",
+    "retry-review": de ? "F\xFCr den aktuellen Snapshot ist eine frische Review erforderlich." : "The current snapshot requires a fresh Review.",
+    none: de ? "Die Review hat die Akzeptanzziele erreicht." : "The Review achieved the acceptance outcomes."
+  }[review.fields.next_action] ?? (de ? "Die Review hat eine weitere Workflow-Aktion abgeleitet." : "The Review derived a further Workflow action.");
+}
+function reviewPresentation({ rootFields, rootPlan, evidence, review, reviewInput, repositoryObservation, pathAuthority, trace, locale }) {
+  let lang = localeOf(locale), copy = labels(lang), findings = reviewInput.findings.map((finding2) => findingLine(finding2, lang)), scopeLimitation = authorityScopeLimitation(pathAuthority), blockingLimitation = authorityBlockingLimitation(pathAuthority), limitations = unique4([
     ...repositoryObservation.limitations,
     ...scopeLimitation ? [scopeLimitation] : [],
     ...blockingLimitation ? [blockingLimitation] : [],
     ...reviewInput.missing_evidence,
     ...(evidence.fields.check_evidence ?? []).flatMap((entry) => entry.limitations ?? [])
-  ]), checkLines = (evidence.fields.check_evidence ?? []).map((entry) => `- ${entry.check_id}: ${entry.grade} \u2014 ${entry.observed}`), scopeSummary = pathAuthority.status === "within-authority" ? "within declared roots" : pathAuthority.status === "provisional-drift" ? `provisional drift (${pathAuthority.outside_allowed_paths.join(", ")})` : `${pathAuthority.status} blocker`, presentation = {
+  ]), checks = evidence.fields.check_evidence ?? [], checkLines = checks.map((entry) => checkLine(entry, lang)), shownScopeLimitation = authorityScopePresentation(pathAuthority, lang), proofLimitations = limitations.filter((entry) => entry !== blockingLimitation).map((entry) => entry === scopeLimitation ? shownScopeLimitation : entry).filter(Boolean), primaryProofBoundary = evidence.fields.overall_grade !== "verified" ? lang === "de" ? "Ungesch\xFCtzte Manual-Beobachtungen k\xF6nnen keine verifizierte Lieferung belegen." : "Unprotected Manual observations cannot establish verified delivery." : null, statusLabel = displayValue(lang, review.fields.delivery_status), presentation = {
     schema: 1,
     kind: "manual-review-presentation",
     root_plan_id: rootFields.id,
@@ -16451,64 +16686,104 @@ function reviewPresentation({ rootFields, evidence, review, reviewInput, reposit
     checks: evidence.fields.check_evidence,
     path_authority: pathAuthority,
     next_action: review.fields.next_action
-  }, humanOutput = [
-    `## Workflow \xB7 ${review.fields.delivery_status}`,
-    "### Quick decision",
-    `- Repository outcome: ${reviewInput.assessment_summary}`,
-    `- Delivery decision: ${review.fields.delivery_status} (${review.fields.assessment}).`,
-    `- Evidence status: ${evidence.fields.overall_grade}; unprotected Manual observations cannot be verified.`,
-    `- Scope: ${scopeSummary}.`,
-    "### Findings",
-    findings.length > 0 ? findings.join(`
-`) : "- None.",
-    "### Checks",
-    checkLines.length > 0 ? checkLines.join(`
-`) : "- No required Check observations were supplied.",
-    "### Limitations",
-    limitations.length > 0 ? limitations.map((entry) => `- ${entry}`).join(`
-`) : "- None.",
-    "### Next step",
-    `- Now: ${review.fields.next_action}`,
-    "### Details",
-    `Root ${rootFields.id}, Evidence ${evidence.fields.id}, and Review ${review.fields.id} are bound to snapshot ${evidence.fields.workspace_snapshot_hash}.`,
-    "The machine artifacts below are the authoritative result; this presentation is derived from the same decision."
+  }, traceLines = [
+    `- ${copy.root}: ${safeInline(rootFields.id)}`,
+    `- ${copy.rootHash}: ${sha2564(rootPlan)}`,
+    `- ${copy.intentHash}: ${safeInline(trace.intent_hash)}`,
+    `- ${copy.workspaceBindingHash}: ${safeInline(trace.workspace_binding_hash)}`,
+    `- ${copy.repositorySnapshotHash}: ${safeInline(trace.repository_snapshot_hash)}`,
+    `- ${copy.evidence}: ${safeInline(evidence.fields.id)}`,
+    `- ${copy.evidence} ${copy.artifactHash}: ${safeInline(evidence.artifact_hash)}`,
+    `- ${copy.review}: ${safeInline(review.fields.id)}`,
+    `- ${copy.review} ${copy.artifactHash}: ${safeInline(review.artifact_hash)}`
+  ], detailBlocks = [
+    detailBlock(`${copy.findings} (${findings.length})`, findings),
+    detailBlock(`${copy.checks} (${checkLines.length})`, checkLines),
+    detailBlock(`${copy.limitations} (${proofLimitations.length})`, proofLimitations.map((entry) => `- ${localizedKnownText(entry, lang)}`)),
+    detailBlock(`${copy.changedPaths} (${changedPathCount(pathAuthority)})`, pathLines(pathAuthority, lang)),
+    detailBlock(copy.traceability, traceLines)
+  ].filter(Boolean), decisionLines = [
+    `- ${reviewDecision(review, lang)}`,
+    `- ${copy.reason}: ${reviewReason({ review, reviewInput, pathAuthority, checks }, lang)}`,
+    `- ${copy.repositoryOutcome}: ${concise(reviewInput.assessment_summary)}`,
+    `- ${copy.evidenceGrade}: ${displayValue(lang, evidence.fields.overall_grade)}.`,
+    ...primaryProofBoundary ? [`- ${copy.proofBoundary}: ${concise(primaryProofBoundary)}`] : [],
+    `- ${copy.scope}: ${scopeSummary(pathAuthority, lang)}.`,
+    ...review.fields.delivery_status === "blocked" ? [lang === "de" ? "- Nur dieser Liefer-Snapshot ist blockiert; die normale Host- und Workflow-Nutzung bleibt verf\xFCgbar." : "- Only this delivery snapshot is blocked; normal host and Workflow use remains available."] : []
+  ], humanOutput = [
+    lang === "de" ? `## Review-Ergebnis \xB7 Lieferung ${statusLabel}` : `## Review result \xB7 Delivery ${statusLabel}`,
+    `### ${copy.decision}`,
+    decisionLines.join(`
+`),
+    `### ${copy.nextAction}`,
+    actionLine(review.fields.next_action, lang),
+    ...detailBlocks
   ].join(`
 
 `);
   return { presentation, humanOutput: `${humanOutput}
 ` };
 }
-function planPresentation(result, rootPlan) {
-  let state = result.feasible ? "ready" : "blocked", blockers = result.blocking_issues.map((entry) => `- ${entry.message ?? entry.code ?? String(entry)}`);
+function planPresentation(result, rootPlan, locale) {
+  let lang = localeOf(locale), copy = labels(lang), state = result.feasible ? "ready" : "blocked", blockers = result.blocking_issues.map(issueLine), advisories = (result.advisories ?? []).map(issueLine), nextAction = result.feasible ? "implement-plan" : "correct-plan", decision2 = result.feasible ? lang === "de" ? "Der exakte Schema-6-Root ist g\xFCltig und bereit f\xFCr eine separate menschliche Implementierungsfreigabe." : "The exact Schema-6 Root is valid and ready for separate human implementation approval." : lang === "de" ? "Der Root ist nicht implementierungsbereit und muss zuerst korrigiert werden." : "The Root is not ready for implementation and must be corrected first.", reason = result.feasible ? lang === "de" ? "Die Planvalidierung hat keine Blocker gefunden." : "Plan validation found no blockers." : safeInline(result.blocking_issues[0]?.message ?? result.blocking_issues[0]?.code ?? "Plan validation failed.");
   return [
-    `## Workflow Plan \xB7 ${state}`,
-    "### Quick decision",
-    result.feasible ? "- The exact Schema-6 Root is valid and ready for separate human implementation approval." : "- The Root is not valid and must be corrected before implementation.",
-    ...blockers.length > 0 ? ["### Blockers", blockers.join(`
-`)] : [],
-    "### Next step",
-    `- Now: ${result.feasible ? "implement-plan" : "correct-plan"}`,
-    "### Details",
-    `Root bytes SHA-256: ${sha2564(rootPlan)}`
-  ].join(`
+    lang === "de" ? `## Planvalidierung \xB7 ${displayValue(lang, state)}` : `## Plan validation \xB7 ${displayValue(lang, state)}`,
+    `### ${copy.decision}`,
+    `- ${decision2}
+- ${copy.reason}: ${reason}`,
+    `### ${copy.nextAction}`,
+    actionLine(nextAction, lang),
+    detailBlock(`${copy.planBlockers} (${blockers.length})`, blockers),
+    detailBlock(`${copy.advisories} (${advisories.length})`, advisories),
+    detailBlock(copy.traceability, [
+      ...result.root_plan_id ? [`- ${copy.root}: ${safeInline(result.root_plan_id)}`] : [],
+      `- ${copy.rootHash}: ${sha2564(rootPlan)}`
+    ])
+  ].filter(Boolean).join(`
 
 `) + `
 `;
 }
-function statusPresentation(status, accepted = !1, pathAuthority = null) {
-  let snapshot2 = status.snapshot;
-  return [
-    `## Workflow \xB7 ${snapshot2.state}`,
-    "### Quick decision",
-    `- Manual state: ${snapshot2.state}`,
-    `- Delivery status: ${snapshot2.delivery_status ?? "none"}`,
-    `- Evidence grade: ${snapshot2.evidence_grade ?? "none"}`,
-    `- Scope: ${pathAuthority?.status ?? "unknown"}`,
-    "### Next step",
-    `- Now: ${snapshot2.next_action}`,
-    "### Details",
-    accepted ? "The provisional acceptance is explicit, ephemeral, and not persisted." : "Status is derived only from the exact supplied Schema-6 artifact bytes."
+function statusPresentation(status, accepted = !1, pathAuthority = null, locale = "en", current = {}) {
+  let lang = localeOf(locale), copy = labels(lang), snapshot2 = status.snapshot, problems = status.problem_details ?? [], blockingProblems = problems.filter((entry) => entry.blocking === !0), proofProblems = problems.filter((entry) => entry.blocking !== !0), snapshotBlockers = unique4(snapshot2.blockers ?? []), decision2 = accepted ? lang === "de" ? "Die vorl\xE4ufige Lieferung ist f\xFCr diese Aufgabe ausdr\xFCcklich angenommen; die Annahme wird nicht gespeichert und \xE4ndert den Evidenzgrad nicht." : "The provisional delivery is explicitly accepted for this task; acceptance is not persisted and does not change the evidence grade." : lang === "de" ? `Der manuelle Workflow hat den Status ${displayValue(lang, snapshot2.state)}.` : `The Manual Workflow is in the ${displayValue(lang, snapshot2.state)} state.`, blockingIds = unique4(blockingProblems.map((entry) => entry.check_id)), reason = blockingProblems.length > 0 ? lang === "de" ? `${counted(blockingProblems.length, "Lieferblocker", "Lieferblocker")}${blockingIds.length > 0 ? ` (${blockingIds.join(", ")})` : ""} ${blockingProblems.length === 1 ? "ben\xF6tigt" : "ben\xF6tigen"} Aufmerksamkeit.` : `${counted(blockingProblems.length, "delivery blocker", "delivery blockers")}${blockingIds.length > 0 ? ` (${blockingIds.join(", ")})` : ""} ${blockingProblems.length === 1 ? "needs" : "need"} attention.` : snapshotBlockers.length > 0 ? lang === "de" ? `${counted(snapshotBlockers.length, "Lebenszyklus-Blocker", "Lebenszyklus-Blocker")} ${snapshotBlockers.length === 1 ? "ben\xF6tigt" : "ben\xF6tigen"} Aufmerksamkeit.` : `${counted(snapshotBlockers.length, "lifecycle blocker", "lifecycle blockers")} ${snapshotBlockers.length === 1 ? "needs" : "need"} attention.` : accepted ? lang === "de" ? "Die Annahme ist fl\xFCchtig und verleiht keine dauerhafte Autorit\xE4t." : "Acceptance is ephemeral and grants no persistent authority." : lang === "de" ? "Der Zustand wurde ausschlie\xDFlich aus der exakten Artefaktkette abgeleitet." : "The state was derived only from the exact artifact chain.", proofBoundary = proofProblems.length > 0 ? lang === "de" ? `${counted(proofProblems.length, "Nachweisgrenze verhindert", "Nachweisgrenzen verhindern")} eine verifizierte Aussage.` : `${counted(proofProblems.length, "proof limitation prevents", "proof limitations prevent")} a verified claim.` : snapshot2.evidence_grade && snapshot2.evidence_grade !== "verified" ? lang === "de" ? `Der Evidenzgrad ${displayValue(lang, snapshot2.evidence_grade)} belegt keine verifizierte Lieferung.` : `Evidence grade ${displayValue(lang, snapshot2.evidence_grade)} does not establish verified delivery.` : null, problemLines = problems.map((entry) => [
+    `- ${localizedKnownText(entry.problem, lang)}`,
+    ...entry.check_id ? [`  - Check: ${safeInline(entry.check_id)}`] : [],
+    ...entry.why ? [`  - ${lang === "de" ? "Warum" : "Why"}: ${localizedKnownText(entry.why, lang)}`] : [],
+    ...entry.resolution ? [`  - ${lang === "de" ? "L\xF6sung" : "Resolution"}: ${localizedKnownText(entry.resolution, lang)}`] : [],
+    `  - ${lang === "de" ? "Blockiert die Lieferung" : "Blocks delivery"}: ${entry.blocking === !0 ? lang === "de" ? "ja" : "yes" : lang === "de" ? "nein" : "no"}`
   ].join(`
+`)), existingProblems = new Set(problems.map((entry) => entry.problem));
+  problemLines.push(...snapshotBlockers.filter((entry) => !existingProblems.has(entry)).map((entry) => `- ${safeInline(displayValue(lang, entry))}`));
+  let trace = status.artifact_summary ?? {}, currentFindings = (current.review?.findings ?? []).map((finding2) => findingLine(finding2, lang)), currentChecks = (current.evidence?.fields?.check_evidence ?? []).map((check) => checkLine(check, lang)), currentLimitations = unique4((current.evidence?.fields?.check_evidence ?? []).flatMap((check) => check.limitations ?? [])).map((entry) => `- ${localizedKnownText(entry, lang)}`), traceLines = [
+    `- ${copy.root}: ${safeInline(trace.root_plan_id ?? snapshot2.root_plan_id)}`,
+    ...trace.root_content_hash ? [`- ${copy.rootHash}: ${safeInline(trace.root_content_hash)}`] : [],
+    ...trace.evidence_tip ? [`- ${copy.evidence}: ${safeInline(trace.evidence_tip)}`] : [],
+    ...trace.evidence_hash ? [`- ${copy.evidence} ${copy.artifactHash}: ${safeInline(trace.evidence_hash)}`] : [],
+    ...trace.review_tip ? [`- ${copy.review}: ${safeInline(trace.review_tip)}`] : [],
+    ...trace.review_hash ? [`- ${copy.review} ${copy.artifactHash}: ${safeInline(trace.review_hash)}`] : [],
+    ...trace.artifact_set_hash ? [`- ${copy.artifactSetHash}: ${safeInline(trace.artifact_set_hash)}`] : []
+  ].filter((entry) => !entry.endsWith(": "));
+  return [
+    accepted ? lang === "de" ? "## Vorl\xE4ufige Annahme \xB7 angenommen" : "## Provisional acceptance \xB7 accepted" : lang === "de" ? `## Manueller Workflow-Status \xB7 ${displayValue(lang, snapshot2.state)}` : `## Manual workflow status \xB7 ${displayValue(lang, snapshot2.state)}`,
+    `### ${copy.decision}`,
+    [
+      `- ${decision2}`,
+      `- ${copy.reason}: ${concise(reason)}`,
+      `- ${lang === "de" ? "Lieferstatus" : "Delivery status"}: ${displayValue(lang, snapshot2.delivery_status ?? "none")}.`,
+      `- ${copy.evidenceGrade}: ${displayValue(lang, snapshot2.evidence_grade ?? "none")}.`,
+      ...proofBoundary ? [`- ${copy.proofBoundary}: ${concise(proofBoundary)}`] : [],
+      `- ${copy.scope}: ${scopeSummary(pathAuthority, lang)}.`
+    ].join(`
+`),
+    `### ${copy.nextAction}`,
+    actionLine(snapshot2.next_action, lang),
+    detailBlock(`${copy.findings} (${currentFindings.length})`, currentFindings),
+    detailBlock(`${copy.checks} (${currentChecks.length})`, currentChecks),
+    detailBlock(`${copy.limitations} (${currentLimitations.length})`, currentLimitations),
+    detailBlock(`${lang === "de" ? "Statusprobleme und L\xF6sungen" : "Status problems and resolutions"} (${problemLines.length})`, problemLines),
+    detailBlock(`${copy.changedPaths} (${changedPathCount(pathAuthority)})`, pathLines(pathAuthority, lang)),
+    detailBlock(copy.traceability, traceLines)
+  ].filter(Boolean).join(`
 
 `) + `
 `;
@@ -16522,7 +16797,7 @@ function validatePlan(request, pluginRoot) {
     root_plan_id: result.root_plan_id,
     root_content_hash: sha2564(request.root_plan),
     result,
-    human_output: planPresentation(result, request.root_plan),
+    human_output: planPresentation(result, request.root_plan, request.presentation_locale),
     artifacts: []
   };
 }
@@ -16572,11 +16847,18 @@ function buildReview(request, pluginRoot) {
     pluginRoot
   }), shown = reviewPresentation({
     rootFields: exact.rootFields,
+    rootPlan: request.root_plan,
     evidence,
     review,
     reviewInput: review.normalized_review_input,
     repositoryObservation: request.repository_observation,
-    pathAuthority
+    pathAuthority,
+    trace: {
+      intent_hash: contract.authoritative_projection_hash,
+      workspace_binding_hash: hashes.workspaceBindingHash,
+      repository_snapshot_hash: hashes.snapshotHash
+    },
+    locale: request.presentation_locale
   });
   return {
     schema: 1,
@@ -16599,7 +16881,10 @@ function buildReview(request, pluginRoot) {
   };
 }
 function deriveStatus(request, pluginRoot, manualAcceptance = null) {
-  let exact = exactChain(request.root_plan, request.artifacts, pluginRoot), status = deriveManualWorkflowSnapshot({
+  let exact = exactChain(request.root_plan, request.artifacts, pluginRoot), evidenceTipId = exact.tips.evidence_tips[exact.rootFields.id] ?? null, reviewTipId = exact.tips.review_tips[exact.rootFields.id] ?? null, current = {
+    evidence: evidenceTipId ? exact.chain.effective.get(evidenceTipId) : null,
+    review: reviewTipId ? exact.chain.effective.get(reviewTipId) : null
+  }, status = deriveManualWorkflowSnapshot({
     rootPlanId: exact.rootFields.id,
     artifacts: exact.entries,
     pluginRoot,
@@ -16617,7 +16902,7 @@ function deriveStatus(request, pluginRoot, manualAcceptance = null) {
     diagnostics: status.diagnostics,
     changed_paths: status.changed_paths,
     path_authority: pathAuthority,
-    human_output: statusPresentation(status, manualAcceptance === "provisional", pathAuthority),
+    human_output: statusPresentation(status, manualAcceptance === "provisional", pathAuthority, request.presentation_locale, current),
     artifacts: []
   };
 }
@@ -16630,7 +16915,7 @@ function acceptProvisional(request, pluginRoot) {
   return deriveStatus(request, pluginRoot, "provisional");
 }
 function shadowError(operation, input, error) {
-  let code = error?.code ?? "manual-workflow-failed", message = String(error?.message ?? error), nextAction = error?.nextAction ?? (operation === "validate-plan" ? "correct-plan" : ["status", "accept-provisional"].includes(operation) ? "provide-artifacts" : "retry-review");
+  let locale = localeOf(input?.presentation_locale), copy = labels(locale), code = error?.code ?? "manual-workflow-failed", message = String(error?.message ?? error), nextAction = error?.nextAction ?? (operation === "validate-plan" ? "correct-plan" : ["status", "accept-provisional"].includes(operation) ? "provide-artifacts" : "retry-review");
   return {
     schema: 1,
     kind: "manual-workflow-error",
@@ -16642,16 +16927,28 @@ function shadowError(operation, input, error) {
     supplied_root_retained: typeof input?.root_plan == "string",
     supplied_artifact_count: Array.isArray(input?.artifacts) ? input.artifacts.length : 0,
     next_action: nextAction,
-    human_output: `## Workflow \xB7 shadow
-
-### Quick decision
-
-- ${message}
+    human_output: [
+      locale === "de" ? "## Manueller Workflow \xB7 Shadow" : "## Manual workflow \xB7 shadow",
+      `### ${copy.decision}`,
+      locale === "de" ? `- Die angeforderte Manual-Operation konnte nicht abgeschlossen werden.
+- ${copy.reason}: ${shadowReason(code, locale)}
+- Es wurde kein Schema-6-Evidence- oder Review-Artefakt erstellt.
+- Nur diese Manual-Operation ist betroffen; die normale Host- und Workflow-Nutzung bleibt verf\xFCgbar.` : `- The requested Manual operation could not be completed.
+- ${copy.reason}: ${shadowReason(code, locale)}
 - No Schema-6 Evidence or Review artifact was created.
+- Only this Manual operation is affected; normal host and Workflow use remains available.`,
+      `### ${copy.nextAction}`,
+      actionLine(nextAction, locale),
+      detailBlock(copy.traceability, [
+        `- Operation: ${safeInline(operation)}`,
+        `- ${locale === "de" ? "Fehlercode" : "Error code"}: ${safeInline(code)}`,
+        `- ${locale === "de" ? "Fehler" : "Error"}: ${safeInline(message)}`,
+        `- ${locale === "de" ? "Root bereitgestellt" : "Root supplied"}: ${typeof input?.root_plan == "string" ? locale === "de" ? "ja" : "yes" : locale === "de" ? "nein" : "no"}`,
+        `- ${locale === "de" ? "Bereitgestellte Artefakte" : "Supplied artifacts"}: ${Array.isArray(input?.artifacts) ? input.artifacts.length : 0}`
+      ])
+    ].filter(Boolean).join(`
 
-### Next step
-
-- Now: ${nextAction}
+`) + `
 `,
     artifacts: []
   };

@@ -3,14 +3,14 @@ name: work-review
 description: Review one Schema-6 Workflow root repository-read-only.
 ---
 
-Start a fresh repository-read-only Review. Read [protocol](../../references/artifact-protocol.md) and [review](../../references/review-contract.md), then use the closed Manual request schema.
+Start fresh and repository-read-only. Read [protocol](../../references/artifact-protocol.md) and [review](../../references/review-contract.md); use the closed Manual schema.
 
-Require the exact task Root and predecessor bytes; a fresh task needs explicit attachment. Cache, hooks, IDs, transport, and unsupported or ambiguous material grant no authority.
+Require exact task Root/predecessors; fresh tasks need attachment. Cache, hooks, IDs, transport, or ambiguity grant no authority.
 
-Inspect every objective, boundary, Check, repository observation, and limitation. Keep repository outcome separate from proof calibration. The harness chooses read-only inspection; Workflow interprets no command or framework detail.
+Inspect every objective, boundary, Check, observation, and limit. Separate repository outcome from proof; the harness owns inspection.
 
-Supply closed Schema-1 Review, repository, and Check observations. Local grades are `supported|partial|unavailable|failed`; never author IDs, hashes, receipts, attestations, or verified claims. `supported` needs an unambiguous current-snapshot outcome. Command invocation, source presence, masked exit status, or unknown outcome is partial or unavailable. Exact same-task observations may be reused while the snapshot is unchanged.
+Supply closed Schema-1 Review, repository, and Check observations; pass `presentation_locale: de` only for an active German request, else `en`. Grades are `supported|partial|unavailable|failed`; never author IDs, hashes, receipts, attestations, or verified claims. `supported` needs an unambiguous current-snapshot outcome; invocation, source presence, masked status, or unknown outcome does not. Reuse observations only on the same snapshot.
 
-Run local `build-review` once. It validates, hashes, classifies paths and lineage, and atomically returns presentation plus Evidence/Review without MCP or state. Outside-allowed repository paths remain visible and provisional; they alone create neither finding nor clarification. Protected, approval-required, escaping, or failed paths and Checks block.
+Run local `build-review` once. It validates, hashes, classifies authority and lineage, and atomically returns presentation plus artifacts without MCP or state. Outside-allowed paths stay visible and provisional; protected, approval-required, escaping, or failed paths and Checks block.
 
-Present Shadow recovery or `human_output` and both artifacts unchanged, with no independent postscript. Never mutate. Provisional may offer `/accept-work provisional`; protected sealing is separate and never edits Manual artifacts.
+Render `human_output` once. Decorate only `presentation.next_action`; closed Cursor map: `correct`→`/correct-work`; `accept-provisional`→`/accept-work provisional`; `replan`→`/plan-work replan`; `retry-review|review-root`→`/review-work`; `clarify`→answer; `provide-artifacts`→exact chain; `none`→no action. No fallback; token stays in trace. Add no assessment or postscript. Put each artifact once, unchanged and unquoted, in its own default-closed `<details>`; localize labels. Shadow: decorate top-level only, create none. Never mutate.

@@ -9,7 +9,8 @@
 - [ ] Core architecture contains no command, tool, model, sandbox, worktree, retry, or process policy.
 - [ ] Hooks are availability-first and ordinary host use remains free.
 - [ ] Cursor, Codex, and portable targets rebuild without drift.
-- [ ] `$release-plugin` and `/release-plugin` retain explicit status, prepare, and receipt-bound publish parity outside every shipped target.
+- [ ] `$release-plugin` and `/release-plugin` retain explicit ensure, read-only status, direct prepare, and receipt-bound publish parity outside every shipped target.
+- [ ] Ensure cuts only a clean untagged unprepared changelog, stops at `commit_required`, and prepares only a later clean committed release cut.
 - [ ] Two preparations of one clean release snapshot produce byte-identical Cursor and Codex archives, provenance, checksums, notes, and receipts.
 - [ ] Prepared archives have one `geldmacher-workflow/` root, canonical manifests and modes, no symlinks, development paths, or recognizable secrets.
 - [ ] Publication requires the exact receipt, clean unchanged commit and tree, valid GitHub authentication, and a remote matching tag; conflicts and failed read-back stop without overwrite or cleanup.

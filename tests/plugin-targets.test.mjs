@@ -218,6 +218,25 @@ test("deterministic target build isolates Codex and exposes exactly five Manual 
       return result.stdout;
     });
     assert.equal(new Set(localReviewOutputs).size, 1, "all targets must return byte-identical local Review artifacts");
+    const localGermanReviewInput = JSON.stringify({ ...JSON.parse(localReviewInput), presentation_locale: "de" });
+    const localGermanReviewOutputs = [first.cursor.path, first.codex.path, first.agentPlugins.path].map((target, index) => {
+      const result = spawnSync(process.execPath, [join(target, "dist", "manual-workflow.mjs"), "build-review"], {
+        cwd: defaultRoot,
+        input: localGermanReviewInput,
+        encoding: "utf8",
+        env: { PATH: process.env.PATH ?? "", HOME: pluginData },
+      });
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      const parsed = JSON.parse(result.stdout);
+      const english = JSON.parse(localReviewOutputs[index]);
+      assert.match(parsed.human_output, /^## Review-Ergebnis ·/);
+      assert.deepEqual(parsed.artifacts, english.artifacts, "presentation locale must not alter packaged artifact bytes or hashes");
+      assert.equal(parsed.root_content_hash, english.root_content_hash);
+      assert.equal(parsed.intent_hash, english.intent_hash);
+      assert.equal(parsed.repository_snapshot_hash, english.repository_snapshot_hash);
+      return result.stdout;
+    });
+    assert.equal(new Set(localGermanReviewOutputs).size, 1, "all targets must return byte-identical German local Review output");
     const cursorHookConfig = JSON.parse(readFileSync(join(first.cursor.path, "hooks", "hooks.json"), "utf8"));
     assert.ok(Object.values(cursorHookConfig.hooks).flat().every((entry) => entry.failClosed === false));
     const cursorHook = spawnSync(process.execPath, [join(first.cursor.path, "hooks", "closeout-guard.mjs"), "--enforce"], {
@@ -267,10 +286,61 @@ test("deterministic target build isolates Codex and exposes exactly five Manual 
       .sort();
     assert.deepEqual(codexSkills, expectedCodexSkills);
     const codexReview = readFileSync(join(codex, "skills", "review-work", "SKILL.md"), "utf8");
+    const cursorReview = readFileSync(join(first.cursor.path, "skills", "work-review", "SKILL.md"), "utf8");
+    const cursorManual = readFileSync(join(first.cursor.path, "skills", "manual-workflow", "SKILL.md"), "utf8");
+    const cursorExecution = readFileSync(join(first.cursor.path, "skills", "work-execution", "SKILL.md"), "utf8");
+    const cursorPlanning = readFileSync(join(first.cursor.path, "skills", "work-planning", "SKILL.md"), "utf8");
+    const codexPlan = readFileSync(join(codex, "skills", "plan-work", "SKILL.md"), "utf8");
+    const portablePlan = readFileSync(join(first.agentPlugins.path, "skills", "plan-work", "SKILL.md"), "utf8");
+    const codexCorrect = readFileSync(join(codex, "skills", "correct-work", "SKILL.md"), "utf8");
+    const cursorManualContract = readFileSync(join(first.cursor.path, "references", "manual-workflow-contract.md"), "utf8");
+    const codexManualContract = readFileSync(join(codex, "references", "manual-workflow-contract.md"), "utf8");
+    assert.equal(codexManualContract, cursorManualContract, "Cursor and Codex must package one canonical Manual action map");
     assert.match(codexReview, /repository-read-only/i);
     assert.match(codexReview, /project harness/i);
     assert.match(codexReview, /manual-workflow\.mjs build-review/i);
     assert.match(codexReview, /without MCP, adapters, MCP Roots, hooks, cache, or state/i);
+    for (const reviewSkill of [cursorReview, codexReview]) {
+      assert.match(reviewSkill, /presentation_locale(?:: de)?.*active (?:request is German|German request).*(?:otherwise|else) `?en`?/i);
+      assert.match(reviewSkill, /each (?:returned artifact text|artifact).*once, unchanged and unquoted, (?:inside |in )?its own default-closed `<details>`/i);
+      assert.match(reviewSkill, /(?:Decorate|decorate) only `presentation\.next_action`/);
+    }
+    assert.match(cursorExecution, /phase is complete and fresh `\/review-work` is pending/i);
+    assert.match(cursorExecution, /Never claim (?:that )?delivery or Workflow (?:is complete|completion)/i);
+    for (const planningFacade of [cursorPlanning, codexPlan]) {
+      assert.match(planningFacade, /state Root readiness, one concrete reason, and exactly one action: \*\*Implement Plan\*\*/i);
+    }
+    assert.match(portablePlan, /State readiness, one concrete reason, and exactly one next action: invoke `implement-work` after approval/i);
+    for (const planningFacade of [cursorPlanning, codexPlan, portablePlan]) {
+      assert.doesNotMatch(planningFacade, /implementation(?: phase)? (?:is )?complete/i);
+      assert.doesNotMatch(planningFacade, /fresh [^\n.]{0,40}review-work[^\n.]{0,20}pending/i);
+    }
+    assert.doesNotMatch(cursorPlanning, /\/review-work/);
+    assert.doesNotMatch(codexPlan, /\$review-work/);
+    assert.doesNotMatch(portablePlan, /`review-work`/);
+    assert.match(codexCorrect, /correction phase is complete and fresh `\$review-work` is pending/i);
+    assert.match(codexCorrect, /Never claim that delivery or Workflow is complete/i);
+    for (const cursorFacade of [cursorReview, cursorManual]) {
+      assert.match(cursorFacade, /closed Cursor map/i);
+      assert.match(cursorFacade, /`clarify`.*`provide-artifacts`.*`none`/i);
+      assert.match(cursorFacade, /No fallback;.*token.*trace/i);
+    }
+    for (const row of [
+      "| `implement-plan` | **Implement Plan** | **Implement Plan** | `implement-work` |",
+      "| `correct-plan` | revise the native Plan | revise the native Plan | revise the Root with `plan-work` |",
+      "| `create-schema-6-root` | `/plan-work` | `$plan-work` | `plan-work` |",
+      "| `create-root-plan` | `/plan-work` | `$plan-work` | `plan-work` |",
+      "| `correct` | `/correct-work` | `$correct-work` | `correct-work` |",
+      "| `accept-provisional` | `/accept-work provisional` | `$accept-work` | `accept-work` |",
+      "| `replan` | `/plan-work replan` | `$plan-work replan` | `plan-work replan` |",
+      "| `retry-review` | `/review-work` | `$review-work` | `review-work` |",
+      "| `review-root` | `/review-work` | `$review-work` | `review-work` |",
+      "| `clarify` | answer the named decision | answer the named decision | answer the named decision |",
+      "| `provide-artifacts` | provide the exact chain | provide the exact chain | provide the exact chain |",
+      "| `none` | no further Workflow action | no further Workflow action | no further Workflow action |",
+    ]) {
+      assert.equal(codexManualContract.includes(row), true, `missing native action mapping row: ${row}`);
+    }
     assert.doesNotMatch(codexReview, /workflow_[a-z_]+/);
     assert.doesNotMatch(codexReview, /command allowlist|model pool|review route/i);
     const codexEngineering = readFileSync(join(codex, "skills", "engineering-work", "SKILL.md"), "utf8");

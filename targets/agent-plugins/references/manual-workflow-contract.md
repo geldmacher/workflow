@@ -21,6 +21,27 @@ This contract preserves Workflow's Skills-first Manual Schema-6 lifecycle on Age
 
 Unprotected inputs can never claim verified. Optional protected sealing requires harness attestations bound to Check intent, exact Root, workspace, and snapshot and appends a new artifact pair. Missing attestation stays provisional; attested failure stays failed; contradictory binding is rejected. Workflow never inspects command, tool, model, framework, sandbox, worktree, retry, or route data.
 
+## Action decoration
+
+The builder retains canonical action tokens. The portable facade decorates exactly the emitted token through this complete mapping and retains the token as technical traceability:
+
+| Token | Portable action |
+|---|---|
+| `implement-plan` | `implement-work` |
+| `correct-plan` | revise the Root with `plan-work` |
+| `create-schema-6-root` | `plan-work` |
+| `create-root-plan` | `plan-work` |
+| `review-root` | `review-work` |
+| `correct` | `correct-work` |
+| `accept-provisional` | `accept-work` |
+| `replan` | `plan-work replan` |
+| `retry-review` | `review-work` |
+| `clarify` | answer the named decision |
+| `provide-artifacts` | provide the exact chain |
+| `none` | no further Workflow action |
+
+There is no fallback mapping. The facade never invents another assessment or action. Implementation and correction handoffs report only phase completion with fresh `review-work` pending, never delivery or Workflow completion.
+
 ## Failure boundary
 
 Invalid, stale, conflicting, mixed-version, or ambiguous Roots, artifact chains, observations, or workspace bindings return Shadow without pseudo-artifacts and stop only the affected phase. Ordinary repository-internal paths outside `allowed_roots` remain visible and cap Manual delivery at provisional; protected, approval-required, or escaping paths remain blocking. MCP, adapter, Root, hook, cache, or automation unavailability cannot change Manual status or block ordinary client use. Prose, cache content, tool IDs, or opaque trace cannot manufacture approval, Evidence, or success.
