@@ -209,6 +209,20 @@ test("protected sealing appends one verified pair after an exact unprotected pro
   assert.equal(sealed.review.fields.next_action, "none");
   assert.equal(localArtifacts[0].text, local.delivery_evidence.artifact);
   assert.equal(localArtifacts[1].text, local.review.artifact);
+  assert.throws(() => buildManualReviewLifecycle({
+    rootPlanText: root,
+    artifacts: localArtifacts,
+    reviewInput: reviewInput(true),
+    workspaceRoot: defaultRoot,
+    pluginRoot: defaultRoot,
+    repositoryBaseline: cleanBaseline,
+    repositoryAttribution: { status: "attributed", boundary: "protected-seal", reason_codes: [] },
+    harnessPhaseResult: { ...phaseResult(), changed_paths: ["README.md", "src/retry.mjs"] },
+    harnessProtectionHash: "1".repeat(64),
+    workspaceBinding,
+    seal: true,
+    captureSnapshot: () => current,
+  }), (error) => error?.code === "protected-seal-authority-violation");
   const exactChain = [
     ["root", root],
     [localArtifacts[0].label, localArtifacts[0].text],

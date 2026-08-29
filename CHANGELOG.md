@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Unified literal and wildcard Root path matching across validation, Manual Review, status, correction, automation, and sealing; ordinary repository-internal Manual scope drift now remains visible and provisional instead of causing false clarification, while protected and approval-required boundaries stay hard.
+- Made Manual Review output action-consistent and evidence-specific: status preserves exact Review actions, supported observations require an unambiguous current-snapshot outcome, and canonical Skills forbid independent post-review summaries.
+- Added a repository-local explicit GitHub Release workflow with deterministic separate Cursor and Codex archives, receipt-bound fail-closed publication, stubbed safety coverage, and a prominent verified installation, update, and rollback guide.
 - Added exact `seal_artifacts` receipt binding and linear Schema-6 `seal` Evidence so protected verification can append a new achieved pair without rewriting local provisional bytes; incomplete sealing remains atomic and state-neutral.
 - Aligned Manual request length limits with runtime validation, preserved exact Review actions on denied provisional acceptance, removed false attestation wording for unprotected failures, and synchronized the portable nine-Skill description.
 - Reoriented Manual Plan, Review, status, correction, explanation, provisional acceptance, and learning to Skills plus a bundled stateless local builder with closed Schema-1 inputs, deterministic Schema-6 artifacts, and no MCP, adapter, Root-transport, Hook, cache, or persistent-state dependency.

@@ -2989,16 +2989,16 @@ var require_resolve_block_map = __commonJS({
       ctx.atRoot && (ctx.atRoot = !1);
       let offset = bm.offset, commentEnd = null;
       for (let collItem of bm.items) {
-        let { start, key, sep, value } = collItem, keyProps = resolveProps.resolveProps(start, {
+        let { start, key, sep: sep2, value } = collItem, keyProps = resolveProps.resolveProps(start, {
           indicator: "explicit-key-ind",
-          next: key ?? sep?.[0],
+          next: key ?? sep2?.[0],
           offset,
           onError,
           parentIndent: bm.indent,
           startOnNewline: !0
         }), implicitKey = !keyProps.found;
         if (implicitKey) {
-          if (key && (key.type === "block-seq" ? onError(offset, "BLOCK_AS_IMPLICIT_KEY", "A block sequence may not be used as an implicit map key") : "indent" in key && key.indent !== bm.indent && onError(offset, "BAD_INDENT", startColMsg)), !keyProps.anchor && !keyProps.tag && !sep) {
+          if (key && (key.type === "block-seq" ? onError(offset, "BLOCK_AS_IMPLICIT_KEY", "A block sequence may not be used as an implicit map key") : "indent" in key && key.indent !== bm.indent && onError(offset, "BAD_INDENT", startColMsg)), !keyProps.anchor && !keyProps.tag && !sep2) {
             commentEnd = keyProps.end, keyProps.comment && (map.comment ? map.comment += `
 ` + keyProps.comment : map.comment = keyProps.comment);
             continue;
@@ -3008,7 +3008,7 @@ var require_resolve_block_map = __commonJS({
         ctx.atKey = !0;
         let keyStart = keyProps.end, keyNode = key ? composeNode(ctx, key, keyProps, onError) : composeEmptyNode(ctx, keyStart, start, null, keyProps, onError);
         ctx.schema.compat && utilFlowIndentCheck.flowIndentCheck(bm.indent, key, onError), ctx.atKey = !1, utilMapIncludes.mapIncludes(ctx, map.items, keyNode) && onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
-        let valueProps = resolveProps.resolveProps(sep ?? [], {
+        let valueProps = resolveProps.resolveProps(sep2 ?? [], {
           indicator: "map-value-ind",
           next: value,
           offset: keyNode.range[2],
@@ -3018,7 +3018,7 @@ var require_resolve_block_map = __commonJS({
         });
         if (offset = valueProps.end, valueProps.found) {
           implicitKey && (value?.type === "block-map" && !valueProps.hasNewline && onError(offset, "BLOCK_AS_IMPLICIT_KEY", "Nested mappings are not allowed in compact mappings"), ctx.options.strict && keyProps.start < valueProps.found.offset - 1024 && onError(keyNode.range, "KEY_OVER_1024_CHARS", "The : indicator must be at most 1024 chars after the start of an implicit block mapping key"));
-          let valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep, null, valueProps, onError);
+          let valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep2, null, valueProps, onError);
           ctx.schema.compat && utilFlowIndentCheck.flowIndentCheck(bm.indent, value, onError), offset = valueNode.range[2];
           let pair = new Pair.Pair(keyNode, valueNode);
           ctx.options.keepSourceTokens && (pair.srcToken = collItem), map.items.push(pair);
@@ -3076,7 +3076,7 @@ var require_resolve_end = __commonJS({
     function resolveEnd(end, offset, reqSpace, onError) {
       let comment = "";
       if (end) {
-        let hasSpace = !1, sep = "";
+        let hasSpace = !1, sep2 = "";
         for (let token of end) {
           let { source, type } = token;
           switch (type) {
@@ -3086,11 +3086,11 @@ var require_resolve_end = __commonJS({
             case "comment": {
               reqSpace && !hasSpace && onError(token, "MISSING_CHAR", "Comments must be separated from other tokens by white space characters");
               let cb = source.substring(1) || " ";
-              comment ? comment += sep + cb : comment = cb, sep = "";
+              comment ? comment += sep2 + cb : comment = cb, sep2 = "";
               break;
             }
             case "newline":
-              comment && (sep += source), hasSpace = !0;
+              comment && (sep2 += source), hasSpace = !0;
               break;
             default:
               onError(token, "UNEXPECTED_TOKEN", `Unexpected ${type} at node end`);
@@ -3116,17 +3116,17 @@ var require_resolve_flow_collection = __commonJS({
       atRoot && (ctx.atRoot = !1), ctx.atKey && (ctx.atKey = !1);
       let offset = fc.offset + fc.start.source.length;
       for (let i = 0; i < fc.items.length; ++i) {
-        let collItem = fc.items[i], { start, key, sep, value } = collItem, props = resolveProps.resolveProps(start, {
+        let collItem = fc.items[i], { start, key, sep: sep2, value } = collItem, props = resolveProps.resolveProps(start, {
           flow: fcName,
           indicator: "explicit-key-ind",
-          next: key ?? sep?.[0],
+          next: key ?? sep2?.[0],
           offset,
           onError,
           parentIndent: fc.indent,
           startOnNewline: !1
         });
         if (!props.found) {
-          if (!props.anchor && !props.tag && !sep && !value) {
+          if (!props.anchor && !props.tag && !sep2 && !value) {
             i === 0 && props.comma ? onError(props.comma, "UNEXPECTED_TOKEN", `Unexpected , in ${fcName}`) : i < fc.items.length - 1 && onError(props.start, "UNEXPECTED_TOKEN", `Unexpected empty item in ${fcName}`), props.comment && (coll.comment ? coll.comment += `
 ` + props.comment : coll.comment = props.comment), offset = props.end;
             continue;
@@ -3159,14 +3159,14 @@ var require_resolve_flow_collection = __commonJS({
 ` + prevItemComment : prev.comment = prevItemComment, props.comment = props.comment.substring(prevItemComment.length + 1);
           }
         }
-        if (!isMap && !sep && !props.found) {
-          let valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep, null, props, onError);
+        if (!isMap && !sep2 && !props.found) {
+          let valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep2, null, props, onError);
           coll.items.push(valueNode), offset = valueNode.range[2], isBlock(value) && onError(valueNode.range, "BLOCK_IN_FLOW", blockMsg);
         } else {
           ctx.atKey = !0;
           let keyStart = props.end, keyNode = key ? composeNode(ctx, key, props, onError) : composeEmptyNode(ctx, keyStart, start, null, props, onError);
           isBlock(key) && onError(keyNode.range, "BLOCK_IN_FLOW", blockMsg), ctx.atKey = !1;
-          let valueProps = resolveProps.resolveProps(sep ?? [], {
+          let valueProps = resolveProps.resolveProps(sep2 ?? [], {
             flow: fcName,
             indicator: "map-value-ind",
             next: value,
@@ -3177,8 +3177,8 @@ var require_resolve_flow_collection = __commonJS({
           });
           if (valueProps.found) {
             if (!isMap && !props.found && ctx.options.strict) {
-              if (sep)
-                for (let st of sep) {
+              if (sep2)
+                for (let st of sep2) {
                   if (st === valueProps.found)
                     break;
                   if (st.type === "newline") {
@@ -3189,7 +3189,7 @@ var require_resolve_flow_collection = __commonJS({
               props.start < valueProps.found.offset - 1024 && onError(valueProps.found, "KEY_OVER_1024_CHARS", "The : indicator must be at most 1024 chars after the start of an implicit flow sequence key");
             }
           } else value && ("source" in value && value.source?.[0] === ":" ? onError(value, "MISSING_CHAR", `Missing space after : in ${fcName}`) : onError(valueProps.start, "MISSING_CHAR", `Missing , or : between ${fcName} items`));
-          let valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep, null, valueProps, onError) : null;
+          let valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep2, null, valueProps, onError) : null;
           valueNode ? isBlock(value) && onError(valueNode.range, "BLOCK_IN_FLOW", blockMsg) : valueProps.comment && (keyNode.comment ? keyNode.comment += `
 ` + valueProps.comment : keyNode.comment = valueProps.comment);
           let pair = new Pair.Pair(keyNode, valueNode);
@@ -3292,7 +3292,7 @@ var require_resolve_block_scalar = __commonJS({
       }
       for (let i = lines.length - 1; i >= chompStart; --i)
         lines[i][0].length > trimIndent && (chompStart = i + 1);
-      let value = "", sep = "", prevMoreIndented = !1;
+      let value = "", sep2 = "", prevMoreIndented = !1;
       for (let i = 0; i < contentStart; ++i)
         value += lines[i][0].slice(trimIndent) + `
 `;
@@ -3304,16 +3304,16 @@ var require_resolve_block_scalar = __commonJS({
           let message = `Block scalar lines must not be less indented than their ${header.indent ? "explicit indentation indicator" : "first line"}`;
           onError(offset - content.length - (crlf ? 2 : 1), "BAD_INDENT", message), indent = "";
         }
-        type === Scalar.Scalar.BLOCK_LITERAL ? (value += sep + indent.slice(trimIndent) + content, sep = `
-`) : indent.length > trimIndent || content[0] === "	" ? (sep === " " ? sep = `
-` : !prevMoreIndented && sep === `
-` && (sep = `
+        type === Scalar.Scalar.BLOCK_LITERAL ? (value += sep2 + indent.slice(trimIndent) + content, sep2 = `
+`) : indent.length > trimIndent || content[0] === "	" ? (sep2 === " " ? sep2 = `
+` : !prevMoreIndented && sep2 === `
+` && (sep2 = `
 
-`), value += sep + indent.slice(trimIndent) + content, sep = `
-`, prevMoreIndented = !0) : content === "" ? sep === `
+`), value += sep2 + indent.slice(trimIndent) + content, sep2 = `
+`, prevMoreIndented = !0) : content === "" ? sep2 === `
 ` ? value += `
-` : sep = `
-` : (value += sep + content, sep = " ", prevMoreIndented = !1);
+` : sep2 = `
+` : (value += sep2 + content, sep2 = " ", prevMoreIndented = !1);
       }
       switch (header.chomp) {
         case "-":
@@ -3459,13 +3459,13 @@ var require_resolve_flow_scalar = __commonJS({
       let match = first.exec(source);
       if (!match)
         return source;
-      let res = match[1], sep = " ", pos = first.lastIndex;
+      let res = match[1], sep2 = " ", pos = first.lastIndex;
       for (line.lastIndex = pos; match = line.exec(source); )
-        match[1] === "" ? sep === `
-` ? res += sep : sep = `
-` : (res += sep + match[1], sep = " "), pos = line.lastIndex;
+        match[1] === "" ? sep2 === `
+` ? res += sep2 : sep2 = `
+` : (res += sep2 + match[1], sep2 = " "), pos = line.lastIndex;
       let last = /[ \t]*(.*)/sy;
-      return last.lastIndex = pos, match = last.exec(source), res + sep + (match?.[1] ?? "");
+      return last.lastIndex = pos, match = last.exec(source), res + sep2 + (match?.[1] ?? "");
     }
     function doubleQuotedValue(source, onError) {
       let res = "";
@@ -4090,12 +4090,12 @@ var require_cst_stringify = __commonJS({
         }
       }
     }
-    function stringifyItem({ start, key, sep, value }) {
+    function stringifyItem({ start, key, sep: sep2, value }) {
       let res = "";
       for (let st of start)
         res += st.source;
-      if (key && (res += stringifyToken(key)), sep)
-        for (let st of sep)
+      if (key && (res += stringifyToken(key)), sep2)
+        for (let st of sep2)
           res += st.source;
       return value && (res += stringifyToken(value)), res;
     }
@@ -5014,13 +5014,13 @@ var require_parser = __commonJS({
       }
       *scalar(scalar) {
         if (this.type === "map-value-ind") {
-          let prev = getPrevProps(this.peek(2)), start = getFirstKeyStartProps(prev), sep;
-          scalar.end ? (sep = scalar.end, sep.push(this.sourceToken), delete scalar.end) : sep = [this.sourceToken];
+          let prev = getPrevProps(this.peek(2)), start = getFirstKeyStartProps(prev), sep2;
+          scalar.end ? (sep2 = scalar.end, sep2.push(this.sourceToken), delete scalar.end) : sep2 = [this.sourceToken];
           let map = {
             type: "block-map",
             offset: scalar.offset,
             indent: scalar.indent,
-            items: [{ start, key: scalar, sep }]
+            items: [{ start, key: scalar, sep: sep2 }]
           };
           this.onKeyLine = !0, this.stack[this.stack.length - 1] = map;
         } else
@@ -5122,12 +5122,12 @@ var require_parser = __commonJS({
                       items: [{ start, key: null, sep: [this.sourceToken] }]
                     });
                   else if (isFlowToken(it.key) && !includesToken(it.sep, "newline")) {
-                    let start2 = getFirstKeyStartProps(it.start), key = it.key, sep = it.sep;
-                    sep.push(this.sourceToken), delete it.key, delete it.sep, this.stack.push({
+                    let start2 = getFirstKeyStartProps(it.start), key = it.key, sep2 = it.sep;
+                    sep2.push(this.sourceToken), delete it.key, delete it.sep, this.stack.push({
                       type: "block-map",
                       offset: this.offset,
                       indent: this.indent,
-                      items: [{ start: start2, key, sep }]
+                      items: [{ start: start2, key, sep: sep2 }]
                     });
                   } else start.length > 0 ? it.sep = it.sep.concat(start, this.sourceToken) : it.sep.push(this.sourceToken);
                 else if (includesToken(it.start, "newline"))
@@ -5271,13 +5271,13 @@ var require_parser = __commonJS({
           else if (this.type === "map-value-ind" && parent.type !== "flow-collection") {
             let prev = getPrevProps(parent), start = getFirstKeyStartProps(prev);
             fixFlowSeqItems(fc);
-            let sep = fc.end.splice(1, fc.end.length);
-            sep.push(this.sourceToken);
+            let sep2 = fc.end.splice(1, fc.end.length);
+            sep2.push(this.sourceToken);
             let map = {
               type: "block-map",
               offset: fc.offset,
               indent: fc.indent,
-              items: [{ start, key: fc, sep }]
+              items: [{ start, key: fc, sep: sep2 }]
             };
             this.onKeyLine = !0, this.stack[this.stack.length - 1] = map;
           } else
@@ -7729,7 +7729,7 @@ var require_compile = __commonJS({
       let schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve4.call(this, root, ref);
+      let _sch = resolve5.call(this, root, ref);
       if (_sch === void 0) {
         let schema = (_a = root.localRefs) === null || _a === void 0 ? void 0 : _a[ref], { schemaId } = this.opts;
         schema && (_sch = new SchemaEnv({ schema, schemaId, root, baseId }));
@@ -7750,7 +7750,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve4(root, ref) {
+    function resolve5(root, ref) {
       let sch;
       for (; typeof (sch = this.refs[ref]) == "string"; )
         ref = sch;
@@ -8197,13 +8197,13 @@ var require_fast_uri = __commonJS({
       normalizeString(uri, options) : typeof uri == "object" && (uri = /** @type {T} */
       parse2(serialize(uri, options), options)), uri;
     }
-    function resolve4(baseURI, relativeURI, options) {
+    function resolve5(baseURI, relativeURI, options) {
       let schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" }, resolved = resolveComponent(parse2(baseURI, schemelessOptions), parse2(relativeURI, schemelessOptions), schemelessOptions, !0);
       return schemelessOptions.skipEscape = !0, serialize(resolved, schemelessOptions);
     }
-    function resolveComponent(base, relative, options, skipNormalization) {
+    function resolveComponent(base, relative2, options, skipNormalization) {
       let target = {};
-      return skipNormalization || (base = parse2(serialize(base, options), options), relative = parse2(serialize(relative, options), options)), options = options || {}, !options.tolerant && relative.scheme ? (target.scheme = relative.scheme, target.userinfo = relative.userinfo, target.host = relative.host, target.port = relative.port, target.path = removeDotSegments(relative.path || ""), target.query = relative.query) : (relative.userinfo !== void 0 || relative.host !== void 0 || relative.port !== void 0 ? (target.userinfo = relative.userinfo, target.host = relative.host, target.port = relative.port, target.path = removeDotSegments(relative.path || ""), target.query = relative.query) : (relative.path ? (relative.path[0] === "/" ? target.path = removeDotSegments(relative.path) : ((base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0) && !base.path ? target.path = "/" + relative.path : base.path ? target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative.path : target.path = relative.path, target.path = removeDotSegments(target.path)), target.query = relative.query) : (target.path = base.path, relative.query !== void 0 ? target.query = relative.query : target.query = base.query), target.userinfo = base.userinfo, target.host = base.host, target.port = base.port), target.scheme = base.scheme), target.fragment = relative.fragment, target;
+      return skipNormalization || (base = parse2(serialize(base, options), options), relative2 = parse2(serialize(relative2, options), options)), options = options || {}, !options.tolerant && relative2.scheme ? (target.scheme = relative2.scheme, target.userinfo = relative2.userinfo, target.host = relative2.host, target.port = relative2.port, target.path = removeDotSegments(relative2.path || ""), target.query = relative2.query) : (relative2.userinfo !== void 0 || relative2.host !== void 0 || relative2.port !== void 0 ? (target.userinfo = relative2.userinfo, target.host = relative2.host, target.port = relative2.port, target.path = removeDotSegments(relative2.path || ""), target.query = relative2.query) : (relative2.path ? (relative2.path[0] === "/" ? target.path = removeDotSegments(relative2.path) : ((base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0) && !base.path ? target.path = "/" + relative2.path : base.path ? target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative2.path : target.path = relative2.path, target.path = removeDotSegments(target.path)), target.query = relative2.query) : (target.path = base.path, relative2.query !== void 0 ? target.query = relative2.query : target.query = base.query), target.userinfo = base.userinfo, target.host = base.host, target.port = base.port), target.scheme = base.scheme), target.fragment = relative2.fragment, target;
     }
     function equal(uriA, uriB, options) {
       let normalizedA = normalizeComparableURI(uriA, options), normalizedB = normalizeComparableURI(uriB, options);
@@ -8307,7 +8307,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve4,
+      resolve: resolve5,
       resolveComponent,
       equal,
       serialize,
@@ -10631,7 +10631,7 @@ var require_dist2 = __commonJS({
 import { createHash as createHash4, randomUUID } from "node:crypto";
 import { existsSync as existsSync3, mkdirSync, readFileSync as readFileSync3, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname as dirname2, join as join3, resolve as resolve3 } from "node:path";
+import { dirname as dirname3, join as join3, resolve as resolve4 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 
 // src/core/root-plan-attestation.mjs
@@ -10641,7 +10641,7 @@ import { createHash as createHash3 } from "node:crypto";
 // scripts/validate-artifact.source.mjs
 import { existsSync as existsSync2, readFileSync as readFileSync2, realpathSync } from "node:fs";
 import { createHash as createHash2 } from "node:crypto";
-import { basename, dirname, resolve as resolve2 } from "node:path";
+import { basename, dirname as dirname2, resolve as resolve3 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // scripts/artifact-validator/evidence.mjs
@@ -10793,6 +10793,45 @@ function validateArtifactSchema(root, parsed, failures) {
   return validate(parsed.fields) || failures.push(...validate.errors.map(formatAjv)), schema;
 }
 
+// src/core/manual-path-authority.mjs
+import { dirname, isAbsolute, relative, resolve as resolve2, sep } from "node:path";
+function invalidPath(value, label) {
+  return value ? isAbsolute(value) || /^[A-Za-z]:/.test(value) ? `${label} must be repository-relative: ${value}` : value.includes("\\") ? `${label} must use POSIX separators: ${value}` : value.includes("\0") ? `${label} must not contain NUL` : value.startsWith("/") || value.endsWith("/") || value.includes("//") ? `${label} contains an empty path segment: ${value}` : value.split("/").some((segment) => segment === "." || segment === "..") ? `${label} contains traversal: ${value}` : null : `${label} must not be empty`;
+}
+function normalizeAuthorityPattern(input) {
+  let value = String(input ?? "").trim().replace(/^\.\//, "");
+  if (value === ".") return value;
+  let invalid = invalidPath(value, "authority pattern");
+  if (invalid) throw new Error(invalid);
+  for (let segment of value.split("/"))
+    if (segment.includes("**") && segment !== "**")
+      throw new Error(`authority pattern recursive globstar must occupy a complete segment: ${value}`);
+  return value;
+}
+function normalizeRepositoryPath(input) {
+  let value = String(input ?? "").trim().replace(/^\.\//, ""), invalid = invalidPath(value, "repository path");
+  if (invalid) throw new Error(invalid);
+  if (value.includes("*")) throw new Error(`repository path must not contain authority wildcards: ${value}`);
+  return value;
+}
+function segmentExpression(segment) {
+  let escaped = segment.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replaceAll("*", "[^/]*");
+  return new RegExp(`^${escaped}$`);
+}
+function matchSegments(pattern, path) {
+  let memo = /* @__PURE__ */ new Map(), expressions = pattern.map((segment) => segment === "**" ? null : segmentExpression(segment)), match = (patternIndex, pathIndex) => {
+    let key = `${patternIndex}:${pathIndex}`;
+    if (memo.has(key)) return memo.get(key);
+    let result;
+    return patternIndex === pattern.length ? result = !0 : pattern[patternIndex] === "**" ? result = match(patternIndex + 1, pathIndex) || pathIndex < path.length && match(patternIndex, pathIndex + 1) : result = pathIndex < path.length && expressions[patternIndex].test(path[pathIndex]) && match(patternIndex + 1, pathIndex + 1), memo.set(key, result), result;
+  };
+  return match(0, 0);
+}
+function pathMatchesAuthorityPattern(repositoryPath, authorityPattern) {
+  let path = normalizeRepositoryPath(repositoryPath), pattern = normalizeAuthorityPattern(authorityPattern);
+  return pattern === "." ? !0 : matchSegments(pattern.split("/"), path.split("/"));
+}
+
 // src/core/state-paths.mjs
 import { createHash } from "node:crypto";
 function rootContentHash(rootPlanText) {
@@ -10802,7 +10841,7 @@ function rootContentHash(rootPlanText) {
 }
 
 // scripts/validate-artifact.source.mjs
-var scriptDirectory = dirname(fileURLToPath(import.meta.url)), defaultRoot = dirname(scriptDirectory), knownArtifacts = /* @__PURE__ */ new Set([
+var scriptDirectory = dirname2(fileURLToPath(import.meta.url)), defaultRoot = dirname2(scriptDirectory), knownArtifacts = /* @__PURE__ */ new Set([
   "work-plan",
   "delivery-evidence",
   "work-review"
@@ -10995,10 +11034,13 @@ function targetTokens(value) {
 }
 function targetMatches(value, scope) {
   let target = value.replace(/^\.\//, ""), candidate = scope.replace(/^\.\//, "");
-  if (/^all other (?:files|paths|targets)$/i.test(candidate) || target === candidate || target.startsWith(`${candidate}/`) || target.startsWith(`${candidate}#`) || target.startsWith(`${candidate}:`)) return !0;
-  if (!candidate.includes("*")) return !1;
-  let expression = candidate.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replaceAll("**", "\xA7\xA7").replaceAll("*", "[^/]*").replaceAll("\xA7\xA7", ".*");
-  return new RegExp(`^${expression}$`).test(target);
+  if (/^all other (?:files|paths|targets)$/i.test(candidate)) return !0;
+  let repositoryTarget = target.replace(/[#:].*$/, "");
+  try {
+    return pathMatchesAuthorityPattern(repositoryTarget, candidate);
+  } catch {
+    return !1;
+  }
 }
 function authorityTargetState(target, authority = {}) {
   let allowed = (authority.allowed_roots ?? []).some((scope) => targetMatches(target, scope)), protectedTarget = (authority.protected_paths ?? []).some((scope) => targetMatches(target, scope)), approvalRequired = (authority.approval_required_paths ?? []).some((scope) => targetMatches(target, scope));
@@ -11222,13 +11264,28 @@ function preflightRootPlan(text, root = defaultRoot) {
       approval_granted: !1,
       mutation_performed: !1
     };
-  let blocking = [], advisories = [], authority = parsed.fields.authority ?? {}, denied = [
+  let blocking = [], advisories = [], authority = parsed.fields.authority ?? {};
+  for (let [boundaryKind, patterns] of [
+    ["allowed", authority.allowed_roots ?? []],
+    ["protected", authority.protected_paths ?? []],
+    ["approval-required", authority.approval_required_paths ?? []]
+  ])
+    for (let pattern of patterns)
+      try {
+        normalizeAuthorityPattern(pattern);
+      } catch (error) {
+        blocking.push(issue("invalid-authority-pattern", String(error?.message ?? error), {
+          target: pattern,
+          boundary_kind: boundaryKind
+        }));
+      }
+  let denied = [
     ...(authority.protected_paths ?? []).map((path) => ({ kind: "protected", path })),
     ...(authority.approval_required_paths ?? []).map((path) => ({ kind: "approval-required", path }))
   ];
   for (let allowed of authority.allowed_roots ?? []) {
     let shadow = denied.find((entry) => targetMatches(allowed, entry.path));
-    shadow && blocking.push(issue(
+    shadow && advisories.push(issue(
       "shadowed-allowed-root",
       `allowed root ${allowed} is fully shadowed by ${shadow.kind} path ${shadow.path}`,
       { target: allowed, boundary: shadow.path, boundary_kind: shadow.kind }
@@ -11236,9 +11293,13 @@ function preflightRootPlan(text, root = defaultRoot) {
   }
   for (let target of acceptanceChangeTargets(parsed)) {
     let state = authorityTargetState(target, authority);
-    (!state.allowed || state.protected || state.approval_required) && blocking.push(issue(
+    state.protected || state.approval_required ? blocking.push(issue(
       "acceptance-path-outside-authority",
       `Acceptance requires changing ${target}, but the current Root does not authorize that target`,
+      { target, ...state }
+    )) : state.allowed || advisories.push(issue(
+      "acceptance-path-outside-allowed-roots",
+      `Acceptance mentions ${target} outside allowed_roots; Manual Review will expose this as provisional scope drift`,
       { target, ...state }
     ));
   }
@@ -11365,8 +11426,8 @@ function materializeEvidence(artifact, artifacts, cache, failures, rootDirectory
     !previous || !planned ? failures.push(`${artifact.label}: reused ${id} is absent from direct predecessor root evidence`) : checks.set(id, { ...previous, reusedFrom: predecessor.fields.id });
   }
   for (let target of data.changedPaths) {
-    let allowed = plan.allowedTargets.some((scope) => targetMatches(target, scope)), prohibited = plan.prohibitedTargets.filter((scope) => !/^all other (?:files|paths|targets)$/i.test(scope)).some((scope) => targetMatches(target, scope));
-    (!allowed || prohibited) && failures.push(`${artifact.label}: changed target ${target} is outside root scope`);
+    let authority = authorityTargetState(target, root.fields.authority), manualUnverified = root.fields.profile_max === "manual" && artifact.fields.overall_grade !== "verified" && artifact.fields.representation !== "seal";
+    authority.protected || authority.approval_required ? (!manualUnverified || artifact.fields.status !== "blocked") && failures.push(`${artifact.label}: changed target ${target} crosses a hard root boundary`) : !authority.allowed && (!manualUnverified || artifact.fields.status === "complete") && failures.push(`${artifact.label}: changed target ${target} is outside root scope`);
   }
   if (initial) {
     let delivered = new Set(data.objectiveStates.keys());
@@ -11403,8 +11464,8 @@ function validateCompactCorrection(review, root, evidence, artifacts, failures) 
     for (let check of ids(fix["Root Checks"], checkPattern)) plan.checks.has(check) || failures.push(`${review.label}: correction references unknown root ${check}`);
   }
   for (let step of correction.steps) for (let target of targetTokens(step.Targets)) {
-    let allowed = plan.allowedTargets.some((scope) => targetMatches(target, scope)), prohibited = plan.prohibitedTargets.filter((scope) => !/^all other (?:files|paths|targets)$/i.test(scope)).some((scope) => targetMatches(target, scope));
-    (!allowed || prohibited) && failures.push(`${review.label}: correction target ${target} is outside root scope`);
+    let authority = authorityTargetState(target, root.fields.authority);
+    (authority.protected || authority.approval_required) && failures.push(`${review.label}: correction target ${target} crosses a hard root boundary`);
   }
 }
 function progressState(review, artifacts) {
@@ -11602,7 +11663,7 @@ function runCli() {
     console.error("Usage: validate-artifact.mjs [--diagnostics] [--effective] <artifact.md> [related-artifact.md ...]"), process.exitCode = 2;
     return;
   }
-  let entries = paths.map((path) => [path, readFileSync2(resolve2(path), "utf8")]), inspection = entries.length === 1 ? inspectArtifactText(entries[0][1]) : inspectArtifactSet(entries);
+  let entries = paths.map((path) => [path, readFileSync2(resolve3(path), "utf8")]), inspection = entries.length === 1 ? inspectArtifactText(entries[0][1]) : inspectArtifactSet(entries);
   if (inspection.errors.length > 0) {
     console.error("Artifact validation failed:"), inspection.errors.forEach((failure) => console.error(`- ${failure}`)), process.exitCode = 1;
     return;
@@ -11613,7 +11674,7 @@ function runCli() {
   }
   console.log(entries.length === 1 ? "Artifact validation passed." : "Artifact chain validation passed."), diagnosticsRequested && (inspection.normalizations.forEach((item) => console.log(`NORMALIZED: ${item}`)), inspection.diagnostics.forEach((item) => console.log(`DIAGNOSTIC: ${item}`)));
 }
-process.argv[1] && ["validate-artifact.source.mjs", "validate-artifact.mjs"].includes(basename(process.argv[1])) && realpathSync(resolve2(process.argv[1])) === realpathSync(fileURLToPath(import.meta.url)) && runCli();
+process.argv[1] && ["validate-artifact.source.mjs", "validate-artifact.mjs"].includes(basename(process.argv[1])) && realpathSync(resolve3(process.argv[1])) === realpathSync(fileURLToPath(import.meta.url)) && runCli();
 
 // src/core/root-plan-attestation.mjs
 var ROOT_ID = /\bwp-[A-Za-z0-9][A-Za-z0-9-]*\b/;
@@ -11772,19 +11833,19 @@ function evaluateCodexHook(input, priorState = {}, options = {}) {
 
 // src/hosts/codex/workflow-hook.mjs
 var MAX_INPUT_BYTES = 1024 * 1024, digest = (value) => createHash4("sha256").update(String(value)).digest("hex");
-function resolveCodexPluginRoot(here = dirname2(fileURLToPath2(import.meta.url))) {
-  let current = resolve3(here);
+function resolveCodexPluginRoot(here = dirname3(fileURLToPath2(import.meta.url))) {
+  let current = resolve4(here);
   for (let i = 0; i < 8; i += 1) {
     if (existsSync3(join3(current, "references", "artifact-protocol.md")) || existsSync3(join3(current, "scripts", "validate-artifact.mjs")) || existsSync3(join3(current, "scripts", "validate-artifact.source.mjs")))
       return current;
-    let parent = dirname2(current);
+    let parent = dirname3(current);
     if (parent === current) break;
     current = parent;
   }
-  return resolve3(here, "../..");
+  return resolve4(here, "../..");
 }
 function statePath(input, root = null) {
-  let base = resolve3(root ?? process.env.PLUGIN_DATA ?? join3(homedir(), ".codex", "geldmacher-workflow")), repository = digest(resolve3(input.cwd ?? process.cwd())).slice(0, 20), session = digest(input.session_id ?? "missing-session").slice(0, 32);
+  let base = resolve4(root ?? process.env.PLUGIN_DATA ?? join3(homedir(), ".codex", "geldmacher-workflow")), repository = digest(resolve4(input.cwd ?? process.cwd())).slice(0, 20), session = digest(input.session_id ?? "missing-session").slice(0, 32);
   return join3(base, "hooks", repository, "sessions", `${session}.json`);
 }
 function readState(path) {
@@ -11794,7 +11855,7 @@ function readState(path) {
   return value.schema === 6 && value.kind === "workflow-lifecycle-kernel" ? value : {};
 }
 function writeState(path, value) {
-  mkdirSync(dirname2(path), { recursive: !0, mode: 448 });
+  mkdirSync(dirname3(path), { recursive: !0, mode: 448 });
   let temporary = `${path}.${process.pid}.${randomUUID()}.tmp`;
   writeFileSync(temporary, `${JSON.stringify(value, null, 2)}
 `, { mode: 384 }), renameSync(temporary, path);
@@ -11850,7 +11911,7 @@ function runCodexHook(input, options = {}) {
     return unavailableOutput(input, error);
   }
 }
-if (process.argv[1] && resolve3(process.argv[1]) === resolve3(new URL(import.meta.url).pathname)) {
+if (process.argv[1] && resolve4(process.argv[1]) === resolve4(new URL(import.meta.url).pathname)) {
   let source = "", oversized = !1;
   for await (let chunk of process.stdin)
     if (source += chunk, Buffer.byteLength(source) > MAX_INPUT_BYTES) {

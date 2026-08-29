@@ -49,6 +49,9 @@
     "deploy:prepare": "npm run build:runtime-validator && npm run build:controller && npm run build:targets && npm run check:targets && npm run check:agent-plugin && npm run validate && node --test tests/plugin-targets.test.mjs tests/agent-plugins-target.test.mjs tests/local-plugin-deploy.test.mjs",
     "deploy:status": "node scripts/local-plugin-deploy.mjs status",
     "deploy:local": "node scripts/local-plugin-deploy.mjs deploy",
+    "release:status": "node scripts/plugin-github-release.mjs status",
+    "release:prepare": "node scripts/plugin-github-release.mjs prepare",
+    "release:publish": "node scripts/plugin-github-release.mjs publish",
     "release:surface": "node scripts/verify-release-surface.mjs",
     "release-check": "npm run check:runtime-validator && npm run check:controller && npm run check:targets && npm run check:agent-plugin && npm test && npm run coverage:critical && npm run context-budget && node scripts/validate-plugin.mjs --release && node scripts/check-markdown-links.mjs && npm run release:surface",
     "validate-artifact": "node scripts/validate-artifact.mjs"

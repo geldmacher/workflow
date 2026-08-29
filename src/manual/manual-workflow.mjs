@@ -10,7 +10,7 @@ import {
   inspectArtifactText,
   preflightRootPlan,
 } from "../../scripts/validate-artifact.source.mjs";
-import { assertChangedPathAuthority } from "../core/manual-path-authority.mjs";
+import { classifyChangedPathAuthority } from "../core/manual-path-authority.mjs";
 import { buildDeliveryEvidence } from "../controller/delivery-closeout.mjs";
 import { deriveManualWorkflowSnapshot } from "../controller/manual-status.mjs";
 import { buildWorkReview } from "../controller/work-review-builder.mjs";
@@ -215,39 +215,44 @@ function authorityLimitedReviewInput(reviewInput, message) {
   };
 }
 
-function authorityProjection(rootFields, changedPaths, repositoryRoot) {
-  try {
-    assertChangedPathAuthority(rootFields, changedPaths, repositoryRoot);
-    return { authorizedPaths: unique(changedPaths).sort(), limitation: null };
-  } catch (error) {
-    const authorizedPaths = unique(changedPaths).filter((path) => {
-      try {
-        assertChangedPathAuthority(rootFields, [path], repositoryRoot);
-        return true;
-      } catch {
-        return false;
-      }
-    }).sort();
-    return {
-      authorizedPaths,
-      limitation: `Observed repository paths exceed the Root authority: ${String(error?.message ?? error)}`,
-    };
-  }
+function authorityBlockingLimitation(projection) {
+  const limits = [
+    ...(projection.protected_paths.length > 0
+      ? [`Protected changed paths block delivery: ${projection.protected_paths.join(", ")}.`]
+      : []),
+    ...(projection.approval_required_paths.length > 0
+      ? [`Changed paths requiring separate human approval block delivery: ${projection.approval_required_paths.join(", ")}.`]
+      : []),
+  ];
+  return limits.length > 0 ? limits.join(" ") : null;
+}
+
+function authorityScopeLimitation(projection) {
+  if (projection.outside_allowed_paths.length === 0) return null;
+  return `Provisional scope drift remains visible without granting authority: ${projection.outside_allowed_paths.join(", ")}.`;
 }
 
 function findingLine(finding) {
   return `- [${finding.severity.toUpperCase()}] ${finding.key} — ${finding.evidence} Reasoning: ${finding.reasoning} Resolution: ${finding.resolution}.`;
 }
 
-function reviewPresentation({ rootFields, evidence, review, reviewInput, repositoryObservation, authorityLimitation }) {
+function reviewPresentation({ rootFields, evidence, review, reviewInput, repositoryObservation, pathAuthority }) {
   const findings = reviewInput.findings.map(findingLine);
+  const scopeLimitation = authorityScopeLimitation(pathAuthority);
+  const blockingLimitation = authorityBlockingLimitation(pathAuthority);
   const limitations = unique([
     ...repositoryObservation.limitations,
-    ...(authorityLimitation ? [authorityLimitation] : []),
+    ...(scopeLimitation ? [scopeLimitation] : []),
+    ...(blockingLimitation ? [blockingLimitation] : []),
     ...reviewInput.missing_evidence,
     ...(evidence.fields.check_evidence ?? []).flatMap((entry) => entry.limitations ?? []),
   ]);
   const checkLines = (evidence.fields.check_evidence ?? []).map((entry) => `- ${entry.check_id}: ${entry.grade} — ${entry.observed}`);
+  const scopeSummary = pathAuthority.status === "within-authority"
+    ? "within declared roots"
+    : pathAuthority.status === "provisional-drift"
+      ? `provisional drift (${pathAuthority.outside_allowed_paths.join(", ")})`
+      : `${pathAuthority.status} blocker`;
   const presentation = {
     schema: 1,
     kind: "manual-review-presentation",
@@ -260,13 +265,16 @@ function reviewPresentation({ rootFields, evidence, review, reviewInput, reposit
     findings: reviewInput.findings,
     limitations,
     checks: evidence.fields.check_evidence,
+    path_authority: pathAuthority,
     next_action: review.fields.next_action,
   };
   const humanOutput = [
     `## Workflow · ${review.fields.delivery_status}`,
     "### Quick decision",
     `- Repository outcome: ${reviewInput.assessment_summary}`,
+    `- Delivery decision: ${review.fields.delivery_status} (${review.fields.assessment}).`,
     `- Evidence status: ${evidence.fields.overall_grade}; unprotected Manual observations cannot be verified.`,
+    `- Scope: ${scopeSummary}.`,
     "### Findings",
     findings.length > 0 ? findings.join("\n") : "- None.",
     "### Checks",
@@ -297,7 +305,7 @@ function planPresentation(result, rootPlan) {
   ].join("\n\n") + "\n";
 }
 
-function statusPresentation(status, accepted = false) {
+function statusPresentation(status, accepted = false, pathAuthority = null) {
   const snapshot = status.snapshot;
   return [
     `## Workflow · ${snapshot.state}`,
@@ -305,6 +313,7 @@ function statusPresentation(status, accepted = false) {
     `- Manual state: ${snapshot.state}`,
     `- Delivery status: ${snapshot.delivery_status ?? "none"}`,
     `- Evidence grade: ${snapshot.evidence_grade ?? "none"}`,
+    `- Scope: ${pathAuthority?.status ?? "unknown"}`,
     "### Next step",
     `- Now: ${snapshot.next_action}`,
     "### Details",
@@ -331,9 +340,10 @@ function buildReview(request, pluginRoot) {
   const contract = executionContractFromArtifactText(request.root_plan, pluginRoot);
   if (contract.errors.length > 0) throw codedError("schema-6-root-invalid", `Root execution contract is invalid: ${contract.errors.join("; ")}`);
   const hashes = observationHashes(request.repository_observation);
-  const authority = authorityProjection(exact.rootFields, hashes.normalized.changed_paths, hashes.normalized.repository_root);
-  const effectiveReviewInput = authority.limitation
-    ? authorityLimitedReviewInput(request.review_input, authority.limitation)
+  const pathAuthority = classifyChangedPathAuthority(exact.rootFields, hashes.normalized.changed_paths, hashes.normalized.repository_root);
+  const blockingAuthorityLimitation = authorityBlockingLimitation(pathAuthority);
+  const effectiveReviewInput = blockingAuthorityLimitation
+    ? authorityLimitedReviewInput(request.review_input, blockingAuthorityLimitation)
     : request.review_input;
   const localCheckEvidence = checkEvidence(request.check_observations);
   const evidenceTipId = exact.tips.evidence_tips[exact.rootFields.id] ?? null;
@@ -354,12 +364,15 @@ function buildReview(request, pluginRoot) {
       rootPlanText: request.root_plan,
       artifacts: exact.entries,
       checkEvidence: localCheckEvidence,
-      changedPaths: authority.authorizedPaths,
+      changedPaths: hashes.normalized.changed_paths,
       effectiveProfile: "manual",
       harnessAttestations: [],
       enforceHarnessAttestations: true,
       workspaceBinding: hashes.workspaceBindingHash,
       workspaceSnapshotHash: hashes.snapshotHash,
+      forcedStatus: blockingAuthorityLimitation ? "blocked" : null,
+      allowManualScopeDrift: true,
+      summary: blockingAuthorityLimitation,
       pluginRoot,
     });
     reviewArtifacts = [...exact.entries, { label: evidence.fields.id, text: evidence.artifact }];
@@ -370,12 +383,15 @@ function buildReview(request, pluginRoot) {
       rootPlanText: request.root_plan,
       artifacts: refreshBaseEntries,
       checkEvidence: localCheckEvidence,
-      changedPaths: authority.authorizedPaths,
+      changedPaths: hashes.normalized.changed_paths,
       effectiveProfile: "manual",
       harnessAttestations: [],
       enforceHarnessAttestations: true,
       workspaceBinding: hashes.workspaceBindingHash,
       workspaceSnapshotHash: hashes.snapshotHash,
+      forcedStatus: blockingAuthorityLimitation ? "blocked" : null,
+      allowManualScopeDrift: true,
+      summary: blockingAuthorityLimitation,
       pluginRoot,
     });
     const existingEvidence = exact.entries.find((entry) => entry.label === evidenceTipId)?.text ?? null;
@@ -403,7 +419,7 @@ function buildReview(request, pluginRoot) {
     review,
     reviewInput: review.normalized_review_input,
     repositoryObservation: request.repository_observation,
-    authorityLimitation: authority.limitation,
+    pathAuthority,
   });
   return {
     schema: 1,
@@ -416,6 +432,7 @@ function buildReview(request, pluginRoot) {
     workspace_binding_hash: hashes.workspaceBindingHash,
     repository_snapshot_hash: hashes.snapshotHash,
     chain_update: chainUpdate,
+    path_authority: pathAuthority,
     presentation: shown.presentation,
     human_output: shown.humanOutput,
     artifacts: [
@@ -434,6 +451,7 @@ function deriveStatus(request, pluginRoot, manualAcceptance = null) {
     observedAt: DETERMINISTIC_OBSERVED_AT,
     manualAcceptance,
   });
+  const pathAuthority = classifyChangedPathAuthority(exact.rootFields, status.changed_paths);
   return {
     schema: 1,
     kind: manualAcceptance ? "manual-provisional-acceptance" : "manual-workflow-status",
@@ -444,7 +462,8 @@ function deriveStatus(request, pluginRoot, manualAcceptance = null) {
     artifact_summary: status.artifact_summary,
     diagnostics: status.diagnostics,
     changed_paths: status.changed_paths,
-    human_output: statusPresentation(status, manualAcceptance === "provisional"),
+    path_authority: pathAuthority,
+    human_output: statusPresentation(status, manualAcceptance === "provisional", pathAuthority),
     artifacts: [],
   };
 }

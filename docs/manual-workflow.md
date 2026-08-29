@@ -18,7 +18,9 @@ Review is repository-read-only. The Skill resolves the exact current-task Root a
 
 The bundled stateless `manual-workflow` builder accepts those closed inputs and performs only validation, canonical serialization, hashing, path authority, lineage, artifact construction, and presentation projection. It never discovers the repository, runs Git or Checks, selects a command or framework, calls MCP, reads Hook or cache state, or persists artifacts.
 
-The builder canonicalizes the supplied repository root as its workspace binding and returns one atomic `delivery-evidence`/`work-review` pair or no artifacts. IDs, Root/intent/workspace/snapshot/artifact hashes, grades, and the visible decision are computed from the same validated result. Model-supplied verified claims, hashes, attestations, and receipts are rejected. Failed required Checks remain blocking.
+The builder canonicalizes the supplied repository root as its workspace binding and returns one atomic `delivery-evidence`/`work-review` pair or no artifacts. IDs, Root/intent/workspace/snapshot/artifact hashes, grades, path classification, and the visible decision are computed from the same validated result. Model-supplied verified claims, hashes, attestations, and receipts are rejected. Failed required Checks remain blocking.
+
+Literal authority roots match themselves and descendants. `*` matches within one segment; `**` is recursive only as a complete segment and may match zero or more segments. Ordinary repository-internal changes outside `allowed_roots` stay visible in Evidence and cap Manual delivery at provisional. They do not force clarification or silently gain authority. Protected and approval-required paths remain blocked, while malformed, traversal, absolute, or repository/symlink-escaping paths return Shadow without artifacts. Protected sealing keeps hard Root authority.
 
 Missing or invalid Root, artifacts, observations, lineage, or authority produce a stable Shadow result without a Schema-6 pseudo-artifact. Exact task bytes remain available for retry. Same-task context is the normal transport; a fresh task requires explicit human attachment of the exact Root and every referenced Evidence/Review artifact.
 
@@ -27,7 +29,7 @@ The registered MCP server is outside the Manual dependency graph. `/auto-work` a
 ## Evidence grades
 
 - `verified`: only a separately protected passing attestation binds Check intent, Root, workspace, and snapshot.
-- `supported` or `partial`: useful unprotected Manual evidence exists but is not fully bound.
+- `supported` or `partial`: useful unprotected Manual evidence exists but is not fully bound. Supported requires an unambiguous outcome on the current snapshot; command invocation, source presence, masked exit status, or unknown outcome is partial or unavailable.
 - `unavailable`: evidence could not be obtained and a concrete limitation is recorded.
 - `failed`: an observed Check failure blocks delivery; only separately protected provenance may describe that failure as harness-attested.
 

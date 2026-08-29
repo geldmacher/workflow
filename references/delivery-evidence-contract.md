@@ -1,6 +1,6 @@
 # Evidence Schema 6
 
-Delivery Evidence is host-built from one exact Schema-6 Root and the current subject. It records Root and lineage IDs, intent hash, workspace snapshot hash, changed paths, affected objectives, Check IDs, grades, observations, evidence hashes, limitations, and optional protected harness-attestation hashes.
+Delivery Evidence is host-built from one exact Schema-6 Root and the current subject. It records Root and lineage IDs, intent hash, workspace snapshot hash, every observed repository-internal changed path, affected objectives, Check IDs, grades, observations, evidence hashes, limitations, and optional protected harness-attestation hashes. Ordinary Manual scope drift remains visible in changed paths and is provisional rather than silently omitted; hard path boundaries still block Review and protected sealing.
 
 `full` is the single initial Root delivery, `delta` resolves one exact correction, and `seal` linearly follows one finding-free provisional Review without rewriting it. Seal Evidence has no reused coverage and is valid only when every required Root Check has fresh protected verified evidence.
 

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -15,6 +16,97 @@ const expectedTools = ["workflow_artifact_context", "workflow_artifact_record", 
 const expectedCodexSkills = ["accept-work", "correct-work", "engineering-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-status"];
 const rootPlan = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
 const manualGuide = readFileSync(join(defaultRoot, "docs", "manual-workflow.md"), "utf8");
+const installationGuide = readFileSync(join(defaultRoot, "docs", "installation.md"), "utf8");
+
+function fencedBlock(markdown, language) {
+  const match = markdown.match(new RegExp("```" + language + "\\n([\\s\\S]*?)\\n```"));
+  assert.ok(match, `missing ${language} code block`);
+  return match[1];
+}
+
+function sha256(value) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+test("release installation guide has usable selected-host verification and a complete Codex marketplace", () => {
+  assert.match(installationGuide, /Download only the archive for the intended host plus `SHA256SUMS` and `provenance\.json`/);
+  assert.match(installationGuide, /You do not need the other host archive or `RELEASE_NOTES\.md`/);
+  assert.doesNotMatch(installationGuide, /shasum -a 256 -c SHA256SUMS/);
+
+  const shell = fencedBlock(installationGuide, "sh");
+  assert.match(shell, /verify_release_file "\$archive"/);
+  assert.match(shell, /verify_release_file "provenance\.json"/);
+  assert.match(shell, /\$2 == file/);
+  assert.match(shell, /count == 1/);
+  assert.match(shell, /sha256sum -c -/);
+  assert.match(shell, /shasum -a 256 -c -/);
+
+  if (process.platform !== "win32") {
+    const download = mkdtempSync(join(tmpdir(), "workflow-install-checksum-"));
+    try {
+      const archive = "geldmacher-workflow-cursor-v6.0.0.zip";
+      const archiveBytes = Buffer.from("selected cursor archive");
+      const provenanceBytes = Buffer.from('{"kind":"github-release-provenance"}\n');
+      writeFileSync(join(download, archive), archiveBytes);
+      writeFileSync(join(download, "provenance.json"), provenanceBytes);
+      writeFileSync(join(download, "SHA256SUMS"), [
+        `${sha256(archiveBytes)}  ${archive}`,
+        `${"a".repeat(64)}  geldmacher-workflow-codex-v6.0.0.zip`,
+        `${"b".repeat(64)}  RELEASE_NOTES.md`,
+        `${sha256(provenanceBytes)}  provenance.json`,
+        "",
+      ].join("\n"));
+      const result = spawnSync("/bin/sh", ["-c", shell], { cwd: download, encoding: "utf8" });
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      assert.match(result.stdout, /geldmacher-workflow-cursor-v6\.0\.0\.zip: OK/);
+      assert.match(result.stdout, /provenance\.json: OK/);
+    } finally {
+      rmSync(download, { recursive: true, force: true });
+    }
+  }
+
+  const powershell = fencedBlock(installationGuide, "powershell");
+  assert.match(powershell, /\$files = @\(\$archive, "provenance\.json"\)/);
+  assert.match(powershell, /\[regex\]::Escape\(\$file\)/);
+  assert.match(powershell, /\$matches\.Count -ne 1/);
+  assert.match(powershell, /Get-FileHash -LiteralPath/);
+  assert.match(powershell, /\$actual -ne \$expected/);
+
+  const marketplace = JSON.parse(fencedBlock(installationGuide, "json"));
+  assert.deepEqual(Object.keys(marketplace), ["name", "interface", "plugins"]);
+  assert.equal(marketplace.name, "geldmacher-personal");
+  assert.deepEqual(marketplace.interface, { displayName: "Geldmacher Plugins" });
+  assert.equal(marketplace.plugins.length, 1);
+  assert.deepEqual(marketplace.plugins[0], {
+    name: "geldmacher-workflow",
+    source: { source: "local", path: "./.codex/plugins/geldmacher-workflow" },
+    policy: { installation: "AVAILABLE", authentication: "ON_INSTALL" },
+    category: "Developer Tools",
+  });
+
+  for (const requirement of [
+    /preserve its top-level `name`, `interface`, and every unrelated item in `plugins`/,
+    /Fully quit and restart the ChatGPT\/Codex desktop app/,
+    /Plugins Directory/,
+    /\.codex\/plugins\/cache\/geldmacher-personal\/geldmacher-workflow\/local/,
+    /Local Marketplace plugins run from this cache copy, not directly from/,
+    /start a new Codex task/,
+    /For an update/,
+    /For rollback/,
+    /Hook Trust/,
+    /reload Cursor/,
+  ]) {
+    assert.match(installationGuide, requirement);
+  }
+
+  const codexReadme = readFileSync(join(defaultRoot, "targets", "codex", "README.md"), "utf8");
+  assert.match(codexReadme, /\[Install Workflow for Cursor or Codex\]\(\.\.\/\.\.\/docs\/installation\.md\)/);
+  assert.match(codexReadme, /fully restart the ChatGPT\/Codex desktop app/);
+  assert.match(codexReadme, /install or refresh Workflow through the Plugins Directory/);
+  assert.match(codexReadme, /installed cache copy below `~\/\.codex\/plugins\/cache\/`/);
+  assert.match(codexReadme, /start a new task/);
+  assert.match(codexReadme, /Replacing source files alone does not activate them/);
+});
 
 test("canonical target metadata is Workflow 6 before generation", () => {
   const cursor = JSON.parse(readFileSync(join(defaultRoot, ".cursor-plugin", "plugin.json"), "utf8"));
@@ -42,6 +134,10 @@ test("deterministic target build isolates Codex and exposes exactly five Manual 
     assert.equal(first.agentPlugins.hash, second.agentPlugins.hash);
     assert.equal(readFileSync(join(first.cursor.path, "docs", "manual-workflow.md"), "utf8"), manualGuide);
     assert.equal(readFileSync(join(first.codex.path, "docs", "manual-workflow.md"), "utf8"), manualGuide);
+    assert.equal(readFileSync(join(first.cursor.path, "docs", "installation.md"), "utf8"), installationGuide);
+    assert.equal(readFileSync(join(first.codex.path, "docs", "installation.md"), "utf8"), installationGuide);
+    assert.match(readFileSync(join(first.cursor.path, "README.md"), "utf8"), /\[Install Workflow for Cursor or Codex\]\(docs\/installation\.md\)/);
+    assert.match(readFileSync(join(first.codex.path, "README.md"), "utf8"), /\[Install Workflow for Cursor or Codex\]\(docs\/installation\.md\)/);
     const repositorySurface = loadReleaseSurface(defaultRoot);
     assert.equal(repositorySurface.runtime_paths.includes(".cursor-plugin/marketplace.json"), false);
     assert.equal(repositorySurface.package_extras.includes(".cursor-plugin/marketplace.json"), true);

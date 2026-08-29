@@ -11,6 +11,7 @@ import {
   harnessConstraintProjection,
   harnessContractHash,
 } from "../core/harness-attestations.mjs";
+import { classifyChangedPathAuthority } from "../core/manual-path-authority.mjs";
 
 const GRADES = new Set(["verified", "supported", "partial", "unavailable", "failed"]);
 
@@ -155,6 +156,8 @@ export function buildDeliveryEvidence({
   enforceHarnessAttestations = true,
   workspaceBinding = null,
   workspaceSnapshotHash = null,
+  forcedStatus = null,
+  allowManualScopeDrift = false,
   seal = false,
   pluginRoot,
 }) {
@@ -218,7 +221,8 @@ export function buildDeliveryEvidence({
   }
 
   const grade = aggregate(entries);
-  const status = artifactStatus(grade);
+  if (forcedStatus != null && forcedStatus !== "blocked") throw new Error("closeout forcedStatus may only add a blocked boundary");
+  const status = forcedStatus ?? artifactStatus(grade);
   if (seal && (grade !== "verified" || status !== "complete" || entries.some((entry) => entry.grade !== "verified"))) {
     const error = new Error("protected sealing requires fresh verified evidence for every required Check");
     error.code = "protected-seal-not-verified";
@@ -228,6 +232,17 @@ export function buildDeliveryEvidence({
   const sourceReviewId = correction || seal ? review.fields.id : null;
   const predecessorEvidenceId = correction || seal ? evidenceTipId : null;
   const paths = unique((changedPaths ?? []).map(String).map((path) => path.trim()).filter(Boolean)).sort();
+  if (!allowManualScopeDrift) {
+    const authority = classifyChangedPathAuthority(contract.fields, paths);
+    if (authority.status !== "within-authority") {
+      const rejected = [
+        ...authority.outside_allowed_paths,
+        ...authority.approval_required_paths,
+        ...authority.protected_paths,
+      ];
+      throw new Error(`changed paths are outside Root authority: ${rejected.join(", ")}`);
+    }
+  }
   const affectedObjectives = [...contract.objectives];
   const seed = sha256(JSON.stringify(stable({
     root_projection_hash: contract.authoritative_projection_hash,
@@ -237,6 +252,7 @@ export function buildDeliveryEvidence({
     workspace_snapshot_hash: effectiveSnapshotHash,
     changed_paths: paths,
     check_evidence: entries,
+    forced_status: forcedStatus,
     summary: summary ?? null,
   })));
   const id = `de-${subjectId.replace(/^(?:wp|cp)-/, "")}-${seed.slice(0, 12)}`;

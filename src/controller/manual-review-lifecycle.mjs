@@ -261,6 +261,7 @@ export function buildManualReviewLifecycle({
     assertChangedPathAuthority(exact.rootFields, repositoryDelta.changed_paths, current.repository_root);
   } catch (error) {
     const message = `Current repository changes do not fit the native Plan authority: ${String(error?.message ?? error)}`;
+    if (seal) throw codedError("protected-seal-authority-violation", message);
     effectiveReviewInput = authorityLimitation(effectiveReviewInput, message);
     effectiveCheckEvidence = supportedOnBoundary(effectiveCheckEvidence, message);
     // Evidence may contain only Root-authorized changed paths. Keep

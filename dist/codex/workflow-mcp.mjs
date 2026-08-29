@@ -22240,9 +22240,9 @@ function harnessConstraintProjection({ checks = [], evidence = [], pending = !1 
 import { createHash as createHash4 } from "node:crypto";
 
 // scripts/validate-artifact.source.mjs
-import { existsSync as existsSync2, readFileSync as readFileSync2, realpathSync } from "node:fs";
+import { existsSync as existsSync3, readFileSync as readFileSync2, realpathSync as realpathSync2 } from "node:fs";
 import { createHash as createHash3 } from "node:crypto";
-import { basename, dirname, resolve as resolve3 } from "node:path";
+import { basename, dirname as dirname2, resolve as resolve4 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // scripts/artifact-validator/evidence.mjs
@@ -22394,8 +22394,106 @@ function validateArtifactSchema(root, parsed, failures) {
   return validate(parsed.fields) || failures.push(...validate.errors.map(formatAjv)), schema;
 }
 
+// src/core/manual-path-authority.mjs
+import { existsSync as existsSync2, realpathSync } from "node:fs";
+import { dirname, isAbsolute, relative, resolve as resolve3, sep } from "node:path";
+function uniqueSorted(values) {
+  return [...new Set((values ?? []).map(String).map((value) => value.trim()).filter(Boolean))].sort();
+}
+function invalidPath(value, label) {
+  return value ? isAbsolute(value) || /^[A-Za-z]:/.test(value) ? `${label} must be repository-relative: ${value}` : value.includes("\\") ? `${label} must use POSIX separators: ${value}` : value.includes("\0") ? `${label} must not contain NUL` : value.startsWith("/") || value.endsWith("/") || value.includes("//") ? `${label} contains an empty path segment: ${value}` : value.split("/").some((segment) => segment === "." || segment === "..") ? `${label} contains traversal: ${value}` : null : `${label} must not be empty`;
+}
+function normalizeAuthorityPattern(input) {
+  let value = String(input ?? "").trim().replace(/^\.\//, "");
+  if (value === ".") return value;
+  let invalid2 = invalidPath(value, "authority pattern");
+  if (invalid2) throw new Error(invalid2);
+  for (let segment of value.split("/"))
+    if (segment.includes("**") && segment !== "**")
+      throw new Error(`authority pattern recursive globstar must occupy a complete segment: ${value}`);
+  return value;
+}
+function normalizeRepositoryPath(input) {
+  let value = String(input ?? "").trim().replace(/^\.\//, ""), invalid2 = invalidPath(value, "repository path");
+  if (invalid2) throw new Error(invalid2);
+  if (value.includes("*")) throw new Error(`repository path must not contain authority wildcards: ${value}`);
+  return value;
+}
+function segmentExpression(segment) {
+  let escaped = segment.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replaceAll("*", "[^/]*");
+  return new RegExp(`^${escaped}$`);
+}
+function matchSegments(pattern, path) {
+  let memo = /* @__PURE__ */ new Map(), expressions = pattern.map((segment) => segment === "**" ? null : segmentExpression(segment)), match = (patternIndex, pathIndex) => {
+    let key = `${patternIndex}:${pathIndex}`;
+    if (memo.has(key)) return memo.get(key);
+    let result2;
+    return patternIndex === pattern.length ? result2 = !0 : pattern[patternIndex] === "**" ? result2 = match(patternIndex + 1, pathIndex) || pathIndex < path.length && match(patternIndex, pathIndex + 1) : result2 = pathIndex < path.length && expressions[patternIndex].test(path[pathIndex]) && match(patternIndex + 1, pathIndex + 1), memo.set(key, result2), result2;
+  };
+  return match(0, 0);
+}
+function pathMatchesAuthorityPattern(repositoryPath, authorityPattern) {
+  let path = normalizeRepositoryPath(repositoryPath), pattern = normalizeAuthorityPattern(authorityPattern);
+  return pattern === "." ? !0 : matchSegments(pattern.split("/"), path.split("/"));
+}
+function normalizedAuthority(authority = {}) {
+  return {
+    allowed: uniqueSorted(authority.allowed_roots).map(normalizeAuthorityPattern),
+    protected: uniqueSorted(authority.protected_paths).map(normalizeAuthorityPattern),
+    approvalRequired: uniqueSorted(authority.approval_required_paths).map(normalizeAuthorityPattern)
+  };
+}
+function categoryForCandidate(path, authority) {
+  return authority.protected.some((entry) => pathMatchesAuthorityPattern(path, entry)) ? "protected" : authority.approvalRequired.some((entry) => pathMatchesAuthorityPattern(path, entry)) ? "approval-required" : authority.allowed.some((entry) => pathMatchesAuthorityPattern(path, entry)) ? "allowed" : "outside-allowed";
+}
+function repositoryAuthorityPaths(repositoryRoot, repositoryPath) {
+  let root = realpathSync(repositoryRoot), path = normalizeRepositoryPath(repositoryPath), lexical = resolve3(root, path);
+  if (lexical !== root && !lexical.startsWith(`${root}${sep}`))
+    throw new Error(`native closeout path escapes the repository: ${repositoryPath}`);
+  let existing = lexical;
+  for (; !existsSync2(existing) && existing !== root; ) existing = dirname(existing);
+  let resolvedExisting = realpathSync(existing);
+  if (resolvedExisting !== root && !resolvedExisting.startsWith(`${root}${sep}`))
+    throw new Error(`native closeout path resolves outside the repository: ${repositoryPath}`);
+  let unresolved = relative(existing, lexical), resolved = resolve3(resolvedExisting, unresolved);
+  if (resolved !== root && !resolved.startsWith(`${root}${sep}`))
+    throw new Error(`native closeout path resolves outside the repository: ${repositoryPath}`);
+  let normalizeRelative = (value) => relative(root, value).replaceAll("\\", "/") || ".";
+  return uniqueSorted([normalizeRelative(lexical), normalizeRelative(resolved)]);
+}
+function classifyCandidates(candidates, authority) {
+  let categories = candidates.map((candidate) => categoryForCandidate(candidate, authority));
+  return categories.includes("protected") ? "protected" : categories.includes("approval-required") ? "approval-required" : categories.every((category) => category === "allowed") ? "allowed" : "outside-allowed";
+}
+function classifyChangedPathAuthority(rootFields, changedPaths, repositoryRoot = null) {
+  let authority = normalizedAuthority(rootFields?.authority ?? {});
+  if (authority.allowed.length === 0) throw new Error("native closeout Root has no allowed path authority");
+  let projection = {
+    schema: 1,
+    status: "within-authority",
+    allowed_paths: [],
+    outside_allowed_paths: [],
+    approval_required_paths: [],
+    protected_paths: []
+  };
+  for (let path of uniqueSorted(changedPaths)) {
+    let normalized = normalizeRepositoryPath(path), candidates = repositoryRoot ? repositoryAuthorityPaths(repositoryRoot, normalized) : [normalized], category = classifyCandidates(candidates, authority), key = category === "allowed" ? "allowed_paths" : `${category.replaceAll("-", "_")}_paths`;
+    projection[key].push(normalized);
+  }
+  return projection.protected_paths.length > 0 ? projection.status = "protected" : projection.approval_required_paths.length > 0 ? projection.status = "approval-required" : projection.outside_allowed_paths.length > 0 && (projection.status = "provisional-drift"), projection;
+}
+function assertChangedPathAuthority(rootFields, changedPaths, repositoryRoot) {
+  let projection = classifyChangedPathAuthority(rootFields, changedPaths, repositoryRoot), failures = [
+    ...projection.protected_paths.map((path) => `native closeout path is protected by the Root: ${path}`),
+    ...projection.approval_required_paths.map((path) => `native closeout path requires separate human approval that the closeout report cannot grant: ${path}`),
+    ...projection.outside_allowed_paths.map((path) => `native closeout path is outside Root authority: ${path}`)
+  ];
+  if (failures.length > 0) throw new Error(failures.join("; "));
+  return projection;
+}
+
 // scripts/validate-artifact.source.mjs
-var scriptDirectory = dirname(fileURLToPath(import.meta.url)), defaultRoot = dirname(scriptDirectory), knownArtifacts = /* @__PURE__ */ new Set([
+var scriptDirectory = dirname2(fileURLToPath(import.meta.url)), defaultRoot = dirname2(scriptDirectory), knownArtifacts = /* @__PURE__ */ new Set([
   "work-plan",
   "delivery-evidence",
   "work-review"
@@ -22588,10 +22686,13 @@ function targetTokens(value) {
 }
 function targetMatches(value, scope) {
   let target = value.replace(/^\.\//, ""), candidate = scope.replace(/^\.\//, "");
-  if (/^all other (?:files|paths|targets)$/i.test(candidate) || target === candidate || target.startsWith(`${candidate}/`) || target.startsWith(`${candidate}#`) || target.startsWith(`${candidate}:`)) return !0;
-  if (!candidate.includes("*")) return !1;
-  let expression = candidate.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replaceAll("**", "\xA7\xA7").replaceAll("*", "[^/]*").replaceAll("\xA7\xA7", ".*");
-  return new RegExp(`^${expression}$`).test(target);
+  if (/^all other (?:files|paths|targets)$/i.test(candidate)) return !0;
+  let repositoryTarget = target.replace(/[#:].*$/, "");
+  try {
+    return pathMatchesAuthorityPattern(repositoryTarget, candidate);
+  } catch {
+    return !1;
+  }
 }
 function authorityTargetState(target, authority = {}) {
   let allowed = (authority.allowed_roots ?? []).some((scope) => targetMatches(target, scope)), protectedTarget = (authority.protected_paths ?? []).some((scope) => targetMatches(target, scope)), approvalRequired = (authority.approval_required_paths ?? []).some((scope) => targetMatches(target, scope));
@@ -22815,13 +22916,28 @@ function preflightRootPlan(text, root = defaultRoot) {
       approval_granted: !1,
       mutation_performed: !1
     };
-  let blocking = [], advisories = [], authority = parsed.fields.authority ?? {}, denied = [
+  let blocking = [], advisories = [], authority = parsed.fields.authority ?? {};
+  for (let [boundaryKind, patterns] of [
+    ["allowed", authority.allowed_roots ?? []],
+    ["protected", authority.protected_paths ?? []],
+    ["approval-required", authority.approval_required_paths ?? []]
+  ])
+    for (let pattern of patterns)
+      try {
+        normalizeAuthorityPattern(pattern);
+      } catch (error2) {
+        blocking.push(issue2("invalid-authority-pattern", String(error2?.message ?? error2), {
+          target: pattern,
+          boundary_kind: boundaryKind
+        }));
+      }
+  let denied = [
     ...(authority.protected_paths ?? []).map((path) => ({ kind: "protected", path })),
     ...(authority.approval_required_paths ?? []).map((path) => ({ kind: "approval-required", path }))
   ];
   for (let allowed of authority.allowed_roots ?? []) {
     let shadow2 = denied.find((entry) => targetMatches(allowed, entry.path));
-    shadow2 && blocking.push(issue2(
+    shadow2 && advisories.push(issue2(
       "shadowed-allowed-root",
       `allowed root ${allowed} is fully shadowed by ${shadow2.kind} path ${shadow2.path}`,
       { target: allowed, boundary: shadow2.path, boundary_kind: shadow2.kind }
@@ -22829,9 +22945,13 @@ function preflightRootPlan(text, root = defaultRoot) {
   }
   for (let target of acceptanceChangeTargets(parsed)) {
     let state = authorityTargetState(target, authority);
-    (!state.allowed || state.protected || state.approval_required) && blocking.push(issue2(
+    state.protected || state.approval_required ? blocking.push(issue2(
       "acceptance-path-outside-authority",
       `Acceptance requires changing ${target}, but the current Root does not authorize that target`,
+      { target, ...state }
+    )) : state.allowed || advisories.push(issue2(
+      "acceptance-path-outside-allowed-roots",
+      `Acceptance mentions ${target} outside allowed_roots; Manual Review will expose this as provisional scope drift`,
       { target, ...state }
     ));
   }
@@ -22975,8 +23095,8 @@ function materializeEvidence(artifact2, artifacts, cache, failures, rootDirector
     !previous || !planned ? failures.push(`${artifact2.label}: reused ${id} is absent from direct predecessor root evidence`) : checks.set(id, { ...previous, reusedFrom: predecessor.fields.id });
   }
   for (let target of data.changedPaths) {
-    let allowed = plan.allowedTargets.some((scope) => targetMatches(target, scope)), prohibited = plan.prohibitedTargets.filter((scope) => !/^all other (?:files|paths|targets)$/i.test(scope)).some((scope) => targetMatches(target, scope));
-    (!allowed || prohibited) && failures.push(`${artifact2.label}: changed target ${target} is outside root scope`);
+    let authority = authorityTargetState(target, root.fields.authority), manualUnverified = root.fields.profile_max === "manual" && artifact2.fields.overall_grade !== "verified" && artifact2.fields.representation !== "seal";
+    authority.protected || authority.approval_required ? (!manualUnverified || artifact2.fields.status !== "blocked") && failures.push(`${artifact2.label}: changed target ${target} crosses a hard root boundary`) : !authority.allowed && (!manualUnverified || artifact2.fields.status === "complete") && failures.push(`${artifact2.label}: changed target ${target} is outside root scope`);
   }
   if (initial) {
     let delivered = new Set(data.objectiveStates.keys());
@@ -23013,8 +23133,8 @@ function validateCompactCorrection(review, root, evidence, artifacts, failures) 
     for (let check of ids(fix["Root Checks"], checkPattern2)) plan.checks.has(check) || failures.push(`${review.label}: correction references unknown root ${check}`);
   }
   for (let step of correction2.steps) for (let target of targetTokens(step.Targets)) {
-    let allowed = plan.allowedTargets.some((scope) => targetMatches(target, scope)), prohibited = plan.prohibitedTargets.filter((scope) => !/^all other (?:files|paths|targets)$/i.test(scope)).some((scope) => targetMatches(target, scope));
-    (!allowed || prohibited) && failures.push(`${review.label}: correction target ${target} is outside root scope`);
+    let authority = authorityTargetState(target, root.fields.authority);
+    (authority.protected || authority.approval_required) && failures.push(`${review.label}: correction target ${target} crosses a hard root boundary`);
   }
 }
 function progressState(review, artifacts) {
@@ -23062,7 +23182,7 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
   let errors = [], diagnostics = [], normalizations = [], artifacts = /* @__PURE__ */ new Map();
   for (let [label, text] of entries) {
     let probe = parseArtifact(text, [], []), type = probe?.fields.artifact;
-    if (type && !knownArtifacts.has(type) && !existsSync2(schemaFor(root, type))) {
+    if (type && !knownArtifacts.has(type) && !existsSync3(schemaFor(root, type))) {
       (/^(?:work|delivery)-/.test(type) || /^(?:wp|de|wr|cp|rs)-/.test(String(probe?.fields.id ?? ""))) && errors.push(`${label}: unsupported workflow artifact type`);
       continue;
     }
@@ -23212,7 +23332,7 @@ function runCli() {
     console.error("Usage: validate-artifact.mjs [--diagnostics] [--effective] <artifact.md> [related-artifact.md ...]"), process.exitCode = 2;
     return;
   }
-  let entries = paths.map((path) => [path, readFileSync2(resolve3(path), "utf8")]), inspection = entries.length === 1 ? inspectArtifactText(entries[0][1]) : inspectArtifactSet(entries);
+  let entries = paths.map((path) => [path, readFileSync2(resolve4(path), "utf8")]), inspection = entries.length === 1 ? inspectArtifactText(entries[0][1]) : inspectArtifactSet(entries);
   if (inspection.errors.length > 0) {
     console.error("Artifact validation failed:"), inspection.errors.forEach((failure2) => console.error(`- ${failure2}`)), process.exitCode = 1;
     return;
@@ -23223,7 +23343,7 @@ function runCli() {
   }
   console.log(entries.length === 1 ? "Artifact validation passed." : "Artifact chain validation passed."), diagnosticsRequested && (inspection.normalizations.forEach((item) => console.log(`NORMALIZED: ${item}`)), inspection.diagnostics.forEach((item) => console.log(`DIAGNOSTIC: ${item}`)));
 }
-process.argv[1] && ["validate-artifact.source.mjs", "validate-artifact.mjs"].includes(basename(process.argv[1])) && realpathSync(resolve3(process.argv[1])) === realpathSync(fileURLToPath(import.meta.url)) && runCli();
+process.argv[1] && ["validate-artifact.source.mjs", "validate-artifact.mjs"].includes(basename(process.argv[1])) && realpathSync2(resolve4(process.argv[1])) === realpathSync2(fileURLToPath(import.meta.url)) && runCli();
 
 // src/controller/harness-orchestrator.mjs
 var REQUIRED_CAPABILITIES = Object.freeze({
@@ -23410,22 +23530,22 @@ async function orchestrateHarnessPhase({
 
 // src/controller/harness-lifecycle.mjs
 import { createHash as createHash8, randomUUID as randomUUID2 } from "node:crypto";
-import { existsSync as existsSync4, lstatSync as lstatSync2, mkdirSync as mkdirSync2, renameSync as renameSync2, rmSync } from "node:fs";
+import { existsSync as existsSync5, lstatSync as lstatSync2, mkdirSync as mkdirSync2, renameSync as renameSync2, rmSync } from "node:fs";
 import { join as join4 } from "node:path";
 
 // src/core/protected-record-store.mjs
 import { createHash as createHash5, randomUUID } from "node:crypto";
 import {
   chmodSync,
-  existsSync as existsSync3,
+  existsSync as existsSync4,
   lstatSync,
   mkdirSync,
   readFileSync as readFileSync3,
-  realpathSync as realpathSync2,
+  realpathSync as realpathSync3,
   renameSync,
   writeFileSync
 } from "node:fs";
-import { dirname as dirname2, resolve as resolve4, sep } from "node:path";
+import { dirname as dirname3, resolve as resolve5, sep as sep2 } from "node:path";
 function protectedRecordHash(value) {
   return createHash5("sha256").update(String(value)).digest("hex");
 }
@@ -23437,22 +23557,22 @@ function stableProtectedRecordJson(value) {
 }
 function canonicalProtectedWorkspaceRoot(workspaceRoot2) {
   try {
-    return realpathSync2(workspaceRoot2);
+    return realpathSync3(workspaceRoot2);
   } catch {
-    return resolve4(workspaceRoot2);
+    return resolve5(workspaceRoot2);
   }
 }
 function assertProtectedRecordPath(path, base) {
-  let resolvedBase = resolve4(base), resolvedPath = resolve4(path);
-  if (resolvedPath !== resolvedBase && !resolvedPath.startsWith(`${resolvedBase}${sep}`))
+  let resolvedBase = resolve5(base), resolvedPath = resolve5(path);
+  if (resolvedPath !== resolvedBase && !resolvedPath.startsWith(`${resolvedBase}${sep2}`))
     throw new Error("protected record path escapes its state root");
   let current = resolvedPath;
-  for (; current !== resolvedBase && !existsSync3(current); ) current = dirname2(current);
-  if (existsSync3(current) && lstatSync(current).isSymbolicLink()) throw new Error("protected record state may not be symlink redirected");
+  for (; current !== resolvedBase && !existsSync4(current); ) current = dirname3(current);
+  if (existsSync4(current) && lstatSync(current).isSymbolicLink()) throw new Error("protected record state may not be symlink redirected");
 }
 function ensureDirectory(path, base) {
   assertProtectedRecordPath(path, base), mkdirSync(path, { recursive: !0, mode: 448 });
-  let current = resolve4(path), stop = resolve4(base);
+  let current = resolve5(path), stop = resolve5(base);
   for (; current.startsWith(stop); ) {
     if (lstatSync(current).isSymbolicLink()) throw new Error("protected record state may not contain symlink directories");
     try {
@@ -23460,11 +23580,11 @@ function ensureDirectory(path, base) {
     } catch {
     }
     if (current === stop) break;
-    current = dirname2(current);
+    current = dirname3(current);
   }
 }
 function writeProtectedRecord(path, value, base) {
-  ensureDirectory(dirname2(path), base);
+  ensureDirectory(dirname3(path), base);
   let temporary = `${path}.${process.pid}.${randomUUID()}.tmp`;
   writeFileSync(temporary, `${JSON.stringify(value, null, 2)}
 `, { encoding: "utf8", mode: 384 }), renameSync(temporary, path);
@@ -23592,6 +23712,8 @@ function buildDeliveryEvidence({
   enforceHarnessAttestations = !0,
   workspaceBinding = null,
   workspaceSnapshotHash = null,
+  forcedStatus = null,
+  allowManualScopeDrift = !1,
   seal = !1,
   pluginRoot: pluginRoot2
 }) {
@@ -23629,12 +23751,26 @@ function buildDeliveryEvidence({
     expectedHarnessId: harnessId,
     protectedAttestationHash
   }));
-  let grade = aggregate(entries), status = artifactStatus(grade);
+  let grade = aggregate(entries);
+  if (forcedStatus != null && forcedStatus !== "blocked") throw new Error("closeout forcedStatus may only add a blocked boundary");
+  let status = forcedStatus ?? artifactStatus(grade);
   if (seal && (grade !== "verified" || status !== "complete" || entries.some((entry) => entry.grade !== "verified"))) {
     let error2 = new Error("protected sealing requires fresh verified evidence for every required Check");
     throw error2.code = "protected-seal-not-verified", error2;
   }
-  let subjectId = correction2 ? review.fields.correction_id : normalized.rootId, sourceReviewId = correction2 || seal ? review.fields.id : null, predecessorEvidenceId = correction2 || seal ? evidenceTipId : null, paths = unique2((changedPaths ?? []).map(String).map((path) => path.trim()).filter(Boolean)).sort(), affectedObjectives = [...contract.objectives], seed = sha2563(JSON.stringify(stable3({
+  let subjectId = correction2 ? review.fields.correction_id : normalized.rootId, sourceReviewId = correction2 || seal ? review.fields.id : null, predecessorEvidenceId = correction2 || seal ? evidenceTipId : null, paths = unique2((changedPaths ?? []).map(String).map((path) => path.trim()).filter(Boolean)).sort();
+  if (!allowManualScopeDrift) {
+    let authority = classifyChangedPathAuthority(contract.fields, paths);
+    if (authority.status !== "within-authority") {
+      let rejected = [
+        ...authority.outside_allowed_paths,
+        ...authority.approval_required_paths,
+        ...authority.protected_paths
+      ];
+      throw new Error(`changed paths are outside Root authority: ${rejected.join(", ")}`);
+    }
+  }
+  let affectedObjectives = [...contract.objectives], seed = sha2563(JSON.stringify(stable3({
     root_projection_hash: contract.authoritative_projection_hash,
     subject_id: subjectId,
     source_review_id: sourceReviewId,
@@ -23642,6 +23778,7 @@ function buildDeliveryEvidence({
     workspace_snapshot_hash: effectiveSnapshotHash,
     changed_paths: paths,
     check_evidence: entries,
+    forced_status: forcedStatus,
     summary: summary2 ?? null
   }))), id = `de-${subjectId.replace(/^(?:wp|cp)-/, "")}-${seed.slice(0, 12)}`, mode = effectiveProfile === "manual" && contract.fields.risk !== "high" && (contract.fields.hard_triggers ?? []).length === 0 ? "lean" : "full", fields = {
     artifact: "delivery-evidence",
@@ -23764,11 +23901,11 @@ function list(value, label, { max = 64, required: required2 = !1 } = {}) {
   if (value.length > max) throw new Error(`${label} exceeds ${max} items`);
   return value;
 }
-function uniqueSorted(values) {
+function uniqueSorted2(values) {
   return [...new Set(values)].sort(compareCanonical);
 }
 function normalizeIds(value, pattern, allowed, label) {
-  let normalized = uniqueSorted(list(value, label, { required: !0 }).map((entry) => line(entry, label, { max: 80 })));
+  let normalized = uniqueSorted2(list(value, label, { required: !0 }).map((entry) => line(entry, label, { max: 80 })));
   for (let id of normalized)
     if (!pattern.test(id) || !allowed.has(id)) throw new Error(`${label} contains unknown ${id}`);
   return normalized;
@@ -23801,7 +23938,7 @@ function normalizeCorrection(value, findingKeys) {
   let fixes = list(correction2.fixes, "review_input.correction.fixes", { max: 32, required: !0 }).map((entry, index) => {
     let item = object3(entry, `review_input.correction.fixes[${index}]`);
     closed2(item, ["key", "finding_keys", "required_outcome", "evidence"], `review_input.correction.fixes[${index}]`);
-    let keys = uniqueSorted(list(item.finding_keys, `review_input.correction.fixes[${index}].finding_keys`, { required: !0 }).map((key) => localKey(key, `review_input.correction.fixes[${index}].finding_keys`)));
+    let keys = uniqueSorted2(list(item.finding_keys, `review_input.correction.fixes[${index}].finding_keys`, { required: !0 }).map((key) => localKey(key, `review_input.correction.fixes[${index}].finding_keys`)));
     if (keys.some((key) => !findingKeys.has(key))) throw new Error(`review_input.correction.fixes[${index}] references an unknown finding`);
     return {
       key: localKey(item.key, `review_input.correction.fixes[${index}].key`),
@@ -23814,9 +23951,9 @@ function normalizeCorrection(value, findingKeys) {
   let checks = list(correction2.checks, "review_input.correction.checks", { max: 32, required: !0 }).map((entry, index) => {
     let item = object3(entry, `review_input.correction.checks[${index}]`);
     closed2(item, ["key", "fix_keys", "verification_intent", "expected_evidence", "evidence_class", "required", "cost_class", "prerequisites"], `review_input.correction.checks[${index}]`);
-    let referencedFixes = uniqueSorted(list(item.fix_keys, `review_input.correction.checks[${index}].fix_keys`, { required: !0 }).map((key) => localKey(key, `review_input.correction.checks[${index}].fix_keys`)));
+    let referencedFixes = uniqueSorted2(list(item.fix_keys, `review_input.correction.checks[${index}].fix_keys`, { required: !0 }).map((key) => localKey(key, `review_input.correction.checks[${index}].fix_keys`)));
     if (referencedFixes.some((key) => !fixKeys.has(key))) throw new Error(`review_input.correction.checks[${index}] references an unknown fix`);
-    let prerequisites = uniqueSorted(list(item.prerequisites, `review_input.correction.checks[${index}].prerequisites`, { required: !0 }).map((entryValue) => line(entryValue, `review_input.correction.checks[${index}].prerequisites`, { max: 1e3 })));
+    let prerequisites = uniqueSorted2(list(item.prerequisites, `review_input.correction.checks[${index}].prerequisites`, { required: !0 }).map((entryValue) => line(entryValue, `review_input.correction.checks[${index}].prerequisites`, { max: 1e3 })));
     if (typeof item.required != "boolean") throw new Error(`review_input.correction.checks[${index}].required must be a boolean`);
     return {
       key: localKey(item.key, `review_input.correction.checks[${index}].key`),
@@ -23833,13 +23970,13 @@ function normalizeCorrection(value, findingKeys) {
   let steps = list(correction2.steps, "review_input.correction.steps", { max: 32, required: !0 }).map((entry, index) => {
     let item = object3(entry, `review_input.correction.steps[${index}]`);
     closed2(item, ["key", "fix_keys", "targets", "required_outcome", "implementation_latitude", "completion_probe", "check_keys", "deviation_action"], `review_input.correction.steps[${index}]`);
-    let referencedFixes = uniqueSorted(list(item.fix_keys, `review_input.correction.steps[${index}].fix_keys`, { required: !0 }).map((key) => localKey(key, `review_input.correction.steps[${index}].fix_keys`))), referencedChecks = uniqueSorted(list(item.check_keys, `review_input.correction.steps[${index}].check_keys`, { required: !0 }).map((key) => localKey(key, `review_input.correction.steps[${index}].check_keys`)));
+    let referencedFixes = uniqueSorted2(list(item.fix_keys, `review_input.correction.steps[${index}].fix_keys`, { required: !0 }).map((key) => localKey(key, `review_input.correction.steps[${index}].fix_keys`))), referencedChecks = uniqueSorted2(list(item.check_keys, `review_input.correction.steps[${index}].check_keys`, { required: !0 }).map((key) => localKey(key, `review_input.correction.steps[${index}].check_keys`)));
     if (referencedFixes.some((key) => !fixKeys.has(key))) throw new Error(`review_input.correction.steps[${index}] references an unknown fix`);
     if (referencedChecks.some((key) => !checkKeys.has(key))) throw new Error(`review_input.correction.steps[${index}] references an unknown check`);
     return {
       key: localKey(item.key, `review_input.correction.steps[${index}].key`),
       fix_keys: referencedFixes,
-      targets: uniqueSorted(list(item.targets, `review_input.correction.steps[${index}].targets`, { required: !0 }).map((target) => line(target, `review_input.correction.steps[${index}].targets`, { max: 1e3 }))),
+      targets: uniqueSorted2(list(item.targets, `review_input.correction.steps[${index}].targets`, { required: !0 }).map((target) => line(target, `review_input.correction.steps[${index}].targets`, { max: 1e3 }))),
       required_outcome: line(item.required_outcome, `review_input.correction.steps[${index}].required_outcome`, { max: 2e3 }),
       implementation_latitude: line(item.implementation_latitude, `review_input.correction.steps[${index}].implementation_latitude`, { max: 2e3 }),
       completion_probe: line(item.completion_probe, `review_input.correction.steps[${index}].completion_probe`, { max: 2e3 }),
@@ -23852,13 +23989,13 @@ function normalizeCorrection(value, findingKeys) {
   let learningCandidates = list(correction2.learning_candidates, "review_input.correction.learning_candidates", { max: 32, required: !0 }).map((entry, index) => {
     let item = object3(entry, `review_input.correction.learning_candidates[${index}]`);
     closed2(item, ["key", "finding_keys", "reusable_guidance", "candidate_targets", "confirmation_evidence"], `review_input.correction.learning_candidates[${index}]`);
-    let keys = uniqueSorted(list(item.finding_keys, `review_input.correction.learning_candidates[${index}].finding_keys`, { required: !0 }).map((key) => localKey(key, `review_input.correction.learning_candidates[${index}].finding_keys`)));
+    let keys = uniqueSorted2(list(item.finding_keys, `review_input.correction.learning_candidates[${index}].finding_keys`, { required: !0 }).map((key) => localKey(key, `review_input.correction.learning_candidates[${index}].finding_keys`)));
     if (keys.some((key) => !findingKeys.has(key))) throw new Error(`review_input.correction.learning_candidates[${index}] references an unknown finding`);
     return {
       key: localKey(item.key, `review_input.correction.learning_candidates[${index}].key`),
       finding_keys: keys,
       reusable_guidance: line(item.reusable_guidance, `review_input.correction.learning_candidates[${index}].reusable_guidance`, { max: 2e3 }),
-      candidate_targets: uniqueSorted(list(item.candidate_targets, `review_input.correction.learning_candidates[${index}].candidate_targets`, { required: !0 }).map((target) => line(target, `review_input.correction.learning_candidates[${index}].candidate_targets`, { max: 1e3 }))),
+      candidate_targets: uniqueSorted2(list(item.candidate_targets, `review_input.correction.learning_candidates[${index}].candidate_targets`, { required: !0 }).map((target) => line(target, `review_input.correction.learning_candidates[${index}].candidate_targets`, { max: 1e3 }))),
       confirmation_evidence: line(item.confirmation_evidence, `review_input.correction.learning_candidates[${index}].confirmation_evidence`, { max: 2e3 })
     };
   }).sort((left, right) => compareCanonical(left.key, right.key));
@@ -23878,7 +24015,7 @@ function normalizeReviewInput(input, contract) {
     snapshot_assessment: enumValue(requiredField(value, "snapshot_assessment"), SNAPSHOT_ASSESSMENTS, "review_input.snapshot_assessment"),
     snapshot_summary: line(requiredField(value, "snapshot_summary"), "review_input.snapshot_summary", { max: 2e3 }),
     findings,
-    missing_evidence: uniqueSorted(list(requiredField(value, "missing_evidence"), "review_input.missing_evidence", { max: 32 }).map((entry) => line(entry, "review_input.missing_evidence", { max: 2e3 }))),
+    missing_evidence: uniqueSorted2(list(requiredField(value, "missing_evidence"), "review_input.missing_evidence", { max: 32 }).map((entry) => line(entry, "review_input.missing_evidence", { max: 2e3 }))),
     correction: normalizeCorrection(value.correction, findingKeys)
   };
   if (normalized.recommended_action === "correct") {
@@ -23964,8 +24101,8 @@ function correctionProjection({ normalized, findings, seed, rootFields, evidence
     return {
       "FIX ID": fixIds.get(fix.key),
       "Finding keys": fix.finding_keys.join(", "),
-      "Root Objectives": uniqueSorted(mapped.flatMap((finding2) => finding2.objective_ids)).join(", "),
-      "Root Checks": uniqueSorted(mapped.flatMap((finding2) => finding2.check_ids)).join(", "),
+      "Root Objectives": uniqueSorted2(mapped.flatMap((finding2) => finding2.objective_ids)).join(", "),
+      "Root Checks": uniqueSorted2(mapped.flatMap((finding2) => finding2.check_ids)).join(", "),
       "Required outcome": fix.required_outcome,
       Evidence: fix.evidence
     };
@@ -24326,7 +24463,7 @@ function withRunLock(stateRoot, runId, callback, lockOptions) {
 }
 function readRun(stateRoot, runId) {
   let path = runPath(stateRoot, runId);
-  if (!existsSync4(path)) throw new Error(`unknown Workflow 6 run ${runId}`);
+  if (!existsSync5(path)) throw new Error(`unknown Workflow 6 run ${runId}`);
   let record2 = readProtectedRecord(path, runRoot(stateRoot), { maxBytes: 2 * 1024 * 1024 });
   if (!record2 || record2.schema !== HARNESS_RUN_SCHEMA || record2.kind !== "workflow-6-run" || record2.contract !== RUN_CONTRACT)
     throw new Error(`unsupported Workflow 6 run ${runId}`);
@@ -24793,12 +24930,12 @@ function createHarnessLifecycleController({
     if (typeof idempotencyKey != "string" || !idempotencyKey.trim()) throw new Error("Workflow 6 start requires idempotency_key");
     let root = exactRoot(rootPlanText, pluginRoot2), rootHash = sha2565(rootPlanText), runId = `run-${sha2565(`${workspaceBinding}\0${rootHash}\0${requestedProfile}\0${idempotencyKey}`).slice(0, 24)}`, inputFingerprint = fingerprint({ action: "start", run_id: runId, root_hash: rootHash, requested_profile: requestedProfile }), duplicate = !1, createdTransition = null;
     withLifecycleLock(stateRoot, `start-${sha2565(idempotencyKey).slice(0, 32)}`, () => {
-      let indexPath = startIndexPath(stateRoot, idempotencyKey), indexRoot = runRoot(stateRoot), indexed = existsSync4(indexPath);
+      let indexPath = startIndexPath(stateRoot, idempotencyKey), indexRoot = runRoot(stateRoot), indexed = existsSync5(indexPath);
       if (indexed) {
         let index = readProtectedRecord(indexPath, indexRoot);
         if (index?.schema !== 1 || index?.kind !== "workflow-6-start-idempotency" || index.contract !== RUN_CONTRACT) throw new Error("Workflow 6 start idempotency record is invalid");
         if (index.fingerprint !== inputFingerprint || index.run_id !== runId) throw new Error("Workflow 6 idempotency key conflicts with another action or input");
-        if (existsSync4(runPath(stateRoot, runId))) {
+        if (existsSync5(runPath(stateRoot, runId))) {
           let existing = readRun(stateRoot, runId);
           if (!assertIdempotency(existing, idempotencyKey, inputFingerprint)) throw new Error("Workflow 6 start idempotency conflict");
           duplicate = !0;
@@ -24815,7 +24952,7 @@ function createHarnessLifecycleController({
         created_at: (/* @__PURE__ */ new Date()).toISOString()
       }, indexRoot);
       let path = runPath(stateRoot, runId);
-      if (existsSync4(path))
+      if (existsSync5(path))
         throw new Error("Workflow 6 run already exists without its protected start index");
       let now2 = (/* @__PURE__ */ new Date()).toISOString(), run = {
         schema: HARNESS_RUN_SCHEMA,
@@ -24994,23 +25131,23 @@ function createHarnessLifecycleController({
 var PLUGIN_VERSION = "6.0.0";
 
 // src/harness/module-adapter.mjs
-import { lstatSync as lstatSync3, realpathSync as realpathSync3 } from "node:fs";
-import { isAbsolute, relative, resolve as resolve5, sep as sep2 } from "node:path";
+import { lstatSync as lstatSync3, realpathSync as realpathSync4 } from "node:fs";
+import { isAbsolute as isAbsolute2, relative as relative2, resolve as resolve6, sep as sep3 } from "node:path";
 import { fileURLToPath as fileURLToPath2, pathToFileURL } from "node:url";
 var HOST_ADAPTER_ENV = "GELDMACHER_WORKFLOW_HOST_ADAPTER_MODULE", PROJECT_HARNESS_ENV = "GELDMACHER_WORKFLOW_HARNESS_MODULE", hashPattern2 = /^[a-f0-9]{64}$/;
 function inside(parent, child) {
-  let item = relative(parent, child);
-  return item === "" || item !== ".." && !item.startsWith(`..${sep2}`);
+  let item = relative2(parent, child);
+  return item === "" || item !== ".." && !item.startsWith(`..${sep3}`);
 }
 function canonicalHostAdapterPath(specifier, workspaceRoot2) {
   if (typeof specifier != "string" || !specifier.trim()) return null;
   let raw = specifier.trim(), path = raw.startsWith("file:") ? fileURLToPath2(raw) : raw;
-  if (!isAbsolute(path)) throw new Error(`${HOST_ADAPTER_ENV} must be an absolute file path`);
-  let resolved = resolve5(path), stat = lstatSync3(resolved);
+  if (!isAbsolute2(path)) throw new Error(`${HOST_ADAPTER_ENV} must be an absolute file path`);
+  let resolved = resolve6(path), stat = lstatSync3(resolved);
   if (!stat.isFile() || stat.isSymbolicLink()) throw new Error("Workflow host adapter must be a regular non-symlink file");
-  let canonical = realpathSync3(resolved);
+  let canonical = realpathSync4(resolved);
   if (canonical !== resolved) throw new Error("Workflow host adapter path may not be redirected");
-  if (workspaceRoot2 && inside(realpathSync3(workspaceRoot2), canonical)) throw new Error("Workflow host adapter must be outside the project workspace");
+  if (workspaceRoot2 && inside(realpathSync4(workspaceRoot2), canonical)) throw new Error("Workflow host adapter must be outside the project workspace");
   return canonical;
 }
 function validateBinding(binding) {
@@ -25051,7 +25188,7 @@ import { isAbsolute as isAbsolute4, resolve as resolve14 } from "node:path";
 // src/controller/artifact-handoff.mjs
 import {
   closeSync,
-  existsSync as existsSync5,
+  existsSync as existsSync6,
   mkdirSync as mkdirSync3,
   openSync,
   readFileSync as readFileSync4,
@@ -25061,7 +25198,7 @@ import {
   writeFileSync as writeFileSync2
 } from "node:fs";
 import { createHash as createHash9, randomUUID as randomUUID3 } from "node:crypto";
-import { dirname as dirname3, join as join5, resolve as resolve6 } from "node:path";
+import { dirname as dirname4, join as join5, resolve as resolve7 } from "node:path";
 var HANDOFF_RECORD_SCHEMA = 1, HANDOFF_TIP_SCHEMA = 1;
 function createContentAddressedHandoffStore(rootPlanText, pluginRoot2, options = {}) {
   return new ArtifactHandoffStore(contentAddressedHandoffRoot(rootPlanText, options), pluginRoot2, options.artifactSetOptions);
@@ -25075,11 +25212,11 @@ function validateTip(tip, rootPlanId) {
   return tip;
 }
 function readTipFile(path, rootPlanId) {
-  return existsSync5(path) ? validateTip(JSON.parse(readFileSync4(path, "utf8")), rootPlanId) : null;
+  return existsSync6(path) ? validateTip(JSON.parse(readFileSync4(path, "utf8")), rootPlanId) : null;
 }
 function listHandoffTips(rootPlanId, options = {}) {
   let tips = /* @__PURE__ */ new Map(), directory = handoffTipDirectory(rootPlanId, options);
-  if (existsSync5(directory))
+  if (existsSync6(directory))
     for (let name of readdirSync(directory, { withFileTypes: !0 })) {
       if (!name.isFile() || !name.name.endsWith(".json")) continue;
       let tip = readTipFile(join5(directory, name.name), rootPlanId);
@@ -25102,7 +25239,7 @@ function writeHandoffTip(rootPlanText, options = {}) {
     text_hash: sha2566(rootPlanText),
     updated_at: (/* @__PURE__ */ new Date()).toISOString()
   }, path = handoffTipPath(tip.root_plan_id, tip.root_content_hash, options);
-  if (existsSync5(path)) {
+  if (existsSync6(path)) {
     let prior = readTipFile(path, tip.root_plan_id);
     if (prior.root_content_hash === tip.root_content_hash && prior.text_hash === tip.text_hash) return tip;
     throw new Error(`handoff tip for ${tip.root_plan_id} conflicts with a different Root text hash`);
@@ -25156,7 +25293,7 @@ function stableArtifactSetHash(records) {
   return sha2566(JSON.stringify(projection));
 }
 function atomicJson(path, value) {
-  mkdirSync3(dirname3(path), { recursive: !0, mode: 448 });
+  mkdirSync3(dirname4(path), { recursive: !0, mode: 448 });
   let temporary = `${path}.${process.pid}.${randomUUID3()}.tmp`;
   writeFileSync2(temporary, `${JSON.stringify(value, null, 2)}
 `, { mode: 384 }), renameSync3(temporary, path);
@@ -25170,7 +25307,7 @@ function processAlive(pid) {
   }
 }
 function acquireLock(path) {
-  mkdirSync3(dirname3(path), { recursive: !0, mode: 448 });
+  mkdirSync3(dirname4(path), { recursive: !0, mode: 448 });
   try {
     let descriptor = openSync(path, "wx", 384);
     return writeFileSync2(descriptor, `${JSON.stringify({ pid: process.pid, at: (/* @__PURE__ */ new Date()).toISOString() })}
@@ -25239,7 +25376,7 @@ function referencedIds(fields) {
 }
 var ArtifactHandoffStore = class {
   constructor(root, pluginRoot2, artifactSetOptions = {}) {
-    this.root = resolve6(root), this.pluginRoot = resolve6(pluginRoot2), this.artifactSetOptions = artifactSetOptions ?? {}, this.directory = join5(this.root, "handoff", "artifacts");
+    this.root = resolve7(root), this.pluginRoot = resolve7(pluginRoot2), this.artifactSetOptions = artifactSetOptions ?? {}, this.directory = join5(this.root, "handoff", "artifacts");
   }
   artifactPath(artifactId) {
     if (!/^(?:wp|de|wr)-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(artifactId))) throw new Error(`invalid handoff artifact ID ${artifactId}`);
@@ -25268,7 +25405,7 @@ var ArtifactHandoffStore = class {
   }
   loadIndex({ repair = !1 } = {}) {
     try {
-      let index = JSON.parse(readFileSync4(this.indexPath(), "utf8")), actual = existsSync5(this.directory) ? readdirSync(this.directory, { withFileTypes: !0 }).filter((entry) => entry.isFile() && entry.name.endsWith(".json")).map((entry) => entry.name.slice(0, -5)).sort() : [], recorded = (index.entries ?? []).map((entry) => entry.artifact_id).sort();
+      let index = JSON.parse(readFileSync4(this.indexPath(), "utf8")), actual = existsSync6(this.directory) ? readdirSync(this.directory, { withFileTypes: !0 }).filter((entry) => entry.isFile() && entry.name.endsWith(".json")).map((entry) => entry.name.slice(0, -5)).sort() : [], recorded = (index.entries ?? []).map((entry) => entry.artifact_id).sort();
       if (index.schema !== 1 || actual.join(`
 `) !== recorded.join(`
 `)) throw new Error("handoff index mismatch");
@@ -25286,7 +25423,7 @@ var ArtifactHandoffStore = class {
     atomicJson(this.indexPath(), { schema: 1, entries: [...entries.values()].sort((left, right) => left.artifact_id.localeCompare(right.artifact_id)) });
   }
   records(ids3 = null) {
-    return existsSync5(this.directory) ? (ids3 ? [...new Set(ids3)].map((id) => this.artifactPath(id)).filter(existsSync5) : readdirSync(this.directory, { withFileTypes: !0 }).filter((entry) => entry.isFile() && entry.name.endsWith(".json")).map((entry) => join5(this.directory, entry.name))).map((path) => validateRecord(JSON.parse(readFileSync4(path, "utf8")), this.pluginRoot)).sort((left, right) => left.artifact_id.localeCompare(right.artifact_id)) : [];
+    return existsSync6(this.directory) ? (ids3 ? [...new Set(ids3)].map((id) => this.artifactPath(id)).filter(existsSync6) : readdirSync(this.directory, { withFileTypes: !0 }).filter((entry) => entry.isFile() && entry.name.endsWith(".json")).map((entry) => join5(this.directory, entry.name))).map((path) => validateRecord(JSON.parse(readFileSync4(path, "utf8")), this.pluginRoot)).sort((left, right) => left.artifact_id.localeCompare(right.artifact_id)) : [];
   }
   record(artifacts) {
     if (!Array.isArray(artifacts) || artifacts.length < 1 || artifacts.length > 32) throw new Error("handoff record requires 1..32 artifacts");
@@ -25447,7 +25584,7 @@ function snapshot(input, state, overrides = {}) {
 }
 function waiting(input, blocker, nextAction = "answer") {
   return snapshot(input, "waiting-human", {
-    allowed_actions: ["answer", "pause", "stop"],
+    allowed_actions: [.../* @__PURE__ */ new Set([nextAction, "pause", "stop"])],
     required_actor: "human",
     next_action: nextAction,
     blockers: [...new Set([...input.blockers ?? [], blocker].filter(Boolean))]
@@ -25489,7 +25626,7 @@ function deriveWorkflowState(input = {}) {
   if (input.phase === "correct" && input.phase_status !== "complete") return snapshot(input, "correcting", { allowed_actions: ["pause", "stop"], required_actor: "harness", next_action: "complete-correction" });
   if ((input.phase === "review" || input.execution_started) && !input.root_review_complete && !input.review) return snapshot(input, "reviewing", { allowed_actions: ["review", "pause", "stop"], required_actor: "reviewer", next_action: "review-root" });
   let nextAction = input.review?.next_action;
-  return nextAction === "clarify" ? waiting(input, "review-requires-clarification", "answer") : nextAction === "replan" ? snapshot(input, "replan", { allowed_actions: ["replan"], required_actor: "human", next_action: "replan" }) : nextAction === "correct" ? snapshot(input, "waiting-human", { allowed_actions: ["inspect", "correct", "replan"], required_actor: "human", next_action: "approve-correction" }) : nextAction === "retry-review" ? snapshot(input, "reviewing", { allowed_actions: ["review"], required_actor: "reviewer", next_action: "retry-review" }) : input.delivery_status === "provisional" ? manualArtifacts && input.manual_acceptance === "provisional" ? snapshot(input, "accepted-provisional", {
+  return nextAction === "clarify" ? waiting(input, "review-requires-clarification", "clarify") : nextAction === "replan" ? snapshot(input, "replan", { allowed_actions: ["replan"], required_actor: "human", next_action: "replan" }) : nextAction === "correct" ? snapshot(input, "waiting-human", { allowed_actions: ["inspect", "correct", "replan"], required_actor: "human", next_action: "correct" }) : nextAction === "retry-review" ? snapshot(input, "reviewing", { allowed_actions: ["review"], required_actor: "reviewer", next_action: "retry-review" }) : input.delivery_status === "provisional" ? manualArtifacts && input.manual_acceptance === "provisional" ? snapshot(input, "accepted-provisional", {
     allowed_actions: ["inspect"],
     acceptance_persisted: !1,
     acceptance_basis_hash: input.acceptance_basis_hash ?? input.artifact_set_hash ?? null
@@ -25695,10 +25832,10 @@ function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot: plugi
 }
 
 // src/harness/boundary-receipts.mjs
-import { join as join7, relative as relative2, resolve as resolve9 } from "node:path";
+import { join as join7, relative as relative3, resolve as resolve10 } from "node:path";
 
 // src/harness/repository-snapshot.mjs
-import { resolve as resolve8 } from "node:path";
+import { resolve as resolve9 } from "node:path";
 
 // src/harness/native-task-review-state.mjs
 import { createHash as createHash11, randomUUID as randomUUID4 } from "node:crypto";
@@ -25708,12 +25845,12 @@ import {
   mkdirSync as mkdirSync4,
   readFileSync as readFileSync5,
   readlinkSync,
-  realpathSync as realpathSync4,
+  realpathSync as realpathSync5,
   renameSync as renameSync4,
   rmSync as rmSync2,
   writeFileSync as writeFileSync3
 } from "node:fs";
-import { join as join6, resolve as resolve7 } from "node:path";
+import { join as join6, resolve as resolve8 } from "node:path";
 var LOCK_STALE_MS = 3e4, LOCK_WAIT_MS = 2e3;
 function git(workspaceRoot2, args, options = {}) {
   let result2 = (options.spawnSync ?? spawnSync)("git", ["-C", workspaceRoot2, ...args], {
@@ -25730,8 +25867,8 @@ function git(workspaceRoot2, args, options = {}) {
 }
 function canonicalRepositoryRoot(workspaceRoot2, options = {}) {
   if (typeof workspaceRoot2 != "string" || !workspaceRoot2.startsWith("/")) return null;
-  let candidate = realpathSync4(resolve7(workspaceRoot2));
-  return realpathSync4(String(git(candidate, ["rev-parse", "--show-toplevel"], options)).trim());
+  let candidate = realpathSync5(resolve8(workspaceRoot2));
+  return realpathSync5(String(git(candidate, ["rev-parse", "--show-toplevel"], options)).trim());
 }
 function nulPaths(value) {
   return (Buffer.isBuffer(value) ? value : Buffer.from(String(value ?? ""))).toString("utf8").split("\0").filter(Boolean);
@@ -25753,7 +25890,7 @@ function canonicalValue(value) {
   return Array.isArray(value) ? value.map(canonicalValue) : !value || typeof value != "object" ? value : Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalValue(value[key])]));
 }
 function repositoryPathFingerprint(workspaceRoot2, repositoryPath) {
-  let absolute = resolve7(workspaceRoot2, repositoryPath);
+  let absolute = resolve8(workspaceRoot2, repositoryPath);
   try {
     let stat = lstatSync4(absolute);
     return stat.isSymbolicLink() ? `symlink:${sha2567(Buffer.from(readlinkSync(absolute), "utf8"))}` : stat.isFile() ? `file:${stat.mode.toString(8)}:${sha2567(readFileSync5(absolute))}` : stat.isDirectory() ? `directory:${stat.mode.toString(8)}` : `other:${stat.mode.toString(8)}:${stat.size}`;
@@ -25787,7 +25924,7 @@ function validRepositorySnapshot(value) {
 function repositorySnapshotHash(snapshot2) {
   return validRepositorySnapshot(snapshot2) ? sha2567(Buffer.from(JSON.stringify(canonicalValue({
     schema: snapshot2.schema,
-    repository_root: resolve7(snapshot2.repository_root),
+    repository_root: resolve8(snapshot2.repository_root),
     head: snapshot2.head,
     dirty_paths: [...snapshot2.dirty_paths].sort(),
     fingerprints: snapshot2.fingerprints,
@@ -25861,7 +25998,7 @@ function quarantineLock(path, expectedToken) {
   return rmSync2(quarantine, { recursive: !0, force: !0 }), !0;
 }
 function withNativeStateLock(path, callback, options = {}) {
-  mkdirSync4(resolve7(path, ".."), { recursive: !0, mode: 448 });
+  mkdirSync4(resolve8(path, ".."), { recursive: !0, mode: 448 });
   let ownerToken = options.ownerToken ?? randomUUID4(), ownerPid = options.ownerPid ?? process.pid, deadline = Date.now() + (options.lockWaitMs ?? LOCK_WAIT_MS);
   for (; ; )
     try {
@@ -25945,7 +26082,7 @@ function deriveRepositoryDelta(baseline, current, options = {}) {
       boundary,
       reasonCodes: ["baseline-invalid", ...suppliedReasons]
     });
-  if (resolve8(baseline.repository_root) !== resolve8(current.repository_root))
+  if (resolve9(baseline.repository_root) !== resolve9(current.repository_root))
     return provisionalDelta(current, {
       baseline,
       boundary,
@@ -26007,11 +26144,11 @@ var MANUAL_BOUNDARY_RECEIPT_TTL_MS = 900 * 1e3, MANUAL_BOUNDARY_RECOVERY_REASONS
   "artifact-text-conflict": "root-binding-lost-after-mutation"
 }), sha2568 = protectedRecordHash, stableJson2 = stableProtectedRecordJson, canonicalWorkspaceRoot = canonicalProtectedWorkspaceRoot;
 function normalizedObservedPaths(paths, repositoryRoot) {
-  let root = resolve9(repositoryRoot);
+  let root = resolve10(repositoryRoot);
   return [...new Set((paths ?? []).map((value) => {
     let source = String(value ?? "").trim();
     if (!source || source.includes("\\") || source.includes("\0")) throw new Error("boundary receipt observed paths must be normalized repository-relative paths");
-    let candidate = resolve9(root, source), rel = relative2(root, candidate).replaceAll("\\", "/");
+    let candidate = resolve10(root, source), rel = relative3(root, candidate).replaceAll("\\", "/");
     if (!rel || rel === ".." || rel.startsWith("../") || rel.startsWith("/"))
       throw new Error(`boundary receipt path escapes the repository: ${source}`);
     return rel;
@@ -26085,52 +26222,6 @@ import { resolve as resolve13 } from "node:path";
 
 // src/controller/manual-review-lifecycle.mjs
 import { createHash as createHash12 } from "node:crypto";
-
-// src/core/manual-path-authority.mjs
-import { existsSync as existsSync6, realpathSync as realpathSync5 } from "node:fs";
-import { dirname as dirname4, isAbsolute as isAbsolute2, relative as relative3, resolve as resolve10, sep as sep3 } from "node:path";
-function uniqueSorted2(values) {
-  return [...new Set((values ?? []).map(String).map((value) => value.trim()).filter(Boolean))].sort();
-}
-function pathMatchesRoot(path, root) {
-  return path === root || path.startsWith(`${root}/`);
-}
-function repositoryAuthorityPaths(repositoryRoot, repositoryPath) {
-  let root = realpathSync5(repositoryRoot), lexical = resolve10(root, repositoryPath);
-  if (lexical !== root && !lexical.startsWith(`${root}${sep3}`))
-    throw new Error(`native closeout path escapes the repository: ${repositoryPath}`);
-  let existing = lexical;
-  for (; !existsSync6(existing) && existing !== root; ) existing = dirname4(existing);
-  let resolvedExisting = realpathSync5(existing);
-  if (resolvedExisting !== root && !resolvedExisting.startsWith(`${root}${sep3}`))
-    throw new Error(`native closeout path resolves outside the repository: ${repositoryPath}`);
-  let unresolved = relative3(existing, lexical), resolved = resolve10(resolvedExisting, unresolved);
-  if (resolved !== root && !resolved.startsWith(`${root}${sep3}`))
-    throw new Error(`native closeout path resolves outside the repository: ${repositoryPath}`);
-  let normalizeRelative = (value) => relative3(root, value).replaceAll("\\", "/") || ".";
-  return {
-    lexical: normalizeRelative(lexical),
-    resolved: normalizeRelative(resolved)
-  };
-}
-function authorityViolation(authorityPath, { allowed, protectedPaths, approvalRequired }) {
-  return protectedPaths.some((entry) => pathMatchesRoot(authorityPath, entry)) ? `native closeout path is protected by the Root: ${authorityPath}` : approvalRequired.some((entry) => pathMatchesRoot(authorityPath, entry)) ? `native closeout path requires separate human approval that the closeout report cannot grant: ${authorityPath}` : allowed.some((entry) => pathMatchesRoot(authorityPath, entry)) ? null : `native closeout path is outside Root authority: ${authorityPath}`;
-}
-function assertChangedPathAuthority(rootFields, changedPaths, repositoryRoot) {
-  let authority = rootFields?.authority ?? {}, allowed = uniqueSorted2(authority.allowed_roots), protectedPaths = uniqueSorted2(authority.protected_paths), approvalRequired = uniqueSorted2(authority.approval_required_paths);
-  if (allowed.length === 0) throw new Error("native closeout Root has no allowed path authority");
-  for (let path of uniqueSorted2(changedPaths)) {
-    if (isAbsolute2(path) || path.includes("\\") || path.includes("\0"))
-      throw new Error(`native closeout path is not repository-relative: ${path}`);
-    let candidates = repositoryAuthorityPaths(repositoryRoot, path);
-    for (let candidate of uniqueSorted2([candidates.lexical, candidates.resolved])) {
-      let violation = authorityViolation(candidate, { allowed, protectedPaths, approvalRequired });
-      if (violation) throw new Error(violation);
-    }
-  }
-}
-
-// src/controller/manual-review-lifecycle.mjs
 function codedError2(code, message2) {
   let error2 = new Error(message2);
   return error2.code = code, error2;
@@ -26286,6 +26377,7 @@ function buildManualReviewLifecycle({
     assertChangedPathAuthority(exact.rootFields, repositoryDelta.changed_paths, current.repository_root);
   } catch (error2) {
     let message2 = `Current repository changes do not fit the native Plan authority: ${String(error2?.message ?? error2)}`;
+    if (seal) throw codedError2("protected-seal-authority-violation", message2);
     effectiveReviewInput = authorityLimitation(effectiveReviewInput, message2), effectiveCheckEvidence = supportedOnBoundary(effectiveCheckEvidence, message2), evidenceChangedPaths = repositoryDelta.changed_paths.filter((path) => {
       try {
         return assertChangedPathAuthority(exact.rootFields, [path], current.repository_root), !0;

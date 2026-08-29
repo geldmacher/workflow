@@ -6,7 +6,7 @@ This Agent Plugins target implements Workflow's complete Skills-first Manual Sch
 
 - The human separately authorizes planning, implementation, correction, review, provisional acceptance, and learning.
 - Exact Schema-6 bytes in the current conversation are the normal Manual transport. A fresh task requires explicit attachment of the current Root and every referenced artifact. Cache, MCP state, hooks, random server values, and IDs without bytes are not authority.
-- The bundled `${PLUGIN_ROOT}/dist/manual-workflow.mjs` program validates Roots, atomically builds Evidence/Review, derives Manual status, and performs ephemeral provisional acceptance without MCP or persistent state.
+- The bundled `${PLUGIN_ROOT}/dist/manual-workflow.mjs` program validates Roots, atomically builds Evidence/Review, derives Manual status, and performs ephemeral provisional acceptance without MCP or persistent state. Ordinary repository-internal scope drift remains visible and provisional; protected, approval-required, or escaping paths remain blocking.
 - The project harness owns every repository discovery, command, tool, model, framework, sandbox, worktree, retry, and verification choice. The local builder consumes only closed opaque observations.
 - Unprotected observations are capped to `supported`, `partial`, `unavailable`, or `failed`. They never become verified. Failed required Checks remain blocking.
 - Invalid, stale, foreign, mixed, conflicting, or ambiguous input returns Shadow with no pseudo-artifact and affects only the requested phase.

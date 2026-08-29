@@ -10,6 +10,6 @@ Every skill reads the shared Manual and builder contracts plus its task-specific
 
 Manual authority is task-local. A fresh task must receive the exact current Root and every referenced Evidence/Review artifact explicitly. Hook state, handoff/cache, MCP state, random server values, IDs without bytes, harness self-assertion, and another task cannot reconstruct authority. Every other artifact schema is unsupported.
 
-Fresh `$review-work` is repository-read-only. The project harness supplies opaque unprotected observations; the local builder computes IDs and hashes and returns Evidence plus Review atomically. Unprotected success is at most provisional, failed required Checks remain blocking, and invalid or ambiguous input returns Shadow with no pseudo-artifact.
+Fresh `$review-work` is repository-read-only. The project harness supplies opaque unprotected observations; the local builder computes IDs and hashes and returns Evidence plus Review atomically. Ordinary repository-internal scope drift remains visible and provisional. Protected, approval-required, escaping, or failed paths and Checks remain blocking, and invalid or ambiguous input returns Shadow with no pseudo-artifact.
 
 The MCP server remains registered for optional automation-compatible surfaces and protected sealing. Those failures never change Manual status or ordinary Codex availability. A future protected sealing result appends new artifacts and never edits an existing provisional pair.

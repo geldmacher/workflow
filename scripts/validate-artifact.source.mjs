@@ -7,6 +7,7 @@ import { evidenceHasKnownFailure, schema6EvidenceData } from "./artifact-validat
 import { linearChain, lineageTips } from "./artifact-validator/lineage.mjs";
 import { opaqueExtensionsFromArtifactText, parseArtifact, replaceOpaqueExtensions } from "./artifact-validator/parser.mjs";
 import { schemaFor, validateArtifactSchema } from "./artifact-validator/schema.mjs";
+import { normalizeAuthorityPattern, pathMatchesAuthorityPattern } from "../src/core/manual-path-authority.mjs";
 export { rootContentHash } from "../src/core/state-paths.mjs";
 
 export { opaqueExtensionsFromArtifactText, parseArtifact, replaceOpaqueExtensions };
@@ -296,10 +297,12 @@ function targetMatches(value, scope) {
   const target = value.replace(/^\.\//, "");
   const candidate = scope.replace(/^\.\//, "");
   if (/^all other (?:files|paths|targets)$/i.test(candidate)) return true;
-  if (target === candidate || target.startsWith(`${candidate}/`) || target.startsWith(`${candidate}#`) || target.startsWith(`${candidate}:`)) return true;
-  if (!candidate.includes("*")) return false;
-  const expression = candidate.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replaceAll("**", "§§").replaceAll("*", "[^/]*").replaceAll("§§", ".*");
-  return new RegExp(`^${expression}$`).test(target);
+  const repositoryTarget = target.replace(/[#:].*$/, "");
+  try {
+    return pathMatchesAuthorityPattern(repositoryTarget, candidate);
+  } catch {
+    return false;
+  }
 }
 
 function authorityTargetState(target, authority = {}) {
@@ -654,13 +657,29 @@ export function preflightRootPlan(text, root = defaultRoot) {
   const blocking = [];
   const advisories = [];
   const authority = parsed.fields.authority ?? {};
+  for (const [boundaryKind, patterns] of [
+    ["allowed", authority.allowed_roots ?? []],
+    ["protected", authority.protected_paths ?? []],
+    ["approval-required", authority.approval_required_paths ?? []],
+  ]) {
+    for (const pattern of patterns) {
+      try {
+        normalizeAuthorityPattern(pattern);
+      } catch (error) {
+        blocking.push(issue("invalid-authority-pattern", String(error?.message ?? error), {
+          target: pattern,
+          boundary_kind: boundaryKind,
+        }));
+      }
+    }
+  }
   const denied = [
     ...(authority.protected_paths ?? []).map((path) => ({ kind: "protected", path })),
     ...(authority.approval_required_paths ?? []).map((path) => ({ kind: "approval-required", path })),
   ];
   for (const allowed of authority.allowed_roots ?? []) {
     const shadow = denied.find((entry) => targetMatches(allowed, entry.path));
-    if (shadow) blocking.push(issue(
+    if (shadow) advisories.push(issue(
       "shadowed-allowed-root",
       `allowed root ${allowed} is fully shadowed by ${shadow.kind} path ${shadow.path}`,
       { target: allowed, boundary: shadow.path, boundary_kind: shadow.kind },
@@ -668,9 +687,14 @@ export function preflightRootPlan(text, root = defaultRoot) {
   }
   for (const target of acceptanceChangeTargets(parsed)) {
     const state = authorityTargetState(target, authority);
-    if (!state.allowed || state.protected || state.approval_required) blocking.push(issue(
+    if (state.protected || state.approval_required) blocking.push(issue(
       "acceptance-path-outside-authority",
       `Acceptance requires changing ${target}, but the current Root does not authorize that target`,
+      { target, ...state },
+    ));
+    else if (!state.allowed) advisories.push(issue(
+      "acceptance-path-outside-allowed-roots",
+      `Acceptance mentions ${target} outside allowed_roots; Manual Review will expose this as provisional scope drift`,
       { target, ...state },
     ));
   }
@@ -892,9 +916,17 @@ function materializeEvidence(artifact, artifacts, cache, failures, rootDirectory
   }
 
   for (const target of data.changedPaths) {
-    const allowed = plan.allowedTargets.some((scope) => targetMatches(target, scope));
-    const prohibited = plan.prohibitedTargets.filter((scope) => !/^all other (?:files|paths|targets)$/i.test(scope)).some((scope) => targetMatches(target, scope));
-    if (!allowed || prohibited) failures.push(`${artifact.label}: changed target ${target} is outside root scope`);
+    const authority = authorityTargetState(target, root.fields.authority);
+    const manualUnverified = root.fields.profile_max === "manual"
+      && artifact.fields.overall_grade !== "verified"
+      && artifact.fields.representation !== "seal";
+    if (authority.protected || authority.approval_required) {
+      if (!manualUnverified || artifact.fields.status !== "blocked") {
+        failures.push(`${artifact.label}: changed target ${target} crosses a hard root boundary`);
+      }
+    } else if (!authority.allowed && (!manualUnverified || artifact.fields.status === "complete")) {
+      failures.push(`${artifact.label}: changed target ${target} is outside root scope`);
+    }
   }
 
   if (initial) {
@@ -959,9 +991,8 @@ function validateCompactCorrection(review, root, evidence, artifacts, failures) 
     for (const check of ids(fix["Root Checks"], checkPattern)) if (!plan.checks.has(check)) failures.push(`${review.label}: correction references unknown root ${check}`);
   }
   for (const step of correction.steps) for (const target of targetTokens(step.Targets)) {
-    const allowed = plan.allowedTargets.some((scope) => targetMatches(target, scope));
-    const prohibited = plan.prohibitedTargets.filter((scope) => !/^all other (?:files|paths|targets)$/i.test(scope)).some((scope) => targetMatches(target, scope));
-    if (!allowed || prohibited) failures.push(`${review.label}: correction target ${target} is outside root scope`);
+    const authority = authorityTargetState(target, root.fields.authority);
+    if (authority.protected || authority.approval_required) failures.push(`${review.label}: correction target ${target} crosses a hard root boundary`);
   }
 }
 

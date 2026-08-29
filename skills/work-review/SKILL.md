@@ -3,14 +3,14 @@ name: work-review
 description: Review one Schema-6 Workflow root repository-read-only.
 ---
 
-Start a fresh repository-read-only Review. Read [protocol](../../references/artifact-protocol.md) and [review](../../references/review-contract.md). Use the closed `schemas/manual-workflow/request-1.schema.json` contract. The atomic local builder owns Evidence and Review construction.
+Start a fresh repository-read-only Review. Read [protocol](../../references/artifact-protocol.md) and [review](../../references/review-contract.md), then use the closed Manual request schema.
 
-Use the exact task Root and predecessor Evidence/Review bytes. A fresh task requires human attachment of every exact referenced artifact. Cache, handoff, hooks, IDs, and transport are not authority. Reject unsupported, ambiguous, foreign, replayed, mismatched, or drifting input.
+Require the exact task Root and predecessor bytes; a fresh task needs explicit attachment. Cache, hooks, IDs, transport, and unsupported or ambiguous material grant no authority.
 
-Assess every acceptance objective, boundary, verification intent, repository observation, and limitation. The project harness owns read-only inspection and supplies opaque observations; Workflow interprets no execution detail.
+Inspect every objective, boundary, Check, repository observation, and limitation. Keep repository outcome separate from proof calibration. The harness chooses read-only inspection; Workflow interprets no command or framework detail.
 
-Create closed Schema-1 Review, repository, and Check observations. Local grades are only `supported`, `partial`, `unavailable`, or `failed`; never author IDs, hashes, attestations, receipts, or verified claims. Run local `build-review` once. It validates, hashes, enforces authority/lineage, and constructs the pair plus presentation atomically without MCP or state.
+Supply closed Schema-1 Review, repository, and Check observations. Local grades are `supported|partial|unavailable|failed`; never author IDs, hashes, receipts, attestations, or verified claims. `supported` needs an unambiguous current-snapshot outcome. Command invocation, source presence, masked exit status, or unknown outcome is partial or unavailable. Exact same-task observations may be reused while the snapshot is unchanged.
 
-On Shadow, present its one recovery action, create no pseudo-artifact, and retain exact task bytes. Unprotected success is at most provisional; failed required Checks block. Optional protected sealing is separate and never edits Manual artifacts.
+Run local `build-review` once. It validates, hashes, classifies paths and lineage, and atomically returns presentation plus Evidence/Review without MCP or state. Outside-allowed repository paths remain visible and provisional; they alone create neither finding nor clarification. Protected, approval-required, escaping, or failed paths and Checks block.
 
-Present `human_output`, Evidence, and Review unchanged; never resummarize. Provisional may offer `/accept-work provisional`; findings route to correction, clarification, retry, or replan. Never mutate.
+Present Shadow recovery or `human_output` and both artifacts unchanged, with no independent postscript. Never mutate. Provisional may offer `/accept-work provisional`; protected sealing is separate and never edits Manual artifacts.

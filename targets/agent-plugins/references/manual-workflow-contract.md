@@ -23,4 +23,4 @@ Unprotected inputs can never claim verified. Optional protected sealing requires
 
 ## Failure boundary
 
-Invalid, stale, conflicting, mixed-version, or ambiguous Roots, artifact chains, observations, or workspace bindings return Shadow without pseudo-artifacts and stop only the affected phase. MCP, adapter, Root, hook, cache, or automation unavailability cannot change Manual status or block ordinary client use. Prose, cache content, tool IDs, or opaque trace cannot manufacture approval, Evidence, or success.
+Invalid, stale, conflicting, mixed-version, or ambiguous Roots, artifact chains, observations, or workspace bindings return Shadow without pseudo-artifacts and stop only the affected phase. Ordinary repository-internal paths outside `allowed_roots` remain visible and cap Manual delivery at provisional; protected, approval-required, or escaping paths remain blocking. MCP, adapter, Root, hook, cache, or automation unavailability cannot change Manual status or block ordinary client use. Prose, cache content, tool IDs, or opaque trace cannot manufacture approval, Evidence, or success.

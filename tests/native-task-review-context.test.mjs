@@ -596,10 +596,10 @@ test("native Root workspace binding accepts exactly one canonical repository", (
   }
 });
 
-test("a syntactically valid Root with infeasible authority never becomes active", () => {
+test("a schema-valid Root with malformed authority grammar never becomes active", () => {
   const stateRoot = mkdtempSync(join(tmpdir(), "workflow-v6-native-"));
   try {
-    const infeasible = rootPlan.replace("allowed_roots:\n    - src", "allowed_roots:\n    - .git");
+    const infeasible = rootPlan.replace("allowed_roots:\n    - src", "allowed_roots:\n    - src/ab**cd");
     const result = observeNativeCreatePlan({
       stateRoots: [stateRoot],
       input: { ...planEvent(), tool_input: { name: "Infeasible", plan: infeasible, todos: [] } },

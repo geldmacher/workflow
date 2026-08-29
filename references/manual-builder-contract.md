@@ -37,7 +37,9 @@ A successful `build-review` result contains:
 
 Invalid JSON, unsupported schemas, invalid or ambiguous lineage, conflicting bytes, foreign or stale chain material, unknown Checks, and malformed observations return `kind: manual-workflow-error`, `mode: shadow`, `artifacts: []`, and a stable recovery action. The builder never deletes or changes the Root or predecessor bytes held in the task.
 
-Paths outside `allowed_roots`, under `protected_paths`, or under `approval_required_paths` are omitted from Evidence changed paths and force the Review decision to `clarify`. They are not silently accepted or converted to authority.
+Evidence keeps every observed repository-internal changed path. The builder returns a deterministic `path_authority` projection with `allowed_paths`, `outside_allowed_paths`, `approval_required_paths`, and `protected_paths`. Ordinary paths outside `allowed_roots` cap Manual delivery at provisional and may be accepted only ephemerally; this does not grant authority or verified evidence. Protected and approval-required paths remain visible but force a blocked `clarify` decision. Absolute, traversal, malformed, or repository/symlink-escaping paths return Shadow without artifacts. Protected automation and sealing retain hard Root authority.
+
+Authority patterns are repository-relative POSIX paths. Literal roots match themselves and descendants, `*` matches within one segment, and `**` is recursive only as a complete segment and may match zero or more segments. Protected takes precedence over approval-required, then allowed, then outside-allowed. Overlap is valid and resolved by that precedence.
 
 ## Transport and authority
 

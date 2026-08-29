@@ -13919,9 +13919,9 @@ function superRefine(fn, params) {
 }
 
 // scripts/validate-artifact.source.mjs
-import { existsSync as existsSync2, readFileSync as readFileSync2, realpathSync } from "node:fs";
+import { existsSync as existsSync3, readFileSync as readFileSync2, realpathSync as realpathSync2 } from "node:fs";
 import { createHash as createHash2 } from "node:crypto";
-import { basename, dirname, resolve as resolve2 } from "node:path";
+import { basename, dirname as dirname2, resolve as resolve3 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // scripts/artifact-validator/evidence.mjs
@@ -14073,6 +14073,95 @@ function validateArtifactSchema(root, parsed, failures) {
   return validate(parsed.fields) || failures.push(...validate.errors.map(formatAjv)), schema;
 }
 
+// src/core/manual-path-authority.mjs
+import { existsSync as existsSync2, realpathSync } from "node:fs";
+import { dirname, isAbsolute, relative, resolve as resolve2, sep } from "node:path";
+function uniqueSorted(values) {
+  return [...new Set((values ?? []).map(String).map((value) => value.trim()).filter(Boolean))].sort();
+}
+function invalidPath(value, label) {
+  return value ? isAbsolute(value) || /^[A-Za-z]:/.test(value) ? `${label} must be repository-relative: ${value}` : value.includes("\\") ? `${label} must use POSIX separators: ${value}` : value.includes("\0") ? `${label} must not contain NUL` : value.startsWith("/") || value.endsWith("/") || value.includes("//") ? `${label} contains an empty path segment: ${value}` : value.split("/").some((segment) => segment === "." || segment === "..") ? `${label} contains traversal: ${value}` : null : `${label} must not be empty`;
+}
+function normalizeAuthorityPattern(input) {
+  let value = String(input ?? "").trim().replace(/^\.\//, "");
+  if (value === ".") return value;
+  let invalid2 = invalidPath(value, "authority pattern");
+  if (invalid2) throw new Error(invalid2);
+  for (let segment of value.split("/"))
+    if (segment.includes("**") && segment !== "**")
+      throw new Error(`authority pattern recursive globstar must occupy a complete segment: ${value}`);
+  return value;
+}
+function normalizeRepositoryPath(input) {
+  let value = String(input ?? "").trim().replace(/^\.\//, ""), invalid2 = invalidPath(value, "repository path");
+  if (invalid2) throw new Error(invalid2);
+  if (value.includes("*")) throw new Error(`repository path must not contain authority wildcards: ${value}`);
+  return value;
+}
+function segmentExpression(segment) {
+  let escaped = segment.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replaceAll("*", "[^/]*");
+  return new RegExp(`^${escaped}$`);
+}
+function matchSegments(pattern, path) {
+  let memo = /* @__PURE__ */ new Map(), expressions = pattern.map((segment) => segment === "**" ? null : segmentExpression(segment)), match = (patternIndex, pathIndex) => {
+    let key = `${patternIndex}:${pathIndex}`;
+    if (memo.has(key)) return memo.get(key);
+    let result;
+    return patternIndex === pattern.length ? result = !0 : pattern[patternIndex] === "**" ? result = match(patternIndex + 1, pathIndex) || pathIndex < path.length && match(patternIndex, pathIndex + 1) : result = pathIndex < path.length && expressions[patternIndex].test(path[pathIndex]) && match(patternIndex + 1, pathIndex + 1), memo.set(key, result), result;
+  };
+  return match(0, 0);
+}
+function pathMatchesAuthorityPattern(repositoryPath, authorityPattern) {
+  let path = normalizeRepositoryPath(repositoryPath), pattern = normalizeAuthorityPattern(authorityPattern);
+  return pattern === "." ? !0 : matchSegments(pattern.split("/"), path.split("/"));
+}
+function normalizedAuthority(authority = {}) {
+  return {
+    allowed: uniqueSorted(authority.allowed_roots).map(normalizeAuthorityPattern),
+    protected: uniqueSorted(authority.protected_paths).map(normalizeAuthorityPattern),
+    approvalRequired: uniqueSorted(authority.approval_required_paths).map(normalizeAuthorityPattern)
+  };
+}
+function categoryForCandidate(path, authority) {
+  return authority.protected.some((entry) => pathMatchesAuthorityPattern(path, entry)) ? "protected" : authority.approvalRequired.some((entry) => pathMatchesAuthorityPattern(path, entry)) ? "approval-required" : authority.allowed.some((entry) => pathMatchesAuthorityPattern(path, entry)) ? "allowed" : "outside-allowed";
+}
+function repositoryAuthorityPaths(repositoryRoot, repositoryPath) {
+  let root = realpathSync(repositoryRoot), path = normalizeRepositoryPath(repositoryPath), lexical = resolve2(root, path);
+  if (lexical !== root && !lexical.startsWith(`${root}${sep}`))
+    throw new Error(`native closeout path escapes the repository: ${repositoryPath}`);
+  let existing = lexical;
+  for (; !existsSync2(existing) && existing !== root; ) existing = dirname(existing);
+  let resolvedExisting = realpathSync(existing);
+  if (resolvedExisting !== root && !resolvedExisting.startsWith(`${root}${sep}`))
+    throw new Error(`native closeout path resolves outside the repository: ${repositoryPath}`);
+  let unresolved = relative(existing, lexical), resolved = resolve2(resolvedExisting, unresolved);
+  if (resolved !== root && !resolved.startsWith(`${root}${sep}`))
+    throw new Error(`native closeout path resolves outside the repository: ${repositoryPath}`);
+  let normalizeRelative = (value) => relative(root, value).replaceAll("\\", "/") || ".";
+  return uniqueSorted([normalizeRelative(lexical), normalizeRelative(resolved)]);
+}
+function classifyCandidates(candidates, authority) {
+  let categories = candidates.map((candidate) => categoryForCandidate(candidate, authority));
+  return categories.includes("protected") ? "protected" : categories.includes("approval-required") ? "approval-required" : categories.every((category) => category === "allowed") ? "allowed" : "outside-allowed";
+}
+function classifyChangedPathAuthority(rootFields, changedPaths, repositoryRoot = null) {
+  let authority = normalizedAuthority(rootFields?.authority ?? {});
+  if (authority.allowed.length === 0) throw new Error("native closeout Root has no allowed path authority");
+  let projection = {
+    schema: 1,
+    status: "within-authority",
+    allowed_paths: [],
+    outside_allowed_paths: [],
+    approval_required_paths: [],
+    protected_paths: []
+  };
+  for (let path of uniqueSorted(changedPaths)) {
+    let normalized = normalizeRepositoryPath(path), candidates = repositoryRoot ? repositoryAuthorityPaths(repositoryRoot, normalized) : [normalized], category = classifyCandidates(candidates, authority), key = category === "allowed" ? "allowed_paths" : `${category.replaceAll("-", "_")}_paths`;
+    projection[key].push(normalized);
+  }
+  return projection.protected_paths.length > 0 ? projection.status = "protected" : projection.approval_required_paths.length > 0 ? projection.status = "approval-required" : projection.outside_allowed_paths.length > 0 && (projection.status = "provisional-drift"), projection;
+}
+
 // src/core/state-paths.mjs
 import { createHash } from "node:crypto";
 function rootContentHash(rootPlanText) {
@@ -14082,7 +14171,7 @@ function rootContentHash(rootPlanText) {
 }
 
 // scripts/validate-artifact.source.mjs
-var scriptDirectory = dirname(fileURLToPath(import.meta.url)), defaultRoot = dirname(scriptDirectory), knownArtifacts = /* @__PURE__ */ new Set([
+var scriptDirectory = dirname2(fileURLToPath(import.meta.url)), defaultRoot = dirname2(scriptDirectory), knownArtifacts = /* @__PURE__ */ new Set([
   "work-plan",
   "delivery-evidence",
   "work-review"
@@ -14275,10 +14364,13 @@ function targetTokens(value) {
 }
 function targetMatches(value, scope) {
   let target = value.replace(/^\.\//, ""), candidate = scope.replace(/^\.\//, "");
-  if (/^all other (?:files|paths|targets)$/i.test(candidate) || target === candidate || target.startsWith(`${candidate}/`) || target.startsWith(`${candidate}#`) || target.startsWith(`${candidate}:`)) return !0;
-  if (!candidate.includes("*")) return !1;
-  let expression = candidate.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replaceAll("**", "\xA7\xA7").replaceAll("*", "[^/]*").replaceAll("\xA7\xA7", ".*");
-  return new RegExp(`^${expression}$`).test(target);
+  if (/^all other (?:files|paths|targets)$/i.test(candidate)) return !0;
+  let repositoryTarget = target.replace(/[#:].*$/, "");
+  try {
+    return pathMatchesAuthorityPattern(repositoryTarget, candidate);
+  } catch {
+    return !1;
+  }
 }
 function authorityTargetState(target, authority = {}) {
   let allowed = (authority.allowed_roots ?? []).some((scope) => targetMatches(target, scope)), protectedTarget = (authority.protected_paths ?? []).some((scope) => targetMatches(target, scope)), approvalRequired = (authority.approval_required_paths ?? []).some((scope) => targetMatches(target, scope));
@@ -14502,13 +14594,28 @@ function preflightRootPlan(text, root = defaultRoot) {
       approval_granted: !1,
       mutation_performed: !1
     };
-  let blocking = [], advisories = [], authority = parsed.fields.authority ?? {}, denied = [
+  let blocking = [], advisories = [], authority = parsed.fields.authority ?? {};
+  for (let [boundaryKind, patterns] of [
+    ["allowed", authority.allowed_roots ?? []],
+    ["protected", authority.protected_paths ?? []],
+    ["approval-required", authority.approval_required_paths ?? []]
+  ])
+    for (let pattern of patterns)
+      try {
+        normalizeAuthorityPattern(pattern);
+      } catch (error) {
+        blocking.push(issue2("invalid-authority-pattern", String(error?.message ?? error), {
+          target: pattern,
+          boundary_kind: boundaryKind
+        }));
+      }
+  let denied = [
     ...(authority.protected_paths ?? []).map((path) => ({ kind: "protected", path })),
     ...(authority.approval_required_paths ?? []).map((path) => ({ kind: "approval-required", path }))
   ];
   for (let allowed of authority.allowed_roots ?? []) {
     let shadow = denied.find((entry) => targetMatches(allowed, entry.path));
-    shadow && blocking.push(issue2(
+    shadow && advisories.push(issue2(
       "shadowed-allowed-root",
       `allowed root ${allowed} is fully shadowed by ${shadow.kind} path ${shadow.path}`,
       { target: allowed, boundary: shadow.path, boundary_kind: shadow.kind }
@@ -14516,9 +14623,13 @@ function preflightRootPlan(text, root = defaultRoot) {
   }
   for (let target of acceptanceChangeTargets(parsed)) {
     let state = authorityTargetState(target, authority);
-    (!state.allowed || state.protected || state.approval_required) && blocking.push(issue2(
+    state.protected || state.approval_required ? blocking.push(issue2(
       "acceptance-path-outside-authority",
       `Acceptance requires changing ${target}, but the current Root does not authorize that target`,
+      { target, ...state }
+    )) : state.allowed || advisories.push(issue2(
+      "acceptance-path-outside-allowed-roots",
+      `Acceptance mentions ${target} outside allowed_roots; Manual Review will expose this as provisional scope drift`,
       { target, ...state }
     ));
   }
@@ -14662,8 +14773,8 @@ function materializeEvidence(artifact, artifacts, cache, failures, rootDirectory
     !previous || !planned ? failures.push(`${artifact.label}: reused ${id} is absent from direct predecessor root evidence`) : checks.set(id, { ...previous, reusedFrom: predecessor.fields.id });
   }
   for (let target of data.changedPaths) {
-    let allowed = plan.allowedTargets.some((scope) => targetMatches(target, scope)), prohibited = plan.prohibitedTargets.filter((scope) => !/^all other (?:files|paths|targets)$/i.test(scope)).some((scope) => targetMatches(target, scope));
-    (!allowed || prohibited) && failures.push(`${artifact.label}: changed target ${target} is outside root scope`);
+    let authority = authorityTargetState(target, root.fields.authority), manualUnverified = root.fields.profile_max === "manual" && artifact.fields.overall_grade !== "verified" && artifact.fields.representation !== "seal";
+    authority.protected || authority.approval_required ? (!manualUnverified || artifact.fields.status !== "blocked") && failures.push(`${artifact.label}: changed target ${target} crosses a hard root boundary`) : !authority.allowed && (!manualUnverified || artifact.fields.status === "complete") && failures.push(`${artifact.label}: changed target ${target} is outside root scope`);
   }
   if (initial) {
     let delivered = new Set(data.objectiveStates.keys());
@@ -14700,8 +14811,8 @@ function validateCompactCorrection(review, root, evidence, artifacts, failures) 
     for (let check of ids(fix["Root Checks"], checkPattern)) plan.checks.has(check) || failures.push(`${review.label}: correction references unknown root ${check}`);
   }
   for (let step of correction2.steps) for (let target of targetTokens(step.Targets)) {
-    let allowed = plan.allowedTargets.some((scope) => targetMatches(target, scope)), prohibited = plan.prohibitedTargets.filter((scope) => !/^all other (?:files|paths|targets)$/i.test(scope)).some((scope) => targetMatches(target, scope));
-    (!allowed || prohibited) && failures.push(`${review.label}: correction target ${target} is outside root scope`);
+    let authority = authorityTargetState(target, root.fields.authority);
+    (authority.protected || authority.approval_required) && failures.push(`${review.label}: correction target ${target} crosses a hard root boundary`);
   }
 }
 function progressState(review, artifacts) {
@@ -14749,7 +14860,7 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
   let errors = [], diagnostics = [], normalizations = [], artifacts = /* @__PURE__ */ new Map();
   for (let [label, text] of entries) {
     let probe = parseArtifact(text, [], []), type = probe?.fields.artifact;
-    if (type && !knownArtifacts.has(type) && !existsSync2(schemaFor(root, type))) {
+    if (type && !knownArtifacts.has(type) && !existsSync3(schemaFor(root, type))) {
       (/^(?:work|delivery)-/.test(type) || /^(?:wp|de|wr|cp|rs)-/.test(String(probe?.fields.id ?? ""))) && errors.push(`${label}: unsupported workflow artifact type`);
       continue;
     }
@@ -14899,7 +15010,7 @@ function runCli() {
     console.error("Usage: validate-artifact.mjs [--diagnostics] [--effective] <artifact.md> [related-artifact.md ...]"), process.exitCode = 2;
     return;
   }
-  let entries = paths.map((path) => [path, readFileSync2(resolve2(path), "utf8")]), inspection = entries.length === 1 ? inspectArtifactText(entries[0][1]) : inspectArtifactSet(entries);
+  let entries = paths.map((path) => [path, readFileSync2(resolve3(path), "utf8")]), inspection = entries.length === 1 ? inspectArtifactText(entries[0][1]) : inspectArtifactSet(entries);
   if (inspection.errors.length > 0) {
     console.error("Artifact validation failed:"), inspection.errors.forEach((failure) => console.error(`- ${failure}`)), process.exitCode = 1;
     return;
@@ -14910,51 +15021,7 @@ function runCli() {
   }
   console.log(entries.length === 1 ? "Artifact validation passed." : "Artifact chain validation passed."), diagnosticsRequested && (inspection.normalizations.forEach((item) => console.log(`NORMALIZED: ${item}`)), inspection.diagnostics.forEach((item) => console.log(`DIAGNOSTIC: ${item}`)));
 }
-process.argv[1] && ["validate-artifact.source.mjs", "validate-artifact.mjs"].includes(basename(process.argv[1])) && realpathSync(resolve2(process.argv[1])) === realpathSync(fileURLToPath(import.meta.url)) && runCli();
-
-// src/core/manual-path-authority.mjs
-import { existsSync as existsSync3, realpathSync as realpathSync2 } from "node:fs";
-import { dirname as dirname2, isAbsolute, relative, resolve as resolve3, sep } from "node:path";
-function uniqueSorted(values) {
-  return [...new Set((values ?? []).map(String).map((value) => value.trim()).filter(Boolean))].sort();
-}
-function pathMatchesRoot(path, root) {
-  return path === root || path.startsWith(`${root}/`);
-}
-function repositoryAuthorityPaths(repositoryRoot, repositoryPath) {
-  let root = realpathSync2(repositoryRoot), lexical = resolve3(root, repositoryPath);
-  if (lexical !== root && !lexical.startsWith(`${root}${sep}`))
-    throw new Error(`native closeout path escapes the repository: ${repositoryPath}`);
-  let existing = lexical;
-  for (; !existsSync3(existing) && existing !== root; ) existing = dirname2(existing);
-  let resolvedExisting = realpathSync2(existing);
-  if (resolvedExisting !== root && !resolvedExisting.startsWith(`${root}${sep}`))
-    throw new Error(`native closeout path resolves outside the repository: ${repositoryPath}`);
-  let unresolved = relative(existing, lexical), resolved = resolve3(resolvedExisting, unresolved);
-  if (resolved !== root && !resolved.startsWith(`${root}${sep}`))
-    throw new Error(`native closeout path resolves outside the repository: ${repositoryPath}`);
-  let normalizeRelative = (value) => relative(root, value).replaceAll("\\", "/") || ".";
-  return {
-    lexical: normalizeRelative(lexical),
-    resolved: normalizeRelative(resolved)
-  };
-}
-function authorityViolation(authorityPath, { allowed, protectedPaths, approvalRequired }) {
-  return protectedPaths.some((entry) => pathMatchesRoot(authorityPath, entry)) ? `native closeout path is protected by the Root: ${authorityPath}` : approvalRequired.some((entry) => pathMatchesRoot(authorityPath, entry)) ? `native closeout path requires separate human approval that the closeout report cannot grant: ${authorityPath}` : allowed.some((entry) => pathMatchesRoot(authorityPath, entry)) ? null : `native closeout path is outside Root authority: ${authorityPath}`;
-}
-function assertChangedPathAuthority(rootFields, changedPaths, repositoryRoot) {
-  let authority = rootFields?.authority ?? {}, allowed = uniqueSorted(authority.allowed_roots), protectedPaths = uniqueSorted(authority.protected_paths), approvalRequired = uniqueSorted(authority.approval_required_paths);
-  if (allowed.length === 0) throw new Error("native closeout Root has no allowed path authority");
-  for (let path of uniqueSorted(changedPaths)) {
-    if (isAbsolute(path) || path.includes("\\") || path.includes("\0"))
-      throw new Error(`native closeout path is not repository-relative: ${path}`);
-    let candidates = repositoryAuthorityPaths(repositoryRoot, path);
-    for (let candidate of uniqueSorted([candidates.lexical, candidates.resolved])) {
-      let violation = authorityViolation(candidate, { allowed, protectedPaths, approvalRequired });
-      if (violation) throw new Error(violation);
-    }
-  }
-}
+process.argv[1] && ["validate-artifact.source.mjs", "validate-artifact.mjs"].includes(basename(process.argv[1])) && realpathSync2(resolve3(process.argv[1])) === realpathSync2(fileURLToPath(import.meta.url)) && runCli();
 
 // src/controller/delivery-closeout.mjs
 var import_yaml2 = __toESM(require_dist(), 1);
@@ -15253,6 +15320,8 @@ function buildDeliveryEvidence({
   enforceHarnessAttestations = !0,
   workspaceBinding = null,
   workspaceSnapshotHash = null,
+  forcedStatus = null,
+  allowManualScopeDrift = !1,
   seal = !1,
   pluginRoot
 }) {
@@ -15290,12 +15359,26 @@ function buildDeliveryEvidence({
     expectedHarnessId: harnessId,
     protectedAttestationHash
   }));
-  let grade = aggregate(entries), status = artifactStatus(grade);
+  let grade = aggregate(entries);
+  if (forcedStatus != null && forcedStatus !== "blocked") throw new Error("closeout forcedStatus may only add a blocked boundary");
+  let status = forcedStatus ?? artifactStatus(grade);
   if (seal && (grade !== "verified" || status !== "complete" || entries.some((entry) => entry.grade !== "verified"))) {
     let error = new Error("protected sealing requires fresh verified evidence for every required Check");
     throw error.code = "protected-seal-not-verified", error;
   }
-  let subjectId = correction2 ? review.fields.correction_id : normalized.rootId, sourceReviewId = correction2 || seal ? review.fields.id : null, predecessorEvidenceId = correction2 || seal ? evidenceTipId : null, paths = unique2((changedPaths ?? []).map(String).map((path) => path.trim()).filter(Boolean)).sort(), affectedObjectives = [...contract.objectives], seed = sha2562(JSON.stringify(stable2({
+  let subjectId = correction2 ? review.fields.correction_id : normalized.rootId, sourceReviewId = correction2 || seal ? review.fields.id : null, predecessorEvidenceId = correction2 || seal ? evidenceTipId : null, paths = unique2((changedPaths ?? []).map(String).map((path) => path.trim()).filter(Boolean)).sort();
+  if (!allowManualScopeDrift) {
+    let authority = classifyChangedPathAuthority(contract.fields, paths);
+    if (authority.status !== "within-authority") {
+      let rejected = [
+        ...authority.outside_allowed_paths,
+        ...authority.approval_required_paths,
+        ...authority.protected_paths
+      ];
+      throw new Error(`changed paths are outside Root authority: ${rejected.join(", ")}`);
+    }
+  }
+  let affectedObjectives = [...contract.objectives], seed = sha2562(JSON.stringify(stable2({
     root_projection_hash: contract.authoritative_projection_hash,
     subject_id: subjectId,
     source_review_id: sourceReviewId,
@@ -15303,6 +15386,7 @@ function buildDeliveryEvidence({
     workspace_snapshot_hash: effectiveSnapshotHash,
     changed_paths: paths,
     check_evidence: entries,
+    forced_status: forcedStatus,
     summary: summary2 ?? null
   }))), id = `de-${subjectId.replace(/^(?:wp|cp)-/, "")}-${seed.slice(0, 12)}`, mode = effectiveProfile === "manual" && contract.fields.risk !== "high" && (contract.fields.hard_triggers ?? []).length === 0 ? "lean" : "full", fields = {
     artifact: "delivery-evidence",
@@ -15396,7 +15480,7 @@ function snapshot(input, state, overrides = {}) {
 }
 function waiting(input, blocker, nextAction = "answer") {
   return snapshot(input, "waiting-human", {
-    allowed_actions: ["answer", "pause", "stop"],
+    allowed_actions: [.../* @__PURE__ */ new Set([nextAction, "pause", "stop"])],
     required_actor: "human",
     next_action: nextAction,
     blockers: [...new Set([...input.blockers ?? [], blocker].filter(Boolean))]
@@ -15438,7 +15522,7 @@ function deriveWorkflowState(input = {}) {
   if (input.phase === "correct" && input.phase_status !== "complete") return snapshot(input, "correcting", { allowed_actions: ["pause", "stop"], required_actor: "harness", next_action: "complete-correction" });
   if ((input.phase === "review" || input.execution_started) && !input.root_review_complete && !input.review) return snapshot(input, "reviewing", { allowed_actions: ["review", "pause", "stop"], required_actor: "reviewer", next_action: "review-root" });
   let nextAction = input.review?.next_action;
-  return nextAction === "clarify" ? waiting(input, "review-requires-clarification", "answer") : nextAction === "replan" ? snapshot(input, "replan", { allowed_actions: ["replan"], required_actor: "human", next_action: "replan" }) : nextAction === "correct" ? snapshot(input, "waiting-human", { allowed_actions: ["inspect", "correct", "replan"], required_actor: "human", next_action: "approve-correction" }) : nextAction === "retry-review" ? snapshot(input, "reviewing", { allowed_actions: ["review"], required_actor: "reviewer", next_action: "retry-review" }) : input.delivery_status === "provisional" ? manualArtifacts && input.manual_acceptance === "provisional" ? snapshot(input, "accepted-provisional", {
+  return nextAction === "clarify" ? waiting(input, "review-requires-clarification", "clarify") : nextAction === "replan" ? snapshot(input, "replan", { allowed_actions: ["replan"], required_actor: "human", next_action: "replan" }) : nextAction === "correct" ? snapshot(input, "waiting-human", { allowed_actions: ["inspect", "correct", "replan"], required_actor: "human", next_action: "correct" }) : nextAction === "retry-review" ? snapshot(input, "reviewing", { allowed_actions: ["review"], required_actor: "reviewer", next_action: "retry-review" }) : input.delivery_status === "provisional" ? manualArtifacts && input.manual_acceptance === "provisional" ? snapshot(input, "accepted-provisional", {
     allowed_actions: ["inspect"],
     acceptance_persisted: !1,
     acceptance_basis_hash: input.acceptance_basis_hash ?? input.artifact_set_hash ?? null
@@ -16333,32 +16417,27 @@ function authorityLimitedReviewInput(reviewInput, message) {
     correction: void 0
   };
 }
-function authorityProjection(rootFields, changedPaths, repositoryRoot) {
-  try {
-    return assertChangedPathAuthority(rootFields, changedPaths, repositoryRoot), { authorizedPaths: unique4(changedPaths).sort(), limitation: null };
-  } catch (error) {
-    return {
-      authorizedPaths: unique4(changedPaths).filter((path) => {
-        try {
-          return assertChangedPathAuthority(rootFields, [path], repositoryRoot), !0;
-        } catch {
-          return !1;
-        }
-      }).sort(),
-      limitation: `Observed repository paths exceed the Root authority: ${String(error?.message ?? error)}`
-    };
-  }
+function authorityBlockingLimitation(projection) {
+  let limits = [
+    ...projection.protected_paths.length > 0 ? [`Protected changed paths block delivery: ${projection.protected_paths.join(", ")}.`] : [],
+    ...projection.approval_required_paths.length > 0 ? [`Changed paths requiring separate human approval block delivery: ${projection.approval_required_paths.join(", ")}.`] : []
+  ];
+  return limits.length > 0 ? limits.join(" ") : null;
+}
+function authorityScopeLimitation(projection) {
+  return projection.outside_allowed_paths.length === 0 ? null : `Provisional scope drift remains visible without granting authority: ${projection.outside_allowed_paths.join(", ")}.`;
 }
 function findingLine(finding2) {
   return `- [${finding2.severity.toUpperCase()}] ${finding2.key} \u2014 ${finding2.evidence} Reasoning: ${finding2.reasoning} Resolution: ${finding2.resolution}.`;
 }
-function reviewPresentation({ rootFields, evidence, review, reviewInput, repositoryObservation, authorityLimitation }) {
-  let findings = reviewInput.findings.map(findingLine), limitations = unique4([
+function reviewPresentation({ rootFields, evidence, review, reviewInput, repositoryObservation, pathAuthority }) {
+  let findings = reviewInput.findings.map(findingLine), scopeLimitation = authorityScopeLimitation(pathAuthority), blockingLimitation = authorityBlockingLimitation(pathAuthority), limitations = unique4([
     ...repositoryObservation.limitations,
-    ...authorityLimitation ? [authorityLimitation] : [],
+    ...scopeLimitation ? [scopeLimitation] : [],
+    ...blockingLimitation ? [blockingLimitation] : [],
     ...reviewInput.missing_evidence,
     ...(evidence.fields.check_evidence ?? []).flatMap((entry) => entry.limitations ?? [])
-  ]), checkLines = (evidence.fields.check_evidence ?? []).map((entry) => `- ${entry.check_id}: ${entry.grade} \u2014 ${entry.observed}`), presentation = {
+  ]), checkLines = (evidence.fields.check_evidence ?? []).map((entry) => `- ${entry.check_id}: ${entry.grade} \u2014 ${entry.observed}`), scopeSummary = pathAuthority.status === "within-authority" ? "within declared roots" : pathAuthority.status === "provisional-drift" ? `provisional drift (${pathAuthority.outside_allowed_paths.join(", ")})` : `${pathAuthority.status} blocker`, presentation = {
     schema: 1,
     kind: "manual-review-presentation",
     root_plan_id: rootFields.id,
@@ -16370,12 +16449,15 @@ function reviewPresentation({ rootFields, evidence, review, reviewInput, reposit
     findings: reviewInput.findings,
     limitations,
     checks: evidence.fields.check_evidence,
+    path_authority: pathAuthority,
     next_action: review.fields.next_action
   }, humanOutput = [
     `## Workflow \xB7 ${review.fields.delivery_status}`,
     "### Quick decision",
     `- Repository outcome: ${reviewInput.assessment_summary}`,
+    `- Delivery decision: ${review.fields.delivery_status} (${review.fields.assessment}).`,
     `- Evidence status: ${evidence.fields.overall_grade}; unprotected Manual observations cannot be verified.`,
+    `- Scope: ${scopeSummary}.`,
     "### Findings",
     findings.length > 0 ? findings.join(`
 `) : "- None.",
@@ -16413,7 +16495,7 @@ function planPresentation(result, rootPlan) {
 `) + `
 `;
 }
-function statusPresentation(status, accepted = !1) {
+function statusPresentation(status, accepted = !1, pathAuthority = null) {
   let snapshot2 = status.snapshot;
   return [
     `## Workflow \xB7 ${snapshot2.state}`,
@@ -16421,6 +16503,7 @@ function statusPresentation(status, accepted = !1) {
     `- Manual state: ${snapshot2.state}`,
     `- Delivery status: ${snapshot2.delivery_status ?? "none"}`,
     `- Evidence grade: ${snapshot2.evidence_grade ?? "none"}`,
+    `- Scope: ${pathAuthority?.status ?? "unknown"}`,
     "### Next step",
     `- Now: ${snapshot2.next_action}`,
     "### Details",
@@ -16446,18 +16529,21 @@ function validatePlan(request, pluginRoot) {
 function buildReview(request, pluginRoot) {
   let exact = exactChain(request.root_plan, request.artifacts, pluginRoot), contract = executionContractFromArtifactText(request.root_plan, pluginRoot);
   if (contract.errors.length > 0) throw codedError2("schema-6-root-invalid", `Root execution contract is invalid: ${contract.errors.join("; ")}`);
-  let hashes = observationHashes(request.repository_observation), authority = authorityProjection(exact.rootFields, hashes.normalized.changed_paths, hashes.normalized.repository_root), effectiveReviewInput = authority.limitation ? authorityLimitedReviewInput(request.review_input, authority.limitation) : request.review_input, localCheckEvidence = checkEvidence(request.check_observations), evidenceTipId = exact.tips.evidence_tips[exact.rootFields.id] ?? null, reviewTipId = exact.tips.review_tips[exact.rootFields.id] ?? null, reviewTip = reviewTipId ? exact.chain.effective.get(reviewTipId) : null, correctionPending = !!(evidenceTipId && reviewTip?.fields?.latest_evidence_id === evidenceTipId && reviewTip?.fields?.next_action === "correct" && reviewTip?.fields?.correction_id), evidence, reviewArtifacts, chainUpdate;
+  let hashes = observationHashes(request.repository_observation), pathAuthority = classifyChangedPathAuthority(exact.rootFields, hashes.normalized.changed_paths, hashes.normalized.repository_root), blockingAuthorityLimitation = authorityBlockingLimitation(pathAuthority), effectiveReviewInput = blockingAuthorityLimitation ? authorityLimitedReviewInput(request.review_input, blockingAuthorityLimitation) : request.review_input, localCheckEvidence = checkEvidence(request.check_observations), evidenceTipId = exact.tips.evidence_tips[exact.rootFields.id] ?? null, reviewTipId = exact.tips.review_tips[exact.rootFields.id] ?? null, reviewTip = reviewTipId ? exact.chain.effective.get(reviewTipId) : null, correctionPending = !!(evidenceTipId && reviewTip?.fields?.latest_evidence_id === evidenceTipId && reviewTip?.fields?.next_action === "correct" && reviewTip?.fields?.correction_id), evidence, reviewArtifacts, chainUpdate;
   if (!evidenceTipId || correctionPending)
     evidence = buildDeliveryEvidence({
       rootPlanText: request.root_plan,
       artifacts: exact.entries,
       checkEvidence: localCheckEvidence,
-      changedPaths: authority.authorizedPaths,
+      changedPaths: hashes.normalized.changed_paths,
       effectiveProfile: "manual",
       harnessAttestations: [],
       enforceHarnessAttestations: !0,
       workspaceBinding: hashes.workspaceBindingHash,
       workspaceSnapshotHash: hashes.snapshotHash,
+      forcedStatus: blockingAuthorityLimitation ? "blocked" : null,
+      allowManualScopeDrift: !0,
+      summary: blockingAuthorityLimitation,
       pluginRoot
     }), reviewArtifacts = [...exact.entries, { label: evidence.fields.id, text: evidence.artifact }], chainUpdate = "append";
   else {
@@ -16465,12 +16551,15 @@ function buildReview(request, pluginRoot) {
       rootPlanText: request.root_plan,
       artifacts: refreshBaseEntries,
       checkEvidence: localCheckEvidence,
-      changedPaths: authority.authorizedPaths,
+      changedPaths: hashes.normalized.changed_paths,
       effectiveProfile: "manual",
       harnessAttestations: [],
       enforceHarnessAttestations: !0,
       workspaceBinding: hashes.workspaceBindingHash,
       workspaceSnapshotHash: hashes.snapshotHash,
+      forcedStatus: blockingAuthorityLimitation ? "blocked" : null,
+      allowManualScopeDrift: !0,
+      summary: blockingAuthorityLimitation,
       pluginRoot
     });
     (exact.entries.find((entry) => entry.label === evidenceTipId)?.text ?? null) === candidate.artifact ? (evidence = { ...candidate, duplicate: !0 }, reviewArtifacts = exact.entries, chainUpdate = "reuse") : (evidence = candidate, reviewArtifacts = [...refreshBaseEntries, { label: candidate.fields.id, text: candidate.artifact }], chainUpdate = candidate.fields.representation === "delta" ? "replace-delta-suffix" : "replace-full-tip");
@@ -16487,7 +16576,7 @@ function buildReview(request, pluginRoot) {
     review,
     reviewInput: review.normalized_review_input,
     repositoryObservation: request.repository_observation,
-    authorityLimitation: authority.limitation
+    pathAuthority
   });
   return {
     schema: 1,
@@ -16500,6 +16589,7 @@ function buildReview(request, pluginRoot) {
     workspace_binding_hash: hashes.workspaceBindingHash,
     repository_snapshot_hash: hashes.snapshotHash,
     chain_update: chainUpdate,
+    path_authority: pathAuthority,
     presentation: shown.presentation,
     human_output: shown.humanOutput,
     artifacts: [
@@ -16515,7 +16605,7 @@ function deriveStatus(request, pluginRoot, manualAcceptance = null) {
     pluginRoot,
     observedAt: DETERMINISTIC_OBSERVED_AT,
     manualAcceptance
-  });
+  }), pathAuthority = classifyChangedPathAuthority(exact.rootFields, status.changed_paths);
   return {
     schema: 1,
     kind: manualAcceptance ? "manual-provisional-acceptance" : "manual-workflow-status",
@@ -16526,7 +16616,8 @@ function deriveStatus(request, pluginRoot, manualAcceptance = null) {
     artifact_summary: status.artifact_summary,
     diagnostics: status.diagnostics,
     changed_paths: status.changed_paths,
-    human_output: statusPresentation(status, manualAcceptance === "provisional"),
+    path_authority: pathAuthority,
+    human_output: statusPresentation(status, manualAcceptance === "provisional", pathAuthority),
     artifacts: []
   };
 }

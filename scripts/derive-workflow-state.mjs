@@ -35,7 +35,7 @@ function snapshot(input, state, overrides = {}) {
 
 function waiting(input, blocker, nextAction = "answer") {
   return snapshot(input, "waiting-human", {
-    allowed_actions: ["answer", "pause", "stop"],
+    allowed_actions: [...new Set([nextAction, "pause", "stop"])],
     required_actor: "human",
     next_action: nextAction,
     blockers: [...new Set([...(input.blockers ?? []), blocker].filter(Boolean))],
@@ -84,9 +84,9 @@ export function deriveWorkflowState(input = {}) {
   if ((input.phase === "review" || input.execution_started) && !input.root_review_complete && !input.review) return snapshot(input, "reviewing", { allowed_actions: ["review", "pause", "stop"], required_actor: "reviewer", next_action: "review-root" });
 
   const nextAction = input.review?.next_action;
-  if (nextAction === "clarify") return waiting(input, "review-requires-clarification", "answer");
+  if (nextAction === "clarify") return waiting(input, "review-requires-clarification", "clarify");
   if (nextAction === "replan") return snapshot(input, "replan", { allowed_actions: ["replan"], required_actor: "human", next_action: "replan" });
-  if (nextAction === "correct") return snapshot(input, "waiting-human", { allowed_actions: ["inspect", "correct", "replan"], required_actor: "human", next_action: "approve-correction" });
+  if (nextAction === "correct") return snapshot(input, "waiting-human", { allowed_actions: ["inspect", "correct", "replan"], required_actor: "human", next_action: "correct" });
   if (nextAction === "retry-review") return snapshot(input, "reviewing", { allowed_actions: ["review"], required_actor: "reviewer", next_action: "retry-review" });
 
   if (input.delivery_status === "provisional") {

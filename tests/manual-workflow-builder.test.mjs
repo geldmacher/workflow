@@ -255,23 +255,28 @@ test("verified claims and attestation fields are rejected without partial artifa
   assert.deepEqual(rejectedAttestation.artifacts, []);
 });
 
-test("path authority violations become clarify without claiming unauthorized changed paths", () => {
+test("ordinary paths outside allowed roots stay visible and provisionally acceptable", () => {
   const outside = request();
   outside.repository_observation.changed_paths = ["README.md", "src/controller/manual-status.mjs"];
   const built = executeManualOperation("build-review", outside);
   assert.equal(built.ok, true);
   const evidence = inspectArtifactText(built.artifacts[0].text, root).artifact.fields;
   const review = inspectArtifactText(built.artifacts[1].text, root).artifact.fields;
-  assert.deepEqual(evidence.changed_paths, ["src/controller/manual-status.mjs"]);
-  assert.equal(review.next_action, "clarify");
-  assert.match(built.human_output, /exceed the Root authority/);
-  const denied = executeManualOperation("accept-provisional", {
+  assert.deepEqual(evidence.changed_paths, ["README.md", "src/controller/manual-status.mjs"]);
+  assert.equal(review.next_action, "accept-provisional");
+  assert.equal(built.path_authority.status, "provisional-drift");
+  assert.deepEqual(built.path_authority.outside_allowed_paths, ["README.md"]);
+  assert.match(built.human_output, /Provisional scope drift/);
+  const accepted = executeManualOperation("accept-provisional", {
     schema: 1,
     operation: "accept-provisional",
     root_plan: rootPlan,
     artifacts: exactArtifacts(built),
   });
-  assert.equal(denied.next_action, "clarify");
+  assert.equal(accepted.ok, true);
+  assert.equal(accepted.accepted, true);
+  assert.equal(accepted.persisted, false);
+  assert.equal(accepted.path_authority.status, "provisional-drift");
 });
 
 test("approval-required paths also force clarify", () => {
@@ -281,9 +286,116 @@ test("approval-required paths also force clarify", () => {
   assert.equal(built.ok, true, built.error?.message);
   const evidence = inspectArtifactText(built.artifacts[0].text, root).artifact.fields;
   const review = inspectArtifactText(built.artifacts[1].text, root).artifact.fields;
-  assert.deepEqual(evidence.changed_paths, []);
+  assert.deepEqual(evidence.changed_paths, ["src/controller/manual-status.mjs"]);
+  assert.equal(evidence.status, "blocked");
   assert.equal(review.next_action, "clarify");
-  assert.match(built.human_output, /requires separate human approval/);
+  assert.equal(built.path_authority.status, "approval-required");
+  assert.match(built.human_output, /requiring separate human approval/);
+  const status = executeManualOperation("status", {
+    schema: 1,
+    operation: "status",
+    root_plan: approvalRoot,
+    artifacts: exactArtifacts(built),
+  });
+  assert.equal(status.snapshot.next_action, "clarify");
+  assert.equal(status.path_authority.status, "approval-required");
+});
+
+test("protected paths stay visible and block Manual acceptance", () => {
+  const protectedInput = request();
+  protectedInput.repository_observation.changed_paths = [".git/config", "src/controller/manual-status.mjs"];
+  const built = executeManualOperation("build-review", protectedInput);
+  assert.equal(built.ok, true, built.error?.message);
+  const evidence = inspectArtifactText(built.artifacts[0].text, root).artifact.fields;
+  const review = inspectArtifactText(built.artifacts[1].text, root).artifact.fields;
+  assert.deepEqual(evidence.changed_paths, [".git/config", "src/controller/manual-status.mjs"]);
+  assert.equal(evidence.status, "blocked");
+  assert.equal(review.delivery_status, "blocked");
+  assert.equal(review.next_action, "clarify");
+  assert.equal(built.path_authority.status, "protected");
+  const denied = executeManualOperation("accept-provisional", {
+    schema: 1,
+    operation: "accept-provisional",
+    root_plan: rootPlan,
+    artifacts: exactArtifacts(built),
+  });
+  assert.equal(denied.ok, false);
+  assert.equal(denied.next_action, "clarify");
+});
+
+test("Cursor recursive-root regression stays provisional instead of false clarify", () => {
+  const incidentRoot = rootPlan.replace(
+    "    - src\n    - tests",
+    [
+      "    - packages/of_distribution/Classes/Service/Install/**",
+      "    - packages/of_distribution/Configuration/System/TYPO3/AdditionalConfiguration.php",
+      "    - packages/of_distribution/Tests/Unit/Service/Install/**",
+      "    - packages/of_distribution/AGENTS.md",
+      "    - docs/DEVELOPMENT.md",
+    ].join("\n"),
+  );
+  const incident = request({
+    root_plan: incidentRoot,
+    repository_observation: {
+      ...request().repository_observation,
+      changed_paths: [
+        "docs/DEVELOPMENT.md",
+        "packages/of_distribution/AGENTS.md",
+        "packages/of_distribution/Classes/Service/Install/SystemConfigurationService.php",
+        "packages/of_distribution/Configuration/System/TYPO3/AdditionalConfiguration.php",
+        "packages/of_distribution/Tests/Unit/Service/Install/SystemConfigurationServiceTest.php",
+      ],
+      snapshot_material: ["cursor-task:43424a3b-b24c-4f98-a734-ecda9cf2bf36"],
+    },
+  });
+  const validation = executeManualOperation("validate-plan", {
+    schema: 1,
+    operation: "validate-plan",
+    root_plan: incidentRoot,
+  });
+  assert.equal(validation.ok, true, validation.human_output);
+  const built = executeManualOperation("build-review", incident);
+  assert.equal(built.ok, true, built.error?.message);
+  const evidence = inspectArtifactText(built.artifacts[0].text, root).artifact.fields;
+  const review = inspectArtifactText(built.artifacts[1].text, root).artifact.fields;
+  assert.deepEqual(evidence.changed_paths, incident.repository_observation.changed_paths);
+  assert.equal(built.path_authority.status, "within-authority");
+  assert.equal(review.delivery_status, "provisional");
+  assert.equal(review.next_action, "accept-provisional");
+  assert.deepEqual(built.presentation.findings, []);
+  assert.doesNotMatch(built.human_output, /exceed the Root authority|Now: clarify|Now: replan/);
+});
+
+test("plan validation advises ordinary acceptance drift and rejects malformed authority patterns", () => {
+  const driftRoot = rootPlan.replace(
+    "Retry behavior is deterministic and repository validation remains consistent.",
+    "Retry behavior is deterministic and `README.md` records the repository outcome.",
+  );
+  const drift = executeManualOperation("validate-plan", {
+    schema: 1,
+    operation: "validate-plan",
+    root_plan: driftRoot,
+  });
+  assert.equal(drift.ok, true, drift.human_output);
+  assert.ok(drift.result.advisories.some((entry) => entry.code === "acceptance-path-outside-allowed-roots"));
+
+  const overlappingRoot = rootPlan.replace("    - src", "    - .git");
+  const overlapping = executeManualOperation("validate-plan", {
+    schema: 1,
+    operation: "validate-plan",
+    root_plan: overlappingRoot,
+  });
+  assert.equal(overlapping.ok, true, overlapping.human_output);
+  assert.ok(overlapping.result.advisories.some((entry) => entry.code === "shadowed-allowed-root"));
+
+  const malformedRoot = rootPlan.replace("    - src", "    - src/ab**cd");
+  const malformed = executeManualOperation("validate-plan", {
+    schema: 1,
+    operation: "validate-plan",
+    root_plan: malformedRoot,
+  });
+  assert.equal(malformed.ok, false);
+  assert.ok(malformed.result.blocking_issues.some((entry) => entry.code === "invalid-authority-pattern"));
 });
 
 test("presentation includes every finding and uses the artifact next action", () => {
@@ -375,6 +487,13 @@ test("explicitly attached correction chains produce delta Evidence and a fresh p
   const first = executeManualOperation("build-review", request({ review_input: correctionInput }));
   assert.equal(first.ok, true);
   assert.equal(first.presentation.next_action, "correct");
+  const correctionStatus = executeManualOperation("status", {
+    schema: 1,
+    operation: "status",
+    root_plan: rootPlan,
+    artifacts: exactArtifacts(first),
+  });
+  assert.equal(correctionStatus.snapshot.next_action, "correct");
   const deniedCorrection = executeManualOperation("accept-provisional", {
     schema: 1,
     operation: "accept-provisional",
@@ -503,6 +622,19 @@ test("Manual Commands and Skills contain no MCP tool invocation", () => {
     .map((entry) => join(root, "targets", target, "skills", entry.name, "SKILL.md")));
   for (const path of [...commandFiles, ...cursorSkillFiles, ...targetSkillFiles]) {
     assert.doesNotMatch(readFileSync(path, "utf8"), /workflow_[a-z_]+/, `${path} contains an MCP tool invocation`);
+  }
+});
+
+test("Manual Review guidance requires conclusive current-snapshot evidence and exact output", () => {
+  for (const path of [
+    join(root, "skills", "work-review", "SKILL.md"),
+    join(root, "targets", "codex", "skills", "review-work", "SKILL.md"),
+    join(root, "targets", "agent-plugins", "skills", "review-work", "SKILL.md"),
+  ]) {
+    const source = readFileSync(path, "utf8");
+    assert.match(source, /masked exit status/i, `${path} must reject masked outcomes`);
+    assert.match(source, /same-task observations.*snapshot is unchanged/i, `${path} must allow exact current-snapshot reuse`);
+    assert.match(source, /no independent postscript/i, `${path} must preserve the builder decision`);
   }
 });
 

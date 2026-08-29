@@ -16,9 +16,7 @@ import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { enumerateReleaseSurface, loadReleaseSurface } from "../src/controller/release-surface.mjs";
 
-const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const codexTargetRoot = join(root, "targets", "codex");
-const agentPluginsTargetRoot = join(root, "targets", "agent-plugins");
+const defaultRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const cursorExcludedPaths = new Set([
   ".cursor-plugin/marketplace.json",
   "schemas/agent-plugins/1.0.0/mcp.schema.json",
@@ -79,26 +77,26 @@ function inside(base, path) {
   return item === "" || (item !== ".." && !item.startsWith(`..${sep}`));
 }
 
-function copyRegular(source, destination) {
+function copyRegular(source, destination, projectRoot) {
   const stat = lstatSync(source);
-  if (stat.isSymbolicLink()) throw new Error(`target source may not be a symlink: ${relative(root, source)}`);
+  if (stat.isSymbolicLink()) throw new Error(`target source may not be a symlink: ${relative(projectRoot, source)}`);
   if (stat.isDirectory()) {
     mkdirSync(destination, { recursive: true, mode: stat.mode & 0o777 });
-    for (const entry of readdirSync(source).sort()) copyRegular(join(source, entry), join(destination, entry));
+    for (const entry of readdirSync(source).sort()) copyRegular(join(source, entry), join(destination, entry), projectRoot);
     return;
   }
-  if (!stat.isFile()) throw new Error(`target source must be a regular file: ${relative(root, source)}`);
+  if (!stat.isFile()) throw new Error(`target source must be a regular file: ${relative(projectRoot, source)}`);
   mkdirSync(dirname(destination), { recursive: true });
   writeFileSync(destination, readFileSync(source), { mode: stat.mode & 0o777 });
   chmodSync(destination, stat.mode & 0o777);
 }
 
-function copyRelative(sourceBase, destinationBase, item, destinationItem = item) {
+function copyRelative(projectRoot, sourceBase, destinationBase, item, destinationItem = item) {
   const source = resolve(sourceBase, item);
   const destination = resolve(destinationBase, destinationItem);
   if (!inside(sourceBase, source) || !inside(destinationBase, destination)) throw new Error(`target path escapes its root: ${item}`);
-  if (!existsSync(source)) throw new Error(`target source is missing: ${relative(root, source)}`);
-  copyRegular(source, destination);
+  if (!existsSync(source)) throw new Error(`target source is missing: ${relative(projectRoot, source)}`);
+  copyRegular(source, destination, projectRoot);
 }
 
 function files(directory) {
@@ -133,11 +131,11 @@ function assertCanonicalManifest(path, expectedVersion, label) {
   return manifest;
 }
 
-function buildCursor(destination) {
-  for (const entry of enumerateReleaseSurface(root, "package_paths")) {
-    if (!cursorExcludedPaths.has(entry.relative_path)) copyRelative(root, destination, entry.relative_path);
+function buildCursor(projectRoot, destination) {
+  for (const entry of enumerateReleaseSurface(projectRoot, "package_paths")) {
+    if (!cursorExcludedPaths.has(entry.relative_path)) copyRelative(projectRoot, projectRoot, destination, entry.relative_path);
   }
-  const surface = loadReleaseSurface(root);
+  const surface = loadReleaseSurface(projectRoot);
   writeJson(join(destination, "release-surface.json"), releaseSurface(
     surface.runtime_paths.filter((path) => !cursorExcludedPaths.has(path)),
     surface.package_extras.filter((path) => !cursorExcludedPaths.has(path)),
@@ -145,20 +143,24 @@ function buildCursor(destination) {
   assertNoSymlinks(destination);
 }
 
-function buildCodex(destination, version) {
-  for (const item of [".codex-plugin", ".mcp.json", "hooks", "skills", "README.md"]) copyRelative(codexTargetRoot, destination, item);
-  copyRelative(root, destination, "assets");
-  copyRelative(root, destination, "docs/manual-workflow.md");
-  for (const name of sharedReferences) copyRelative(join(root, "references"), join(destination, "references"), name);
-  copyRelative(codexTargetRoot, destination, "references/codex-manual.md", "references/codex-manual.md");
-  copyRelative(root, destination, "schemas/artifacts");
-  copyRelative(root, destination, "schemas/manual-workflow");
-  copyRelative(root, destination, "schemas/cursor-plan-wrapper.schema.json");
-  copyRelative(root, destination, "scripts/validate-artifact.mjs");
-  copyRelative(root, destination, "dist/codex/manual-workflow.mjs", "dist/manual-workflow.mjs");
-  copyRelative(root, destination, "dist/codex/workflow-mcp.mjs", "dist/workflow-mcp.mjs");
-  copyRelative(root, destination, "dist/codex/workflow-hook.mjs", "dist/workflow-hook.mjs");
-  for (const item of ["CODEX_THIRD_PARTY_NOTICES.md", "LICENSE", "THIRD_PARTY_NOTICES.md"]) copyRelative(root, destination, item);
+function buildCodex(projectRoot, destination, version) {
+  const codexTargetRoot = join(projectRoot, "targets", "codex");
+  for (const item of [".codex-plugin", ".mcp.json", "hooks", "skills", "README.md"]) copyRelative(projectRoot, codexTargetRoot, destination, item);
+  const codexReadmePath = join(destination, "README.md");
+  writeFileSync(codexReadmePath, readFileSync(codexReadmePath, "utf8").replaceAll("../../docs/installation.md", "docs/installation.md"));
+  copyRelative(projectRoot, projectRoot, destination, "assets");
+  copyRelative(projectRoot, projectRoot, destination, "docs/installation.md");
+  copyRelative(projectRoot, projectRoot, destination, "docs/manual-workflow.md");
+  for (const name of sharedReferences) copyRelative(projectRoot, join(projectRoot, "references"), join(destination, "references"), name);
+  copyRelative(projectRoot, codexTargetRoot, destination, "references/codex-manual.md", "references/codex-manual.md");
+  copyRelative(projectRoot, projectRoot, destination, "schemas/artifacts");
+  copyRelative(projectRoot, projectRoot, destination, "schemas/manual-workflow");
+  copyRelative(projectRoot, projectRoot, destination, "schemas/cursor-plan-wrapper.schema.json");
+  copyRelative(projectRoot, projectRoot, destination, "scripts/validate-artifact.mjs");
+  copyRelative(projectRoot, projectRoot, destination, "dist/codex/manual-workflow.mjs", "dist/manual-workflow.mjs");
+  copyRelative(projectRoot, projectRoot, destination, "dist/codex/workflow-mcp.mjs", "dist/workflow-mcp.mjs");
+  copyRelative(projectRoot, projectRoot, destination, "dist/codex/workflow-hook.mjs", "dist/workflow-hook.mjs");
+  for (const item of ["CODEX_THIRD_PARTY_NOTICES.md", "LICENSE", "THIRD_PARTY_NOTICES.md"]) copyRelative(projectRoot, projectRoot, destination, item);
 
   const manifestPath = join(destination, ".codex-plugin", "plugin.json");
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
@@ -197,13 +199,14 @@ function buildCodex(destination, version) {
   assertNoSymlinks(destination);
 }
 
-function buildAgentPlugins(destination, version) {
-  for (const item of ["plugin.json", "mcp.json", "README.md"]) copyRelative(agentPluginsTargetRoot, destination, item);
+function buildAgentPlugins(projectRoot, destination, version) {
+  const agentPluginsTargetRoot = join(projectRoot, "targets", "agent-plugins");
+  for (const item of ["plugin.json", "mcp.json", "README.md"]) copyRelative(projectRoot, agentPluginsTargetRoot, destination, item);
   for (const skill of expectedAgentPluginSkills) {
     const references = portableSkillReferences[skill];
     if (!references) throw new Error(`portable reference map is missing ${skill}`);
     const skillPath = join(destination, "skills", skill, "SKILL.md");
-    copyRelative(agentPluginsTargetRoot, destination, `skills/${skill}/SKILL.md`);
+    copyRelative(projectRoot, agentPluginsTargetRoot, destination, `skills/${skill}/SKILL.md`);
     const localized = readFileSync(skillPath, "utf8")
       .replaceAll("../../references/portable-manual.md", "references/portable-manual.md")
       .replaceAll("../../../../references/", "references/");
@@ -212,16 +215,16 @@ function buildAgentPlugins(destination, version) {
     for (const name of references) {
       const sourceBase = ["manual-workflow-contract.md", "portable-manual.md"].includes(name)
         ? join(agentPluginsTargetRoot, "references")
-        : join(root, "references");
-      copyRelative(sourceBase, join(destination, "skills", skill, "references"), name);
+        : join(projectRoot, "references");
+      copyRelative(projectRoot, sourceBase, join(destination, "skills", skill, "references"), name);
     }
   }
-  copyRelative(root, destination, "schemas/artifacts");
-  copyRelative(root, destination, "schemas/manual-workflow");
-  copyRelative(root, destination, "scripts/validate-artifact.mjs");
-  copyRelative(root, destination, "dist/portable/manual-workflow.mjs", "dist/manual-workflow.mjs");
-  copyRelative(root, destination, "dist/portable/workflow-mcp.mjs", "dist/workflow-mcp.mjs");
-  for (const item of ["LICENSE", "THIRD_PARTY_NOTICES.md"]) copyRelative(root, destination, item);
+  copyRelative(projectRoot, projectRoot, destination, "schemas/artifacts");
+  copyRelative(projectRoot, projectRoot, destination, "schemas/manual-workflow");
+  copyRelative(projectRoot, projectRoot, destination, "scripts/validate-artifact.mjs");
+  copyRelative(projectRoot, projectRoot, destination, "dist/portable/manual-workflow.mjs", "dist/manual-workflow.mjs");
+  copyRelative(projectRoot, projectRoot, destination, "dist/portable/workflow-mcp.mjs", "dist/workflow-mcp.mjs");
+  for (const item of ["LICENSE", "THIRD_PARTY_NOTICES.md"]) copyRelative(projectRoot, projectRoot, destination, item);
 
   const manifestPath = join(destination, "plugin.json");
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
@@ -249,20 +252,23 @@ function contentDigest(directory) {
   return digest.digest("hex");
 }
 
-export function buildPluginTargets(outputRoot) {
+export function buildPluginTargets(outputRoot, sourceRoot = defaultRoot) {
+  const projectRoot = resolve(sourceRoot);
   const destination = resolve(outputRoot);
-  if (!inside(root, destination) && !inside(tmpdir(), destination)) throw new Error("target output must be under the repository or temporary directory");
+  if (!inside(projectRoot, destination) && !inside(tmpdir(), destination)) throw new Error("target output must be under the repository or temporary directory");
   rmSync(destination, { recursive: true, force: true });
-  const packageJson = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-  assertCanonicalManifest(join(root, ".cursor-plugin", "plugin.json"), packageJson.version, "Cursor");
+  const codexTargetRoot = join(projectRoot, "targets", "codex");
+  const agentPluginsTargetRoot = join(projectRoot, "targets", "agent-plugins");
+  const packageJson = JSON.parse(readFileSync(join(projectRoot, "package.json"), "utf8"));
+  assertCanonicalManifest(join(projectRoot, ".cursor-plugin", "plugin.json"), packageJson.version, "Cursor");
   assertCanonicalManifest(join(codexTargetRoot, ".codex-plugin", "plugin.json"), packageJson.version, "Codex");
   assertCanonicalManifest(join(agentPluginsTargetRoot, "plugin.json"), packageJson.version, "Agent Plugins");
   const cursor = join(destination, "cursor", "geldmacher-workflow");
   const codex = join(destination, "codex", "geldmacher-workflow");
   const agentPlugins = join(destination, "agent-plugins", "geldmacher-workflow");
-  buildCursor(cursor);
-  buildCodex(codex, packageJson.version);
-  buildAgentPlugins(agentPlugins, packageJson.version);
+  buildCursor(projectRoot, cursor);
+  buildCodex(projectRoot, codex, packageJson.version);
+  buildAgentPlugins(projectRoot, agentPlugins, packageJson.version);
   return {
     version: packageJson.version,
     cursor: { path: cursor, hash: contentDigest(cursor), files: files(cursor).length },
@@ -274,7 +280,7 @@ export function buildPluginTargets(outputRoot) {
 const direct = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (direct) {
   const check = process.argv.includes("--check");
-  const output = check ? mkdtempSync(join(tmpdir(), "workflow-target-check-")) : join(root, ".build", "plugins");
+  const output = check ? mkdtempSync(join(tmpdir(), "workflow-target-check-")) : join(defaultRoot, ".build", "plugins");
   try { process.stdout.write(`${JSON.stringify(buildPluginTargets(output), null, 2)}\n`); }
   finally { if (check) rmSync(output, { recursive: true, force: true }); }
 }

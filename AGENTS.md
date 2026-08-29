@@ -38,6 +38,8 @@ Keep this root `AGENTS.md` as the one contributor Northstar for Cursor and Codex
 
 Manual lifecycle orchestration is Skills-first. The bundled stateless local builder may validate closed inputs, calculate hashes and IDs, enforce Schema-6 lineage and path authority, construct artifacts atomically, and project their presentation. It must not discover or mutate a repository, run Checks or tools, call MCP, depend on hooks or adapters, or persist authority. Registered MCP automation and optional protected sealing remain isolated opt-in capabilities.
 
+Manual path authority is informative before it is punitive: ordinary repository-internal changes outside `allowed_roots` remain fully visible, cap delivery at provisional, and may receive only ephemeral human acceptance. They never become verified or persist authority. Protected paths, approval-required paths, repository escape, and protected sealing outside authority remain hard boundaries. All phases use the same literal, `*`, and segment-level `**` matcher.
+
 ## Optional engineering methodology
 
 Workflow may ship human-confirmed engineering playbooks as Skills. They are non-authoritative methodology: suggestion is read-only, application never grants phase or repository authority, and selection never enters Root, Evidence, Review, PhaseRequest, PhaseResult, qualification, or evidence grade. Mutating playbooks require an already approved Root and implementation action. Concrete execution remains entirely project-harness owned.

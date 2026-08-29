@@ -2,6 +2,8 @@
 
 Workflow turns AI output into trustworthy repository delivery by standardizing lifecycle, intent, authority, artifact lineage, evidence grades, and human decisions. Workflow 6 is deliberately not an execution engine: the active project harness owns every concrete command, tool, model, framework, sandbox, worktree, retry, and verification strategy.
 
+> [Install Workflow for Cursor or Codex](docs/installation.md) · [Latest GitHub Release](https://github.com/geldmacher/workflow/releases/latest)
+
 ## Intent and expectations
 
 The default lifecycle is Plan → Implement → fresh Review → Correct or Replan. A human approves the Schema-6 Intent Root. Workflow keeps that authority immutable, reports evidence honestly, and never treats transport or presentation as permission.
@@ -16,7 +18,9 @@ The central contributor Northstar is the root `AGENTS.md`. There is no second No
 
 ## Installation
 
-Install or link the plugin through the supported host mechanism. Local repository deployment is a separate operational action and is not part of ordinary implementation.
+Use the [verified release installation guide](docs/installation.md) for Cursor and Codex downloads, checksums, directory layouts, updates, rollback, Hook Trust, Marketplace setup, and activation checks. Versioned packages are available on the [current GitHub Release page](https://github.com/geldmacher/workflow/releases/latest).
+
+Local repository deployment is a separate operational action and is not part of ordinary implementation or GitHub publication.
 
 Current contract versions:
 
@@ -32,7 +36,7 @@ Manual is the default and has no MCP dependency:
 1. `/plan-work <goal>` or `$plan-work <goal>` creates a human-approved Schema-6 Root.
 2. The host's native implementation action authorizes repository work.
 3. `/review-work` or `$review-work` starts fresh repository-read-only Review. The project harness supplies closed unprotected observations to the bundled stateless local builder.
-4. The local builder validates lineage and authority, computes IDs and hashes, and atomically returns exact Evidence plus Review together with the human presentation. Unprotected success is capped at provisional.
+4. The local builder validates lineage, classifies path authority, computes IDs and hashes, and atomically returns exact Evidence plus Review together with the human presentation. Unprotected success is capped at provisional. Ordinary repository-internal scope drift remains visible and provisionally acceptable; protected, approval-required, or escaping paths remain blocking.
 5. Use correction, replan, another fresh Review, or `/accept-work provisional` only when the Review requests it.
 
 The Manual path uses neither MCP, Host Adapter, MCP Roots, Hook Trust, cache, nor persistent Workflow state. If local input is missing, malformed, foreign, stale, conflicting, or ambiguous, the builder returns a clearly labelled Shadow result with no pseudo-artifacts and retains the task's Root and predecessor bytes for retry. A fresh task must receive those exact bytes explicitly.
