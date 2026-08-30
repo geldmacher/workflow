@@ -11,6 +11,48 @@ import { reviewInputSchema } from "../src/mcp/review-input-contract.mjs";
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const rootPlan = readFileSync(join(root, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
 
+function cursorPlan(rootText = rootPlan, { nextStepAtEnd = false } = {}) {
+  const parts = rootText.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+  const nextStep = [
+    "### Next step",
+    "",
+    "- Now: Implement Plan",
+    "- How: Select the host-native implementation action.",
+    "- Why: The Root has closed intent and authority.",
+    "",
+  ];
+  return [
+    "---",
+    "name: Retry delivery",
+    "overview: Deliver deterministic retry behavior.",
+    "todos:",
+    "  - id: retry",
+    "    content: Deliver the retry behavior",
+    "    status: completed",
+    "isProject: false",
+    "---",
+    "",
+    "# Retry delivery",
+    "",
+    "## Quick decision",
+    "",
+    "The Schema-6 Root is ready.",
+    "",
+    ...(!nextStepAtEnd ? nextStep : []),
+    "## Details",
+    "",
+    "The project harness chooses execution.",
+    "",
+    "## Agent and machine contract (authoritative)",
+    "",
+    "```yaml artifact-envelope",
+    parts[1],
+    "```",
+    parts[2],
+    ...(nextStepAtEnd ? ["", ...nextStep] : []),
+  ].join("\n");
+}
+
 function reviewInput(overrides = {}) {
   return {
     schema: 1,
@@ -133,6 +175,38 @@ test("Manual builder validates a Root without MCP or state", () => {
   assert.equal(result.root_plan_id, "wp-adaptive-retry");
   assert.equal(result.artifacts.length, 0);
   assert.match(result.human_output, /implement-plan/);
+});
+
+test("Manual builder normalizes a native Cursor plan before Review construction", () => {
+  const exact = executeManualOperation("build-review", request());
+  const wrapped = executeManualOperation("build-review", request({ root_plan: cursorPlan() }));
+  assert.equal(wrapped.ok, true, wrapped.error?.message);
+  assert.equal(serializeManualResult(wrapped), serializeManualResult(exact));
+});
+
+test("native Plan normalization stays identical through status and provisional acceptance", () => {
+  const built = executeManualOperation("build-review", proofGapRequest());
+  const artifacts = exactArtifacts(built);
+  for (const operation of ["status", "accept-provisional"]) {
+    const exact = executeManualOperation(operation, { schema: 1, operation, root_plan: rootPlan, artifacts });
+    const wrapped = executeManualOperation(operation, { schema: 1, operation, root_plan: cursorPlan(), artifacts });
+    assert.equal(wrapped.ok, true, wrapped.error?.message);
+    assert.equal(serializeManualResult(wrapped), serializeManualResult(exact), operation);
+  }
+});
+
+test("Manual builder rejects a native Plan outside the current presentation contract", () => {
+  const native = cursorPlan(rootPlan, { nextStepAtEnd: true });
+  const validation = executeManualOperation("validate-plan", { schema: 1, operation: "validate-plan", root_plan: native });
+  const review = executeManualOperation("build-review", request({ root_plan: native }));
+  assert.equal(validation.ok, false);
+  assert.equal(validation.kind, "manual-plan-validation");
+  assert.match(validation.human_output, /Next step/);
+  assert.deepEqual(validation.artifacts, []);
+  assert.equal(review.ok, false);
+  assert.equal(review.error.code, "schema-6-root-invalid");
+  assert.match(review.error.message, /Next step/);
+  assert.deepEqual(review.artifacts, []);
 });
 
 test("public Manual request schema is closed and matches the runtime contract", () => {

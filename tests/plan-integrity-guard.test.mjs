@@ -36,6 +36,19 @@ function presented(rootText = root) {
   ].join("\n");
 }
 
+function nextStepAtDocumentEnd(rootText = root) {
+  return [
+    ...presented(rootText).split("\n").filter((line, index, lines) => {
+      const start = lines.indexOf("### Next step");
+      return index < start || index > start + 5;
+    }),
+    "",
+    "### Next step",
+    "",
+    "The Root is ready. The only action is **Implement Plan**.",
+  ].join("\n");
+}
+
 function event(plan = presented()) {
   return {
     hook_event_name: "preToolUse",
@@ -48,6 +61,12 @@ function event(plan = presented()) {
 
 test("CreatePlan accepts one human-presented Schema-6 Root", () => {
   assert.deepEqual(evaluateCreatePlanGuard(event(), { pluginRoot: defaultRoot }), {});
+});
+
+test("CreatePlan rejects a Next step placed after the authoritative Root", () => {
+  const result = evaluateCreatePlanGuard(event(nextStepAtDocumentEnd()), { pluginRoot: defaultRoot });
+  assert.equal(result.permission, "deny");
+  assert.match(result.user_message, /Next step/);
 });
 
 test("guard never classifies project tools named in non-authoritative prose", () => {

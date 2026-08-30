@@ -47,6 +47,16 @@ function validateHumanFirstNextStep(projection, failures) {
   }
 }
 
+export function extractEmbeddedWorkPlanText(text) {
+  const source = String(text);
+  const failures = [];
+  const parsed = parseArtifact(source, failures);
+  if (failures.length > 0 || parsed?.container !== "cursor-plan" || parsed.fields.artifact !== "work-plan") return null;
+  const envelope = source.match(/```yaml artifact-envelope\r?\n([\s\S]*?)\r?\n```(?:\r?\n|$)/);
+  if (!envelope) return null;
+  return `---\n${envelope[1].trim()}\n---\n${parsed.body}`;
+}
+
 function parsePlanContainer(text, wrapper, failures, normalizations = []) {
   const match = String(text).match(/(?:^|\n)# ([^\r\n]+)\r?\n([\s\S]*?)```yaml artifact-envelope\r?\n([\s\S]*?)\r?\n```(?:\r?\n|$)/);
   if (!match) {

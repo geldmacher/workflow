@@ -5,11 +5,53 @@ import test from "node:test";
 import {
   defaultRoot,
   executionContractFromArtifactText,
+  extractEmbeddedWorkPlanText,
   inspectArtifactText,
   preflightRootPlan,
 } from "../scripts/validate-artifact.source.mjs";
 
 const root = readFileSync(join(defaultRoot, "tests/fixtures/artifacts/work-plan.valid.md"), "utf8");
+
+function nativePlan(rootText = root, { nextStepAtEnd = false } = {}) {
+  const parts = rootText.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+  const nextStep = [
+    "### Next step",
+    "",
+    "- Now: Implement Plan",
+    "- How: Select the host-native implementation action.",
+    "- Why: The Root has closed intent and authority.",
+    "",
+  ];
+  return [
+    "---",
+    "name: Retry delivery",
+    "todos:",
+    "  - id: retry",
+    "    content: Deliver the retry behavior",
+    "    status: completed",
+    "isProject: false",
+    "---",
+    "",
+    "# Retry delivery",
+    "",
+    "## Quick decision",
+    "",
+    "The Schema-6 Root is ready.",
+    "",
+    ...(!nextStepAtEnd ? nextStep : []),
+    "## Details",
+    "",
+    "The project harness chooses execution.",
+    "",
+    "## Agent and machine contract (authoritative)",
+    "",
+    "```yaml artifact-envelope",
+    parts[1],
+    "```",
+    parts[2],
+    ...(nextStepAtEnd ? ["", ...nextStep] : []),
+  ].join("\n");
+}
 
 test("Schema-6 plan accepts arbitrary verification intent without execution policy", () => {
   const inspected = inspectArtifactText(root, defaultRoot);
@@ -27,6 +69,14 @@ test("Schema-6 plan accepts arbitrary verification intent without execution poli
     Prerequisites: "Relevant implementation and test surfaces are available.",
   });
   assert.equal(preflightRootPlan(root, defaultRoot).feasible, true);
+});
+
+test("native Plan extraction ignores mutable host presentation and preserves the exact Root", () => {
+  assert.equal(extractEmbeddedWorkPlanText(nativePlan()), root);
+  assert.equal(extractEmbeddedWorkPlanText(root), null);
+  assert.equal(extractEmbeddedWorkPlanText(nativePlan(root, { nextStepAtEnd: true })), null);
+  assert.equal(extractEmbeddedWorkPlanText(`${nativePlan()}\n\n\`\`\`yaml artifact-envelope\nartifact: work-review\n\`\`\``), null);
+  assert.equal(extractEmbeddedWorkPlanText(`${root}\n\n${nativePlan()}`), null);
 });
 
 test("Schema-6 rejects authoritative execution fields as unknown", () => {

@@ -6,6 +6,7 @@ import {
   defaultRoot,
   effectiveCliSummary,
   executionContractFromArtifactText,
+  extractEmbeddedWorkPlanText,
   inspectArtifactSet,
   inspectArtifactText,
   preflightRootPlan,
@@ -127,6 +128,11 @@ function parseRequest(operation, input) {
   const issue = parsed.error.issues[0];
   const location = issue?.path?.length ? ` at ${issue.path.join(".")}` : "";
   throw codedError("manual-input-invalid", `Closed Schema-1 ${operation} input is invalid${location}: ${issue?.message ?? "invalid input"}`);
+}
+
+function exactRootRequest(request) {
+  const extracted = extractEmbeddedWorkPlanText(request.root_plan);
+  return extracted == null ? request : { ...request, root_plan: extracted };
 }
 
 function exactRoot(rootPlan, pluginRoot) {
@@ -936,7 +942,7 @@ function shadowError(operation, input, error) {
 
 export function executeManualOperation(operation, input, { pluginRoot = defaultRoot } = {}) {
   try {
-    const request = parseRequest(operation, input);
+    const request = exactRootRequest(parseRequest(operation, input));
     if (operation === "validate-plan") return validatePlan(request, pluginRoot);
     if (operation === "build-review") return buildReview(request, pluginRoot);
     if (operation === "status") return deriveStatus(request, pluginRoot);

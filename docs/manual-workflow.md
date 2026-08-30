@@ -14,7 +14,7 @@ Workflow, MCP, adapter, Root transport, hook, or harness unavailability does not
 
 ## Fresh Review
 
-Review is repository-read-only. The Skill resolves the exact current-task Root and predecessor artifact bytes, inspects acceptance and repository state through the active project harness, and closes one semantic Review input plus unprotected repository and Check observations.
+Review is repository-read-only. Before repository inspection, the Skill validates the current native Plan or attached Root and expected Root ID. The builder extracts a single embedded Schema-6 Root only from a container that satisfies the current presentation contract, excluding mutable host todo state and human projection from Root identity. It then resolves predecessor bytes, while the active project harness inspects acceptance and repository state and closes one semantic Review input plus unprotected repository and Check observations.
 
 The bundled stateless `manual-workflow` builder accepts those closed inputs and performs only validation, canonical serialization, hashing, path authority, lineage, artifact construction, and presentation projection. It never discovers the repository, runs Git or Checks, selects a command or framework, calls MCP, reads Hook or cache state, or persists artifacts.
 

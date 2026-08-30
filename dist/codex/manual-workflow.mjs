@@ -14006,6 +14006,15 @@ function validateHumanFirstNextStep(projection, failures) {
   let lines = block[1].trim().split(/\r?\n/).filter(Boolean), expected = ["Now", "How", "Why"];
   (lines.length !== expected.length || expected.some((label, index) => !new RegExp(`^- ${label}:\\s*\\S`).test(lines[index]))) && failures.push("human-first native plan projection requires complete Now, How, and Why lines in ### Next step");
 }
+function extractEmbeddedWorkPlanText(text) {
+  let source = String(text), failures = [], parsed = parseArtifact(source, failures);
+  if (failures.length > 0 || parsed?.container !== "cursor-plan" || parsed.fields.artifact !== "work-plan") return null;
+  let envelope = source.match(/```yaml artifact-envelope\r?\n([\s\S]*?)\r?\n```(?:\r?\n|$)/);
+  return envelope ? `---
+${envelope[1].trim()}
+---
+${parsed.body}` : null;
+}
 function parsePlanContainer(text, wrapper, failures, normalizations = []) {
   let match = String(text).match(/(?:^|\n)# ([^\r\n]+)\r?\n([\s\S]*?)```yaml artifact-envelope\r?\n([\s\S]*?)\r?\n```(?:\r?\n|$)/);
   if (!match)
@@ -16383,6 +16392,10 @@ function parseRequest(operation, input) {
   let issue3 = parsed.error.issues[0], location = issue3?.path?.length ? ` at ${issue3.path.join(".")}` : "";
   throw codedError2("manual-input-invalid", `Closed Schema-1 ${operation} input is invalid${location}: ${issue3?.message ?? "invalid input"}`);
 }
+function exactRootRequest(request) {
+  let extracted = extractEmbeddedWorkPlanText(request.root_plan);
+  return extracted == null ? request : { ...request, root_plan: extracted };
+}
 function exactRoot(rootPlan, pluginRoot) {
   let inspected = inspectArtifactText(rootPlan, pluginRoot);
   if (inspected.errors.length > 0 || inspected.artifact?.fields?.artifact !== "work-plan" || inspected.artifact.fields.schema !== 6)
@@ -17011,7 +17024,7 @@ function shadowError(operation, input, error) {
 }
 function executeManualOperation(operation, input, { pluginRoot = defaultRoot } = {}) {
   try {
-    let request = parseRequest(operation, input);
+    let request = exactRootRequest(parseRequest(operation, input));
     if (operation === "validate-plan") return validatePlan(request, pluginRoot);
     if (operation === "build-review") return buildReview(request, pluginRoot);
     if (operation === "status") return deriveStatus(request, pluginRoot);

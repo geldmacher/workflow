@@ -5,12 +5,17 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { evidenceHasKnownFailure, schema6EvidenceData } from "./artifact-validator/evidence.mjs";
 import { linearChain, lineageTips } from "./artifact-validator/lineage.mjs";
-import { opaqueExtensionsFromArtifactText, parseArtifact, replaceOpaqueExtensions } from "./artifact-validator/parser.mjs";
+import {
+  extractEmbeddedWorkPlanText,
+  opaqueExtensionsFromArtifactText,
+  parseArtifact,
+  replaceOpaqueExtensions,
+} from "./artifact-validator/parser.mjs";
 import { schemaFor, validateArtifactSchema } from "./artifact-validator/schema.mjs";
 import { normalizeAuthorityPattern, pathMatchesAuthorityPattern } from "../src/core/manual-path-authority.mjs";
 export { rootContentHash } from "../src/core/state-paths.mjs";
 
-export { opaqueExtensionsFromArtifactText, parseArtifact, replaceOpaqueExtensions };
+export { extractEmbeddedWorkPlanText, opaqueExtensionsFromArtifactText, parseArtifact, replaceOpaqueExtensions };
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 export const defaultRoot = dirname(scriptDirectory);

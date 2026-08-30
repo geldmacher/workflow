@@ -1,6 +1,6 @@
 # Review Schema 6
 
-Review is fresh and repository-read-only. Workflow resolves exact Root and lineage; the harness alone inspects and supplies observations.
+Review is fresh and repository-read-only. Workflow validates the exact Root and lineage before repository inspection; the harness alone inspects and supplies observations.
 
 Workflow never interprets or launches execution choices. Harness unavailability limits this phase, not ordinary host use.
 

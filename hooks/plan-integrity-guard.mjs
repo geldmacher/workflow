@@ -4,6 +4,7 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  extractEmbeddedWorkPlanText,
   inspectArtifactText,
   preflightRootPlan,
   validateArtifactText,
@@ -17,13 +18,6 @@ function workflowRootClaim(plan, root) {
   const inspected = inspectArtifactText(plan, root);
   if (inspected.artifact?.fields?.artifact === "work-plan") return true;
   return /```yaml artifact-envelope[\s\S]*?\bartifact:\s*work-plan\b[\s\S]*?```/i.test(plan);
-}
-
-function extractRootPlanText(plan) {
-  const fenced = String(plan).match(/```yaml artifact-envelope\s*([\s\S]*?)```([\s\S]*)$/i);
-  if (!fenced?.[1]) return null;
-  const suffix = String(fenced[2] ?? "").replace(/^\r?\n/, "");
-  return `---\n${fenced[1].trim()}\n---\n${suffix}`;
 }
 
 function nativePlanText(input) {
@@ -52,7 +46,7 @@ function validateNativeCreatePlan(input, options = {}) {
     const detail = failures.slice(0, 8).map((failure) => String(failure).replace(/\s+/g, " ").slice(0, 300)).join("; ");
     return deny(`Workflow Schema-6 CreatePlan denied: ${detail}. Repair the native Plan and call CreatePlan again.`);
   }
-  const rootText = extractRootPlanText(toolInput.plan);
+  const rootText = extractEmbeddedWorkPlanText(nativePlanText(toolInput));
   if (!rootText) return deny("Workflow Schema-6 CreatePlan denied: the native Plan does not contain one extractable exact Root.");
   const preflight = (options.preflightRootPlan ?? preflightRootPlan)(rootText, root);
   if (!preflight.feasible) {

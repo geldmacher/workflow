@@ -4,14 +4,14 @@ Manual is the default host-neutral lifecycle:
 
 1. A human approves one exact Schema-6 Intent Root in the host-native Plan.
 2. The host and project harness implement desired outcomes inside Root authority.
-3. Fresh Review is repository-read-only. The project harness chooses all concrete inspection details and supplies closed unprotected observations.
+3. Fresh Review validates the exact Root before repository inspection, remains repository-read-only, and receives closed unprotected observations from the project harness.
 4. The bundled local builder validates exact bytes, classifies authority and lineage, computes hashes and IDs, and builds Evidence, Review, and human presentation atomically.
 5. Unprotected success remains below verified, but a finding-free current Review with every required Check at least supported may conclude that repository outcomes are achieved with no further action. Failed required Checks remain blocking.
 6. A human separately chooses correction, replan, another Review, or ephemeral provisional acknowledgement only when the Review identifies that actual boundary.
 
 Workflow owns lifecycle, intent, authority, lineage, evidence grades, artifact construction, and human gates. The harness owns commands, tools, models, framework knowledge, sandboxes, worktrees, retries, and verification strategy.
 
-Manual requires no MCP, adapter, MCP Roots, Hook Trust, cache, receipt, or persistent state. Same-task exact bytes are the normal transport. A fresh task requires explicit attachment of the Root and every referenced artifact. Missing or invalid input produces Shadow with no pseudo-artifact. Ordinary repository-internal paths outside `allowed_roots` stay visible and provisional; protected, approval-required, malformed, or escaping paths remain blocking or Shadow as appropriate. Hooks are optional and availability-first so ordinary Cursor and Codex use remains free.
+Manual requires no MCP, adapter, MCP Roots, Hook Trust, cache, receipt, or persistent state. Same-task exact bytes are the normal transport. A native Plan container is normalized only when it satisfies the current presentation contract; mutable host presentation is excluded from the embedded Root. A fresh task requires explicit attachment of the Root and every referenced artifact. Missing, multiple, or invalid input produces Shadow with no pseudo-artifact. Ordinary repository-internal paths outside `allowed_roots` stay visible and provisional; protected, approval-required, malformed, or escaping paths remain blocking or Shadow as appropriate. Hooks are optional and availability-first so ordinary Cursor and Codex use remains free.
 
 Every local request may carry `presentation_locale: de|en`, chosen by the Skill from the active conversation language and defaulting to `en`. It changes only fixed presentation text. Human output leads with one decision and one next action; full traceability and exact artifacts remain available through default-closed disclosure. Implementation and correction completion means only that phase is complete and fresh Review is pending, never that delivery or Workflow is complete.
 

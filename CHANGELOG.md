@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Normalize only current-contract native Plan containers to their single embedded Schema-6 Root before Manual validation, Review, status, and acceptance; preflight Review before repository inspection and align the Plan `Next step` projection with the CreatePlan guard.
 - Fixed release-test fixtures to initialize on local `main` so complete-release coverage stays valid when `init.defaultBranch` is `master`.
 - Consolidated the repository-local GitHub Release workflow into one explicit no-argument invocation that validates all non-ignored changes, creates a release commit when required, atomically pushes `main` and its lightweight tag, publishes both host packages, and verifies downloaded assets.
 

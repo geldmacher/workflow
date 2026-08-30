@@ -15,12 +15,12 @@ Once stable, read `../../references/engineering-playbooks.md`. Recommend exactly
 
 Read [root semantics](../../references/executable-contract.md), [native output](../../references/plan-container-contract.md), and [design](../../references/design-contract.md). Build one Root.
 
-Render `Quick decision` → `Details` → `Agent and machine contract (authoritative)` with one envelope; human trace stays outside.
+Render `Quick decision` → `Details` → `Agent and machine contract (authoritative)` with one envelope. End `Quick decision` with exactly one `### Next step` block containing `Now`, `How`, and `Why` bullets in that order; its only action is **Implement Plan**.
 
-Bind observable outcomes and hard boundaries. Internal design or files become authoritative only for material public contracts, security, authority, or chosen trade-offs. Give each objective minimum falsifiable intent using `Check ID | Objectives | Verification Intent | Expected Evidence | Required | Evidence Class | Cost Class | Prerequisites`.
+Bind observable outcomes and hard boundaries. Fix internal design or files only when material to a public contract, security, authority, or chosen trade-off. Give each objective minimum falsifiable intent: `Check ID | Objectives | Verification Intent | Expected Evidence | Required | Evidence Class | Cost Class | Prerequisites`.
 
 The harness owns all execution choices.
 
-Select locale, validate the exact Root locally, and require its ID. Decorate only `implement-plan` as **Implement Plan** or `correct-plan` as Plan revision. Replan needs fresh ID, binding, and approval.
+Select locale, validate the exact Root, and require its ID. Decorate only `implement-plan` as **Implement Plan** or `correct-plan` as Plan revision. Replan needs fresh ID, binding, and approval.
 
-Add no closeout. End with `### Next step`: state Root readiness, one concrete reason, and exactly one action: **Implement Plan**. Claim no completion or Review action.
+Add no closeout. In that block, state Root readiness, one concrete reason, and exactly one action: **Implement Plan**. Claim no completion or Review action.

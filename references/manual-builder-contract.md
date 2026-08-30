@@ -13,6 +13,8 @@ The public input schema is `schemas/manual-workflow/request-1.schema.json`. Ever
 
 The builder performs no repository discovery, Git operation, Check, command, tool call, framework selection, cache lookup, MCP request, Hook lookup, state write, or artifact persistence. The project harness supplies opaque read-only observations; Skills supply the semantic Review input.
 
+`root_plan` may be either exact Schema-6 artifact text or a native Plan container that satisfies the current presentation contract and contains exactly one embedded `work-plan` envelope. The builder extracts that envelope plus its artifact body before validation, hashing, lineage, status, or Review construction. Mutable host frontmatter and human projection never enter Root identity. Missing, multiple, or presentation-invalid containers remain invalid. CreatePlan applies the same presentation contract at the host boundary.
+
 ## Review observations
 
 `repository_observation` contains only:
