@@ -55,7 +55,7 @@ function repositoryFixture() {
   writeJson(join(repository, "targets", "agent-plugins", "plugin.json"), common);
   writeFileSync(join(repository, "CHANGELOG.md"), `# Changelog\n\n## Unreleased\n\n## ${version}\n\n- Added deterministic release fixtures.\n`);
   writeFileSync(join(repository, ".gitignore"), ".build/\n");
-  git(repository, "init", "--quiet");
+  git(repository, "init", "--quiet", "-b", "main");
   git(repository, "remote", "add", "origin", "git@github.com:geldmacher/workflow.git");
   git(repository, "config", "user.name", "Workflow Release Test");
   git(repository, "config", "user.email", "workflow-release@invalid.local");
@@ -93,7 +93,7 @@ function productionSnapshotFixture() {
   );
   releaseNotesFromChangelog(changelog, packageJson.version);
   writeFileSync(changelogPath, changelog);
-  git(repository, "init", "--quiet");
+  git(repository, "init", "--quiet", "-b", "main");
   git(repository, "remote", "add", "origin", "git@github.com:geldmacher/workflow.git");
   git(repository, "add", ".");
   execFileSync("git", [
