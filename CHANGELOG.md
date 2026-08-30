@@ -2,11 +2,11 @@
 
 ## Unreleased
 
+## 6.0.0
+
 - Normalize only current-contract native Plan containers to their single embedded Schema-6 Root before Manual validation, Review, status, and acceptance; preflight Review before repository inspection and align the Plan `Next step` projection with the CreatePlan guard.
 - Fixed release-test fixtures to initialize on local `main` so complete-release coverage stays valid when `init.defaultBranch` is `master`.
 - Consolidated the repository-local GitHub Release workflow into one explicit no-argument invocation that validates all non-ignored changes, creates a release commit when required, atomically pushes `main` and its lightweight tag, publishes both host packages, and verifies downloaded assets.
-
-## 6.0.0
 
 - Unified literal and wildcard Root path matching across validation, Manual Review, status, correction, automation, and sealing; ordinary repository-internal Manual scope drift now remains visible and provisional instead of causing false clarification, while protected and approval-required boundaries stay hard.
 - Made Manual Review output action-consistent and evidence-specific: status preserves exact Review actions, supported observations require an unambiguous current-snapshot outcome, and canonical Skills forbid independent post-review summaries.
