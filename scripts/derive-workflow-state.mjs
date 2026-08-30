@@ -89,6 +89,10 @@ export function deriveWorkflowState(input = {}) {
   if (nextAction === "correct") return snapshot(input, "waiting-human", { allowed_actions: ["inspect", "correct", "replan"], required_actor: "human", next_action: "correct" });
   if (nextAction === "retry-review") return snapshot(input, "reviewing", { allowed_actions: ["review"], required_actor: "reviewer", next_action: "retry-review" });
 
+  if (input.review?.assessment === "achieved" && nextAction === "none") {
+    return snapshot(input, "achieved", { allowed_actions: ["explain", "learn"] });
+  }
+
   if (input.delivery_status === "provisional") {
     if (manualArtifacts && input.manual_acceptance === "provisional") return snapshot(input, "accepted-provisional", {
       allowed_actions: ["inspect"],

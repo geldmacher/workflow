@@ -7,4 +7,4 @@ description: Review one Workflow root read-only.
 
 Use Cursor Ask Mode and the exact current-task Schema-6 Root. Read [work-review](../skills/work-review/SKILL.md) completely.
 
-Review is repository-read-only and locally built without MCP, adapters, Roots, hooks, cache, or state. Missing protection and ordinary repository-internal scope drift stay provisional; protected, approval-required, escaping, or failed paths and Checks block. Present the localized human result once, decorate only its exact action with Cursor syntax, and retain both exact artifacts once in closed details.
+Review is repository-read-only and locally built without runtime state. Partition dirty paths into subject and ambient. Finding-free plus supported or verified required Checks ends achieved with no action; supported stays non-verified. Subject scope drift is provisional; hard boundaries and failed required Checks block. Render the builder result and exact artifacts once.

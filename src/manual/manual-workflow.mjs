@@ -36,9 +36,14 @@ const repositoryObservationSchema = z.strictObject({
   schema: z.literal(1),
   kind: z.literal("unprotected-repository-observation"),
   repository_root: line(8_000),
-  changed_paths: z.array(line(8_000)).max(20_000),
+  subject_changed_paths: z.array(line(8_000)).max(20_000),
+  ambient_changed_paths: z.array(line(8_000)).max(20_000),
   snapshot_material: z.array(line(100_000)).min(1).max(2_000),
   limitations: z.array(line(8_000)).max(128),
+}).superRefine((value, context) => {
+  const subject = new Set(value.subject_changed_paths);
+  const overlap = value.ambient_changed_paths.find((path) => subject.has(path));
+  if (overlap) context.addIssue({ code: "custom", path: ["ambient_changed_paths"], message: `path must not also be subject: ${overlap}` });
 });
 
 const checkObservationSchema = z.strictObject({
@@ -173,7 +178,8 @@ function observationHashes(observation) {
     schema: observation.schema,
     kind: observation.kind,
     repository_root: canonicalRepositoryRoot,
-    changed_paths: unique(observation.changed_paths).sort(),
+    subject_changed_paths: unique(observation.subject_changed_paths).sort(),
+    ambient_changed_paths: unique(observation.ambient_changed_paths).sort(),
     snapshot_material: observation.snapshot_material,
     limitations: unique(observation.limitations),
   });
@@ -235,6 +241,18 @@ function authorityBlockingLimitation(projection) {
 function authorityScopeLimitation(projection) {
   if (projection.outside_allowed_paths.length === 0) return null;
   return `Provisional scope drift remains visible without granting authority: ${projection.outside_allowed_paths.join(", ")}.`;
+}
+
+function scopeLimitedReviewInput(reviewInput, message) {
+  const limitation = boundedLine(message);
+  return {
+    ...reviewInput,
+    assessment: ["achieved", "provisional"].includes(reviewInput.assessment) ? "provisional" : reviewInput.assessment,
+    recommended_action: ["none", "accept-provisional"].includes(reviewInput.recommended_action)
+      ? "accept-provisional"
+      : reviewInput.recommended_action,
+    missing_evidence: unique([...(reviewInput.missing_evidence ?? []), limitation]),
+  };
 }
 
 const PRESENTATION_LABELS = Object.freeze({
@@ -420,10 +438,11 @@ function checkLine(check, locale) {
 function pathLines(pathAuthority, locale) {
   const de = localeOf(locale) === "de";
   const categories = [
-    [de ? "Erlaubt" : "Allowed", pathAuthority?.allowed_paths],
-    [de ? "Außerhalb erlaubter Roots" : "Outside allowed roots", pathAuthority?.outside_allowed_paths],
-    [de ? "Freigabepflichtig" : "Approval required", pathAuthority?.approval_required_paths],
-    [de ? "Geschützt" : "Protected", pathAuthority?.protected_paths],
+    [de ? "Lieferpfade · erlaubt" : "Subject paths · allowed", pathAuthority?.allowed_paths],
+    [de ? "Lieferpfade · außerhalb erlaubter Roots" : "Subject paths · outside allowed roots", pathAuthority?.outside_allowed_paths],
+    [de ? "Lieferpfade · freigabepflichtig" : "Subject paths · approval required", pathAuthority?.approval_required_paths],
+    [de ? "Lieferpfade · geschützt" : "Subject paths · protected", pathAuthority?.protected_paths],
+    [de ? "Umgebungsänderungen · nicht Teil der Lieferung" : "Ambient changes · not part of delivery", pathAuthority?.ambient_paths],
   ];
   return categories.flatMap(([title, paths]) => (paths ?? []).length > 0
     ? [`- ${title} (${paths.length})`, ...paths.map((path) => `  - ${safeInline(path)}`)]
@@ -431,7 +450,7 @@ function pathLines(pathAuthority, locale) {
 }
 
 function changedPathCount(pathAuthority) {
-  return ["allowed_paths", "outside_allowed_paths", "approval_required_paths", "protected_paths"]
+  return ["allowed_paths", "outside_allowed_paths", "approval_required_paths", "protected_paths", "ambient_paths"]
     .reduce((total, key) => total + (pathAuthority?.[key]?.length ?? 0), 0);
 }
 
@@ -453,6 +472,14 @@ function authorityScopePresentation(pathAuthority, locale) {
 
 function reviewDecision(review, locale) {
   const de = localeOf(locale) === "de";
+  if (review.fields.assessment === "achieved" && review.fields.next_action === "none") {
+    if (review.fields.delivery_status === "verified") return de
+      ? "Alles OK: Die Akzeptanzziele sind erreicht und die Lieferung ist verifiziert."
+      : "All good: the acceptance outcomes are achieved and delivery is verified.";
+    return de
+      ? "Alles OK: Die Akzeptanzziele sind erreicht; der Nachweis bleibt unterhalb von verifiziert."
+      : "All good: the acceptance outcomes are achieved; proof remains below verified.";
+  }
   if (review.fields.delivery_status === "blocked") return de
     ? "Dieser Liefer-Snapshot ist blockiert."
     : "This delivery snapshot is blocked.";
@@ -557,8 +584,11 @@ function reviewPresentation({ rootFields, rootPlan, evidence, review, reviewInpu
       ? "- Nur dieser Liefer-Snapshot ist blockiert; die normale Host- und Workflow-Nutzung bleibt verfügbar."
       : "- Only this delivery snapshot is blocked; normal host and Workflow use remains available."] : []),
   ];
+  const terminalSuccess = review.fields.assessment === "achieved" && review.fields.next_action === "none";
   const humanOutput = [
-    lang === "de" ? `## Review-Ergebnis · Lieferung ${statusLabel}` : `## Review result · Delivery ${statusLabel}`,
+    terminalSuccess
+      ? (lang === "de" ? "## Review-Ergebnis · alles OK" : "## Review result · all good")
+      : (lang === "de" ? `## Review-Ergebnis · Lieferung ${statusLabel}` : `## Review result · Delivery ${statusLabel}`),
     `### ${copy.decision}`,
     decisionLines.join("\n"),
     `### ${copy.nextAction}`,
@@ -700,11 +730,19 @@ function buildReview(request, pluginRoot) {
   const contract = executionContractFromArtifactText(request.root_plan, pluginRoot);
   if (contract.errors.length > 0) throw codedError("schema-6-root-invalid", `Root execution contract is invalid: ${contract.errors.join("; ")}`);
   const hashes = observationHashes(request.repository_observation);
-  const pathAuthority = classifyChangedPathAuthority(exact.rootFields, hashes.normalized.changed_paths, hashes.normalized.repository_root);
+  const pathAuthority = classifyChangedPathAuthority(
+    exact.rootFields,
+    hashes.normalized.subject_changed_paths,
+    hashes.normalized.repository_root,
+    hashes.normalized.ambient_changed_paths,
+  );
   const blockingAuthorityLimitation = authorityBlockingLimitation(pathAuthority);
+  const scopeAuthorityLimitation = authorityScopeLimitation(pathAuthority);
   const effectiveReviewInput = blockingAuthorityLimitation
     ? authorityLimitedReviewInput(request.review_input, blockingAuthorityLimitation)
-    : request.review_input;
+    : scopeAuthorityLimitation
+      ? scopeLimitedReviewInput(request.review_input, scopeAuthorityLimitation)
+      : request.review_input;
   const localCheckEvidence = checkEvidence(request.check_observations);
   const evidenceTipId = exact.tips.evidence_tips[exact.rootFields.id] ?? null;
   const reviewTipId = exact.tips.review_tips[exact.rootFields.id] ?? null;
@@ -724,7 +762,8 @@ function buildReview(request, pluginRoot) {
       rootPlanText: request.root_plan,
       artifacts: exact.entries,
       checkEvidence: localCheckEvidence,
-      changedPaths: hashes.normalized.changed_paths,
+      changedPaths: hashes.normalized.subject_changed_paths,
+      ambientPaths: hashes.normalized.ambient_changed_paths,
       effectiveProfile: "manual",
       harnessAttestations: [],
       enforceHarnessAttestations: true,
@@ -743,7 +782,8 @@ function buildReview(request, pluginRoot) {
       rootPlanText: request.root_plan,
       artifacts: refreshBaseEntries,
       checkEvidence: localCheckEvidence,
-      changedPaths: hashes.normalized.changed_paths,
+      changedPaths: hashes.normalized.subject_changed_paths,
+      ambientPaths: hashes.normalized.ambient_changed_paths,
       effectiveProfile: "manual",
       harnessAttestations: [],
       enforceHarnessAttestations: true,
@@ -824,7 +864,7 @@ function deriveStatus(request, pluginRoot, manualAcceptance = null) {
     observedAt: DETERMINISTIC_OBSERVED_AT,
     manualAcceptance,
   });
-  const pathAuthority = classifyChangedPathAuthority(exact.rootFields, status.changed_paths);
+  const pathAuthority = classifyChangedPathAuthority(exact.rootFields, status.changed_paths, null, status.ambient_paths);
   return {
     schema: 1,
     kind: manualAcceptance ? "manual-provisional-acceptance" : "manual-workflow-status",
@@ -835,6 +875,7 @@ function deriveStatus(request, pluginRoot, manualAcceptance = null) {
     artifact_summary: status.artifact_summary,
     diagnostics: status.diagnostics,
     changed_paths: status.changed_paths,
+    ambient_paths: status.ambient_paths,
     path_authority: pathAuthority,
     human_output: statusPresentation(status, manualAcceptance === "provisional", pathAuthority, request.presentation_locale, current),
     artifacts: [],

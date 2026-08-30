@@ -46,7 +46,7 @@ function summary(rootPlanId, entries, evidenceTip = null, reviewTip = null, lear
 export function deriveManualLearningProjection({ snapshot, artifact_summary: artifactSummary }) {
   const blockers = [];
   if (snapshot?.state !== "achieved") blockers.push("learning-source-not-achieved");
-  if (snapshot?.delivery_status !== "verified") blockers.push("learning-source-not-verified");
+  if (!["supported", "verified"].includes(snapshot?.evidence_grade)) blockers.push("learning-source-not-supported");
   return {
     schema: 1,
     eligible: blockers.length === 0,
@@ -265,6 +265,7 @@ export function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot
     }),
     diagnostics: unique([...chain.normalizations, ...chain.diagnostics]),
     changed_paths: evidence?.fields.changed_paths ?? [],
+    ambient_paths: evidence?.fields.ambient_paths ?? [],
     ...constraintProjection,
   };
 }

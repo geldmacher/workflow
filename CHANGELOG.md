@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Consolidated the repository-local GitHub Release workflow into one explicit no-argument invocation that validates all non-ignored changes, creates a release commit when required, atomically pushes `main` and its lightweight tag, publishes both host packages, and verifies downloaded assets.
+
 ## 6.0.0
 
 - Unified literal and wildcard Root path matching across validation, Manual Review, status, correction, automation, and sealing; ordinary repository-internal Manual scope drift now remains visible and provisional instead of causing false clarification, while protected and approval-required boundaries stay hard.

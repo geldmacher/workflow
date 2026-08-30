@@ -11,6 +11,8 @@ Use this optional Gateway for disciplined engineering methodology. It never gran
 
 `$engineering-work use <playbook-id>` is explicit confirmation. Read only the matching family reference from the catalog. Diagnostic entries stay read-only. Mutating entries require the exact approved Root and the user's separate native implementation authorization; the active project harness chooses every concrete command, tool, model, framework, runner, sandbox, worktree, retry, decomposition, and verification mechanism. Continuity entries create no commit, push, publication, acceptance, qualification, or learning authority.
 
+`plan-work` may instead collect the same explicit confirmation or decline inline after the complete suggestion. A confirmed choice needs no second `use` in that planning context, but remains pending methodology until the exact Root is approved and implementation is separately authorized. Decline selects none. A material intent change or missing human trace requires a fresh suggestion.
+
 Playbook choice is human trace only. Never put it into Root, Evidence, Review, PhaseRequest, PhaseResult, a grade, or an authority decision. With no invocation verb, perform `suggest` only. Never become sticky.
 
 PR, merge, deployment, autopilot landing, destructive cleanup, and automatic publication are outside this Gateway.

@@ -25,6 +25,7 @@ function stateOf(toolName, value, isError) {
   if (toolName === "workflow_status") return value?.snapshot?.state ?? value?.state ?? "status-available";
   if (toolName === "workflow_closeout" && value?.artifact_kind === "work-review") {
     if (value?.mode === "shadow" && value?.status === "unavailable") return "shadow-review";
+    if (value?.assessment === "achieved" && value?.next_action === "none") return "achieved";
     if (value.delivery_status === "verified") return "achieved";
     if (value.delivery_status === "provisional") return "delivery-ready-provisional";
     return "blocked";
@@ -78,7 +79,8 @@ function summaryOf(toolName, state, value) {
 function evidenceStatusOf(toolName, state, value) {
   if (state === "shadow-review") return value?.evidence_status ?? "No Workflow Evidence or Work Review artifact was created.";
   if (toolName === "workflow_closeout" && value?.artifact_kind === "work-review") {
-    if (state === "achieved") return "Protected Evidence verifies the delivery on the bound repository snapshot.";
+    if (state === "achieved" && value?.delivery_status === "verified") return "Protected Evidence verifies the delivery on the bound repository snapshot.";
+    if (state === "achieved") return "Repository outcomes are achieved on the current snapshot; Evidence remains supported rather than verified.";
     if (state === "delivery-ready-provisional") return "Formal Evidence exists, but its declared limitation prevents a verified claim.";
     return "Formal Review did not establish a delivery-ready evidence state.";
   }

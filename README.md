@@ -12,7 +12,7 @@ The central contributor Northstar is the root `AGENTS.md`. There is no second No
 
 - Workflow owns lifecycle, Intent, Authority, Lineage, Evidence, artifacts, and human gates.
 - The project harness owns concrete execution.
-- Missing harness evidence is provisional or unavailable, never disguised success.
+- Missing protected harness evidence keeps proof below verified, never disguised success; supported current evidence may still establish achieved repository outcomes.
 - A harness failure blocks only the affected phase; ordinary Cursor and Codex use remains available.
 - The finish line is repository-only. Workflow never pushes, opens or merges PRs, deploys, accesses production, publishes, or learns automatically.
 
@@ -36,8 +36,8 @@ Manual is the default and has no MCP dependency:
 1. `/plan-work <goal>` or `$plan-work <goal>` creates a human-approved Schema-6 Root.
 2. The host's native implementation action authorizes repository work.
 3. `/review-work` or `$review-work` starts fresh repository-read-only Review. The project harness supplies closed unprotected observations to the bundled stateless local builder.
-4. The local builder validates lineage, classifies path authority, computes IDs and hashes, and atomically returns exact Evidence plus Review together with the human presentation. Unprotected success is capped at provisional. Ordinary repository-internal scope drift remains visible and provisionally acceptable; protected, approval-required, or escaping paths remain blocking.
-5. Use correction, replan, another fresh Review, or `/accept-work provisional` only when the Review requests it.
+4. The local builder validates lineage, separates subject delivery paths from ambient dirty-tree state, computes IDs and hashes, and atomically returns exact Evidence plus Review together with the human presentation. A finding-free consistent Review with all required Checks supported or verified ends achieved with no next action; supported proof remains non-verified.
+5. Use correction, replan, another fresh Review, or `/accept-work provisional` only when the Review identifies that material boundary. Ambient changes remain visible and non-blocking; protected, approval-required, or escaping subject paths remain blocking.
 
 The Manual path uses neither MCP, Host Adapter, MCP Roots, Hook Trust, cache, nor persistent Workflow state. If local input is missing, malformed, foreign, stale, conflicting, or ambiguous, the builder returns a clearly labelled Shadow result with no pseudo-artifacts and retains the task's Root and predecessor bytes for retry. A fresh task must receive those exact bytes explicitly.
 
@@ -77,4 +77,4 @@ Use repository scripts in `package.json` as this repository's development harnes
 
 Architecture tests protect the Core-to-Harness boundary and ensure concrete execution details do not enter authoritative artifacts or Workflow evaluation. Release validation rebuilds runtime validators, host bundles, and portable targets and checks for drift.
 
-Commit, push, deployment, local installation, and host restart are separate operations.
+Ordinary implementation never commits, pushes, deploys, installs, or restarts a host. The repository-only `$release-plugin` is the explicit exception: one no-argument invocation validates the complete candidate and authorizes only its bounded release commit, lightweight tag, atomic `main` push, and verified GitHub Release. Deployment, installation, and activation remain separate.

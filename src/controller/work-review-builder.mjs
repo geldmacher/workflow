@@ -281,7 +281,7 @@ function knownFailure(evidence) {
 
 function decision(input, evidence) {
   const failed = knownFailure(evidence);
-  const reviewReady = evidence?.effective?.reviewReady === true && evidence?.fields?.status === "complete";
+  const reviewReady = evidence?.effective?.reviewReady === true;
   const hasFindings = input.findings.length > 0;
   const contradicted = input.snapshot_assessment === "contradicted";
   let assessment = input.assessment;
@@ -312,8 +312,18 @@ function decision(input, evidence) {
   if (contradicted || nextAction === "retry-review" || assessment === "insufficient-evidence") {
     return { assessment: "insufficient-evidence", delivery_status: "blocked", next_action: "retry-review", review_ready: reviewReady, known_failure: false };
   }
-  if (reviewReady && assessment === "achieved" && nextAction === "none") {
-    return { assessment: "achieved", delivery_status: "verified", next_action: "none", review_ready: true, known_failure: false };
+  if (reviewReady
+    && input.snapshot_assessment === "consistent"
+    && input.missing_evidence.length === 0
+    && ["achieved", "provisional"].includes(assessment)
+    && ["none", "accept-provisional"].includes(nextAction)) {
+    return {
+      assessment: "achieved",
+      delivery_status: evidence.fields.overall_grade === "verified" ? "verified" : "provisional",
+      next_action: "none",
+      review_ready: true,
+      known_failure: false,
+    };
   }
   if (!["none", "accept-provisional"].includes(nextAction)) throw new Error(`review_input recommended_action ${nextAction} is inconsistent with an evidence-only provisional result`);
   if (!["achieved", "provisional"].includes(assessment)) {
@@ -569,6 +579,11 @@ export function buildWorkReview({
   const reviewInputHash = sha256(stableJson(seedInput));
   const id = `wr-${merged.rootFields.id.replace(/^wp-/, "")}-${reviewInputHash.slice(0, 12)}`;
   const correction = correctionProjection({ normalized, findings: normalized.findings, seed: reviewInputHash, rootFields: merged.rootFields, evidenceId, reviewId: id, predecessorReview, entries: merged.entries, pluginRoot });
+  const inheritedLearningCandidates = predecessorReview?.fields?.learning_candidates ?? [];
+  const learningCandidates = uniqueSorted([
+    ...inheritedLearningCandidates,
+    ...(correction?.learning_ids ?? []),
+  ]);
   const fields = {
     artifact: "work-review", schema: 6, id, status: "complete", root_plan_id: merged.rootFields.id,
     latest_evidence_id: evidenceId, assessment: outcome.assessment, delivery_status: outcome.delivery_status,
@@ -576,7 +591,9 @@ export function buildWorkReview({
     correction_id: correction?.correction_id ?? null, predecessor_review_id: predecessorReviewId,
     inspected_objectives: coverage.inspectedObjectives, reused_objectives: coverage.reusedObjectives,
     inspected_checks: coverage.inspectedChecks, reused_checks: coverage.reusedChecks,
-    ...(correction ? { learning_candidates: correction.learning_ids } : {}),
+    ...(learningCandidates.length > 0 && (correction || outcome.next_action === "none")
+      ? { learning_candidates: learningCandidates }
+      : {}),
   };
   const artifact = `---\n${stringify(fields, { lineWidth: 0 }).trimEnd()}\n---\n\n${reviewBody({ normalized, outcome, coverage, evidenceId, correction })}\n`;
   const duplicate = merged.entries.find((entry) => entry.label === id);

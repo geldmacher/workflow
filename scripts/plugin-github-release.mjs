@@ -458,18 +458,6 @@ function atomicWriteText(path, source) {
   }
 }
 
-function assertReleaseTagAbsent(root, tag, runner) {
-  const local = git(root, ["tag", "--list", tag], runner);
-  if (local !== "") throw new Error(`local tag ${tag} already exists; release cut will not rewrite its notes`);
-  const remote = runChecked(runner, "git", [
-    "ls-remote", "--tags", "origin", `refs/tags/${tag}`, `refs/tags/${tag}^{}`,
-  ], {
-    cwd: root,
-    env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
-  }, `remote tag absence check for ${tag}`);
-  if (remote !== "") throw new Error(`remote tag ${tag} already exists; release cut will not rewrite its notes`);
-}
-
 function changedRepositoryPaths(root, runner) {
   const values = [
     git(root, ["diff", "--name-only"], runner),
@@ -477,90 +465,6 @@ function changedRepositoryPaths(root, runner) {
     git(root, ["ls-files", "--others", "--exclude-standard"], runner),
   ];
   return [...new Set(values.flatMap((value) => value.split(/\r?\n/).filter(Boolean)))].sort();
-}
-
-export function ensureRelease({
-  root = defaultRoot,
-  releaseRoot = join(root, ".build", "releases"),
-  runner = defaultRunner,
-  targetBuilder = buildPluginTargets,
-  releaseGate = defaultReleaseGate,
-} = {}) {
-  const resolvedRoot = resolve(root);
-  const source = sourceState(resolvedRoot, runner, { requireClean: true });
-  const directory = releaseDirectory(releaseRoot, source.version);
-
-  if (source.changelog_ready) {
-    if (existsSync(directory)) {
-      const prepared = verifyPreparedRelease(directory);
-      assertSourceBinding(source, prepared.provenance, "prepared release differs from the current repository");
-      return {
-        action: "ensure",
-        status: "current",
-        version: source.version,
-        tag: source.tag,
-        directory,
-        commit_required: false,
-        receipt: prepared.receipt,
-        provenance: prepared.provenance,
-        next_action: "review-prepared-release",
-      };
-    }
-    const prepared = prepareRelease({ root: resolvedRoot, releaseRoot, runner, targetBuilder, releaseGate });
-    return {
-      action: "ensure",
-      ...prepared,
-      version: source.version,
-      tag: source.tag,
-      commit_required: false,
-      next_action: "review-prepared-release",
-    };
-  }
-
-  if (existsSync(directory)) throw new Error(`prepared release directory already exists before the ${source.version} release cut: ${directory}`);
-  const changelogPath = join(resolvedRoot, "CHANGELOG.md");
-  const original = readFileSync(changelogPath, "utf8");
-  const released = createReleaseCut(original, source.version);
-  if (released === original) throw new Error(`CHANGELOG.md ${source.version} release cut is already current`);
-
-  assertReleaseTagAbsent(resolvedRoot, source.tag, runner);
-  const beforeWrite = sourceState(resolvedRoot, runner, { requireClean: true });
-  assertSameSource(source, beforeWrite, "repository drifted before the release cut");
-  if (readFileSync(changelogPath, "utf8") !== original) throw new Error("CHANGELOG.md drifted before the release cut");
-
-  let wroteReleaseCut = false;
-  try {
-    atomicWriteText(changelogPath, released);
-    wroteReleaseCut = true;
-    const afterWrite = sourceState(resolvedRoot, runner);
-    assertSameSource(source, afterWrite, "repository drifted while creating the release cut");
-    if (!afterWrite.changelog_ready) throw new Error("release cut did not produce release-ready changelog notes");
-    const changedPaths = changedRepositoryPaths(resolvedRoot, runner);
-    if (changedPaths.join("\n") !== "CHANGELOG.md") {
-      throw new Error(`release cut changed unexpected repository paths: ${changedPaths.join(", ") || "none"}`);
-    }
-    if (readFileSync(changelogPath, "utf8") !== released) {
-      throw new Error("CHANGELOG.md drifted after the release cut");
-    }
-    return {
-      action: "ensure",
-      status: "release-cut-created",
-      version: source.version,
-      tag: source.tag,
-      changed_paths: changedPaths,
-      commit_required: true,
-      prepared: null,
-      receipt: null,
-      blockers: [],
-      next_action: "commit-release-cut",
-    };
-  } catch (error) {
-    let current = null;
-    try { current = readFileSync(changelogPath, "utf8"); }
-    catch {}
-    if (wroteReleaseCut && current === released) atomicWriteText(changelogPath, original);
-    throw error;
-  }
 }
 
 export function prepareRelease({
@@ -788,108 +692,390 @@ export function publishRelease(receipt, {
   }
 }
 
-export function releaseStatus({ root = defaultRoot, releaseRoot = join(root, ".build", "releases"), runner = defaultRunner } = {}) {
-  const prepareBlockers = [];
-  let source;
-  try {
-    source = sourceState(resolve(root), runner);
-    if (!source.clean) prepareBlockers.push("repository is dirty");
-    if (!source.changelog_ready) prepareBlockers.push("CHANGELOG.md needs a release cut with an empty Unreleased section");
-  } catch (error) {
-    prepareBlockers.push(error.message);
+function optionalGit(root, args, runner) {
+  const result = runner("git", args, { cwd: root });
+  if (result.status === 0) return result.stdout.trim();
+  return null;
+}
+
+function remoteBranchCommit(root, runner, branch = "main") {
+  const output = runChecked(runner, "git", ["ls-remote", "--heads", "origin", `refs/heads/${branch}`], {
+    cwd: root,
+    env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+  }, `remote branch lookup for ${branch}`);
+  const commit = output.split(/\r?\n/).filter(Boolean).map((line) => line.split(/\s+/, 2))
+    .find(([, ref]) => ref === `refs/heads/${branch}`)?.[0];
+  if (!commit) throw new Error(`remote branch origin/${branch} does not exist`);
+  shaField(commit, `remote branch origin/${branch}`, [40, 64]);
+  return commit;
+}
+
+function optionalRemoteTagCommit(root, runner, tag) {
+  const output = runChecked(runner, "git", [
+    "ls-remote", "--tags", "origin", `refs/tags/${tag}`, `refs/tags/${tag}^{}`,
+  ], {
+    cwd: root,
+    env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+  }, `remote tag lookup for ${tag}`);
+  const lines = output.split(/\r?\n/).filter(Boolean).map((line) => line.split(/\s+/, 2));
+  const commit = lines.find(([, ref]) => ref === `refs/tags/${tag}^{}`)?.[0]
+    ?? lines.find(([, ref]) => ref === `refs/tags/${tag}`)?.[0]
+    ?? null;
+  if (commit) shaField(commit, `remote tag ${tag}`, [40, 64]);
+  return commit;
+}
+
+function localTagCommit(root, runner, tag) {
+  const commit = optionalGit(root, ["rev-parse", "--verify", `refs/tags/${tag}^{commit}`], runner);
+  if (commit) shaField(commit, `local tag ${tag}`, [40, 64]);
+  return commit;
+}
+
+function assertGitHubReady(root, runner) {
+  const auth = ghResult(runner, ["auth", "status", "--hostname", "github.com"], root);
+  const api = ghResult(runner, ["api", "user", "--hostname", "github.com", "--silent"], root);
+  const apiMessage = `${api.stderr}\n${api.stdout}`.trim();
+  if (api.status !== 0 && /connect|network|resolve|timed? out|unreachable/i.test(apiMessage)) {
+    throw new Error(`GitHub is unreachable from this release environment: ${apiMessage}`);
   }
-  let prepared = null;
-  if (source) {
-    const directory = releaseDirectory(releaseRoot, source.version);
-    if (existsSync(directory)) {
+  if (auth.status !== 0) throw new Error(`GitHub authentication failed: ${(auth.stderr || auth.stdout).trim()}`);
+  if (api.status !== 0) throw new Error(`GitHub API access failed: ${apiMessage}`);
+}
+
+function assertCommitIdentity(root, runner) {
+  const name = optionalGit(root, ["config", "--get", "user.name"], runner);
+  const email = optionalGit(root, ["config", "--get", "user.email"], runner);
+  if (!name || !email) throw new Error("Git commit identity requires configured user.name and user.email");
+}
+
+function assertSafeCandidatePaths(root, paths) {
+  const resolvedRoot = resolve(root);
+  for (const relativePath of paths) {
+    if (!relativePath || relativePath.startsWith("/") || relativePath.split("/").includes("..")) {
+      throw new Error(`release candidate contains an unsafe path: ${relativePath || "empty"}`);
+    }
+    if (relativePath === ".gitmodules") throw new Error("release candidate may not add or change submodules");
+    const absolute = resolve(resolvedRoot, relativePath);
+    if (absolute !== resolvedRoot && !absolute.startsWith(`${resolvedRoot}${sep}`)) {
+      throw new Error(`release candidate escapes the repository: ${relativePath}`);
+    }
+    if (!existsSync(absolute)) continue;
+    const stat = lstatSync(absolute);
+    if (stat.isSymbolicLink()) throw new Error(`release candidate contains a symlink: ${relativePath}`);
+    if (stat.isDirectory() && existsSync(join(absolute, ".git"))) {
+      throw new Error(`release candidate contains a nested repository: ${relativePath}`);
+    }
+    if (!stat.isFile()) throw new Error(`release candidate contains a non-regular entry: ${relativePath}`);
+    let parent = dirname(absolute);
+    while (parent !== resolvedRoot) {
+      if (existsSync(join(parent, ".git"))) throw new Error(`release candidate contains a nested repository: ${relativePath}`);
+      const next = dirname(parent);
+      if (next === parent) break;
+      parent = next;
+    }
+    const text = readFileSync(absolute).toString("utf8");
+    if (secretPatterns.some((pattern) => pattern.test(text))) {
+      throw new Error(`release candidate contains recognizable secret material: ${relativePath}`);
+    }
+  }
+}
+
+function candidateFingerprint(root, paths) {
+  const material = paths.map((relativePath) => {
+    const absolute = join(root, relativePath);
+    if (!existsSync(absolute)) return `${relativePath}\0deleted`;
+    const stat = lstatSync(absolute);
+    return `${relativePath}\0${stat.mode & 0o777}\0${fileSha256(absolute)}`;
+  });
+  return sha256(`${material.join("\n")}\n`);
+}
+
+function releaseStatePath(releaseRoot, version) {
+  return join(resolve(releaseRoot), `.release-v${version}.json`);
+}
+
+function readReleaseState(releaseRoot, source) {
+  const path = releaseStatePath(releaseRoot, source.version);
+  if (!existsSync(path)) return null;
+  const state = readJson(path, "release retry state");
+  exactKeys(state, [
+    "base_commit", "kind", "release_commit", "repository", "schema", "tag", "tree_sha", "version",
+  ], "release retry state");
+  if (state.schema !== 1 || state.kind !== "github-release-retry-state") throw new Error("release retry state identity is invalid");
+  if (state.version !== source.version || state.tag !== source.tag || state.repository !== source.repository) {
+    throw new Error("release retry state differs from the current release identity");
+  }
+  shaField(state.base_commit, "release retry base commit", [40, 64]);
+  shaField(state.release_commit, "release retry commit", [40, 64]);
+  shaField(state.tree_sha, "release retry tree", [40, 64]);
+  return state;
+}
+
+function writeReleaseState(releaseRoot, source, baseCommit) {
+  mkdirSync(resolve(releaseRoot), { recursive: true });
+  const state = {
+    schema: 1,
+    kind: "github-release-retry-state",
+    version: source.version,
+    tag: source.tag,
+    repository: source.repository,
+    base_commit: baseCommit,
+    release_commit: source.commit,
+    tree_sha: source.tree,
+  };
+  writeJson(releaseStatePath(releaseRoot, source.version), state);
+  return state;
+}
+
+function assertExactRetryState(source, remoteMain, state, root, runner) {
+  if (!state) throw new Error("local main differs from origin/main without an exact release retry state");
+  if (!source.clean || !source.changelog_ready) throw new Error("release retry state requires a clean release-ready repository");
+  if (state.base_commit !== remoteMain || state.release_commit !== source.commit || state.tree_sha !== source.tree) {
+    throw new Error("release retry state does not bind the current main, origin/main, and Git tree");
+  }
+  const parent = git(root, ["rev-parse", "HEAD^"], runner);
+  const subject = git(root, ["show", "-s", "--format=%s", "HEAD"], runner);
+  if (parent !== remoteMain || subject !== `Release ${source.tag}`) {
+    throw new Error("local release retry commit is not the exact harness-created release commit");
+  }
+}
+
+function preserveIndex(root, runner) {
+  const raw = git(root, ["rev-parse", "--git-path", "index"], runner);
+  const index = resolve(root, raw);
+  const temporary = mkdtempSync(join(tmpdir(), "workflow-release-index-"));
+  const backup = join(temporary, "index");
+  const existed = existsSync(index);
+  if (existed) copyFileSync(index, backup);
+  return {
+    restore() {
+      if (existed) copyFileSync(backup, index);
+      else rmSync(index, { force: true });
+    },
+    close() { rmSync(temporary, { recursive: true, force: true }); },
+  };
+}
+
+function initialReleaseView(root, runner, source) {
+  return parseReleaseView(ghResult(runner, [
+    "release", "view", source.tag,
+    "--repo", source.repository,
+    "--json", "tagName,isDraft,isPrerelease,name,body,assets,url",
+  ], root), source.tag);
+}
+
+export function completeRelease({
+  root = defaultRoot,
+  releaseRoot = join(root, ".build", "releases"),
+  runner = defaultRunner,
+  targetBuilder = buildPluginTargets,
+  releaseGate = defaultReleaseGate,
+} = {}) {
+  const resolvedRoot = resolve(root);
+  let source = sourceState(resolvedRoot, runner);
+  if (git(resolvedRoot, ["branch", "--show-current"], runner) !== "main") {
+    throw new Error("complete release requires the main branch");
+  }
+  if (git(resolvedRoot, ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], runner) !== "origin/main") {
+    throw new Error("origin default branch must be main");
+  }
+  assertCommitIdentity(resolvedRoot, runner);
+  assertGitHubReady(resolvedRoot, runner);
+  runChecked(runner, "git", ["fetch", "--quiet", "origin", "main", "--tags"], {
+    cwd: resolvedRoot,
+    env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+  }, "fresh origin/main and tag fetch");
+
+  source = sourceState(resolvedRoot, runner);
+  const baseline = remoteBranchCommit(resolvedRoot, runner);
+  const retryState = readReleaseState(releaseRoot, source);
+  const retryingLocalCommit = source.commit !== baseline;
+  if (retryingLocalCommit) assertExactRetryState(source, baseline, retryState, resolvedRoot, runner);
+
+  const existingLocalTag = localTagCommit(resolvedRoot, runner, source.tag);
+  const existingRemoteTag = optionalRemoteTagCommit(resolvedRoot, runner, source.tag);
+  const existingRelease = initialReleaseView(resolvedRoot, runner, source);
+  if ((!source.clean || !source.changelog_ready) && (existingLocalTag || existingRemoteTag || existingRelease)) {
+    throw new Error(`${source.tag} already has tag or release state; dirty or uncut source cannot change it`);
+  }
+  for (const [label, commit] of [["local", existingLocalTag], ["remote", existingRemoteTag]]) {
+    if (commit && commit !== source.commit) throw new Error(`${label} tag ${source.tag} points to ${commit}, expected ${source.commit}`);
+  }
+  if (existingRelease?.isDraft) throw new Error("GitHub release is a draft; complete release will not modify or replace it");
+
+  let originalChangelog = null;
+  let releasedChangelog = null;
+  let commitCreated = false;
+  let gate;
+  const baseCommit = baseline;
+  try {
+    if (!retryingLocalCommit && !source.changelog_ready) {
+      const changelogPath = join(resolvedRoot, "CHANGELOG.md");
+      originalChangelog = readFileSync(changelogPath, "utf8");
+      releasedChangelog = createReleaseCut(originalChangelog, source.version);
+      if (releasedChangelog === originalChangelog) throw new Error(`CHANGELOG.md ${source.version} release cut is not usable`);
+      atomicWriteText(changelogPath, releasedChangelog);
+      source = sourceState(resolvedRoot, runner);
+      if (!source.changelog_ready) throw new Error("release cut did not produce release-ready changelog notes");
+    }
+
+    const candidateSource = sourceState(resolvedRoot, runner);
+    if (!candidateSource.changelog_ready) throw new Error("final release candidate is missing release-ready changelog notes");
+    const changedPaths = changedRepositoryPaths(resolvedRoot, runner);
+    assertSafeCandidatePaths(resolvedRoot, changedPaths);
+    const fingerprint = candidateFingerprint(resolvedRoot, changedPaths);
+    gate = releaseGate(resolvedRoot, runner);
+    if (!gate || gate.result !== "passed") throw new Error("release gate did not return a passed result");
+    const afterGateSource = sourceState(resolvedRoot, runner);
+    assertSameSource(candidateSource, afterGateSource, "release gate drifted from the final release candidate");
+    if (git(resolvedRoot, ["branch", "--show-current"], runner) !== "main") {
+      throw new Error("release gate changed the active main branch");
+    }
+    const afterGatePaths = changedRepositoryPaths(resolvedRoot, runner);
+    if (afterGatePaths.join("\n") !== changedPaths.join("\n") || candidateFingerprint(resolvedRoot, afterGatePaths) !== fingerprint) {
+      throw new Error("release gate changed the final release candidate");
+    }
+    assertSafeCandidatePaths(resolvedRoot, afterGatePaths);
+
+    if (afterGatePaths.length > 0) {
+      if (retryingLocalCommit) throw new Error("release retry state must not contain uncommitted changes");
+      const index = preserveIndex(resolvedRoot, runner);
       try {
-        const verified = verifyPreparedRelease(directory);
-        const mismatches = sourceBindingMismatches(source, verified.provenance);
-        prepared = mismatches.length === 0
-          ? { valid: true, current: true, stale: false, directory, receipt: verified.receipt }
-          : {
-              valid: true,
-              current: false,
-              stale: true,
-              directory,
-              receipt: verified.receipt,
-              error: `prepared release differs from the current repository: ${mismatches.join(", ")}`,
-            };
+        git(resolvedRoot, ["add", "--all"], runner);
+        const stagedCandidatePaths = changedRepositoryPaths(resolvedRoot, runner);
+        if (stagedCandidatePaths.join("\n") !== afterGatePaths.join("\n")
+          || candidateFingerprint(resolvedRoot, stagedCandidatePaths) !== fingerprint) {
+          throw new Error("release candidate drifted while staging the release commit");
+        }
+        const staged = git(resolvedRoot, ["diff", "--cached", "--name-only"], runner).split(/\r?\n/).filter(Boolean).sort();
+        if (staged.join("\n") !== afterGatePaths.join("\n")) throw new Error("staged release candidate differs from the validated changed paths");
+        git(resolvedRoot, ["commit", "--quiet", "-m", `Release ${source.tag}`], runner);
+        commitCreated = true;
       } catch (error) {
-        prepared = { valid: false, current: false, stale: false, directory, error: error.message };
-        prepareBlockers.push(`prepared release invalid: ${error.message}`);
+        index.restore();
+        throw error;
+      } finally {
+        index.close();
+      }
+      source = sourceState(resolvedRoot, runner, { requireClean: true, requireReleaseCut: true });
+      writeReleaseState(releaseRoot, source, baseCommit);
+    } else {
+      source = sourceState(resolvedRoot, runner, { requireClean: true, requireReleaseCut: true });
+    }
+  } catch (error) {
+    if (!commitCreated && originalChangelog !== null && releasedChangelog !== null) {
+      const changelogPath = join(resolvedRoot, "CHANGELOG.md");
+      if (existsSync(changelogPath) && readFileSync(changelogPath, "utf8") === releasedChangelog) {
+        atomicWriteText(changelogPath, originalChangelog);
       }
     }
+    throw error;
   }
-  if (prepared?.stale) prepareBlockers.push(`prepared release is stale: ${prepared.error}`);
-  const readyToPrepare = prepareBlockers.length === 0;
-  const blockers = [...prepareBlockers];
-  if (!prepared?.valid) blockers.push("no valid prepared release exists for the current version");
-  const auth = ghResult(runner, ["auth", "status", "--hostname", "github.com"], resolve(root));
-  if (auth.status !== 0) blockers.push("GitHub authentication is unavailable");
-  let remoteTag = null;
-  if (source && auth.status === 0) {
-    try {
-      const commit = remoteTagCommit(resolve(root), runner, source.tag);
-      remoteTag = { present: true, commit_sha: commit, matches_source: commit === source.commit };
-      if (!remoteTag.matches_source) blockers.push(`remote tag ${source.tag} points to a different commit`);
-    } catch (error) {
-      remoteTag = { present: false, error: error.message };
-      blockers.push(error.message);
+
+  const prepared = prepareRelease({
+    root: resolvedRoot,
+    releaseRoot,
+    runner,
+    targetBuilder,
+    releaseGate: () => ({ command: gate.command ?? "npm run release-check", result: "passed" }),
+  });
+  source = sourceState(resolvedRoot, runner, { requireClean: true, requireReleaseCut: true });
+  assertSourceBinding(source, prepared.provenance, "prepared release differs from the release commit");
+
+  const currentLocalTag = localTagCommit(resolvedRoot, runner, source.tag);
+  if (currentLocalTag && currentLocalTag !== source.commit) throw new Error(`local tag ${source.tag} points to ${currentLocalTag}, expected ${source.commit}`);
+  if (!currentLocalTag) git(resolvedRoot, ["tag", source.tag, source.commit], runner);
+
+  const remoteMain = remoteBranchCommit(resolvedRoot, runner);
+  const remoteTag = optionalRemoteTagCommit(resolvedRoot, runner, source.tag);
+  if (remoteMain !== source.commit || remoteTag !== source.commit) {
+    if (remoteMain !== baseCommit && remoteMain !== source.commit) {
+      throw new Error(`origin/main changed to ${remoteMain}; expected ${baseCommit} or ${source.commit}`);
     }
+    if (remoteTag && remoteTag !== source.commit) {
+      throw new Error(`remote tag ${source.tag} points to ${remoteTag}, expected ${source.commit}`);
+    }
+    runChecked(runner, "git", [
+      "push", "--atomic", "origin",
+      "refs/heads/main:refs/heads/main",
+      `refs/tags/${source.tag}:refs/tags/${source.tag}`,
+    ], {
+      cwd: resolvedRoot,
+      env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+    }, "atomic main and release tag push");
   }
+
+  const verifiedMain = remoteBranchCommit(resolvedRoot, runner);
+  const verifiedTag = optionalRemoteTagCommit(resolvedRoot, runner, source.tag);
+  if (verifiedMain !== source.commit || verifiedTag !== source.commit) {
+    throw new Error("atomic push did not bind origin/main and the release tag to the release commit");
+  }
+  const published = publishRelease(prepared.receipt, { root: resolvedRoot, releaseRoot, runner });
   return {
-    action: "status",
-    ready_to_prepare: readyToPrepare,
-    ready_to_publish: blockers.length === 0 && prepared?.valid === true && prepared.current === true && auth.status === 0 && remoteTag?.matches_source === true,
-    source: source ? {
+    action: "release",
+    status: published.status,
+    version: source.version,
+    tag: source.tag,
+    commit_sha: source.commit,
+    commit_created: commitCreated,
+    pushed_atomically: remoteMain !== source.commit || remoteTag !== source.commit,
+    directory: prepared.directory,
+    receipt: prepared.receipt,
+    provenance: prepared.provenance,
+    github: { url: published.url, read_back_verified: true },
+  };
+}
+
+export function releaseFailureReport(error, {
+  root = defaultRoot,
+  releaseRoot = join(root, ".build", "releases"),
+  runner = defaultRunner,
+} = {}) {
+  const report = {
+    action: "release",
+    status: "blocked",
+    blockers: [error instanceof Error ? error.message : String(error)],
+    source: null,
+    retained_retry_state: null,
+    next_action: "resolve-the-reported-blocker-and-explicitly-invoke-release-plugin-again",
+  };
+  try {
+    const source = sourceState(resolve(root), runner);
+    report.source = {
       version: source.version,
       tag: source.tag,
-      repository: source.repository,
       commit_sha: source.commit,
       tree_sha: source.tree,
       clean: source.clean,
       changelog_ready: source.changelog_ready,
-    } : null,
-    prepared,
-    github_authenticated: auth.status === 0,
-    remote_tag: remoteTag,
-    prepare_blockers: prepareBlockers,
-    blockers,
-  };
+      local_tag_commit: localTagCommit(resolve(root), runner, source.tag),
+    };
+    try {
+      report.retained_retry_state = readReleaseState(releaseRoot, source);
+    } catch (stateError) {
+      report.blockers.push(stateError.message);
+    }
+  } catch (sourceError) {
+    report.blockers.push(`release source could not be inspected after failure: ${sourceError.message}`);
+  }
+  return report;
 }
 
 function usage() {
-  return "Usage: node scripts/plugin-github-release.mjs [ensure|status|prepare|publish <receipt-sha256>]";
+  return "Usage: node scripts/plugin-github-release.mjs";
 }
 
 function runCli() {
-  const [action = "ensure", ...args] = process.argv.slice(2);
-  if (action === "ensure" && args.length === 0) {
-    process.stdout.write(`${JSON.stringify(ensureRelease(), null, 2)}\n`);
-    return;
-  }
-  if (action === "status" && args.length === 0) {
-    process.stdout.write(`${JSON.stringify(releaseStatus(), null, 2)}\n`);
-    return;
-  }
-  if (action === "prepare" && args.length === 0) {
-    process.stderr.write("Running the repository release gate before preparing deterministic assets.\n");
-    process.stdout.write(`${JSON.stringify(prepareRelease(), null, 2)}\n`);
-    return;
-  }
-  if (action === "publish" && args.length === 1) {
-    process.stdout.write(`${JSON.stringify(publishRelease(args[0]), null, 2)}\n`);
-    return;
-  }
-  throw new Error(usage());
+  if (process.argv.slice(2).length !== 0) throw new Error(usage());
+  process.stderr.write("Running the complete validated plugin release lifecycle.\n");
+  process.stdout.write(`${JSON.stringify(completeRelease(), null, 2)}\n`);
 }
 
 const direct = process.argv[1] && resolve(process.argv[1]) === scriptPath;
 if (direct) {
   try { runCli(); }
   catch (error) {
-    process.stderr.write(`Release workflow failed: ${error.message}\n`);
+    process.stderr.write(`Release workflow failed:\n${JSON.stringify(releaseFailureReport(error), null, 2)}\n`);
     process.exitCode = 1;
   }
 }

@@ -17,6 +17,39 @@ test("engineering-work is one confirmed non-authoritative Gateway", () => {
   assert.doesNotMatch(skill, /gpt-|claude|grok|model pool|command allowlist/i);
 });
 
+test("plan-work facades require one fresh inline playbook decision", () => {
+  const facades = [
+    "skills/work-planning/SKILL.md",
+    "targets/codex/skills/plan-work/SKILL.md",
+    "targets/agent-plugins/skills/plan-work/SKILL.md",
+  ].map(read);
+  for (const facade of facades) {
+    assert.match(facade, /recommend exactly one closest playbook/i);
+    assert.match(facade, /ID, fit, intended phase, and authority need/i);
+    assert.match(facade, /ask and wait for (?:an|one) explicit inline confirm or decline/i);
+    assert.match(facade, /explicit inline confirm or decline/i);
+    assert.match(facade, /Decline continues without a playbook/i);
+    assert.match(facade, /material intent change.*fresh suggestion/i);
+    assert.match(facade, /human trace.*outside/i);
+  }
+});
+
+test("inline confirmation stays optional, pending, and non-sticky", () => {
+  const gateways = [
+    "skills/engineering-work/SKILL.md",
+    "targets/codex/skills/engineering-work/SKILL.md",
+    "targets/agent-plugins/skills/engineering-work/SKILL.md",
+  ].map(read);
+  for (const gateway of gateways) {
+    assert.match(gateway, /plan-work.*explicit confirmation or decline inline/is);
+    assert.match(gateway, /needs no second `use`/i);
+    assert.match(gateway, /pending methodology until the exact Root is approved/i);
+    assert.match(gateway, /material intent change or missing human trace.*fresh suggestion/i);
+  }
+  assert.match(read("references/plan-container-contract.md"), /exact Root alone carries no playbook choice/i);
+  assert.match(read("references/engineering-playbooks.md"), /waits for an explicit inline confirm or decline before the final Root/i);
+});
+
 test("engineering-work exposes exactly the curated Workflow-adapted catalog", () => {
   const catalog = read("references/engineering-playbooks.md");
   const ids = [...catalog.matchAll(/^\| `([a-z][a-z-]+)` \|/gm)].map((match) => match[1]);

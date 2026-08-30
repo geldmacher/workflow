@@ -7,7 +7,7 @@
     "artifact", "schema", "id", "status", "root_plan_id", "subject_id", "representation",
     "source_review_id", "predecessor_evidence_id", "intent_hash", "evidence_mode", "overall_grade",
     "affected_objectives", "reused_objectives", "executed_checks", "reused_checks", "check_evidence",
-    "changed_paths", "workspace_snapshot_hash"
+    "changed_paths", "ambient_paths", "workspace_snapshot_hash"
   ],
   "properties": {
     "artifact": { "const": "delivery-evidence" },
@@ -26,6 +26,7 @@
     "overall_grade": { "enum": ["verified", "supported", "partial", "unavailable", "failed"] },
     "workspace_snapshot_hash": { "$ref": "#/$defs/hash" },
     "changed_paths": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "ambient_paths": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
     "check_evidence": {
       "type": "array",
       "minItems": 1,

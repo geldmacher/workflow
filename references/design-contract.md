@@ -1,7 +1,7 @@
 # Adaptive design contract
 
-The Schema-6 Root states observable goal, acceptance, authority, constraints, non-goals, and risk. Workflow does not prescribe an implementation design ladder or concrete execution technique.
+The Root binds observable outcomes, authority, constraints, non-goals, and risk—not execution technique.
 
-The project harness may adapt decomposition and execution inside the immutable Root envelope. Goal, acceptance, public contracts, risk, dependency authority, protected paths, external effects, budgets, or profile changes require a new human decision.
+The harness adapts design inside that envelope. Guessed files, internals, and solutions stay guidance unless public contracts, security, authority, or chosen trade-offs make them material. Outcome or boundary changes need a human decision.
 
-Verification intents prove essential acceptance and hard boundaries. Add breadth only where risk reduction is worthwhile. The harness decides how to obtain evidence; Workflow evaluates only the resulting bound grade and limitations.
+Verification covers essential outcomes and hard boundaries. The harness obtains evidence; Workflow evaluates its bound grade and limits.

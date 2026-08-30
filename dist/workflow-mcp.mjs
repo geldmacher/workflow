@@ -21856,18 +21856,19 @@ import { fileURLToPath } from "node:url";
 
 // scripts/artifact-validator/evidence.mjs
 function schema6EvidenceData(fields) {
-  let objectiveStatus = fields.status === "complete" ? "achieved" : fields.status === "blocked" ? "blocked" : "partially-achieved";
+  let outcomeSupported = ["verified", "supported"].includes(fields.overall_grade), objectiveStatus = fields.status === "blocked" ? "blocked" : outcomeSupported ? "achieved" : "partially-achieved";
   return {
     objectiveStates: new Map((fields.affected_objectives ?? []).map((id) => [id, {
       status: objectiveStatus,
       evidence: `Schema-6 Evidence ${fields.id}`
     }])),
     checkStates: new Map((fields.check_evidence ?? []).map((entry) => [entry.check_id, {
-      status: entry.grade === "verified" ? "passed" : entry.grade === "failed" ? "failed" : "unavailable",
+      status: ["verified", "supported"].includes(entry.grade) ? "passed" : entry.grade === "failed" ? "failed" : "unavailable",
       observed: entry.observed,
       evidence_hashes: entry.evidence_hashes ?? []
     }])),
     changedPaths: [...fields.changed_paths ?? []],
+    ambientPaths: [...fields.ambient_paths ?? []],
     workspaceSnapshotHash: fields.workspace_snapshot_hash ?? null
   };
 }
@@ -22074,31 +22075,29 @@ function classifyCandidates(candidates, authority) {
   let categories = candidates.map((candidate) => categoryForCandidate(candidate, authority));
   return categories.includes("protected") ? "protected" : categories.includes("approval-required") ? "approval-required" : categories.every((category) => category === "allowed") ? "allowed" : "outside-allowed";
 }
-function classifyChangedPathAuthority(rootFields, changedPaths, repositoryRoot = null) {
+function classifyChangedPathAuthority(rootFields, changedPaths, repositoryRoot = null, ambientPaths = []) {
   let authority = normalizedAuthority(rootFields?.authority ?? {});
   if (authority.allowed.length === 0) throw new Error("native closeout Root has no allowed path authority");
+  let subjectPaths = uniqueSorted(changedPaths), ambient = uniqueSorted(ambientPaths), overlap = subjectPaths.filter((path) => ambient.includes(path));
+  if (overlap.length > 0) throw new Error(`repository paths cannot be both subject and ambient: ${overlap.join(", ")}`);
   let projection = {
     schema: 1,
     status: "within-authority",
     allowed_paths: [],
     outside_allowed_paths: [],
     approval_required_paths: [],
-    protected_paths: []
+    protected_paths: [],
+    ambient_paths: []
   };
-  for (let path of uniqueSorted(changedPaths)) {
+  for (let path of subjectPaths) {
     let normalized = normalizeRepositoryPath(path), candidates = repositoryRoot ? repositoryAuthorityPaths(repositoryRoot, normalized) : [normalized], category = classifyCandidates(candidates, authority), key = category === "allowed" ? "allowed_paths" : `${category.replaceAll("-", "_")}_paths`;
     projection[key].push(normalized);
   }
+  for (let path of ambient) {
+    let normalized = normalizeRepositoryPath(path);
+    repositoryRoot && repositoryAuthorityPaths(repositoryRoot, normalized), projection.ambient_paths.push(normalized);
+  }
   return projection.protected_paths.length > 0 ? projection.status = "protected" : projection.approval_required_paths.length > 0 ? projection.status = "approval-required" : projection.outside_allowed_paths.length > 0 && (projection.status = "provisional-drift"), projection;
-}
-function assertChangedPathAuthority(rootFields, changedPaths, repositoryRoot) {
-  let projection = classifyChangedPathAuthority(rootFields, changedPaths, repositoryRoot), failures = [
-    ...projection.protected_paths.map((path) => `native closeout path is protected by the Root: ${path}`),
-    ...projection.approval_required_paths.map((path) => `native closeout path requires separate human approval that the closeout report cannot grant: ${path}`),
-    ...projection.outside_allowed_paths.map((path) => `native closeout path is outside Root authority: ${path}`)
-  ];
-  if (failures.length > 0) throw new Error(failures.join("; "));
-  return projection;
 }
 
 // src/core/state-paths.mjs
@@ -22438,6 +22437,9 @@ function validateLeanEvidence(parsed, sections, failures) {
   new Set(checkIds).size !== checkIds.length && failures.push("check_evidence Check IDs must be unique"), sameSet(new Set(checkIds), executed) || failures.push("check_evidence must exactly match executed_checks");
   for (let path of parsed.fields.changed_paths ?? [])
     (path.startsWith("/") || path === ".." || path.startsWith("../")) && failures.push(`changed path must remain repository-relative: ${path}`);
+  let subjectPaths = new Set(parsed.fields.changed_paths ?? []);
+  for (let path of parsed.fields.ambient_paths ?? [])
+    (path.startsWith("/") || path === ".." || path.startsWith("../")) && failures.push(`ambient path must remain repository-relative: ${path}`), subjectPaths.has(path) && failures.push(`path cannot be both subject and ambient: ${path}`);
   validateEvidenceGrades(parsed, failures), parsed.effective = {
     checkEvidence: (parsed.fields.check_evidence ?? []).map((entry) => ({ ...entry }))
   };
@@ -22454,7 +22456,8 @@ function parseCorrection(parsed, sections, failures) {
   let metadata = requireTable(/* @__PURE__ */ new Map([["Correction plan", content]]), "Correction plan", tables.correctionMeta, failures, { normalizations: parsed.normalizations }), fixes = { rows: tableRows(content, tables.fixes) }, steps = { rows: tableRows(content, tables.correctionSteps) }, checks = { rows: tableRows(content, tables.correctionIntentChecks) };
   fixes.rows.length === 0 && failures.push("Correction plan requires a FIX table"), steps.rows.length === 0 && failures.push("Correction plan requires a step table"), checks.rows.length === 0 && failures.push("Correction plan requires a Check table");
   let declaredLearnings = Array.isArray(parsed.fields.learning_candidates) ? parsed.fields.learning_candidates : [], learnings = requireTable(/* @__PURE__ */ new Map([["Correction plan", content]]), "Correction plan", tables.learningCandidates, failures, { normalizations: parsed.normalizations }), learningIds = exactIdSet(learnings.rows, "Learning ID", learningPattern, "Correction learning", failures);
-  sameSet(learningIds, new Set(declaredLearnings)) || failures.push("Correction learning table must exactly match learning_candidates");
+  for (let learningId of learningIds)
+    declaredLearnings.includes(learningId) || failures.push(`Correction learning ${learningId} must be declared in learning_candidates`);
   for (let row of learnings.rows) {
     let keys = String(row["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean);
     (keys.length === 0 || keys.some((key) => !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(key))) && failures.push(`Learning ${row["Learning ID"]} needs valid source Finding keys`);
@@ -22511,7 +22514,7 @@ function validateCompactReview(parsed, sections, failures) {
     let snapshotRow = coverageByKind.get(normalizedHeader("Snapshot"))?.[0];
     coverage.rows.length > 0 && (normalizedHeader(snapshotRow?.Result) !== "consistent" || noneLike(snapshotRow?.Inspected)) && failures.push("achieved review coverage contradicts current snapshot consistency");
   }
-  parsed.fields.next_action === "none" && parsed.fields.assessment !== "achieved" && failures.push("next_action none requires assessment achieved"), parsed.fields.delivery_status === "verified" && parsed.fields.assessment !== "achieved" && failures.push("verified delivery requires achieved assessment"), parsed.fields.delivery_status === "provisional" && parsed.fields.next_action !== "accept-provisional" && failures.push("provisional delivery requires accept-provisional"), parsed.fields.next_action === "accept-provisional" && parsed.fields.delivery_status !== "provisional" && failures.push("accept-provisional requires provisional delivery"), parsed.fields.next_action === "correct" && findings.rows.length === 0 && failures.push("correct review requires findings"), parsed.fields.next_action !== "correct" && Array.isArray(parsed.fields.learning_candidates) && failures.push("learning_candidates are allowed only when next_action is correct"), parsed.fields.next_action === "retry-review" && parsed.fields.assessment !== "insufficient-evidence" && failures.push("retry-review requires assessment insufficient-evidence");
+  parsed.fields.next_action === "none" && parsed.fields.assessment !== "achieved" && failures.push("next_action none requires assessment achieved"), parsed.fields.delivery_status === "verified" && parsed.fields.assessment !== "achieved" && failures.push("verified delivery requires achieved assessment"), parsed.fields.delivery_status === "provisional" && !["accept-provisional", "none"].includes(parsed.fields.next_action) && failures.push("provisional delivery requires accept-provisional or a terminal achieved Review"), parsed.fields.delivery_status === "provisional" && parsed.fields.next_action === "none" && parsed.fields.assessment !== "achieved" && failures.push("terminal provisional delivery requires achieved assessment"), parsed.fields.next_action === "accept-provisional" && parsed.fields.delivery_status !== "provisional" && failures.push("accept-provisional requires provisional delivery"), parsed.fields.next_action === "correct" && findings.rows.length === 0 && failures.push("correct review requires findings"), !["correct", "none"].includes(parsed.fields.next_action) && Array.isArray(parsed.fields.learning_candidates) && failures.push("learning_candidates are allowed only for correction or terminal achieved Review"), parsed.fields.next_action === "retry-review" && parsed.fields.assessment !== "insufficient-evidence" && failures.push("retry-review requires assessment insufficient-evidence");
   let correction2 = parseCorrection(parsed, sections, failures);
   if (correction2) {
     for (let fix of correction2.fixes) {
@@ -22604,7 +22607,7 @@ function preflightRootPlan(text, root = defaultRoot) {
       { target, ...state }
     ));
   }
-  let rows = tableRows(verificationSectionContent(parsed), tables.verificationIntent), objectiveIds = new Set((parsed.fields.acceptance ?? []).map((_, index) => `OBJ-${index + 1}`)), requiredChecks2 = [], deferredChecks = [], costs = { cheap: 0, standard: 0, expensive: 0 };
+  let rows = tableRows(verificationSectionContent(parsed), tables.verificationIntent), objectiveIds = new Set((parsed.fields.acceptance ?? []).map((_, index) => `OBJ-${index + 1}`)), requiredChecks = [], deferredChecks = [], costs = { cheap: 0, standard: 0, expensive: 0 };
   if (rows.length === 0)
     blocking.push(issue2("explicit-verification-required", "new Schema-6 roots require an explicit intent-only Verification table for Pareto check selection"));
   else {
@@ -22618,7 +22621,7 @@ function preflightRootPlan(text, root = defaultRoot) {
         `${checkId2 || "Verification Check"} must reference only current Acceptance objectives`,
         { check_id: checkId2 || null, objectives: boundObjectives }
       )), /^(?:yes|no)$/.test(row.Required) || blocking.push(issue2("invalid-required-value", `${checkId2 || "Verification Check"} Required must be yes or no`, { check_id: checkId2 || null })), /^(?:harness-verifiable|reviewer-observable|human-decision-required)$/.test(row["Evidence Class"]) || blocking.push(issue2("invalid-evidence-class", `${checkId2 || "Verification Check"} has an invalid Evidence Class`, { check_id: checkId2 || null })), /^(?:cheap|standard|expensive)$/.test(row["Cost Class"]) ? costs[row["Cost Class"]] += 1 : blocking.push(issue2("invalid-cost-class", `${checkId2 || "Verification Check"} has an invalid Cost Class`, { check_id: checkId2 || null })), row.Required === "yes") {
-        requiredChecks2.push(checkId2), boundObjectives.forEach((id) => requiredObjectives.add(id));
+        requiredChecks.push(checkId2), boundObjectives.forEach((id) => requiredObjectives.add(id));
         let signature = [boundObjectives.sort().join(","), row["Verification Intent"], row["Expected Evidence"], targetTokens(row.Prerequisites).sort().join(",")].map((value) => normalizedHeader(value)).join("|");
         classifiedChecks.push({ check_id: checkId2, required: !0, cost: row["Cost Class"], signature });
         let prior = signatures.get(signature);
@@ -22655,7 +22658,7 @@ function preflightRootPlan(text, root = defaultRoot) {
     root_projection_hash: projection.projection_hash ?? null,
     blocking_issues: blocking,
     advisories,
-    required_checks: requiredChecks2.filter(Boolean),
+    required_checks: requiredChecks.filter(Boolean),
     deferred_checks: deferredChecks.filter(Boolean),
     cost_classes: costs,
     approval_granted: !1,
@@ -22752,14 +22755,14 @@ function materializeEvidence(artifact3, artifacts, cache, failures, rootDirector
     sameSet(delivered, plan.objectives) || failures.push(`${artifact3.label}: initial evidence must cover every root objective`), (artifact3.fields.source_review_id || artifact3.fields.predecessor_evidence_id) && failures.push(`${artifact3.label}: initial evidence cannot reference review or predecessor evidence`);
   } else if (seal) {
     let sourceReview = artifacts.get(artifact3.fields.source_review_id);
-    !sourceReview || sourceReview.fields.artifact !== "work-review" ? failures.push(`${artifact3.label}: seal evidence requires its exact source Review`) : ((sourceReview.fields.root_plan_id !== root.fields.id || sourceReview.fields.latest_evidence_id !== artifact3.fields.predecessor_evidence_id) && failures.push(`${artifact3.label}: seal source Review must bind the direct predecessor Evidence`), (sourceReview.fields.delivery_status !== "provisional" || sourceReview.fields.next_action !== "accept-provisional" || sourceReview.fields.correction_id || reviewData(sourceReview).findings.length > 0) && failures.push(`${artifact3.label}: seal source Review must be a finding-free provisional acceptance tip`)), (artifact3.fields.status !== "complete" || artifact3.fields.overall_grade !== "verified" || (artifact3.fields.check_evidence ?? []).some((entry) => entry.grade !== "verified")) && failures.push(`${artifact3.label}: seal evidence requires fresh verified coverage for every required Check`);
+    !sourceReview || sourceReview.fields.artifact !== "work-review" ? failures.push(`${artifact3.label}: seal evidence requires its exact source Review`) : ((sourceReview.fields.root_plan_id !== root.fields.id || sourceReview.fields.latest_evidence_id !== artifact3.fields.predecessor_evidence_id) && failures.push(`${artifact3.label}: seal source Review must bind the direct predecessor Evidence`), (!(sourceReview.fields.delivery_status === "provisional" && (sourceReview.fields.assessment === "achieved" && sourceReview.fields.next_action === "none" || sourceReview.fields.assessment === "provisional" && sourceReview.fields.next_action === "accept-provisional")) || sourceReview.fields.correction_id || reviewData(sourceReview).findings.length > 0) && failures.push(`${artifact3.label}: seal source Review must be a finding-free provisional tip`)), (artifact3.fields.status !== "complete" || artifact3.fields.overall_grade !== "verified" || (artifact3.fields.check_evidence ?? []).some((entry) => entry.grade !== "verified")) && failures.push(`${artifact3.label}: seal evidence requires fresh verified coverage for every required Check`);
   } else {
     let sourceReview = artifacts.get(artifact3.fields.source_review_id), correction3 = correctionForId(artifacts, artifact3.fields.subject_id);
     if (!sourceReview || sourceReview.fields.correction_id !== artifact3.fields.subject_id || !correction3) failures.push(`${artifact3.label}: correction evidence does not resolve its source review and correction`);
     else
       for (let check of correction3.checks.filter((row) => row.Required === "yes")) executed.has(check["Check ID"]) || failures.push(`${artifact3.label}: missing executed correction Check ${check["Check ID"]}`);
   }
-  let reviewReady = artifact3.fields.status === "complete" && artifact3.fields.overall_grade === "verified" && [...plan.requiredChecks].every((id) => checks.get(id)?.status === "passed"), effective = {
+  let reviewReady = ["complete", "provisional"].includes(artifact3.fields.status) && ["verified", "supported"].includes(artifact3.fields.overall_grade) && [...plan.requiredChecks].every((id) => checks.get(id)?.status === "passed"), effective = {
     root,
     plan,
     objectives,
@@ -22861,11 +22864,15 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
     let plan = planData(rootPlan), ordered = linearChain(reviews, "predecessor_review_id", `${rootId}: review`, errors), learningOwners = /* @__PURE__ */ new Map();
     for (let review of ordered) for (let learning of review.correction?.learnings ?? []) {
       let id = learning["Learning ID"];
-      learningOwners.has(id) ? errors.push(`${review.label}: learning candidate ${id} duplicates ${learningOwners.get(id)} within root ${rootId}`) : learningOwners.set(id, review.label);
+      learningOwners.has(id) ? errors.push(`${review.label}: learning candidate ${id} duplicates ${learningOwners.get(id).label} within root ${rootId}`) : learningOwners.set(id, review);
     }
     let reviewIndex = new Map(ordered.map((review, index) => [review.fields.id, index])), rootEvidence = orderedEvidenceByRoot.get(rootId) ?? [];
     for (let index = 0; index < ordered.length; index += 1) {
       let review = ordered[index];
+      for (let learningId of review.fields.learning_candidates ?? []) {
+        let owner = learningOwners.get(learningId);
+        owner ? (reviewIndex.get(owner.fields.id) ?? Number.POSITIVE_INFINITY) > index && errors.push(`${review.label}: learning candidate ${learningId} is declared before its correction source`) : errors.push(`${review.label}: learning candidate ${learningId} has no correction source in root ${rootId}`);
+      }
       if (review.fields.review_basis === "root-boundary") {
         let receipt = review.fields.boundary_receipt ?? {};
         receipt.root_content_hash !== sha256(rootPlan.text) && errors.push(`${review.label}: boundary receipt root_content_hash does not match exact Root bytes`);
@@ -22950,8 +22957,8 @@ function effectiveCliSummary(inspection) {
   let artifacts = [...inspection.effective.values()], tips = (type, predecessorField) => {
     let items = artifacts.filter((artifact3) => artifact3.fields.artifact === type);
     return Object.fromEntries(lineageTips(items, predecessorField).map((artifact3) => [artifact3.fields.root_plan_id, artifact3.fields.id]));
-  }, rootTips = inspection.root_tips ?? validatePlanLineage(inspection.effective, []), activeRootId = rootTips.length === 1 ? rootTips[0] : null, evidenceTips = tips("delivery-evidence", "predecessor_evidence_id"), reviewTips = tips("work-review", "predecessor_review_id"), activeReview = activeRootId && reviewTips[activeRootId] ? inspection.effective.get(reviewTips[activeRootId]) : null, learningCandidates = artifacts.filter((artifact3) => artifact3.fields.artifact === "work-review" && artifact3.fields.root_plan_id === activeRootId && activeReview?.fields.assessment === "achieved" && activeReview?.fields.delivery_status === "verified" && artifact3.correction?.learnings?.length > 0).flatMap((artifact3) => artifact3.correction.learnings.map((learning) => {
-    let evidence = artifacts.find((candidate) => candidate.fields.artifact === "delivery-evidence" && candidate.fields.subject_id === artifact3.fields.correction_id && candidate.fields.status === "complete");
+  }, rootTips = inspection.root_tips ?? validatePlanLineage(inspection.effective, []), activeRootId = rootTips.length === 1 ? rootTips[0] : null, evidenceTips = tips("delivery-evidence", "predecessor_evidence_id"), reviewTips = tips("work-review", "predecessor_review_id"), activeReview = activeRootId && reviewTips[activeRootId] ? inspection.effective.get(reviewTips[activeRootId]) : null, activeEvidence = activeRootId && evidenceTips[activeRootId] ? inspection.effective.get(evidenceTips[activeRootId]) : null, activeLearningIds = new Set(activeReview?.fields.learning_candidates ?? []), learningEligible = activeReview?.fields.assessment === "achieved" && activeReview?.fields.next_action === "none" && ["verified", "supported"].includes(activeEvidence?.fields.overall_grade), learningCandidates = artifacts.filter((artifact3) => artifact3.fields.artifact === "work-review" && artifact3.fields.root_plan_id === activeRootId && learningEligible && artifact3.correction?.learnings?.length > 0).flatMap((artifact3) => artifact3.correction.learnings.filter((learning) => activeLearningIds.has(learning["Learning ID"])).map((learning) => {
+    let evidence = artifacts.find((candidate) => candidate.fields.artifact === "delivery-evidence" && candidate.fields.subject_id === artifact3.fields.correction_id && candidate.fields.status !== "blocked" && ["verified", "supported"].includes(candidate.fields.overall_grade));
     return {
       source_kind: "manual-correction",
       root_plan_id: artifact3.fields.root_plan_id,
@@ -23235,7 +23242,7 @@ function validateHarnessPhaseResult(input, request, expected = {}) {
 }
 function calibrateHarnessCheckEvidence({
   entries,
-  plannedChecks,
+  plannedChecks: plannedChecks2,
   attestations = [],
   rootHash,
   workspaceBinding,
@@ -23243,7 +23250,7 @@ function calibrateHarnessCheckEvidence({
   expectedHarnessId = null,
   protectedAttestationHash = null
 }) {
-  let planned = plannedChecks instanceof Map ? plannedChecks : new Map((plannedChecks ?? []).map((check) => [check["Check ID"], check])), validated = /* @__PURE__ */ new Map();
+  let planned = plannedChecks2 instanceof Map ? plannedChecks2 : new Map((plannedChecks2 ?? []).map((check) => [check["Check ID"], check])), validated = /* @__PURE__ */ new Map();
   for (let input of attestations) {
     let check = planned.get(input?.check_id);
     if (!check) throw new Error(`harness attestation references unknown Check ${input?.check_id}`);
@@ -23642,29 +23649,32 @@ function correctionCheckIntent(correction2, check) {
     Prerequisites: check.Prerequisites
   };
 }
-function requiredChecks(contract, correction2) {
-  let root = contract.checks.filter((check) => check.Required === "yes");
+function plannedChecks(contract, correction2) {
+  let root = contract.checks;
   if (!correction2) return new Map(root.map((check) => [check["Check ID"], check]));
-  let correctionChecks = (correction2.checks ?? []).filter((check) => check.Required === "yes").map((check) => correctionCheckIntent(correction2, check)), referencedRootIds = new Set(correctionRootChecks(correction2)), referencedRoot = root.filter((check) => referencedRootIds.has(check["Check ID"]));
+  let correctionChecks = (correction2.checks ?? []).map((check) => correctionCheckIntent(correction2, check)), referencedRootIds = new Set(correctionRootChecks(correction2)), referencedRoot = root.filter((check) => referencedRootIds.has(check["Check ID"]));
   return new Map([...correctionChecks, ...referencedRoot, ...root].map((check) => [check["Check ID"], check]));
 }
 function correctionHarnessVerificationIntents(correction2, contract) {
-  return [...requiredChecks(contract, correction2).values()];
+  return [...plannedChecks(contract, correction2).values()].filter((check) => check.Required === "yes");
 }
-function normalizeEvidence(input, plannedChecks) {
+function normalizeEvidence(input, plannedChecks2) {
   if (!Array.isArray(input)) throw new Error("closeout Check evidence must be an array");
   let ids3 = input.map((entry) => entry?.check_id);
   if (new Set(ids3).size !== ids3.length) throw new Error("closeout Check evidence IDs must be unique");
   let supplied = new Map(input.map((entry) => [entry?.check_id, entry]));
-  for (let checkId2 of supplied.keys()) if (!plannedChecks.has(checkId2)) throw new Error(`closeout received unknown Check ${checkId2}`);
-  return [...plannedChecks.keys()].map((checkId2) => supplied.get(checkId2) ?? {
-    check_id: checkId2,
-    grade: "unavailable",
-    observed: "No project-harness observation was available for this verification intent.",
-    evidence_hashes: [],
-    limitations: ["The active project harness did not return evidence for this Check."]
+  for (let checkId2 of supplied.keys()) if (!plannedChecks2.has(checkId2)) throw new Error(`closeout received unknown Check ${checkId2}`);
+  return [...plannedChecks2.entries()].flatMap(([checkId2, planned]) => {
+    let observed = supplied.get(checkId2);
+    return !observed && planned.Required !== "yes" ? [] : [observed ?? {
+      check_id: checkId2,
+      grade: "unavailable",
+      observed: "No project-harness observation was available for this verification intent.",
+      evidence_hashes: [],
+      limitations: ["The active project harness did not return evidence for this Check."]
+    }];
   }).map((entry) => {
-    if (!plannedChecks.has(entry?.check_id)) throw new Error(`closeout received unknown Check ${entry?.check_id}`);
+    if (!plannedChecks2.has(entry?.check_id)) throw new Error(`closeout received unknown Check ${entry?.check_id}`);
     if (!GRADES.has(entry.grade)) throw new Error(`closeout Check ${entry.check_id} has invalid grade`);
     let limitations = unique2((entry.limitations ?? []).map(String).map((value) => value.trim()).filter(Boolean));
     if (entry.grade === "unavailable" && limitations.length === 0) throw new Error(`unavailable Check ${entry.check_id} requires a concrete limitation`);
@@ -23698,6 +23708,7 @@ function buildDeliveryEvidence({
   artifacts = [],
   checkEvidence: checkEvidence3,
   changedPaths = [],
+  ambientPaths = [],
   effectiveProfile = null,
   summary: summary2 = null,
   harnessAttestations = [],
@@ -23719,11 +23730,11 @@ function buildDeliveryEvidence({
   if (seal) {
     if (!evidenceTipId || !review || review.fields.latest_evidence_id !== evidenceTipId)
       throw new Error("protected sealing requires one exact current provisional Evidence/Review tip");
-    if (review.fields.delivery_status !== "provisional" || review.fields.next_action !== "accept-provisional" || review.fields.correction_id || (review.findings ?? []).length > 0)
-      throw new Error(`protected sealing rejects non-provisional Review tip ${review.fields.id}`);
+    if (!(review.fields.delivery_status === "provisional" && (review.fields.assessment === "achieved" && review.fields.next_action === "none" || review.fields.assessment === "provisional" && review.fields.next_action === "accept-provisional")) || review.fields.correction_id || (review.findings ?? []).length > 0)
+      throw new Error(`protected sealing rejects non-sealable finding-free Review tip ${review.fields.id}`);
   } else if (evidenceTipId && !correction2) {
     let existing = normalized.entries.find((entry) => entry.label === evidenceTipId);
-    if ((checkEvidence3 ?? []).length > 0 || (changedPaths ?? []).length > 0)
+    if ((checkEvidence3 ?? []).length > 0 || (changedPaths ?? []).length > 0 || (ambientPaths ?? []).length > 0)
       throw new Error(`stale or competing closeout conflicts with current Evidence tip ${evidenceTipId}`);
     let fields2 = prior.effective.get(evidenceTipId)?.fields ?? null;
     return {
@@ -23734,7 +23745,7 @@ function buildDeliveryEvidence({
       ...harnessConstraintProjection({ checks: contract.checks, evidence: fields2?.check_evidence ?? [] })
     };
   }
-  let planned = requiredChecks(contract, correction2), entries = normalizeEvidence(checkEvidence3, planned), rootHash = sha2563(rootPlanText), effectiveWorkspaceBinding = workspaceBinding ?? harnessContractHash({ workspace: "not-established" }), effectiveSnapshotHash = workspaceSnapshotHash ?? harnessContractHash({ snapshot: "not-attested" });
+  let planned = plannedChecks(contract, correction2), entries = normalizeEvidence(checkEvidence3, planned), rootHash = sha2563(rootPlanText), effectiveWorkspaceBinding = workspaceBinding ?? harnessContractHash({ workspace: "not-established" }), effectiveSnapshotHash = workspaceSnapshotHash ?? harnessContractHash({ snapshot: "not-attested" });
   enforceHarnessAttestations && (entries = calibrateHarnessCheckEvidence({
     entries,
     plannedChecks: planned,
@@ -23752,9 +23763,10 @@ function buildDeliveryEvidence({
     let error2 = new Error("protected sealing requires fresh verified evidence for every required Check");
     throw error2.code = "protected-seal-not-verified", error2;
   }
-  let subjectId = correction2 ? review.fields.correction_id : normalized.rootId, sourceReviewId = correction2 || seal ? review.fields.id : null, predecessorEvidenceId = correction2 || seal ? evidenceTipId : null, paths = unique2((changedPaths ?? []).map(String).map((path) => path.trim()).filter(Boolean)).sort();
+  let subjectId = correction2 ? review.fields.correction_id : normalized.rootId, sourceReviewId = correction2 || seal ? review.fields.id : null, predecessorEvidenceId = correction2 || seal ? evidenceTipId : null, paths = unique2((changedPaths ?? []).map(String).map((path) => path.trim()).filter(Boolean)).sort(), ambient = unique2((ambientPaths ?? []).map(String).map((path) => path.trim()).filter(Boolean)).sort(), overlap = paths.filter((path) => ambient.includes(path));
+  if (overlap.length > 0) throw new Error(`changed paths cannot be both subject and ambient: ${overlap.join(", ")}`);
   if (!allowManualScopeDrift) {
-    let authority = classifyChangedPathAuthority(contract.fields, paths);
+    let authority = classifyChangedPathAuthority(contract.fields, paths, null, ambient);
     if (authority.status !== "within-authority") {
       let rejected = [
         ...authority.outside_allowed_paths,
@@ -23771,6 +23783,7 @@ function buildDeliveryEvidence({
     predecessor_evidence_id: predecessorEvidenceId,
     workspace_snapshot_hash: effectiveSnapshotHash,
     changed_paths: paths,
+    ambient_paths: ambient,
     check_evidence: entries,
     forced_status: forcedStatus,
     summary: summary2 ?? null
@@ -23789,6 +23802,7 @@ function buildDeliveryEvidence({
     overall_grade: grade,
     workspace_snapshot_hash: effectiveSnapshotHash,
     changed_paths: paths,
+    ambient_paths: ambient,
     affected_objectives: affectedObjectives,
     reused_objectives: [],
     executed_checks: entries.map((entry) => entry.check_id),
@@ -24050,7 +24064,7 @@ function knownFailure(evidence) {
   return evidence?.fields?.status === "blocked" || (evidence?.fields?.check_evidence ?? []).some((entry) => entry.grade === "failed");
 }
 function decision(input, evidence) {
-  let failed = knownFailure(evidence), reviewReady = evidence?.effective?.reviewReady === !0 && evidence?.fields?.status === "complete", hasFindings = input.findings.length > 0, contradicted = input.snapshot_assessment === "contradicted", assessment = input.assessment, nextAction = input.recommended_action, deliveryStatus = "blocked";
+  let failed = knownFailure(evidence), reviewReady = evidence?.effective?.reviewReady === !0, hasFindings = input.findings.length > 0, contradicted = input.snapshot_assessment === "contradicted", assessment = input.assessment, nextAction = input.recommended_action, deliveryStatus = "blocked";
   if (failed)
     return nextAction === "replan" || nextAction === "clarify" ? assessment = ["achieved", "provisional"].includes(assessment) ? "not-achieved" : assessment : hasFindings && input.correction ? (nextAction = "correct", assessment = ["achieved", "provisional"].includes(assessment) ? "not-achieved" : assessment) : (nextAction = "retry-review", assessment = "insufficient-evidence"), { assessment, delivery_status: "blocked", next_action: nextAction, review_ready: reviewReady, known_failure: !0 };
   if (nextAction === "replan" || nextAction === "clarify")
@@ -24061,8 +24075,14 @@ function decision(input, evidence) {
   }
   if (contradicted || nextAction === "retry-review" || assessment === "insufficient-evidence")
     return { assessment: "insufficient-evidence", delivery_status: "blocked", next_action: "retry-review", review_ready: reviewReady, known_failure: !1 };
-  if (reviewReady && assessment === "achieved" && nextAction === "none")
-    return { assessment: "achieved", delivery_status: "verified", next_action: "none", review_ready: !0, known_failure: !1 };
+  if (reviewReady && input.snapshot_assessment === "consistent" && input.missing_evidence.length === 0 && ["achieved", "provisional"].includes(assessment) && ["none", "accept-provisional"].includes(nextAction))
+    return {
+      assessment: "achieved",
+      delivery_status: evidence.fields.overall_grade === "verified" ? "verified" : "provisional",
+      next_action: "none",
+      review_ready: !0,
+      known_failure: !1
+    };
   if (!["none", "accept-provisional"].includes(nextAction)) throw new Error(`review_input recommended_action ${nextAction} is inconsistent with an evidence-only provisional result`);
   if (!["achieved", "provisional"].includes(assessment))
     throw new Error(`review_input.assessment ${assessment} is inconsistent with review_input.recommended_action ${nextAction}; provide the missing Evidence or choose correct, clarify, replan, or retry-review`);
@@ -24302,7 +24322,10 @@ ${boundaryBody(boundaryReceipt)}
     predecessor_review_id: predecessorReviewId,
     predecessor_review_hash: predecessorReviewText ? sha2564(predecessorReviewText) : null,
     review_input: normalized
-  }, reviewInputHash = sha2564(stableJson(seedInput)), id = `wr-${merged.rootFields.id.replace(/^wp-/, "")}-${reviewInputHash.slice(0, 12)}`, correction2 = correctionProjection({ normalized, findings: normalized.findings, seed: reviewInputHash, rootFields: merged.rootFields, evidenceId, reviewId: id, predecessorReview, entries: merged.entries, pluginRoot: pluginRoot2 }), fields = {
+  }, reviewInputHash = sha2564(stableJson(seedInput)), id = `wr-${merged.rootFields.id.replace(/^wp-/, "")}-${reviewInputHash.slice(0, 12)}`, correction2 = correctionProjection({ normalized, findings: normalized.findings, seed: reviewInputHash, rootFields: merged.rootFields, evidenceId, reviewId: id, predecessorReview, entries: merged.entries, pluginRoot: pluginRoot2 }), inheritedLearningCandidates = predecessorReview?.fields?.learning_candidates ?? [], learningCandidates = uniqueSorted2([
+    ...inheritedLearningCandidates,
+    ...correction2?.learning_ids ?? []
+  ]), fields = {
     artifact: "work-review",
     schema: 6,
     id,
@@ -24318,7 +24341,7 @@ ${boundaryBody(boundaryReceipt)}
     reused_objectives: coverage.reusedObjectives,
     inspected_checks: coverage.inspectedChecks,
     reused_checks: coverage.reusedChecks,
-    ...correction2 ? { learning_candidates: correction2.learning_ids } : {}
+    ...learningCandidates.length > 0 && (correction2 || outcome.next_action === "none") ? { learning_candidates: learningCandidates } : {}
   }, artifact3 = `---
 ${(0, import_yaml3.stringify)(fields, { lineWidth: 0 }).trimEnd()}
 ---
@@ -25887,7 +25910,7 @@ function deriveWorkflowState(input = {}) {
   if (input.phase === "correct" && input.phase_status !== "complete") return snapshot(input, "correcting", { allowed_actions: ["pause", "stop"], required_actor: "harness", next_action: "complete-correction" });
   if ((input.phase === "review" || input.execution_started) && !input.root_review_complete && !input.review) return snapshot(input, "reviewing", { allowed_actions: ["review", "pause", "stop"], required_actor: "reviewer", next_action: "review-root" });
   let nextAction = input.review?.next_action;
-  return nextAction === "clarify" ? waiting(input, "review-requires-clarification", "clarify") : nextAction === "replan" ? snapshot(input, "replan", { allowed_actions: ["replan"], required_actor: "human", next_action: "replan" }) : nextAction === "correct" ? snapshot(input, "waiting-human", { allowed_actions: ["inspect", "correct", "replan"], required_actor: "human", next_action: "correct" }) : nextAction === "retry-review" ? snapshot(input, "reviewing", { allowed_actions: ["review"], required_actor: "reviewer", next_action: "retry-review" }) : input.delivery_status === "provisional" ? manualArtifacts && input.manual_acceptance === "provisional" ? snapshot(input, "accepted-provisional", {
+  return nextAction === "clarify" ? waiting(input, "review-requires-clarification", "clarify") : nextAction === "replan" ? snapshot(input, "replan", { allowed_actions: ["replan"], required_actor: "human", next_action: "replan" }) : nextAction === "correct" ? snapshot(input, "waiting-human", { allowed_actions: ["inspect", "correct", "replan"], required_actor: "human", next_action: "correct" }) : nextAction === "retry-review" ? snapshot(input, "reviewing", { allowed_actions: ["review"], required_actor: "reviewer", next_action: "retry-review" }) : input.review?.assessment === "achieved" && nextAction === "none" ? snapshot(input, "achieved", { allowed_actions: ["explain", "learn"] }) : input.delivery_status === "provisional" ? manualArtifacts && input.manual_acceptance === "provisional" ? snapshot(input, "accepted-provisional", {
     allowed_actions: ["inspect"],
     acceptance_persisted: !1,
     acceptance_basis_hash: input.acceptance_basis_hash ?? input.artifact_set_hash ?? null
@@ -25927,7 +25950,7 @@ function summary(rootPlanId, entries, evidenceTip = null, reviewTip = null, lear
 }
 function deriveManualLearningProjection({ snapshot: snapshot2, artifact_summary: artifactSummary }) {
   let blockers = [];
-  return snapshot2?.state !== "achieved" && blockers.push("learning-source-not-achieved"), snapshot2?.delivery_status !== "verified" && blockers.push("learning-source-not-verified"), {
+  return snapshot2?.state !== "achieved" && blockers.push("learning-source-not-achieved"), ["supported", "verified"].includes(snapshot2?.evidence_grade) || blockers.push("learning-source-not-supported"), {
     schema: 1,
     eligible: blockers.length === 0,
     source_kind: "artifact-chain",
@@ -26088,6 +26111,7 @@ function deriveManualWorkflowSnapshot({ rootPlanId, artifacts, pluginRoot: plugi
     }),
     diagnostics: unique3([...chain.normalizations, ...chain.diagnostics]),
     changed_paths: evidence?.fields.changed_paths ?? [],
+    ambient_paths: evidence?.fields.ambient_paths ?? [],
     ...constraintProjection
   };
 }
@@ -26529,8 +26553,9 @@ function assertSealPredecessor(exact, pluginRoot2) {
   let current = currentTips(exact.entries, pluginRoot2), rootId = exact.rootFields.id, evidenceTipId = current.tips.evidence_tips[rootId] ?? null, reviewTipId = current.tips.review_tips[rootId] ?? null, evidenceTip = evidenceTipId ? current.inspected.effective.get(evidenceTipId) : null, reviewTip = reviewTipId ? current.inspected.effective.get(reviewTipId) : null;
   if (exact.unprovenancedReviewIds.length !== 1 || exact.unprovenancedReviewIds[0] !== reviewTipId)
     throw codedError2("protected-seal-chain-invalid", "protected sealing requires exactly one unprovenanced current Review tip");
-  if (!evidenceTip || !reviewTip || evidenceTip.fields.representation !== "full" || reviewTip.fields.latest_evidence_id !== evidenceTipId || reviewTip.fields.predecessor_review_id || reviewTip.fields.delivery_status !== "provisional" || reviewTip.fields.next_action !== "accept-provisional" || reviewTip.fields.correction_id || (reviewTip.findings ?? []).length > 0 || evidenceTip.fields.status === "blocked" || (evidenceTip.fields.check_evidence ?? []).some((entry) => entry.grade === "failed"))
-    throw codedError2("protected-seal-chain-invalid", "protected sealing requires one finding-free initial provisional Evidence/Review pair");
+  let sealableDecision = reviewTip?.fields.delivery_status === "provisional" && (reviewTip.fields.assessment === "achieved" && reviewTip.fields.next_action === "none" || reviewTip.fields.assessment === "provisional" && reviewTip.fields.next_action === "accept-provisional");
+  if (!evidenceTip || !reviewTip || evidenceTip.fields.representation !== "full" || reviewTip.fields.latest_evidence_id !== evidenceTipId || reviewTip.fields.predecessor_review_id || !sealableDecision || reviewTip.fields.correction_id || (reviewTip.findings ?? []).length > 0 || evidenceTip.fields.status === "blocked" || (evidenceTip.fields.check_evidence ?? []).some((entry) => entry.grade === "failed"))
+    throw codedError2("protected-seal-chain-invalid", "protected sealing requires one finding-free provisional Evidence/Review pair");
   return { current, evidenceTipId, reviewTipId };
 }
 function currentTips(entries, pluginRoot2) {
@@ -26629,23 +26654,28 @@ function buildManualReviewLifecycle({
     attribution_status: "attributed",
     attribution_boundary: "harness-review-snapshot",
     attribution_reason_codes: []
-  } : observedRepositoryDelta, evidenceChangedPaths = repositoryDelta.changed_paths, evidenceSnapshot = repositoryDelta.repository_snapshot, effectiveReviewInput = reviewInput, effectiveCheckEvidence = checkEvidence3;
+  } : observedRepositoryDelta, evidenceChangedPaths = repositoryDelta.changed_paths, evidenceAmbientPaths = sortedPaths((repositoryDelta.observed_dirty_paths ?? []).filter((path) => !evidenceChangedPaths.includes(path))), evidenceSnapshot = repositoryDelta.repository_snapshot, effectiveReviewInput = reviewInput, effectiveCheckEvidence = checkEvidence3, forcedStatus = null;
   if (repositoryDelta.attribution_status !== "attributed") {
     let message2 = `Repository attribution is provisional (${repositoryDelta.attribution_reason_codes.join(", ") || "attribution-unavailable"}); current checks remain usable, but Workflow cannot claim an exclusive task delta.`;
     effectiveReviewInput = attributionLimitation(effectiveReviewInput, message2), effectiveCheckEvidence = supportedOnBoundary(effectiveCheckEvidence, message2);
   }
-  try {
-    assertChangedPathAuthority(exact.rootFields, repositoryDelta.changed_paths, current.repository_root);
-  } catch (error2) {
-    let message2 = `Current repository changes do not fit the native Plan authority: ${String(error2?.message ?? error2)}`;
+  let pathAuthority = classifyChangedPathAuthority(
+    exact.rootFields,
+    evidenceChangedPaths,
+    current.repository_root,
+    evidenceAmbientPaths
+  );
+  if (pathAuthority.protected_paths.length > 0 || pathAuthority.approval_required_paths.length > 0) {
+    let message2 = `Current repository subject changes cross a hard native Plan boundary: ${[...pathAuthority.protected_paths, ...pathAuthority.approval_required_paths].join(", ")}`;
     if (seal) throw codedError2("protected-seal-authority-violation", message2);
-    effectiveReviewInput = authorityLimitation(effectiveReviewInput, message2), effectiveCheckEvidence = supportedOnBoundary(effectiveCheckEvidence, message2), evidenceChangedPaths = repositoryDelta.changed_paths.filter((path) => {
-      try {
-        return assertChangedPathAuthority(exact.rootFields, [path], current.repository_root), !0;
-      } catch {
-        return !1;
-      }
-    }), evidenceSnapshot = evidenceRepositorySnapshot(current, evidenceChangedPaths, { baselineAvailable: !1 });
+    effectiveReviewInput = authorityLimitation(effectiveReviewInput, message2), effectiveCheckEvidence = supportedOnBoundary(effectiveCheckEvidence, message2), forcedStatus = "blocked";
+  } else if (pathAuthority.outside_allowed_paths.length > 0) {
+    let message2 = `Root-subject scope drift remains provisional: ${pathAuthority.outside_allowed_paths.join(", ")}`;
+    if (seal) throw codedError2("protected-seal-authority-violation", message2);
+    effectiveReviewInput = attributionLimitation(effectiveReviewInput, message2), effectiveReviewInput = {
+      ...effectiveReviewInput,
+      missing_evidence: [.../* @__PURE__ */ new Set([...effectiveReviewInput.missing_evidence ?? [], message2])]
+    };
   }
   let evidenceTip = evidenceTipId ? initial.inspected.effective.get(evidenceTipId) : null;
   if (evidenceTipId && !correctionPending && evidenceTip?.fields?.artifact === "delivery-evidence" && !samePathSet(evidenceTip.fields.changed_paths, repositoryDelta.changed_paths)) {
@@ -26659,6 +26689,7 @@ function buildManualReviewLifecycle({
       artifacts: exact.entries,
       checkEvidence: effectiveCheckEvidence,
       changedPaths: evidenceChangedPaths,
+      ambientPaths: evidenceAmbientPaths,
       effectiveProfile: "manual",
       summary: summary2,
       harnessAttestations,
@@ -26667,6 +26698,8 @@ function buildManualReviewLifecycle({
       enforceHarnessAttestations: !0,
       workspaceBinding: workspaceBinding ?? createHash12("sha256").update(current.repository_root).digest("hex"),
       workspaceSnapshotHash: harnessSnapshotHash,
+      forcedStatus,
+      allowManualScopeDrift: !seal,
       seal: !0,
       pluginRoot: pluginRoot2
     }), reviewArtifacts = [...exact.entries, { label: evidence.fields.id, text: evidence.artifact }], chainUpdate = "append-seal";
@@ -26676,6 +26709,7 @@ function buildManualReviewLifecycle({
       artifacts: exact.entries,
       checkEvidence: effectiveCheckEvidence,
       changedPaths: evidenceChangedPaths,
+      ambientPaths: evidenceAmbientPaths,
       effectiveProfile: "manual",
       summary: summary2,
       harnessAttestations,
@@ -26684,6 +26718,8 @@ function buildManualReviewLifecycle({
       enforceHarnessAttestations: !0,
       workspaceBinding: workspaceBinding ?? createHash12("sha256").update(current.repository_root).digest("hex"),
       workspaceSnapshotHash: harnessSnapshotHash,
+      forcedStatus,
+      allowManualScopeDrift: !0,
       pluginRoot: pluginRoot2
     }), reviewArtifacts = [...exact.entries, { label: evidence.fields.id, text: evidence.artifact }], chainUpdate = "append";
   else {
@@ -26692,6 +26728,7 @@ function buildManualReviewLifecycle({
       artifacts: refreshBaseEntries,
       checkEvidence: effectiveCheckEvidence,
       changedPaths: evidenceChangedPaths,
+      ambientPaths: evidenceAmbientPaths,
       effectiveProfile: "manual",
       summary: summary2,
       harnessAttestations,
@@ -26700,6 +26737,8 @@ function buildManualReviewLifecycle({
       enforceHarnessAttestations: !0,
       workspaceBinding: workspaceBinding ?? createHash12("sha256").update(current.repository_root).digest("hex"),
       workspaceSnapshotHash: harnessSnapshotHash,
+      forcedStatus,
+      allowManualScopeDrift: !0,
       pluginRoot: pluginRoot2
     });
     (exact.entries.find((entry) => entry.label === evidenceTipId)?.text ?? null) === candidate.artifact ? (evidence = { ...candidate, duplicate: !0 }, reviewArtifacts = exact.entries, chainUpdate = "reuse") : (evidence = candidate, reviewArtifacts = [...refreshBaseEntries, { label: candidate.fields.id, text: candidate.artifact }], chainUpdate = candidate.fields.representation === "delta" ? "replace-delta-suffix" : "replace-full-tip");
@@ -26720,6 +26759,7 @@ function buildManualReviewLifecycle({
     repository_state_hash: repositorySnapshotHash(current),
     chain_update: chainUpdate,
     changed_paths: evidenceChangedPaths,
+    ambient_paths: evidenceAmbientPaths,
     observed_dirty_paths: repositoryDelta.observed_dirty_paths,
     pre_existing_paths: repositoryDelta.pre_existing_paths,
     repository_attribution: {
@@ -27352,6 +27392,7 @@ function createArtifactHandlers({
     source_review_id: persisted.fields.source_review_id ?? null,
     predecessor_evidence_id: persisted.fields.predecessor_evidence_id ?? null,
     changed_paths: persisted.fields.changed_paths ?? input.changed_paths ?? [],
+    ambient_paths: persisted.fields.ambient_paths ?? [],
     check_evidence: persisted.fields.check_evidence ?? [],
     ...persisted.fields.extensions?.workflow?.repository_attribution ? { repository_attribution: persisted.fields.extensions.workflow.repository_attribution } : {},
     duplicate: persisted.duplicate,
@@ -27427,6 +27468,7 @@ function createArtifactHandlers({
     predecessor_review_id: bundle.review.fields.predecessor_review_id ?? null,
     correction_id: bundle.review.fields.correction_id ?? null,
     changed_paths: bundle.changed_paths,
+    ambient_paths: bundle.ambient_paths ?? [],
     observed_dirty_paths: bundle.observed_dirty_paths,
     pre_existing_paths: bundle.pre_existing_paths ?? [],
     repository_snapshot: bundle.repository_snapshot,
@@ -27846,7 +27888,7 @@ function message(value) {
   return typeof value == "string" ? value : value?.message ?? JSON.stringify(value);
 }
 function stateOf(toolName, value, isError) {
-  return isError || value?.error ? "failed" : toolName === "workflow_plan_preflight" ? value?.feasible ? "root-plan-review" : "blocked" : toolName === "workflow_status" ? value?.snapshot?.state ?? value?.state ?? "status-available" : toolName === "workflow_closeout" && value?.artifact_kind === "work-review" ? value?.mode === "shadow" && value?.status === "unavailable" ? "shadow-review" : value.delivery_status === "verified" ? "achieved" : value.delivery_status === "provisional" ? "delivery-ready-provisional" : "blocked" : toolName === "workflow_closeout" ? value?.status === "blocked" ? "blocked" : "root-review" : "context-available";
+  return isError || value?.error ? "failed" : toolName === "workflow_plan_preflight" ? value?.feasible ? "root-plan-review" : "blocked" : toolName === "workflow_status" ? value?.snapshot?.state ?? value?.state ?? "status-available" : toolName === "workflow_closeout" && value?.artifact_kind === "work-review" ? value?.mode === "shadow" && value?.status === "unavailable" ? "shadow-review" : value?.assessment === "achieved" && value?.next_action === "none" || value.delivery_status === "verified" ? "achieved" : value.delivery_status === "provisional" ? "delivery-ready-provisional" : "blocked" : toolName === "workflow_closeout" ? value?.status === "blocked" ? "blocked" : "root-review" : "context-available";
 }
 function outcomeOf(state, value, isError) {
   return isError || value?.error || state === "failed" ? "failed" : state === "blocked" || value?.status === "blocked" ? "blocked" : ["delivery-ready-provisional", "root-review", "root-plan-review", "shadow-review"].includes(state) ? "partial" : "ready";
@@ -27866,7 +27908,7 @@ function summaryOf(toolName, state, value) {
   return value?.error ? message(value.error) : toolName === "workflow_plan_preflight" ? value.feasible ? "The Schema-6 Intent Root is feasible and ready for human approval." : "The proposed Root is not ready; its intent or authority contract needs correction." : state === "shadow-review" ? value?.repository_outcome ?? "A read-only repository assessment may continue, but formal Plan conformance is unavailable." : toolName === "workflow_closeout" && value?.artifact_kind === "work-review" ? value?.assessment ? `Fresh repository Review concluded ${value.assessment}.` : "Fresh repository Review completed." : toolName === "workflow_closeout" ? `Delivery Evidence is ${value?.status ?? "available"} with grade ${value?.overall_grade ?? "unknown"}.` : toolName === "workflow_status" ? `Workflow state is ${state}.` : toolName === "workflow_artifact_record" ? "Exact Root transport was recorded; transport does not grant authority." : "Exact Workflow context is available.";
 }
 function evidenceStatusOf(toolName, state, value) {
-  return state === "shadow-review" ? value?.evidence_status ?? "No Workflow Evidence or Work Review artifact was created." : toolName === "workflow_closeout" && value?.artifact_kind === "work-review" ? state === "achieved" ? "Protected Evidence verifies the delivery on the bound repository snapshot." : state === "delivery-ready-provisional" ? "Formal Evidence exists, but its declared limitation prevents a verified claim." : "Formal Review did not establish a delivery-ready evidence state." : "Workflow evidence status follows the lifecycle result reported below.";
+  return state === "shadow-review" ? value?.evidence_status ?? "No Workflow Evidence or Work Review artifact was created." : toolName === "workflow_closeout" && value?.artifact_kind === "work-review" ? state === "achieved" && value?.delivery_status === "verified" ? "Protected Evidence verifies the delivery on the bound repository snapshot." : state === "achieved" ? "Repository outcomes are achieved on the current snapshot; Evidence remains supported rather than verified." : state === "delivery-ready-provisional" ? "Formal Evidence exists, but its declared limitation prevents a verified claim." : "Formal Review did not establish a delivery-ready evidence state." : "Workflow evidence status follows the lifecycle result reported below.";
 }
 function limitationLines(value) {
   return unique4([

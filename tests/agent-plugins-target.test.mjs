@@ -144,6 +144,14 @@ test("Agent Plugins v1 target is deterministic, closed, and immediately discover
     assert.match(portableReview, /only `presentation\.next_action` through the fixed portable mapping/i);
     assert.doesNotMatch(portableReview, /Schema-5|auditor|model pool|planned command/i);
     assert.match(portablePlan, /State readiness, one concrete reason, and exactly one next action: invoke `implement-work` after approval/i);
+    assert.match(portablePlan, /recommend exactly one closest playbook/i);
+    assert.match(portablePlan, /ID, fit, intended phase, and authority need/i);
+    assert.match(portablePlan, /ask and wait for one explicit inline confirm or decline/i);
+    assert.match(portablePlan, /explicit inline confirm or decline/i);
+    assert.match(portablePlan, /Decline continues without a playbook/i);
+    assert.match(portablePlan, /material intent change.*fresh suggestion/i);
+    assert.equal(existsSync(join(plugin, "skills", "plan-work", "references", "engineering-playbooks.md")), true);
+    assert.equal(existsSync(join(plugin, "skills", "plan-work", "references", "plan-container-contract.md")), true);
     assert.doesNotMatch(portablePlan, /implementation(?: phase)? (?:is )?complete/i);
     assert.doesNotMatch(portablePlan, /fresh [^\n.]{0,40}review-work[^\n.]{0,20}pending/i);
     assert.doesNotMatch(portablePlan, /`review-work`/);
@@ -172,6 +180,8 @@ test("Agent Plugins v1 target is deterministic, closed, and immediately discover
     assert.match(portableEngineering, /recommend exactly one playbook/i);
     assert.match(portableEngineering, /never grants Workflow authority or evidence/i);
     assert.match(portableEngineering, /Never become sticky/i);
+    assert.match(portableEngineering, /plan-work.*explicit confirmation or decline inline/is);
+    assert.match(portableEngineering, /needs no second `use`/i);
     assert.doesNotMatch(portableEngineering, /gpt-|claude|grok/i);
   } finally {
     rmSync(root, { recursive: true, force: true });

@@ -149,7 +149,7 @@ test("learning projection keeps incomplete or provisional delivery ineligible", 
     artifact_summary: { root_plan_id: "wp-adaptive-retry", learning_candidates: [{ key: "candidate" }] },
   });
   assert.equal(projection.eligible, false);
-  assert.deepEqual(projection.blockers, ["learning-source-not-achieved", "learning-source-not-verified"]);
+  assert.deepEqual(projection.blockers, ["learning-source-not-achieved", "learning-source-not-supported"]);
   assert.deepEqual(projection.candidates, [{ key: "candidate" }]);
 });
 

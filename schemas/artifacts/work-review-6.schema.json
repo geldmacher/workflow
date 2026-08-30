@@ -72,12 +72,16 @@
         "not": { "required": ["boundary_receipt"] }
       }
     },
-    { "if": { "properties": { "assessment": { "const": "achieved" } }, "required": ["assessment"] }, "then": { "properties": { "delivery_status": { "const": "verified" }, "next_action": { "const": "none" } } } },
-    { "if": { "properties": { "delivery_status": { "const": "provisional" } }, "required": ["delivery_status"] }, "then": { "properties": { "next_action": { "const": "accept-provisional" } } } },
+    { "if": { "properties": { "assessment": { "const": "achieved" } }, "required": ["assessment"] }, "then": { "properties": { "delivery_status": { "enum": ["verified", "provisional"] }, "next_action": { "const": "none" } } } },
+    { "if": { "properties": { "delivery_status": { "const": "provisional" } }, "required": ["delivery_status"] }, "then": { "properties": { "next_action": { "enum": ["none", "accept-provisional"] } } } },
     {
       "if": { "properties": { "next_action": { "const": "correct" } }, "required": ["next_action"] },
       "then": { "required": ["learning_candidates"], "properties": { "correction_id": { "type": "string" } } },
-      "else": { "properties": { "correction_id": { "type": "null" } }, "not": { "required": ["learning_candidates"] } }
+      "else": { "properties": { "correction_id": { "type": "null" } } }
+    },
+    {
+      "if": { "required": ["learning_candidates"] },
+      "then": { "properties": { "next_action": { "enum": ["correct", "none"] } } }
     }
   ],
   "$defs": { "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" } },

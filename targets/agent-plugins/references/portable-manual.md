@@ -6,7 +6,7 @@ This Agent Plugins target implements Workflow's complete Skills-first Manual Sch
 
 - The human separately authorizes planning, implementation, correction, review, provisional acceptance, and learning.
 - Exact Schema-6 bytes in the current conversation are the normal Manual transport. A fresh task requires explicit attachment of the current Root and every referenced artifact. Cache, MCP state, hooks, random server values, and IDs without bytes are not authority.
-- The bundled `${PLUGIN_ROOT}/dist/manual-workflow.mjs` program validates Roots, atomically builds Evidence/Review, derives Manual status, and performs ephemeral provisional acceptance without MCP or persistent state. Ordinary repository-internal scope drift remains visible and provisional; protected, approval-required, or escaping paths remain blocking.
+- The bundled `${PLUGIN_ROOT}/dist/manual-workflow.mjs` program validates Roots, atomically builds Evidence/Review, derives Manual status, and performs ephemeral provisional acceptance without MCP or persistent state. It separates Root-subject delivery paths from visible ambient dirty-tree state; only subject paths affect Root authority, and uncertainty is subject.
 - The project harness owns every repository discovery, command, tool, model, framework, sandbox, worktree, retry, and verification choice. The local builder consumes only closed opaque observations.
 - Unprotected observations are capped to `supported`, `partial`, `unavailable`, or `failed`. They never become verified. Failed required Checks remain blocking.
 - Invalid, stale, foreign, mixed, conflicting, or ambiguous input returns Shadow with no pseudo-artifact and affects only the requested phase.
@@ -20,7 +20,7 @@ This Agent Plugins target implements Workflow's complete Skills-first Manual Sch
 2. The human approves that Root by separately invoking `implement-work` with the exact Root available.
 3. `implement-work` implements outcomes inside Root authority using the active project harness and creates no Evidence or state.
 4. `review-work` declares repository-read-only intent and passes closed unprotected observations to the local builder, which returns exact Evidence and Review artifacts atomically.
-5. `correct-work`, replan, another Review, `accept-work`, and `learn-from-work` remain separate human decisions.
+5. A finding-free Review with every required Check supported or verified ends with no further action. Otherwise `correct-work`, replan, another Review, or `accept-work` remains the exact separate human decision. `learn-from-work` is always an optional separate persistence gate.
 
 The MCP server remains registered for optional automation-compatible status and protected sealing. MCP, adapter, Root, timeout, or hook failure never changes Manual status or ordinary client availability. Protected sealing may append a new pair but never modifies existing Manual artifacts.
 

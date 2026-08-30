@@ -9,12 +9,13 @@
 - [ ] Core architecture contains no command, tool, model, sandbox, worktree, retry, or process policy.
 - [ ] Hooks are availability-first and ordinary host use remains free.
 - [ ] Cursor, Codex, and portable targets rebuild without drift.
-- [ ] `$release-plugin` and `/release-plugin` retain explicit ensure, read-only status, direct prepare, and receipt-bound publish parity outside every shipped target.
-- [ ] Ensure cuts only a clean untagged unprepared changelog, stops at `commit_required`, and prepares only a later clean committed release cut.
+- [ ] `$release-plugin`, `/release-plugin`, metadata, and `release:plugin` expose exactly one explicit no-argument complete-release journey outside every shipped target.
+- [ ] Preflight proves reachable authenticated GitHub access, commit identity, the expected repository, synchronized `main`, safe complete candidate paths, consistent declared versions, and release-ready notes before tracked mutation.
+- [ ] All validated non-ignored tracked and untracked changes enter at most one exact `Release v{version}` commit; the workflow never chooses or bumps a version.
 - [ ] Two preparations of one clean release snapshot produce byte-identical Cursor and Codex archives, provenance, checksums, notes, and receipts.
 - [ ] Prepared archives have one `geldmacher-workflow/` root, canonical manifests and modes, no symlinks, development paths, or recognizable secrets.
-- [ ] Publication requires the exact receipt, clean unchanged commit and tree, valid GitHub authentication, and a remote matching tag; conflicts and failed read-back stop without overwrite or cleanup.
+- [ ] The lightweight tag and `main` update atomically before publication; exact retries resume, while conflicts and failed read-back stop without overwrite, deletion, reset, force-push, or clobber.
 - [ ] Both native host packages contain the linked installation guide with checksum, update, rollback, trust, Marketplace, reload, and fresh-task boundaries.
 - [ ] Documentation and public commands expose no removed Workflow execution surfaces.
 - [ ] Repository validation, links, context budgets, and release surface pass.
-- [ ] Commit, tag, push, GitHub publication, deployment, installation, and host restart remain separately authorized.
+- [ ] The explicit release invocation authorizes only its bounded commit, tag, atomic push, and GitHub publication; deployment, installation, and host restart remain excluded.

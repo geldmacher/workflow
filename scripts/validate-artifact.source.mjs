@@ -446,6 +446,11 @@ function validateLeanEvidence(parsed, sections, failures) {
   for (const path of parsed.fields.changed_paths ?? []) {
     if (path.startsWith("/") || path === ".." || path.startsWith("../")) failures.push(`changed path must remain repository-relative: ${path}`);
   }
+  const subjectPaths = new Set(parsed.fields.changed_paths ?? []);
+  for (const path of parsed.fields.ambient_paths ?? []) {
+    if (path.startsWith("/") || path === ".." || path.startsWith("../")) failures.push(`ambient path must remain repository-relative: ${path}`);
+    if (subjectPaths.has(path)) failures.push(`path cannot be both subject and ambient: ${path}`);
+  }
   validateEvidenceGrades(parsed, failures);
   parsed.effective = {
     checkEvidence: (parsed.fields.check_evidence ?? []).map((entry) => ({ ...entry })),
@@ -480,7 +485,9 @@ function parseCorrection(parsed, sections, failures) {
   const pseudoLearning = new Map([["Correction plan", content]]);
   const learnings = requireTable(pseudoLearning, "Correction plan", tables.learningCandidates, failures, { normalizations: parsed.normalizations });
   const learningIds = exactIdSet(learnings.rows, "Learning ID", learningPattern, "Correction learning", failures);
-  if (!sameSet(learningIds, new Set(declaredLearnings))) failures.push("Correction learning table must exactly match learning_candidates");
+  for (const learningId of learningIds) {
+    if (!declaredLearnings.includes(learningId)) failures.push(`Correction learning ${learningId} must be declared in learning_candidates`);
+  }
   for (const row of learnings.rows) {
     const keys = String(row["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean);
     if (keys.length === 0 || keys.some((key) => !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(key))) failures.push(`Learning ${row["Learning ID"]} needs valid source Finding keys`);
@@ -570,10 +577,14 @@ function validateCompactReview(parsed, sections, failures) {
   }
   if (parsed.fields.next_action === "none" && parsed.fields.assessment !== "achieved") failures.push("next_action none requires assessment achieved");
   if (parsed.fields.delivery_status === "verified" && parsed.fields.assessment !== "achieved") failures.push("verified delivery requires achieved assessment");
-  if (parsed.fields.delivery_status === "provisional" && parsed.fields.next_action !== "accept-provisional") failures.push("provisional delivery requires accept-provisional");
+  if (parsed.fields.delivery_status === "provisional"
+    && !["accept-provisional", "none"].includes(parsed.fields.next_action)) failures.push("provisional delivery requires accept-provisional or a terminal achieved Review");
+  if (parsed.fields.delivery_status === "provisional"
+    && parsed.fields.next_action === "none"
+    && parsed.fields.assessment !== "achieved") failures.push("terminal provisional delivery requires achieved assessment");
   if (parsed.fields.next_action === "accept-provisional" && parsed.fields.delivery_status !== "provisional") failures.push("accept-provisional requires provisional delivery");
   if (parsed.fields.next_action === "correct" && findings.rows.length === 0) failures.push("correct review requires findings");
-  if (parsed.fields.next_action !== "correct" && Array.isArray(parsed.fields.learning_candidates)) failures.push("learning_candidates are allowed only when next_action is correct");
+  if (!["correct", "none"].includes(parsed.fields.next_action) && Array.isArray(parsed.fields.learning_candidates)) failures.push("learning_candidates are allowed only for correction or terminal achieved Review");
   if (parsed.fields.next_action === "retry-review" && parsed.fields.assessment !== "insufficient-evidence") failures.push("retry-review requires assessment insufficient-evidence");
 
   const correction = parseCorrection(parsed, sections, failures);
@@ -939,10 +950,12 @@ function materializeEvidence(artifact, artifacts, cache, failures, rootDirectory
     else {
       if (sourceReview.fields.root_plan_id !== root.fields.id
         || sourceReview.fields.latest_evidence_id !== artifact.fields.predecessor_evidence_id) failures.push(`${artifact.label}: seal source Review must bind the direct predecessor Evidence`);
-      if (sourceReview.fields.delivery_status !== "provisional"
-        || sourceReview.fields.next_action !== "accept-provisional"
+      const sealableDecision = sourceReview.fields.delivery_status === "provisional"
+        && ((sourceReview.fields.assessment === "achieved" && sourceReview.fields.next_action === "none")
+          || (sourceReview.fields.assessment === "provisional" && sourceReview.fields.next_action === "accept-provisional"));
+      if (!sealableDecision
         || sourceReview.fields.correction_id
-        || reviewData(sourceReview).findings.length > 0) failures.push(`${artifact.label}: seal source Review must be a finding-free provisional acceptance tip`);
+        || reviewData(sourceReview).findings.length > 0) failures.push(`${artifact.label}: seal source Review must be a finding-free provisional tip`);
     }
     if (artifact.fields.status !== "complete"
       || artifact.fields.overall_grade !== "verified"
@@ -956,8 +969,8 @@ function materializeEvidence(artifact, artifacts, cache, failures, rootDirectory
     }
   }
 
-  const reviewReady = artifact.fields.status === "complete"
-    && artifact.fields.overall_grade === "verified"
+  const reviewReady = ["complete", "provisional"].includes(artifact.fields.status)
+    && ["verified", "supported"].includes(artifact.fields.overall_grade)
     && [...plan.requiredChecks].every((id) => checks.get(id)?.status === "passed");
   const effective = {
     root,
@@ -1121,13 +1134,18 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
     const learningOwners = new Map();
     for (const review of ordered) for (const learning of review.correction?.learnings ?? []) {
       const id = learning["Learning ID"];
-      if (learningOwners.has(id)) errors.push(`${review.label}: learning candidate ${id} duplicates ${learningOwners.get(id)} within root ${rootId}`);
-      else learningOwners.set(id, review.label);
+      if (learningOwners.has(id)) errors.push(`${review.label}: learning candidate ${id} duplicates ${learningOwners.get(id).label} within root ${rootId}`);
+      else learningOwners.set(id, review);
     }
     const reviewIndex = new Map(ordered.map((review, index) => [review.fields.id, index]));
     const rootEvidence = orderedEvidenceByRoot.get(rootId) ?? [];
     for (let index = 0; index < ordered.length; index += 1) {
       const review = ordered[index];
+      for (const learningId of review.fields.learning_candidates ?? []) {
+        const owner = learningOwners.get(learningId);
+        if (!owner) errors.push(`${review.label}: learning candidate ${learningId} has no correction source in root ${rootId}`);
+        else if ((reviewIndex.get(owner.fields.id) ?? Number.POSITIVE_INFINITY) > index) errors.push(`${review.label}: learning candidate ${learningId} is declared before its correction source`);
+      }
       const boundaryReview = review.fields.review_basis === "root-boundary";
       if (boundaryReview) {
         const receipt = review.fields.boundary_receipt ?? {};
@@ -1259,16 +1277,23 @@ export function effectiveCliSummary(inspection) {
   const evidenceTips = tips("delivery-evidence", "predecessor_evidence_id");
   const reviewTips = tips("work-review", "predecessor_review_id");
   const activeReview = activeRootId && reviewTips[activeRootId] ? inspection.effective.get(reviewTips[activeRootId]) : null;
+  const activeEvidence = activeRootId && evidenceTips[activeRootId] ? inspection.effective.get(evidenceTips[activeRootId]) : null;
+  const activeLearningIds = new Set(activeReview?.fields.learning_candidates ?? []);
+  const learningEligible = activeReview?.fields.assessment === "achieved"
+    && activeReview?.fields.next_action === "none"
+    && ["verified", "supported"].includes(activeEvidence?.fields.overall_grade);
   const learningCandidates = artifacts
     .filter((artifact) => artifact.fields.artifact === "work-review"
       && artifact.fields.root_plan_id === activeRootId
-      && activeReview?.fields.assessment === "achieved"
-      && activeReview?.fields.delivery_status === "verified"
+      && learningEligible
       && artifact.correction?.learnings?.length > 0)
-    .flatMap((artifact) => artifact.correction.learnings.map((learning) => {
+    .flatMap((artifact) => artifact.correction.learnings
+      .filter((learning) => activeLearningIds.has(learning["Learning ID"]))
+      .map((learning) => {
       const evidence = artifacts.find((candidate) => candidate.fields.artifact === "delivery-evidence"
         && candidate.fields.subject_id === artifact.fields.correction_id
-        && candidate.fields.status === "complete");
+        && candidate.fields.status !== "blocked"
+        && ["verified", "supported"].includes(candidate.fields.overall_grade));
       return {
         source_kind: "manual-correction",
         root_plan_id: artifact.fields.root_plan_id,

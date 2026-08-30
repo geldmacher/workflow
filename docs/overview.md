@@ -25,7 +25,7 @@ The Workflow core never evaluates those concrete choices. It may retain opaque t
 
 ## Manual
 
-Manual is the default and requires no controller configuration. The human approves the Root and native implementation action. Review is repository-read-only at the conceptual boundary. A compatible harness may produce protected evidence; without one the review remains provisional rather than blocking ordinary host use.
+Manual is the default and requires no controller configuration. The human approves the Root and native implementation action. Review is repository-read-only at the conceptual boundary. Finding-free supported evidence may establish achieved repository outcomes without pretending to be verified; a compatible protected harness can separately verify them. Ambient dirty-tree state remains visible without becoming delivery scope.
 
 ## Supervised
 

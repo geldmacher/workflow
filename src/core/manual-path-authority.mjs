@@ -117,9 +117,13 @@ function classifyCandidates(candidates, authority) {
   return "outside-allowed";
 }
 
-export function classifyChangedPathAuthority(rootFields, changedPaths, repositoryRoot = null) {
+export function classifyChangedPathAuthority(rootFields, changedPaths, repositoryRoot = null, ambientPaths = []) {
   const authority = normalizedAuthority(rootFields?.authority ?? {});
   if (authority.allowed.length === 0) throw new Error("native closeout Root has no allowed path authority");
+  const subjectPaths = uniqueSorted(changedPaths);
+  const ambient = uniqueSorted(ambientPaths);
+  const overlap = subjectPaths.filter((path) => ambient.includes(path));
+  if (overlap.length > 0) throw new Error(`repository paths cannot be both subject and ambient: ${overlap.join(", ")}`);
   const projection = {
     schema: 1,
     status: "within-authority",
@@ -127,13 +131,19 @@ export function classifyChangedPathAuthority(rootFields, changedPaths, repositor
     outside_allowed_paths: [],
     approval_required_paths: [],
     protected_paths: [],
+    ambient_paths: [],
   };
-  for (const path of uniqueSorted(changedPaths)) {
+  for (const path of subjectPaths) {
     const normalized = normalizeRepositoryPath(path);
     const candidates = repositoryRoot ? repositoryAuthorityPaths(repositoryRoot, normalized) : [normalized];
     const category = classifyCandidates(candidates, authority);
     const key = category === "allowed" ? "allowed_paths" : `${category.replaceAll("-", "_")}_paths`;
     projection[key].push(normalized);
+  }
+  for (const path of ambient) {
+    const normalized = normalizeRepositoryPath(path);
+    if (repositoryRoot) repositoryAuthorityPaths(repositoryRoot, normalized);
+    projection.ambient_paths.push(normalized);
   }
   if (projection.protected_paths.length > 0) projection.status = "protected";
   else if (projection.approval_required_paths.length > 0) projection.status = "approval-required";

@@ -3,22 +3,24 @@ name: work-planning
 description: Create an intent-ready Schema-6 Workflow root.
 ---
 
-Plan in the native mode. `replan [wp-*]` requires the exact current Schema-6 Root and unique `next_action: replan` tip. Reject unsupported schemas.
+Plan natively. Replan needs exact Root and unique `next_action: replan`.
 
-## Intent interview
+## Intent and method
 
-Ask only about material outcome, scope, behavior, authority, risk, or acceptance. Emit no Root while its authority envelope remains open.
+Clarify only material intent; emit no Root with open authority.
 
-## Root planning
+Once stable, read `../../references/engineering-playbooks.md`. Recommend exactly one closest playbook with ID, fit, intended phase, and authority need. Before the final Root ask and wait for an explicit inline confirm or decline. Decline continues without a playbook; confirmation is human trace outside authority. Material intent change requires a fresh suggestion.
 
-Read [root semantics](../../references/executable-contract.md), [native output](../../references/plan-container-contract.md), and [design](../../references/design-contract.md). Preserve decisions in one immutable Schema-6 Intent Root.
+## Root
 
-Render `Quick decision` → `Details` → `Agent and machine contract (authoritative)`: one closed `yaml artifact-envelope` plus required Markdown sections.
+Read [root semantics](../../references/executable-contract.md), [native output](../../references/plan-container-contract.md), and [design](../../references/design-contract.md). Build one Root.
 
-Define goal, acceptance, non-goals, constraints, authority, risk, Hard Triggers, and profile. Give each objective falsifiable verification intent. Verification columns are only `Check ID | Objectives | Verification Intent | Expected Evidence | Required | Evidence Class | Cost Class | Prerequisites`.
+Render `Quick decision` → `Details` → `Agent and machine contract (authoritative)` with one envelope; human trace stays outside.
 
-Never add or judge commands, directories, tools, models, sandboxes, worktrees, routes, retries, or recipes; the harness owns them.
+Bind observable outcomes and hard boundaries. Internal design or files become authoritative only for material public contracts, security, authority, or chosen trade-offs. Give each objective minimum falsifiable intent using `Check ID | Objectives | Verification Intent | Expected Evidence | Required | Evidence Class | Cost Class | Prerequisites`.
 
-Pass `presentation_locale: de` only for an active German request, otherwise `en`, and run local `validate-plan` on the exact Root. Require feasible output with the same ID. Decorate only its derived `implement-plan` as **Implement Plan** or `correct-plan` as Plan revision. Validation creates no artifact, MCP call, or approval. Replan needs a fresh `wp-*`, exact predecessor/review binding, and renewed approval; cache and handoff grant none.
+The harness owns all execution choices.
 
-Use the native Plan container. Add no closeout or Evidence steps. End with `### Next step`: state Root readiness, one concrete reason, and exactly one action: **Implement Plan**. Never claim phase, delivery, or Workflow completion or add a Review action.
+Select locale, validate the exact Root locally, and require its ID. Decorate only `implement-plan` as **Implement Plan** or `correct-plan` as Plan revision. Replan needs fresh ID, binding, and approval.
+
+Add no closeout. End with `### Next step`: state Root readiness, one concrete reason, and exactly one action: **Implement Plan**. Claim no completion or Review action.

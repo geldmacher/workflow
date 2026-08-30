@@ -1,6 +1,6 @@
 interface:
   display_name: "Release Plugin"
-  short_description: "Prepare or publish verified plugin releases"
-  default_prompt: "Use $release-plugin to safely ensure this repository's GitHub Release preparation."
+  short_description: "Complete one verified plugin release"
+  default_prompt: "Use $release-plugin to complete this repository's validated GitHub Release in one explicit invocation."
 policy:
   allow_implicit_invocation: false

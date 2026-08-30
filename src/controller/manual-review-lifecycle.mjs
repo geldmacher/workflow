@@ -4,11 +4,10 @@ import {
   inspectArtifactSet,
   inspectArtifactText,
 } from "../../scripts/validate-artifact.source.mjs";
-import { assertChangedPathAuthority } from "../core/manual-path-authority.mjs";
+import { classifyChangedPathAuthority } from "../core/manual-path-authority.mjs";
 import {
   captureRepositorySnapshot,
   deriveRepositoryDelta,
-  evidenceRepositorySnapshot,
   repositorySnapshotHash,
 } from "../harness/repository-snapshot.mjs";
 import { buildDeliveryEvidence } from "./delivery-closeout.mjs";
@@ -83,17 +82,19 @@ function assertSealPredecessor(exact, pluginRoot) {
   if (exact.unprovenancedReviewIds.length !== 1 || exact.unprovenancedReviewIds[0] !== reviewTipId) {
     throw codedError("protected-seal-chain-invalid", "protected sealing requires exactly one unprovenanced current Review tip");
   }
+  const sealableDecision = reviewTip?.fields.delivery_status === "provisional"
+    && ((reviewTip.fields.assessment === "achieved" && reviewTip.fields.next_action === "none")
+      || (reviewTip.fields.assessment === "provisional" && reviewTip.fields.next_action === "accept-provisional"));
   if (!evidenceTip || !reviewTip
     || evidenceTip.fields.representation !== "full"
     || reviewTip.fields.latest_evidence_id !== evidenceTipId
     || reviewTip.fields.predecessor_review_id
-    || reviewTip.fields.delivery_status !== "provisional"
-    || reviewTip.fields.next_action !== "accept-provisional"
+    || !sealableDecision
     || reviewTip.fields.correction_id
     || (reviewTip.findings ?? []).length > 0
     || evidenceTip.fields.status === "blocked"
     || (evidenceTip.fields.check_evidence ?? []).some((entry) => entry.grade === "failed")) {
-    throw codedError("protected-seal-chain-invalid", "protected sealing requires one finding-free initial provisional Evidence/Review pair");
+    throw codedError("protected-seal-chain-invalid", "protected sealing requires one finding-free provisional Evidence/Review pair");
   }
   return { current, evidenceTipId, reviewTipId };
 }
@@ -248,34 +249,39 @@ export function buildManualReviewLifecycle({
     attribution_reason_codes: [],
   } : observedRepositoryDelta;
   let evidenceChangedPaths = repositoryDelta.changed_paths;
+  let evidenceAmbientPaths = sortedPaths((repositoryDelta.observed_dirty_paths ?? [])
+    .filter((path) => !evidenceChangedPaths.includes(path)));
   let evidenceSnapshot = repositoryDelta.repository_snapshot;
   let effectiveReviewInput = reviewInput;
   let effectiveCheckEvidence = checkEvidence;
+  let forcedStatus = null;
   if (repositoryDelta.attribution_status !== "attributed") {
     const reason = repositoryDelta.attribution_reason_codes.join(", ") || "attribution-unavailable";
     const message = `Repository attribution is provisional (${reason}); current checks remain usable, but Workflow cannot claim an exclusive task delta.`;
     effectiveReviewInput = attributionLimitation(effectiveReviewInput, message);
     effectiveCheckEvidence = supportedOnBoundary(effectiveCheckEvidence, message);
   }
-  try {
-    assertChangedPathAuthority(exact.rootFields, repositoryDelta.changed_paths, current.repository_root);
-  } catch (error) {
-    const message = `Current repository changes do not fit the native Plan authority: ${String(error?.message ?? error)}`;
+  const pathAuthority = classifyChangedPathAuthority(
+    exact.rootFields,
+    evidenceChangedPaths,
+    current.repository_root,
+    evidenceAmbientPaths,
+  );
+  if (pathAuthority.protected_paths.length > 0 || pathAuthority.approval_required_paths.length > 0) {
+    const blockedPaths = [...pathAuthority.protected_paths, ...pathAuthority.approval_required_paths];
+    const message = `Current repository subject changes cross a hard native Plan boundary: ${blockedPaths.join(", ")}`;
     if (seal) throw codedError("protected-seal-authority-violation", message);
     effectiveReviewInput = authorityLimitation(effectiveReviewInput, message);
     effectiveCheckEvidence = supportedOnBoundary(effectiveCheckEvidence, message);
-    // Evidence may contain only Root-authorized changed paths. Keep
-    // the complete dirty inventory in the Review limitation while recording
-    // the safely attributable subset in Evidence.
-    evidenceChangedPaths = repositoryDelta.changed_paths.filter((path) => {
-      try {
-        assertChangedPathAuthority(exact.rootFields, [path], current.repository_root);
-        return true;
-      } catch {
-        return false;
-      }
-    });
-    evidenceSnapshot = evidenceRepositorySnapshot(current, evidenceChangedPaths, { baselineAvailable: false });
+    forcedStatus = "blocked";
+  } else if (pathAuthority.outside_allowed_paths.length > 0) {
+    const message = `Root-subject scope drift remains provisional: ${pathAuthority.outside_allowed_paths.join(", ")}`;
+    if (seal) throw codedError("protected-seal-authority-violation", message);
+    effectiveReviewInput = attributionLimitation(effectiveReviewInput, message);
+    effectiveReviewInput = {
+      ...effectiveReviewInput,
+      missing_evidence: [...new Set([...(effectiveReviewInput.missing_evidence ?? []), message])],
+    };
   }
 
   // Reusing an Evidence tip is only honest when its declared changed_paths still
@@ -304,6 +310,7 @@ export function buildManualReviewLifecycle({
       artifacts: exact.entries,
       checkEvidence: effectiveCheckEvidence,
       changedPaths: evidenceChangedPaths,
+      ambientPaths: evidenceAmbientPaths,
       effectiveProfile: "manual",
       summary,
       harnessAttestations,
@@ -312,6 +319,8 @@ export function buildManualReviewLifecycle({
       enforceHarnessAttestations: true,
       workspaceBinding: workspaceBinding ?? createHash("sha256").update(current.repository_root).digest("hex"),
       workspaceSnapshotHash: harnessSnapshotHash,
+      forcedStatus,
+      allowManualScopeDrift: !seal,
       seal: true,
       pluginRoot,
     });
@@ -323,6 +332,7 @@ export function buildManualReviewLifecycle({
       artifacts: exact.entries,
       checkEvidence: effectiveCheckEvidence,
       changedPaths: evidenceChangedPaths,
+      ambientPaths: evidenceAmbientPaths,
       effectiveProfile: "manual",
       summary,
       harnessAttestations,
@@ -331,6 +341,8 @@ export function buildManualReviewLifecycle({
       enforceHarnessAttestations: true,
       workspaceBinding: workspaceBinding ?? createHash("sha256").update(current.repository_root).digest("hex"),
       workspaceSnapshotHash: harnessSnapshotHash,
+      forcedStatus,
+      allowManualScopeDrift: true,
       pluginRoot,
     });
     reviewArtifacts = [...exact.entries, { label: evidence.fields.id, text: evidence.artifact }];
@@ -342,6 +354,7 @@ export function buildManualReviewLifecycle({
       artifacts: refreshBaseEntries,
       checkEvidence: effectiveCheckEvidence,
       changedPaths: evidenceChangedPaths,
+      ambientPaths: evidenceAmbientPaths,
       effectiveProfile: "manual",
       summary,
       harnessAttestations,
@@ -350,6 +363,8 @@ export function buildManualReviewLifecycle({
       enforceHarnessAttestations: true,
       workspaceBinding: workspaceBinding ?? createHash("sha256").update(current.repository_root).digest("hex"),
       workspaceSnapshotHash: harnessSnapshotHash,
+      forcedStatus,
+      allowManualScopeDrift: true,
       pluginRoot,
     });
     const currentEvidenceText = exact.entries.find((entry) => entry.label === evidenceTipId)?.text ?? null;
@@ -386,6 +401,7 @@ export function buildManualReviewLifecycle({
     repository_state_hash: repositorySnapshotHash(current),
     chain_update: chainUpdate,
     changed_paths: evidenceChangedPaths,
+    ambient_paths: evidenceAmbientPaths,
     observed_dirty_paths: repositoryDelta.observed_dirty_paths,
     pre_existing_paths: repositoryDelta.pre_existing_paths,
     repository_attribution: {

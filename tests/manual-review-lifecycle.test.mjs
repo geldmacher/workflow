@@ -320,7 +320,7 @@ test("manual Review rejects invalid Roots, missing inputs, and unprotected Revie
   }), (error) => error?.code === "review-artifact-rejected");
 });
 
-test("repository attribution and Root path authority downgrade claims without inventing failure", () => {
+test("repository attribution keeps ordinary subject scope drift provisional without inventing failure", () => {
   const unsupported = {
     ...current,
     dirty_paths: ["README.md", "src/retry.mjs"],
@@ -339,10 +339,10 @@ test("repository attribution and Root path authority downgrade claims without in
     repositoryAttribution: { status: "provisional", boundary: "create-plan", reason_codes: [] },
     captureSnapshot: () => unsupported,
   });
-  assert.equal(bundle.review.fields.delivery_status, "blocked");
-  assert.equal(bundle.review.fields.next_action, "clarify");
-  assert.deepEqual(bundle.changed_paths, ["src/retry.mjs"]);
-  assert.match(bundle.review.artifact, /README\.md|Plan authority/);
+  assert.equal(bundle.review.fields.delivery_status, "provisional");
+  assert.equal(bundle.review.fields.next_action, "accept-provisional");
+  assert.deepEqual(bundle.changed_paths, ["README.md", "src/retry.mjs"]);
+  assert.match(bundle.review.artifact, /README\.md|scope drift/);
   assert.match(bundle.delivery_evidence.fields.check_evidence[0].limitations.join("\n"), /provisional|harness/i);
 });
 

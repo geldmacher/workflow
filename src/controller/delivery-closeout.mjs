@@ -77,19 +77,17 @@ function correctionCheckIntent(correction, check) {
   };
 }
 
-function requiredChecks(contract, correction) {
-  const root = contract.checks.filter((check) => check.Required === "yes");
+function plannedChecks(contract, correction) {
+  const root = contract.checks;
   if (!correction) return new Map(root.map((check) => [check["Check ID"], check]));
-  const correctionChecks = (correction.checks ?? [])
-    .filter((check) => check.Required === "yes")
-    .map((check) => correctionCheckIntent(correction, check));
+  const correctionChecks = (correction.checks ?? []).map((check) => correctionCheckIntent(correction, check));
   const referencedRootIds = new Set(correctionRootChecks(correction));
   const referencedRoot = root.filter((check) => referencedRootIds.has(check["Check ID"]));
   return new Map([...correctionChecks, ...referencedRoot, ...root].map((check) => [check["Check ID"], check]));
 }
 
 export function correctionHarnessVerificationIntents(correction, contract) {
-  return [...requiredChecks(contract, correction).values()];
+  return [...plannedChecks(contract, correction).values()].filter((check) => check.Required === "yes");
 }
 
 function normalizeEvidence(input, plannedChecks) {
@@ -98,12 +96,16 @@ function normalizeEvidence(input, plannedChecks) {
   if (new Set(ids).size !== ids.length) throw new Error("closeout Check evidence IDs must be unique");
   const supplied = new Map(input.map((entry) => [entry?.check_id, entry]));
   for (const checkId of supplied.keys()) if (!plannedChecks.has(checkId)) throw new Error(`closeout received unknown Check ${checkId}`);
-  return [...plannedChecks.keys()].map((checkId) => supplied.get(checkId) ?? {
-    check_id: checkId,
-    grade: "unavailable",
-    observed: "No project-harness observation was available for this verification intent.",
-    evidence_hashes: [],
-    limitations: ["The active project harness did not return evidence for this Check."],
+  return [...plannedChecks.entries()].flatMap(([checkId, planned]) => {
+    const observed = supplied.get(checkId);
+    if (!observed && planned.Required !== "yes") return [];
+    return [observed ?? {
+      check_id: checkId,
+      grade: "unavailable",
+      observed: "No project-harness observation was available for this verification intent.",
+      evidence_hashes: [],
+      limitations: ["The active project harness did not return evidence for this Check."],
+    }];
   }).map((entry) => {
     if (!plannedChecks.has(entry?.check_id)) throw new Error(`closeout received unknown Check ${entry?.check_id}`);
     if (!GRADES.has(entry.grade)) throw new Error(`closeout Check ${entry.check_id} has invalid grade`);
@@ -148,6 +150,7 @@ export function buildDeliveryEvidence({
   artifacts = [],
   checkEvidence,
   changedPaths = [],
+  ambientPaths = [],
   effectiveProfile = null,
   summary = null,
   harnessAttestations = [],
@@ -181,15 +184,17 @@ export function buildDeliveryEvidence({
     if (!evidenceTipId || !review || review.fields.latest_evidence_id !== evidenceTipId) {
       throw new Error("protected sealing requires one exact current provisional Evidence/Review tip");
     }
-    if (review.fields.delivery_status !== "provisional"
-      || review.fields.next_action !== "accept-provisional"
+    const sealableDecision = review.fields.delivery_status === "provisional"
+      && ((review.fields.assessment === "achieved" && review.fields.next_action === "none")
+        || (review.fields.assessment === "provisional" && review.fields.next_action === "accept-provisional"));
+    if (!sealableDecision
       || review.fields.correction_id
       || (review.findings ?? []).length > 0) {
-      throw new Error(`protected sealing rejects non-provisional Review tip ${review.fields.id}`);
+      throw new Error(`protected sealing rejects non-sealable finding-free Review tip ${review.fields.id}`);
     }
   } else if (evidenceTipId && !correction) {
     const existing = normalized.entries.find((entry) => entry.label === evidenceTipId);
-    if ((checkEvidence ?? []).length > 0 || (changedPaths ?? []).length > 0) {
+    if ((checkEvidence ?? []).length > 0 || (changedPaths ?? []).length > 0 || (ambientPaths ?? []).length > 0) {
       throw new Error(`stale or competing closeout conflicts with current Evidence tip ${evidenceTipId}`);
     }
     const fields = prior.effective.get(evidenceTipId)?.fields ?? null;
@@ -202,7 +207,7 @@ export function buildDeliveryEvidence({
     };
   }
 
-  const planned = requiredChecks(contract, correction);
+  const planned = plannedChecks(contract, correction);
   let entries = normalizeEvidence(checkEvidence, planned);
   const rootHash = sha256(rootPlanText);
   const effectiveWorkspaceBinding = workspaceBinding ?? harnessContractHash({ workspace: "not-established" });
@@ -232,8 +237,11 @@ export function buildDeliveryEvidence({
   const sourceReviewId = correction || seal ? review.fields.id : null;
   const predecessorEvidenceId = correction || seal ? evidenceTipId : null;
   const paths = unique((changedPaths ?? []).map(String).map((path) => path.trim()).filter(Boolean)).sort();
+  const ambient = unique((ambientPaths ?? []).map(String).map((path) => path.trim()).filter(Boolean)).sort();
+  const overlap = paths.filter((path) => ambient.includes(path));
+  if (overlap.length > 0) throw new Error(`changed paths cannot be both subject and ambient: ${overlap.join(", ")}`);
   if (!allowManualScopeDrift) {
-    const authority = classifyChangedPathAuthority(contract.fields, paths);
+    const authority = classifyChangedPathAuthority(contract.fields, paths, null, ambient);
     if (authority.status !== "within-authority") {
       const rejected = [
         ...authority.outside_allowed_paths,
@@ -251,6 +259,7 @@ export function buildDeliveryEvidence({
     predecessor_evidence_id: predecessorEvidenceId,
     workspace_snapshot_hash: effectiveSnapshotHash,
     changed_paths: paths,
+    ambient_paths: ambient,
     check_evidence: entries,
     forced_status: forcedStatus,
     summary: summary ?? null,
@@ -272,6 +281,7 @@ export function buildDeliveryEvidence({
     overall_grade: grade,
     workspace_snapshot_hash: effectiveSnapshotHash,
     changed_paths: paths,
+    ambient_paths: ambient,
     affected_objectives: affectedObjectives,
     reused_objectives: [],
     executed_checks: entries.map((entry) => entry.check_id),

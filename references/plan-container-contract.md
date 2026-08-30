@@ -1,7 +1,9 @@
 # Native Plan container contract
 
-Cursor, Codex, and portable hosts own their native Plan UI. Workflow contributes one exact immutable Schema-6 `work-plan` Root with a visible `wp-*` ID; it creates no second authoritative plan container.
+Hosts own Plan UI. Workflow contributes one Schema-6 Root with visible `wp-*` ID and no second authority.
 
-The plan response contains human `Quick decision`, implementation-level detail, and exactly one authoritative Schema-6 artifact envelope. Put `### Verification` directly inside `## Acceptance` with the intent-only columns from the Root contract.
+Order `Quick decision` → `Details` → `Agent and machine contract (authoritative)`; put intent-only Verification inside Acceptance.
 
-Native todos describe desired outcomes and conceptual verification goals. They must not prescribe commands, tools, models, retries, sandboxes, worktrees, Evidence creation, deployment, or publication. Human selection of the native implementation action is the implementation gate. Host observation and Workflow receipts transport exact bytes but do not replace that decision.
+`Details` may state the inline playbook decision. This trace grants nothing and expires on intent change. The exact Root alone carries no playbook choice.
+
+Todos state outcomes and verification. Guessed files, internals, and solutions stay adaptive unless a public contract, security, authority, or chosen trade-off makes them material. They prescribe no execution, Evidence, deployment, or publication. Human implementation selection is the gate.

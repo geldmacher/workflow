@@ -17,9 +17,9 @@ This contract preserves Workflow's Skills-first Manual Schema-6 lifecycle on Age
 3. Implementation revalidates the exact Root, stays inside Root authority, and finishes without creating Evidence or Workflow state.
 4. `review-work` declares repository-read-only intent; the project harness returns closed repository and Check observations.
 5. Review passes closed Schema-1 input to the local builder, which builds Schema-6 Evidence, Review, hashes, and human presentation atomically.
-6. `work-status` derives state locally from the exact chain. Provisional acceptance, correction, and learning remain separate invocations.
+6. A finding-free Review with every required Check supported or verified is terminal; otherwise `work-status` exposes exactly the bounded correction, replan, retry, clarification, or provisional-acceptance decision. Learning remains a separate invocation.
 
-Unprotected inputs can never claim verified. Optional protected sealing requires harness attestations bound to Check intent, exact Root, workspace, and snapshot and appends a new artifact pair. Missing attestation stays provisional; attested failure stays failed; contradictory binding is rejected. Workflow never inspects command, tool, model, framework, sandbox, worktree, retry, or route data.
+Unprotected inputs can never claim verified. Review partitions subject delivery paths from visible ambient dirty-tree state; only subject paths affect Root authority, and uncertain attribution is subject. Optional protected sealing requires harness attestations bound to Check intent, exact Root, workspace, and snapshot and appends a new artifact pair. Missing attestation keeps proof below verified without making supported outcomes incomplete; attested failure stays failed; contradictory binding is rejected. Workflow never inspects command, tool, model, framework, sandbox, worktree, retry, or route data.
 
 ## Action decoration
 
@@ -44,4 +44,4 @@ There is no fallback mapping. The facade never invents another assessment or act
 
 ## Failure boundary
 
-Invalid, stale, conflicting, mixed-version, or ambiguous Roots, artifact chains, observations, or workspace bindings return Shadow without pseudo-artifacts and stop only the affected phase. Ordinary repository-internal paths outside `allowed_roots` remain visible and cap Manual delivery at provisional; protected, approval-required, or escaping paths remain blocking. MCP, adapter, Root, hook, cache, or automation unavailability cannot change Manual status or block ordinary client use. Prose, cache content, tool IDs, or opaque trace cannot manufacture approval, Evidence, or success.
+Invalid, stale, conflicting, mixed-version, or ambiguous Roots, artifact chains, observations, or workspace bindings return Shadow without pseudo-artifacts and stop only the affected phase. Ordinary subject paths outside `allowed_roots` remain visible and cap Manual delivery at provisional; ambient paths remain visible and non-blocking; protected, approval-required, or escaping subject paths remain blocking. MCP, adapter, Root, hook, cache, or automation unavailability cannot change Manual status or block ordinary client use. Prose, cache content, tool IDs, or opaque trace cannot manufacture approval, Evidence, or success.

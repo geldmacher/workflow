@@ -270,6 +270,7 @@ export function createArtifactHandlers({
     source_review_id: persisted.fields.source_review_id ?? null,
     predecessor_evidence_id: persisted.fields.predecessor_evidence_id ?? null,
     changed_paths: persisted.fields.changed_paths ?? input.changed_paths ?? [],
+    ambient_paths: persisted.fields.ambient_paths ?? [],
     check_evidence: persisted.fields.check_evidence ?? [],
     ...(persisted.fields.extensions?.workflow?.repository_attribution
       ? { repository_attribution: persisted.fields.extensions.workflow.repository_attribution }
@@ -351,6 +352,7 @@ export function createArtifactHandlers({
     predecessor_review_id: bundle.review.fields.predecessor_review_id ?? null,
     correction_id: bundle.review.fields.correction_id ?? null,
     changed_paths: bundle.changed_paths,
+    ambient_paths: bundle.ambient_paths ?? [],
     observed_dirty_paths: bundle.observed_dirty_paths,
     pre_existing_paths: bundle.pre_existing_paths ?? [],
     repository_snapshot: bundle.repository_snapshot,

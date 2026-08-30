@@ -20,11 +20,14 @@ The builder performs no repository discovery, Git operation, Check, command, too
 - `schema: 1`
 - `kind: unprotected-repository-observation`
 - the absolute `repository_root`
-- repository-relative `changed_paths`
+- repository-relative `subject_changed_paths`
+- repository-relative `ambient_changed_paths`
 - non-empty opaque `snapshot_material`
 - explicit `limitations`
 
-Each Check observation contains only `check_id`, `grade`, `observed`, `evidence_material`, and `limitations`. Local grades are limited to `supported`, `partial`, `unavailable`, and `failed`. `supported`, `partial`, and `failed` require evidence material; `partial` and `unavailable` require a limitation. Supplied hashes, attestations, receipts, or `verified` claims are rejected. The builder hashes opaque material itself and caps all unprotected observations below verified.
+The two path arrays are complete, disjoint, and snapshot-bound. Subject paths are the Root delivery; ambient paths are observed dirty-tree state outside that delivery. Materially uncertain attribution belongs in `subject_changed_paths`. Only subject paths are classified against Root authority.
+
+Each Check observation contains only `check_id`, `grade`, `observed`, `evidence_material`, and `limitations`. Local grades are limited to `supported`, `partial`, `unavailable`, and `failed`. Required Checks must be observed or become unavailable; optional Root Checks may be supplied or omitted. `supported`, `partial`, and `failed` require evidence material; `partial` and `unavailable` require a limitation. Supplied hashes, attestations, receipts, or `verified` claims are rejected. The builder hashes opaque material itself and caps all unprotected observations below verified.
 
 ## Atomic result
 
@@ -41,7 +44,7 @@ Action authority remains operation-specific: Review uses `presentation.next_acti
 
 Invalid JSON, unsupported schemas, invalid or ambiguous lineage, conflicting bytes, foreign or stale chain material, unknown Checks, and malformed observations return `kind: manual-workflow-error`, `mode: shadow`, `artifacts: []`, and a stable recovery action. The builder never deletes or changes the Root or predecessor bytes held in the task.
 
-Evidence keeps every observed repository-internal changed path. The builder returns a deterministic `path_authority` projection with `allowed_paths`, `outside_allowed_paths`, `approval_required_paths`, and `protected_paths`. Ordinary paths outside `allowed_roots` cap Manual delivery at provisional and may be accepted only ephemerally; this does not grant authority or verified evidence. Protected and approval-required paths remain visible but force a blocked `clarify` decision. Absolute, traversal, malformed, or repository/symlink-escaping paths return Shadow without artifacts. Protected automation and sealing retain hard Root authority.
+Evidence keeps every observed repository-internal path, with delivery `changed_paths` and separate `ambient_paths`. The builder returns a deterministic `path_authority` projection with `allowed_paths`, `outside_allowed_paths`, `approval_required_paths`, `protected_paths`, and `ambient_paths`. Ordinary subject paths outside `allowed_roots` cap Manual delivery at provisional and may be accepted only ephemerally; ambient paths grant no authority and cause no delivery decision. Protected and approval-required subject paths remain visible but force a blocked `clarify` decision. Absolute, traversal, malformed, overlapping, or repository/symlink-escaping paths return Shadow without artifacts. Protected automation and sealing retain hard Root authority.
 
 Authority patterns are repository-relative POSIX paths. Literal roots match themselves and descendants, `*` matches within one segment, and `**` is recursive only as a complete segment and may match zero or more segments. Protected takes precedence over approval-required, then allowed, then outside-allowed. Overlap is valid and resolved by that precedence.
 
@@ -49,4 +52,4 @@ Authority patterns are repository-relative POSIX paths. Literal roots match them
 
 The normal transport is the current task. A fresh task must receive the exact current Root and every referenced Evidence/Review artifact explicitly. Review facades place each returned artifact text exactly once, unchanged and unquoted, inside its own default-closed disclosure block. Wrapper markup is presentation only. IDs, cache, handoff, hook state, MCP state, or host memory without the exact bytes are insufficient.
 
-The local builder is deterministic construction, not protected execution. A successful unprotected Review therefore ends at most `provisional`. Optional protected sealing may later append new Evidence and Review artifacts, but it never edits or upgrades already emitted Manual artifacts.
+The local builder is deterministic construction, not protected execution. A successful unprotected Review therefore keeps provisional delivery proof, but supported current evidence may still establish an achieved repository outcome with `next_action: none`. Optional protected sealing may later append new Evidence and Review artifacts, but it never edits or upgrades already emitted Manual artifacts.

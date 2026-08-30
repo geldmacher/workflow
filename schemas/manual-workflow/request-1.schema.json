@@ -129,12 +129,13 @@
     "repositoryObservation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema", "kind", "repository_root", "changed_paths", "snapshot_material", "limitations"],
+      "required": ["schema", "kind", "repository_root", "subject_changed_paths", "ambient_changed_paths", "snapshot_material", "limitations"],
       "properties": {
         "schema": { "const": 1 },
         "kind": { "const": "unprotected-repository-observation" },
         "repository_root": { "$ref": "#/$defs/line" },
-        "changed_paths": { "type": "array", "maxItems": 20000, "items": { "$ref": "#/$defs/line" } },
+        "subject_changed_paths": { "type": "array", "maxItems": 20000, "items": { "$ref": "#/$defs/line" } },
+        "ambient_changed_paths": { "type": "array", "maxItems": 20000, "items": { "$ref": "#/$defs/line" } },
         "snapshot_material": { "type": "array", "minItems": 1, "maxItems": 2000, "items": { "type": "string", "minLength": 1, "maxLength": 100000 } },
         "limitations": { "type": "array", "maxItems": 128, "items": { "$ref": "#/$defs/line" } }
       }

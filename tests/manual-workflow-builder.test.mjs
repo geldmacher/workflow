@@ -37,7 +37,8 @@ function request(overrides = {}) {
       schema: 1,
       kind: "unprotected-repository-observation",
       repository_root: root,
-      changed_paths: ["src/controller/manual-status.mjs"],
+      subject_changed_paths: ["src/controller/manual-status.mjs"],
+      ambient_changed_paths: [],
       snapshot_material: ["tree:fixture-manual-review", "diff:manual-status"],
       limitations: ["Repository observation was supplied by the active project harness without protected attestation."],
     },
@@ -50,6 +51,15 @@ function request(overrides = {}) {
     }],
     ...overrides,
   };
+}
+
+function proofGapRequest(overrides = {}) {
+  return request({
+    review_input: reviewInput({
+      missing_evidence: ["A current proof gap still requires an explicit human decision."],
+    }),
+    ...overrides,
+  });
 }
 
 function exactArtifacts(result) {
@@ -190,7 +200,7 @@ test("public Review-input length limits match the runtime at every distinct boun
   }
 });
 
-test("Manual builder deterministically creates one provisional Evidence and Review pair", () => {
+test("Manual builder makes supported finding-free outcomes terminal without upgrading proof", () => {
   const first = executeManualOperation("build-review", request());
   const second = executeManualOperation("build-review", structuredClone(request()));
   assert.equal(first.ok, true);
@@ -201,10 +211,51 @@ test("Manual builder deterministically creates one provisional Evidence and Revi
   const review = inspectArtifactText(first.artifacts[1].text, root).artifact.fields;
   assert.equal(evidence.overall_grade, "supported");
   assert.equal(evidence.status, "provisional");
+  assert.equal(review.assessment, "achieved");
   assert.equal(review.delivery_status, "provisional");
-  assert.equal(review.next_action, "accept-provisional");
+  assert.equal(review.next_action, "none");
   assert.equal(first.presentation.next_action, review.next_action);
-  assert.match(first.human_output, /Action token: `accept-provisional`/);
+  assert.match(first.human_output, /All good:/);
+  assert.match(first.human_output, /Action token: `none`/);
+});
+
+test("ambient dirty paths stay visible without becoming delivery authority", () => {
+  const input = request();
+  input.repository_observation.ambient_changed_paths = [".git/config", "README.md"];
+  input.repository_observation.snapshot_material.push("ambient:.git/config,README.md");
+  const result = executeManualOperation("build-review", input);
+  assert.equal(result.ok, true, result.error?.message);
+  assert.equal(result.presentation.assessment, "achieved");
+  assert.equal(result.presentation.next_action, "none");
+  assert.deepEqual(result.path_authority.protected_paths, []);
+  assert.deepEqual(result.path_authority.ambient_paths, [".git/config", "README.md"]);
+  const evidence = inspectArtifactText(result.artifacts[0].text, root).artifact.fields;
+  assert.deepEqual(evidence.changed_paths, ["src/controller/manual-status.mjs"]);
+  assert.deepEqual(evidence.ambient_paths, [".git/config", "README.md"]);
+  assert.match(result.human_output, /Ambient changes/);
+});
+
+test("optional Root Checks may be supplied or omitted without Shadow", () => {
+  const optionalPlan = rootPlan.replace(
+    "| CHECK-1 | OBJ-1 | Prove retry behavior",
+    "| CHECK-2 | OBJ-1 | Observe an optional secondary signal. | Optional current-snapshot evidence. | no | reviewer-observable | cheap | None. |\n| CHECK-1 | OBJ-1 | Prove retry behavior",
+  );
+  const omitted = executeManualOperation("build-review", request({ root_plan: optionalPlan }));
+  assert.equal(omitted.ok, true, omitted.error?.message);
+  assert.deepEqual(inspectArtifactText(omitted.artifacts[0].text, root).artifact.fields.executed_checks, ["CHECK-1"]);
+
+  const suppliedInput = request({ root_plan: optionalPlan });
+  suppliedInput.check_observations.push({
+    check_id: "CHECK-2",
+    grade: "supported",
+    observed: "The optional secondary signal is present.",
+    evidence_material: ["CHECK-2:pass:fixture"],
+    limitations: [],
+  });
+  const supplied = executeManualOperation("build-review", suppliedInput);
+  assert.equal(supplied.ok, true, supplied.error?.message);
+  assert.deepEqual(inspectArtifactText(supplied.artifacts[0].text, root).artifact.fields.executed_checks, ["CHECK-2", "CHECK-1"]);
+  assert.equal(supplied.presentation.next_action, "none");
 });
 
 test("presentation locale is deterministic, defaults to English, and cannot change authoritative Review identity", () => {
@@ -218,7 +269,8 @@ test("presentation locale is deterministic, defaults to English, and cannot chan
   assert.match(germanReview.human_output, /^## Review-Ergebnis ·/);
   assert.match(germanReview.human_output, /### Entscheidung/);
   assert.match(germanReview.human_output, /### Nächste Aktion/);
-  assert.match(germanReview.human_output, /Aktions-Token: `accept-provisional`/);
+  assert.match(germanReview.human_output, /Alles OK:/);
+  assert.match(germanReview.human_output, /Aktions-Token: `none`/);
   assert.doesNotMatch(germanReview.human_output, /weiter über|continue through/, "the host-neutral builder must not map actions for a facade");
   assert.match(germanReview.human_output, /Umfang: 1 geänderter Pfad;/);
   assert.match(germanReview.human_output, /Dieser Check basiert auf einer ungeschützten Manual-Beobachtung und kann keine verifizierte Evidenz begründen\./);
@@ -251,7 +303,9 @@ test("presentation locale is deterministic, defaults to English, and cannot chan
   assert.equal(germanPlan.root_content_hash, englishPlan.root_content_hash);
   assert.deepEqual(germanPlan.artifacts, englishPlan.artifacts);
 
-  const exact = exactArtifacts(englishReview);
+  const proofGapReview = executeManualOperation("build-review", proofGapRequest());
+  assert.equal(proofGapReview.ok, true, proofGapReview.error?.message);
+  const exact = exactArtifacts(proofGapReview);
   const englishStatus = executeManualOperation("status", {
     schema: 1,
     operation: "status",
@@ -361,8 +415,8 @@ test("changed observation bytes create newly bound IDs", () => {
   assert.notEqual(first.repository_snapshot_hash, second.repository_snapshot_hash);
 });
 
-test("Manual status and provisional acceptance use only exact artifact bytes", () => {
-  const built = executeManualOperation("build-review", request());
+test("Manual status and provisional acceptance use only exact artifact bytes for a genuine proof gap", () => {
+  const built = executeManualOperation("build-review", proofGapRequest());
   const statusInput = { schema: 1, operation: "status", root_plan: rootPlan, artifacts: exactArtifacts(built) };
   const status = executeManualOperation("status", statusInput);
   assert.equal(status.ok, true);
@@ -478,7 +532,7 @@ test("verified claims and attestation fields are rejected without partial artifa
 
 test("ordinary paths outside allowed roots stay visible and provisionally acceptable", () => {
   const outside = request();
-  outside.repository_observation.changed_paths = ["README.md", "src/controller/manual-status.mjs"];
+  outside.repository_observation.subject_changed_paths = ["README.md", "src/controller/manual-status.mjs"];
   const built = executeManualOperation("build-review", outside);
   assert.equal(built.ok, true);
   const evidence = inspectArtifactText(built.artifacts[0].text, root).artifact.fields;
@@ -524,7 +578,7 @@ test("approval-required paths also force clarify", () => {
 
 test("protected paths stay visible and block Manual acceptance", () => {
   const protectedInput = request();
-  protectedInput.repository_observation.changed_paths = [".git/config", "src/controller/manual-status.mjs"];
+  protectedInput.repository_observation.subject_changed_paths = [".git/config", "src/controller/manual-status.mjs"];
   const built = executeManualOperation("build-review", protectedInput);
   assert.equal(built.ok, true, built.error?.message);
   const evidence = inspectArtifactText(built.artifacts[0].text, root).artifact.fields;
@@ -559,7 +613,7 @@ test("Cursor recursive-root regression stays provisional instead of false clarif
     root_plan: incidentRoot,
     repository_observation: {
       ...request().repository_observation,
-      changed_paths: [
+      subject_changed_paths: [
         "docs/DEVELOPMENT.md",
         "packages/of_distribution/AGENTS.md",
         "packages/of_distribution/Classes/Service/Install/SystemConfigurationService.php",
@@ -579,10 +633,10 @@ test("Cursor recursive-root regression stays provisional instead of false clarif
   assert.equal(built.ok, true, built.error?.message);
   const evidence = inspectArtifactText(built.artifacts[0].text, root).artifact.fields;
   const review = inspectArtifactText(built.artifacts[1].text, root).artifact.fields;
-  assert.deepEqual(evidence.changed_paths, incident.repository_observation.changed_paths);
+  assert.deepEqual(evidence.changed_paths, incident.repository_observation.subject_changed_paths);
   assert.equal(built.path_authority.status, "within-authority");
   assert.equal(review.delivery_status, "provisional");
-  assert.equal(review.next_action, "accept-provisional");
+  assert.equal(review.next_action, "none");
   assert.deepEqual(built.presentation.findings, []);
   assert.doesNotMatch(built.human_output, /exceed the Root authority|Now: clarify|Now: replan/);
 });
@@ -624,7 +678,8 @@ test("plan validation advises ordinary acceptance drift and rejects malformed au
 
 test("Review output is decision-first across actionable delivery outcomes", () => {
   const cases = [
-    { name: "provisional acceptance", input: request(), action: "accept-provisional" },
+    { name: "supported success", input: request(), action: "none" },
+    { name: "provisional acceptance", input: proofGapRequest(), action: "accept-provisional" },
     { name: "bounded correction", input: request({ review_input: correctionContractInput() }), action: "correct" },
     {
       name: "human clarification",
@@ -740,7 +795,7 @@ test("Review details stay complete, deduplicated, bounded, and default-closed", 
     }),
     repository_observation: {
       ...request().repository_observation,
-      changed_paths: ["README.md", "src/controller/manual-status.mjs"],
+      subject_changed_paths: ["README.md", "src/controller/manual-status.mjs"],
       limitations: [repeatedLimitation, repeatedLimitation],
     },
   });
@@ -773,7 +828,7 @@ test("Review details stay complete, deduplicated, bounded, and default-closed", 
   assert.match(built.human_output, new RegExp("Action token: `" + review.next_action + "`"));
 });
 
-test("explicitly attached correction chains produce delta Evidence and a fresh provisional Review", () => {
+test("explicitly attached correction chains reach terminal Review and retain learning candidates", () => {
   const correctionInput = reviewInput({
     assessment: "mostly-achieved",
     recommended_action: "correct",
@@ -863,7 +918,10 @@ test("explicitly attached correction chains produce delta Evidence and a fresh p
   const evidence = inspectArtifactText(second.artifacts[0].text, root).artifact.fields;
   assert.equal(evidence.representation, "delta");
   assert.equal(evidence.source_review_id, first.artifacts[1].label);
-  assert.equal(second.presentation.next_action, "accept-provisional");
+  assert.equal(second.presentation.assessment, "achieved");
+  assert.equal(second.presentation.next_action, "none");
+  const terminalReview = inspectArtifactText(second.artifacts[1].text, root).artifact.fields;
+  assert.deepEqual(terminalReview.learning_candidates, inspectArtifactText(first.artifacts[1].text, root).artifact.fields.learning_candidates);
 
   const resumed = executeManualOperation("status", {
     schema: 1,
@@ -872,7 +930,10 @@ test("explicitly attached correction chains produce delta Evidence and a fresh p
     artifacts: [...exactArtifacts(first), ...exactArtifacts(second)],
   });
   assert.equal(resumed.ok, true);
-  assert.equal(resumed.snapshot.state, "delivery-ready-provisional");
+  assert.equal(resumed.snapshot.state, "achieved");
+  assert.equal(resumed.snapshot.evidence_grade, "supported");
+  assert.equal(resumed.artifact_summary.learning_candidates.length, 1);
+  assert.equal(resumed.artifact_summary.learning_candidates[0].evidence_confirmed, true);
 });
 
 test("a human-attached replan chain remains exact and Schema-6-only", () => {
@@ -908,7 +969,7 @@ test("a human-attached replan chain remains exact and Schema-6-only", () => {
   }));
   assert.equal(replanned.ok, true, replanned.error?.message);
   assert.equal(replanned.root_plan_id, "wp-adaptive-retry-replan");
-  assert.equal(replanned.presentation.next_action, "accept-provisional");
+  assert.equal(replanned.presentation.next_action, "none");
 });
 
 test("invalid or conflicting chains return Shadow without pseudo-artifacts", () => {

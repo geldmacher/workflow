@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import {
   chmodSync,
   cpSync,
@@ -22,14 +22,14 @@ import { buildPluginTargets } from "../scripts/build-plugin-targets.mjs";
 import {
   PLUGIN_NAME,
   canonicalJson,
+  completeRelease,
   createReleaseCut,
   defaultRunner,
-  ensureRelease,
   inspectReleaseTarget,
   prepareRelease,
   publishRelease,
+  releaseFailureReport,
   releaseNotesFromChangelog,
-  releaseStatus,
   verifyPreparedRelease,
 } from "../scripts/plugin-github-release.mjs";
 
@@ -57,12 +57,16 @@ function repositoryFixture() {
   writeFileSync(join(repository, ".gitignore"), ".build/\n");
   git(repository, "init", "--quiet");
   git(repository, "remote", "add", "origin", "git@github.com:geldmacher/workflow.git");
+  git(repository, "config", "user.name", "Workflow Release Test");
+  git(repository, "config", "user.email", "workflow-release@invalid.local");
   git(repository, "add", ".");
   execFileSync("git", [
     "-c", "user.name=Workflow Release Test",
     "-c", "user.email=workflow-release@invalid.local",
     "commit", "--quiet", "-m", "fixture",
   ], { cwd: repository });
+  git(repository, "update-ref", "refs/remotes/origin/main", "HEAD");
+  git(repository, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main");
   return { fixtureRoot, repository };
 }
 
@@ -124,34 +128,6 @@ function prepareFixture(item, releaseRoot = join(item.fixtureRoot, "releases")) 
     targetBuilder,
     releaseGate: () => ({ command: "npm run release-check", result: "passed" }),
   });
-}
-
-function commitChangelog(item, source, message = "update changelog fixture") {
-  writeFileSync(join(item.repository, "CHANGELOG.md"), source);
-  git(item.repository, "add", "CHANGELOG.md");
-  execFileSync("git", [
-    "-c", "user.name=Workflow Release Test",
-    "-c", "user.email=workflow-release@invalid.local",
-    "commit", "--quiet", "-m", message,
-  ], { cwd: item.repository });
-}
-
-function releaseCutRunner({ remoteTag = false, remoteFailure = false, onRemote = null } = {}) {
-  const calls = [];
-  const runner = (command, args, options = {}) => {
-    calls.push([command, [...args]]);
-    if (command === "git" && args[0] === "ls-remote") {
-      onRemote?.();
-      if (remoteFailure) return { status: 1, stdout: "", stderr: "remote unavailable" };
-      return {
-        status: 0,
-        stdout: remoteTag ? `${"a".repeat(40)}\trefs/tags/v${version}\n` : "",
-        stderr: "",
-      };
-    }
-    return defaultRunner(command, args, options);
-  };
-  return { calls, runner };
 }
 
 function zipEntries(path) {
@@ -259,6 +235,86 @@ function publicationRunner(prepared, {
   return { runner, calls };
 }
 
+function completeReleaseRunner(item, {
+  authenticated = true,
+  apiReachable = true,
+  commitFails = false,
+  pushFails = false,
+  existingRelease = null,
+} = {}) {
+  const calls = [];
+  let remoteMain = git(item.repository, "rev-parse", "HEAD");
+  let remoteTag = null;
+  let releaseView = existingRelease;
+  let publishedPaths = new Map();
+  const state = {
+    get remoteMain() { return remoteMain; },
+    set remoteMain(value) { remoteMain = value; },
+    get remoteTag() { return remoteTag; },
+    set remoteTag(value) { remoteTag = value; },
+    set pushFails(value) { pushFails = value; },
+  };
+  const runner = (command, args, options = {}) => {
+    calls.push([command, [...args]]);
+    if (command === "git" && args[0] === "fetch") return { status: 0, stdout: "", stderr: "" };
+    if (command === "git" && args[0] === "commit" && commitFails) {
+      return { status: 1, stdout: "", stderr: "commit hook rejected release" };
+    }
+    if (command === "git" && args[0] === "ls-remote" && args.includes("--heads")) {
+      return { status: 0, stdout: `${remoteMain}\trefs/heads/main\n`, stderr: "" };
+    }
+    if (command === "git" && args[0] === "ls-remote" && args.includes("--tags")) {
+      const tag = args.find((value) => value.startsWith("refs/tags/"))?.replace(/\^\{\}$/, "");
+      return { status: 0, stdout: remoteTag ? `${remoteTag}\t${tag}\n` : "", stderr: "" };
+    }
+    if (command === "git" && args[0] === "push") {
+      if (pushFails) return { status: 1, stdout: "", stderr: "atomic push rejected" };
+      remoteMain = git(item.repository, "rev-parse", "HEAD");
+      remoteTag = git(item.repository, "rev-parse", `refs/tags/v${version}^{commit}`);
+      git(item.repository, "update-ref", "refs/remotes/origin/main", remoteMain);
+      return { status: 0, stdout: "", stderr: "" };
+    }
+    if (command !== "gh") return defaultRunner(command, args, options);
+    if (args[0] === "auth") return authenticated
+      ? { status: 0, stdout: "authenticated\n", stderr: "" }
+      : { status: 1, stdout: "", stderr: "authentication failed" };
+    if (args[0] === "api") return apiReachable
+      ? { status: 0, stdout: "", stderr: "" }
+      : { status: 1, stdout: "", stderr: "error connecting to api.github.com" };
+    if (args[0] === "release" && args[1] === "view") return releaseView
+      ? { status: 0, stdout: JSON.stringify(releaseView), stderr: "" }
+      : { status: 1, stdout: "", stderr: "release not found" };
+    if (args[0] === "release" && args[1] === "create") {
+      const repositoryIndex = args.indexOf("--repo");
+      const paths = args.slice(3, repositoryIndex);
+      publishedPaths = new Map(paths.map((path) => [basename(path), path]));
+      const notesPath = args[args.indexOf("--notes-file") + 1];
+      releaseView = {
+        tagName: args[2],
+        isDraft: false,
+        isPrerelease: args.includes("--prerelease"),
+        name: args[args.indexOf("--title") + 1],
+        body: readFileSync(notesPath, "utf8"),
+        assets: [...publishedPaths.keys()].map((name) => ({ name })),
+        url: `https://github.com/geldmacher/workflow/releases/tag/${args[2]}`,
+      };
+      return { status: 0, stdout: releaseView.url, stderr: "" };
+    }
+    if (args[0] === "release" && args[1] === "download") {
+      const destination = args[args.indexOf("--dir") + 1];
+      mkdirSync(destination, { recursive: true });
+      if ((publishedPaths.size === 0 || [...publishedPaths.values()].some((path) => !existsSync(path))) && releaseView) {
+        const directory = join(item.fixtureRoot, "releases", `v${version}`);
+        publishedPaths = new Map(releaseView.assets.map(({ name }) => [name, join(directory, name)]));
+      }
+      for (const [name, path] of publishedPaths) copyFileSync(path, join(destination, name));
+      return { status: 0, stdout: "", stderr: "" };
+    }
+    throw new Error(`unexpected gh command: ${args.join(" ")}`);
+  };
+  return { calls, runner, state };
+}
+
 test("release Skill is explicit-only and stays in parity with the Cursor command and package scripts", () => {
   const root = join(import.meta.dirname, "..");
   const skill = readFileSync(join(root, ".agents", "skills", "release-plugin", "SKILL.md"), "utf8");
@@ -272,23 +328,293 @@ test("release Skill is explicit-only and stays in parity with the Cursor command
   assert.match(skill, /^name: release-plugin$/m);
   assert.match(skill, /only when the user explicitly invokes \$release-plugin/i);
   assert.match(metadata, /allow_implicit_invocation:\s*false/);
-  for (const invocation of [
-    "npm run release:ensure",
-    "npm run release:status",
-    "npm run release:prepare",
-    "npm run release:publish -- <receipt-sha256>",
-  ]) {
-    assert.match(skill, new RegExp(invocation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-    assert.match(command, new RegExp(invocation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  for (const source of [skill, command]) assert.match(source, /npm run release:plugin/);
+  assert.equal(packageJson.scripts["release:plugin"], "node scripts/plugin-github-release.mjs");
+  for (const legacy of ["release:ensure", "release:status", "release:prepare", "release:publish"]) {
+    assert.equal(packageJson.scripts[legacy], undefined);
+    assert.doesNotMatch(skill, new RegExp(`npm run ${legacy}`));
+    assert.doesNotMatch(command, new RegExp(`npm run ${legacy}`));
   }
-  assert.equal(packageJson.scripts["release:ensure"], "node scripts/plugin-github-release.mjs ensure");
-  assert.equal(packageJson.scripts["release:status"], "node scripts/plugin-github-release.mjs status");
-  assert.equal(packageJson.scripts["release:prepare"], "node scripts/plugin-github-release.mjs prepare");
-  assert.equal(packageJson.scripts["release:publish"], "node scripts/plugin-github-release.mjs publish");
   for (const source of [skill, command]) {
-    assert.match(source, /must not commit|Never infer (?:commit or )?publication authority/i);
+    assert.match(source, /no action, version, receipt, or other argument/i);
+    assert.match(source, /atomically|atomic/i);
     assert.match(source, /--clobber/);
     assert.match(source, /delete/i);
+  }
+  const legacyCli = spawnSync(process.execPath, [join(root, "scripts", "plugin-github-release.mjs"), "status"], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  assert.notEqual(legacyCli.status, 0);
+  assert.match(legacyCli.stderr, /Usage: node scripts\/plugin-github-release\.mjs/);
+});
+
+test("complete release commits every validated non-ignored change and publishes one verified release", () => {
+  const item = repositoryFixture();
+  const releaseRoot = join(item.fixtureRoot, "releases");
+  try {
+    const originalHead = git(item.repository, "rev-parse", "HEAD");
+    writeFileSync(join(item.repository, "CHANGELOG.md"), `# Changelog\n\n## Unreleased\n\n- Complete release.\n\n## ${version}\n\n- Existing note.\n`);
+    writeFileSync(join(item.repository, "new-file.txt"), "included\n");
+    const stub = completeReleaseRunner(item);
+    let gateHead = null;
+    const result = completeRelease({
+      root: item.repository,
+      releaseRoot,
+      runner: stub.runner,
+      targetBuilder,
+      releaseGate: (root) => {
+        gateHead = git(root, "rev-parse", "HEAD");
+        return { command: "npm run release-check", result: "passed" };
+      },
+    });
+    assert.equal(gateHead, originalHead, "release gate must run before the release commit");
+    assert.equal(result.status, "published");
+    assert.equal(result.commit_created, true);
+    assert.equal(result.pushed_atomically, true);
+    assert.equal(result.github.read_back_verified, true);
+    assert.equal(git(item.repository, "show", "-s", "--format=%s", "HEAD"), `Release v${version}`);
+    assert.equal(git(item.repository, "status", "--porcelain"), "");
+    assert.equal(git(item.repository, "ls-files", "new-file.txt"), "new-file.txt");
+    assert.equal(git(item.repository, "rev-parse", `refs/tags/v${version}^{commit}`), result.commit_sha);
+    assert.equal(stub.state.remoteMain, result.commit_sha);
+    assert.equal(stub.state.remoteTag, result.commit_sha);
+    const push = stub.calls.find(([command, args]) => command === "git" && args[0] === "push");
+    assert.deepEqual(push?.[1].slice(0, 3), ["push", "--atomic", "origin"]);
+    assert.equal(push[1].includes("--force"), false);
+    assert.equal(stub.calls.some(([command, args]) => command === "gh" && args[1] === "create"), true);
+    assert.equal(stub.calls.some(([command, args]) => command === "gh" && args[1] === "download"), true);
+    assert.equal(stub.calls.some(([command, args]) => command === "git" && args[0] === "reset"), false);
+    assert.equal(stub.calls.some(([command, args]) => command === "gh" && ["delete", "upload"].includes(args[1])), false);
+    assert.equal(stub.calls.some(([, args]) => args.includes("--clobber")), false);
+  } finally {
+    rmSync(item.fixtureRoot, { recursive: true, force: true });
+  }
+});
+
+test("complete release reuses a clean release-ready commit without creating another commit", () => {
+  const item = repositoryFixture();
+  try {
+    const originalHead = git(item.repository, "rev-parse", "HEAD");
+    const stub = completeReleaseRunner(item);
+    const result = completeRelease({
+      root: item.repository,
+      releaseRoot: join(item.fixtureRoot, "releases"),
+      runner: stub.runner,
+      targetBuilder,
+      releaseGate: () => ({ command: "npm run release-check", result: "passed" }),
+    });
+    assert.equal(result.commit_created, false);
+    assert.equal(result.commit_sha, originalHead);
+    assert.equal(git(item.repository, "rev-parse", "HEAD"), originalHead);
+  } finally {
+    rmSync(item.fixtureRoot, { recursive: true, force: true });
+  }
+});
+
+test("complete release idempotently verifies an already exact GitHub Release", () => {
+  const item = repositoryFixture();
+  const releaseRoot = join(item.fixtureRoot, "releases");
+  try {
+    const stub = completeReleaseRunner(item);
+    const options = {
+      root: item.repository,
+      releaseRoot,
+      runner: stub.runner,
+      targetBuilder,
+      releaseGate: () => ({ command: "npm run release-check", result: "passed" }),
+    };
+    const first = completeRelease(options);
+    const createCalls = stub.calls.filter(([command, args]) => command === "gh" && args[1] === "create").length;
+    const second = completeRelease(options);
+    assert.equal(first.status, "published");
+    assert.equal(second.status, "current");
+    assert.equal(second.commit_created, false);
+    assert.equal(second.pushed_atomically, false);
+    assert.equal(stub.calls.filter(([command, args]) => command === "gh" && args[1] === "create").length, createCalls);
+    assert.equal(stub.calls.filter(([command, args]) => command === "gh" && args[1] === "download").length >= 2, true);
+  } finally {
+    rmSync(item.fixtureRoot, { recursive: true, force: true });
+  }
+});
+
+test("complete release restores its changelog cut and preserves user changes when validation fails", () => {
+  const item = repositoryFixture();
+  try {
+    const pending = `# Changelog\n\n## Unreleased\n\n- Pending release.\n\n## ${version}\n\n- Existing.\n`;
+    writeFileSync(join(item.repository, "CHANGELOG.md"), pending);
+    writeFileSync(join(item.repository, "new-file.txt"), "keep me\n");
+    const originalHead = git(item.repository, "rev-parse", "HEAD");
+    const stub = completeReleaseRunner(item);
+    assert.throws(() => completeRelease({
+      root: item.repository,
+      releaseRoot: join(item.fixtureRoot, "releases"),
+      runner: stub.runner,
+      targetBuilder,
+      releaseGate: () => { throw new Error("gate failed"); },
+    }), /gate failed/);
+    assert.equal(readFileSync(join(item.repository, "CHANGELOG.md"), "utf8"), pending);
+    assert.equal(readFileSync(join(item.repository, "new-file.txt"), "utf8"), "keep me\n");
+    assert.equal(git(item.repository, "rev-parse", "HEAD"), originalHead);
+    assert.equal(git(item.repository, "diff", "--cached", "--name-only"), "");
+    assert.equal(stub.calls.some(([command, args]) => command === "git" && args[0] === "push"), false);
+  } finally {
+    rmSync(item.fixtureRoot, { recursive: true, force: true });
+  }
+});
+
+test("complete release rejects unreachable GitHub and unsafe candidate content before mutation", () => {
+  for (const scenario of ["network", "secret", "symlink", "nested"]) {
+    const item = repositoryFixture();
+    try {
+      const originalHead = git(item.repository, "rev-parse", "HEAD");
+      const stub = completeReleaseRunner(item, { apiReachable: scenario !== "network" });
+      if (scenario === "secret") writeFileSync(join(item.repository, "secret.txt"), `${"ghp_"}${"abcdefghijklmnopqrstuvwxyz123456"}\n`);
+      if (scenario === "symlink") symlinkSync("CHANGELOG.md", join(item.repository, "changelog-link"));
+      if (scenario === "nested") {
+        mkdirSync(join(item.repository, "nested"));
+        git(join(item.repository, "nested"), "init", "--quiet");
+        writeFileSync(join(item.repository, "nested", "file.txt"), "nested\n");
+      }
+      assert.throws(() => completeRelease({
+        root: item.repository,
+        releaseRoot: join(item.fixtureRoot, "releases"),
+        runner: stub.runner,
+        targetBuilder,
+        releaseGate: () => ({ command: "npm run release-check", result: "passed" }),
+      }), {
+        network: /unreachable/,
+        secret: /recognizable secret/,
+        symlink: /symlink/,
+        nested: /nested repository/,
+      }[scenario]);
+      assert.equal(git(item.repository, "rev-parse", "HEAD"), originalHead);
+      assert.equal(stub.calls.some(([command, args]) => command === "git" && ["commit", "tag", "push"].includes(args[0])), false);
+    } finally {
+      rmSync(item.fixtureRoot, { recursive: true, force: true });
+    }
+  }
+});
+
+test("complete release rejects branch, authentication, and remote-baseline conflicts before mutation", () => {
+  for (const scenario of ["branch", "auth", "baseline"]) {
+    const item = repositoryFixture();
+    try {
+      const originalHead = git(item.repository, "rev-parse", "HEAD");
+      const stub = completeReleaseRunner(item, { authenticated: scenario !== "auth" });
+      if (scenario === "branch") git(item.repository, "switch", "--quiet", "-c", "feature");
+      if (scenario === "baseline") stub.state.remoteMain = "f".repeat(40);
+      assert.throws(() => completeRelease({
+        root: item.repository,
+        releaseRoot: join(item.fixtureRoot, "releases"),
+        runner: stub.runner,
+        targetBuilder,
+        releaseGate: () => ({ command: "npm run release-check", result: "passed" }),
+      }), {
+        branch: /requires the main branch/,
+        auth: /authentication failed/,
+        baseline: /without an exact release retry state/,
+      }[scenario]);
+      assert.equal(git(item.repository, "rev-parse", "HEAD"), originalHead);
+      assert.equal(stub.calls.some(([command, args]) => command === "git" && ["commit", "tag", "push"].includes(args[0])), false);
+    } finally {
+      rmSync(item.fixtureRoot, { recursive: true, force: true });
+    }
+  }
+});
+
+test("complete release restores the original index and changelog when commit creation fails", () => {
+  const item = repositoryFixture();
+  try {
+    const pending = `# Changelog\n\n## Unreleased\n\n- Pending release.\n\n## ${version}\n\n- Existing.\n`;
+    writeFileSync(join(item.repository, "CHANGELOG.md"), pending);
+    writeFileSync(join(item.repository, "staged.txt"), "staged\n");
+    writeFileSync(join(item.repository, "unstaged.txt"), "unstaged\n");
+    git(item.repository, "add", "staged.txt");
+    const originalHead = git(item.repository, "rev-parse", "HEAD");
+    const stub = completeReleaseRunner(item, { commitFails: true });
+    assert.throws(() => completeRelease({
+      root: item.repository,
+      releaseRoot: join(item.fixtureRoot, "releases"),
+      runner: stub.runner,
+      targetBuilder,
+      releaseGate: () => ({ command: "npm run release-check", result: "passed" }),
+    }), /commit hook rejected release/);
+    assert.equal(readFileSync(join(item.repository, "CHANGELOG.md"), "utf8"), pending);
+    assert.equal(git(item.repository, "diff", "--cached", "--name-only"), "staged.txt");
+    assert.match(git(item.repository, "status", "--porcelain"), /\?\? unstaged\.txt/);
+    assert.equal(git(item.repository, "rev-parse", "HEAD"), originalHead);
+    assert.equal(stub.calls.some(([command, args]) => command === "git" && ["tag", "push"].includes(args[0])), false);
+  } finally {
+    rmSync(item.fixtureRoot, { recursive: true, force: true });
+  }
+});
+
+test("complete release resumes an exact committed state after preparation fails", () => {
+  const item = repositoryFixture();
+  const releaseRoot = join(item.fixtureRoot, "releases");
+  try {
+    writeFileSync(join(item.repository, "new-file.txt"), "prepare retry\n");
+    const stub = completeReleaseRunner(item);
+    let failPreparation = true;
+    const options = {
+      root: item.repository,
+      releaseRoot,
+      runner: stub.runner,
+      targetBuilder(outputRoot) {
+        if (failPreparation) throw new Error("target preparation failed");
+        return targetBuilder(outputRoot);
+      },
+      releaseGate: () => ({ command: "npm run release-check", result: "passed" }),
+    };
+    assert.throws(() => completeRelease(options), /target preparation failed/);
+    const releaseCommit = git(item.repository, "rev-parse", "HEAD");
+    assert.equal(git(item.repository, "show", "-s", "--format=%s", "HEAD"), `Release v${version}`);
+    assert.equal(stub.calls.some(([command, args]) => command === "git" && args[0] === "push"), false);
+    failPreparation = false;
+    const result = completeRelease(options);
+    assert.equal(result.status, "published");
+    assert.equal(result.commit_created, false);
+    assert.equal(result.commit_sha, releaseCommit);
+  } finally {
+    rmSync(item.fixtureRoot, { recursive: true, force: true });
+  }
+});
+
+test("complete release retains and resumes an exact local commit after an atomic push failure", () => {
+  const item = repositoryFixture();
+  const releaseRoot = join(item.fixtureRoot, "releases");
+  try {
+    writeFileSync(join(item.repository, "new-file.txt"), "retry\n");
+    const stub = completeReleaseRunner(item, { pushFails: true });
+    const options = {
+      root: item.repository,
+      releaseRoot,
+      runner: stub.runner,
+      targetBuilder,
+      releaseGate: () => ({ command: "npm run release-check", result: "passed" }),
+    };
+    let failure;
+    try { completeRelease(options); }
+    catch (error) { failure = error; }
+    assert.match(failure?.message ?? "", /atomic main and release tag push failed/);
+    const releaseCommit = git(item.repository, "rev-parse", "HEAD");
+    const report = releaseFailureReport(failure, options);
+    assert.equal(report.status, "blocked");
+    assert.equal(report.source.commit_sha, releaseCommit);
+    assert.equal(report.retained_retry_state.release_commit, releaseCommit);
+    assert.notEqual(releaseCommit, stub.state.remoteMain);
+    assert.equal(stub.state.remoteTag, null);
+    assert.equal(git(item.repository, "status", "--porcelain"), "");
+    stub.state.pushFails = false;
+    const result = completeRelease(options);
+    assert.equal(result.status, "published");
+    assert.equal(result.commit_created, false);
+    assert.equal(result.commit_sha, releaseCommit);
+    assert.equal(stub.state.remoteMain, releaseCommit);
+    assert.equal(stub.state.remoteTag, releaseCommit);
+  } finally {
+    rmSync(item.fixtureRoot, { recursive: true, force: true });
   }
 });
 
@@ -313,212 +639,6 @@ test("release cut deterministically creates or consolidates the current version 
     `# Changelog\n\n## Unreleased\n\n## ${version}\n\n- First release.\n\n## 1.2.2\n\n- Older.\n`,
   );
   assert.throws(() => createReleaseCut(`# Changelog\n\n## Unreleased\n\n- Pending.\n\n## 1.2.2\n\n- Older.\n\n## ${version}\n\n- Existing.\n`, version), /immediately follow/);
-});
-
-test("ensure cuts once, stops at the commit boundary, then prepares only the later clean commit", () => {
-  const item = repositoryFixture();
-  const releaseRoot = join(item.fixtureRoot, "releases");
-  try {
-    commitChangelog(item, `# Changelog\n\n## Unreleased\n\n- Pending release note.\n\n## ${version}\n\n- Existing release note.\n`);
-    const stub = releaseCutRunner();
-    let gateCalls = 0;
-    const options = {
-      root: item.repository,
-      releaseRoot,
-      runner: stub.runner,
-      targetBuilder,
-      releaseGate: () => {
-        gateCalls += 1;
-        return { command: "npm run release-check", result: "passed" };
-      },
-    };
-
-    const cut = ensureRelease(options);
-    assert.equal(cut.status, "release-cut-created");
-    assert.equal(cut.commit_required, true);
-    assert.deepEqual(cut.changed_paths, ["CHANGELOG.md"]);
-    assert.equal(cut.receipt, null);
-    assert.equal(gateCalls, 0);
-    assert.equal(existsSync(join(releaseRoot, `v${version}`)), false);
-    assert.match(readFileSync(join(item.repository, "CHANGELOG.md"), "utf8"), new RegExp(`## Unreleased\\n\\n## ${version}\\n\\n- Pending release note\\.\\n\\n- Existing release note\\.`));
-
-    assert.throws(() => ensureRelease(options), /repository must be clean/);
-    assert.equal(gateCalls, 0);
-    commitChangelog(item, readFileSync(join(item.repository, "CHANGELOG.md"), "utf8"), "commit release cut");
-
-    const prepared = ensureRelease(options);
-    assert.equal(prepared.status, "prepared");
-    assert.equal(prepared.commit_required, false);
-    assert.match(prepared.receipt, /^[0-9a-f]{64}$/);
-    assert.equal(gateCalls, 1);
-
-    const current = ensureRelease(options);
-    assert.equal(current.status, "current");
-    assert.equal(current.receipt, prepared.receipt);
-    assert.equal(gateCalls, 1, "an exact current set must not rerun the release gate");
-    assert.equal(stub.calls.some(([command]) => command === "gh"), false);
-  } finally {
-    rmSync(item.fixtureRoot, { recursive: true, force: true });
-  }
-});
-
-test("ensure release cut fails closed on dirty, malformed, tagged, unavailable, conflicting, and drifting states", () => {
-  const pending = `# Changelog\n\n## Unreleased\n\n- Pending release note.\n\n## ${version}\n\n- Existing release note.\n`;
-  const cases = [
-    {
-      name: "dirty source",
-      arrange(item) { writeFileSync(join(item.repository, "dirty.txt"), "dirty\n"); },
-      runner: releaseCutRunner().runner,
-      error: /repository must be clean/,
-    },
-    {
-      name: "duplicate Unreleased",
-      source: `# Changelog\n\n## Unreleased\n\n- One.\n\n## Unreleased\n\n- Two.\n\n## ${version}\n\n- Existing.\n`,
-      runner: releaseCutRunner().runner,
-      error: /exactly one Unreleased/,
-    },
-    {
-      name: "local tag",
-      arrange(item) { git(item.repository, "tag", `v${version}`); },
-      runner: releaseCutRunner().runner,
-      error: /local tag .* already exists/,
-    },
-    {
-      name: "remote tag",
-      runner: releaseCutRunner({ remoteTag: true }).runner,
-      error: /remote tag .* already exists/,
-    },
-    {
-      name: "unavailable remote proof",
-      runner: releaseCutRunner({ remoteFailure: true }).runner,
-      error: /remote tag absence check.*remote unavailable/,
-    },
-    {
-      name: "prepared directory conflict",
-      arrange(item) {
-        mkdirSync(join(item.fixtureRoot, "releases", `v${version}`), { recursive: true });
-        writeFileSync(join(item.fixtureRoot, "releases", `v${version}`, "sentinel"), "conflict\n");
-      },
-      runner: releaseCutRunner().runner,
-      error: /prepared release directory already exists/,
-    },
-    {
-      name: "source drift during remote proof",
-      runnerFactory(item) {
-        return releaseCutRunner({ onRemote: () => writeFileSync(join(item.repository, "remote-drift.txt"), "drift\n") }).runner;
-      },
-      error: /repository must be clean|drifted before the release cut/,
-    },
-  ];
-
-  for (const scenario of cases) {
-    const item = repositoryFixture();
-    try {
-      commitChangelog(item, scenario.source ?? pending, scenario.name);
-      scenario.arrange?.(item);
-      const original = readFileSync(join(item.repository, "CHANGELOG.md"), "utf8");
-      const runner = scenario.runnerFactory?.(item) ?? scenario.runner;
-      assert.throws(() => ensureRelease({
-        root: item.repository,
-        releaseRoot: join(item.fixtureRoot, "releases"),
-        runner,
-        targetBuilder,
-        releaseGate: () => { throw new Error("release gate must not run"); },
-      }), scenario.error, scenario.name);
-      assert.equal(readFileSync(join(item.repository, "CHANGELOG.md"), "utf8"), original, scenario.name);
-    } finally {
-      rmSync(item.fixtureRoot, { recursive: true, force: true });
-    }
-  }
-});
-
-test("ensure rejects post-write same-path drift without overwriting foreign changelog bytes", () => {
-  const item = repositoryFixture();
-  const releaseRoot = join(item.fixtureRoot, "releases");
-  const changelogPath = join(item.repository, "CHANGELOG.md");
-  const pending = `# Changelog\n\n## Unreleased\n\n- Intended release note.\n\n## ${version}\n\n- Existing release note.\n`;
-  const drifted = `# Changelog\n\n## Unreleased\n\n## ${version}\n\n- Concurrent different notes.\n`;
-  try {
-    commitChangelog(item, pending, "post-write drift fixture");
-    let injected = false;
-    const runner = (command, args, options = {}) => {
-      if (command === "git" && args[0] === "ls-remote") return { status: 0, stdout: "", stderr: "" };
-      if (!injected && command === "git" && args[0] === "diff" && args[1] === "--name-only") {
-        injected = true;
-        writeFileSync(changelogPath, drifted);
-      }
-      return defaultRunner(command, args, options);
-    };
-
-    assert.throws(() => ensureRelease({
-      root: item.repository,
-      releaseRoot,
-      runner,
-      targetBuilder,
-      releaseGate: () => { throw new Error("release gate must not run"); },
-    }), /CHANGELOG\.md drifted after the release cut/);
-    assert.equal(injected, true);
-    assert.equal(readFileSync(changelogPath, "utf8"), drifted, "foreign concurrent bytes must not be overwritten");
-    assert.equal(existsSync(join(releaseRoot, `v${version}`)), false);
-  } finally {
-    rmSync(item.fixtureRoot, { recursive: true, force: true });
-  }
-});
-
-test("status is read-only, defaults preparation readiness correctly, and includes remote tag readiness", () => {
-  const item = repositoryFixture();
-  try {
-    const unauthenticated = (command, args, options) => command === "gh"
-      ? { status: 1, stdout: "", stderr: "authentication failed" }
-      : defaultRunner(command, args, options);
-    const initial = releaseStatus({ root: item.repository, releaseRoot: join(item.fixtureRoot, "releases"), runner: unauthenticated });
-    assert.equal(initial.action, "status");
-    assert.equal(initial.ready_to_prepare, true);
-    assert.equal(initial.ready_to_publish, false);
-    assert.equal(initial.prepared, null);
-    assert.equal(initial.github_authenticated, false);
-
-    const prepared = prepareFixture(item);
-    const stub = publicationRunner(prepared, { tagCommit: prepared.provenance.source.commit_sha });
-    const ready = releaseStatus({ root: item.repository, releaseRoot: join(item.fixtureRoot, "releases"), runner: stub.runner });
-    assert.equal(ready.ready_to_prepare, true);
-    assert.equal(ready.ready_to_publish, true);
-    assert.equal(ready.prepared.receipt, prepared.receipt);
-    assert.equal(ready.remote_tag.matches_source, true);
-    assert.equal(stub.calls.some(([command, args]) => command === "gh" && args.includes("create")), false);
-  } finally {
-    rmSync(item.fixtureRoot, { recursive: true, force: true });
-  }
-});
-
-test("status marks a valid prepared set stale after a same-version source commit", () => {
-  const item = repositoryFixture();
-  try {
-    const prepared = prepareFixture(item);
-    writeFileSync(join(item.repository, "same-version-change.txt"), "new source snapshot\n");
-    git(item.repository, "add", "same-version-change.txt");
-    execFileSync("git", [
-      "-c", "user.name=Workflow Release Test",
-      "-c", "user.email=workflow-release@invalid.local",
-      "commit", "--quiet", "-m", "same-version source change",
-    ], { cwd: item.repository });
-    const currentCommit = git(item.repository, "rev-parse", "HEAD");
-    const stub = publicationRunner(prepared, { tagCommit: currentCommit });
-    const status = releaseStatus({
-      root: item.repository,
-      releaseRoot: join(item.fixtureRoot, "releases"),
-      runner: stub.runner,
-    });
-    assert.equal(status.prepared.valid, true);
-    assert.equal(status.prepared.current, false);
-    assert.equal(status.prepared.stale, true);
-    assert.match(status.prepared.error, /commit differs|Git tree differs/);
-    assert.equal(status.ready_to_prepare, false);
-    assert.equal(status.ready_to_publish, false);
-    assert.ok(status.prepare_blockers.some((blocker) => /prepared release is stale/.test(blocker)));
-  } finally {
-    rmSync(item.fixtureRoot, { recursive: true, force: true });
-  }
 });
 
 test("prepare rejects dirty state, manifest version drift, and a failed release gate", () => {

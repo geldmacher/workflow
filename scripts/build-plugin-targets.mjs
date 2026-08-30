@@ -67,7 +67,7 @@ const portableSkillReferences = Object.freeze({
   "explain-work": ["portable-manual.md", "manual-workflow-contract.md", "manual-builder-contract.md", "state-contract.md", "explanation-contract.md"],
   "implement-work": ["portable-manual.md", "manual-workflow-contract.md", "manual-builder-contract.md", "artifact-protocol.md", "executable-contract.md"],
   "learn-from-work": ["portable-manual.md", "manual-workflow-contract.md", "manual-builder-contract.md", "artifact-protocol.md", "learning-contract.md"],
-  "plan-work": ["portable-manual.md", "manual-workflow-contract.md", "manual-builder-contract.md", "artifact-protocol.md", "executable-contract.md", "design-contract.md"],
+  "plan-work": ["portable-manual.md", "manual-workflow-contract.md", "manual-builder-contract.md", "artifact-protocol.md", "executable-contract.md", "design-contract.md", "engineering-playbooks.md", "engineering-diagnostic-playbooks.md", "engineering-delivery-playbooks.md", "engineering-continuity-playbooks.md", "plan-container-contract.md"],
   "review-work": ["portable-manual.md", "manual-workflow-contract.md", "manual-builder-contract.md", "artifact-protocol.md", "delivery-evidence-contract.md", "review-contract.md", "work-review-input-contract.md", "explanation-contract.md"],
   "work-status": ["portable-manual.md", "manual-workflow-contract.md", "manual-builder-contract.md", "artifact-protocol.md", "state-contract.md"],
 });

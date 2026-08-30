@@ -192,7 +192,8 @@ test("deterministic target build isolates Codex and exposes exactly five Manual 
         schema: 1,
         kind: "unprotected-repository-observation",
         repository_root: defaultRoot,
-        changed_paths: ["src/controller/manual-status.mjs"],
+        subject_changed_paths: ["src/controller/manual-status.mjs"],
+        ambient_changed_paths: [],
         snapshot_material: ["target-smoke-tree", "target-smoke-diff"],
         limitations: ["No protected host attestation is available in this MCP-disabled target smoke."],
       },
@@ -214,7 +215,7 @@ test("deterministic target build isolates Codex and exposes exactly five Manual 
       assert.equal(result.status, 0, result.stderr || result.stdout);
       const parsed = JSON.parse(result.stdout);
       assert.equal(parsed.ok, true);
-      assert.equal(parsed.presentation.next_action, "accept-provisional");
+      assert.equal(parsed.presentation.next_action, "none");
       return result.stdout;
     });
     assert.equal(new Set(localReviewOutputs).size, 1, "all targets must return byte-identical local Review artifacts");
@@ -314,7 +315,15 @@ test("deterministic target build isolates Codex and exposes exactly five Manual 
     for (const planningFacade of [cursorPlanning, codexPlan, portablePlan]) {
       assert.doesNotMatch(planningFacade, /implementation(?: phase)? (?:is )?complete/i);
       assert.doesNotMatch(planningFacade, /fresh [^\n.]{0,40}review-work[^\n.]{0,20}pending/i);
+      assert.match(planningFacade, /recommend exactly one closest playbook/i);
+      assert.match(planningFacade, /ID, fit, intended phase, and authority need/i);
+      assert.match(planningFacade, /ask and wait for (?:an|one) explicit inline confirm or decline/i);
+      assert.match(planningFacade, /explicit inline confirm or decline/i);
+      assert.match(planningFacade, /Decline continues without a playbook/i);
+      assert.match(planningFacade, /material intent change.*fresh suggestion/i);
     }
+    assert.equal(existsSync(join(first.agentPlugins.path, "skills", "plan-work", "references", "engineering-playbooks.md")), true);
+    assert.equal(existsSync(join(first.agentPlugins.path, "skills", "plan-work", "references", "plan-container-contract.md")), true);
     assert.doesNotMatch(cursorPlanning, /\/review-work/);
     assert.doesNotMatch(codexPlan, /\$review-work/);
     assert.doesNotMatch(portablePlan, /`review-work`/);
@@ -347,6 +356,8 @@ test("deterministic target build isolates Codex and exposes exactly five Manual 
     assert.match(codexEngineering, /recommend exactly one playbook/i);
     assert.match(codexEngineering, /never grants Workflow authority or evidence/i);
     assert.match(codexEngineering, /Do not mutate or auto-apply/i);
+    assert.match(codexEngineering, /plan-work.*explicit confirmation or decline inline/is);
+    assert.match(codexEngineering, /needs no second `use`/i);
     assert.doesNotMatch(codexEngineering, /model pool|gpt-|claude|grok/i);
     const transport = new StdioClientTransport({
       command: process.execPath,

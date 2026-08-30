@@ -1,14 +1,11 @@
 # Release plugin
 
-Operate only on the current Workflow plugin repository. Select exactly one action:
+Operate only on the current Workflow plugin repository. This command accepts no action, version, receipt, or other argument. Run exactly:
 
-- no action or ensure: `npm run release:ensure`
-- status or inspect: `npm run release:status`
-- prepare: `npm run release:prepare`
-- publish: `npm run release:publish -- <receipt-sha256>`
+`npm run release:plugin`
 
-Ensure performs at most one transition. From a clean untagged source it may atomically consolidate only `CHANGELOG.md`, then must stop and report that a separate commit is required. From a later clean committed release cut it may prepare missing ignored `.build/releases/` artifacts after the full release gate passes. An exact current set causes no mutation. Publication requires the receipt supplied in this invocation, a clean unchanged source snapshot, working GitHub authentication, and an already remote tag at the prepared commit.
+The current explicit command is the complete authority for one release lifecycle. The script uses the already declared version, validates every non-ignored tracked and untracked change, creates at most one `Release v{version}` commit, creates the lightweight version tag, atomically pushes `main` plus the tag, publishes the separate Cursor and Codex assets, and verifies the downloaded GitHub bytes.
 
-Never infer commit or publication authority, select a receipt automatically, create or push commits or tags, deploy or install a plugin, restart a host, overwrite assets, use `--clobber`, delete remote state, or repair a draft or partial release. Stop on any source, version, changelog, duplicate section, tag-absence proof, prepared-set, gate, target, secret, receipt, authentication, tag, remote-state, or read-back mismatch. Treat an existing exact downloaded-and-verified release as current.
+Before tracked mutation require reachable authenticated GitHub access, configured commit identity, the expected repository, synchronized `main`, safe paths, no symlinks, nested repositories or recognizable secrets, consistent versions and changelog, and a passing complete release gate. Never bump a version, deploy or install, restart a host, force-push, reset, overwrite, use `--clobber`, delete, or silently repair ambiguous state. Exact retained retry states may resume only through a later explicit invocation; an exact downloaded-and-verified release is current.
 
-Report the changed path and commit boundary for a cut; readiness and blockers for status; hashes, file counts, gate result, output directory, and receipt for preparation; and exact metadata plus downloaded-asset read-back for publish.
+Report version, commit creation, tag, atomic push, archive hashes and file counts, gate result, receipt, GitHub URL, read-back verification, and every blocker.

@@ -25,6 +25,10 @@ Choose exactly one closest outcome:
 
 When two entries appear plausible, select by deliverable: diagnosis before correction, prototype before production feature, one-off performance correction before hillclimb, and fixed captured data before live forensics.
 
+## Planning integration
+
+After material intent is stable, `plan-work` recommends exactly one closest entry and presents its ID, fit, intended phase, and authority need. It waits for an explicit inline confirm or decline before the final Root. Decline continues with no playbook. Confirmation is non-authoritative human trace and becomes usable for mutating work only after Root approval and the separate implementation action. A material intent change or missing trace requires a fresh suggestion.
+
 ## Cross-cutting adaptation
 
 - Long-running work uses a checkable exit predicate, Root budgets, and one auditable result per iteration. It does not gain autonomous authority.

@@ -17,6 +17,8 @@ Return the playbook ID, why it fits, intended phase, authority needed, and the e
 
 `$engineering-work use <playbook-id>` is the human confirmation. Read only the matching family reference named by the catalog.
 
+`plan-work` may collect the same explicit confirmation or decline inline after presenting the complete suggestion. A confirmed choice needs no second `use` in that same planning context, but remains pending methodology until the exact Root is approved and implementation is separately authorized. Decline selects no playbook. A material intent change or missing human trace invalidates the choice and requires a fresh suggestion.
+
 - Diagnostic playbooks remain read-only.
 - A mutating playbook requires an exact approved Schema-6 Root and separate implementation authority. Then follow [work execution](../work-execution/SKILL.md); the project harness chooses every command, tool, model, framework, runner, sandbox, worktree, retry, decomposition, and verification mechanism.
 - Continuity playbooks preserve state only inside existing authority. They never create a commit, push, external publication, acceptance, qualification, or learning permission.
