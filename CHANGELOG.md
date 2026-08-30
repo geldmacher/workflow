@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fixed release-test fixtures to initialize on local `main` so complete-release coverage stays valid when `init.defaultBranch` is `master`.
 - Consolidated the repository-local GitHub Release workflow into one explicit no-argument invocation that validates all non-ignored changes, creates a release commit when required, atomically pushes `main` and its lightweight tag, publishes both host packages, and verifies downloaded assets.
 
 ## 6.0.0
