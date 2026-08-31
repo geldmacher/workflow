@@ -13,7 +13,7 @@ import { WORKFLOW_TOOL_ANNOTATIONS } from "../src/mcp/tool-annotations.mjs";
 import { workflowClient } from "./mcp-client.mjs";
 
 const expectedTools = ["workflow_artifact_context", "workflow_artifact_record", "workflow_closeout", "workflow_plan_preflight", "workflow_status"];
-const expectedCodexSkills = ["accept-work", "correct-work", "engineering-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-status"];
+const expectedCodexSkills = ["correct-work", "engineering-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-status"];
 const rootPlan = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
 const manualGuide = readFileSync(join(defaultRoot, "docs", "manual-workflow.md"), "utf8");
 const installationGuide = readFileSync(join(defaultRoot, "docs", "installation.md"), "utf8");
