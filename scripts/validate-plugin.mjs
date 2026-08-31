@@ -20,7 +20,7 @@ const namePattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const semverPattern = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 const globPattern = /[*?[{]/;
 const expected = Object.freeze({
-  commands: ["accept-work", "auto-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-status"],
+  commands: ["auto-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-status"],
   agents: [],
   skills: ["engineering-work", "manual-workflow", "work-automation", "work-execution", "work-explanation", "work-learning", "work-planning", "work-review"],
   rules: [],
@@ -362,7 +362,10 @@ export function validatePlugin(root = defaultRoot, options = {}) {
     const wrapperSchema = JSON.parse(readText(wrapperSchemaPath));
     if (wrapperSchema.additionalProperties !== true) failures.push("schemas/cursor-plan-wrapper.schema.json: additionalProperties must be true");
     if (wrapperSchema.$id !== "urn:geldmacher:cursor-plan-wrapper:1") failures.push("schemas/cursor-plan-wrapper.schema.json: invalid schema id");
-    for (const field of ["todos", "isProject"]) if (!wrapperSchema.required?.includes(field)) failures.push(`schemas/cursor-plan-wrapper.schema.json: missing required ${field}`);
+    for (const field of ["todos", "isProject"]) {
+      if (wrapperSchema.required?.includes(field)) failures.push(`schemas/cursor-plan-wrapper.schema.json: ${field} must remain optional host metadata`);
+    }
+    if (wrapperSchema.properties?.todos?.minItems) failures.push("schemas/cursor-plan-wrapper.schema.json: host todos must not be a plan-validity condition");
   }
   const references = listFiles(join(rootPath, "references"), (file) => extname(file) === ".md")
     .map((file) => ({ file, label: relative(rootPath, file), fields: {} }));

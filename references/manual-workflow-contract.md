@@ -1,37 +1,18 @@
 # Manual Workflow contract
 
-Manual is the default host-neutral lifecycle:
+The default human loop is **Plan → Implement → Review → Correct → Review**.
 
-1. A human approves one exact Schema-6 Intent Root in the host-native Plan.
-2. The host and project harness implement desired outcomes inside Root authority.
-3. Fresh Review validates the exact Root before repository inspection, remains repository-read-only, and receives closed unprotected observations from the project harness.
-4. The bundled local builder validates exact bytes, classifies authority and lineage, computes hashes and IDs, and builds Evidence, Review, and human presentation atomically.
-5. Unprotected success remains below verified, but a finding-free current Review with every required Check at least supported may conclude that repository outcomes are achieved with no further action. Failed required Checks remain blocking.
-6. A human separately chooses correction, replan, another Review, or ephemeral provisional acknowledgement only when the Review identifies that actual boundary.
+1. Plan Work writes comprehensive free-form Markdown and local `build-plan` adds one generated Authority Core.
+2. The human authorizes implementation through the host's native Implement Plan action.
+3. The human starts fresh repository-read-only Review Work.
+4. Review returns exactly Achieved, Correction needed, or Open points.
+5. The human separately authorizes each bounded Correct Work action and separately starts the next Review Work.
+6. Open Points end with a natural-language human assessment. A human may stop or deliberately request a new plan; neither decision is persisted as a hidden transition.
 
-Workflow owns lifecycle, intent, authority, lineage, evidence grades, artifact construction, and human gates. The harness owns commands, tools, models, framework knowledge, sandboxes, worktrees, retries, and verification strategy.
+Manual, Supervised, and Autonomous use these same outcomes and correction path. Profiles differ only in harness attestation, qualification, and execution capability. There is no final delivery-acceptance gate.
 
-Manual requires no MCP, adapter, MCP Roots, Hook Trust, cache, receipt, or persistent state. Same-task exact bytes are the normal transport. A native Plan container is normalized only when it satisfies the current presentation contract; mutable host presentation is excluded from the embedded Root. A fresh task requires explicit attachment of the Root and every referenced artifact. Missing, multiple, or invalid input produces Shadow with no pseudo-artifact. Ordinary repository-internal paths outside `allowed_roots` stay visible and provisional; protected, approval-required, malformed, or escaping paths remain blocking or Shadow as appropriate. Hooks are optional and availability-first so ordinary Cursor and Codex use remains free.
+Workflow owns intent, authority, lineage, evidence grades, artifacts, and human phase gates. The project harness owns commands, tools, models, framework knowledge, worktrees, retries, and verification strategy. Ordinary Cursor and Codex use remains fail-open when Workflow infrastructure is unavailable.
 
-Every local request may carry `presentation_locale: de|en`, chosen by the Skill from the active conversation language and defaulting to `en`. It changes only fixed presentation text. Human output leads with one decision and one next action; full traceability and exact artifacts remain available through default-closed disclosure. Implementation and correction completion means only that phase is complete and fresh Review is pending, never that delivery or Workflow is complete.
+The only human-facing actions are **Implement Plan**, **Review Work**, **Correct Work**, a natural assessment of named Open Points, or none. Technical retries stay internal. Unsupported earlier actions and plan/review forms fail clearly and never create a success path.
 
-The builder preserves canonical action tokens. Target facades decorate only the token emitted by the operation's authoritative source:
-
-| Token | Cursor | Codex | Portable |
-|---|---|---|---|
-| `implement-plan` | **Implement Plan** | **Implement Plan** | `implement-work` |
-| `correct-plan` | revise the native Plan | revise the native Plan | revise the Root with `plan-work` |
-| `create-schema-6-root` | `/plan-work` | `$plan-work` | `plan-work` |
-| `create-root-plan` | `/plan-work` | `$plan-work` | `plan-work` |
-| `review-root` | `/review-work` | `$review-work` | `review-work` |
-| `correct` | `/correct-work` | `$correct-work` | `correct-work` |
-| `accept-provisional` | `/accept-work provisional` | `$accept-work` | `accept-work` |
-| `replan` | `/plan-work replan` | `$plan-work replan` | `plan-work replan` |
-| `retry-review` | `/review-work` | `$review-work` | `review-work` |
-| `clarify` | answer the named decision | answer the named decision | answer the named decision |
-| `provide-artifacts` | provide the exact chain | provide the exact chain | provide the exact chain |
-| `none` | no further Workflow action | no further Workflow action | no further Workflow action |
-
-The mapping adds no new action, authority, or assessment. The canonical token remains visible in technical details.
-
-Only Schema 6 is accepted. Verified requires a separately protected harness attestation bound to Check intent, Root, workspace, and snapshot. The registered MCP server is reserved for opt-in Automation, automation status, and optional protected sealing; its failure cannot change Manual status. Missing attestation keeps the evidence grade below verified; it does not by itself make achieved repository outcomes incomplete. Failed remains failed. Repository-only is the finish line: no automatic push, PR, merge, deploy, production access, publication, or learning.
+Missing protected attestation caps proof at supported; it does not by itself prevent Achieved. Known failed required Checks remain failed. Repository-only remains the finish line: no automatic push, PR, merge, deploy, production access, publication, or learning.

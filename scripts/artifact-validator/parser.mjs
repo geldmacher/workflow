@@ -1,4 +1,8 @@
 import { parseDocument } from "yaml";
+import {
+  canonicalAuthorityRootText,
+  parseWorkflowAuthorityPlan,
+} from "../../src/core/workflow-authority-core.mjs";
 
 function yamlObject(source, label, failures) {
   const document = parseDocument(source, { prettyErrors: false, uniqueKeys: true });
@@ -12,75 +16,23 @@ function yamlObject(source, label, failures) {
   return value;
 }
 
-function visibleH2Headings(source) {
-  const headings = [];
-  let fenced = false;
-  for (const line of String(source).split(/\r?\n/)) {
-    if (/^```/.test(line)) {
-      fenced = !fenced;
-      continue;
-    }
-    if (fenced) continue;
-    const match = line.match(/^## ([^#].*)$/);
-    if (match) headings.push(match[1].trim());
-  }
-  return headings;
-}
-
-function validateHumanFirstNextStep(projection, failures) {
-  const source = String(projection);
-  const headings = [...source.matchAll(/^### Next step\s*$/gm)];
-  if (headings.length !== 1) {
-    failures.push("human-first native plan projection requires exactly one complete ### Next step block");
-    return;
-  }
-  const quick = source.match(/^## Quick decision\s*$([\s\S]*?)(?=^## Details\s*$)/m)?.[1] ?? "";
-  const block = quick.match(/^### Next step\s*$([\s\S]*)$/m);
-  if (!block || !quick.trimEnd().endsWith(block[0].trimEnd())) {
-    failures.push("human-first native plan projection requires ### Next step at the end of Quick decision");
-    return;
-  }
-  const lines = block[1].trim().split(/\r?\n/).filter(Boolean);
-  const expected = ["Now", "How", "Why"];
-  if (lines.length !== expected.length || expected.some((label, index) => !new RegExp(`^- ${label}:\\s*\\S`).test(lines[index]))) {
-    failures.push("human-first native plan projection requires complete Now, How, and Why lines in ### Next step");
-  }
-}
-
 export function extractEmbeddedWorkPlanText(text) {
-  const source = String(text);
-  const failures = [];
-  const parsed = parseArtifact(source, failures);
-  if (failures.length > 0 || parsed?.container !== "cursor-plan" || parsed.fields.artifact !== "work-plan") return null;
-  const envelope = source.match(/```yaml artifact-envelope\r?\n([\s\S]*?)\r?\n```(?:\r?\n|$)/);
-  if (!envelope) return null;
-  return `---\n${envelope[1].trim()}\n---\n${parsed.body}`;
+  try {
+    return canonicalAuthorityRootText(text);
+  } catch {
+    return null;
+  }
 }
 
 function parsePlanContainer(text, wrapper, failures, normalizations = []) {
-  const match = String(text).match(/(?:^|\n)# ([^\r\n]+)\r?\n([\s\S]*?)```yaml artifact-envelope\r?\n([\s\S]*?)\r?\n```(?:\r?\n|$)/);
-  if (!match) {
-    failures.push("native plan must contain one H1 and one yaml artifact-envelope");
+  try {
+    const parsed = parseWorkflowAuthorityPlan(text);
+    normalizations.push("validated generated workflow authority core");
+    return { fields: parsed.fields, body: parsed.body, wrapper, container: "cursor-plan", title: null, normalizations };
+  } catch (error) {
+    failures.push(error.message);
     return null;
   }
-  const projection = match[2].trim();
-  if (projection) {
-    const headings = visibleH2Headings(projection);
-    const expected = ["Quick decision", "Details", "Agent and machine contract (authoritative)"];
-    if (headings.length !== expected.length || headings.some((heading, index) => heading !== expected[index])) {
-      failures.push("human-first native plan projection must order Quick decision, Details, then Agent and machine contract (authoritative)");
-      return null;
-    }
-    validateHumanFirstNextStep(projection, failures);
-    if (failures.length > 0) return null;
-  }
-  const fields = yamlObject(match[3], "artifact envelope", failures);
-  if (!fields) return null;
-  if (fields.artifact !== "work-plan") failures.push("native plan containers may contain only work-plan");
-  const offset = match.index + (match[0].startsWith("\n") ? 1 : 0);
-  if (offset > 0) normalizations.push("ignored Cursor progress text before native plan");
-  if (projection) normalizations.push("validated human-first native plan projection");
-  return { fields, body: String(text).slice(match.index + match[0].length), wrapper, container: "cursor-plan", title: match[1], normalizations };
 }
 
 export function parseArtifact(text, failures = [], normalizations = []) {
@@ -102,12 +54,17 @@ export function parseArtifact(text, failures = [], normalizations = []) {
     if (fields?.artifact) envelopes.push({ match, fields });
   }
   if (candidates.length === 0) {
+    if (source.includes("```yaml workflow-authority")) return parsePlanContainer(source, null, failures, normalizations);
     if (envelopes.length > 1) {
       failures.push("response contains multiple workflow artifact candidates");
       return null;
     }
     if (envelopes.length === 1) {
       const [{ match, fields }] = envelopes;
+      if (fields.artifact === "work-plan") {
+        failures.push("earlier work-plan envelopes are unsupported; use one generated yaml workflow-authority Core");
+        return null;
+      }
       normalizations.push("normalized fenced Workflow artifact to chat artifact");
       if (match.index > 0) normalizations.push("ignored Cursor progress preamble");
       return { fields, body: source.slice(match.index + match[0].length), wrapper: null, container: "normalized-envelope", normalizations };
@@ -129,7 +86,13 @@ export function parseArtifact(text, failures = [], normalizations = []) {
     return null;
   }
   if (match.index > 0) normalizations.push("ignored Cursor progress preamble");
-  if (typeof fields.artifact === "string") return { fields, body: source.slice(match.index + match[0].length), wrapper: null, container: "chat-artifact", normalizations };
+  if (typeof fields.artifact === "string") {
+    if (fields.artifact === "work-plan" && (!fields.plan_content_hash || !fields.authority_hash || fields.extensions?.workflow_authority_core !== 1)) {
+      failures.push("Schema-6 work-plan requires the current generated workflow-authority core; earlier plan formats are unsupported");
+      return null;
+    }
+    return { fields, body: source.slice(match.index + match[0].length), wrapper: null, container: "chat-artifact", normalizations };
+  }
   if (["name", "overview", "todos", "isProject"].some((field) => field in fields)) return parsePlanContainer(source.slice(match.index + match[0].length), fields, failures, normalizations);
   failures.push("artifact type is missing");
   return null;

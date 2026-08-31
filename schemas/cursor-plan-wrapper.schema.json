@@ -3,13 +3,11 @@
   "$id": "urn:geldmacher:cursor-plan-wrapper:1",
   "type": "object",
   "additionalProperties": true,
-  "required": ["todos", "isProject"],
   "properties": {
     "name": { "type": "string", "minLength": 1 },
     "overview": { "type": "string", "minLength": 1 },
     "todos": {
       "type": "array",
-      "minItems": 1,
       "items": {
         "type": "object",
         "additionalProperties": true,

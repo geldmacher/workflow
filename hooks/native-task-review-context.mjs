@@ -809,14 +809,15 @@ function validSealArtifacts(rootText, artifacts, pluginRoot) {
     || (evidence.fields.check_evidence ?? []).some((entry) => entry.grade === "failed")
     || review?.fields?.latest_evidence_id !== evidence.fields.id
     || review.fields.predecessor_review_id
-    || review.fields.delivery_status !== "provisional"
-    || review.fields.next_action !== "accept-provisional"
+    || review.fields.outcome !== "achieved"
+    || review.fields.next_action !== "none"
     || review.fields.correction_id
-    || (review.findings ?? []).length > 0) {
-    return { status: "invalid", errors: ["seal predecessor must be one finding-free initial provisional pair"] };
+    || (review.fields.findings ?? []).length > 0
+    || (review.fields.open_points ?? []).length > 0) {
+    return { status: "invalid", errors: ["seal predecessor must be one finding-free achieved pair"] };
   }
   return {
-    status: "provisional-seal",
+    status: "supported-seal",
     artifacts: inspected.entries.map(({ fields, ...entry }) => entry),
     tips: effectiveCliSummary(chain),
     effective: chain.effective,
@@ -1115,7 +1116,7 @@ export function prepareNativeReviewReceipt({ stateRoots, input, pluginRoot, opti
     if (toolInput.seal_artifacts) {
       if (resolved.chain.status !== "full-rebuild") return { status: "mismatch", reason: "seal-conflicts-with-protected-chain" };
       predecessor = validSealArtifacts(current.active.root_text, toolInput.seal_artifacts, pluginRoot);
-      if (predecessor.status !== "provisional-seal") return predecessor;
+      if (predecessor.status !== "supported-seal") return predecessor;
     }
     if (!current.review_selection
       || !["explicit-review-command", "transcript-exact-review-command"].includes(current.review_selection.source)
@@ -1328,7 +1329,7 @@ export function observeNativeReviewResult({ stateRoots, input, pluginRoot, optio
         input: input.tool_input ?? {},
         options,
       });
-      if (consumed.status !== "replayed" || consumed.receipt?.predecessor_mode !== "provisional-seal") return { status: "invalid", errors: ["sealed Review result lacks its exact consumed provisional predecessor receipt"] };
+      if (consumed.status !== "replayed" || consumed.receipt?.predecessor_mode !== "supported-seal") return { status: "invalid", errors: ["sealed Review result lacks its exact consumed supported predecessor receipt"] };
       retained = consumed.receipt.artifacts;
     }
     if (["replace-full-tip", "replace-delta-suffix"].includes(incoming.chainUpdate)) {

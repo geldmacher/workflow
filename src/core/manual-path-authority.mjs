@@ -147,7 +147,7 @@ export function classifyChangedPathAuthority(rootFields, changedPaths, repositor
   }
   if (projection.protected_paths.length > 0) projection.status = "protected";
   else if (projection.approval_required_paths.length > 0) projection.status = "approval-required";
-  else if (projection.outside_allowed_paths.length > 0) projection.status = "provisional-drift";
+  else if (projection.outside_allowed_paths.length > 0) projection.status = "outside-authority";
   return projection;
 }
 

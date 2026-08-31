@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 import { defaultRoot, inspectArtifactText } from "../scripts/validate-artifact.source.mjs";
+import { nativePlan } from "./support/workflow-fixtures.mjs";
 
 const canonical = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
 
@@ -21,15 +22,18 @@ test("root sections may use registered prose aliases", () => {
 });
 
 test("hard triggers prohibit autonomous execution", () => {
-  const autonomous = canonical
-    .replace("profile_max: manual", "profile_max: autonomous")
-    .replace("contract_level: lean", "contract_level: certified")
-    .replace("hard_triggers: []", "hard_triggers: [security-secrets]")
-    .replace("  external_effects: none", `  external_effects: none\n  max_active_minutes: 30\n  max_total_tokens: 10000\n  max_cost_usd: 5`)
-    .replace("---\n\n## Intent", `certification:\n  qualification_key: qk-repository\n  harness_capability_receipt_hash: ${"a".repeat(64)}\n  verification_intent_hash: ${"b".repeat(64)}\n  certified_region: src\n---\n\n## Intent`);
-  assert.match(inspectArtifactText(autonomous).errors.join("\n"), /hard-trigger work cannot be autonomous/);
+  assert.throws(() => nativePlan("autonomous", {
+    hard_triggers: ["security-secrets"],
+    certification: {
+      qualification_key: "qk-repository",
+      harness_capability_receipt_hash: "a".repeat(64),
+      verification_intent_hash: "b".repeat(64),
+      certified_region: "src",
+    },
+  }), /hard-trigger work cannot use autonomous profile/);
 });
 
 test("authority paths stay repository relative", () => {
-  assert.match(inspectArtifactText(canonical.replace("    - src", "    - /tmp/outside")).errors.join("\n"), /repository-relative/);
+  const invalid = nativePlan("manual", { authority: { allowed_roots: ["/tmp/outside"], protected_paths: [], approval_required_paths: [], dependencies: "deny", external_effects: "none", delivery: "repository-only" } });
+  assert.match(inspectArtifactText(invalid).errors.join("\n"), /repository-relative/);
 });

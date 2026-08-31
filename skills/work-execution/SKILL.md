@@ -7,7 +7,7 @@ Read [protocol](../../references/artifact-protocol.md) and [correction](../../re
 
 Resolve exact Root and unique correction tip. For correction `status`, pass `presentation_locale: de` only for active German, else `en`; implementation needs the Root. Reject conflict, staleness, or authority drift.
 
-Workflow availability never gates ordinary host use. Changed intent, scope, risk, protected paths, dependencies, or effects requires approved replan.
+Workflow availability never gates ordinary host use. Changed intent, scope, risk, protected paths, dependencies, or effects exceed this correction; stop and report the exact Open Point for human assessment.
 
 Apply outcomes inside Root authority. The harness owns execution and verification.
 

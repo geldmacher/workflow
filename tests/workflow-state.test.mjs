@@ -2,68 +2,51 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { deriveWorkflowState, workflowStates } from "../scripts/derive-workflow-state.mjs";
 
-const approved = {
-  root_plan_id: "wp-v6",
-  requested_profile: "manual",
-  effective_profile: "manual",
-  goal: "Deliver safely",
-  plan_status: "ready",
-  plan_approved: true,
-  intent_ready: true,
-  root_schema_valid: true,
-  blockers: [],
-};
+const base = { root_plan_id: "wp-state", root_schema_valid: true, artifact_chain_valid: true };
 
-test("approved roots retain the human implementation gate", () => {
-  const value = deriveWorkflowState(approved);
-  assert.equal(value.state, "root-plan-review");
-  assert.equal(value.required_actor, "human");
-  assert.equal(value.next_action, "implement-plan");
-  assert.equal("strategy_revision" in value, false);
-  assert.equal("strategy_hash" in value, false);
+test("state vocabulary is exactly the six human-relevant states", () => {
+  assert.deepEqual(new Set(workflowStates), new Set(["root-ready", "review-needed", "correction-needed", "achieved", "open-points", "shadow-review"]));
 });
 
-test("generic harness phase status drives only lifecycle state", () => {
-  assert.equal(deriveWorkflowState({ ...approved, phase: "implement", phase_status: "running" }).state, "implementing");
-  assert.equal(deriveWorkflowState({ ...approved, phase: "correct", phase_status: "running" }).state, "correcting");
-  assert.equal(deriveWorkflowState({ ...approved, phase: "review", phase_status: "running" }).state, "reviewing");
-  const unavailable = deriveWorkflowState({ ...approved, harness_status: "unavailable" });
-  assert.equal(unavailable.state, "waiting-human");
-  assert.ok(unavailable.blockers.includes("harness-unavailable"));
-  const failed = deriveWorkflowState({ ...approved, harness_status: "failed" });
-  assert.equal(failed.state, "blocked");
+test("ready Root retains the human implementation gate", () => {
+  const state = deriveWorkflowState({ ...base, execution_started: false });
+  assert.equal(state.state, "root-ready");
+  assert.equal(state.next_action, "implement-plan");
 });
 
-test("invalid roots require a human-approved Schema-6 replan", () => {
-  const value = deriveWorkflowState({ ...approved, artifact_chain_valid: false });
-  assert.equal(value.state, "replan");
-  assert.equal(value.next_action, "create-schema-6-root");
-  assert.ok(value.blockers.includes("schema-6-replan-required"));
-});
-
-test("verified and provisional deliveries keep distinct human gates", () => {
-  const verified = deriveWorkflowState({ ...approved, delivery_status: "verified" });
-  assert.equal(verified.state, "delivery-ready-verified");
-  assert.equal(verified.required_actor, "reviewer");
-  const provisional = deriveWorkflowState({ ...approved, delivery_status: "provisional" });
-  assert.equal(provisional.state, "delivery-ready-provisional");
-  assert.equal(provisional.required_actor, "human");
-  assert.equal(provisional.next_action, "accept-provisional");
-});
-
-test("achieved and accepted provisional are honest terminal states", () => {
-  const achieved = deriveWorkflowState({ ...approved, review: { assessment: "achieved", next_action: "none" } });
-  assert.equal(achieved.state, "achieved");
-  assert.deepEqual(achieved.allowed_actions, ["explain", "learn"]);
-  const accepted = deriveWorkflowState({ ...approved, delivery_status: "provisional", manual_acceptance: "provisional", artifact_set_hash: "a".repeat(64) });
-  assert.equal(accepted.state, "accepted-provisional");
-  assert.equal(accepted.acceptance_persisted, false);
-});
-
-test("state vocabulary is lifecycle-only", () => {
-  for (const state of ["implementing", "reviewing", "correcting", "delivery-ready-verified", "delivery-ready-provisional", "blocked"]) {
-    assert.ok(workflowStates.includes(state));
+test("implementation or correction completion means Fresh Review pending", () => {
+  for (const input of [{ execution_started: true }, { execution_started: true, correction_evidence_pending_review: true, review: { outcome: "correction-needed" } }]) {
+    const state = deriveWorkflowState({ ...base, ...input });
+    assert.equal(state.state, "review-needed");
+    assert.equal(state.next_action, "review-work");
   }
-  assert.equal(workflowStates.includes("strategy-ready"), false);
-  assert.equal(workflowStates.includes("host-verifying"), false);
+});
+
+test("Review outcome alone determines correction, open point, or achieved state", () => {
+  const cases = [
+    ["correction-needed", "correction-needed", "correct"],
+    ["open-points", "open-points", "human-assessment"],
+    ["achieved", "achieved", "none"],
+  ];
+  for (const [outcome, expectedState, action] of cases) {
+    const state = deriveWorkflowState({ ...base, execution_started: true, review: { outcome }, evidence_grade: "supported" });
+    assert.equal(state.state, expectedState);
+    assert.equal(state.next_action, action);
+  }
+});
+
+test("evidence grade does not split achieved into delivery acceptance gates", () => {
+  for (const evidence_grade of ["supported", "verified"]) {
+    const state = deriveWorkflowState({ ...base, execution_started: true, review: { outcome: "achieved" }, evidence_grade });
+    assert.equal(state.state, "achieved");
+    assert.equal(state.next_action, "none");
+  }
+});
+
+test("invalid, incomplete, or absent formal binding derives Shadow Review", () => {
+  for (const input of [{}, { ...base, root_schema_valid: false }, { ...base, manual_context_incomplete: true }, { ...base, artifact_chain_valid: false }]) {
+    const state = deriveWorkflowState(input);
+    assert.equal(state.state, "shadow-review");
+    assert.equal(state.next_action, "human-assessment");
+  }
 });

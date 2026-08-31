@@ -9,6 +9,7 @@ import { PLUGIN_VERSION } from "../controller/protocol.mjs";
 import { harnessContractHash } from "../core/harness-attestations.mjs";
 import { loadProtectedProjectHarness } from "../harness/module-adapter.mjs";
 import { createHostDecisionReceiptAdapter } from "../harness/host-decision-receipts.mjs";
+import { automationMcpResult } from "./automation-presentation.mjs";
 import { registerManualWorkflowTools } from "./manual-tools.mjs";
 import { toolContract } from "./tool-contracts.mjs";
 import { WorkspaceRootAuthority, WorkspaceRootError } from "./workspace-roots.mjs";
@@ -91,9 +92,9 @@ server.registerTool("workflow_prepare", toolContract("workflow_prepare"), async 
       decisionReceiptAdapter: createHostDecisionReceiptAdapter({ stateRoot }),
     });
     let lifecycle;
-    if (input.action === "start") {
+    if (input.action === "implement") {
       if (!input.root_plan || !input.requested_profile || input.run_id || input.expected_revision !== undefined || input.human_decision_receipt) {
-        throw new Error("workflow_prepare start requires only root_plan, requested_profile, and idempotency_key");
+        throw new Error("workflow_prepare implement requires root_plan, requested_profile, idempotency_key, and optional presentation_locale only");
       }
       lifecycle = await controller.start({ rootPlanText: input.root_plan, requestedProfile: input.requested_profile, idempotencyKey: input.idempotency_key });
     } else {
@@ -108,13 +109,18 @@ server.registerTool("workflow_prepare", toolContract("workflow_prepare"), async 
         humanDecisionReceipt: input.human_decision_receipt,
       });
     }
-    return result({ ...lifecycle, workspace_root: workspace, workspace_binding: workspaceBinding, ordinary_host_use_blocked: false });
+    return automationMcpResult({
+      ...lifecycle,
+      workspace_root: workspace,
+      workspace_binding: workspaceBinding,
+      ordinary_host_use_blocked: false,
+    }, false, { presentationLocale: input.presentation_locale });
   } catch (error) {
-    return result({
+    return automationMcpResult({
       error: error.message,
       ...(error instanceof WorkspaceRootError ? { error_code: error.code } : {}),
       in_progress: false,
-    }, true);
+    }, true, { presentationLocale: input.presentation_locale });
   }
 });
 

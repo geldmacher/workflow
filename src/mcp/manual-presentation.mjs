@@ -6,6 +6,9 @@ const MANUAL_TOOLS = new Set([
   "workflow_status",
 ]);
 
+const localeOf = (value) => value === "de" ? "de" : "en";
+const localized = (locale, en, de) => locale === "de" ? de : en;
+
 function unique(values = []) {
   return [...new Set(values.map((value) => String(value ?? "").trim()).filter(Boolean))];
 }
@@ -21,14 +24,12 @@ function message(value) {
 
 function stateOf(toolName, value, isError) {
   if (isError || value?.error) return "failed";
-  if (toolName === "workflow_plan_preflight") return value?.feasible ? "root-plan-review" : "blocked";
-  if (toolName === "workflow_status") return value?.snapshot?.state ?? value?.state ?? "status-available";
+  if (value?.run?.workflow_state) return value.run.workflow_state;
+  if (toolName === "workflow_plan_preflight") return value?.feasible ? "root-ready" : "shadow-review";
+  if (toolName === "workflow_status") return value?.run?.workflow_state ?? value?.snapshot?.state ?? value?.state ?? "status-available";
   if (toolName === "workflow_closeout" && value?.artifact_kind === "work-review") {
     if (value?.mode === "shadow" && value?.status === "unavailable") return "shadow-review";
-    if (value?.assessment === "achieved" && value?.next_action === "none") return "achieved";
-    if (value.delivery_status === "verified") return "achieved";
-    if (value.delivery_status === "provisional") return "delivery-ready-provisional";
-    return "blocked";
+    return value?.outcome ?? value?.authoritative_fields?.outcome ?? "open-points";
   }
   if (toolName === "workflow_closeout") return value?.status === "blocked" ? "blocked" : "root-review";
   return "context-available";
@@ -36,19 +37,22 @@ function stateOf(toolName, value, isError) {
 
 function outcomeOf(state, value, isError) {
   if (isError || value?.error || state === "failed") return "failed";
-  if (state === "blocked" || value?.status === "blocked") return "blocked";
-  if (["delivery-ready-provisional", "root-review", "root-plan-review", "shadow-review"].includes(state)) return "partial";
+  if (["open-points", "shadow-review"].includes(state)) return "partial";
+  if (state === "correction-needed") return "blocked";
   return "ready";
 }
 
-function actionOf(toolName, state, value) {
-  if (state === "root-plan-review") return { id: "implement-plan", label: "Implement Plan", why: "The Schema-6 Root is ready for explicit human approval." };
-  if (state === "root-review") return { id: "review-root", label: "Run fresh Review", why: "Evidence exists and needs a fresh read-only delivery decision." };
-  if (state === "delivery-ready-provisional") return { id: "accept-provisional", label: "Decide on provisional delivery", why: "Evidence is honest but not fully harness-attested." };
+function actionOf(toolName, state, value, locale) {
+  const runAction = value?.run?.next_action;
+  if (runAction === "none") return null;
+  if (state === "root-ready") return { id: "implement-plan", label: "Implement Plan", why: localized(locale, "The Schema-6 Root is ready for explicit human approval.", "Der Schema-6-Root ist für die ausdrückliche menschliche Freigabe bereit.") };
+  if (["root-review", "review-needed"].includes(state)) return { id: "review-work", label: "Review Work", why: localized(locale, "The completed work is waiting for a separately authorized read-only Review.", "Die abgeschlossene Arbeit wartet auf einen separat autorisierten, read-only Review.") };
+  if (state === "correction-needed") return { id: "correct", label: "Correct Work", why: localized(locale, "The current Review contains one bounded correction inside the Root.", "Der aktuelle Review enthält genau eine begrenzte Korrektur innerhalb des Roots.") };
+  if (state === "open-points") return { id: "human-assessment", label: localized(locale, "Assess open points", "Offene Punkte beurteilen"), why: localized(locale, "The Review names the exact limitation and its impact.", "Der Review benennt die konkrete Grenze und ihre Auswirkung.") };
   if (state === "shadow-review") return {
-    id: value?.recovery_action ?? "establish-formal-review-binding",
-    label: value?.recovery_action === "create-formal-plan-binding" ? "Create a formal Plan binding" : "Establish formal Review binding",
-    why: "Shadow findings are useful but cannot create Workflow evidence or change lifecycle state.",
+    id: "human-assessment",
+    label: localized(locale, "Assess the formal binding open point", "Offenen Bindungspunkt beurteilen"),
+    why: localized(locale, "Shadow findings are useful, but the named formal limitation needs natural human assessment and grants no correction authority.", "Shadow-Findings sind nützlich, aber die formale Grenze braucht eine natürliche menschliche Beurteilung und erteilt keine Korrekturautorität."),
   };
   if (state === "achieved") return null;
   if (toolName === "workflow_status" && value?.snapshot?.next_action) return {
@@ -56,35 +60,43 @@ function actionOf(toolName, state, value) {
     label: String(value.snapshot.next_action).replaceAll("-", " "),
     why: "This is the next lifecycle action derived from the exact artifact chain.",
   };
-  if (state === "blocked" || state === "failed") return { id: "resolve-blocker", label: "Resolve the reported blocker", why: "Workflow cannot advance this phase while the named condition remains." };
+  if (state === "failed") return { id: "human-assessment", label: localized(locale, "Assess the reported limitation", "Gemeldete Grenze beurteilen"), why: localized(locale, "Workflow cannot safely derive a formal outcome.", "Workflow kann kein sicheres formales Ergebnis ableiten.") };
   return null;
 }
 
-function summaryOf(toolName, state, value) {
+function summaryOf(toolName, state, value, locale) {
   if (value?.error) return message(value.error);
   if (toolName === "workflow_plan_preflight") return value.feasible
     ? "The Schema-6 Intent Root is feasible and ready for human approval."
     : "The proposed Root is not ready; its intent or authority contract needs correction.";
   if (state === "shadow-review") return value?.repository_outcome
     ?? "A read-only repository assessment may continue, but formal Plan conformance is unavailable.";
-  if (toolName === "workflow_closeout" && value?.artifact_kind === "work-review") return value?.assessment
-    ? `Fresh repository Review concluded ${value.assessment}.`
+  if (toolName === "workflow_closeout" && value?.artifact_kind === "work-review") return value?.outcome
+    ? `Fresh repository Review concluded ${value.outcome}.`
     : "Fresh repository Review completed.";
   if (toolName === "workflow_closeout") return `Delivery Evidence is ${value?.status ?? "available"} with grade ${value?.overall_grade ?? "unknown"}.`;
-  if (toolName === "workflow_status") return `Workflow state is ${state}.`;
+  if (value?.run) {
+    const point = value.run.open_points?.[0]?.summary;
+    if (point) return point;
+    if (state === "review-needed") return localized(locale, "The authorized work phase completed. Fresh Review is pending and has not started.", "Die autorisierte Arbeitsphase ist abgeschlossen. Fresh Review pending; der Review wurde noch nicht gestartet.");
+    if (state === "correction-needed") return localized(locale, "The Review found correctable in-Root deviations.", "Der Review hat innerhalb des Roots korrigierbare Abweichungen gefunden.");
+    if (state === "achieved") return localized(locale, "The reviewed repository outcomes are achieved.", "Die geprüften Repository-Ergebnisse sind erreicht.");
+    if (state === "open-points") return localized(locale, "The run ended with concrete open points for human assessment.", "Der Lauf endete mit konkreten offenen Punkten zur menschlichen Beurteilung.");
+    return localized(locale, `Workflow state is ${state}.`, `Workflow-Status ist ${state}.`);
+  }
+  if (toolName === "workflow_status") return localized(locale, `Workflow state is ${state}.`, `Workflow-Status ist ${state}.`);
   if (toolName === "workflow_artifact_record") return "Exact Root transport was recorded; transport does not grant authority.";
   return "Exact Workflow context is available.";
 }
 
-function evidenceStatusOf(toolName, state, value) {
+function evidenceStatusOf(toolName, state, value, locale) {
   if (state === "shadow-review") return value?.evidence_status ?? "No Workflow Evidence or Work Review artifact was created.";
   if (toolName === "workflow_closeout" && value?.artifact_kind === "work-review") {
-    if (state === "achieved" && value?.delivery_status === "verified") return "Protected Evidence verifies the delivery on the bound repository snapshot.";
     if (state === "achieved") return "Repository outcomes are achieved on the current snapshot; Evidence remains supported rather than verified.";
-    if (state === "delivery-ready-provisional") return "Formal Evidence exists, but its declared limitation prevents a verified claim.";
-    return "Formal Review did not establish a delivery-ready evidence state.";
+    if (state === "open-points") return "Formal Evidence exists and its concrete limitation is reported separately from the repository outcome.";
+    return "Formal Review requires one bounded correction.";
   }
-  return "Workflow evidence status follows the lifecycle result reported below.";
+  return localized(locale, "Workflow evidence status follows the lifecycle result reported below.", "Der Workflow-Evidenzstatus folgt dem unten ausgewiesenen Lifecycle-Ergebnis.");
 }
 
 function limitationLines(value) {
@@ -117,10 +129,11 @@ function repositoryFindings(value, state) {
   });
 }
 
-export function buildPresentation(toolName, value, { isError = false, clientHost = "portable" } = {}) {
+export function buildPresentation(toolName, value, { isError = false, clientHost = "portable", presentationLocale = "en" } = {}) {
+  const locale = localeOf(presentationLocale);
   const state = stateOf(toolName, value, isError);
   const outcome = outcomeOf(state, value, isError);
-  const action = actionOf(toolName, state, value);
+  const action = actionOf(toolName, state, value, locale);
   const checks = value?.check_evidence ?? [];
   const findings = repositoryFindings(value, state);
   return {
@@ -128,19 +141,24 @@ export function buildPresentation(toolName, value, { isError = false, clientHost
     tool: toolName,
     workflow_state: state,
     outcome,
-    summary: summaryOf(toolName, state, value),
-    repository_outcome: summaryOf(toolName, state, value),
-    evidence_status: evidenceStatusOf(toolName, state, value),
+    locale,
+    summary: summaryOf(toolName, state, value, locale),
+    repository_outcome: summaryOf(toolName, state, value, locale),
+    evidence_status: evidenceStatusOf(toolName, state, value, locale),
     repository_findings_authoritative: state === "shadow-review" ? false : null,
     repository_findings: findings,
     checks: checks.map((entry) => `${entry.check_id}: ${entry.grade}`),
     blockers: blockerLines(value, state),
     limitations: limitationLines(value),
+    open_points: list(value?.run?.open_points).map((entry) => message(entry?.summary ?? entry)),
     next_action: action?.id ?? "none",
     primary_action: action,
     client_host: clientHost,
     technical_traceability: {
-      root_plan_id: value?.root_plan_id ?? value?.snapshot?.root_plan_id ?? null,
+      root_plan_id: value?.root_plan_id ?? value?.run?.root_plan_id ?? value?.snapshot?.root_plan_id ?? null,
+      run_id: value?.run?.run_id ?? null,
+      run_revision: value?.run?.revision ?? null,
+      technical_state: value?.run?.technical ?? null,
       evidence_id: value?.delivery_evidence_id ?? value?.snapshot?.latest_evidence_id ?? null,
       review_id: value?.work_review_id ?? value?.snapshot?.latest_review_id ?? null,
       artifact_hash: value?.artifact_hash ?? null,
@@ -164,10 +182,11 @@ function section(title, entries) {
 }
 
 export function formatManualToolContent(presentation) {
+  const locale = localeOf(presentation.locale);
   const action = presentation.primary_action;
   const next = action
-    ? `\n\n### Next step\n\n- Now: ${action.label}\n- Why: ${action.why}`
-    : "\n\n### Done\n\nNo further Workflow action is required for this result.";
+    ? `\n\n### ${localized(locale, "Next step", "Nächster Schritt")}\n\n- ${localized(locale, "Now", "Jetzt")}: ${action.label}\n- ${localized(locale, "Why", "Warum")}: ${action.why}`
+    : `\n\n### ${localized(locale, "Done", "Erledigt")}\n\n${localized(locale, "No further Workflow action is required for this result.", "Für dieses Ergebnis ist keine weitere Workflow-Aktion erforderlich.")}`;
   const trace = presentation.technical_traceability;
   const findings = presentation.workflow_state === "shadow-review"
     ? `\n\n### Repository findings (non-authoritative)\n\n${presentation.repository_findings.length > 0
@@ -176,6 +195,7 @@ export function formatManualToolContent(presentation) {
     : "";
   const technical = [
     `Root: ${trace.root_plan_id ?? "none"}`,
+    `Run: ${trace.run_id ?? "none"}@${trace.run_revision ?? "none"}`,
     `Evidence: ${trace.evidence_id ?? "none"}`,
     `Review: ${trace.review_id ?? "none"}`,
     `Artifact hash: ${trace.artifact_hash ?? "none"}`,
@@ -188,8 +208,9 @@ export function formatManualToolContent(presentation) {
     `Persistence scope: ${trace.persistence_scope ?? "not reported"}`,
     `Task-local handoff persisted: ${trace.handoff_persisted ?? "not reported"}`,
     `Changed paths: ${(trace.changed_paths ?? []).join(", ") || "none"}`,
+    `Technical state: ${trace.technical_state ? JSON.stringify(trace.technical_state) : "none"}`,
   ];
-  return `## Workflow · ${presentation.workflow_state}\n\n### Quick decision\n\n- Repository outcome: ${presentation.repository_outcome}\n- Evidence status: ${presentation.evidence_status}${section("Blockers", presentation.blockers)}${section("Limitations", presentation.limitations)}${findings}${next}\n\n### Details\n\nWorkflow reports lifecycle state, authority and evidence only. Concrete execution remains owned by the active project harness. Task-local handoff cache is separate from committed native Review-invocation persistence.\n\n<details><summary>Agent and machine contract (authoritative) · Technical traceability</summary>\n\n${technical.join("\n")}\n\n</details>\n`;
+  return `## Workflow · ${presentation.workflow_state}\n\n### ${localized(locale, "Quick decision", "Kurzentscheidung")}\n\n- ${localized(locale, "Result", "Ergebnis")}: ${presentation.repository_outcome}\n- ${localized(locale, "Impact", "Auswirkung")}: ${presentation.evidence_status}${section(localized(locale, "Open points", "Offene Punkte"), presentation.open_points)}${section(localized(locale, "Blockers", "Blocker"), presentation.blockers)}${section(localized(locale, "Limitations", "Grenzen"), presentation.limitations)}${findings}${next}\n\n### Details\n\n${localized(locale, "Workflow reports lifecycle state, authority and evidence only. Concrete execution remains owned by the active project harness. Task-local handoff cache is separate from committed native Review-invocation persistence.", "Workflow meldet nur Lifecycle-Status, Autorität und Evidenz. Die konkrete Ausführung bleibt beim aktiven Projekt-Harness. Der task-lokale Handoff-Cache ist von persistierter nativer Review-Bindung getrennt.")}\n\n<details><summary>Agent and machine contract (authoritative) · Technical traceability</summary>\n\n${technical.join("\n")}\n\n</details>\n`;
 }
 
 export function isManualWorkflowTool(toolName) {
@@ -204,11 +225,15 @@ export function coalesceManualPresentation(presentation) {
   return { ...presentation, update_suppressed: false };
 }
 
-export function manualMcpResult(toolName, value, isError = false, { clientHost = "portable" } = {}) {
+export function manualMcpResult(toolName, value, isError = false, { clientHost = "portable", presentationLocale = "en" } = {}) {
   if (!isManualWorkflowTool(toolName)) {
     return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }], structuredContent: value, isError };
   }
-  const presentation = buildPresentation(toolName, value, { isError, clientHost });
+  return workflowMcpResult(toolName, value, isError, { clientHost, presentationLocale });
+}
+
+export function workflowMcpResult(toolName, value, isError = false, { clientHost = "portable", presentationLocale = "en" } = {}) {
+  const presentation = buildPresentation(toolName, value, { isError, clientHost, presentationLocale });
   return {
     content: [{ type: "text", text: formatManualToolContent(presentation) }],
     structuredContent: { ...value, presentation },

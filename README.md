@@ -6,7 +6,7 @@ Workflow turns AI output into trustworthy repository delivery by standardizing l
 
 ## Intent and expectations
 
-The default lifecycle is Plan → Implement → fresh Review → Correct or Replan. A human approves the Schema-6 Intent Root. Workflow keeps that authority immutable, reports evidence honestly, and never treats transport or presentation as permission.
+The default lifecycle is Plan → Implement → fresh Review → Correct → fresh Review. A human approves the Schema-6 Intent Root. Workflow keeps that authority immutable, reports evidence honestly, and never treats transport or presentation as permission.
 
 The central contributor Northstar is the root `AGENTS.md`. There is no second Northstar file.
 
@@ -33,19 +33,19 @@ Current contract versions:
 
 Manual is the default and has no MCP dependency:
 
-1. `/plan-work <goal>` or `$plan-work <goal>` creates a human-approved Schema-6 Root.
+1. `/plan-work <goal>` or `$plan-work <goal>` writes comprehensive free-form Markdown; local `build-plan` appends one generated, content-bound Authority Core.
 2. The host's native implementation action authorizes repository work.
 3. `/review-work` or `$review-work` starts fresh repository-read-only Review. The project harness supplies closed unprotected observations to the bundled stateless local builder.
-4. The local builder validates lineage, separates subject delivery paths from ambient dirty-tree state, computes IDs and hashes, and atomically returns exact Evidence plus Review together with the human presentation. A finding-free consistent Review with all required Checks supported or verified ends achieved with no next action; supported proof remains non-verified.
-5. Use correction, replan, another fresh Review, or `/accept-work provisional` only when the Review identifies that material boundary. Ambient changes remain visible and non-blocking; protected, approval-required, or escaping subject paths remain blocking.
+4. The local builder validates lineage, separates subject delivery paths from ambient dirty-tree state, computes IDs and hashes, and atomically returns exact Evidence plus Review together with the human presentation. Review ends only as Achieved, Correction needed, or Open points; proof strength remains separate.
+5. Each bounded Correct Work action and the next fresh Review are separately human-authorized. Open Points ask one natural human question; the human may stop or deliberately request a new plan without a separate workflow transition.
 
-The Manual path uses neither MCP, Host Adapter, MCP Roots, Hook Trust, cache, nor persistent Workflow state. If local input is missing, malformed, foreign, stale, conflicting, or ambiguous, the builder returns a clearly labelled Shadow result with no pseudo-artifacts and retains the task's Root and predecessor bytes for retry. A fresh task must receive those exact bytes explicitly.
+The Manual path uses neither MCP, Host Adapter, MCP Roots, Hook Trust, cache, nor persistent Workflow state. Missing required Check observations trigger an internal artifact-free retry. Invalid formal binding still receives a useful read-only Shadow Review with no correction authority. A fresh task must receive exact current bytes explicitly.
 
-The MCP server remains registered for `/auto-work`, automation status, and optional protected sealing. Protected sealing binds the exact local provisional pair through `seal_artifacts` and may append a fresh fully verified `seal` Evidence/Review pair; it never edits or upgrades previously returned artifacts. An incomplete or failed sealing attempt creates no artifacts and changes no Manual status. Automation, adapter, MCP, Roots, timeout, and Hook failures affect only that requested automation phase and never ordinary host use.
+The MCP server remains registered for `/auto-work`, automation status, and optional protected sealing. Protected sealing binds an exact local achieved pair through `seal_artifacts` and may append stronger verified Evidence plus an achieved Review; it never edits previously returned artifacts. An incomplete or failed sealing attempt creates no artifacts and changes no Manual status. Automation, adapter, MCP, Roots, timeout, and Hook failures affect only that requested automation phase and never ordinary host use.
 
 `$engineering-work suggest` optionally recommends one adapted engineering playbook. `$engineering-work use <playbook-id>` confirms that methodology, but never grants implementation authority or changes Workflow evidence. The curated catalog covers diagnosis, bug and feature work, refactoring, performance, bounded experimentation, skill evaluation, and safe continuity; shipping, merge, deployment, autopilot landing, and destructive cleanup stay outside Workflow.
 
-`/auto-work` advances a revisioned Schema-6 Run through protected implementation and fresh Review until its next human gate or terminal state. Only an external Host Adapter can protect Harness provenance; a directly configured Harness remains Shadow Mode. Cursor human decisions use exactly `/auto-work accept-delivery <run-id>@<revision>`, `/auto-work approve-correction <run-id>@<revision>`, or `/auto-work stop <run-id>@<revision>` so the host can inject a receipt outside model context. Codex and portable targets remain Manual-only.
+`/auto-work implement` advances one protected implementation phase and stops at Review needed. The human then uses `/auto-work review <run-id>@<revision>` for the repository-read-only Review. `/auto-work correct <run-id>@<revision>` applies exactly one bounded Correction and stops again at Fresh Review pending. Only an external Host Adapter can protect Harness provenance; a directly configured Harness remains Shadow Mode. Codex and portable targets remain Manual-only.
 
 Removed in Workflow 6: `/work-models`, `/work-verification`, `/work-watch`, and `/work-control`. Model pools, Verification Profiles, controller-owned workers, worktrees, sandboxes, command runners, and retry recipes are not Workflow responsibilities.
 

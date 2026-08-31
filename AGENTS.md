@@ -1,6 +1,6 @@
 # Workflow north star
 
-Workflow is a host-neutral lifecycle and evidence kernel for trustworthy repository delivery. It standardizes **Plan → Implement → Review → Correct or Replan** while preserving human authority, immutable intent, honest evidence, and a repository-only finish line.
+Workflow is a host-neutral lifecycle and evidence kernel for trustworthy repository delivery. It standardizes **Plan → Implement → Review → Correct → Review** while preserving human authority, immutable intent, honest evidence, and a repository-only finish line.
 
 ## Workflow owns
 
@@ -21,15 +21,15 @@ Workflow must never parse, classify, allowlist, rewrite, compare, or execute tho
 ## Evidence and failure boundary
 
 - A protected harness attestation may verify a Check only when it binds the exact Root, verification intent, workspace, and repository snapshot.
-- Missing attestation caps the claim at supported or provisional. An attested failure remains failed. A mismatched attestation is rejected.
+- Missing attestation caps proof at supported. It does not by itself prevent an achieved repository outcome. An attested failure remains failed. A mismatched attestation is rejected.
 - Harness or Workflow availability failures affect only the targeted Workflow phase. Ordinary Cursor and Codex prompts, shell, tasks, browser, and MCP use remain available.
 - No profile automatically pushes, opens or merges a PR, deploys, accesses production, integrates a branch, or publishes learning.
 
 ## Profiles
 
-- **Manual is the default:** the human separately authorizes Plan, implementation, Review, correction or replan, provisional acceptance, and learning.
-- **Supervised:** Workflow may orchestrate a compatible harness inside an approved Root, but a human accepts every delivery.
-- **Autonomous:** only an exact previously qualified key may omit final acceptance; missing capability or qualification proof downgrades to supervised or Shadow Mode.
+- **Manual is the default:** the human separately authorizes Plan, implementation, Review, each correction, each fresh Review, and learning.
+- **Supervised:** Workflow may orchestrate a compatible harness inside an approved Root; the same three Review outcomes and human correction path apply.
+- **Autonomous:** only an exact previously qualified key may expand harness execution capability; missing capability or qualification proof downgrades to supervised or Shadow Mode without changing Review UX.
 - Profiles change human gates, never the ownership of concrete execution.
 
 ## Change guardrails
@@ -38,7 +38,7 @@ Keep this root `AGENTS.md` as the one contributor Northstar for Cursor and Codex
 
 Manual lifecycle orchestration is Skills-first. The bundled stateless local builder may validate closed inputs, calculate hashes and IDs, enforce Schema-6 lineage and path authority, construct artifacts atomically, and project their presentation. It must not discover or mutate a repository, run Checks or tools, call MCP, depend on hooks or adapters, or persist authority. Registered MCP automation and optional protected sealing remain isolated opt-in capabilities.
 
-Manual path authority is informative before it is punitive: ordinary repository-internal changes outside `allowed_roots` remain fully visible, cap delivery at provisional, and may receive only ephemeral human acceptance. They never become verified or persist authority. Protected paths, approval-required paths, repository escape, and protected sealing outside authority remain hard boundaries. All phases use the same literal, `*`, and segment-level `**` matcher.
+Manual path authority is informative before it is punitive: ordinary repository-internal changes outside `allowed_roots` remain fully visible as concrete Authority Open Points and never gain correction authority. Protected paths, approval-required paths, repository escape, and protected sealing outside authority remain hard boundaries. All phases use the same literal, `*`, and segment-level `**` matcher.
 
 ## Optional engineering methodology
 

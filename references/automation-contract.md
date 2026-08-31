@@ -8,6 +8,8 @@ PhaseResult binds deployment, transition, snapshots, paths, Check attestations, 
 
 `protectedCapability` is atomic and idempotent. Only PhaseResults use Prepare → Stage/Recover → Result Ready → Commit Ready → Commit. Live foreign ownership returns `in_progress`; dead owners recover staging only, never blind mutating work.
 
-Missing protection is phase-local Shadow Mode. Supervised needs human acceptance. Cursor injects receipts only after exact revision-bound decision prompts; Codex/portable remain Manual-only. Autonomous needs one exact deployment-bound qualification and verified evidence.
+Missing protection is phase-local Shadow Mode. Cursor injects receipts only after exact revision-bound Review Work or Correct Work prompts; Codex/portable remain Manual-only. Autonomous needs one exact deployment-bound qualification and verified evidence.
+
+Implementation stops at Review needed. Review starts only through a separate human Review Work action. Correct Work applies one bounded Correction and stops again at Fresh Review pending. No profile automatically crosses one of these human phase boundaries.
 
 Push, PR, merge, deploy, production, publication, integration, and automatic Learning are outside Workflow.

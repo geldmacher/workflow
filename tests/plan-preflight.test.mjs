@@ -7,6 +7,7 @@ import {
   executionContractFromArtifactText,
   preflightRootPlan,
 } from "../scripts/validate-artifact.source.mjs";
+import { authorityCore, nativePlan } from "./support/workflow-fixtures.mjs";
 
 const root = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
 
@@ -37,23 +38,23 @@ test("closed Schema-6 fields reject concrete execution policy", () => {
   ]) {
     const value = preflightRootPlan(root.replace("status: ready", `status: ready\n${field}`), defaultRoot);
     assert.equal(value.feasible, false, field);
-    assert.match(value.blocking_issues.map((issue) => issue.message).join("\n"), /additional propert|unknown|Schema/i);
+    assert.match(value.blocking_issues.map((issue) => issue.message).join("\n"), /additional propert|unknown|unsupported|Schema/i);
   }
 });
 
 test("duplicate Check IDs and invalid objective coverage fail closed", () => {
-  const row = "| CHECK-1 | OBJ-1 | Prove retry behavior and repository consistency with project-appropriate verification. | Protected evidence showing the acceptance outcome on the current repository snapshot. | yes | harness-verifiable | standard | Relevant implementation and test surfaces are available. |";
-  const duplicate = preflightRootPlan(root.replace(row, `${row}\n${row}`), defaultRoot);
-  assert.equal(duplicate.feasible, false);
-  assert.match(duplicate.blocking_issues.map((issue) => issue.message).join("\n"), /duplicate/i);
+  const base = authorityCore().verification[0];
+  assert.throws(() => nativePlan("manual", { verification: [base, { ...base }] }), /duplicate CHECK-1/);
 
-  const missing = preflightRootPlan(root.replace("| OBJ-1 | Prove retry", "| OBJ-99 | Prove retry"), defaultRoot);
-  assert.equal(missing.feasible, false);
-  assert.match(missing.blocking_issues.map((issue) => issue.message).join("\n"), /unknown objective|coverage|current Acceptance objectives/i);
+  assert.throws(
+    () => nativePlan("manual", { verification: [{ ...base, objectives: ["OBJ-99"] }] }),
+    /references unknown OBJ-99/,
+  );
 });
 
 test("expensive intent remains an advisory, never a Workflow command decision", () => {
-  const expensive = root.replace("| harness-verifiable | standard |", "| harness-verifiable | expensive |");
+  const base = authorityCore().verification[0];
+  const expensive = nativePlan("manual", { verification: [{ ...base, cost_class: "expensive" }] });
   const value = preflightRootPlan(expensive, defaultRoot);
   assert.equal(value.feasible, true);
   assert.equal(value.cost_classes.expensive, 1);

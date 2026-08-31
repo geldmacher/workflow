@@ -1,11 +1,23 @@
 # Native Plan container contract
 
-Hosts own Plan UI. Workflow contributes one embedded Schema-6 Root with visible `wp-*` ID and no second authority.
+The human plan is comprehensive free-form Markdown. Its headings, order, tables, prose, host frontmatter, and host todos are not authority and are not validity conditions.
 
-Order `Quick decision` → `Details` → `Agent and machine contract (authoritative)`; keep intent-only Verification inside Acceptance. End `Quick decision` with the only `### Next step`: `Now`, `How`, and `Why` in order, with sole action **Implement Plan**. Place it before `Details`, never after the envelope.
+`build-plan` appends exactly one visible default-closed block at the end:
 
-`Details` may state the inline playbook decision. This trace grants nothing and expires on intent change. The exact Root alone carries no playbook choice.
+````text
+<details>
+<summary>Workflow authority</summary>
 
-Todos state outcomes and verification. Guessed files, internals, and solutions stay adaptive unless material to a public contract, security, authority, or chosen trade-off. They prescribe no execution, Evidence, deployment, or publication. Human implementation selection is the gate.
+```yaml workflow-authority
+...
+```
+</details>
+````
 
-CreatePlan validates the presentation. Manual operations bind only the single embedded Root; host todo state and projection never enter Root identity.
+The generated Authority Core contains the Schema-6 plan identity, profile, normalized plan-content hash, Core hash, goal, acceptance, risk, hard triggers, authority, and structured verification. Optional `predecessor_plan_id` and `source_review_id` bind a deliberately new plan created from prior Open Points. There is no separate replan transition.
+
+Plan-content hashing removes host frontmatter and the Authority Core, normalizes CRLF to LF, trims surrounding whitespace, and emits exactly one trailing newline. The Core hash binds every semantic Core field except itself. Any plan or Core manipulation fails validation. Earlier plan envelopes are unsupported.
+
+CreatePlan guards any Workflow plan claim while Plan Work is active, independent of fence label. Invalid transport returns a machine-readable repair reason so the host can rebuild the plan. Outside active Workflow Plan Work, the host remains fail-open.
+
+Engineering methodology remains non-authoritative human trace: the exact Root alone carries no playbook choice, and a material intent change requires a fresh suggestion.

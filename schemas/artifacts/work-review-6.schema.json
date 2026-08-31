@@ -4,9 +4,9 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "artifact", "schema", "id", "root_plan_id", "latest_evidence_id", "assessment", "delivery_status", "next_action",
-    "status", "correction_id", "predecessor_review_id",
-    "inspected_objectives", "reused_objectives", "inspected_checks", "reused_checks"
+    "artifact", "schema", "id", "root_plan_id", "latest_evidence_id", "outcome", "next_action",
+    "status", "correction_id", "predecessor_review_id", "inspected_objectives", "reused_objectives",
+    "inspected_checks", "reused_checks", "findings", "open_points"
   ],
   "properties": {
     "artifact": { "const": "work-review" },
@@ -26,64 +26,61 @@
         "receipt_id": { "type": "string", "pattern": "^br-[a-f0-9]{64}$" },
         "observed_at": { "type": "string", "format": "date-time" },
         "recovery_error_code": { "enum": ["baseline-unavailable-after-mutation", "authority-violation", "repository-observation-conflict", "artifact-text-conflict"] },
-        "reason_codes": {
-          "type": "array",
-          "minItems": 1,
-          "uniqueItems": true,
-          "items": { "enum": ["baseline-unavailable-after-mutation", "out-of-authority-changes", "workspace-ambiguous-after-mutation", "root-binding-lost-after-mutation"] }
-        },
+        "reason_codes": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["baseline-unavailable-after-mutation", "out-of-authority-changes", "workspace-ambiguous-after-mutation", "root-binding-lost-after-mutation"] } },
         "root_content_hash": { "$ref": "#/$defs/hash" },
         "repository_snapshot_hash": { "$ref": "#/$defs/hash" },
         "observed_paths": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
       }
     },
-    "assessment": { "enum": ["achieved", "provisional", "mostly-achieved", "partially-achieved", "not-achieved", "insufficient-evidence"] },
-    "delivery_status": { "enum": ["verified", "provisional", "blocked"] },
-    "next_action": { "enum": ["none", "accept-provisional", "correct", "clarify", "replan", "retry-review"] },
+    "outcome": { "enum": ["achieved", "correction-needed", "open-points"] },
+    "next_action": { "enum": ["none", "correct", "human-assessment"] },
     "correction_id": { "type": ["string", "null"], "pattern": "^cp-[A-Za-z0-9][A-Za-z0-9-]*$" },
     "predecessor_review_id": { "type": ["string", "null"], "pattern": "^wr-[A-Za-z0-9][A-Za-z0-9-]*$" },
     "inspected_objectives": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^OBJ-[1-9][0-9]*$" } },
     "reused_objectives": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^OBJ-[1-9][0-9]*$" } },
     "inspected_checks": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^CHECK-[1-9][0-9]*$" } },
     "reused_checks": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^CHECK-[1-9][0-9]*$" } },
-    "learning_candidates": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^LRN-[A-Za-z0-9][A-Za-z0-9-]*$" } },
+    "findings": { "type": "array", "maxItems": 32, "items": { "$ref": "#/$defs/finding" } },
+    "open_points": { "type": "array", "maxItems": 32, "items": { "$ref": "#/$defs/openPoint" } },
     "extensions": { "type": "object", "additionalProperties": true }
   },
   "allOf": [
     {
       "if": { "properties": { "review_basis": { "const": "root-boundary" } }, "required": ["review_basis"] },
-      "then": {
-        "required": ["boundary_receipt"],
-        "properties": {
-          "latest_evidence_id": { "type": "null" },
-          "assessment": { "const": "insufficient-evidence" },
-          "delivery_status": { "const": "blocked" },
-          "next_action": { "const": "replan" },
-          "correction_id": { "type": "null" },
-          "inspected_objectives": { "maxItems": 0 },
-          "reused_objectives": { "maxItems": 0 },
-          "inspected_checks": { "maxItems": 0 },
-          "reused_checks": { "maxItems": 0 }
-        },
-        "not": { "required": ["learning_candidates"] }
-      },
-      "else": {
-        "properties": { "latest_evidence_id": { "type": "string", "pattern": "^de-[A-Za-z0-9][A-Za-z0-9-]*$" } },
-        "not": { "required": ["boundary_receipt"] }
+      "then": { "required": ["boundary_receipt"], "properties": { "latest_evidence_id": { "type": "null" }, "outcome": { "const": "open-points" }, "next_action": { "const": "human-assessment" }, "correction_id": { "type": "null" }, "open_points": { "minItems": 1 } } },
+      "else": { "properties": { "latest_evidence_id": { "type": "string", "pattern": "^de-[A-Za-z0-9][A-Za-z0-9-]*$" } }, "not": { "required": ["boundary_receipt"] } }
+    },
+    { "if": { "properties": { "outcome": { "const": "achieved" } }, "required": ["outcome"] }, "then": { "properties": { "next_action": { "const": "none" }, "correction_id": { "type": "null" }, "findings": { "maxItems": 0 }, "open_points": { "maxItems": 0 } } } },
+    { "if": { "properties": { "outcome": { "const": "correction-needed" } }, "required": ["outcome"] }, "then": { "properties": { "next_action": { "const": "correct" }, "correction_id": { "type": "string" }, "findings": { "minItems": 1 } } } },
+    { "if": { "properties": { "outcome": { "const": "open-points" } }, "required": ["outcome"] }, "then": { "properties": { "next_action": { "const": "human-assessment" }, "correction_id": { "type": "null" }, "open_points": { "minItems": 1 } } } }
+  ],
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "finding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["key", "severity", "objective_ids", "check_ids", "evidence", "reasoning", "resolution"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "severity": { "enum": ["low", "medium", "high", "critical"] },
+        "objective_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^OBJ-[1-9][0-9]*$" } },
+        "check_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^CHECK-[1-9][0-9]*$" } },
+        "evidence": { "type": "string", "minLength": 1 },
+        "reasoning": { "type": "string", "minLength": 1 },
+        "resolution": { "enum": ["correct", "open"] }
       }
     },
-    { "if": { "properties": { "assessment": { "const": "achieved" } }, "required": ["assessment"] }, "then": { "properties": { "delivery_status": { "enum": ["verified", "provisional"] }, "next_action": { "const": "none" } } } },
-    { "if": { "properties": { "delivery_status": { "const": "provisional" } }, "required": ["delivery_status"] }, "then": { "properties": { "next_action": { "enum": ["none", "accept-provisional"] } } } },
-    {
-      "if": { "properties": { "next_action": { "const": "correct" } }, "required": ["next_action"] },
-      "then": { "required": ["learning_candidates"], "properties": { "correction_id": { "type": "string" } } },
-      "else": { "properties": { "correction_id": { "type": "null" } } }
-    },
-    {
-      "if": { "required": ["learning_candidates"] },
-      "then": { "properties": { "next_action": { "enum": ["correct", "none"] } } }
+    "openPoint": {
+      "type": "object", "additionalProperties": false,
+      "required": ["key", "type", "summary", "evidence", "impact", "question"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "type": { "enum": ["evidence", "authority", "intent", "environment", "formal-binding", "no-progress"] },
+        "summary": { "type": "string", "minLength": 1 },
+        "evidence": { "type": "string", "minLength": 1 },
+        "impact": { "type": "string", "minLength": 1 },
+        "question": { "type": "string", "minLength": 1 }
+      }
     }
-  ],
-  "$defs": { "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" } },
-  "x-required-sections": ["Assessment", "Next action"]
+  },
+  "x-required-sections": ["Outcome", "Next action"]
 }

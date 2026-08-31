@@ -22,8 +22,8 @@ const cursorExcludedPaths = new Set([
   "schemas/agent-plugins/1.0.0/mcp.schema.json",
   "schemas/agent-plugins/1.0.0/plugin.schema.json",
 ]);
-const expectedCodexSkills = ["accept-work", "correct-work", "engineering-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-status"];
-const expectedAgentPluginSkills = ["accept-work", "correct-work", "engineering-work", "explain-work", "implement-work", "learn-from-work", "plan-work", "review-work", "work-status"];
+const expectedCodexSkills = ["correct-work", "engineering-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-status"];
+const expectedAgentPluginSkills = ["correct-work", "engineering-work", "explain-work", "implement-work", "learn-from-work", "plan-work", "review-work", "work-status"];
 const manualTools = ["workflow_artifact_context", "workflow_artifact_record", "workflow_closeout", "workflow_plan_preflight", "workflow_status"];
 const forbiddenCodexText = [
   "@cursor/sdk",
@@ -61,7 +61,6 @@ const sharedReferences = [
   "state-contract.md",
 ];
 const portableSkillReferences = Object.freeze({
-  "accept-work": ["portable-manual.md", "manual-workflow-contract.md", "manual-builder-contract.md", "artifact-protocol.md", "state-contract.md"],
   "correct-work": ["portable-manual.md", "manual-workflow-contract.md", "manual-builder-contract.md", "correction-contract.md", "artifact-protocol.md"],
   "engineering-work": ["portable-manual.md", "manual-workflow-contract.md", "engineering-playbooks.md", "engineering-diagnostic-playbooks.md", "engineering-delivery-playbooks.md", "engineering-continuity-playbooks.md"],
   "explain-work": ["portable-manual.md", "manual-workflow-contract.md", "manual-builder-contract.md", "state-contract.md", "explanation-contract.md"],

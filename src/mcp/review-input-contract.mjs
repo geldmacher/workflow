@@ -12,7 +12,16 @@ const finding = z.strictObject({
   check_ids: z.array(checkId).min(1).max(128),
   evidence: line(4_000),
   reasoning: line(4_000),
-  resolution: z.enum(["correct", "clarify", "replan"]),
+  resolution: z.enum(["correct", "open"]),
+});
+
+const openPoint = z.strictObject({
+  key: semanticKey,
+  type: z.enum(["evidence", "authority", "intent", "environment", "formal-binding", "no-progress"]),
+  summary: line(),
+  evidence: line(4_000),
+  impact: line(),
+  question: line(),
 });
 
 const correction = z.strictObject({
@@ -22,16 +31,6 @@ const correction = z.strictObject({
     required_outcome: line(),
     evidence: line(),
   })).min(1).max(32),
-  checks: z.array(z.strictObject({
-    key: semanticKey,
-    fix_keys: z.array(semanticKey).min(1).max(32),
-    verification_intent: line(),
-    expected_evidence: line(),
-    evidence_class: z.enum(["harness-verifiable", "reviewer-observable", "human-decision-required"]),
-    required: z.boolean(),
-    cost_class: z.enum(["cheap", "standard", "expensive"]),
-    prerequisites: z.array(line(1_000)).min(1).max(64),
-  })).min(1).max(32),
   steps: z.array(z.strictObject({
     key: semanticKey,
     fix_keys: z.array(semanticKey).min(1).max(32),
@@ -39,29 +38,31 @@ const correction = z.strictObject({
     required_outcome: line(),
     implementation_latitude: line(),
     completion_probe: line(),
-    check_keys: z.array(semanticKey).min(1).max(32),
+    root_check_ids: z.array(checkId).min(1).max(128),
     deviation_action: line(),
-  })).min(1).max(32),
-  learning_candidates: z.array(z.strictObject({
-    key: semanticKey,
-    finding_keys: z.array(semanticKey).min(1).max(32),
-    reusable_guidance: line(),
-    candidate_targets: z.array(line(1_000)).min(1).max(64),
-    confirmation_evidence: line(),
   })).min(1).max(32),
 });
 
 export const reviewInputSchema = z.strictObject({
   schema: z.literal(1),
   kind: z.literal("review-input"),
-  assessment: z.enum(["achieved", "provisional", "mostly-achieved", "partially-achieved", "not-achieved", "insufficient-evidence"]),
-  recommended_action: z.enum(["none", "accept-provisional", "correct", "clarify", "replan", "retry-review"]),
+  outcome: z.enum(["achieved", "correction-needed", "open-points"]),
   assessment_summary: line(),
-  snapshot_assessment: z.enum(["consistent", "contradicted", "incomplete"]),
   snapshot_summary: line(),
   findings: z.array(finding).max(32),
-  missing_evidence: z.array(line()).max(32),
+  open_points: z.array(openPoint).max(32),
   correction: correction.optional(),
+}).superRefine((value, context) => {
+  const correctable = value.findings.filter((finding) => finding.resolution === "correct");
+  if (value.outcome === "achieved" && (value.findings.length > 0 || value.open_points.length > 0 || value.correction)) {
+    context.addIssue({ code: "custom", path: ["outcome"], message: "achieved requires no findings, open points, or correction" });
+  }
+  if (value.outcome === "correction-needed" && (correctable.length === 0 || !value.correction)) {
+    context.addIssue({ code: "custom", path: ["correction"], message: "correction-needed requires correctable findings and one correction" });
+  }
+  if (value.outcome === "open-points" && (value.open_points.length === 0 || correctable.length > 0 || value.correction)) {
+    context.addIssue({ code: "custom", path: ["open_points"], message: "open-points requires open points and no pending correction" });
+  }
 });
 
 const malformedReviewInputCandidate = z.record(z.string().max(200), z.unknown())

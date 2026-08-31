@@ -72,12 +72,12 @@ const optionalTableCells = new Set();
 const tables = Object.freeze({
   verificationIntent: ["Check ID", "Objectives", "Verification Intent", "Expected Evidence", "Required", "Evidence Class", "Cost Class", "Prerequisites"],
   coverage: ["Kind", "Inspected", "Reused", "Result", "Evidence"],
-  findings: ["Finding key", "Severity", "Objectives", "Checks", "Evidence", "Reasoning"],
+  findings: ["Finding key", "Severity", "Objectives", "Checks", "Evidence", "Reasoning", "Resolution"],
+  openPoints: ["Open point", "Type", "Summary", "Evidence", "Impact", "Human question"],
   correctionMeta: ["Correction ID", "Root Plan", "Source Review", "Base Evidence", "Predecessor Correction", "Risk"],
   fixes: ["FIX ID", "Finding keys", "Root Objectives", "Root Checks", "Required outcome", "Evidence"],
   correctionSteps: ["Step ID", "FIX IDs", "Targets", "Required outcome", "Implementation latitude", "Completion probe", "Check IDs", "Deviation action"],
-  correctionIntentChecks: ["Check ID", "FIX IDs", "Verification Intent", "Expected Evidence", "Required", "Evidence Class", "Cost Class", "Prerequisites"],
-  learningCandidates: ["Learning ID", "Finding keys", "Reusable guidance", "Candidate targets", "Confirmation evidence"],
+  correctionIntentChecks: ["Check ID", "Objectives", "Verification Intent", "Expected Evidence", "Required", "Evidence Class", "Cost Class", "Prerequisites"],
 });
 
 const costRank = Object.freeze({ cheap: 1, standard: 2, expensive: 3 });
@@ -411,10 +411,6 @@ function validatePlan6(parsed, sections, failures) {
   }
   if (verification.length === 0) parsed.normalizations.push("synthesized strategy checks from acceptance outcomes");
   if (data.objectives.size !== parsed.fields.acceptance.length) failures.push("acceptance outcomes must map one-to-one to objectives");
-  if (parsed.wrapper) {
-    const todos = parsed.wrapper.todos ?? [];
-    if (todos.length === 0) failures.push("native Plan must include at least one implementation todo");
-  }
 }
 
 function evidenceData(artifact) {
@@ -424,7 +420,8 @@ function evidenceData(artifact) {
 function reviewData(artifact) {
   const coverage = tableRows(artifact.sections.get("Evidence coverage") ?? "", tables.coverage);
   const findings = tableRows(artifact.sections.get("Findings") ?? "", tables.findings);
-  return { coverage, findings };
+  const openPoints = tableRows(artifact.sections.get("Open points") ?? "", tables.openPoints);
+  return { coverage, findings, openPoints };
 }
 
 function validateEvidenceGrades(parsed, failures) {
@@ -486,18 +483,6 @@ function parseCorrection(parsed, sections, failures) {
   if (steps.rows.length === 0) failures.push("Correction plan requires a step table");
   if (checks.rows.length === 0) failures.push("Correction plan requires a Check table");
 
-  const declaredLearnings = Array.isArray(parsed.fields.learning_candidates) ? parsed.fields.learning_candidates : [];
-  const pseudoLearning = new Map([["Correction plan", content]]);
-  const learnings = requireTable(pseudoLearning, "Correction plan", tables.learningCandidates, failures, { normalizations: parsed.normalizations });
-  const learningIds = exactIdSet(learnings.rows, "Learning ID", learningPattern, "Correction learning", failures);
-  for (const learningId of learningIds) {
-    if (!declaredLearnings.includes(learningId)) failures.push(`Correction learning ${learningId} must be declared in learning_candidates`);
-  }
-  for (const row of learnings.rows) {
-    const keys = String(row["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean);
-    if (keys.length === 0 || keys.some((key) => !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(key))) failures.push(`Learning ${row["Learning ID"]} needs valid source Finding keys`);
-  }
-
   const fixIds = exactIdSet(fixes.rows, "FIX ID", /FIX-[1-9][0-9]*/, "Correction FIX", failures);
   exactIdSet(steps.rows, "Step ID", /STEP-[1-9][0-9]*/, "Correction steps", failures);
   const checkIds = exactIdSet(checks.rows, "Check ID", /CHECK-[1-9][0-9]*/, "Correction checks", failures);
@@ -519,16 +504,14 @@ function parseCorrection(parsed, sections, failures) {
     if (!/^(?:cheap|standard|expensive)$/.test(row["Cost Class"])) failures.push(`Correction check ${row["Check ID"]} invalid Cost Class`);
     if (!/^(?:harness-verifiable|reviewer-observable|human-decision-required)$/.test(row["Evidence Class"])) failures.push(`Correction check ${row["Check ID"]} invalid Evidence Class`);
     if (targetTokens(row.Prerequisites).length === 0) failures.push(`Correction check ${row["Check ID"]} needs concrete Prerequisites`);
-    ids(row["FIX IDs"], fixPattern).forEach((id) => { if (!fixIds.has(id)) failures.push(`Correction check references unknown ${id}`); });
   }
   validateCostOrder(checks.rows, "Cost Class", "Correction checks", parsed);
-  return { id: headings[0], metadata: metadata.rows[0], fixes: fixes.rows, steps: steps.rows, checks: checks.rows, learnings: learnings.rows };
+  return { id: headings[0], metadata: metadata.rows[0], fixes: fixes.rows, steps: steps.rows, checks: checks.rows };
 }
 
 function validateCompactReview(parsed, sections, failures) {
-  const options = { normalizations: parsed.normalizations };
-  const assessment = sections.get("Assessment") ?? "";
-  if (!assessment.toLowerCase().includes(String(parsed.fields.assessment).toLowerCase())) failures.push("Assessment section must state frontmatter assessment");
+  const outcome = sections.get("Outcome") ?? "";
+  if (!outcome.toLowerCase().includes(String(parsed.fields.outcome).toLowerCase())) failures.push("Outcome section must state frontmatter outcome");
 
   const coverage = requireTable(sections, "Evidence coverage", tables.coverage, failures, { optional: true, normalizations: parsed.normalizations });
   const coverageByKind = new Map();
@@ -568,39 +551,33 @@ function validateCompactReview(parsed, sections, failures) {
     if (!/^(?:low|medium|high|critical)$/.test(row.Severity)) failures.push(`Findings: ${key} has invalid Severity`);
     if (ids(row.Objectives, objectivePattern).length === 0) failures.push(`Findings: ${key} needs root Objectives`);
     if (ids(row.Checks, checkPattern).length === 0) failures.push(`Findings: ${key} needs root Checks`);
+    if (!/^(?:correct|open)$/.test(row.Resolution)) failures.push(`Findings: ${key} has invalid Resolution`);
   }
   const boundaryReview = parsed.fields.review_basis === "root-boundary";
   if (boundaryReview && findings.rows.length > 0) failures.push("root-boundary review cannot contain delivery findings");
   parsed.findings = findings.rows;
+  const openContent = sections.get("Open points") ?? "";
+  let openPoints = { rows: [], none: true };
+  if (openContent.trim()) openPoints = requireTable(sections, "Open points", tables.openPoints, failures, { allowNone: true, normalizations: parsed.normalizations });
+  for (const row of openPoints.rows) {
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(row["Open point"])) failures.push(`Open points: invalid key ${row["Open point"]}`);
+    if (!/^(?:evidence|authority|intent|environment|formal-binding|no-progress)$/.test(row.Type)) failures.push(`Open points: ${row["Open point"]} has invalid Type`);
+  }
   const next = sections.get("Next action") ?? "";
   if (!next.toLowerCase().includes(String(parsed.fields.next_action).toLowerCase())) failures.push("Next action section must state frontmatter next_action");
-  if (parsed.fields.assessment === "achieved") {
+  if (parsed.fields.outcome === "achieved") {
     if (parsed.fields.next_action !== "none") failures.push("achieved review requires next_action none");
     if (findings.rows.length > 0) failures.push("achieved review cannot contain findings");
-    const snapshotRow = coverageByKind.get(normalizedHeader("Snapshot"))?.[0];
-    if (coverage.rows.length > 0 && (normalizedHeader(snapshotRow?.Result) !== "consistent" || noneLike(snapshotRow?.Inspected))) failures.push("achieved review coverage contradicts current snapshot consistency");
+    if (openPoints.rows.length > 0) failures.push("achieved review cannot contain open points");
   }
-  if (parsed.fields.next_action === "none" && parsed.fields.assessment !== "achieved") failures.push("next_action none requires assessment achieved");
-  if (parsed.fields.delivery_status === "verified" && parsed.fields.assessment !== "achieved") failures.push("verified delivery requires achieved assessment");
-  if (parsed.fields.delivery_status === "provisional"
-    && !["accept-provisional", "none"].includes(parsed.fields.next_action)) failures.push("provisional delivery requires accept-provisional or a terminal achieved Review");
-  if (parsed.fields.delivery_status === "provisional"
-    && parsed.fields.next_action === "none"
-    && parsed.fields.assessment !== "achieved") failures.push("terminal provisional delivery requires achieved assessment");
-  if (parsed.fields.next_action === "accept-provisional" && parsed.fields.delivery_status !== "provisional") failures.push("accept-provisional requires provisional delivery");
-  if (parsed.fields.next_action === "correct" && findings.rows.length === 0) failures.push("correct review requires findings");
-  if (!["correct", "none"].includes(parsed.fields.next_action) && Array.isArray(parsed.fields.learning_candidates)) failures.push("learning_candidates are allowed only for correction or terminal achieved Review");
-  if (parsed.fields.next_action === "retry-review" && parsed.fields.assessment !== "insufficient-evidence") failures.push("retry-review requires assessment insufficient-evidence");
+  if (parsed.fields.outcome === "correction-needed" && (parsed.fields.next_action !== "correct" || findings.rows.every((finding) => finding.Resolution !== "correct"))) failures.push("correction-needed requires correctable findings and next_action correct");
+  if (parsed.fields.outcome === "open-points" && (parsed.fields.next_action !== "human-assessment" || openPoints.rows.length === 0)) failures.push("open-points requires named open points and human-assessment");
 
   const correction = parseCorrection(parsed, sections, failures);
   if (correction) {
     for (const fix of correction.fixes) {
       const referenced = String(fix["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean);
       for (const key of referenced) if (!keys.has(key)) failures.push(`Correction ${fix["FIX ID"]} references unknown Finding key ${key}`);
-    }
-    for (const learning of correction.learnings) {
-      const referenced = String(learning["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean);
-      for (const key of referenced) if (!keys.has(key)) failures.push(`Learning ${learning["Learning ID"]} references unknown Finding key ${key}`);
     }
   }
   parsed.effective = {
@@ -609,6 +586,7 @@ function validateCompactReview(parsed, sections, failures) {
     inspectedChecks: [...inspectedChecks],
     reusedChecks: [...reusedChecks],
     findings: findings.rows,
+    openPoints: openPoints.rows,
   };
   return correction;
 }
@@ -622,6 +600,7 @@ function buildArtifact(text, root, options = {}) {
   parsed.normalizations = normalizations;
   const schema = validateArtifactSchema(root, parsed, failures);
   if (!schema) return { failures, diagnostics, normalizations, parsed };
+  if (failures.length > 0) return { failures: unique(failures), diagnostics, normalizations: unique(normalizations), parsed };
   const requiredSections = schema["x-required-sections"] ?? schema["x-markdown-sections"] ?? [];
   const sections = sectionMap(trimTrailingNotes(parsed.body, requiredSections, normalizations), requiredSections, failures, normalizations);
   parsed.sections = sections;
@@ -955,12 +934,11 @@ function materializeEvidence(artifact, artifacts, cache, failures, rootDirectory
     else {
       if (sourceReview.fields.root_plan_id !== root.fields.id
         || sourceReview.fields.latest_evidence_id !== artifact.fields.predecessor_evidence_id) failures.push(`${artifact.label}: seal source Review must bind the direct predecessor Evidence`);
-      const sealableDecision = sourceReview.fields.delivery_status === "provisional"
-        && ((sourceReview.fields.assessment === "achieved" && sourceReview.fields.next_action === "none")
-          || (sourceReview.fields.assessment === "provisional" && sourceReview.fields.next_action === "accept-provisional"));
+      const sealableDecision = sourceReview.fields.outcome === "achieved" && sourceReview.fields.next_action === "none";
       if (!sealableDecision
         || sourceReview.fields.correction_id
-        || reviewData(sourceReview).findings.length > 0) failures.push(`${artifact.label}: seal source Review must be a finding-free provisional tip`);
+        || reviewData(sourceReview).findings.length > 0
+        || reviewData(sourceReview).openPoints.length > 0) failures.push(`${artifact.label}: seal source Review must be a finding-free achieved tip`);
     }
     if (artifact.fields.status !== "complete"
       || artifact.fields.overall_grade !== "verified"
@@ -1000,7 +978,7 @@ function validateCompactCorrection(review, root, evidence, artifacts, failures) 
   if (metadata["Root Plan"] !== root.fields.id) failures.push(`${review.label}: correction root mismatch`);
   if (metadata["Source Review"] !== review.fields.id) failures.push(`${review.label}: correction source review mismatch`);
   if (metadata["Base Evidence"] !== evidence.fields.id) failures.push(`${review.label}: correction base evidence mismatch`);
-  if ((riskRank[metadata.Risk] ?? 99) > (riskRank[root.fields.risk] ?? 0)) failures.push(`${review.label}: correction raises root risk and requires replan`);
+  if ((riskRank[metadata.Risk] ?? 99) > (riskRank[root.fields.risk] ?? 0)) failures.push(`${review.label}: correction raises Root risk and requires a new human plan`);
   const plan = planData(root);
   const findingKeys = new Set(reviewData(review).findings.map((row) => row["Finding key"]));
   for (const fix of correction.fixes) {
@@ -1010,7 +988,7 @@ function validateCompactCorrection(review, root, evidence, artifacts, failures) 
   }
   for (const step of correction.steps) for (const target of targetTokens(step.Targets)) {
     const authority = authorityTargetState(target, root.fields.authority);
-    if (authority.protected || authority.approval_required) failures.push(`${review.label}: correction target ${target} crosses a hard root boundary`);
+    if (!authority.allowed || authority.protected || authority.approval_required) failures.push(`${review.label}: correction target ${target} is outside Root correction authority`);
   }
 }
 
@@ -1039,21 +1017,21 @@ function validatePlanLineage(artifacts, failures) {
   const successors = new Map();
   for (const plan of plans) {
     const predecessorId = plan.fields.predecessor_plan_id;
-    const sourceReviewId = plan.fields.replan_source_review_id;
+    const sourceReviewId = plan.fields.source_review_id;
     if (!predecessorId && !sourceReviewId) continue;
     if (!predecessorId || !sourceReviewId) continue;
-    if (predecessorId === plan.fields.id) failures.push(`${plan.label}: replan root cannot reference itself`);
+    if (predecessorId === plan.fields.id) failures.push(`${plan.label}: successor Root cannot reference itself`);
     const predecessor = plansById.get(predecessorId);
     if (!predecessor) failures.push(`${plan.label}: missing predecessor plan ${predecessorId}`);
     const sourceReview = artifacts.get(sourceReviewId);
-    if (!sourceReview || sourceReview.fields.artifact !== "work-review") failures.push(`${plan.label}: missing replan source review ${sourceReviewId}`);
+    if (!sourceReview || sourceReview.fields.artifact !== "work-review") failures.push(`${plan.label}: missing source review ${sourceReviewId}`);
     else {
-      if (sourceReview.fields.root_plan_id !== predecessorId) failures.push(`${plan.label}: replan source review must belong to predecessor plan ${predecessorId}`);
-      if (sourceReview.fields.next_action !== "replan") failures.push(`${plan.label}: replan source review must require next_action replan`);
+      if (sourceReview.fields.root_plan_id !== predecessorId) failures.push(`${plan.label}: source review must belong to predecessor plan ${predecessorId}`);
+      if (sourceReview.fields.outcome !== "open-points" || sourceReview.fields.next_action !== "human-assessment") failures.push(`${plan.label}: successor Root source review must expose open points for human assessment`);
       const predecessorReviews = [...artifacts.values()].filter((artifact) => artifact.fields.artifact === "work-review" && artifact.fields.root_plan_id === predecessorId);
       const referencedReviews = new Set(predecessorReviews.map((review) => review.fields.predecessor_review_id).filter(Boolean));
       const reviewTips = predecessorReviews.filter((review) => !referencedReviews.has(review.fields.id));
-      if (reviewTips.length !== 1 || reviewTips[0].fields.id !== sourceReviewId) failures.push(`${plan.label}: replan source review must be the unique current predecessor review tip`);
+      if (reviewTips.length !== 1 || reviewTips[0].fields.id !== sourceReviewId) failures.push(`${plan.label}: source review must be the unique current predecessor review tip`);
     }
     const list = successors.get(predecessorId) ?? [];
     list.push(plan);
@@ -1136,21 +1114,10 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
     }
     const plan = planData(rootPlan);
     const ordered = linearChain(reviews, "predecessor_review_id", `${rootId}: review`, errors);
-    const learningOwners = new Map();
-    for (const review of ordered) for (const learning of review.correction?.learnings ?? []) {
-      const id = learning["Learning ID"];
-      if (learningOwners.has(id)) errors.push(`${review.label}: learning candidate ${id} duplicates ${learningOwners.get(id).label} within root ${rootId}`);
-      else learningOwners.set(id, review);
-    }
     const reviewIndex = new Map(ordered.map((review, index) => [review.fields.id, index]));
     const rootEvidence = orderedEvidenceByRoot.get(rootId) ?? [];
     for (let index = 0; index < ordered.length; index += 1) {
       const review = ordered[index];
-      for (const learningId of review.fields.learning_candidates ?? []) {
-        const owner = learningOwners.get(learningId);
-        if (!owner) errors.push(`${review.label}: learning candidate ${learningId} has no correction source in root ${rootId}`);
-        else if ((reviewIndex.get(owner.fields.id) ?? Number.POSITIVE_INFINITY) > index) errors.push(`${review.label}: learning candidate ${learningId} is declared before its correction source`);
-      }
       const boundaryReview = review.fields.review_basis === "root-boundary";
       if (boundaryReview) {
         const receipt = review.fields.boundary_receipt ?? {};
@@ -1176,7 +1143,7 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
           workspaceSnapshotHash: receipt.repository_snapshot_hash ?? null,
           correctionRound: rootEvidence.length > 0 ? rootEvidence.length - 1 : 0,
           reviewReady: false,
-          loopState: "blocked",
+          loopState: "open-points",
           boundaryReview: true,
           coverage: {
             objectivesInspected: 0,
@@ -1195,12 +1162,11 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
       const effective = evidence.effective;
       if (evidence.fields.root_plan_id !== rootId) errors.push(`${review.label}: latest evidence belongs to another root`);
       if (evidence.fields.representation === "seal") {
-        if (review.fields.predecessor_review_id !== evidence.fields.source_review_id) errors.push(`${review.label}: sealed Review must directly follow its source provisional Review`);
-        if (review.fields.assessment !== "achieved" || review.fields.delivery_status !== "verified" || review.fields.next_action !== "none") errors.push(`${review.label}: sealed Review must be achieved, verified, and terminal`);
+        if (review.fields.predecessor_review_id !== evidence.fields.source_review_id) errors.push(`${review.label}: sealed Review must directly follow its source supported Review`);
+        if (review.fields.outcome !== "achieved" || review.fields.next_action !== "none") errors.push(`${review.label}: sealed Review must be achieved and terminal`);
       }
       const knownFailedEvidence = evidenceHasKnownFailure(evidence.fields);
-      if (knownFailedEvidence && review.fields.delivery_status !== "blocked") errors.push(`${review.label}: known failed or blocked evidence requires blocked delivery_status`);
-      if (knownFailedEvidence && ["accept-provisional", "none"].includes(review.fields.next_action)) errors.push(`${review.label}: known failed or blocked evidence cannot be accepted or achieved`);
+      if (knownFailedEvidence && review.fields.outcome === "achieved") errors.push(`${review.label}: known failed or blocked evidence cannot be achieved`);
       const candidates = rootEvidence.filter((item) => item.fields.source_review_id === null || (reviewIndex.get(item.fields.source_review_id) ?? Number.POSITIVE_INFINITY) < index);
       if (candidates.at(-1)?.fields.id !== review.fields.latest_evidence_id) errors.push(`${review.label}: latest_evidence_id is not the evidence tip at review time`);
 
@@ -1215,7 +1181,7 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
       }
       for (const check of review.fields.reused_checks ?? []) if (!evidence.fields.reused_checks.includes(check) || effective?.checks.get(check)?.status !== "passed") errors.push(`${review.label}: reused Check ${check} lacks valid passed delta evidence`);
 
-      if (review.fields.assessment === "achieved") {
+      if (review.fields.outcome === "achieved") {
         if (!effective?.reviewReady) errors.push(`${review.label}: achieved requires complete effective root-check evidence`);
         if ([...plan.objectives].some((id) => effective?.objectives.get(id)?.status !== "achieved")) errors.push(`${review.label}: achieved requires every effective root objective achieved`);
         if (reviewData(review).findings.length > 0) errors.push(`${review.label}: achieved cannot contain findings`);
@@ -1226,7 +1192,7 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
         workspaceSnapshotHash: evidence.fields.workspace_snapshot_hash ?? null,
         correctionRound: candidates.length - 1,
         reviewReady: effective?.reviewReady ?? false,
-        loopState: reviewData(review).findings.length > 0 ? "degraded" : "healthy",
+        loopState: review.fields.outcome,
         coverage: {
           objectivesInspected: review.fields.inspected_objectives.length,
           objectivesReused: review.fields.reused_objectives.length,
@@ -1249,13 +1215,11 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
         if (!progressed) {
           const current = window[2];
           current.effective.loopState = "stalled";
-          diagnostics.push(`${current.label}: Finding key ${key} survived two corrections without measurable progress; clarify or replan is recommended`);
-          if (!["clarify", "replan"].includes(current.fields.next_action)) {
-            errors.push(`${current.label}: two correction rounds without measurable progress require next_action clarify or replan`);
-          }
+          diagnostics.push(`${current.label}: Finding key ${key} survived two corrections without measurable progress; a no-progress open point is required`);
+          if (current.fields.outcome !== "open-points" || !(current.fields.open_points ?? []).some((point) => point.type === "no-progress")) errors.push(`${current.label}: two correction rounds without measurable progress require a no-progress open point`);
         }
       }
-      if (!window[2].effective.loopState) window[2].effective.loopState = reviewData(window[2]).findings.length > 0 ? "degraded" : "healthy";
+      if (!window[2].effective.loopState) window[2].effective.loopState = window[2].fields.outcome;
     }
   }
 
@@ -1283,37 +1247,6 @@ export function effectiveCliSummary(inspection) {
   const reviewTips = tips("work-review", "predecessor_review_id");
   const activeReview = activeRootId && reviewTips[activeRootId] ? inspection.effective.get(reviewTips[activeRootId]) : null;
   const activeEvidence = activeRootId && evidenceTips[activeRootId] ? inspection.effective.get(evidenceTips[activeRootId]) : null;
-  const activeLearningIds = new Set(activeReview?.fields.learning_candidates ?? []);
-  const learningEligible = activeReview?.fields.assessment === "achieved"
-    && activeReview?.fields.next_action === "none"
-    && ["verified", "supported"].includes(activeEvidence?.fields.overall_grade);
-  const learningCandidates = artifacts
-    .filter((artifact) => artifact.fields.artifact === "work-review"
-      && artifact.fields.root_plan_id === activeRootId
-      && learningEligible
-      && artifact.correction?.learnings?.length > 0)
-    .flatMap((artifact) => artifact.correction.learnings
-      .filter((learning) => activeLearningIds.has(learning["Learning ID"]))
-      .map((learning) => {
-      const evidence = artifacts.find((candidate) => candidate.fields.artifact === "delivery-evidence"
-        && candidate.fields.subject_id === artifact.fields.correction_id
-        && candidate.fields.status !== "blocked"
-        && ["verified", "supported"].includes(candidate.fields.overall_grade));
-      return {
-        source_kind: "manual-correction",
-        root_plan_id: artifact.fields.root_plan_id,
-        review_id: artifact.fields.id,
-        correction_id: artifact.fields.correction_id,
-        learning_id: learning["Learning ID"],
-        finding_keys: String(learning["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean),
-        reusable_guidance: learning["Reusable guidance"],
-        candidate_targets: targetTokens(learning["Candidate targets"]),
-        confirmation_evidence: learning["Confirmation evidence"],
-        correction_evidence_id: evidence?.fields.id ?? null,
-        evidence_confirmed: Boolean(evidence),
-      };
-    }))
-    .toSorted((left, right) => left.review_id.localeCompare(right.review_id) || left.learning_id.localeCompare(right.learning_id));
   return {
     active_root_id: activeRootId,
     root_tips: rootTips,
@@ -1325,7 +1258,7 @@ export function effectiveCliSummary(inspection) {
         && artifact.fields.id === reviewTips[activeRootId]
         && artifact.fields.next_action === "correct")
       .map((artifact) => ({ root_plan_id: artifact.fields.root_plan_id, review_id: artifact.fields.id, correction_id: artifact.fields.correction_id, base_evidence_id: artifact.fields.latest_evidence_id })),
-    learning_candidates: learningCandidates,
+    learning_candidates: [],
   };
 }
 

@@ -1162,7 +1162,7 @@ var require_stringify = __commonJS({
       let tag = node.tag ?? (tagObj.default ? null : tagObj.tag);
       return tag && props.push(doc.directives.tagString(tag)), props.join(" ");
     }
-    function stringify(item, ctx, onComment, onChompKeep) {
+    function stringify2(item, ctx, onComment, onChompKeep) {
       if (identity.isPair(item))
         return item.toString(ctx, onComment, onChompKeep);
       if (identity.isAlias(item)) {
@@ -1181,7 +1181,7 @@ var require_stringify = __commonJS({
 ${ctx.indent}${str}` : str;
     }
     exports.createStringifyContext = createStringifyContext;
-    exports.stringify = stringify;
+    exports.stringify = stringify2;
   }
 });
 
@@ -1189,7 +1189,7 @@ ${ctx.indent}${str}` : str;
 var require_stringifyPair = __commonJS({
   "node_modules/yaml/dist/stringify/stringifyPair.js"(exports) {
     "use strict";
-    var identity = require_identity(), Scalar = require_Scalar(), stringify = require_stringify(), stringifyComment = require_stringifyComment();
+    var identity = require_identity(), Scalar = require_Scalar(), stringify2 = require_stringify(), stringifyComment = require_stringifyComment();
     function stringifyPair({ key, value }, ctx, onComment, onChompKeep) {
       let { allNullValues, doc, indent, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx, keyComment = identity.isNode(key) && key.comment || null;
       if (simpleKeys) {
@@ -1206,7 +1206,7 @@ var require_stringifyPair = __commonJS({
         implicitKey: !explicitKey && (simpleKeys || !allNullValues),
         indent: indent + indentStep
       });
-      let keyCommentDone = !1, chompKeep = !1, str = stringify.stringify(key, ctx, () => keyCommentDone = !0, () => chompKeep = !0);
+      let keyCommentDone = !1, chompKeep = !1, str = stringify2.stringify(key, ctx, () => keyCommentDone = !0, () => chompKeep = !0);
       if (!explicitKey && !ctx.inFlow && str.length > 1024) {
         if (simpleKeys)
           throw new Error("With simple keys, single line scalar must not span more than 1024 characters");
@@ -1221,7 +1221,7 @@ var require_stringifyPair = __commonJS({
 ${indent}:`) : (str = `${str}:`, keyComment && (str += stringifyComment.lineComment(str, ctx.indent, commentString(keyComment))));
       let vsb, vcb, valueComment;
       identity.isNode(value) ? (vsb = !!value.spaceBefore, vcb = value.commentBefore, valueComment = value.comment) : (vsb = !1, vcb = null, valueComment = null, value && typeof value == "object" && (value = doc.createNode(value))), ctx.implicitKey = !1, !explicitKey && !keyComment && identity.isScalar(value) && (ctx.indentAtStart = str.length + 1), chompKeep = !1, !indentSeq && indentStep.length >= 2 && !ctx.inFlow && !explicitKey && identity.isSeq(value) && !value.flow && !value.tag && !value.anchor && (ctx.indent = ctx.indent.substring(2));
-      let valueCommentDone = !1, valueStr = stringify.stringify(value, ctx, () => valueCommentDone = !0, () => chompKeep = !0), ws = " ";
+      let valueCommentDone = !1, valueStr = stringify2.stringify(value, ctx, () => valueCommentDone = !0, () => chompKeep = !0), ws = " ";
       if (keyComment || vsb || vcb) {
         if (ws = vsb ? `
 ` : "", vcb) {
@@ -1322,7 +1322,7 @@ var require_merge = __commonJS({
 var require_addPairToJSMap = __commonJS({
   "node_modules/yaml/dist/nodes/addPairToJSMap.js"(exports) {
     "use strict";
-    var log = require_log(), merge = require_merge(), stringify = require_stringify(), identity = require_identity(), toJS = require_toJS();
+    var log = require_log(), merge = require_merge(), stringify2 = require_stringify(), identity = require_identity(), toJS = require_toJS();
     function addPairToJSMap(ctx, map, { key, value }) {
       if (identity.isNode(key) && key.addToJSMap)
         key.addToJSMap(ctx, map, value);
@@ -1352,7 +1352,7 @@ var require_addPairToJSMap = __commonJS({
       if (typeof jsKey != "object")
         return String(jsKey);
       if (identity.isNode(key) && ctx?.doc) {
-        let strCtx = stringify.createStringifyContext(ctx.doc, {});
+        let strCtx = stringify2.createStringifyContext(ctx.doc, {});
         strCtx.anchors = /* @__PURE__ */ new Set();
         for (let node of ctx.anchors.keys())
           strCtx.anchors.add(node.anchor);
@@ -1404,7 +1404,7 @@ var require_Pair = __commonJS({
 var require_stringifyCollection = __commonJS({
   "node_modules/yaml/dist/stringify/stringifyCollection.js"(exports) {
     "use strict";
-    var identity = require_identity(), stringify = require_stringify(), stringifyComment = require_stringifyComment();
+    var identity = require_identity(), stringify2 = require_stringify(), stringifyComment = require_stringifyComment();
     function stringifyCollection(collection, ctx, options) {
       return (ctx.inFlow ?? collection.flow ? stringifyFlowCollection : stringifyBlockCollection)(collection, ctx, options);
     }
@@ -1419,7 +1419,7 @@ var require_stringifyCollection = __commonJS({
           ik && (!chompKeep && ik.spaceBefore && lines.push(""), addCommentBefore(ctx, lines, ik.commentBefore, chompKeep));
         }
         chompKeep = !1;
-        let str2 = stringify.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = !0);
+        let str2 = stringify2.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = !0);
         comment2 && (str2 += stringifyComment.lineComment(str2, itemIndent, commentString(comment2))), chompKeep && comment2 && (chompKeep = !1), lines.push(blockItemPrefix + str2);
       }
       let str;
@@ -1456,7 +1456,7 @@ ${indent}${line}` : `
           iv ? (iv.comment && (comment = iv.comment), iv.commentBefore && (reqNewline = !0)) : item.value == null && ik?.comment && (comment = ik.comment);
         }
         comment && (reqNewline = !0);
-        let str = stringify.stringify(item, itemCtx, () => comment = null);
+        let str = stringify2.stringify(item, itemCtx, () => comment = null);
         reqNewline || (reqNewline = lines.length > linesAtValue || str.includes(`
 `)), i < items.length - 1 ? str += "," : ctx.options.trailingComma && (ctx.options.lineWidth > 0 && (reqNewline || (reqNewline = lines.reduce((sum, line) => sum + line.length + 2, 2) + (str.length + 2) > ctx.options.lineWidth)), reqNewline && (str += ",")), comment && (str += stringifyComment.lineComment(str, itemIndent, commentString(comment))), lines.push(str), linesAtValue = lines.length;
       }
@@ -2529,7 +2529,7 @@ var require_Schema = __commonJS({
 var require_stringifyDocument = __commonJS({
   "node_modules/yaml/dist/stringify/stringifyDocument.js"(exports) {
     "use strict";
-    var identity = require_identity(), stringify = require_stringify(), stringifyComment = require_stringifyComment();
+    var identity = require_identity(), stringify2 = require_stringify(), stringifyComment = require_stringifyComment();
     function stringifyDocument(doc, options) {
       let lines = [], hasDirectives = options.directives === !0;
       if (options.directives !== !1 && doc.directives) {
@@ -2537,7 +2537,7 @@ var require_stringifyDocument = __commonJS({
         dir ? (lines.push(dir), hasDirectives = !0) : doc.directives.docStart && (hasDirectives = !0);
       }
       hasDirectives && lines.push("---");
-      let ctx = stringify.createStringifyContext(doc, options), { commentString } = ctx.options;
+      let ctx = stringify2.createStringifyContext(doc, options), { commentString } = ctx.options;
       if (doc.commentBefore) {
         lines.length !== 1 && lines.unshift("");
         let cs = commentString(doc.commentBefore);
@@ -2552,10 +2552,10 @@ var require_stringifyDocument = __commonJS({
           }
           ctx.forceBlockIndent = !!doc.comment, contentComment = doc.contents.comment;
         }
-        let onChompKeep = contentComment ? void 0 : () => chompKeep = !0, body = stringify.stringify(doc.contents, ctx, () => contentComment = null, onChompKeep);
+        let onChompKeep = contentComment ? void 0 : () => chompKeep = !0, body = stringify2.stringify(doc.contents, ctx, () => contentComment = null, onChompKeep);
         contentComment && (body += stringifyComment.lineComment(body, "", commentString(contentComment))), (body[0] === "|" || body[0] === ">") && lines[lines.length - 1] === "---" ? lines[lines.length - 1] = `--- ${body}` : lines.push(body);
       } else
-        lines.push(stringify.stringify(doc.contents, ctx));
+        lines.push(stringify2.stringify(doc.contents, ctx));
       if (doc.directives?.docEnd)
         if (doc.comment) {
           let cs = commentString(doc.comment);
@@ -4050,7 +4050,7 @@ var require_cst_scalar = __commonJS({
 var require_cst_stringify = __commonJS({
   "node_modules/yaml/dist/parse/cst-stringify.js"(exports) {
     "use strict";
-    var stringify = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
+    var stringify2 = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
     function stringifyToken(token) {
       switch (token.type) {
         case "block-scalar": {
@@ -4099,7 +4099,7 @@ var require_cst_stringify = __commonJS({
           res += st.source;
       return value && (res += stringifyToken(value)), res;
     }
-    exports.stringify = stringify;
+    exports.stringify = stringify2;
   }
 });
 
@@ -5400,7 +5400,7 @@ var require_public_api = __commonJS({
           doc.errors.forEach(errors.prettifyError(source, lineCounter2)), doc.warnings.forEach(errors.prettifyError(source, lineCounter2));
       return docs.length > 0 ? docs : Object.assign([], { empty: !0 }, composer$1.streamInfo());
     }
-    function parseDocument2(source, options = {}) {
+    function parseDocument3(source, options = {}) {
       let { lineCounter: lineCounter2, prettyErrors } = parseOptions(options), parser$1 = new parser.Parser(lineCounter2?.addNewLine), composer$1 = new composer.Composer(options), doc = null;
       for (let _doc of composer$1.compose(parser$1.parse(source), !0, source.length))
         if (!doc)
@@ -5414,7 +5414,7 @@ var require_public_api = __commonJS({
     function parse2(src, reviver, options) {
       let _reviver;
       typeof reviver == "function" ? _reviver = reviver : options === void 0 && reviver && typeof reviver == "object" && (options = reviver);
-      let doc = parseDocument2(src, options);
+      let doc = parseDocument3(src, options);
       if (!doc)
         return null;
       if (doc.warnings.forEach((warning) => log.warn(doc.options.logLevel, warning)), doc.errors.length > 0) {
@@ -5424,7 +5424,7 @@ var require_public_api = __commonJS({
       }
       return doc.toJS(Object.assign({ reviver: _reviver }, options));
     }
-    function stringify(value, replacer, options) {
+    function stringify2(value, replacer, options) {
       let _replacer = null;
       if (typeof replacer == "function" || Array.isArray(replacer) ? _replacer = replacer : options === void 0 && replacer && (options = replacer), typeof options == "string" && (options = options.length), typeof options == "number") {
         let indent = Math.round(options);
@@ -5439,8 +5439,8 @@ var require_public_api = __commonJS({
     }
     exports.parse = parse2;
     exports.parseAllDocuments = parseAllDocuments;
-    exports.parseDocument = parseDocument2;
-    exports.stringify = stringify;
+    exports.parseDocument = parseDocument3;
+    exports.stringify = stringify2;
   }
 });
 
@@ -5582,10 +5582,10 @@ var require_code = __commonJS({
     function interpolate(x) {
       return typeof x == "number" || typeof x == "boolean" || x === null ? x : safeStringify(Array.isArray(x) ? x.join(",") : x);
     }
-    function stringify(x) {
+    function stringify2(x) {
       return new _Code(safeStringify(x));
     }
-    exports.stringify = stringify;
+    exports.stringify = stringify2;
     function safeStringify(x) {
       return JSON.stringify(x).replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
     }
@@ -10628,19 +10628,19 @@ var require_dist2 = __commonJS({
 });
 
 // src/hosts/codex/workflow-hook.mjs
-import { createHash as createHash4, randomUUID } from "node:crypto";
+import { createHash as createHash5, randomUUID } from "node:crypto";
 import { existsSync as existsSync3, mkdirSync, readFileSync as readFileSync3, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname as dirname3, join as join3, resolve as resolve4 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 
 // src/core/root-plan-attestation.mjs
-var import_yaml2 = __toESM(require_dist(), 1);
-import { createHash as createHash3 } from "node:crypto";
+var import_yaml3 = __toESM(require_dist(), 1);
+import { createHash as createHash4 } from "node:crypto";
 
 // scripts/validate-artifact.source.mjs
 import { existsSync as existsSync2, readFileSync as readFileSync2, realpathSync } from "node:fs";
-import { createHash as createHash2 } from "node:crypto";
+import { createHash as createHash3 } from "node:crypto";
 import { basename, dirname as dirname2, resolve as resolve3 } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -10691,81 +10691,282 @@ function lineageTips(items, predecessorField) {
 }
 
 // scripts/artifact-validator/parser.mjs
+var import_yaml2 = __toESM(require_dist(), 1);
+
+// src/core/workflow-authority-core.mjs
 var import_yaml = __toESM(require_dist(), 1);
-function yamlObject(source, label, failures) {
+import { createHash } from "node:crypto";
+var HOST_FIELDS = /* @__PURE__ */ new Set(["name", "overview", "todos", "isProject"]), CORE_BLOCK = /(?:\r?\n)?<details>\r?\n<summary>Workflow authority<\/summary>\r?\n\r?\n```yaml workflow-authority\r?\n([\s\S]*?)\r?\n```\r?\n<\/details>[ \t]*(?:\r?\n)?$/, ANY_CORE_BLOCK = /```yaml workflow-authority\r?\n([\s\S]*?)\r?\n```/g;
+function sha256(value) {
+  return createHash("sha256").update(String(value), "utf8").digest("hex");
+}
+function stable(value) {
+  return Array.isArray(value) ? value.map(stable) : !value || typeof value != "object" ? value : Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])]));
+}
+function authorityHash(value) {
+  let { authority_hash: _ignored, ...bound } = value;
+  return sha256(JSON.stringify(stable(bound)));
+}
+function yamlObject(source, label) {
   let document = (0, import_yaml.parseDocument)(source, { prettyErrors: !1, uniqueKeys: !0 });
+  if (document.errors.length > 0) throw new Error(`${label}: invalid YAML: ${document.errors.map((error) => error.message).join("; ")}`);
+  let value = document.toJS();
+  if (!value || typeof value != "object" || Array.isArray(value)) throw new Error(`${label} must be a YAML object`);
+  return value;
+}
+function stripHostFrontmatter(source) {
+  let match = String(source).match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+  if (!match) return String(source);
+  try {
+    let fields = yamlObject(match[1], "host frontmatter");
+    if (!Object.keys(fields).some((field) => HOST_FIELDS.has(field))) return String(source);
+  } catch {
+    return String(source);
+  }
+  return String(source).slice(match[0].length);
+}
+function normalizeHumanPlanMarkdown(source) {
+  return `${stripHostFrontmatter(String(source).replace(/^\uFEFF/, "").replace(/\r\n?/g, `
+`)).trim()}
+`;
+}
+function humanPlanContentHash(source) {
+  return sha256(normalizeHumanPlanMarkdown(source));
+}
+function requiredLine(value, label) {
+  let result = String(value ?? "").replace(/\s+/g, " ").trim();
+  if (!result) throw new Error(`${label} is required`);
+  return result;
+}
+function stringList(value, label, { required = !1 } = {}) {
+  if (!Array.isArray(value)) throw new Error(`${label} must be an array`);
+  let result = [...new Set(value.map((entry) => requiredLine(entry, label)))];
+  if (required && result.length === 0) throw new Error(`${label} must not be empty`);
+  return result;
+}
+function validateVerification(value, acceptanceCount) {
+  if (!Array.isArray(value) || value.length === 0) throw new Error("workflow authority verification must not be empty");
+  let checkIds = /* @__PURE__ */ new Set();
+  return value.map((entry, index) => {
+    if (!entry || typeof entry != "object" || Array.isArray(entry)) throw new Error(`workflow authority verification[${index}] must be an object`);
+    let allowed = ["check_id", "objectives", "verification_intent", "expected_evidence", "required", "evidence_class", "cost_class", "prerequisites"], unknown = Object.keys(entry).filter((field) => !allowed.includes(field));
+    if (unknown.length > 0) throw new Error(`workflow authority verification[${index}] contains unsupported field ${unknown[0]}`);
+    let checkId = requiredLine(entry.check_id, `workflow authority verification[${index}].check_id`);
+    if (!/^CHECK-[1-9][0-9]*$/.test(checkId) || checkIds.has(checkId)) throw new Error(`workflow authority verification contains invalid or duplicate ${checkId}`);
+    checkIds.add(checkId);
+    let objectives = stringList(entry.objectives, `workflow authority verification[${index}].objectives`, { required: !0 });
+    for (let objective of objectives) {
+      let match = objective.match(/^OBJ-([1-9][0-9]*)$/);
+      if (!match || Number(match[1]) > acceptanceCount) throw new Error(`workflow authority verification ${checkId} references unknown ${objective}`);
+    }
+    if (typeof entry.required != "boolean") throw new Error(`workflow authority verification ${checkId}.required must be a boolean`);
+    if (!["harness-verifiable", "reviewer-observable", "human-decision-required"].includes(entry.evidence_class)) throw new Error(`workflow authority verification ${checkId} has invalid evidence_class`);
+    if (!["cheap", "standard", "expensive"].includes(entry.cost_class)) throw new Error(`workflow authority verification ${checkId} has invalid cost_class`);
+    return {
+      check_id: checkId,
+      objectives,
+      verification_intent: requiredLine(entry.verification_intent, `workflow authority verification ${checkId}.verification_intent`),
+      expected_evidence: requiredLine(entry.expected_evidence, `workflow authority verification ${checkId}.expected_evidence`),
+      required: entry.required,
+      evidence_class: entry.evidence_class,
+      cost_class: entry.cost_class,
+      prerequisites: stringList(entry.prerequisites, `workflow authority verification ${checkId}.prerequisites`, { required: !0 })
+    };
+  });
+}
+function normalizeAuthorityCore(input, { planMarkdown = null, requireHash = !0 } = {}) {
+  if (!input || typeof input != "object" || Array.isArray(input)) throw new Error("workflow authority must be an object");
+  let allowed = [
+    "artifact",
+    "schema",
+    "id",
+    "status",
+    "source",
+    "profile",
+    "plan_content_hash",
+    "authority_hash",
+    "predecessor_plan_id",
+    "source_review_id",
+    "goal",
+    "acceptance",
+    "non_goals",
+    "constraints",
+    "risk",
+    "hard_triggers",
+    "authority",
+    "verification",
+    "certification",
+    "extensions"
+  ], unknown = Object.keys(input).filter((field) => !allowed.includes(field));
+  if (unknown.length > 0) throw new Error(`workflow authority contains unsupported field ${unknown[0]}`);
+  if (input.artifact !== "work-plan" || input.schema !== 6) throw new Error("workflow authority must declare artifact work-plan and schema 6");
+  if (!/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/.test(String(input.id ?? ""))) throw new Error("workflow authority id must be wp-*");
+  if (input.status !== "ready") throw new Error("workflow authority status must be ready");
+  if (!["manual", "supervised", "autonomous"].includes(input.profile)) throw new Error("workflow authority profile is invalid");
+  if (!["low", "medium", "high"].includes(input.risk)) throw new Error("workflow authority risk is invalid");
+  let acceptance = stringList(input.acceptance, "workflow authority acceptance", { required: !0 }), authority = input.authority;
+  if (!authority || typeof authority != "object" || Array.isArray(authority)) throw new Error("workflow authority authority must be an object");
+  let normalized = {
+    artifact: "work-plan",
+    schema: 6,
+    id: input.id,
+    status: "ready",
+    ...input.source ? { source: requiredLine(input.source, "workflow authority source") } : {},
+    profile: input.profile,
+    ...input.plan_content_hash ? { plan_content_hash: String(input.plan_content_hash) } : {},
+    ...input.authority_hash ? { authority_hash: String(input.authority_hash) } : {},
+    ...input.predecessor_plan_id ? { predecessor_plan_id: input.predecessor_plan_id } : {},
+    ...input.source_review_id ? { source_review_id: input.source_review_id } : {},
+    goal: requiredLine(input.goal, "workflow authority goal"),
+    acceptance,
+    non_goals: stringList(input.non_goals ?? [], "workflow authority non_goals"),
+    constraints: stringList(input.constraints ?? [], "workflow authority constraints"),
+    risk: input.risk,
+    hard_triggers: stringList(input.hard_triggers ?? [], "workflow authority hard_triggers"),
+    authority: structuredClone(authority),
+    verification: validateVerification(input.verification, acceptance.length),
+    ...input.certification ? { certification: structuredClone(input.certification) } : {},
+    ...input.extensions ? { extensions: structuredClone(input.extensions) } : {}
+  };
+  if (normalized.predecessor_plan_id == null != (normalized.source_review_id == null)) throw new Error("workflow authority lineage requires predecessor_plan_id and source_review_id together");
+  if (normalized.profile === "autonomous" && normalized.hard_triggers.length > 0) throw new Error("hard-trigger work cannot use autonomous profile");
+  if (["supervised", "autonomous"].includes(normalized.profile)) {
+    for (let field of ["max_active_minutes", "max_total_tokens", "max_cost_usd"])
+      if (!Number.isFinite(normalized.authority[field]) || normalized.authority[field] <= 0) throw new Error(`workflow authority ${normalized.profile} profile requires authority.${field}`);
+  }
+  if (normalized.profile === "autonomous" && !normalized.certification) throw new Error("workflow authority autonomous profile requires certification");
+  if (requireHash && !/^[a-f0-9]{64}$/.test(normalized.plan_content_hash ?? "")) throw new Error("workflow authority plan_content_hash must be sha256");
+  if (requireHash && !/^[a-f0-9]{64}$/.test(normalized.authority_hash ?? "")) throw new Error("workflow authority authority_hash must be sha256");
+  if (planMarkdown != null && normalized.plan_content_hash !== humanPlanContentHash(planMarkdown)) throw new Error("workflow authority plan_content_hash does not match the human plan Markdown");
+  if (requireHash && normalized.authority_hash !== authorityHash(normalized)) throw new Error("workflow authority authority_hash does not match the Authority Core");
+  return normalized;
+}
+function internalWorkPlanFields(core) {
+  let level = { manual: "lean", supervised: "controlled", autonomous: "certified" }[core.profile];
+  return {
+    artifact: "work-plan",
+    schema: 6,
+    id: core.id,
+    status: "ready",
+    source: core.source ?? "workflow-authority-core",
+    ...core.predecessor_plan_id ? { predecessor_plan_id: core.predecessor_plan_id, source_review_id: core.source_review_id } : {},
+    intent_ready: !0,
+    profile_max: core.profile,
+    contract_level: level,
+    plan_content_hash: core.plan_content_hash,
+    authority_hash: core.authority_hash,
+    risk: core.risk,
+    hard_triggers: core.hard_triggers,
+    goal: core.goal,
+    acceptance: core.acceptance,
+    non_goals: core.non_goals,
+    constraints: core.constraints,
+    authority: core.authority,
+    ...core.certification ? { certification: core.certification } : {},
+    extensions: { ...core.extensions ?? {}, workflow_authority_core: 1 }
+  };
+}
+function cell(value) {
+  return String(value ?? "").replace(/\r?\n/g, "<br>").replace(/\|/g, "\\|").trim();
+}
+function authorityCoreArtifactBody(core) {
+  let rows = core.verification.map((check) => `| ${[
+    check.check_id,
+    check.objectives.join(", "),
+    check.verification_intent,
+    check.expected_evidence,
+    check.required ? "yes" : "no",
+    check.evidence_class,
+    check.cost_class,
+    check.prerequisites.join(", ")
+  ].map(cell).join(" | ")} |`);
+  return [
+    "## Intent",
+    "",
+    core.goal,
+    "",
+    "## Acceptance",
+    "",
+    ...core.acceptance.map((entry, index) => `- OBJ-${index + 1}: ${entry}`),
+    "",
+    "### Verification",
+    "",
+    "| Check ID | Objectives | Verification Intent | Expected Evidence | Required | Evidence Class | Cost Class | Prerequisites |",
+    "|---|---|---|---|---|---|---|---|",
+    ...rows,
+    "",
+    "## Boundaries",
+    "",
+    `Allowed roots: ${core.authority.allowed_roots.join(", ")}. Protected paths: ${(core.authority.protected_paths ?? []).join(", ") || "none"}. Approval-required paths: ${(core.authority.approval_required_paths ?? []).join(", ") || "none"}.`,
+    "",
+    "## Risks",
+    "",
+    `${core.risk} risk.${core.hard_triggers.length > 0 ? ` Hard triggers: ${core.hard_triggers.join(", ")}.` : " No hard triggers."}`,
+    ""
+  ].join(`
+`);
+}
+function parseWorkflowAuthorityPlan(source) {
+  let text = String(source).replace(/\r\n?/g, `
+`);
+  if ((text.match(ANY_CORE_BLOCK) ?? []).length !== 1) throw new Error("native plan requires exactly one yaml workflow-authority block");
+  ANY_CORE_BLOCK.lastIndex = 0;
+  let match = text.match(CORE_BLOCK);
+  if (!match) throw new Error("workflow-authority must be the generated expandable block at the end of the plan");
+  let withoutCore = text.slice(0, match.index), planMarkdown = normalizeHumanPlanMarkdown(withoutCore), core = normalizeAuthorityCore(yamlObject(match[1], "workflow authority"), { planMarkdown });
+  return { core, plan_markdown: planMarkdown, fields: internalWorkPlanFields(core), body: authorityCoreArtifactBody(core) };
+}
+function canonicalAuthorityRootText(source) {
+  let parsed = parseWorkflowAuthorityPlan(source);
+  return `---
+${(0, import_yaml.stringify)(parsed.fields, { lineWidth: 0 }).trimEnd()}
+---
+
+${parsed.body}`;
+}
+
+// scripts/artifact-validator/parser.mjs
+function yamlObject2(source, label, failures) {
+  let document = (0, import_yaml2.parseDocument)(source, { prettyErrors: !1, uniqueKeys: !0 });
   for (let error of document.errors) failures.push(`${label}: invalid YAML: ${error.message}`);
   if (document.errors.length > 0) return null;
   let value = document.toJS();
   return !value || typeof value != "object" || Array.isArray(value) ? (failures.push(`${label} must be a YAML object`), null) : value;
 }
-function visibleH2Headings(source) {
-  let headings = [], fenced = !1;
-  for (let line of String(source).split(/\r?\n/)) {
-    if (/^```/.test(line)) {
-      fenced = !fenced;
-      continue;
-    }
-    if (fenced) continue;
-    let match = line.match(/^## ([^#].*)$/);
-    match && headings.push(match[1].trim());
-  }
-  return headings;
-}
-function validateHumanFirstNextStep(projection, failures) {
-  let source = String(projection);
-  if ([...source.matchAll(/^### Next step\s*$/gm)].length !== 1) {
-    failures.push("human-first native plan projection requires exactly one complete ### Next step block");
-    return;
-  }
-  let quick = source.match(/^## Quick decision\s*$([\s\S]*?)(?=^## Details\s*$)/m)?.[1] ?? "", block = quick.match(/^### Next step\s*$([\s\S]*)$/m);
-  if (!block || !quick.trimEnd().endsWith(block[0].trimEnd())) {
-    failures.push("human-first native plan projection requires ### Next step at the end of Quick decision");
-    return;
-  }
-  let lines = block[1].trim().split(/\r?\n/).filter(Boolean), expected = ["Now", "How", "Why"];
-  (lines.length !== expected.length || expected.some((label, index) => !new RegExp(`^- ${label}:\\s*\\S`).test(lines[index]))) && failures.push("human-first native plan projection requires complete Now, How, and Why lines in ### Next step");
-}
 function parsePlanContainer(text, wrapper, failures, normalizations = []) {
-  let match = String(text).match(/(?:^|\n)# ([^\r\n]+)\r?\n([\s\S]*?)```yaml artifact-envelope\r?\n([\s\S]*?)\r?\n```(?:\r?\n|$)/);
-  if (!match)
-    return failures.push("native plan must contain one H1 and one yaml artifact-envelope"), null;
-  let projection = match[2].trim();
-  if (projection) {
-    let headings = visibleH2Headings(projection), expected = ["Quick decision", "Details", "Agent and machine contract (authoritative)"];
-    if (headings.length !== expected.length || headings.some((heading, index) => heading !== expected[index]))
-      return failures.push("human-first native plan projection must order Quick decision, Details, then Agent and machine contract (authoritative)"), null;
-    if (validateHumanFirstNextStep(projection, failures), failures.length > 0) return null;
+  try {
+    let parsed = parseWorkflowAuthorityPlan(text);
+    return normalizations.push("validated generated workflow authority core"), { fields: parsed.fields, body: parsed.body, wrapper, container: "cursor-plan", title: null, normalizations };
+  } catch (error) {
+    return failures.push(error.message), null;
   }
-  let fields = yamlObject(match[3], "artifact envelope", failures);
-  return fields ? (fields.artifact !== "work-plan" && failures.push("native plan containers may contain only work-plan"), match.index + (match[0].startsWith(`
-`) ? 1 : 0) > 0 && normalizations.push("ignored Cursor progress text before native plan"), projection && normalizations.push("validated human-first native plan projection"), { fields, body: String(text).slice(match.index + match[0].length), wrapper, container: "cursor-plan", title: match[1], normalizations }) : null;
 }
 function parseArtifact(text, failures = [], normalizations = []) {
   let source = String(text), candidates = [], expression = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/gm;
   for (let match2 of source.matchAll(expression)) {
-    let probeFailures = [], fields2 = yamlObject(match2[1], "frontmatter", probeFailures);
+    let probeFailures = [], fields2 = yamlObject2(match2[1], "frontmatter", probeFailures);
     if (!fields2) continue;
     (typeof fields2.artifact == "string" || ["name", "overview", "todos", "isProject"].some((field) => field in fields2)) && candidates.push({ match: match2, fields: fields2 });
   }
   let envelopes = [], envelopeExpression = /```yaml(?: artifact-envelope)?\r?\n([\s\S]*?)\r?\n```(?:\r?\n|$)/g;
   for (let match2 of source.matchAll(envelopeExpression)) {
-    let probeFailures = [], fields2 = yamlObject(match2[1], "artifact envelope", probeFailures);
+    let probeFailures = [], fields2 = yamlObject2(match2[1], "artifact envelope", probeFailures);
     fields2?.artifact && envelopes.push({ match: match2, fields: fields2 });
   }
   if (candidates.length === 0) {
+    if (source.includes("```yaml workflow-authority")) return parsePlanContainer(source, null, failures, normalizations);
     if (envelopes.length > 1)
       return failures.push("response contains multiple workflow artifact candidates"), null;
     if (envelopes.length === 1) {
       let [{ match: match2, fields: fields2 }] = envelopes;
-      return normalizations.push("normalized fenced Workflow artifact to chat artifact"), match2.index > 0 && normalizations.push("ignored Cursor progress preamble"), { fields: fields2, body: source.slice(match2.index + match2[0].length), wrapper: null, container: "normalized-envelope", normalizations };
+      return fields2.artifact === "work-plan" ? (failures.push("earlier work-plan envelopes are unsupported; use one generated yaml workflow-authority Core"), null) : (normalizations.push("normalized fenced Workflow artifact to chat artifact"), match2.index > 0 && normalizations.push("ignored Cursor progress preamble"), { fields: fields2, body: source.slice(match2.index + match2[0].length), wrapper: null, container: "normalized-envelope", normalizations });
     }
     return failures.push("response is missing workflow YAML frontmatter"), null;
   }
   if (candidates.length > 1 || envelopes.length > 1)
     return failures.push("response contains multiple workflow artifact candidates"), null;
   let [{ match, fields }] = candidates;
-  return typeof fields.artifact == "string" && envelopes.length > 0 ? (failures.push("response contains multiple workflow artifact candidates"), null) : (match.index > 0 && normalizations.push("ignored Cursor progress preamble"), typeof fields.artifact == "string" ? { fields, body: source.slice(match.index + match[0].length), wrapper: null, container: "chat-artifact", normalizations } : ["name", "overview", "todos", "isProject"].some((field) => field in fields) ? parsePlanContainer(source.slice(match.index + match[0].length), fields, failures, normalizations) : (failures.push("artifact type is missing"), null));
+  return typeof fields.artifact == "string" && envelopes.length > 0 ? (failures.push("response contains multiple workflow artifact candidates"), null) : (match.index > 0 && normalizations.push("ignored Cursor progress preamble"), typeof fields.artifact == "string" ? fields.artifact === "work-plan" && (!fields.plan_content_hash || !fields.authority_hash || fields.extensions?.workflow_authority_core !== 1) ? (failures.push("Schema-6 work-plan requires the current generated workflow-authority core; earlier plan formats are unsupported"), null) : { fields, body: source.slice(match.index + match[0].length), wrapper: null, container: "chat-artifact", normalizations } : ["name", "overview", "todos", "isProject"].some((field) => field in fields) ? parsePlanContainer(source.slice(match.index + match[0].length), fields, failures, normalizations) : (failures.push("artifact type is missing"), null));
 }
 
 // scripts/artifact-validator/schema.mjs
@@ -10834,11 +11035,11 @@ function pathMatchesAuthorityPattern(repositoryPath, authorityPattern) {
 }
 
 // src/core/state-paths.mjs
-import { createHash } from "node:crypto";
+import { createHash as createHash2 } from "node:crypto";
 function rootContentHash(rootPlanText) {
   if (typeof rootPlanText != "string" || !rootPlanText.trim())
     throw new Error("root content hash requires exact non-empty Root text");
-  return createHash("sha256").update(rootPlanText).digest("hex");
+  return createHash2("sha256").update(rootPlanText).digest("hex");
 }
 
 // scripts/validate-artifact.source.mjs
@@ -10847,7 +11048,8 @@ var scriptDirectory = dirname2(fileURLToPath(import.meta.url)), defaultRoot = di
   "delivery-evidence",
   "work-review"
 ]), riskRank = Object.freeze({ low: 1, medium: 2, high: 3 });
-var objectivePattern = /\bOBJ-[1-9][0-9]*\b/g, fixPattern = /\bFIX-[1-9][0-9]*\b/g, checkPattern = /\bCHECK-[1-9][0-9]*\b/g, learningPattern = /\bLRN-[A-Za-z0-9][A-Za-z0-9-]*\b/g, sectionAliases = Object.freeze({
+var objectivePattern = /\bOBJ-[1-9][0-9]*\b/g, fixPattern = /\bFIX-[1-9][0-9]*\b/g, checkPattern = /\bCHECK-[1-9][0-9]*\b/g;
+var sectionAliases = Object.freeze({
   Intent: ["intent", "goal", "intent contract"],
   Acceptance: ["acceptance", "acceptance outcomes", "success criteria"],
   Boundaries: ["boundaries", "authority", "authority envelope"],
@@ -10873,12 +11075,12 @@ var objectivePattern = /\bOBJ-[1-9][0-9]*\b/g, fixPattern = /\bFIX-[1-9][0-9]*\b
 }), optionalTableCells = /* @__PURE__ */ new Set(), tables = Object.freeze({
   verificationIntent: ["Check ID", "Objectives", "Verification Intent", "Expected Evidence", "Required", "Evidence Class", "Cost Class", "Prerequisites"],
   coverage: ["Kind", "Inspected", "Reused", "Result", "Evidence"],
-  findings: ["Finding key", "Severity", "Objectives", "Checks", "Evidence", "Reasoning"],
+  findings: ["Finding key", "Severity", "Objectives", "Checks", "Evidence", "Reasoning", "Resolution"],
+  openPoints: ["Open point", "Type", "Summary", "Evidence", "Impact", "Human question"],
   correctionMeta: ["Correction ID", "Root Plan", "Source Review", "Base Evidence", "Predecessor Correction", "Risk"],
   fixes: ["FIX ID", "Finding keys", "Root Objectives", "Root Checks", "Required outcome", "Evidence"],
   correctionSteps: ["Step ID", "FIX IDs", "Targets", "Required outcome", "Implementation latitude", "Completion probe", "Check IDs", "Deviation action"],
-  correctionIntentChecks: ["Check ID", "FIX IDs", "Verification Intent", "Expected Evidence", "Required", "Evidence Class", "Cost Class", "Prerequisites"],
-  learningCandidates: ["Learning ID", "Finding keys", "Reusable guidance", "Candidate targets", "Confirmation evidence"]
+  correctionIntentChecks: ["Check ID", "Objectives", "Verification Intent", "Expected Evidence", "Required", "Evidence Class", "Cost Class", "Prerequisites"]
 }), costRank = Object.freeze({ cheap: 1, standard: 2, expensive: 3 });
 function unique(values) {
   return [...new Set(values)];
@@ -10892,8 +11094,8 @@ function sameSet(left, right) {
 function stableValue(value) {
   return Array.isArray(value) ? value.map(stableValue) : !value || typeof value != "object" ? value : Object.fromEntries(Object.keys(value).sort().map((key) => [key, stableValue(value[key])]));
 }
-function sha256(value) {
-  return createHash2("sha256").update(String(value)).digest("hex");
+function sha2562(value) {
+  return createHash3("sha256").update(String(value)).digest("hex");
 }
 function maskFences(text) {
   let fence = null;
@@ -10951,7 +11153,7 @@ function markdownTables(content) {
   let lines = maskFences(content).split(/\r?\n/), found = [];
   for (let index = 0; index < lines.length - 1; index += 1) {
     let headers = cells(lines[index]), separator = cells(lines[index + 1]);
-    if (headers.length < 2 || separator.length !== headers.length || !separator.every((cell) => /^:?-{3,}:?$/.test(cell))) continue;
+    if (headers.length < 2 || separator.length !== headers.length || !separator.every((cell2) => /^:?-{3,}:?$/.test(cell2))) continue;
     let rows = [];
     for (index += 2; index < lines.length && lines[index].includes("|"); ) {
       let row = cells(lines[index]);
@@ -11115,14 +11317,14 @@ function validatePlan6(parsed, sections, failures) {
   );
   for (let row of verification)
     /^CHECK-[1-9][0-9]*$/.test(row["Check ID"]) || failures.push(`Verification: invalid Check ID ${row["Check ID"]}`), /^(?:yes|no)$/.test(row.Required) || failures.push(`Verification: ${row["Check ID"]} Required must be yes|no`), /^(?:harness-verifiable|reviewer-observable|human-decision-required)$/.test(row["Evidence Class"]) || failures.push(`Verification: ${row["Check ID"]} invalid Evidence Class`);
-  verification.length === 0 && parsed.normalizations.push("synthesized strategy checks from acceptance outcomes"), data.objectives.size !== parsed.fields.acceptance.length && failures.push("acceptance outcomes must map one-to-one to objectives"), parsed.wrapper && (parsed.wrapper.todos ?? []).length === 0 && failures.push("native Plan must include at least one implementation todo");
+  verification.length === 0 && parsed.normalizations.push("synthesized strategy checks from acceptance outcomes"), data.objectives.size !== parsed.fields.acceptance.length && failures.push("acceptance outcomes must map one-to-one to objectives");
 }
 function evidenceData(artifact) {
   return schema6EvidenceData(artifact.fields);
 }
 function reviewData(artifact) {
-  let coverage = tableRows(artifact.sections.get("Evidence coverage") ?? "", tables.coverage), findings = tableRows(artifact.sections.get("Findings") ?? "", tables.findings);
-  return { coverage, findings };
+  let coverage = tableRows(artifact.sections.get("Evidence coverage") ?? "", tables.coverage), findings = tableRows(artifact.sections.get("Findings") ?? "", tables.findings), openPoints = tableRows(artifact.sections.get("Open points") ?? "", tables.openPoints);
+  return { coverage, findings, openPoints };
 }
 function validateEvidenceGrades(parsed, failures) {
   let entries = parsed.fields.check_evidence ?? [], grades = entries.map((entry) => entry.grade);
@@ -11156,13 +11358,6 @@ function parseCorrection(parsed, sections, failures) {
   headings.length !== 1 && failures.push("correct review must embed exactly one cp-* correction as an H3"), headings.length === 1 && parsed.fields.correction_id !== headings[0] && failures.push("embedded correction ID conflicts with frontmatter");
   let metadata = requireTable(/* @__PURE__ */ new Map([["Correction plan", content]]), "Correction plan", tables.correctionMeta, failures, { normalizations: parsed.normalizations }), fixes = { rows: tableRows(content, tables.fixes) }, steps = { rows: tableRows(content, tables.correctionSteps) }, checks = { rows: tableRows(content, tables.correctionIntentChecks) };
   fixes.rows.length === 0 && failures.push("Correction plan requires a FIX table"), steps.rows.length === 0 && failures.push("Correction plan requires a step table"), checks.rows.length === 0 && failures.push("Correction plan requires a Check table");
-  let declaredLearnings = Array.isArray(parsed.fields.learning_candidates) ? parsed.fields.learning_candidates : [], learnings = requireTable(/* @__PURE__ */ new Map([["Correction plan", content]]), "Correction plan", tables.learningCandidates, failures, { normalizations: parsed.normalizations }), learningIds = exactIdSet(learnings.rows, "Learning ID", learningPattern, "Correction learning", failures);
-  for (let learningId of learningIds)
-    declaredLearnings.includes(learningId) || failures.push(`Correction learning ${learningId} must be declared in learning_candidates`);
-  for (let row of learnings.rows) {
-    let keys = String(row["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean);
-    (keys.length === 0 || keys.some((key) => !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(key))) && failures.push(`Learning ${row["Learning ID"]} needs valid source Finding keys`);
-  }
   let fixIds = exactIdSet(fixes.rows, "FIX ID", /FIX-[1-9][0-9]*/, "Correction FIX", failures);
   exactIdSet(steps.rows, "Step ID", /STEP-[1-9][0-9]*/, "Correction steps", failures);
   let checkIds = exactIdSet(checks.rows, "Check ID", /CHECK-[1-9][0-9]*/, "Correction checks", failures);
@@ -11177,14 +11372,11 @@ function parseCorrection(parsed, sections, failures) {
     });
   for (let fix of fixIds) coveredFixes.has(fix) || failures.push(`Correction steps do not cover ${fix}`);
   for (let row of checks.rows)
-    /^(?:yes|no)$/.test(row.Required) || failures.push(`Correction check ${row["Check ID"]} Required must be yes|no`), /^(?:cheap|standard|expensive)$/.test(row["Cost Class"]) || failures.push(`Correction check ${row["Check ID"]} invalid Cost Class`), /^(?:harness-verifiable|reviewer-observable|human-decision-required)$/.test(row["Evidence Class"]) || failures.push(`Correction check ${row["Check ID"]} invalid Evidence Class`), targetTokens(row.Prerequisites).length === 0 && failures.push(`Correction check ${row["Check ID"]} needs concrete Prerequisites`), ids(row["FIX IDs"], fixPattern).forEach((id) => {
-      fixIds.has(id) || failures.push(`Correction check references unknown ${id}`);
-    });
-  return validateCostOrder(checks.rows, "Cost Class", "Correction checks", parsed), { id: headings[0], metadata: metadata.rows[0], fixes: fixes.rows, steps: steps.rows, checks: checks.rows, learnings: learnings.rows };
+    /^(?:yes|no)$/.test(row.Required) || failures.push(`Correction check ${row["Check ID"]} Required must be yes|no`), /^(?:cheap|standard|expensive)$/.test(row["Cost Class"]) || failures.push(`Correction check ${row["Check ID"]} invalid Cost Class`), /^(?:harness-verifiable|reviewer-observable|human-decision-required)$/.test(row["Evidence Class"]) || failures.push(`Correction check ${row["Check ID"]} invalid Evidence Class`), targetTokens(row.Prerequisites).length === 0 && failures.push(`Correction check ${row["Check ID"]} needs concrete Prerequisites`);
+  return validateCostOrder(checks.rows, "Cost Class", "Correction checks", parsed), { id: headings[0], metadata: metadata.rows[0], fixes: fixes.rows, steps: steps.rows, checks: checks.rows };
 }
 function validateCompactReview(parsed, sections, failures) {
-  let options = { normalizations: parsed.normalizations };
-  (sections.get("Assessment") ?? "").toLowerCase().includes(String(parsed.fields.assessment).toLowerCase()) || failures.push("Assessment section must state frontmatter assessment");
+  (sections.get("Outcome") ?? "").toLowerCase().includes(String(parsed.fields.outcome).toLowerCase()) || failures.push("Outcome section must state frontmatter outcome");
   let coverage = requireTable(sections, "Evidence coverage", tables.coverage, failures, { optional: !0, normalizations: parsed.normalizations }), coverageByKind = /* @__PURE__ */ new Map();
   for (let row of coverage.rows) {
     let kind = normalizedHeader(row.Kind), rows = coverageByKind.get(kind) ?? [];
@@ -11208,31 +11400,27 @@ function validateCompactReview(parsed, sections, failures) {
   let keys = /* @__PURE__ */ new Set();
   for (let row of findings.rows) {
     let key = row["Finding key"];
-    /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(key) || failures.push(`Findings: invalid Finding key ${key}`), keys.has(key) && failures.push(`Findings: duplicate Finding key ${key}`), keys.add(key), /^(?:low|medium|high|critical)$/.test(row.Severity) || failures.push(`Findings: ${key} has invalid Severity`), ids(row.Objectives, objectivePattern).length === 0 && failures.push(`Findings: ${key} needs root Objectives`), ids(row.Checks, checkPattern).length === 0 && failures.push(`Findings: ${key} needs root Checks`);
+    /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(key) || failures.push(`Findings: invalid Finding key ${key}`), keys.has(key) && failures.push(`Findings: duplicate Finding key ${key}`), keys.add(key), /^(?:low|medium|high|critical)$/.test(row.Severity) || failures.push(`Findings: ${key} has invalid Severity`), ids(row.Objectives, objectivePattern).length === 0 && failures.push(`Findings: ${key} needs root Objectives`), ids(row.Checks, checkPattern).length === 0 && failures.push(`Findings: ${key} needs root Checks`), /^(?:correct|open)$/.test(row.Resolution) || failures.push(`Findings: ${key} has invalid Resolution`);
   }
-  if (parsed.fields.review_basis === "root-boundary" && findings.rows.length > 0 && failures.push("root-boundary review cannot contain delivery findings"), parsed.findings = findings.rows, (sections.get("Next action") ?? "").toLowerCase().includes(String(parsed.fields.next_action).toLowerCase()) || failures.push("Next action section must state frontmatter next_action"), parsed.fields.assessment === "achieved") {
-    parsed.fields.next_action !== "none" && failures.push("achieved review requires next_action none"), findings.rows.length > 0 && failures.push("achieved review cannot contain findings");
-    let snapshotRow = coverageByKind.get(normalizedHeader("Snapshot"))?.[0];
-    coverage.rows.length > 0 && (normalizedHeader(snapshotRow?.Result) !== "consistent" || noneLike(snapshotRow?.Inspected)) && failures.push("achieved review coverage contradicts current snapshot consistency");
-  }
-  parsed.fields.next_action === "none" && parsed.fields.assessment !== "achieved" && failures.push("next_action none requires assessment achieved"), parsed.fields.delivery_status === "verified" && parsed.fields.assessment !== "achieved" && failures.push("verified delivery requires achieved assessment"), parsed.fields.delivery_status === "provisional" && !["accept-provisional", "none"].includes(parsed.fields.next_action) && failures.push("provisional delivery requires accept-provisional or a terminal achieved Review"), parsed.fields.delivery_status === "provisional" && parsed.fields.next_action === "none" && parsed.fields.assessment !== "achieved" && failures.push("terminal provisional delivery requires achieved assessment"), parsed.fields.next_action === "accept-provisional" && parsed.fields.delivery_status !== "provisional" && failures.push("accept-provisional requires provisional delivery"), parsed.fields.next_action === "correct" && findings.rows.length === 0 && failures.push("correct review requires findings"), !["correct", "none"].includes(parsed.fields.next_action) && Array.isArray(parsed.fields.learning_candidates) && failures.push("learning_candidates are allowed only for correction or terminal achieved Review"), parsed.fields.next_action === "retry-review" && parsed.fields.assessment !== "insufficient-evidence" && failures.push("retry-review requires assessment insufficient-evidence");
+  parsed.fields.review_basis === "root-boundary" && findings.rows.length > 0 && failures.push("root-boundary review cannot contain delivery findings"), parsed.findings = findings.rows;
+  let openContent = sections.get("Open points") ?? "", openPoints = { rows: [], none: !0 };
+  openContent.trim() && (openPoints = requireTable(sections, "Open points", tables.openPoints, failures, { allowNone: !0, normalizations: parsed.normalizations }));
+  for (let row of openPoints.rows)
+    /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(row["Open point"]) || failures.push(`Open points: invalid key ${row["Open point"]}`), /^(?:evidence|authority|intent|environment|formal-binding|no-progress)$/.test(row.Type) || failures.push(`Open points: ${row["Open point"]} has invalid Type`);
+  (sections.get("Next action") ?? "").toLowerCase().includes(String(parsed.fields.next_action).toLowerCase()) || failures.push("Next action section must state frontmatter next_action"), parsed.fields.outcome === "achieved" && (parsed.fields.next_action !== "none" && failures.push("achieved review requires next_action none"), findings.rows.length > 0 && failures.push("achieved review cannot contain findings"), openPoints.rows.length > 0 && failures.push("achieved review cannot contain open points")), parsed.fields.outcome === "correction-needed" && (parsed.fields.next_action !== "correct" || findings.rows.every((finding) => finding.Resolution !== "correct")) && failures.push("correction-needed requires correctable findings and next_action correct"), parsed.fields.outcome === "open-points" && (parsed.fields.next_action !== "human-assessment" || openPoints.rows.length === 0) && failures.push("open-points requires named open points and human-assessment");
   let correction = parseCorrection(parsed, sections, failures);
-  if (correction) {
+  if (correction)
     for (let fix of correction.fixes) {
       let referenced = String(fix["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean);
       for (let key of referenced) keys.has(key) || failures.push(`Correction ${fix["FIX ID"]} references unknown Finding key ${key}`);
     }
-    for (let learning of correction.learnings) {
-      let referenced = String(learning["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean);
-      for (let key of referenced) keys.has(key) || failures.push(`Learning ${learning["Learning ID"]} references unknown Finding key ${key}`);
-    }
-  }
   return parsed.effective = {
     inspectedObjectives: [...inspectedObjectives],
     reusedObjectives: [...reusedObjectives],
     inspectedChecks: [...inspectedChecks],
     reusedChecks: [...reusedChecks],
-    findings: findings.rows
+    findings: findings.rows,
+    openPoints: openPoints.rows
   }, correction;
 }
 function buildArtifact(text, root, options = {}) {
@@ -11241,6 +11429,7 @@ function buildArtifact(text, root, options = {}) {
   parsed.normalizations = normalizations;
   let schema = validateArtifactSchema(root, parsed, failures);
   if (!schema) return { failures, diagnostics, normalizations, parsed };
+  if (failures.length > 0) return { failures: unique(failures), diagnostics, normalizations: unique(normalizations), parsed };
   let requiredSections = schema["x-required-sections"] ?? schema["x-markdown-sections"] ?? [], sections = sectionMap(trimTrailingNotes(parsed.body, requiredSections, normalizations), requiredSections, failures, normalizations);
   return parsed.sections = sections, sections.size > 0 && (rejectPlaceholders(parsed, schema, sections, failures), parsed.fields.artifact === "work-plan" && validatePlan6(parsed, sections, failures), parsed.fields.artifact === "delivery-evidence" && validateEvidence(parsed, sections, failures), parsed.fields.artifact === "work-review" && (parsed.correction = validateCompactReview(parsed, sections, failures))), { failures: unique(failures), diagnostics: unique(diagnostics), normalizations: unique(normalizations), parsed };
 }
@@ -11372,7 +11561,7 @@ function authoritativeArtifactProjection(artifact, root) {
     errors: [],
     projection,
     projection_text: projectionText,
-    projection_hash: sha256(projectionText)
+    projection_hash: sha2562(projectionText)
   };
 }
 function authoritativeArtifactProjectionFromText(text, root = defaultRoot) {
@@ -11439,7 +11628,7 @@ function materializeEvidence(artifact, artifacts, cache, failures, rootDirectory
     sameSet(delivered, plan.objectives) || failures.push(`${artifact.label}: initial evidence must cover every root objective`), (artifact.fields.source_review_id || artifact.fields.predecessor_evidence_id) && failures.push(`${artifact.label}: initial evidence cannot reference review or predecessor evidence`);
   } else if (seal) {
     let sourceReview = artifacts.get(artifact.fields.source_review_id);
-    !sourceReview || sourceReview.fields.artifact !== "work-review" ? failures.push(`${artifact.label}: seal evidence requires its exact source Review`) : ((sourceReview.fields.root_plan_id !== root.fields.id || sourceReview.fields.latest_evidence_id !== artifact.fields.predecessor_evidence_id) && failures.push(`${artifact.label}: seal source Review must bind the direct predecessor Evidence`), (!(sourceReview.fields.delivery_status === "provisional" && (sourceReview.fields.assessment === "achieved" && sourceReview.fields.next_action === "none" || sourceReview.fields.assessment === "provisional" && sourceReview.fields.next_action === "accept-provisional")) || sourceReview.fields.correction_id || reviewData(sourceReview).findings.length > 0) && failures.push(`${artifact.label}: seal source Review must be a finding-free provisional tip`)), (artifact.fields.status !== "complete" || artifact.fields.overall_grade !== "verified" || (artifact.fields.check_evidence ?? []).some((entry) => entry.grade !== "verified")) && failures.push(`${artifact.label}: seal evidence requires fresh verified coverage for every required Check`);
+    !sourceReview || sourceReview.fields.artifact !== "work-review" ? failures.push(`${artifact.label}: seal evidence requires its exact source Review`) : ((sourceReview.fields.root_plan_id !== root.fields.id || sourceReview.fields.latest_evidence_id !== artifact.fields.predecessor_evidence_id) && failures.push(`${artifact.label}: seal source Review must bind the direct predecessor Evidence`), (!(sourceReview.fields.outcome === "achieved" && sourceReview.fields.next_action === "none") || sourceReview.fields.correction_id || reviewData(sourceReview).findings.length > 0 || reviewData(sourceReview).openPoints.length > 0) && failures.push(`${artifact.label}: seal source Review must be a finding-free achieved tip`)), (artifact.fields.status !== "complete" || artifact.fields.overall_grade !== "verified" || (artifact.fields.check_evidence ?? []).some((entry) => entry.grade !== "verified")) && failures.push(`${artifact.label}: seal evidence requires fresh verified coverage for every required Check`);
   } else {
     let sourceReview = artifacts.get(artifact.fields.source_review_id), correction2 = correctionForId(artifacts, artifact.fields.subject_id);
     if (!sourceReview || sourceReview.fields.correction_id !== artifact.fields.subject_id || !correction2) failures.push(`${artifact.label}: correction evidence does not resolve its source review and correction`);
@@ -11461,7 +11650,7 @@ function validateCompactCorrection(review, root, evidence, artifacts, failures) 
   let correction = review.correction;
   if (!correction) return;
   let metadata = correction.metadata ?? {};
-  metadata["Correction ID"] !== review.fields.correction_id && failures.push(`${review.label}: correction metadata ID mismatch`), metadata["Root Plan"] !== root.fields.id && failures.push(`${review.label}: correction root mismatch`), metadata["Source Review"] !== review.fields.id && failures.push(`${review.label}: correction source review mismatch`), metadata["Base Evidence"] !== evidence.fields.id && failures.push(`${review.label}: correction base evidence mismatch`), (riskRank[metadata.Risk] ?? 99) > (riskRank[root.fields.risk] ?? 0) && failures.push(`${review.label}: correction raises root risk and requires replan`);
+  metadata["Correction ID"] !== review.fields.correction_id && failures.push(`${review.label}: correction metadata ID mismatch`), metadata["Root Plan"] !== root.fields.id && failures.push(`${review.label}: correction root mismatch`), metadata["Source Review"] !== review.fields.id && failures.push(`${review.label}: correction source review mismatch`), metadata["Base Evidence"] !== evidence.fields.id && failures.push(`${review.label}: correction base evidence mismatch`), (riskRank[metadata.Risk] ?? 99) > (riskRank[root.fields.risk] ?? 0) && failures.push(`${review.label}: correction raises Root risk and requires a new human plan`);
   let plan = planData(root), findingKeys = new Set(reviewData(review).findings.map((row) => row["Finding key"]));
   for (let fix of correction.fixes) {
     for (let key of String(fix["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean)) findingKeys.has(key) || failures.push(`${review.label}: correction references unknown Finding key ${key}`);
@@ -11470,7 +11659,7 @@ function validateCompactCorrection(review, root, evidence, artifacts, failures) 
   }
   for (let step of correction.steps) for (let target of targetTokens(step.Targets)) {
     let authority = authorityTargetState(target, root.fields.authority);
-    (authority.protected || authority.approval_required) && failures.push(`${review.label}: correction target ${target} crosses a hard root boundary`);
+    (!authority.allowed || authority.protected || authority.approval_required) && failures.push(`${review.label}: correction target ${target} is outside Root correction authority`);
   }
 }
 function progressState(review, artifacts) {
@@ -11486,15 +11675,15 @@ function measurableProgress(previous, current) {
 function validatePlanLineage(artifacts, failures) {
   let plans = [...artifacts.values()].filter((artifact) => artifact.fields.artifact === "work-plan"), plansById = new Map(plans.map((plan) => [plan.fields.id, plan])), successors = /* @__PURE__ */ new Map();
   for (let plan of plans) {
-    let predecessorId = plan.fields.predecessor_plan_id, sourceReviewId = plan.fields.replan_source_review_id;
+    let predecessorId = plan.fields.predecessor_plan_id, sourceReviewId = plan.fields.source_review_id;
     if (!predecessorId && !sourceReviewId || !predecessorId || !sourceReviewId) continue;
-    predecessorId === plan.fields.id && failures.push(`${plan.label}: replan root cannot reference itself`), plansById.get(predecessorId) || failures.push(`${plan.label}: missing predecessor plan ${predecessorId}`);
+    predecessorId === plan.fields.id && failures.push(`${plan.label}: successor Root cannot reference itself`), plansById.get(predecessorId) || failures.push(`${plan.label}: missing predecessor plan ${predecessorId}`);
     let sourceReview = artifacts.get(sourceReviewId);
-    if (!sourceReview || sourceReview.fields.artifact !== "work-review") failures.push(`${plan.label}: missing replan source review ${sourceReviewId}`);
+    if (!sourceReview || sourceReview.fields.artifact !== "work-review") failures.push(`${plan.label}: missing source review ${sourceReviewId}`);
     else {
-      sourceReview.fields.root_plan_id !== predecessorId && failures.push(`${plan.label}: replan source review must belong to predecessor plan ${predecessorId}`), sourceReview.fields.next_action !== "replan" && failures.push(`${plan.label}: replan source review must require next_action replan`);
+      sourceReview.fields.root_plan_id !== predecessorId && failures.push(`${plan.label}: source review must belong to predecessor plan ${predecessorId}`), (sourceReview.fields.outcome !== "open-points" || sourceReview.fields.next_action !== "human-assessment") && failures.push(`${plan.label}: successor Root source review must expose open points for human assessment`);
       let predecessorReviews = [...artifacts.values()].filter((artifact) => artifact.fields.artifact === "work-review" && artifact.fields.root_plan_id === predecessorId), referencedReviews = new Set(predecessorReviews.map((review) => review.fields.predecessor_review_id).filter(Boolean)), reviewTips = predecessorReviews.filter((review) => !referencedReviews.has(review.fields.id));
-      (reviewTips.length !== 1 || reviewTips[0].fields.id !== sourceReviewId) && failures.push(`${plan.label}: replan source review must be the unique current predecessor review tip`);
+      (reviewTips.length !== 1 || reviewTips[0].fields.id !== sourceReviewId) && failures.push(`${plan.label}: source review must be the unique current predecessor review tip`);
     }
     let list = successors.get(predecessorId) ?? [];
     list.push(plan), successors.set(predecessorId, list);
@@ -11545,21 +11734,12 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
       errors.push(`${rootId}: reviews require a root plan`);
       continue;
     }
-    let plan = planData(rootPlan), ordered = linearChain(reviews, "predecessor_review_id", `${rootId}: review`, errors), learningOwners = /* @__PURE__ */ new Map();
-    for (let review of ordered) for (let learning of review.correction?.learnings ?? []) {
-      let id = learning["Learning ID"];
-      learningOwners.has(id) ? errors.push(`${review.label}: learning candidate ${id} duplicates ${learningOwners.get(id).label} within root ${rootId}`) : learningOwners.set(id, review);
-    }
-    let reviewIndex = new Map(ordered.map((review, index) => [review.fields.id, index])), rootEvidence = orderedEvidenceByRoot.get(rootId) ?? [];
+    let plan = planData(rootPlan), ordered = linearChain(reviews, "predecessor_review_id", `${rootId}: review`, errors), reviewIndex = new Map(ordered.map((review, index) => [review.fields.id, index])), rootEvidence = orderedEvidenceByRoot.get(rootId) ?? [];
     for (let index = 0; index < ordered.length; index += 1) {
       let review = ordered[index];
-      for (let learningId of review.fields.learning_candidates ?? []) {
-        let owner = learningOwners.get(learningId);
-        owner ? (reviewIndex.get(owner.fields.id) ?? Number.POSITIVE_INFINITY) > index && errors.push(`${review.label}: learning candidate ${learningId} is declared before its correction source`) : errors.push(`${review.label}: learning candidate ${learningId} has no correction source in root ${rootId}`);
-      }
       if (review.fields.review_basis === "root-boundary") {
         let receipt = review.fields.boundary_receipt ?? {};
-        receipt.root_content_hash !== sha256(rootPlan.text) && errors.push(`${review.label}: boundary receipt root_content_hash does not match exact Root bytes`);
+        receipt.root_content_hash !== sha2562(rootPlan.text) && errors.push(`${review.label}: boundary receipt root_content_hash does not match exact Root bytes`);
         for (let path of receipt.observed_paths ?? [])
           (path.startsWith("/") || path === ".." || path.startsWith("../") || path.includes("\\")) && errors.push(`${review.label}: boundary receipt path must remain normalized and repository-relative: ${path}`);
         if (typeof options.boundaryReceiptVerifier != "function")
@@ -11577,7 +11757,7 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
           workspaceSnapshotHash: receipt.repository_snapshot_hash ?? null,
           correctionRound: rootEvidence.length > 0 ? rootEvidence.length - 1 : 0,
           reviewReady: !1,
-          loopState: "blocked",
+          loopState: "open-points",
           boundaryReview: !0,
           coverage: {
             objectivesInspected: 0,
@@ -11594,21 +11774,19 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
         continue;
       }
       let effective = evidence.effective;
-      evidence.fields.root_plan_id !== rootId && errors.push(`${review.label}: latest evidence belongs to another root`), evidence.fields.representation === "seal" && (review.fields.predecessor_review_id !== evidence.fields.source_review_id && errors.push(`${review.label}: sealed Review must directly follow its source provisional Review`), (review.fields.assessment !== "achieved" || review.fields.delivery_status !== "verified" || review.fields.next_action !== "none") && errors.push(`${review.label}: sealed Review must be achieved, verified, and terminal`));
-      let knownFailedEvidence = evidenceHasKnownFailure(evidence.fields);
-      knownFailedEvidence && review.fields.delivery_status !== "blocked" && errors.push(`${review.label}: known failed or blocked evidence requires blocked delivery_status`), knownFailedEvidence && ["accept-provisional", "none"].includes(review.fields.next_action) && errors.push(`${review.label}: known failed or blocked evidence cannot be accepted or achieved`);
+      evidence.fields.root_plan_id !== rootId && errors.push(`${review.label}: latest evidence belongs to another root`), evidence.fields.representation === "seal" && (review.fields.predecessor_review_id !== evidence.fields.source_review_id && errors.push(`${review.label}: sealed Review must directly follow its source supported Review`), (review.fields.outcome !== "achieved" || review.fields.next_action !== "none") && errors.push(`${review.label}: sealed Review must be achieved and terminal`)), evidenceHasKnownFailure(evidence.fields) && review.fields.outcome === "achieved" && errors.push(`${review.label}: known failed or blocked evidence cannot be achieved`);
       let candidates = rootEvidence.filter((item) => item.fields.source_review_id === null || (reviewIndex.get(item.fields.source_review_id) ?? Number.POSITIVE_INFINITY) < index);
       candidates.at(-1)?.fields.id !== review.fields.latest_evidence_id && errors.push(`${review.label}: latest_evidence_id is not the evidence tip at review time`), disjointCoverage(review.fields.inspected_objectives, review.fields.reused_objectives, plan.objectives, `${review.label}: objective review`, errors), disjointCoverage(review.fields.inspected_checks, review.fields.reused_checks, plan.requiredChecks, `${review.label}: Check review`, errors), index === 0 && ((review.fields.reused_objectives ?? []).length > 0 || (review.fields.reused_checks ?? []).length > 0) && errors.push(`${review.label}: first review must inspect all root evidence`);
       for (let objective of review.fields.reused_objectives ?? [])
         evidence.fields.reused_objectives.includes(objective) || errors.push(`${review.label}: reused review objective ${objective} lacks delta-evidence reuse`), (index > 0 ? artifacts.get(ordered[index - 1].fields.latest_evidence_id)?.effective : null)?.objectives.get(objective)?.status !== "achieved" && errors.push(`${review.label}: reused objective ${objective} requires achieved predecessor status`), reviewData(review).findings.some((finding) => ids(finding.Objectives, objectivePattern).includes(objective)) && errors.push(`${review.label}: reused objective ${objective} has a current finding`);
       for (let check of review.fields.reused_checks ?? []) (!evidence.fields.reused_checks.includes(check) || effective?.checks.get(check)?.status !== "passed") && errors.push(`${review.label}: reused Check ${check} lacks valid passed delta evidence`);
-      review.fields.assessment === "achieved" && (effective?.reviewReady || errors.push(`${review.label}: achieved requires complete effective root-check evidence`), [...plan.objectives].some((id) => effective?.objectives.get(id)?.status !== "achieved") && errors.push(`${review.label}: achieved requires every effective root objective achieved`), reviewData(review).findings.length > 0 && errors.push(`${review.label}: achieved cannot contain findings`)), review.effective = {
+      review.fields.outcome === "achieved" && (effective?.reviewReady || errors.push(`${review.label}: achieved requires complete effective root-check evidence`), [...plan.objectives].some((id) => effective?.objectives.get(id)?.status !== "achieved") && errors.push(`${review.label}: achieved requires every effective root objective achieved`), reviewData(review).findings.length > 0 && errors.push(`${review.label}: achieved cannot contain findings`)), review.effective = {
         ...review.effective,
         contractLevel: rootPlan.fields.contract_level,
         workspaceSnapshotHash: evidence.fields.workspace_snapshot_hash ?? null,
         correctionRound: candidates.length - 1,
         reviewReady: effective?.reviewReady ?? !1,
-        loopState: reviewData(review).findings.length > 0 ? "degraded" : "healthy",
+        loopState: review.fields.outcome,
         coverage: {
           objectivesInspected: review.fields.inspected_objectives.length,
           objectivesReused: review.fields.reused_objectives.length,
@@ -11625,10 +11803,10 @@ function inspectCompactArtifactSet(entries, root = defaultRoot, options = {}) {
         if (!states[0].has(key) || !states[1].has(key)) continue;
         if (!(measurableProgress(states[0].get(key), states[1].get(key)) || measurableProgress(states[1].get(key), states[2].get(key)))) {
           let current = window[2];
-          current.effective.loopState = "stalled", diagnostics.push(`${current.label}: Finding key ${key} survived two corrections without measurable progress; clarify or replan is recommended`), ["clarify", "replan"].includes(current.fields.next_action) || errors.push(`${current.label}: two correction rounds without measurable progress require next_action clarify or replan`);
+          current.effective.loopState = "stalled", diagnostics.push(`${current.label}: Finding key ${key} survived two corrections without measurable progress; a no-progress open point is required`), (current.fields.outcome !== "open-points" || !(current.fields.open_points ?? []).some((point) => point.type === "no-progress")) && errors.push(`${current.label}: two correction rounds without measurable progress require a no-progress open point`);
         }
       }
-      window[2].effective.loopState || (window[2].effective.loopState = reviewData(window[2]).findings.length > 0 ? "degraded" : "healthy");
+      window[2].effective.loopState || (window[2].effective.loopState = window[2].fields.outcome);
     }
   }
   return { errors: unique(errors), diagnostics: unique(diagnostics), normalizations: unique(normalizations), effective: artifacts, root_tips: rootTips };
@@ -11641,29 +11819,14 @@ function effectiveCliSummary(inspection) {
   let artifacts = [...inspection.effective.values()], tips = (type, predecessorField) => {
     let items = artifacts.filter((artifact) => artifact.fields.artifact === type);
     return Object.fromEntries(lineageTips(items, predecessorField).map((artifact) => [artifact.fields.root_plan_id, artifact.fields.id]));
-  }, rootTips = inspection.root_tips ?? validatePlanLineage(inspection.effective, []), activeRootId = rootTips.length === 1 ? rootTips[0] : null, evidenceTips = tips("delivery-evidence", "predecessor_evidence_id"), reviewTips = tips("work-review", "predecessor_review_id"), activeReview = activeRootId && reviewTips[activeRootId] ? inspection.effective.get(reviewTips[activeRootId]) : null, activeEvidence = activeRootId && evidenceTips[activeRootId] ? inspection.effective.get(evidenceTips[activeRootId]) : null, activeLearningIds = new Set(activeReview?.fields.learning_candidates ?? []), learningEligible = activeReview?.fields.assessment === "achieved" && activeReview?.fields.next_action === "none" && ["verified", "supported"].includes(activeEvidence?.fields.overall_grade), learningCandidates = artifacts.filter((artifact) => artifact.fields.artifact === "work-review" && artifact.fields.root_plan_id === activeRootId && learningEligible && artifact.correction?.learnings?.length > 0).flatMap((artifact) => artifact.correction.learnings.filter((learning) => activeLearningIds.has(learning["Learning ID"])).map((learning) => {
-    let evidence = artifacts.find((candidate) => candidate.fields.artifact === "delivery-evidence" && candidate.fields.subject_id === artifact.fields.correction_id && candidate.fields.status !== "blocked" && ["verified", "supported"].includes(candidate.fields.overall_grade));
-    return {
-      source_kind: "manual-correction",
-      root_plan_id: artifact.fields.root_plan_id,
-      review_id: artifact.fields.id,
-      correction_id: artifact.fields.correction_id,
-      learning_id: learning["Learning ID"],
-      finding_keys: String(learning["Finding keys"]).split(",").map((value) => value.trim()).filter(Boolean),
-      reusable_guidance: learning["Reusable guidance"],
-      candidate_targets: targetTokens(learning["Candidate targets"]),
-      confirmation_evidence: learning["Confirmation evidence"],
-      correction_evidence_id: evidence?.fields.id ?? null,
-      evidence_confirmed: !!evidence
-    };
-  })).toSorted((left, right) => left.review_id.localeCompare(right.review_id) || left.learning_id.localeCompare(right.learning_id));
+  }, rootTips = inspection.root_tips ?? validatePlanLineage(inspection.effective, []), activeRootId = rootTips.length === 1 ? rootTips[0] : null, evidenceTips = tips("delivery-evidence", "predecessor_evidence_id"), reviewTips = tips("work-review", "predecessor_review_id"), activeReview = activeRootId && reviewTips[activeRootId] ? inspection.effective.get(reviewTips[activeRootId]) : null, activeEvidence = activeRootId && evidenceTips[activeRootId] ? inspection.effective.get(evidenceTips[activeRootId]) : null;
   return {
     active_root_id: activeRootId,
     root_tips: rootTips,
     evidence_tips: evidenceTips,
     review_tips: reviewTips,
     actionable_reviews: artifacts.filter((artifact) => artifact.fields.artifact === "work-review" && artifact.fields.root_plan_id === activeRootId && artifact.fields.id === reviewTips[activeRootId] && artifact.fields.next_action === "correct").map((artifact) => ({ root_plan_id: artifact.fields.root_plan_id, review_id: artifact.fields.id, correction_id: artifact.fields.correction_id, base_evidence_id: artifact.fields.latest_evidence_id })),
-    learning_candidates: learningCandidates
+    learning_candidates: []
   };
 }
 function runCli() {
@@ -11698,7 +11861,7 @@ function normalizeRootPlanText(rootPlanText) {
 `;
 }
 function rootPlanFingerprint(rootPlanText) {
-  return createHash3("sha256").update(normalizeRootPlanText(rootPlanText)).digest("hex");
+  return createHash4("sha256").update(normalizeRootPlanText(rootPlanText)).digest("hex");
 }
 function unwrapProposedPlanInterior(interior) {
   let body = String(interior ?? "");
@@ -11709,14 +11872,12 @@ function unwrapProposedPlanInterior(interior) {
 `) && (body = body.slice(0, -1)), body;
 }
 function extractRootPlanText(source) {
-  let text = String(source ?? ""), proposedMatch = text.match(/<proposed_plan>([\s\S]*?)<\/proposed_plan>/i), proposed = proposedMatch ? unwrapProposedPlanInterior(proposedMatch[1]) : text.trim(), fenced = proposed.match(/```yaml artifact-envelope\s*([\s\S]*?)```([\s\S]*)$/i);
-  if (fenced?.[1])
-    return `---
-${fenced[1].trim()}
----
-${String(fenced[2] ?? "").trimStart()}`;
-  let bare = proposed.match(/^(---\r?\n[\s\S]*?\r?\n---(?:\r?\n[\s\S]*)?)$/);
-  return bare?.[1] && /\bartifact:\s*work-plan\b/.test(bare[1]) && /\bschema:\s*6\b/.test(bare[1]) ? bare[1] : null;
+  let text = String(source ?? ""), proposedMatch = text.match(/<proposed_plan>([\s\S]*?)<\/proposed_plan>/i), proposed = proposedMatch ? unwrapProposedPlanInterior(proposedMatch[1]) : text.trim();
+  try {
+    return canonicalAuthorityRootText(proposed);
+  } catch {
+    return null;
+  }
 }
 function parseRootPlanFields(rootPlanText) {
   if (typeof rootPlanText != "string" || !rootPlanText.trim())
@@ -11725,7 +11886,7 @@ function parseRootPlanFields(rootPlanText) {
   if (!match) return { ok: !1, reason: "missing-frontmatter", fields: null, fingerprint: null, content_hash: null };
   let fields;
   try {
-    fields = (0, import_yaml2.parse)(match[1]);
+    fields = (0, import_yaml3.parse)(match[1]);
   } catch {
     return { ok: !1, reason: "invalid-frontmatter", fields: null, fingerprint: null, content_hash: null };
   }
@@ -11780,7 +11941,7 @@ function inspectPresentedRootPlan(rootPlanText, options = {}) {
 }
 
 // src/core/codex-hook-policy.mjs
-var CODEX_PLAN_MARKER = "[workflow-codex-plan-v6]", CODEX_REVIEW_MARKER = "[workflow-codex-review-v6]", CODEX_IMPLEMENTATION_MARKER = "[workflow-codex-implementation-v6]", WORKFLOW_SKILLS = ["plan-work", "correct-work", "review-work", "explain-work", "learn-from-work", "work-status", "accept-work"], WORKFLOW_SKILL_NAMES = WORKFLOW_SKILLS.join("|"), WORKFLOW_TOKEN = new RegExp(`(?:^|[\\s('"\\x60])\\$(?:geldmacher-workflow:)?(${WORKFLOW_SKILL_NAMES})(?=$|[\\s.,;!?')"\\x60]|:(?=\\s|$))`, "gi"), WORKFLOW_MARKDOWN_LINK = new RegExp(`\\[\\$(?:geldmacher-workflow:)?(${WORKFLOW_SKILL_NAMES})\\]\\(([^)\\r\\n]+)\\)`, "gi");
+var CODEX_PLAN_MARKER = "[workflow-codex-plan-v6]", CODEX_REVIEW_MARKER = "[workflow-codex-review-v6]", CODEX_IMPLEMENTATION_MARKER = "[workflow-codex-implementation-v6]", WORKFLOW_SKILLS = ["plan-work", "correct-work", "review-work", "explain-work", "learn-from-work", "work-status"], WORKFLOW_SKILL_NAMES = WORKFLOW_SKILLS.join("|"), WORKFLOW_TOKEN = new RegExp(`(?:^|[\\s('"\\x60])\\$(?:geldmacher-workflow:)?(${WORKFLOW_SKILL_NAMES})(?=$|[\\s.,;!?')"\\x60]|:(?=\\s|$))`, "gi"), WORKFLOW_MARKDOWN_LINK = new RegExp(`\\[\\$(?:geldmacher-workflow:)?(${WORKFLOW_SKILL_NAMES})\\]\\(([^)\\r\\n]+)\\)`, "gi");
 function hookContinuation(prompt) {
   return /^\s*<hook_prompt\b[^>]*\bhook_run_id\s*=\s*["'][^"']+["'][^>]*>[\s\S]*<\/hook_prompt>\s*$/i.test(String(prompt ?? ""));
 }
@@ -11841,7 +12002,7 @@ function evaluateCodexHook(input, priorState = {}, options = {}) {
 }
 
 // src/hosts/codex/workflow-hook.mjs
-var MAX_INPUT_BYTES = 1024 * 1024, digest = (value) => createHash4("sha256").update(String(value)).digest("hex");
+var MAX_INPUT_BYTES = 1024 * 1024, digest = (value) => createHash5("sha256").update(String(value)).digest("hex");
 function resolveCodexPluginRoot(here = dirname3(fileURLToPath2(import.meta.url))) {
   let current = resolve4(here);
   for (let i = 0; i < 8; i += 1) {

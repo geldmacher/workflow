@@ -1,13 +1,19 @@
----
+# Retry delivery
+
+Make transient retry behavior deterministic and observable without expanding repository authority.
+
+<details>
+<summary>Workflow authority</summary>
+
+```yaml workflow-authority
 artifact: work-plan
 schema: 6
 id: wp-adaptive-retry
 status: ready
-intent_ready: true
-profile_max: manual
-contract_level: lean
-risk: medium
-hard_triggers: []
+source: test-fixture
+profile: manual
+plan_content_hash: f70090840faa2a4f66bf631069bbfbee0aa38d1ee7ff693395444f69681abd09
+authority_hash: be2677696649f5d692d8f1f8448158e5f976a2b71738cf77900a4fe8cfd55c21
 goal: Make transient retry behavior deterministic and observable.
 acceptance:
   - Retry behavior is deterministic and repository validation remains consistent.
@@ -15,6 +21,8 @@ non_goals:
   - No deployment or external publication.
 constraints:
   - Preserve the public API.
+risk: medium
+hard_triggers: []
 authority:
   allowed_roots:
     - src
@@ -25,26 +33,16 @@ authority:
   dependencies: deny
   external_effects: none
   delivery: repository-only
----
-
-## Intent
-
-Make transient retry behavior deterministic and observable without expanding repository authority.
-
-## Acceptance
-
-Retry behavior is deterministic and repository validation remains consistent.
-
-### Verification
-
-| Check ID | Objectives | Verification Intent | Expected Evidence | Required | Evidence Class | Cost Class | Prerequisites |
-|---|---|---|---|---|---|---|---|
-| CHECK-1 | OBJ-1 | Prove retry behavior and repository consistency with project-appropriate verification. | Protected evidence showing the acceptance outcome on the current repository snapshot. | yes | harness-verifiable | standard | Relevant implementation and test surfaces are available. |
-
-## Boundaries
-
-Only the declared repository roots may change. Deployment, publication, and external effects are excluded.
-
-## Risks
-
-Incorrect retry boundaries could mask a transient failure; fresh bound evidence must keep that uncertainty visible.
+verification:
+  - check_id: CHECK-1
+    objectives:
+      - OBJ-1
+    verification_intent: Prove retry behavior and repository consistency with project-appropriate verification.
+    expected_evidence: Repository evidence showing the acceptance outcome on the current snapshot.
+    required: true
+    evidence_class: harness-verifiable
+    cost_class: standard
+    prerequisites:
+      - Relevant implementation and test surfaces are available.
+```
+</details>

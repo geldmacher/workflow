@@ -54,8 +54,8 @@ const contracts = Object.freeze({
       workspace_root: workspaceRoot,
       root_plan_id: z.string().regex(/^wp-[A-Za-z0-9][A-Za-z0-9-]*$/).optional(),
       run_id: z.string().regex(/^run-[a-f0-9]{24}$/).optional(),
-      manual_acceptance: z.enum(["provisional"]).optional(),
       artifacts: z.array(artifact).min(1).max(32).optional(),
+      presentation_locale: z.enum(["de", "en"]).default("en"),
     },
   },
 });

@@ -112,7 +112,7 @@ function withTurnLock(path, callback, options = {}) {
   return withNativeStateLock(`${path}.lock`, callback, options);
 }
 
-function readTurnState(input, options = {}) {
+export function readTurnState(input, options = {}) {
   let found = null;
   for (const root of stateRoots(input, options)) {
     const path = turnPath(root, input);

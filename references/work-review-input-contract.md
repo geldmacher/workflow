@@ -1,9 +1,11 @@
 # Work Review semantic input
 
-The reviewer supplies one closed Schema-1 semantic assessment: assessment, recommended lifecycle action, summary, repository snapshot assessment, findings, missing evidence, and an optional outcome-based correction proposal.
+The reviewer supplies one closed Schema-1 input with `outcome`, `assessment_summary`, `snapshot_summary`, `findings`, `open_points`, and an optional `correction`.
 
-The reviewer does not author Schema-6 envelopes, artifact IDs, hashes, lineage, receipts, snapshot hashes, or evidence grades. Correction checks use verification intent, expected evidence, required flag, evidence class, cost class, and prerequisites. Commands, working directories, tools, models, routes, retries, and host recipes are forbidden.
+Findings contain semantic key, severity, original Objective IDs, original Check IDs, evidence, reasoning, and resolution `correct|open`. Open Points contain semantic key, type `evidence|authority|intent|environment|formal-binding|no-progress`, summary, evidence, impact, and one human question.
 
-Repository assessment and proof calibration are separate. `supported` requires an unambiguous outcome on the exact current snapshot. A finding-free consistent assessment with all required Checks supported recommends `none` and may conclude `achieved`; proof still remains below verified. Command invocation, source presence, masked exit status, or an unknown outcome is `partial` or `unavailable`. Exact observations already present in the same task may be reused while the repository snapshot is unchanged.
+`correction-needed` requires at least one `correct` Finding and one complete Correction. Every correctable Finding is covered by a fix and every fix by a step. Steps use bounded targets, outcome, implementation latitude, non-authoritative completion probe, original `root_check_ids`, and deviation action. No correction-specific Checks exist.
 
-Workflow validates the exact chain, calibrates evidence from protected harness attestations, assigns identities, and serializes the authoritative artifact.
+`open-points` requires at least one Open Point and no pending correctable Finding. `achieved` permits no Finding, Open Point, or Correction. The deterministic final precedence is correctable Finding, then Open Points, then finding-free required Checks at least supported.
+
+The reviewer authors no IDs, hashes, receipts, attestations, evidence grades, or lineage and prescribes no concrete command, tool, model, framework, sandbox, worktree, route, or retry recipe.

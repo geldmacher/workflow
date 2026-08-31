@@ -18,7 +18,6 @@ const schemaRoot = join(repositoryRoot, "schemas", "agent-plugins", "1.0.0");
 const pluginSchemaId = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json";
 const mcpSchemaId = "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json";
 const expectedSkills = [
-  "accept-work",
   "correct-work",
   "engineering-work",
   "explain-work",

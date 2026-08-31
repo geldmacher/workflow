@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { automationMcpResult } from "../src/mcp/automation-presentation.mjs";
 import {
   buildPresentation,
   coalesceManualPresentation,
@@ -16,7 +17,7 @@ test("Manual presentation is human-first and keeps technical traceability", () =
     blocking_issues: [],
   };
   const presentation = buildPresentation("workflow_plan_preflight", value, { clientHost: "codex" });
-  assert.equal(presentation.workflow_state, "root-plan-review");
+  assert.equal(presentation.workflow_state, "root-ready");
   assert.equal(presentation.primary_action.id, "implement-plan");
   const text = formatManualToolContent(presentation);
   assert.match(text, /### Quick decision/);
@@ -26,22 +27,22 @@ test("Manual presentation is human-first and keeps technical traceability", () =
   assert.match(text, /Concrete execution remains owned by the active project harness/);
 });
 
-test("provisional Review exposes limitations without inventing failure or success", () => {
+test("Open Points expose limitations without inventing failure or success", () => {
   const response = manualMcpResult("workflow_closeout", {
     artifact_kind: "work-review",
     root_plan_id: "wp-v6",
-    delivery_status: "provisional",
-    assessment: "provisional",
+    outcome: "open-points",
+    next_action: "human-assessment",
     harness_mode: "shadow",
     harness_status: "unavailable",
     harness_limitations: ["No compatible project harness capability was available."],
     check_evidence: [{ check_id: "CHECK-1", grade: "supported" }],
   }, false, { clientHost: "cursor" });
   assert.equal(response.isError, false);
-  assert.equal(response.structuredContent.presentation.workflow_state, "delivery-ready-provisional");
+  assert.equal(response.structuredContent.presentation.workflow_state, "open-points");
   assert.equal(response.structuredContent.presentation.outcome, "partial");
   assert.match(response.content[0].text, /No compatible project harness capability/);
-  assert.match(response.content[0].text, /Decide on provisional delivery/);
+  assert.match(response.content[0].text, /Assess open points/);
 });
 
 test("Shadow Review separates repository utility from absent formal evidence", () => {
@@ -65,14 +66,14 @@ test("Shadow Review separates repository utility from absent formal evidence", (
       evidence: "The host supplied no protected Review receipt.",
       reasoning: "Conversation Root bytes alone cannot establish host authority.",
     }],
-    recovery_action: "establish-formal-review-binding",
+    recovery_action: "human-assessment",
   }, false, { clientHost: "cursor" });
   assert.equal(response.isError, false);
   assert.equal(response.structuredContent.presentation.workflow_state, "shadow-review");
   assert.equal(response.structuredContent.presentation.outcome, "partial");
-  assert.equal(response.structuredContent.presentation.primary_action.id, "establish-formal-review-binding");
-  assert.match(response.content[0].text, /Repository outcome: Read-only findings/);
-  assert.match(response.content[0].text, /Evidence status: No Workflow Evidence or Work Review artifact was created/);
+  assert.equal(response.structuredContent.presentation.primary_action.id, "human-assessment");
+  assert.match(response.content[0].text, /Result: Read-only findings/);
+  assert.match(response.content[0].text, /Impact: No Workflow Evidence or Work Review artifact was created/);
   assert.match(response.content[0].text, /Artifacts persisted: false/);
   assert.match(response.content[0].text, /Workflow state changed: false/);
   assert.match(response.content[0].text, /Persistence scope: none/);
@@ -83,7 +84,7 @@ test("Shadow Review separates repository utility from absent formal evidence", (
   assert.equal((response.content[0].text.match(/### Next step/g) ?? []).length, 1);
 });
 
-test("presentation scope excludes generic harness orchestration", () => {
+test("human-first presentation includes generic harness orchestration without expanding the Manual tool registry", () => {
   for (const name of [
     "workflow_plan_preflight",
     "workflow_artifact_record",
@@ -103,38 +104,66 @@ test("errors remain explicit and ordinary unknown tools keep raw transport", () 
   assert.equal(JSON.parse(raw.content[0].text).ok, true);
 });
 
-test("presentation covers blocked, achieved, status, Evidence, and transport outcomes", () => {
+test("presentation covers invalid plans, achieved, status, Evidence, and transport outcomes", () => {
   const blocked = buildPresentation("workflow_plan_preflight", {
     feasible: false,
     blocking_issues: [{ message: "Intent is incomplete." }],
     warnings: ["Harness capability is unavailable."],
   });
-  assert.equal(blocked.workflow_state, "blocked");
-  assert.equal(blocked.outcome, "blocked");
-  assert.equal(blocked.primary_action.id, "resolve-blocker");
+  assert.equal(blocked.workflow_state, "shadow-review");
+  assert.equal(blocked.outcome, "partial");
+  assert.equal(blocked.primary_action.id, "human-assessment");
   assert.deepEqual(blocked.blockers, ["Intent is incomplete."]);
   assert.match(formatManualToolContent(blocked), /Blockers:\n- Intent is incomplete/);
 
   const achieved = buildPresentation("workflow_closeout", {
     artifact_kind: "work-review",
-    delivery_status: "verified",
-    assessment: "achieved",
+    outcome: "achieved",
+    next_action: "none",
   });
   assert.equal(achieved.workflow_state, "achieved");
   assert.equal(achieved.primary_action, null);
   assert.match(formatManualToolContent(achieved), /### Done/);
 
   const status = buildPresentation("workflow_status", {
-    snapshot: { state: "waiting-human", next_action: "review-work", blockers: ["Human Review required."] },
+    snapshot: { state: "review-needed", next_action: "review-work", blockers: ["Human Review required."] },
   });
   assert.equal(status.primary_action.id, "review-work");
-  assert.equal(status.primary_action.label, "review work");
+  assert.equal(status.primary_action.label, "Review Work");
 
   const evidence = buildPresentation("workflow_closeout", { status: "blocked", overall_grade: "failed" });
   assert.equal(evidence.workflow_state, "blocked");
   assert.match(evidence.summary, /Delivery Evidence is blocked/);
   assert.equal(buildPresentation("workflow_artifact_record", {}).summary.includes("transport"), true);
   assert.equal(buildPresentation("workflow_artifact_context", {}).workflow_state, "context-available");
+});
+
+test("Automation presentation is localized, result-first, and exposes one human action", () => {
+  const value = {
+    run: {
+      run_id: `run-${"a".repeat(24)}`,
+      root_plan_id: "wp-v6",
+      revision: 1,
+      workflow_state: "review-needed",
+      next_action: "review-work",
+      open_points: [],
+      technical: { lifecycle: "review-needed", phase: "implementation", phase_status: "completed", next_action: "review-work", transition: null },
+    },
+  };
+  const german = automationMcpResult(value, false, { presentationLocale: "de" });
+  assert.match(german.content[0].text, /### Kurzentscheidung/);
+  assert.match(german.content[0].text, /Ergebnis: Die autorisierte Arbeitsphase ist abgeschlossen/);
+  assert.match(german.content[0].text, /Fresh Review pending/);
+  assert.match(german.content[0].text, /### Nächster Schritt/);
+  assert.match(german.content[0].text, /Jetzt: Review Work/);
+  assert.equal((german.content[0].text.match(/### Nächster Schritt/g) ?? []).length, 1);
+  assert.equal(german.structuredContent.presentation.workflow_state, "review-needed");
+  assert.equal(german.structuredContent.presentation.next_action, "review-work");
+
+  const english = automationMcpResult(value, false, { presentationLocale: "en" });
+  assert.match(english.content[0].text, /### Quick decision/);
+  assert.match(english.content[0].text, /Fresh Review is pending/);
+  assert.match(english.content[0].text, /Now: Review Work/);
 });
 
 test("limitations are deduplicated and presentation helpers stay stateless", () => {

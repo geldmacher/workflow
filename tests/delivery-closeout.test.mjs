@@ -5,11 +5,12 @@ import test from "node:test";
 import { defaultRoot, inspectArtifactText } from "../scripts/validate-artifact.source.mjs";
 import { buildDeliveryEvidence } from "../src/controller/delivery-closeout.mjs";
 import { harnessContractHash } from "../src/core/harness-attestations.mjs";
+import { supportedCheck } from "./support/workflow-fixtures.mjs";
 
 const root = readFileSync(join(defaultRoot, "tests/fixtures/artifacts/work-plan.valid.md"), "utf8");
 
-test("missing harness observation creates valid provisional Schema-6 Evidence", () => {
-  const evidence = buildDeliveryEvidence({
+test("missing required observation returns an artifact-free internal retry error", () => {
+  assert.throws(() => buildDeliveryEvidence({
     rootPlanText: root,
     checkEvidence: [],
     effectiveProfile: "manual",
@@ -17,13 +18,7 @@ test("missing harness observation creates valid provisional Schema-6 Evidence", 
     workspaceBinding: harnessContractHash({ workspace: defaultRoot }),
     workspaceSnapshotHash: "a".repeat(64),
     pluginRoot: defaultRoot,
-  });
-  assert.equal(evidence.fields.schema, 6);
-  assert.equal(evidence.fields.status, "provisional");
-  assert.equal(evidence.fields.check_evidence[0].grade, "unavailable");
-  assert.match(evidence.fields.check_evidence[0].limitations.join("\n"), /harness/i);
-  assert.deepEqual(inspectArtifactText(evidence.artifact, defaultRoot).errors, []);
-  assert.doesNotMatch(evidence.artifact, /Working Directory|Command or Inspection|surface:|method:|repetitions:/);
+  }), (error) => error.code === "check-observations-incomplete" && error.check_ids?.join(",") === "CHECK-1");
 });
 
 test("unknown Check evidence and out-of-authority paths fail closed", () => {
@@ -35,7 +30,7 @@ test("unknown Check evidence and out-of-authority paths fail closed", () => {
   }), /unknown Check/);
   assert.throws(() => buildDeliveryEvidence({
     rootPlanText: root,
-    checkEvidence: [],
+    checkEvidence: [supportedCheck()],
     changedPaths: ["outside/file.mjs"],
     workspaceSnapshotHash: "a".repeat(64),
     pluginRoot: defaultRoot,

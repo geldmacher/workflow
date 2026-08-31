@@ -1,11 +1,16 @@
 # State contract
 
-Status derives from exact artifact bytes and protected bindings. Current Schema-6 Root, Evidence, and Review tips are immutable and content-addressed.
+Status derives only from exact Schema-6 artifact bytes and protected bindings. Current Root, Evidence, and Review tips are immutable and content-addressed.
 
-Only Workflow-6 Runs and Schema-6 chains are state; no other generations are read.
+The human-relevant states are exactly:
 
-Capability protection is atomic per deployment/workspace. A Run has one pending revisioned transition at most. PhaseResults persist execution lease, request, protected references, and finalization draft; only `commit-ready` consumes protection. Foreign live work is `in_progress`; unrecoverable mutating work reaches `stop`.
+- `root-ready` → **Implement Plan**
+- `review-needed` → **Review Work**
+- `correction-needed` → **Correct Work**
+- `achieved` → no action
+- `open-points` → natural human assessment
+- `shadow-review` → natural human assessment without artifact or correction authority
 
-Trace is not authority. Status never runs work, approves tools, restores prose, or mutates the repository.
+After Correct Work, status is `review-needed` (“Fresh Review pending”). Technical retries are internal and create no persisted state. Outcome and evidence grade remain separate. Profiles do not change this state vocabulary.
 
-Manual status derives path classification from the exact Root and Evidence subject `changed_paths`, while preserving `ambient_paths` as visible non-delivery state. A terminal achieved Review yields `achieved` even when evidence remains supported and delivery proof remains provisional. It preserves every action token exactly, including `implement-plan`, `review-root`, `create-schema-6-root`, `create-root-plan`, `clarify`, `correct`, `replan`, `retry-review`, `accept-provisional`, `provide-artifacts`, and `none`. A target facade may add only its fixed human invocation label. Locale and labels are presentation, not state. Ephemeral provisional acceptance remains for genuine proof or subject-scope gaps but cannot persist or create verified authority.
+Trace, cache, IDs without exact bytes, tool text, transport, or presentation are not authority. Status runs no work, approves no tools, and mutates neither repository nor artifacts.

@@ -60,52 +60,43 @@ function correctionRootChecks(correction) {
   return unique((correction?.fixes ?? []).flatMap((fix) => ids(fix["Root Checks"], /CHECK-[1-9][0-9]*/g)));
 }
 
-function correctionCheckIntent(correction, check) {
-  const fixIds = new Set(ids(check["FIX IDs"], /FIX-[1-9][0-9]*/g));
-  const objectives = unique((correction?.fixes ?? [])
-    .filter((fix) => fixIds.has(fix["FIX ID"]))
-    .flatMap((fix) => ids(fix["Root Objectives"], /OBJ-[1-9][0-9]*/g)));
-  return {
-    "Check ID": check["Check ID"],
-    Objectives: objectives.join(", "),
-    "Verification Intent": check["Verification Intent"],
-    "Expected Evidence": check["Expected Evidence"],
-    Required: check.Required,
-    "Evidence Class": check["Evidence Class"],
-    "Cost Class": check["Cost Class"],
-    Prerequisites: check.Prerequisites,
-  };
-}
-
-function plannedChecks(contract, correction) {
-  const root = contract.checks;
-  if (!correction) return new Map(root.map((check) => [check["Check ID"], check]));
-  const correctionChecks = (correction.checks ?? []).map((check) => correctionCheckIntent(correction, check));
-  const referencedRootIds = new Set(correctionRootChecks(correction));
-  const referencedRoot = root.filter((check) => referencedRootIds.has(check["Check ID"]));
-  return new Map([...correctionChecks, ...referencedRoot, ...root].map((check) => [check["Check ID"], check]));
+function plannedChecks(contract) {
+  return new Map(contract.checks.map((check) => [check["Check ID"], check]));
 }
 
 export function correctionHarnessVerificationIntents(correction, contract) {
-  return [...plannedChecks(contract, correction).values()].filter((check) => check.Required === "yes");
+  const referenced = new Set(correctionRootChecks(correction));
+  return contract.checks.filter((check) => check.Required === "yes" && referenced.has(check["Check ID"]));
 }
 
-function normalizeEvidence(input, plannedChecks) {
+function normalizeEvidence(input, plannedChecks, attestations = []) {
   if (!Array.isArray(input)) throw new Error("closeout Check evidence must be an array");
   const ids = input.map((entry) => entry?.check_id);
   if (new Set(ids).size !== ids.length) throw new Error("closeout Check evidence IDs must be unique");
   const supplied = new Map(input.map((entry) => [entry?.check_id, entry]));
+  for (const attestation of attestations) {
+    if (!supplied.has(attestation?.check_id)) supplied.set(attestation.check_id, {
+      check_id: attestation.check_id,
+      grade: attestation.status === "failed" ? "failed" : attestation.status === "unavailable" ? "unavailable" : "supported",
+      observed: attestation.observed,
+      evidence_hashes: attestation.evidence_hashes ?? [],
+      limitations: attestation.status === "unavailable" ? ["The project harness reported this Check as unavailable."] : [],
+    });
+  }
   for (const checkId of supplied.keys()) if (!plannedChecks.has(checkId)) throw new Error(`closeout received unknown Check ${checkId}`);
+  const missing = [...plannedChecks.entries()]
+    .filter(([checkId, planned]) => planned.Required === "yes" && !supplied.has(checkId))
+    .map(([checkId]) => checkId);
+  if (missing.length > 0) {
+    const error = new Error(`Required Check observations are incomplete: ${missing.join(", ")}`);
+    error.code = "check-observations-incomplete";
+    error.check_ids = missing;
+    throw error;
+  }
   return [...plannedChecks.entries()].flatMap(([checkId, planned]) => {
     const observed = supplied.get(checkId);
     if (!observed && planned.Required !== "yes") return [];
-    return [observed ?? {
-      check_id: checkId,
-      grade: "unavailable",
-      observed: "No project-harness observation was available for this verification intent.",
-      evidence_hashes: [],
-      limitations: ["The active project harness did not return evidence for this Check."],
-    }];
+    return [observed];
   }).map((entry) => {
     if (!plannedChecks.has(entry?.check_id)) throw new Error(`closeout received unknown Check ${entry?.check_id}`);
     if (!GRADES.has(entry.grade)) throw new Error(`closeout Check ${entry.check_id} has invalid grade`);
@@ -142,7 +133,7 @@ function summaryText(summary, status, grade, entries) {
   if (status === "blocked") return "BLOCKER: at least one required verification intent failed.";
   if (status === "complete") return "Every required verification intent is bound to a passing project-harness attestation.";
   const limitations = unique(entries.flatMap((entry) => entry.limitations ?? []));
-  return `Delivery remains provisional with evidence grade ${grade}.${limitations.length > 0 ? ` Limitations: ${limitations.join(" ")}` : ""}`;
+  return `Repository outcome and proof strength remain separate; evidence grade is ${grade}.${limitations.length > 0 ? ` Proof limits: ${limitations.join(" ")}` : ""}`;
 }
 
 export function buildDeliveryEvidence({
@@ -182,11 +173,9 @@ export function buildDeliveryEvidence({
 
   if (seal) {
     if (!evidenceTipId || !review || review.fields.latest_evidence_id !== evidenceTipId) {
-      throw new Error("protected sealing requires one exact current provisional Evidence/Review tip");
+      throw new Error("protected sealing requires one exact current achieved Evidence/Review tip");
     }
-    const sealableDecision = review.fields.delivery_status === "provisional"
-      && ((review.fields.assessment === "achieved" && review.fields.next_action === "none")
-        || (review.fields.assessment === "provisional" && review.fields.next_action === "accept-provisional"));
+    const sealableDecision = review.fields.outcome === "achieved" && review.fields.next_action === "none";
     if (!sealableDecision
       || review.fields.correction_id
       || (review.findings ?? []).length > 0) {
@@ -208,7 +197,7 @@ export function buildDeliveryEvidence({
   }
 
   const planned = plannedChecks(contract, correction);
-  let entries = normalizeEvidence(checkEvidence, planned);
+  let entries = normalizeEvidence(checkEvidence, planned, harnessAttestations);
   const rootHash = sha256(rootPlanText);
   const effectiveWorkspaceBinding = workspaceBinding ?? harnessContractHash({ workspace: "not-established" });
   const effectiveSnapshotHash = workspaceSnapshotHash ?? harnessContractHash({ snapshot: "not-attested" });

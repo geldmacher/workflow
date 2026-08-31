@@ -22,7 +22,7 @@ export function registerManualWorkflowTools({
   reviewHarnessPhase = null,
   runStatus = null,
 }) {
-  const namedResult = (toolName) => (value, isError = false) => manualMcpResult(toolName, value, isError, { clientHost });
+  const namedResult = (toolName, presentationLocale = "en") => (value, isError = false) => manualMcpResult(toolName, value, isError, { clientHost, presentationLocale });
   const namedFailure = (toolName) => (error) => namedResult(toolName)({ error: error.message, ...(error?.code ? { error_code: error.code } : {}) }, true);
   const toolAwareResult = (toolName, value, isError = false) => namedResult(toolName)(value, isError);
   toolAwareResult.toolAware = true;
@@ -58,10 +58,10 @@ export function registerManualWorkflowTools({
     try {
       if (Boolean(input.artifacts) === Boolean(input.run_id)) throw new Error("workflow_status requires exactly one Schema-6 artifact chain or run_id");
       if (input.run_id) {
-        if (input.root_plan_id || input.manual_acceptance) throw new Error("Workflow 6 run status does not accept artifact-chain controls");
+        if (input.root_plan_id) throw new Error("Workflow 6 run status does not accept artifact-chain controls");
         if (typeof runStatus !== "function") throw new Error("Workflow 6 run status is unavailable in this host");
         const operational = await resolveOperationalContext(input.workspace_root);
-        return namedResult("workflow_status")({
+        return namedResult("workflow_status", input.presentation_locale)({
           subject_kind: "workflow-6-run",
           run: runStatus({ runId: input.run_id, stateRoot: operational.stateRoot, workspace: operational.workspace }),
           workspace_root: operational.workspace,
@@ -77,10 +77,9 @@ export function registerManualWorkflowTools({
         rootPlanId: input.root_plan_id,
         artifacts: input.artifacts,
         pluginRoot,
-        manualAcceptance: input.manual_acceptance ?? null,
         boundaryReceiptVerifier: workspace ? boundaryReceiptVerifier({ pluginRoot, workspaceRoot: workspace }) : null,
       });
-      return namedResult("workflow_status")({
+      return namedResult("workflow_status", input.presentation_locale)({
         subject_kind: "artifact-chain",
         ...manual,
         learning: deriveManualLearningProjection(manual),

@@ -8,25 +8,22 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { evaluateCloseoutGuard } from "../hooks/closeout-guard.mjs";
 import { defaultRoot } from "../scripts/validate-artifact.source.mjs";
 import { workflowClient } from "./mcp-client.mjs";
+import { buildWorkflowAuthorityPlan } from "../src/core/workflow-authority-core.mjs";
+import { authorityCore } from "./support/workflow-fixtures.mjs";
 
-const fixture = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8")
-  .replace("profile_max: supervised", "profile_max: manual")
-  .replace("contract_level: controlled", "contract_level: lean");
-const expandedConstraints = Array.from({ length: 140 }, (_, index) => `  - Preserve deterministic native Review constraint ${index + 1}.`).join("\n");
-const exactRoot = fixture.replace(/constraints:\n  - Preserve the public API\./, `constraints:\n${expandedConstraints}`);
+const expandedConstraints = Array.from({ length: 140 }, (_, index) => `- Preserve deterministic native Review constraint ${index + 1}.`).join("\n");
+const exactRoot = buildWorkflowAuthorityPlan(`# Adaptive retry regression\n\nImplement the bounded retry behavior.\n\n${expandedConstraints}\n`, authorityCore()).root_plan;
 const truncatedRoot = exactRoot.slice(0, 3680);
 const rootHash = createHash("sha256").update(exactRoot, "utf8").digest("hex");
 
 const reviewInput = {
   schema: 1,
   kind: "review-input",
-  assessment: "achieved",
-  recommended_action: "none",
+  outcome: "achieved",
   assessment_summary: "The synthetic regression delivery satisfies its exact Root.",
-  snapshot_assessment: "consistent",
   snapshot_summary: "The repository was observed by the host-owned builder.",
   findings: [],
-  missing_evidence: [],
+  open_points: [],
 };
 
 test("diagnosed Cursor chat shape binds exact CreatePlan bytes instead of the 3680-byte model copy", async () => {

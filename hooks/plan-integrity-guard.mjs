@@ -5,26 +5,20 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   extractEmbeddedWorkPlanText,
-  inspectArtifactText,
   preflightRootPlan,
   validateArtifactText,
 } from "../scripts/validate-artifact.mjs";
+import { readTurnState } from "./closeout-guard.mjs";
 
 const MAX_INPUT_BYTES = 1024 * 1024;
 const pluginRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const deny = (user_message) => ({ permission: "deny", user_message });
 
-function workflowRootClaim(plan, root) {
-  const inspected = inspectArtifactText(plan, root);
-  if (inspected.artifact?.fields?.artifact === "work-plan") return true;
-  return /```yaml artifact-envelope[\s\S]*?\bartifact:\s*work-plan\b[\s\S]*?```/i.test(plan);
-}
-
 function nativePlanText(input) {
   const wrapper = {
     name: input.name,
     overview: input.overview,
-    todos: input.todos.map((todo) => ({ ...todo, status: todo.status ?? "pending" })),
+    todos: Array.isArray(input.todos) ? input.todos.map((todo) => ({ ...todo, status: todo.status ?? "pending" })) : [],
     isProject: typeof input.isProject === "boolean" ? input.isProject : true,
   };
   return `---\n${JSON.stringify(wrapper)}\n---\n${input.plan}`;
@@ -37,23 +31,27 @@ function validateNativeCreatePlan(input, options = {}) {
     return deny("Workflow CreatePlan policy received an invalid CreatePlan payload and failed closed.");
   }
   const root = options.pluginRoot ?? pluginRoot;
-  if (!workflowRootClaim(toolInput.plan, root)) return {};
-  if (!Array.isArray(toolInput.todos) || toolInput.todos.length === 0) {
-    return deny("Workflow Schema-6 CreatePlan denied: the native Plan requires at least one implementation todo.");
+  let activePlanWork = options.activePlanWork === true;
+  if (!activePlanWork) {
+    try {
+      const turn = readTurnState(input, options);
+      activePlanWork = turn.status === "valid" && turn.value?.phase === "planning" && turn.value?.plan_observation_status === "armed";
+    } catch { /* ordinary CreatePlan stays fail-open when Workflow state is unavailable */ }
   }
+  if (!activePlanWork) return {};
   const failures = validateArtifactText(nativePlanText(toolInput), root);
   if (failures.length > 0) {
     const detail = failures.slice(0, 8).map((failure) => String(failure).replace(/\s+/g, " ").slice(0, 300)).join("; ");
-    return deny(`Workflow Schema-6 CreatePlan denied: ${detail}. Repair the native Plan and call CreatePlan again.`);
+    return deny(`[workflow-plan-repair-required] CreatePlan denied: ${detail}. Rebuild the Authority Core internally and call CreatePlan again; no human workflow decision is required.`);
   }
   const rootText = extractEmbeddedWorkPlanText(nativePlanText(toolInput));
-  if (!rootText) return deny("Workflow Schema-6 CreatePlan denied: the native Plan does not contain one extractable exact Root.");
+  if (!rootText) return deny("[workflow-plan-repair-required] CreatePlan denied: the native Plan has no valid generated Authority Core. Rebuild it internally and call CreatePlan again.");
   const preflight = (options.preflightRootPlan ?? preflightRootPlan)(rootText, root);
   if (!preflight.feasible) {
     const detail = (preflight.blocking_issues ?? []).slice(0, 8)
       .map((issue) => String(issue.message ?? issue).replace(/\s+/g, " ").slice(0, 300))
       .join("; ");
-    return deny(`Workflow Schema-6 CreatePlan denied: Root validation failed${detail ? `: ${detail}` : ""}. Repair the Root and call CreatePlan again.`);
+    return deny(`[workflow-plan-repair-required] CreatePlan denied: Authority validation failed${detail ? `: ${detail}` : ""}. Repair it internally and call CreatePlan again.`);
   }
   return {};
 }

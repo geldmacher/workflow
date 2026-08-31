@@ -12,6 +12,7 @@ import {
   preflightRootPlan,
 } from "../../scripts/validate-artifact.source.mjs";
 import { classifyChangedPathAuthority } from "../core/manual-path-authority.mjs";
+import { buildWorkflowAuthorityPlan } from "../core/workflow-authority-core.mjs";
 import { buildDeliveryEvidence } from "../controller/delivery-closeout.mjs";
 import { deriveManualWorkflowSnapshot } from "../controller/manual-status.mjs";
 import { buildWorkReview } from "../controller/work-review-builder.mjs";
@@ -30,6 +31,14 @@ const validatePlanRequestSchema = z.strictObject({
   schema: z.literal(1),
   operation: z.literal("validate-plan"),
   root_plan: line(1_000_000),
+  presentation_locale: presentationLocaleSchema,
+});
+
+const buildPlanRequestSchema = z.strictObject({
+  schema: z.literal(1),
+  operation: z.literal("build-plan"),
+  plan_markdown: line(1_000_000),
+  authority_core: z.record(z.string(), z.unknown()),
   presentation_locale: presentationLocaleSchema,
 });
 
@@ -81,19 +90,11 @@ const statusRequestSchema = z.strictObject({
   presentation_locale: presentationLocaleSchema,
 });
 
-const acceptRequestSchema = z.strictObject({
-  schema: z.literal(1),
-  operation: z.literal("accept-provisional"),
-  root_plan: line(1_000_000),
-  artifacts: artifactEntriesSchema,
-  presentation_locale: presentationLocaleSchema,
-});
-
 const schemas = Object.freeze({
+  "build-plan": buildPlanRequestSchema,
   "validate-plan": validatePlanRequestSchema,
   "build-review": buildReviewRequestSchema,
   status: statusRequestSchema,
-  "accept-provisional": acceptRequestSchema,
 });
 
 function sha256(value) {
@@ -131,6 +132,7 @@ function parseRequest(operation, input) {
 }
 
 function exactRootRequest(request) {
+  if (request.operation === "build-plan") return request;
   const extracted = extractEmbeddedWorkPlanText(request.root_plan);
   return extracted == null ? request : { ...request, root_plan: extracted };
 }
@@ -212,6 +214,34 @@ function checkEvidence(observations) {
   }));
 }
 
+function observationLimitedReviewInput(reviewInput, observations, requiredCheckIds) {
+  const required = new Set(requiredCheckIds);
+  const existing = new Set((reviewInput.open_points ?? []).map((point) => point.key));
+  const points = observations
+    .filter((entry) => required.has(entry.check_id) && !["supported", "verified"].includes(entry.grade))
+    .map((entry) => {
+      let key = `${entry.check_id.toLowerCase()}-${entry.grade}`;
+      let suffix = 2;
+      while (existing.has(key)) key = `${entry.check_id.toLowerCase()}-${entry.grade}-${suffix++}`;
+      existing.add(key);
+      const cause = unique([entry.observed, ...(entry.limitations ?? [])]).join(" ");
+      return {
+        key,
+        type: entry.grade === "unavailable" ? "environment" : "evidence",
+        summary: `${entry.check_id} is ${entry.grade} for the current repository snapshot.`,
+        evidence: cause,
+        impact: `${entry.check_id} cannot currently support an achieved result.`,
+        question: `How should the human assess the stated ${entry.check_id} limitation?`,
+      };
+    });
+  if (points.length === 0) return reviewInput;
+  return {
+    ...reviewInput,
+    outcome: reviewInput.outcome === "correction-needed" ? "correction-needed" : "open-points",
+    open_points: [...(reviewInput.open_points ?? []), ...points],
+  };
+}
+
 function boundedLine(value, maximum = 1_900) {
   const source = String(value ?? "").trim();
   if (source.length <= maximum) return source;
@@ -221,13 +251,20 @@ function boundedLine(value, maximum = 1_900) {
 
 function authorityLimitedReviewInput(reviewInput, message) {
   const limitation = boundedLine(message);
+  const point = {
+    key: "authority-boundary",
+    type: "authority",
+    summary: "Repository changes cross the approved authority boundary.",
+    evidence: limitation,
+    impact: "Workflow cannot authorize a correction or an achieved outcome for these paths.",
+    question: "Should the human provide a new Authority Core for these paths or leave them outside this delivery?",
+  };
   return {
     ...reviewInput,
-    assessment: ["achieved", "provisional"].includes(reviewInput.assessment) ? "partially-achieved" : reviewInput.assessment,
-    recommended_action: "clarify",
-    snapshot_assessment: "incomplete",
+    outcome: "open-points",
     snapshot_summary: boundedLine(`${reviewInput.snapshot_summary} ${limitation}`),
-    missing_evidence: unique([...(reviewInput.missing_evidence ?? []), limitation]),
+    findings: (reviewInput.findings ?? []).map((finding) => ({ ...finding, resolution: "open" })),
+    open_points: [...(reviewInput.open_points ?? []), point],
     correction: undefined,
   };
 }
@@ -250,15 +287,7 @@ function authorityScopeLimitation(projection) {
 }
 
 function scopeLimitedReviewInput(reviewInput, message) {
-  const limitation = boundedLine(message);
-  return {
-    ...reviewInput,
-    assessment: ["achieved", "provisional"].includes(reviewInput.assessment) ? "provisional" : reviewInput.assessment,
-    recommended_action: ["none", "accept-provisional"].includes(reviewInput.recommended_action)
-      ? "accept-provisional"
-      : reviewInput.recommended_action,
-    missing_evidence: unique([...(reviewInput.missing_evidence ?? []), limitation]),
-  };
+  return authorityLimitedReviewInput(reviewInput, message);
 }
 
 const PRESENTATION_LABELS = Object.freeze({
@@ -285,15 +314,15 @@ const PRESENTATION_LABELS = Object.freeze({
 const GERMAN_VALUES = Object.freeze({
   ready: "bereit", blocked: "blockiert", verified: "verifiziert", provisional: "vorläufig",
   failed: "fehlgeschlagen", supported: "gestützt", partial: "teilweise", unavailable: "nicht verfügbar", none: "keiner",
-  "within-authority": "innerhalb der erklärten Autorität", "provisional-drift": "vorläufige Scope-Abweichung",
+  "within-authority": "innerhalb der erklärten Autorität", "outside-authority": "außerhalb der erklärten Autorität",
   protected: "Grenze eines geschützten Pfads", "approval-required": "separate Freigabe erforderlich",
   intake: "Aufnahme", "intent-clarification": "Intent-Klärung", "root-plan-review": "Root-Plan-Review",
   implementing: "Implementierung läuft", reviewing: "Review läuft", correcting: "Korrektur läuft",
-  "delivery-ready-verified": "verifiziert lieferbereit", "delivery-ready-provisional": "vorläufig lieferbereit",
-  "waiting-human": "wartet auf eine menschliche Entscheidung", replan: "Neuplanung", achieved: "erreicht",
-  "accepted-provisional": "vorläufig angenommen", paused: "pausiert", interrupted: "unterbrochen",
-  stopped: "gestoppt", "review-requires-clarification": "Review benötigt Klärung",
-  "schema-6-replan-required": "Schema-6-Neuplanung erforderlich", "root-plan-not-intent-ready": "Root-Plan noch nicht intent-bereit",
+  "waiting-human": "wartet auf eine menschliche Entscheidung", achieved: "erreicht",
+  paused: "pausiert", interrupted: "unterbrochen",
+  "correction-needed": "Korrektur erforderlich", "open-points": "offene Punkte", "human-assessment": "menschliche Nachbeurteilung",
+  "root-ready": "Root bereit", "review-needed": "Review erforderlich", "shadow-review": "Shadow Review", "review-work": "Review Work",
+  "root-plan-not-intent-ready": "Root-Plan noch nicht intent-bereit",
   "harness-phase-failed": "Harness-Phase fehlgeschlagen", "harness-unavailable": "Harness nicht verfügbar",
   "manual-artifact-context-missing": "Manual-Artefaktkontext fehlt",
 });
@@ -375,9 +404,15 @@ function detailBlock(summary, lines) {
 }
 
 function actionLine(action, locale) {
+  const de = localeOf(locale) === "de";
+  if (action === "none") return de ? "- Keine weitere Workflow-Aktion erforderlich." : "- No further Workflow action is required.";
+  if (action === "correct") return de ? "- **Correct Work**" : "- **Correct Work**";
+  if (action === "human-assessment") return de
+    ? "- Bitte beurteilen Sie die konkret benannten offenen Punkte in natürlicher Sprache."
+    : "- Please assess the specifically named open points in natural language.";
+  if (action === "review-work") return "- **Review Work**";
   const copy = labels(locale);
-  const token = safeInline(action);
-  return `- ${copy.actionToken}: \`${token}\``;
+  return `- ${copy.actionToken}: \`${safeInline(action)}\``;
 }
 
 function shadowReason(code, locale) {
@@ -390,7 +425,8 @@ function shadowReason(code, locale) {
     "artifact-bytes-conflict": "Für dieselbe Artefakt-ID wurden widersprüchliche Bytes bereitgestellt.",
     "foreign-artifact-chain": "Mindestens ein Artefakt gehört nicht zum aktuellen Root.",
     "check-observation-ambiguous": "Die Check-Beobachtungen sind nicht eindeutig.",
-    "manual-acceptance-denied": "Die aktuelle exakte Artefaktkette kann nicht vorläufig angenommen werden.",
+    "check-observations-incomplete": "Erforderliche Check-Beobachtungen fehlen und müssen intern nachgereicht werden.",
+    "review-open-points-required": "Die Evidenz benötigt konkrete offene Punkte statt eines Achieved-Ergebnisses.",
     "unsupported-operation": "Die angeforderte Manual-Operation wird nicht unterstützt.",
   } : {
     "manual-input-invalid": "The closed input does not match the required Manual request shape.",
@@ -400,7 +436,8 @@ function shadowReason(code, locale) {
     "artifact-bytes-conflict": "Conflicting bytes were supplied for the same artifact ID.",
     "foreign-artifact-chain": "At least one artifact does not belong to the current Root.",
     "check-observation-ambiguous": "The Check observations are ambiguous.",
-    "manual-acceptance-denied": "The current exact artifact chain is not eligible for provisional acceptance.",
+    "check-observations-incomplete": "Required Check observations are missing and must be supplied by the internal retry.",
+    "review-open-points-required": "The evidence requires concrete open points instead of an Achieved outcome.",
     "unsupported-operation": "The requested Manual operation is not supported.",
   };
   return reasons[code] ?? (de
@@ -478,46 +515,28 @@ function authorityScopePresentation(pathAuthority, locale) {
 
 function reviewDecision(review, locale) {
   const de = localeOf(locale) === "de";
-  if (review.fields.assessment === "achieved" && review.fields.next_action === "none") {
-    if (review.fields.delivery_status === "verified") return de
-      ? "Alles OK: Die Akzeptanzziele sind erreicht und die Lieferung ist verifiziert."
-      : "All good: the acceptance outcomes are achieved and delivery is verified.";
-    return de
-      ? "Alles OK: Die Akzeptanzziele sind erreicht; der Nachweis bleibt unterhalb von verifiziert."
-      : "All good: the acceptance outcomes are achieved; proof remains below verified.";
-  }
-  if (review.fields.delivery_status === "blocked") return de
-    ? "Dieser Liefer-Snapshot ist blockiert."
-    : "This delivery snapshot is blocked.";
-  if (review.fields.delivery_status === "provisional") return de
-    ? "Diese Lieferung ist vorläufig und benötigt eine menschliche Entscheidung."
-    : "This delivery is provisional and needs a human decision.";
-  return de ? "Diese Lieferung ist verifiziert." : "This delivery is verified.";
+  if (review.fields.outcome === "achieved") return de
+    ? "Ziel erreicht: Die Akzeptanzziele sind repository-seitig erfüllt."
+    : "Goal achieved: the repository satisfies the acceptance outcomes.";
+  if (review.fields.outcome === "correction-needed") return de
+    ? "Korrektur erforderlich: Die behebbaren Abweichungen sind in einer Correction gebündelt."
+    : "Correction needed: the correctable deviations are bundled into one correction.";
+  return de
+    ? "Offene Punkte: Eine verständliche menschliche Nachbeurteilung ist erforderlich."
+    : "Open points: a clear human assessment is required.";
 }
 
 function reviewReason({ review, reviewInput, pathAuthority, checks }, locale) {
   const de = localeOf(locale) === "de";
-  const failed = checks.find((entry) => entry.grade === "failed");
-  if (failed) return de
-    ? `Erforderlicher Check ${safeInline(failed.check_id)} ist fehlgeschlagen und blockiert diese Lieferung.`
-    : `Required Check ${safeInline(failed.check_id)} failed and blocks this delivery.`;
-  if ((pathAuthority?.protected_paths ?? []).length > 0) return de
-    ? (pathAuthority.protected_paths.length === 1 ? "1 geschützter geänderter Pfad blockiert diese Lieferung." : `${pathAuthority.protected_paths.length} geschützte geänderte Pfade blockieren diese Lieferung.`)
-    : `${counted(pathAuthority.protected_paths.length, "protected changed path blocks", "protected changed paths block")} this delivery.`;
-  if ((pathAuthority?.approval_required_paths ?? []).length > 0) return de
-    ? (pathAuthority.approval_required_paths.length === 1 ? "1 geänderter Pfad benötigt eine separate menschliche Freigabe." : `${pathAuthority.approval_required_paths.length} geänderte Pfade benötigen eine separate menschliche Freigabe.`)
-    : `${counted(pathAuthority.approval_required_paths.length, "changed path requires", "changed paths require")} separate human approval.`;
-  if (reviewInput.findings.length > 0) return de
-    ? `${counted(reviewInput.findings.length, "Feststellung führt", "Feststellungen führen")} zur Aktion ${safeInline(review.fields.next_action)}.`
-    : `${counted(reviewInput.findings.length, "finding requires", "findings require")} the ${safeInline(review.fields.next_action)} action.`;
-  const reasons = {
-    "accept-provisional": de ? "Die Review fand keinen Lieferblocker; die Evidenz bleibt vorläufig." : "The Review found no delivery blocker; the evidence remains provisional.",
-    replan: de ? "Das beabsichtigte Ergebnis benötigt eine neu freigegebene Root-Autorität." : "The intended outcome requires newly approved Root authority.",
-    clarify: de ? "Eine benannte menschliche Entscheidung bleibt offen." : "A named human decision remains open.",
-    "retry-review": de ? "Für den aktuellen Snapshot ist eine frische Review erforderlich." : "The current snapshot requires a fresh Review.",
-    none: de ? "Die Review hat die Akzeptanzziele erreicht." : "The Review achieved the acceptance outcomes.",
-  };
-  return reasons[review.fields.next_action] ?? (de ? "Die Review hat eine weitere Workflow-Aktion abgeleitet." : "The Review derived a further Workflow action.");
+  if (review.fields.outcome === "correction-needed") return de
+    ? `${counted(reviewInput.findings.filter((finding) => finding.resolution === "correct").length, "behebbare Feststellung ist", "behebbare Feststellungen sind")} innerhalb des Roots korrigierbar.`
+    : `${counted(reviewInput.findings.filter((finding) => finding.resolution === "correct").length, "correctable finding is", "correctable findings are")} correctable within the Root.`;
+  if (review.fields.outcome === "open-points") return reviewInput.open_points[0]?.summary
+    ?? (de ? "Mindestens eine konkrete Grenze bleibt offen." : "At least one concrete limitation remains open.");
+  const weaker = checks.filter((entry) => entry.grade === "supported").length;
+  return de
+    ? `Keine Findings oder offenen Punkte; alle erforderlichen Checks sind mindestens gestützt${weaker > 0 ? ` (${weaker} ohne geschützte Verifikation)` : ""}.`
+    : `No findings or open points; every required Check is at least supported${weaker > 0 ? ` (${weaker} without protected verification)` : ""}.`;
 }
 
 function reviewPresentation({ rootFields, rootPlan, evidence, review, reviewInput, repositoryObservation, pathAuthority, trace, locale }) {
@@ -530,7 +549,7 @@ function reviewPresentation({ rootFields, rootPlan, evidence, review, reviewInpu
     ...repositoryObservation.limitations,
     ...(scopeLimitation ? [scopeLimitation] : []),
     ...(blockingLimitation ? [blockingLimitation] : []),
-    ...reviewInput.missing_evidence,
+    ...reviewInput.open_points.map((point) => `${point.summary} ${point.impact}`),
     ...(evidence.fields.check_evidence ?? []).flatMap((entry) => entry.limitations ?? []),
   ]);
   const checks = evidence.fields.check_evidence ?? [];
@@ -545,17 +564,16 @@ function reviewPresentation({ rootFields, rootPlan, evidence, review, reviewInpu
       ? "Ungeschützte Manual-Beobachtungen können keine verifizierte Lieferung belegen."
       : "Unprotected Manual observations cannot establish verified delivery.")
     : null;
-  const statusLabel = displayValue(lang, review.fields.delivery_status);
   const presentation = {
     schema: 1,
     kind: "manual-review-presentation",
     root_plan_id: rootFields.id,
     evidence_id: evidence.fields.id,
     review_id: review.fields.id,
-    assessment: review.fields.assessment,
-    delivery_status: review.fields.delivery_status,
+    outcome: review.fields.outcome,
     evidence_grade: evidence.fields.overall_grade,
     findings: reviewInput.findings,
+    open_points: reviewInput.open_points,
     limitations,
     checks: evidence.fields.check_evidence,
     path_authority: pathAuthority,
@@ -586,19 +604,17 @@ function reviewPresentation({ rootFields, rootPlan, evidence, review, reviewInpu
     `- ${copy.evidenceGrade}: ${displayValue(lang, evidence.fields.overall_grade)}.`,
     ...(primaryProofBoundary ? [`- ${copy.proofBoundary}: ${concise(primaryProofBoundary)}`] : []),
     `- ${copy.scope}: ${scopeSummary(pathAuthority, lang)}.`,
-    ...(review.fields.delivery_status === "blocked" ? [lang === "de"
-      ? "- Nur dieser Liefer-Snapshot ist blockiert; die normale Host- und Workflow-Nutzung bleibt verfügbar."
-      : "- Only this delivery snapshot is blocked; normal host and Workflow use remains available."] : []),
   ];
-  const terminalSuccess = review.fields.assessment === "achieved" && review.fields.next_action === "none";
+  const openPointLines = reviewInput.open_points.map((point) => `- ${safeInline(point.summary)} — ${lang === "de" ? "Auswirkung" : "Impact"}: ${safeInline(point.impact)} ${lang === "de" ? "Frage" : "Question"}: ${safeInline(point.question)}`);
   const humanOutput = [
-    terminalSuccess
-      ? (lang === "de" ? "## Review-Ergebnis · alles OK" : "## Review result · all good")
-      : (lang === "de" ? `## Review-Ergebnis · Lieferung ${statusLabel}` : `## Review result · Delivery ${statusLabel}`),
+    lang === "de"
+      ? `## Review-Ergebnis · ${displayValue(lang, review.fields.outcome)}`
+      : `## Review result · ${displayValue(lang, review.fields.outcome)}`,
     `### ${copy.decision}`,
     decisionLines.join("\n"),
     `### ${copy.nextAction}`,
     actionLine(review.fields.next_action, lang),
+    detailBlock(`${lang === "de" ? "Offene Punkte" : "Open points"} (${openPointLines.length})`, openPointLines),
     ...detailBlocks,
   ].join("\n\n");
   return { presentation, humanOutput: `${humanOutput}\n` };
@@ -610,7 +626,7 @@ function planPresentation(result, rootPlan, locale) {
   const state = result.feasible ? "ready" : "blocked";
   const blockers = result.blocking_issues.map(issueLine);
   const advisories = (result.advisories ?? []).map(issueLine);
-  const nextAction = result.feasible ? "implement-plan" : "correct-plan";
+  const nextAction = result.feasible ? "implement-plan" : "human-assessment";
   const decision = result.feasible
     ? (lang === "de" ? "Der exakte Schema-6-Root ist gültig und bereit für eine separate menschliche Implementierungsfreigabe." : "The exact Schema-6 Root is valid and ready for separate human implementation approval.")
     : (lang === "de" ? "Der Root ist nicht implementierungsbereit und muss zuerst korrigiert werden." : "The Root is not ready for implementation and must be corrected first.");
@@ -632,53 +648,13 @@ function planPresentation(result, rootPlan, locale) {
   ].filter(Boolean).join("\n\n") + "\n";
 }
 
-function statusPresentation(status, accepted = false, pathAuthority = null, locale = "en", current = {}) {
+function statusPresentation(status, _accepted = false, pathAuthority = null, locale = "en", current = {}) {
   const lang = localeOf(locale);
   const copy = labels(lang);
   const snapshot = status.snapshot;
-  const problems = status.problem_details ?? [];
-  const blockingProblems = problems.filter((entry) => entry.blocking === true);
-  const proofProblems = problems.filter((entry) => entry.blocking !== true);
-  const snapshotBlockers = unique(snapshot.blockers ?? []);
-  const decision = accepted
-    ? (lang === "de"
-      ? "Die vorläufige Lieferung ist für diese Aufgabe ausdrücklich angenommen; die Annahme wird nicht gespeichert und ändert den Evidenzgrad nicht."
-      : "The provisional delivery is explicitly accepted for this task; acceptance is not persisted and does not change the evidence grade.")
-    : (lang === "de"
-      ? `Der manuelle Workflow hat den Status ${displayValue(lang, snapshot.state)}.`
-      : `The Manual Workflow is in the ${displayValue(lang, snapshot.state)} state.`);
-  const blockingIds = unique(blockingProblems.map((entry) => entry.check_id));
-  const reason = blockingProblems.length > 0
-    ? (lang === "de"
-      ? `${counted(blockingProblems.length, "Lieferblocker", "Lieferblocker")}${blockingIds.length > 0 ? ` (${blockingIds.join(", ")})` : ""} ${blockingProblems.length === 1 ? "benötigt" : "benötigen"} Aufmerksamkeit.`
-      : `${counted(blockingProblems.length, "delivery blocker", "delivery blockers")}${blockingIds.length > 0 ? ` (${blockingIds.join(", ")})` : ""} ${blockingProblems.length === 1 ? "needs" : "need"} attention.`)
-    : snapshotBlockers.length > 0
-      ? (lang === "de"
-        ? `${counted(snapshotBlockers.length, "Lebenszyklus-Blocker", "Lebenszyklus-Blocker")} ${snapshotBlockers.length === 1 ? "benötigt" : "benötigen"} Aufmerksamkeit.`
-        : `${counted(snapshotBlockers.length, "lifecycle blocker", "lifecycle blockers")} ${snapshotBlockers.length === 1 ? "needs" : "need"} attention.`)
-      : accepted
-        ? (lang === "de" ? "Die Annahme ist flüchtig und verleiht keine dauerhafte Autorität." : "Acceptance is ephemeral and grants no persistent authority.")
-        : (lang === "de" ? "Der Zustand wurde ausschließlich aus der exakten Artefaktkette abgeleitet." : "The state was derived only from the exact artifact chain.");
-  const proofBoundary = proofProblems.length > 0
-    ? (lang === "de"
-      ? `${counted(proofProblems.length, "Nachweisgrenze verhindert", "Nachweisgrenzen verhindern")} eine verifizierte Aussage.`
-      : `${counted(proofProblems.length, "proof limitation prevents", "proof limitations prevent")} a verified claim.`)
-    : snapshot.evidence_grade && snapshot.evidence_grade !== "verified"
-      ? (lang === "de" ? `Der Evidenzgrad ${displayValue(lang, snapshot.evidence_grade)} belegt keine verifizierte Lieferung.` : `Evidence grade ${displayValue(lang, snapshot.evidence_grade)} does not establish verified delivery.`)
-      : null;
-  const problemLines = problems.map((entry) => [
-    `- ${localizedKnownText(entry.problem, lang)}`,
-    ...(entry.check_id ? [`  - Check: ${safeInline(entry.check_id)}`] : []),
-    ...(entry.why ? [`  - ${lang === "de" ? "Warum" : "Why"}: ${localizedKnownText(entry.why, lang)}`] : []),
-    ...(entry.resolution ? [`  - ${lang === "de" ? "Lösung" : "Resolution"}: ${localizedKnownText(entry.resolution, lang)}`] : []),
-    `  - ${lang === "de" ? "Blockiert die Lieferung" : "Blocks delivery"}: ${entry.blocking === true ? (lang === "de" ? "ja" : "yes") : (lang === "de" ? "nein" : "no")}`,
-  ].join("\n"));
-  const existingProblems = new Set(problems.map((entry) => entry.problem));
-  problemLines.push(...snapshotBlockers
-    .filter((entry) => !existingProblems.has(entry))
-    .map((entry) => `- ${safeInline(displayValue(lang, entry))}`));
   const trace = status.artifact_summary ?? {};
-  const currentFindings = (current.review?.findings ?? []).map((finding) => findingLine(finding, lang));
+  const currentFindings = (current.review?.fields?.findings ?? []).map((finding) => findingLine(finding, lang));
+  const currentOpenPoints = (current.review?.fields?.open_points ?? []).map((point) => `- ${safeInline(point.summary)} — ${lang === "de" ? "Frage" : "Question"}: ${safeInline(point.question)}`);
   const currentChecks = (current.evidence?.fields?.check_evidence ?? []).map((check) => checkLine(check, lang));
   const currentLimitations = unique((current.evidence?.fields?.check_evidence ?? [])
     .flatMap((check) => check.limitations ?? []))
@@ -692,26 +668,21 @@ function statusPresentation(status, accepted = false, pathAuthority = null, loca
     ...(trace.review_hash ? [`- ${copy.review} ${copy.artifactHash}: ${safeInline(trace.review_hash)}`] : []),
     ...(trace.artifact_set_hash ? [`- ${copy.artifactSetHash}: ${safeInline(trace.artifact_set_hash)}`] : []),
   ].filter((entry) => !entry.endsWith(": "));
-  const title = accepted
-    ? (lang === "de" ? "## Vorläufige Annahme · angenommen" : "## Provisional acceptance · accepted")
-    : (lang === "de" ? `## Manueller Workflow-Status · ${displayValue(lang, snapshot.state)}` : `## Manual workflow status · ${displayValue(lang, snapshot.state)}`);
   return [
-    title,
+    lang === "de" ? `## Workflow-Status · ${displayValue(lang, snapshot.state)}` : `## Workflow status · ${displayValue(lang, snapshot.state)}`,
     `### ${copy.decision}`,
     [
-      `- ${decision}`,
-      `- ${copy.reason}: ${concise(reason)}`,
-      `- ${lang === "de" ? "Lieferstatus" : "Delivery status"}: ${displayValue(lang, snapshot.delivery_status ?? "none")}.`,
+      lang === "de" ? `- Der aktuelle menschlich relevante Zustand ist ${displayValue(lang, snapshot.state)}.` : `- The current human-relevant state is ${displayValue(lang, snapshot.state)}.`,
+      lang === "de" ? "- Der Zustand wurde ausschließlich aus der exakten Artefaktkette abgeleitet." : "- The state was derived only from the exact artifact chain.",
       `- ${copy.evidenceGrade}: ${displayValue(lang, snapshot.evidence_grade ?? "none")}.`,
-      ...(proofBoundary ? [`- ${copy.proofBoundary}: ${concise(proofBoundary)}`] : []),
       `- ${copy.scope}: ${scopeSummary(pathAuthority, lang)}.`,
     ].join("\n"),
     `### ${copy.nextAction}`,
     actionLine(snapshot.next_action, lang),
     detailBlock(`${copy.findings} (${currentFindings.length})`, currentFindings),
+    detailBlock(`${lang === "de" ? "Offene Punkte" : "Open points"} (${currentOpenPoints.length})`, currentOpenPoints),
     detailBlock(`${copy.checks} (${currentChecks.length})`, currentChecks),
     detailBlock(`${copy.limitations} (${currentLimitations.length})`, currentLimitations),
-    detailBlock(`${lang === "de" ? "Statusprobleme und Lösungen" : "Status problems and resolutions"} (${problemLines.length})`, problemLines),
     detailBlock(`${copy.changedPaths} (${changedPathCount(pathAuthority)})`, pathLines(pathAuthority, lang)),
     detailBlock(copy.traceability, traceLines),
   ].filter(Boolean).join("\n\n") + "\n";
@@ -731,6 +702,26 @@ function validatePlan(request, pluginRoot) {
   };
 }
 
+function buildPlan(request, pluginRoot) {
+  const built = buildWorkflowAuthorityPlan(request.plan_markdown, request.authority_core);
+  const exact = extractEmbeddedWorkPlanText(built.root_plan);
+  if (!exact) throw codedError("schema-6-root-invalid", "Generated workflow authority core could not be normalized");
+  const result = preflightRootPlan(exact, pluginRoot);
+  if (!result.feasible) throw codedError("schema-6-root-invalid", `Generated Schema-6 Root is invalid: ${result.blocking_issues.map((entry) => entry.message ?? entry.code).join("; ")}`);
+  return {
+    schema: 1,
+    kind: "manual-plan-build",
+    ok: true,
+    root_plan_id: built.core.id,
+    plan_content_hash: built.core.plan_content_hash,
+    root_content_hash: sha256(exact),
+    root_plan: built.root_plan,
+    result,
+    human_output: planPresentation(result, exact, request.presentation_locale),
+    artifacts: [],
+  };
+}
+
 function buildReview(request, pluginRoot) {
   const exact = exactChain(request.root_plan, request.artifacts, pluginRoot);
   const contract = executionContractFromArtifactText(request.root_plan, pluginRoot);
@@ -744,12 +735,14 @@ function buildReview(request, pluginRoot) {
   );
   const blockingAuthorityLimitation = authorityBlockingLimitation(pathAuthority);
   const scopeAuthorityLimitation = authorityScopeLimitation(pathAuthority);
-  const effectiveReviewInput = blockingAuthorityLimitation
+  const authorityReviewInput = blockingAuthorityLimitation
     ? authorityLimitedReviewInput(request.review_input, blockingAuthorityLimitation)
     : scopeAuthorityLimitation
       ? scopeLimitedReviewInput(request.review_input, scopeAuthorityLimitation)
       : request.review_input;
   const localCheckEvidence = checkEvidence(request.check_observations);
+  const requiredCheckIds = contract.checks.filter((check) => check.Required === "yes").map((check) => check["Check ID"]);
+  const effectiveReviewInput = observationLimitedReviewInput(authorityReviewInput, request.check_observations, requiredCheckIds);
   const evidenceTipId = exact.tips.evidence_tips[exact.rootFields.id] ?? null;
   const reviewTipId = exact.tips.review_tips[exact.rootFields.id] ?? null;
   const reviewTip = reviewTipId ? exact.chain.effective.get(reviewTipId) : null;
@@ -855,7 +848,7 @@ function buildReview(request, pluginRoot) {
   };
 }
 
-function deriveStatus(request, pluginRoot, manualAcceptance = null) {
+function deriveStatus(request, pluginRoot) {
   const exact = exactChain(request.root_plan, request.artifacts, pluginRoot);
   const evidenceTipId = exact.tips.evidence_tips[exact.rootFields.id] ?? null;
   const reviewTipId = exact.tips.review_tips[exact.rootFields.id] ?? null;
@@ -868,38 +861,21 @@ function deriveStatus(request, pluginRoot, manualAcceptance = null) {
     artifacts: exact.entries,
     pluginRoot,
     observedAt: DETERMINISTIC_OBSERVED_AT,
-    manualAcceptance,
   });
   const pathAuthority = classifyChangedPathAuthority(exact.rootFields, status.changed_paths, null, status.ambient_paths);
   return {
     schema: 1,
-    kind: manualAcceptance ? "manual-provisional-acceptance" : "manual-workflow-status",
+    kind: "manual-workflow-status",
     ok: true,
-    accepted: manualAcceptance === "provisional",
-    persisted: false,
     snapshot: status.snapshot,
     artifact_summary: status.artifact_summary,
     diagnostics: status.diagnostics,
     changed_paths: status.changed_paths,
     ambient_paths: status.ambient_paths,
     path_authority: pathAuthority,
-    human_output: statusPresentation(status, manualAcceptance === "provisional", pathAuthority, request.presentation_locale, current),
+    human_output: statusPresentation(status, false, pathAuthority, request.presentation_locale, current),
     artifacts: [],
   };
-}
-
-function acceptProvisional(request, pluginRoot) {
-  const exact = exactChain(request.root_plan, request.artifacts, pluginRoot);
-  const reviewTipId = exact.tips.review_tips[exact.rootFields.id] ?? null;
-  const reviewTip = reviewTipId ? exact.chain.effective.get(reviewTipId) : null;
-  const current = deriveStatus(request, pluginRoot);
-  if (current.snapshot.delivery_status !== "provisional" || current.snapshot.next_action !== "accept-provisional") {
-    const nextAction = reviewTip?.fields?.next_action ?? "provide-artifacts";
-    const error = codedError("manual-acceptance-denied", `The current exact chain cannot be accepted provisionally; it requires ${nextAction}.`);
-    error.nextAction = nextAction;
-    throw error;
-  }
-  return deriveStatus(request, pluginRoot, "provisional");
 }
 
 function shadowError(operation, input, error) {
@@ -907,8 +883,56 @@ function shadowError(operation, input, error) {
   const copy = labels(locale);
   const code = error?.code ?? "manual-workflow-failed";
   const message = String(error?.message ?? error);
-  const nextAction = error?.nextAction
-    ?? (operation === "validate-plan" ? "correct-plan" : ["status", "accept-provisional"].includes(operation) ? "provide-artifacts" : "retry-review");
+  if (operation === "build-review" && code === "check-observations-incomplete") {
+    const checkIds = unique(error?.check_ids ?? []);
+    const signature = sha256(stableJson({ code, check_ids: checkIds }));
+    return {
+      schema: 1,
+      kind: "manual-review-internal-retry",
+      ok: false,
+      mode: "internal-retry",
+      operation,
+      retryable: true,
+      retry_signature: signature,
+      missing_check_ids: checkIds,
+      next_action: "internal-retry",
+      error: { code, message },
+      human_output: locale === "de"
+        ? `Interner Review-Retry: Es fehlen Beobachtungen für ${checkIds.join(", ")}. Es wurden keine Artefakte erstellt.`
+        : `Internal Review retry: observations are missing for ${checkIds.join(", ")}. No artifacts were created.`,
+      artifacts: [],
+    };
+  }
+  if (operation === "build-review" && code === "schema-6-root-invalid") {
+    const supplied = input?.review_input ?? {};
+    const point = {
+      key: "formal-binding",
+      type: "formal-binding",
+      summary: locale === "de" ? "Der menschliche Plan ist nicht an einen gültigen Authority Core gebunden." : "The human plan is not bound to a valid Authority Core.",
+      evidence: message,
+      impact: locale === "de" ? "Der repository-read-only Review bleibt informativ, kann aber keine Artefakte oder Korrekturautorität erzeugen." : "The repository-read-only review remains informative but cannot create artifacts or correction authority.",
+      question: locale === "de" ? "Soll ein gültiger Authority Core erzeugt werden, bevor eine Korrektur autorisiert wird?" : "Should a valid Authority Core be generated before any correction is authorized?",
+    };
+    return {
+      schema: 1,
+      kind: "manual-shadow-review",
+      ok: true,
+      mode: "shadow-review",
+      operation,
+      outcome: "shadow-review",
+      next_action: "human-assessment",
+      findings: supplied.findings ?? [],
+      open_points: [...(supplied.open_points ?? []), point],
+      error: { code, message },
+      human_output: [
+        locale === "de" ? "## Shadow Review · formale Bindung fehlt" : "## Shadow review · formal binding missing",
+        locale === "de" ? `- ${point.summary}\n- ${point.impact}` : `- ${point.summary}\n- ${point.impact}`,
+        locale === "de" ? `- Offene Frage: ${point.question}` : `- Open question: ${point.question}`,
+      ].join("\n\n") + "\n",
+      artifacts: [],
+    };
+  }
+  const nextAction = error?.nextAction ?? "human-assessment";
   return {
     schema: 1,
     kind: "manual-workflow-error",
@@ -943,10 +967,10 @@ function shadowError(operation, input, error) {
 export function executeManualOperation(operation, input, { pluginRoot = defaultRoot } = {}) {
   try {
     const request = exactRootRequest(parseRequest(operation, input));
+    if (operation === "build-plan") return buildPlan(request, pluginRoot);
     if (operation === "validate-plan") return validatePlan(request, pluginRoot);
     if (operation === "build-review") return buildReview(request, pluginRoot);
     if (operation === "status") return deriveStatus(request, pluginRoot);
-    if (operation === "accept-provisional") return acceptProvisional(request, pluginRoot);
     throw codedError("unsupported-operation", `Unsupported manual-workflow operation: ${operation}`);
   } catch (error) {
     return shadowError(operation, input, error);

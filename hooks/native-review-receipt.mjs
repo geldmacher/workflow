@@ -123,7 +123,7 @@ function validReceipt(receipt, stateRoot, tokenHash, requestHash) {
     && receipt.root_hash === sha256(receipt.root_text)
     && validRootBinding(receipt.root_binding, receipt.root_source)
     && Array.isArray(receipt.artifacts)
-    && ["task-chain", "full-rebuild", "provisional-seal"].includes(receipt.predecessor_mode)
+    && ["task-chain", "full-rebuild", "supported-seal"].includes(receipt.predecessor_mode)
     && (receipt.artifacts.length > 0) === (receipt.predecessor_mode !== "full-rebuild")
     && validBaselineBinding(receipt)
     && validReviewEnforcement(receipt.review_enforcement)

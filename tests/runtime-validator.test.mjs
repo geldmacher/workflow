@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { buildDeliveryEvidence } from "../src/controller/delivery-closeout.mjs";
+import { supportedCheck } from "./support/workflow-fixtures.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 
@@ -19,7 +20,7 @@ test("the shipped artifact validator runs in a clean plugin cache without node_m
     writeFileSync(join(cache, "work-plan.md"), rootPlan);
     const evidence = buildDeliveryEvidence({
       rootPlanText: rootPlan,
-      checkEvidence: [],
+      checkEvidence: [supportedCheck()],
       changedPaths: [],
       effectiveProfile: "manual",
       pluginRoot: root,

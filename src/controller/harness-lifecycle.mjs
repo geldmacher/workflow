@@ -16,6 +16,7 @@ import { buildWorkReview } from "./work-review-builder.mjs";
 export const HARNESS_RUN_SCHEMA = 1;
 const RUN_CONTRACT = "workflow-6-transactional";
 const runPattern = /^run-[a-f0-9]{24}$/;
+const INTERNAL_RETRY_SIGNATURE_LIMIT = 8;
 
 function sha256(value) {
   return createHash("sha256").update(String(value)).digest("hex");
@@ -183,6 +184,26 @@ function phaseNextAction(phase) {
   return phase === "review" ? "complete-review" : phase === "correction" ? "complete-correction" : "complete-implementation";
 }
 
+const humanStates = new Set(["root-ready", "review-needed", "correction-needed", "achieved", "open-points", "shadow-review"]);
+
+function humanState(run) {
+  if (humanStates.has(run.lifecycle)) return run.lifecycle;
+  if (run.lifecycle === "implementing") return "root-ready";
+  if (run.lifecycle === "reviewing") return "review-needed";
+  if (run.lifecycle === "correcting") return "correction-needed";
+  if (run.lifecycle === "waiting-human") return run.pending_transition?.decision === "review" ? "review-needed" : "correction-needed";
+  return "shadow-review";
+}
+
+function humanNextAction(run, state = humanState(run)) {
+  if (run.pending_transition || ["implementing", "reviewing", "correcting", "waiting-human"].includes(run.lifecycle)) return "none";
+  if (state === "root-ready") return "implement-plan";
+  if (state === "review-needed") return "review-work";
+  if (state === "correction-needed") return "correct";
+  if (["open-points", "shadow-review"].includes(state)) return "human-assessment";
+  return "none";
+}
+
 function makeTransition({ run, action, phase, idempotencyKey, inputFingerprint, verificationMode = "root", kind = "phase", decision = null, decisionReceiptHash = null, executionLeaseValue = null }) {
   const idempotencyHash = sha256(`${idempotencyKey}\0${inputFingerprint}`);
   return {
@@ -236,6 +257,7 @@ function reserveTransition(stateRoot, runId, { expectedRevision, action, phase, 
 }
 
 function runView(run) {
+  const workflowState = humanState(run);
   return {
     schema: run.schema,
     kind: run.kind,
@@ -245,31 +267,35 @@ function runView(run) {
     requested_profile: run.requested_profile,
     effective_profile: run.effective_profile,
     downgrade_reason: run.downgrade_reason,
-    lifecycle: run.lifecycle,
-    phase: run.phase,
-    phase_status: run.phase_status,
-    next_action: run.next_action,
+    workflow_state: workflowState,
+    next_action: humanNextAction(run, workflowState),
     revision: run.revision,
     blockers: run.blockers,
+    open_points: run.open_points ?? [],
     retry_safe: run.retry_safe ?? null,
     evidence_grade: run.evidence_grade,
-    delivery_status: run.delivery_status,
     delivery_evidence_id: run.delivery_evidence?.fields?.id ?? null,
     work_review_id: run.work_review?.fields?.id ?? null,
     capability_receipt_hash: run.capability_receipt_hash,
     deployment_binding_hash: run.deployment_binding_hash,
     phase_receipt_hashes: (run.phase_results ?? []).map((entry) => entry.protection_receipt_hash),
     decision_receipt_hashes: (run.decision_receipts ?? []).map((entry) => entry.protection_receipt_hash),
-    transition: run.pending_transition ? {
-      transition_id: run.pending_transition.transition_id,
-      base_revision: run.pending_transition.base_revision,
-      action: run.pending_transition.action,
-      phase: run.pending_transition.phase,
-      status: run.pending_transition.status,
-      handoff_status: run.pending_transition.handoff_status ?? null,
-      phase_request_hash: run.pending_transition.phase_request_hash,
-      protection_receipt_hash: run.pending_transition.protection_receipt_hash,
-    } : null,
+    technical: {
+      lifecycle: run.lifecycle,
+      phase: run.phase,
+      phase_status: run.phase_status,
+      next_action: run.next_action,
+      transition: run.pending_transition ? {
+        transition_id: run.pending_transition.transition_id,
+        base_revision: run.pending_transition.base_revision,
+        action: run.pending_transition.action,
+        phase: run.pending_transition.phase,
+        status: run.pending_transition.status,
+        handoff_status: run.pending_transition.handoff_status ?? null,
+        phase_request_hash: run.pending_transition.phase_request_hash,
+        protection_receipt_hash: run.pending_transition.protection_receipt_hash,
+      } : null,
+    },
     artifacts: (run.artifact_chain ?? []).map(({ label, text }) => ({ label, text })),
     created_at: run.created_at,
     updated_at: run.updated_at,
@@ -277,32 +303,33 @@ function runView(run) {
 }
 
 function reviewInputFromEvidence(evidence) {
-  const failed = evidence.fields.overall_grade === "failed";
-  const verified = evidence.fields.overall_grade === "verified";
+  const achieved = ["verified", "supported"].includes(evidence.fields.overall_grade) && evidence.fields.status !== "blocked";
   const limitations = [...new Set((evidence.fields.check_evidence ?? []).flatMap((entry) => entry.limitations ?? []))];
+  const point = achieved ? null : {
+    key: "harness-evidence",
+    type: "evidence",
+    summary: "The protected Harness evidence does not support every required Check on the reviewed snapshot.",
+    evidence: limitations.join(" ") || `Evidence grade is ${evidence.fields.overall_grade}.`,
+    impact: "Workflow cannot derive Achieved from this snapshot.",
+    question: "Should the human end with this limitation or authorize work that resolves the failed or unavailable evidence?",
+  };
   return {
     schema: 1,
     kind: "review-input",
-    assessment: verified ? "achieved" : failed ? "insufficient-evidence" : "provisional",
-    recommended_action: verified ? "none" : failed ? "retry-review" : "accept-provisional",
-    assessment_summary: verified
-      ? "Every required verification intent is protected and verified on the reviewed snapshot."
-      : failed
-        ? "At least one required verification intent failed on the reviewed snapshot."
-        : "The delivery remains provisional because protected evidence is incomplete.",
-    snapshot_assessment: failed ? "contradicted" : "consistent",
+    outcome: achieved ? "achieved" : "open-points",
+    assessment_summary: achieved
+      ? "Every required verification intent is at least supported on the reviewed snapshot."
+      : point.summary,
     snapshot_summary: "The project Harness reviewed the exact post-work snapshot without changing it.",
     findings: [],
-    missing_evidence: limitations,
+    open_points: point ? [point] : [],
   };
 }
 
-function terminalState(evidence, review, effectiveProfile, reviewRequest) {
-  const humanChecks = reviewRequest.verification_intents.some((check) => check["Evidence Class"] === "human-decision-required");
-  if (evidence.fields.overall_grade === "failed" || review.fields.delivery_status === "blocked") return { lifecycle: "blocked", next_action: "approve-correction", delivery_status: "blocked" };
-  if (effectiveProfile === "autonomous" && evidence.fields.overall_grade === "verified" && review.fields.assessment === "achieved" && !humanChecks) return { lifecycle: "achieved", next_action: "none", delivery_status: "verified" };
-  if (evidence.fields.overall_grade === "verified") return { lifecycle: "delivery-ready-verified", next_action: "accept-delivery", delivery_status: "verified" };
-  return { lifecycle: "delivery-ready-provisional", next_action: "accept-delivery", delivery_status: "provisional" };
+function terminalState(_evidence, review) {
+  if (review.fields.outcome === "correction-needed") return { lifecycle: "correction-needed", next_action: "correct" };
+  if (review.fields.outcome === "open-points") return { lifecycle: "open-points", next_action: "human-assessment" };
+  return { lifecycle: "achieved", next_action: "none" };
 }
 
 function correctionVerificationIntents(run, pluginRoot) {
@@ -367,22 +394,69 @@ export function createHarnessLifecycleController({
     if (!transition || transition.transition_id !== transitionIdValue) throw new Error("Workflow 6 failure transition changed during finalization");
     const mutating = ["implementation", "correction"].includes(transition.phase);
     const retrySafe = transition.phase === "review" || orchestration.handoff_status === "not-started";
+    const signature = fingerprint({
+      phase: transition.phase,
+      mode: orchestration.mode ?? null,
+      status: orchestration.status ?? null,
+      handoff_status: orchestration.handoff_status ?? null,
+      blockers: orchestration.blockers ?? [],
+      downgrade_reason: orchestration.downgrade_reason ?? null,
+    });
+    const signatures = transition.retry_signatures ?? [];
+    const repeated = signatures.includes(signature);
+    const withinRetryBudget = signatures.length < INTERNAL_RETRY_SIGNATURE_LIMIT;
+    if (retrySafe && !repeated && withinRetryBudget) {
+      run = event({
+        ...run,
+        phase_status: "prepared",
+        next_action: phaseNextAction(transition.phase),
+        blockers: [],
+        retry_safe: true,
+        pending_transition: {
+          ...transition,
+          status: "prepared",
+          handoff_status: "not-started",
+          execution_lease: null,
+          phase_request_hash: null,
+          protection_receipt_hash: null,
+          staged: null,
+          finalization: null,
+          finalization_hash: null,
+          retry_signatures: [...signatures, signature],
+        },
+      }, `${transition.phase}-internal-retry`, { transition_id: transition.transition_id, retry_signature: signature });
+      return writeRun(stateRoot, run);
+    }
+    const reason = repeated
+      ? "The same technical failure signature repeated without measurable progress."
+      : retrySafe
+        ? "The internal retry budget ended before the phase produced a usable result."
+        : "The mutating phase may have started, so an automatic retry would be unsafe.";
     run = markIdempotency(run, transition, "committed", run.revision + 1);
     run = event({
       ...run,
       revision: run.revision + 1,
       pending_transition: null,
-      lifecycle: orchestration.mode === "shadow" ? "shadow" : "waiting-human",
+      lifecycle: "open-points",
       phase: transition.phase,
       phase_status: orchestration.status,
-      next_action: mutating && !retrySafe ? "stop" : "resume",
-      blockers: orchestration.blockers,
+      next_action: "human-assessment",
+      blockers: [],
+      open_points: [{
+        key: repeated ? "no-progress" : "environment-unavailable",
+        type: repeated ? "no-progress" : "environment",
+        summary: reason,
+        evidence: (orchestration.blockers ?? []).join(" ") || `Failure signature ${signature}.`,
+        impact: mutating && !retrySafe ? "Repository outcome is uncertain and no automatic retry was attempted." : "The targeted Workflow phase produced no authoritative result.",
+        question: "How should the human assess this limitation before any new work is authorized?",
+      }],
       downgrade_reason: orchestration.downgrade_reason ?? run.downgrade_reason,
       retry_safe: retrySafe,
-    }, `${transition.phase}-unavailable`, {
+    }, `${transition.phase}-open-points`, {
       transition_id: transition.transition_id,
       handoff_status: orchestration.handoff_status ?? "outcome-unknown",
       retry_safe: retrySafe,
+      retry_signature: signature,
     });
     return writeRun(stateRoot, run);
   });
@@ -462,18 +536,7 @@ export function createHarnessLifecycleController({
     };
     if (["implementation", "correction"].includes(transition.phase)) {
       if (staged.result.status !== "completed") return { kind: "work-blocked", result_entry: resultEntry };
-      const nextRevision = run.revision + 1;
-      const reviewBase = { ...run, revision: nextRevision };
-      const reviewTransition = makeTransition({
-        run: reviewBase,
-        action: transition.action,
-        phase: "review",
-        idempotencyKey: transition.idempotency_key,
-        inputFingerprint: transition.input_fingerprint,
-        verificationMode: transition.verification_mode,
-        executionLeaseValue: executionLease(),
-      });
-      return { kind: "work-completed", result_entry: resultEntry, review_transition: reviewTransition };
+      return { kind: "work-completed", result_entry: resultEntry };
     }
     const workEntry = (run.phase_results ?? []).at(-1);
     if (!workEntry || !["implementation", "correction"].includes(workEntry.phase)) throw new Error("Workflow 6 Review has no protected work predecessor");
@@ -510,19 +573,26 @@ export function createHarnessLifecycleController({
     let run = readRun(stateRoot, runId);
     const transition = run.pending_transition;
     if (!transition || transition.transition_id !== transitionIdValue || !["result-ready", "commit-ready"].includes(transition.status)) throw error;
-    const retrySafe = transition.phase === "review";
     run = markIdempotency(run, transition, "committed", run.revision + 1);
     run = event({
       ...run,
       revision: run.revision + 1,
       pending_transition: null,
-      lifecycle: "shadow",
+      lifecycle: "open-points",
       phase: transition.phase,
       phase_status: "invalid",
-      next_action: retrySafe ? "resume" : "stop",
-      blockers: [`harness-result-finalization-invalid:${error.code ?? error.message}`],
-      retry_safe: retrySafe,
-    }, "transition-finalization-rejected", { transition_id: transition.transition_id, retry_safe: retrySafe });
+      next_action: "human-assessment",
+      blockers: [],
+      open_points: [{
+        key: "formal-result-invalid",
+        type: "formal-binding",
+        summary: "The protected Harness result could not be finalized into a valid Workflow result.",
+        evidence: String(error.code ?? error.message),
+        impact: "No authoritative Review artifacts were committed for this phase.",
+        question: "How should the human assess this formal result limitation?",
+      }],
+      retry_safe: transition.phase === "review",
+    }, "transition-finalization-open-points", { transition_id: transition.transition_id, retry_safe: transition.phase === "review" });
     return writeRun(stateRoot, run);
   });
 
@@ -570,7 +640,6 @@ export function createHarnessLifecycleController({
       if (draft.kind === "review-completed" && (!draft.evidence?.artifact || !draft.work_review?.artifact || !draft.terminal)) {
         throw new Error("Workflow 6 Review finalization draft is incomplete");
       }
-      if (draft.kind === "work-completed" && draft.review_transition?.phase !== "review") throw new Error("Workflow 6 work finalization draft has no Review transition");
     } catch (error) {
       return rejectFinalization(runId, transitionIdValue, error);
     }
@@ -593,32 +662,36 @@ export function createHarnessLifecycleController({
             revision: run.revision + 1,
             pending_transition: null,
             phase_results: [...(run.phase_results ?? []), draft.result_entry],
-            lifecycle: "blocked",
+            lifecycle: "open-points",
             phase: pending.phase,
             phase_status: staged.result.status,
-            next_action: "resume",
-            blockers: ["harness-phase-blocked"],
-          }, `${pending.phase}-blocked`, { transition_id: pending.transition_id });
+            next_action: "human-assessment",
+            blockers: [],
+            open_points: [{
+              key: "harness-phase-blocked",
+              type: "environment",
+              summary: "The project Harness explicitly reported that the phase could not complete.",
+              evidence: staged.result.limitations?.join(" ") || `Harness status is ${staged.result.status}.`,
+              impact: "No Review result can be derived for the intended phase outcome.",
+              question: "How should the human assess the reported Harness limitation?",
+            }],
+          }, `${pending.phase}-open-points`, { transition_id: pending.transition_id });
           return writeRun(stateRoot, run);
       }
       if (draft.kind === "work-completed") {
-        let next = markIdempotency(run, pending, "pending", null);
-        next = {
-          ...next,
+        run = markIdempotency(run, pending, "committed", run.revision + 1);
+        run = {
+          ...run,
           revision: run.revision + 1,
           phase_results: [...(run.phase_results ?? []), draft.result_entry],
-          pending_transition: draft.review_transition,
+          pending_transition: null,
           phase: pending.phase,
           phase_status: "completed",
-          lifecycle: "reviewing",
-          next_action: "complete-review",
+          lifecycle: "review-needed",
+          next_action: "review-work",
           blockers: [],
         };
-        next.idempotency = Object.fromEntries(Object.entries(next.idempotency).map(([key, value]) => [
-          key,
-          value.transition_id === pending.transition_id ? { ...value, transition_id: draft.review_transition.transition_id } : value,
-        ]));
-        return writeRun(stateRoot, event(next, "review-transition-prepared", { transition_id: draft.review_transition.transition_id }));
+        return writeRun(stateRoot, event(run, "fresh-review-pending", { completed_transition_id: pending.transition_id }));
       }
       if (draft.kind !== "review-completed") throw new Error("Workflow 6 persisted finalization draft is invalid");
       run = markIdempotency(run, pending, "committed", run.revision + 1);
@@ -715,7 +788,7 @@ export function createHarnessLifecycleController({
     const root = exactRoot(rootPlanText, pluginRoot);
     const rootHash = sha256(rootPlanText);
     const runId = `run-${sha256(`${workspaceBinding}\0${rootHash}\0${requestedProfile}\0${idempotencyKey}`).slice(0, 24)}`;
-    const inputFingerprint = fingerprint({ action: "start", run_id: runId, root_hash: rootHash, requested_profile: requestedProfile });
+    const inputFingerprint = fingerprint({ action: "implement", run_id: runId, root_hash: rootHash, requested_profile: requestedProfile });
     let duplicate = false;
     let createdTransition = null;
     withLifecycleLock(stateRoot, `start-${sha256(idempotencyKey).slice(0, 32)}`, () => {
@@ -766,7 +839,6 @@ export function createHarnessLifecycleController({
         revision: 0,
         blockers: [],
         evidence_grade: null,
-        delivery_status: null,
         capability_receipt_hash: null,
         deployment_binding_hash: null,
         phase_results: [],
@@ -780,7 +852,7 @@ export function createHarnessLifecycleController({
         created_at: now,
         updated_at: now,
       };
-      const transition = makeTransition({ run, action: "start", phase: "implementation", idempotencyKey, inputFingerprint, executionLeaseValue: executionLease() });
+      const transition = makeTransition({ run, action: "implement", phase: "implementation", idempotencyKey, inputFingerprint, executionLeaseValue: executionLease() });
       createdTransition = transition;
       run.pending_transition = transition;
       run.idempotency[idempotencyKey] = { fingerprint: inputFingerprint, transition_id: transition.transition_id, status: "pending", result_revision: null };
@@ -791,18 +863,6 @@ export function createHarnessLifecycleController({
     const completed = await advanceToGate(runId);
     return response(completed, duplicate);
   };
-
-  const aliasPendingResume = (runId, expectedRevision, idempotencyKey, inputFingerprint) => withOwnedRunLock(runId, () => {
-    let run = readRun(stateRoot, runId);
-    const existing = assertIdempotency(run, idempotencyKey, inputFingerprint);
-    if (existing) return run;
-    if (run.revision !== expectedRevision || !run.pending_transition) throw new Error("Workflow 6 has no pending transition to resume");
-    run.idempotency = {
-      ...run.idempotency,
-      [idempotencyKey]: { fingerprint: inputFingerprint, transition_id: run.pending_transition.transition_id, status: "pending", result_revision: null },
-    };
-    return writeRun(stateRoot, event(run, "transition-resume-selected", { transition_id: run.pending_transition.transition_id }));
-  });
 
   const claimDecisionExecution = (runId, transitionIdValue) => withOwnedRunLock(runId, () => {
     let run = readRun(stateRoot, runId);
@@ -888,23 +948,28 @@ export function createHarnessLifecycleController({
           pending_transition: null,
           decision_receipts: [...(value.decision_receipts ?? []), { decision: pending.decision, run_revision: pending.base_revision, protection_receipt_hash: protection.receipt_hash, transition_id: pending.transition_id }],
         };
-        if (pending.decision === "approve-correction") {
-          const correction = makeTransition({ run: value, action: pending.action, phase: "correction", idempotencyKey: pending.idempotency_key, inputFingerprint: pending.input_fingerprint, verificationMode: "correction", executionLeaseValue: executionLease() });
-          value.pending_transition = correction;
-          value.idempotency = Object.fromEntries(Object.entries(value.idempotency).map(([key, entry]) => [key, entry.transition_id === pending.transition_id ? { ...entry, transition_id: correction.transition_id } : entry]));
-          value.lifecycle = "correcting";
-          value.phase = "correction";
-          value.phase_status = "prepared";
-          value.next_action = "complete-correction";
-          value.blockers = [];
-          continuePhase = true;
-        } else {
-          value = markIdempotency(value, pending, "committed", value.revision);
-          value.lifecycle = pending.decision === "stop" ? "stopped" : value.delivery_status === "verified" ? "achieved" : "accepted-provisional";
-          value.phase_status = pending.decision === "stop" ? "cancelled" : value.phase_status;
-          value.next_action = "none";
-        }
-        return writeRun(stateRoot, event(value, pending.decision === "approve-correction" ? "correction-approved" : pending.decision === "stop" ? "run-stopped" : "delivery-accepted", { transition_id: pending.transition_id }));
+        const phase = pending.decision === "correct" ? "correction" : "review";
+        const verificationMode = phase === "correction"
+          ? "correction"
+          : (value.phase_results ?? []).at(-1)?.phase === "correction" ? "correction" : "root";
+        const phaseTransition = makeTransition({
+          run: value,
+          action: pending.action,
+          phase,
+          idempotencyKey: pending.idempotency_key,
+          inputFingerprint: pending.input_fingerprint,
+          verificationMode,
+          executionLeaseValue: executionLease(),
+        });
+        value.pending_transition = phaseTransition;
+        value.idempotency = Object.fromEntries(Object.entries(value.idempotency).map(([key, entry]) => [key, entry.transition_id === pending.transition_id ? { ...entry, transition_id: phaseTransition.transition_id } : entry]));
+        value.lifecycle = phase === "correction" ? "correcting" : "reviewing";
+        value.phase = phase;
+        value.phase_status = "prepared";
+        value.next_action = phaseNextAction(phase);
+        value.blockers = [];
+        continuePhase = true;
+        return writeRun(stateRoot, event(value, phase === "correction" ? "correction-approved" : "review-approved", { transition_id: pending.transition_id }));
       });
       return continuePhase ? advanceToGate(runId) : run;
     };
@@ -917,7 +982,7 @@ export function createHarnessLifecycleController({
   const control = async ({ runId, action, expectedRevision, idempotencyKey, humanDecisionReceipt }) => {
     if (!Number.isInteger(expectedRevision) || expectedRevision < 0) throw new Error("Workflow 6 control requires expected_revision");
     if (typeof idempotencyKey !== "string" || !idempotencyKey.trim()) throw new Error("Workflow 6 control requires idempotency_key");
-    if (!["resume", "approve-correction", "accept-delivery", "stop"].includes(action)) throw new Error(`unsupported Workflow 6 control action ${action}`);
+    if (!["review", "correct"].includes(action)) throw new Error(`unsupported Workflow 6 control action ${action}`);
     let current = readRun(stateRoot, runId);
     const inputFingerprint = fingerprint({ action, run_id: runId, expected_revision: expectedRevision });
     const prior = assertIdempotency(current, idempotencyKey, inputFingerprint);
@@ -932,30 +997,11 @@ export function createHarnessLifecycleController({
     }
     if (current.revision !== expectedRevision) throw new Error(`Workflow 6 run revision conflict: expected ${expectedRevision}, current ${current.revision}`);
 
-    if (action === "resume" && current.pending_transition) {
-      aliasPendingResume(runId, expectedRevision, idempotencyKey, inputFingerprint);
-      const recovered = await advanceToGate(runId);
-      return response(recovered, false);
-    }
     if (current.pending_transition) throw new Error("Workflow 6 run already has a pending transition");
 
-    if (action === "resume") {
-      if (!current.next_action || current.next_action !== "resume" || !["shadow", "waiting-human", "blocked"].includes(current.lifecycle)) throw new Error("Workflow 6 run is not awaiting resume");
-      const pendingReview = current.phase === "review" && ["implementation", "correction"].includes(current.phase_results?.at(-1)?.phase);
-      const phase = pendingReview ? "review" : current.phase === "correction" ? "correction" : "implementation";
-      const reserved = reserveTransition(stateRoot, runId, {
-        expectedRevision, action, phase, idempotencyKey, inputFingerprint,
-        verificationMode: current.phase === "correction" || current.phase_results?.at(-1)?.phase === "correction" ? "correction" : "root",
-        executionLeaseValue: executionLease(),
-      }, lockOptions);
-      await fault("after-prepare", { runId, transition: structuredClone(reserved.transition) });
-      return response(await advanceToGate(runId), reserved.duplicate);
-    }
-
     if (!decisionReceiptAdapter) throw new Error("protected human decision adapter is unavailable");
-    if (action === "accept-delivery" && !current.lifecycle.startsWith("delivery-ready-")) throw new Error("Workflow 6 delivery is not awaiting acceptance");
-    if (action === "approve-correction" && current.lifecycle !== "blocked") throw new Error("Workflow 6 correction is not awaiting approval");
-    if (action === "stop" && ["achieved", "accepted-provisional", "stopped"].includes(current.lifecycle)) throw new Error("Workflow 6 run is already terminal");
+    if (action === "review" && current.lifecycle !== "review-needed") throw new Error("Workflow 6 Review is not awaiting Review Work authorization");
+    if (action === "correct" && current.lifecycle !== "correction-needed") throw new Error("Workflow 6 correction is not awaiting Correct Work authorization");
     const context = decisionContext(current);
     const idempotencyHash = sha256(`${idempotencyKey}\0${inputFingerprint}`);
     const decisionTransitionId = transitionId(runId, expectedRevision, action, action, idempotencyHash);

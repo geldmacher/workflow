@@ -1,7 +1,9 @@
 # Embedded correction
 
-A correction exists only in a Schema-6 Review with `next_action: correct`. It binds Findings to outcomes, Root objectives and Checks, bounded targets, probes, and intent-only correction Checks.
+A Correction exists only in a Schema-6 Review with `outcome: correction-needed` and `next_action: correct`. It covers every current correctable Finding exactly through bounded fixes and steps.
 
-Correction verification stays intent-only; the harness owns execution choices.
+Findings bind original Root Objective and Check IDs. Correction steps reuse only original Root Check IDs; they create no required Check IDs. Local completion probes remain non-authoritative implementation guidance. Every target is validated against the original Root authority before output.
 
-`/correct-work` applies the newest unique in-Root correction and finishes without Evidence. Fresh Review binds the next correction or terminates finding-free. Candidates accumulate across this lineage; learning stays separately authorized. Changed intent or authority requires replan.
+Correct Work is one separate human authorization for the current exact Correction. It applies only those outcomes, creates no Evidence or state, and ends as **Fresh Review pending**. The human separately starts Review Work.
+
+Changed intent, authority, risk, or external effects cannot be smuggled into a Correction. They become a concrete Open Point for human assessment and may lead to a deliberately new Plan Work request.

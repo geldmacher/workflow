@@ -82,9 +82,7 @@ function assertSealPredecessor(exact, pluginRoot) {
   if (exact.unprovenancedReviewIds.length !== 1 || exact.unprovenancedReviewIds[0] !== reviewTipId) {
     throw codedError("protected-seal-chain-invalid", "protected sealing requires exactly one unprovenanced current Review tip");
   }
-  const sealableDecision = reviewTip?.fields.delivery_status === "provisional"
-    && ((reviewTip.fields.assessment === "achieved" && reviewTip.fields.next_action === "none")
-      || (reviewTip.fields.assessment === "provisional" && reviewTip.fields.next_action === "accept-provisional"));
+  const sealableDecision = reviewTip?.fields.outcome === "achieved" && reviewTip.fields.next_action === "none";
   if (!evidenceTip || !reviewTip
     || evidenceTip.fields.representation !== "full"
     || reviewTip.fields.latest_evidence_id !== evidenceTipId
@@ -94,7 +92,7 @@ function assertSealPredecessor(exact, pluginRoot) {
     || (reviewTip.findings ?? []).length > 0
     || evidenceTip.fields.status === "blocked"
     || (evidenceTip.fields.check_evidence ?? []).some((entry) => entry.grade === "failed")) {
-    throw codedError("protected-seal-chain-invalid", "protected sealing requires one finding-free provisional Evidence/Review pair");
+    throw codedError("protected-seal-chain-invalid", "protected sealing requires one finding-free achieved Evidence/Review pair");
   }
   return { current, evidenceTipId, reviewTipId };
 }
@@ -121,36 +119,23 @@ function authorityLimitation(reviewInput, message) {
   const boundedMessage = boundedLine(message);
   return {
     ...reviewInput,
-    assessment: ["achieved", "provisional"].includes(reviewInput.assessment)
-      ? "partially-achieved"
-      : reviewInput.assessment,
-    recommended_action: "clarify",
-    snapshot_assessment: "incomplete",
+    outcome: "open-points",
     snapshot_summary: appendBoundedSummary(reviewInput.snapshot_summary, boundedMessage),
-    missing_evidence: [...new Set([...(reviewInput.missing_evidence ?? []), boundedMessage])],
+    findings: (reviewInput.findings ?? []).map((finding) => ({ ...finding, resolution: "open" })),
+    open_points: [...(reviewInput.open_points ?? []), {
+      key: `authority-${createHash("sha256").update(boundedMessage).digest("hex").slice(0, 8)}`,
+      type: "authority",
+      summary: "The repository observation crosses or cannot prove the exact Root authority boundary.",
+      evidence: boundedMessage,
+      impact: "Workflow cannot authorize a correction or Achieved outcome for this boundary.",
+      question: "Should the human provide a new Authority Core or end with this limitation?",
+    }],
     correction: undefined,
   };
 }
 
 function attributionLimitation(reviewInput, message) {
-  const boundedMessage = boundedLine(message);
-  const decisionCanRemainEvidenceOnly = ["none", "accept-provisional"].includes(reviewInput.recommended_action)
-    && (reviewInput.findings ?? []).length === 0
-    && (reviewInput.missing_evidence ?? []).length === 0
-    && reviewInput.snapshot_assessment !== "contradicted";
-  return {
-    ...reviewInput,
-    assessment: ["achieved", "provisional"].includes(reviewInput.assessment)
-      ? "provisional"
-      : reviewInput.assessment,
-    recommended_action: decisionCanRemainEvidenceOnly
-      ? "accept-provisional"
-      : reviewInput.recommended_action,
-    snapshot_assessment: decisionCanRemainEvidenceOnly
-      ? "consistent"
-      : reviewInput.snapshot_assessment,
-    snapshot_summary: appendBoundedSummary(reviewInput.snapshot_summary, boundedMessage),
-  };
+  return authorityLimitation(reviewInput, message);
 }
 
 function supportedOnBoundary(checkEvidence, message) {
@@ -278,10 +263,6 @@ export function buildManualReviewLifecycle({
     const message = `Root-subject scope drift remains provisional: ${pathAuthority.outside_allowed_paths.join(", ")}`;
     if (seal) throw codedError("protected-seal-authority-violation", message);
     effectiveReviewInput = attributionLimitation(effectiveReviewInput, message);
-    effectiveReviewInput = {
-      ...effectiveReviewInput,
-      missing_evidence: [...new Set([...(effectiveReviewInput.missing_evidence ?? []), message])],
-    };
   }
 
   // Reusing an Evidence tip is only honest when its declared changed_paths still
@@ -388,8 +369,7 @@ export function buildManualReviewLifecycle({
   });
   if (seal && (evidence.fields.status !== "complete"
     || evidence.fields.overall_grade !== "verified"
-    || review.fields.assessment !== "achieved"
-    || review.fields.delivery_status !== "verified"
+    || review.fields.outcome !== "achieved"
     || review.fields.next_action !== "none")) {
     throw codedError("protected-seal-not-achieved", "protected sealing produced no artifacts because the fresh protected Review was not achieved and verified");
   }

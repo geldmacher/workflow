@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { parse } from "yaml";
 import { defaultRoot, preflightRootPlan } from "../../scripts/validate-artifact.source.mjs";
 import { rootContentHash } from "./state-paths.mjs";
+import { canonicalAuthorityRootText } from "./workflow-authority-core.mjs";
 
 const ROOT_ID = /\bwp-[A-Za-z0-9][A-Za-z0-9-]*\b/;
 
@@ -61,15 +62,11 @@ export function extractRootPlanText(source) {
   const text = String(source ?? "");
   const proposedMatch = text.match(/<proposed_plan>([\s\S]*?)<\/proposed_plan>/i);
   const proposed = proposedMatch ? unwrapProposedPlanInterior(proposedMatch[1]) : text.trim();
-  const fenced = proposed.match(/```yaml artifact-envelope\s*([\s\S]*?)```([\s\S]*)$/i);
-  if (fenced?.[1]) {
-    return `---\n${fenced[1].trim()}\n---\n${String(fenced[2] ?? "").trimStart()}`;
+  try {
+    return canonicalAuthorityRootText(proposed);
+  } catch {
+    return null;
   }
-  const bare = proposed.match(/^(---\r?\n[\s\S]*?\r?\n---(?:\r?\n[\s\S]*)?)$/);
-  if (bare?.[1] && /\bartifact:\s*work-plan\b/.test(bare[1]) && /\bschema:\s*6\b/.test(bare[1])) {
-    return bare[1];
-  }
-  return null;
 }
 
 export function parseRootPlanFields(rootPlanText) {

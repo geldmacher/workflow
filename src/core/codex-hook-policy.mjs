@@ -4,7 +4,7 @@ export const CODEX_PLAN_MARKER = "[workflow-codex-plan-v6]";
 export const CODEX_REVIEW_MARKER = "[workflow-codex-review-v6]";
 export const CODEX_IMPLEMENTATION_MARKER = "[workflow-codex-implementation-v6]";
 
-const WORKFLOW_SKILLS = ["plan-work", "correct-work", "review-work", "explain-work", "learn-from-work", "work-status", "accept-work"];
+const WORKFLOW_SKILLS = ["plan-work", "correct-work", "review-work", "explain-work", "learn-from-work", "work-status"];
 const WORKFLOW_SKILL_NAMES = WORKFLOW_SKILLS.join("|");
 const WORKFLOW_TOKEN = new RegExp(`(?:^|[\\s('"\\x60])\\$(?:geldmacher-workflow:)?(${WORKFLOW_SKILL_NAMES})(?=$|[\\s.,;!?')"\\x60]|:(?=\\s|$))`, "gi");
 const WORKFLOW_MARKDOWN_LINK = new RegExp(`\\[\\$(?:geldmacher-workflow:)?(${WORKFLOW_SKILL_NAMES})\\]\\(([^)\\r\\n]+)\\)`, "gi");

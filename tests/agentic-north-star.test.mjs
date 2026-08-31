@@ -13,11 +13,11 @@ test("canonical Northstar defines the lifecycle-kernel and harness boundary", ()
   assert.equal(lstatSync(canonical).isSymbolicLink(), false);
   const text = readFileSync(canonical, "utf8");
   assert.match(text, /^# Workflow north star/m);
-  assert.match(text, /Plan → Implement → Review → Correct or Replan/);
+  assert.match(text, /Plan → Implement → Review → Correct → Review/);
   assert.match(text, /## Workflow owns/);
   assert.match(text, /## The project harness owns/);
   assert.match(text, /must never parse, classify, allowlist, rewrite, compare, or execute/);
-  assert.match(text, /Missing attestation caps the claim at supported or provisional/);
+  assert.match(text, /Missing attestation caps proof at supported/);
   assert.match(text, /Ordinary Cursor and Codex prompts/);
   assert.match(text, /Repository build, test, and deployment scripts are this repository's own development harness/);
   assert.equal(existsSync(join(defaultRoot, ".agents", "AGENTS.md")), false);

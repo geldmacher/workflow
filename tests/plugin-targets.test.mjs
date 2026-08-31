@@ -180,13 +180,11 @@ test("deterministic target build isolates Codex and exposes exactly five Manual 
       review_input: {
         schema: 1,
         kind: "review-input",
-        assessment: "achieved",
-        recommended_action: "none",
+        outcome: "achieved",
         assessment_summary: "The target smoke observes the required repository outcome.",
-        snapshot_assessment: "consistent",
         snapshot_summary: "The same closed observation is supplied to every target.",
         findings: [],
-        missing_evidence: [],
+        open_points: [],
       },
       repository_observation: {
         schema: 1,
@@ -329,27 +327,12 @@ test("deterministic target build isolates Codex and exposes exactly five Manual 
     assert.doesNotMatch(portablePlan, /`review-work`/);
     assert.match(codexCorrect, /correction phase is complete and fresh `\$review-work` is pending/i);
     assert.match(codexCorrect, /Never claim that delivery or Workflow is complete/i);
-    for (const cursorFacade of [cursorReview, cursorManual]) {
-      assert.match(cursorFacade, /closed Cursor map/i);
-      assert.match(cursorFacade, /`clarify`.*`provide-artifacts`.*`none`/i);
-      assert.match(cursorFacade, /No fallback;.*token.*trace/i);
-    }
-    for (const row of [
-      "| `implement-plan` | **Implement Plan** | **Implement Plan** | `implement-work` |",
-      "| `correct-plan` | revise the native Plan | revise the native Plan | revise the Root with `plan-work` |",
-      "| `create-schema-6-root` | `/plan-work` | `$plan-work` | `plan-work` |",
-      "| `create-root-plan` | `/plan-work` | `$plan-work` | `plan-work` |",
-      "| `correct` | `/correct-work` | `$correct-work` | `correct-work` |",
-      "| `accept-provisional` | `/accept-work provisional` | `$accept-work` | `accept-work` |",
-      "| `replan` | `/plan-work replan` | `$plan-work replan` | `plan-work replan` |",
-      "| `retry-review` | `/review-work` | `$review-work` | `review-work` |",
-      "| `review-root` | `/review-work` | `$review-work` | `review-work` |",
-      "| `clarify` | answer the named decision | answer the named decision | answer the named decision |",
-      "| `provide-artifacts` | provide the exact chain | provide the exact chain | provide the exact chain |",
-      "| `none` | no further Workflow action | no further Workflow action | no further Workflow action |",
-    ]) {
-      assert.equal(codexManualContract.includes(row), true, `missing native action mapping row: ${row}`);
-    }
+    assert.match(cursorManual, /closed Cursor map/i);
+    assert.match(cursorManual, /`implement-plan`.*`review-work`.*`correct`.*`human-assessment`.*`none`/i);
+    assert.match(cursorManual, /No fallback;.*token.*trace/i);
+    assert.match(cursorReview, /Decorate only `presentation\.next_action`.*`correct`.*`human-assessment`.*`none`/is);
+    assert.match(codexManualContract, /only human-facing actions are \*\*Implement Plan\*\*.*\*\*Review Work\*\*.*\*\*Correct Work\*\*.*natural assessment.*or none/is);
+    assert.doesNotMatch(codexManualContract, /accept-provisional|accept-delivery|retry-review|clarify|provide-artifacts|separate replan action/i);
     assert.doesNotMatch(codexReview, /workflow_[a-z_]+/);
     assert.doesNotMatch(codexReview, /command allowlist|model pool|review route/i);
     const codexEngineering = readFileSync(join(codex, "skills", "engineering-work", "SKILL.md"), "utf8");
@@ -393,10 +376,8 @@ test("deterministic target build isolates Codex and exposes exactly five Manual 
         review_input: {
           schema: 1,
           kind: "review-input",
-          assessment: "partially-achieved",
-          recommended_action: "correct",
+          outcome: "open-points",
           assessment_summary: "Repository observation only.",
-          snapshot_assessment: "incomplete",
           snapshot_summary: "Formal host binding is unavailable.",
           findings: [{
             key: "repository-observation",
@@ -405,9 +386,16 @@ test("deterministic target build isolates Codex and exposes exactly five Manual 
             check_ids: ["CHECK-1"],
             evidence: "A repository-level observation is available.",
             reasoning: "The observation remains non-authoritative.",
-            resolution: "correct",
+            resolution: "open",
           }],
-          missing_evidence: ["Protected Codex Review binding."],
+          open_points: [{
+            key: "formal-binding-unavailable",
+            type: "formal-binding",
+            summary: "Protected Codex Review binding is unavailable.",
+            evidence: "The Codex target cannot protect the host Review invocation.",
+            impact: "The repository finding remains non-authoritative.",
+            question: "How should the human assess this formal binding limit?",
+          }],
         },
       },
     });

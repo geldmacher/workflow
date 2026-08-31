@@ -1,23 +1,15 @@
 # Usage examples
 
-## Manual
+## Direct loop
 
-1. Use `/plan-work` to establish material intent. It recommends one engineering playbook and waits for an inline confirm or decline before returning the Root; either decision remains non-authoritative human trace.
-2. Approve the Schema-6 Root and select the host-native implementation action. A confirmed mutating playbook becomes usable only after both decisions.
-3. Let the project harness choose concrete execution.
-4. Run fresh `/review-work`.
-5. If Review says everything is achieved, stop. If it returns a bounded correction, use `/correct-work` and run `/review-work` again. Replan, retry, clarification, or provisional acceptance appear only for their named material boundary.
+1. Use `/plan-work` or `$plan-work` to write the complete implementation prompt and generate its Authority Core.
+2. Approve **Implement Plan**.
+3. Let the project harness implement inside Root authority.
+4. Start fresh Review Work.
+5. Stop on Achieved. On Correction needed, approve one Correct Work and then start fresh Review Work again. On Open points, answer the named human question or deliberately request a new plan.
 
-If material intent changes or the human trace is unavailable, `plan-work` must recommend again. Declining a playbook never blocks an otherwise ready Root.
+Missing Check observations retry internally. An invalid formal binding still produces an informative repository-read-only Shadow Review.
 
-A plan Check might say “Prove the changed behavior and repository consistency with project-appropriate evidence.” It must not name a command or working directory.
+## Supervised and Autonomous
 
-Review keeps unrelated pre-existing dirty paths visible as ambient state rather than treating them as delivery work. After a terminal finding-free Review, `/learn-from-work` remains an optional separate human-authorized step for confirmed project guidance.
-
-## Supervised
-
-Use `/auto-work` with `start`, an exact Schema-6 Root, and `supervised`. Workflow advances implementation and fresh Review through protected generic PhaseRequests until the human delivery gate. Resume an interrupted exact Run revision through the controller. At a Cursor human gate submit exactly `/auto-work accept-delivery <run-id>@<revision>`, `/auto-work approve-correction <run-id>@<revision>`, or `/auto-work stop <run-id>@<revision>` so the host—not the model—injects the decision receipt.
-
-## Autonomous
-
-Use `autonomous` only when the exact Root-bound Qualification Key and receipt hashes match. Complete protected evidence may finish; any capability or evidence gap remains Shadow or requires supervised human acceptance.
+`/auto-work implement` orchestrates one compatible protected implementation phase and stops at Review needed. The human then uses `/auto-work review <run-id>@<revision>`. At Correction needed, `/auto-work correct <run-id>@<revision>` applies the exact bounded Correction and stops again at Fresh Review pending. Open points need natural human assessment. Achieved needs no final acceptance action.

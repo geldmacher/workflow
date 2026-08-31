@@ -44,6 +44,7 @@ import {
   verificationIntentHash,
 } from "../src/core/harness-attestations.mjs";
 import { withNativeStateLock } from "../src/harness/native-task-review-state.mjs";
+import { nativePlan, supportedCheck } from "./support/workflow-fixtures.mjs";
 
 const rootPlan = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
 const baseline = Object.freeze({
@@ -96,15 +97,13 @@ function reviewEvent(overrides = {}) {
       review_input: {
         schema: 1,
         kind: "review-input",
-        assessment: "mostly-achieved",
-        recommended_action: "none",
-        assessment_summary: "Review remains provisional without harness evidence.",
-        snapshot_assessment: "consistent",
+        outcome: "achieved",
+        assessment_summary: "Repository-supported evidence satisfies the Root.",
         snapshot_summary: "The repository snapshot is stable.",
         findings: [],
-        missing_evidence: ["CHECK-1"],
+        open_points: [],
       },
-      check_evidence: [],
+      check_evidence: [supportedCheck()],
     },
     ...overrides,
   };
@@ -166,23 +165,18 @@ function provisionalReviewInput() {
   return {
     schema: 1,
     kind: "review-input",
-    assessment: "provisional",
-    recommended_action: "accept-provisional",
-    assessment_summary: "The exact Root is intact while protected harness evidence is unavailable.",
-    snapshot_assessment: "consistent",
+    outcome: "achieved",
+    assessment_summary: "Repository-supported evidence satisfies the exact Root.",
     snapshot_summary: "No repository contradiction was observed.",
     findings: [],
-    missing_evidence: ["CHECK-1"],
+    open_points: [],
   };
 }
 
 function verifiedReviewInput() {
   return {
     ...provisionalReviewInput(),
-    assessment: "achieved",
-    recommended_action: "none",
     assessment_summary: "Fresh protected evidence satisfies the exact Root.",
-    missing_evidence: [],
   };
 }
 
@@ -216,10 +210,8 @@ function correctionReviewInput() {
   return {
     schema: 1,
     kind: "review-input",
-    assessment: "mostly-achieved",
-    recommended_action: "correct",
+    outcome: "correction-needed",
     assessment_summary: "One Root-bounded outcome remains incomplete.",
-    snapshot_assessment: "consistent",
     snapshot_summary: "The repository state is consistent with the finding.",
     findings: [{
       key: "outcome-gap",
@@ -230,19 +222,9 @@ function correctionReviewInput() {
       reasoning: "Acceptance is not established yet.",
       resolution: "correct",
     }],
-    missing_evidence: [],
+    open_points: [],
     correction: {
       fixes: [{ key: "close-gap", finding_keys: ["outcome-gap"], required_outcome: "Complete the outcome.", evidence: "The gap is Root-bounded." }],
-      checks: [{
-        key: "verify-gap",
-        fix_keys: ["close-gap"],
-        verification_intent: "Prove the corrected outcome.",
-        expected_evidence: "Protected evidence on the corrected snapshot.",
-        evidence_class: "harness-verifiable",
-        required: true,
-        cost_class: "standard",
-        prerequisites: ["The correction is implemented."],
-      }],
       steps: [{
         key: "apply-gap",
         fix_keys: ["close-gap"],
@@ -250,15 +232,8 @@ function correctionReviewInput() {
         required_outcome: "Complete the outcome.",
         implementation_latitude: "The project Harness chooses execution.",
         completion_probe: "The required outcome is observable.",
-        check_keys: ["verify-gap"],
-        deviation_action: "Replan if Root authority changes.",
-      }],
-      learning_candidates: [{
-        key: "preserve-boundary",
-        finding_keys: ["outcome-gap"],
-        reusable_guidance: "Keep verification intent separate from project execution choices.",
-        candidate_targets: ["project guidance"],
-        confirmation_evidence: "A protected corrected delivery.",
+        root_check_ids: ["CHECK-1"],
+        deviation_action: "Report an Open Point if Root authority changes.",
       }],
     },
   };
@@ -623,7 +598,7 @@ test("CreatePlan transitions are exact, idempotent, and fail closed on ambiguity
     assert.equal(observeNativeCreatePlan({ stateRoots: [stateRoot], input: planEvent(), pluginRoot: defaultRoot, options: options() }).duplicate, true);
     const conflicting = planEvent();
     conflicting.tool_use_id = "different-create-plan-call";
-    conflicting.tool_input = { ...conflicting.tool_input, plan: rootPlan.replace("wp-adaptive-retry", "wp-adaptive-retry-conflict") };
+    conflicting.tool_input = { ...conflicting.tool_input, plan: nativePlan("manual", { id: "wp-adaptive-retry-conflict" }) };
     assert.equal(observeNativeCreatePlan({ stateRoots: [stateRoot], input: conflicting, pluginRoot: defaultRoot, options: options() }).status, "ambiguous");
     assert.equal(selectNativeReviewRoot({ stateRoots: [stateRoot], input: selectionEvent(), pluginRoot: defaultRoot, options: options() }).status, "ambiguous");
   } finally {
@@ -887,7 +862,7 @@ test("native Review result commit is idempotent and input-bound", () => {
       artifact_kind: "work-review",
       root_plan_id: consumed.receipt.root_plan_id,
       repository_state_hash: "f".repeat(64),
-      assessment: "provisional",
+      outcome: "open-points",
     };
     const commit = (candidate) => commitNativeReviewInvocationResult({
       stateRoot,
@@ -908,7 +883,7 @@ test("native Review result commit is idempotent and input-bound", () => {
     assert.equal(commit({ ...payload, artifact_kind: "delivery-evidence" }).status, "invalid");
     assert.equal(commit(payload).status, "committed");
     assert.equal(commit(payload).duplicate, true);
-    assert.equal(commit({ ...payload, assessment: "blocked" }).status, "conflict");
+    assert.equal(commit({ ...payload, outcome: "achieved" }).status, "conflict");
     assert.equal(replayNativeReviewInvocationResult({
       stateRoot,
       token: prepared.token,
@@ -1033,7 +1008,7 @@ test("successful Review output records one protected predecessor pair for later 
       rootPlanText: receipt.root_text,
       artifacts: receipt.artifacts,
       reviewInput: provisionalReviewInput(),
-      checkEvidence: [],
+      checkEvidence: [supportedCheck()],
       workspaceRoot: defaultRoot,
       pluginRoot: defaultRoot,
       repositoryBaseline: receipt.baseline,
@@ -1087,7 +1062,7 @@ test("successful Review output records one protected predecessor pair for later 
       rootPlanText: replacementReceipt.root_text,
       artifacts: replacementReceipt.artifacts,
       reviewInput: provisionalReviewInput(),
-      checkEvidence: [],
+      checkEvidence: [supportedCheck()],
       workspaceRoot: defaultRoot,
       pluginRoot: defaultRoot,
       repositoryBaseline: replacementReceipt.baseline,
@@ -1113,7 +1088,7 @@ test("protected seal receipt binds local bytes and records one linear four-artif
     const local = buildManualReviewLifecycle({
       rootPlanText: rootPlan,
       reviewInput: provisionalReviewInput(),
-      checkEvidence: [],
+      checkEvidence: [supportedCheck()],
       workspaceRoot: defaultRoot,
       pluginRoot: defaultRoot,
       repositoryBaseline: baseline,
@@ -1146,7 +1121,7 @@ test("protected seal receipt binds local bytes and records one linear four-artif
     assert.equal(consumeNativeReviewReceipt({ stateRoot, token: prepared.token, input: tamperedInput }).status, "mismatch");
     const consumed = consumeNativeReviewReceipt({ stateRoot, token: prepared.token, input: prepared.updated_input });
     assert.equal(consumed.status, "resolved");
-    assert.equal(consumed.receipt.predecessor_mode, "provisional-seal");
+    assert.equal(consumed.receipt.predecessor_mode, "supported-seal");
     assert.deepEqual(consumed.receipt.artifacts, localArtifacts);
 
     const workspaceBinding = harnessContractHash({ workspace_root: defaultRoot });
@@ -1155,7 +1130,7 @@ test("protected seal receipt binds local bytes and records one linear four-artif
       rootPlanText: consumed.receipt.root_text,
       artifacts: consumed.receipt.artifacts,
       reviewInput: verifiedReviewInput(),
-      checkEvidence: [],
+      checkEvidence: [supportedCheck()],
       workspaceRoot: defaultRoot,
       pluginRoot: defaultRoot,
       repositoryBaseline: consumed.receipt.baseline,
@@ -1223,7 +1198,7 @@ test("stored predecessor and baseline corruption cannot become Review authority"
     const bundle = buildManualReviewLifecycle({
       rootPlanText: receipt.root_text,
       reviewInput: provisionalReviewInput(),
-      checkEvidence: [],
+      checkEvidence: [supportedCheck()],
       workspaceRoot: defaultRoot,
       pluginRoot: defaultRoot,
       repositoryBaseline: receipt.baseline,
@@ -1236,11 +1211,11 @@ test("stored predecessor and baseline corruption cannot become Review authority"
     selectWith((value) => { value.artifacts = [evidence, { ...evidence, text: `${evidence.text}\n` }]; }, "invalid");
     selectWith((value) => { value.artifacts = [evidence, { ...review, builder_provenance: null }]; }, "invalid");
 
-    const foreignRoot = rootPlan.replace("id: wp-adaptive-retry", "id: wp-foreign-root");
+    const foreignRoot = nativePlan("manual", { id: "wp-foreign-root" });
     const foreignBundle = buildManualReviewLifecycle({
       rootPlanText: foreignRoot,
       reviewInput: provisionalReviewInput(),
-      checkEvidence: [],
+      checkEvidence: [supportedCheck()],
       workspaceRoot: defaultRoot,
       pluginRoot: defaultRoot,
       repositoryBaseline: baseline,
@@ -1289,7 +1264,7 @@ test("a protected corrective Review opens a new correction epoch and appends a f
       rootPlanText: firstReceipt.root_text,
       artifacts: firstReceipt.artifacts,
       reviewInput: correctionReviewInput(),
-      checkEvidence: [],
+      checkEvidence: [supportedCheck()],
       workspaceRoot: defaultRoot,
       pluginRoot: defaultRoot,
       repositoryBaseline: firstReceipt.baseline,
@@ -1320,7 +1295,7 @@ test("a protected corrective Review opens a new correction epoch and appends a f
       rootPlanText: secondReceipt.root_text,
       artifacts: secondReceipt.artifacts,
       reviewInput: provisionalReviewInput(),
-      checkEvidence: [],
+      checkEvidence: [supportedCheck()],
       workspaceRoot: defaultRoot,
       pluginRoot: defaultRoot,
       repositoryBaseline: secondReceipt.baseline,
@@ -1350,7 +1325,7 @@ test("a protected corrective Review opens a new correction epoch and appends a f
       rootPlanText: replacementReceipt.root_text,
       artifacts: replacementReceipt.artifacts,
       reviewInput: provisionalReviewInput(),
-      checkEvidence: [],
+      checkEvidence: [supportedCheck()],
       workspaceRoot: defaultRoot,
       pluginRoot: defaultRoot,
       repositoryBaseline: replacementReceipt.baseline,

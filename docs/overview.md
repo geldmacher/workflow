@@ -29,7 +29,7 @@ Manual is the default and requires no controller configuration. The human approv
 
 ## Supervised
 
-Supervised delegates a phase through an external Host Adapter and its deployment-bound Harness Capability Receipt. The Harness executes inside Root authority, returns a transition-bound protected PhaseResult, and the human accepts delivery through an exact revision-bound host decision.
+Supervised delegates one human-authorized phase through an external Host Adapter and its deployment-bound Harness Capability Receipt. The Harness executes inside Root authority and returns a transition-bound protected PhaseResult. Implementation and correction stop at Review needed; the human separately starts Review Work. Achieved needs no final acceptance action.
 
 ## Autonomous
 

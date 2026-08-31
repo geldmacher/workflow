@@ -22,7 +22,6 @@ import { defaultRoot } from "../scripts/validate-artifact.source.mjs";
 import { workflowClient } from "./mcp-client.mjs";
 
 const expectedSkills = [
-  "accept-work",
   "correct-work",
   "engineering-work",
   "explain-work",
@@ -163,20 +162,9 @@ test("Agent Plugins v1 target is deterministic, closed, and immediately discover
     assert.doesNotMatch(portableImplement, /exact standalone|planned director|one leading `rtk`/i);
     assert.match(portableManual, /shared Manual Workflow contract; that contract is the single mapping source/i);
     assert.doesNotMatch(portableManual, /\| Token \| Portable action \|/);
-    for (const [token, action] of [
-      ["implement-plan", "`implement-work`"],
-      ["correct-plan", "revise the Root with `plan-work`"],
-      ["create-schema-6-root", "`plan-work`"],
-      ["create-root-plan", "`plan-work`"],
-      ["review-root", "`review-work`"],
-      ["correct", "`correct-work`"],
-      ["accept-provisional", "`accept-work`"],
-      ["replan", "`plan-work replan`"],
-      ["retry-review", "`review-work`"],
-      ["clarify", "answer the named decision"],
-      ["provide-artifacts", "provide the exact chain"],
-      ["none", "no further Workflow action"],
-    ]) assert.equal(sharedManualContract.includes(`| \`${token}\` | ${action} |`), true, `${token} must retain its canonical portable action`);
+    assert.match(sharedManualContract, /Implement Plan.*Review Work.*Correct Work/is);
+    assert.match(sharedManualContract, /Achieved.*Correction needed.*Open points/is);
+    assert.doesNotMatch(sharedManualContract, /accept-provisional|accept-delivery|retry-review|separate replan action/i);
     assert.match(portableEngineering, /recommend exactly one playbook/i);
     assert.match(portableEngineering, /never grants Workflow authority or evidence/i);
     assert.match(portableEngineering, /Never become sticky/i);
@@ -462,10 +450,8 @@ test("portable MCP expands standard variables, exposes five tools, and writes on
         review_input: {
           schema: 1,
           kind: "review-input",
-          assessment: "partially-achieved",
-          recommended_action: "correct",
+          outcome: "correction-needed",
           assessment_summary: "Repository observation only.",
-          snapshot_assessment: "incomplete",
           snapshot_summary: "Formal host binding is unavailable.",
           findings: [{
             key: "repository-observation",
@@ -476,7 +462,25 @@ test("portable MCP expands standard variables, exposes five tools, and writes on
             reasoning: "The observation remains non-authoritative.",
             resolution: "correct",
           }],
-          missing_evidence: ["Protected portable Review binding."],
+          open_points: [],
+          correction: {
+            fixes: [{
+              key: "observe-repository",
+              finding_keys: ["repository-observation"],
+              required_outcome: "Resolve the repository observation.",
+              evidence: "A fresh repository observation is required.",
+            }],
+            steps: [{
+              key: "resolve-observation",
+              fix_keys: ["observe-repository"],
+              targets: ["src"],
+              required_outcome: "Resolve the repository observation.",
+              implementation_latitude: "The project harness chooses the concrete implementation.",
+              completion_probe: "The original Root Check is ready for fresh Review.",
+              root_check_ids: ["CHECK-1"],
+              deviation_action: "Report an Open Point if Root authority is insufficient.",
+            }],
+          },
         },
       },
     });

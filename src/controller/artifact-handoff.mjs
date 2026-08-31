@@ -252,7 +252,7 @@ function validateRecord(record, pluginRoot) {
 }
 
 function referencedIds(fields) {
-  if (fields.artifact === "work-plan") return [fields.predecessor_plan_id, fields.replan_source_review_id].filter(Boolean);
+  if (fields.artifact === "work-plan") return [fields.predecessor_plan_id, fields.source_review_id].filter(Boolean);
   if (fields.artifact === "delivery-evidence") return [fields.predecessor_evidence_id, fields.source_review_id].filter(Boolean);
   if (fields.artifact === "work-review") return [fields.latest_evidence_id, fields.predecessor_review_id].filter(Boolean);
   return [];

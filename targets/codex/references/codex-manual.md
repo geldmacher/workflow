@@ -1,15 +1,9 @@
 # Codex Manual facade
 
-Workflow on Codex implements the complete Skills-first Manual Schema-6 lifecycle: Plan → Implement → Review, followed only when needed by bounded Correct or Replan → Review.
+Workflow on Codex uses Plan → Implement → Review → Correct → Review. Codex Plan mode presents comprehensive free-form Markdown with one generated Authority Core. The exact approved plan provides implementation authority.
 
-Codex Plan mode and the exact `<proposed_plan>` provide implementation Root authority after separate human approval. The bundled `dist/manual-workflow.mjs` validates Root bytes, constructs Review artifacts, derives status, and performs ephemeral provisional acceptance. Manual use requires no MCP, Host Adapter, MCP Roots, Hook Trust, cache, handoff, or persistent Workflow state.
+Fresh `$review-work` is repository-read-only and returns only Achieved, Correction needed, or Open points. Missing required observations retry internally. Invalid formal binding still receives an informative Shadow Review with no artifacts or correction authority. Evidence grade remains separate from outcome.
 
-The host sandbox and human approvals remain authoritative. Workflow chooses no command, tool, model, route, retry, sandbox, worktree, or framework strategy. There is no Workflow execution engine, model pool, Verification Profile, automatic merge, push, publication, or deployment.
+Each `$correct-work` is separately human-authorized and ends Fresh Review pending; the human starts the next Review. There is no final delivery-acceptance gate.
 
-Every skill reads the shared Manual and builder contracts plus its task-specific Schema-6 references. Host settings and project-harness configuration remain outside Workflow.
-
-Manual authority is task-local. A fresh task must receive the exact current Root and every referenced Evidence/Review artifact explicitly. Hook state, handoff/cache, MCP state, random server values, IDs without bytes, harness self-assertion, and another task cannot reconstruct authority. Every other artifact schema is unsupported.
-
-Fresh `$review-work` is repository-read-only. The project harness supplies opaque unprotected observations and partitions Root-subject delivery paths from ambient dirty-tree state; uncertainty is subject. The local builder computes IDs and hashes and returns Evidence plus Review atomically. A finding-free consistent Review with every required Check supported or verified is achieved and terminal while supported proof remains non-verified. Ambient paths remain visible and non-blocking; subject scope drift remains provisional. Protected, approval-required, escaping, or failed subject paths and Checks remain blocking, and invalid or ambiguous input returns Shadow with no pseudo-artifact.
-
-The MCP server remains registered for optional automation-compatible surfaces and protected sealing. Those failures never change Manual status or ordinary Codex availability. A future protected sealing result appends new artifacts and never edits an existing provisional pair.
+The host sandbox and approvals remain authoritative. Workflow chooses no command, tool, model, route, retry, sandbox, worktree, or framework strategy. MCP and protected sealing are optional and their failure never changes Manual status or ordinary Codex availability.

@@ -14,6 +14,7 @@ const sources = [
   "references/artifact-protocol.md",
   "references/manual-workflow-contract.md",
   "references/automation-contract.md",
+  "references/executable-contract.md",
 ].map(read);
 
 test("public documentation shares the Workflow-6 ownership boundary", () => {
@@ -40,17 +41,18 @@ test("Manual Review preserves human gates and honest evidence", () => {
   assert.match(manual, /repository-read-only|read-only repository/i);
   assert.match(manual, /Root/i);
   assert.match(manual, /canonical workspace|workspace binding/i);
-  assert.match(manual, /missing attestation|without.*attestation/i);
-  assert.match(manual, /provisional/i);
+  assert.match(manual, /missing (?:protected )?attestation|without.*attestation/i);
+  assert.match(manual, /supported/i);
   assert.match(manual, /explicit human/i);
 });
 
 test("Plan and Review skills close the native Root transport before inspection", () => {
   for (const path of ["skills/work-planning/SKILL.md", "targets/codex/skills/plan-work/SKILL.md"]) {
     const plan = read(path);
-    assert.match(plan, /End `Quick decision` with exactly one `### Next step` block/i, path);
-    assert.match(plan, /`Now`, `How`, and `Why` bullets in that order/i, path);
-    assert.doesNotMatch(plan, /End with `### Next step`/i, path);
+    assert.match(plan, /free-form Markdown/i, path);
+    assert.match(plan, /generated.*workflow-authority|workflow-authority.*generated/is, path);
+    assert.match(plan, /exactly one action: \*\*Implement Plan\*\*|only `implement-plan` as \*\*Implement Plan\*\*/i, path);
+    assert.doesNotMatch(plan, /artifact-envelope/i, path);
   }
   for (const path of [
     "skills/work-review/SKILL.md",
@@ -61,8 +63,8 @@ test("Plan and Review skills close the native Root transport before inspection",
     const validation = review.indexOf("validate-plan");
     const inspection = review.indexOf("repository inspection");
     assert.ok(validation >= 0 && inspection >= 0, `${path} must name validation and repository inspection`);
-    assert.match(review, /Before (?:any )?repository inspection/i, path);
-    assert.match(review, /single embedded Root/i, path);
+    assert.match(review, /Shadow Review/i, path);
+    assert.match(review, /Authority Core|formal binding/i, path);
   }
 });
 
@@ -73,4 +75,19 @@ test("removed execution-engine surfaces stay absent from current guidance", () =
     assert.ok(mentions <= 2, `${removed} may appear only in removal notices`);
   }
   assert.doesNotMatch(current, /Workflow (?:runs|selects|allowlists|classifies) (?:the )?(?:command|tool|model)/i);
+});
+
+test("current guidance has no final-acceptance or automatic cross-phase Workflow path", () => {
+  const current = [
+    ...sources,
+    read("README.md"),
+    read("commands/auto-work.md"),
+    read("skills/work-automation/SKILL.md"),
+    read("docs/usage-example.md"),
+  ].join("\n");
+  assert.doesNotMatch(current, /final human acceptance|Supervised needs human acceptance|human accepts delivery/i);
+  assert.doesNotMatch(current, /\/auto-work (?:start|stop)\b/i);
+  assert.match(current, /implementation stops at Review needed/i);
+  assert.match(current, /Correct Work.*Fresh Review pending/is);
+  assert.match(current, /separately starts Review Work|separately starts? (?:the )?next Review Work/i);
 });

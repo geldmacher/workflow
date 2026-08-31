@@ -19,7 +19,7 @@ function runRecord(overrides = {}) {
     contract: "workflow-6-transactional",
     run_id: runId,
     revision: 2,
-    lifecycle: "delivery-ready-verified",
+    lifecycle: "correction-needed",
     pending_transition: null,
     delivery_evidence: { artifact_hash: evidenceHash },
     work_review: { artifact_hash: reviewHash },
@@ -44,7 +44,7 @@ function setup(record = runRecord()) {
   };
 }
 
-function select(context, action = "accept-delivery", revision = 2) {
+function select(context, action = "correct", revision = 2) {
   return evaluateAutomationGuard({
     ...context.identity,
     hook_event_name: "beforeSubmitPrompt",
@@ -59,17 +59,19 @@ function prepare(context, additions = {}) {
     tool_name: "MCP:workflow_prepare",
     tool_use_id: additions.tool_use_id ?? "tool-1",
     tool_input: {
-      action: "accept-delivery",
+      action: "correct",
       run_id: runId,
       expected_revision: 2,
-      idempotency_key: "accept-2",
+      idempotency_key: "correct-2",
       ...(additions.tool_input ?? {}),
     },
   }, context.options);
 }
 
 test("Cursor automation prompt grammar is exact", () => {
-  assert.deepEqual(parseAutomationDecisionPrompt(`/auto-work stop ${runId}@0`), { action: "stop", run_id: runId, revision: 0 });
+  assert.deepEqual(parseAutomationDecisionPrompt(`/auto-work review ${runId}@0`), { action: "review", run_id: runId, revision: 0 });
+  assert.deepEqual(parseAutomationDecisionPrompt(`/auto-work correct ${runId}@2`), { action: "correct", run_id: runId, revision: 2 });
+  assert.equal(parseAutomationDecisionPrompt(`/auto-work stop ${runId}@0`), null);
   assert.equal(parseAutomationDecisionPrompt(`/auto-work resume ${runId}@2`), null);
   assert.equal(parseAutomationDecisionPrompt(`/auto-work accept-delivery ${runId}`), null);
   assert.equal(parseAutomationDecisionPrompt(`Please /auto-work accept-delivery ${runId}@2`), null);
@@ -81,9 +83,9 @@ test("exact selection injects one host receipt and rejects caller or binding dri
     select(context);
     const caller = prepare(context, { tool_input: { human_decision_receipt: "caller-token" } });
     assert.equal(caller.permission, "deny");
-    assert.match(caller.user_message, /caller-supplied/i);
+    assert.match(caller.user_message, /caller|host-injected/i);
 
-    const wrongAction = prepare(context, { tool_input: { action: "approve-correction" } });
+    const wrongAction = prepare(context, { tool_input: { action: "review" } });
     assert.equal(wrongAction.permission, "deny");
     assert.match(wrongAction.user_message, /differs from the exact/i);
 
@@ -165,8 +167,8 @@ test("automation guard is fail-open outside exact human controls and fail-closed
   const context = setup();
   try {
     assert.deepEqual(evaluateAutomationGuard({ ...context.identity, hook_event_name: "preToolUse", tool_name: "Shell", tool_input: {} }, context.options), {});
-    assert.deepEqual(prepare(context, { tool_input: { action: "start" } }), {});
-    const caller = prepare(context, { tool_input: { action: "start", human_decision_receipt: "caller" } });
+    assert.deepEqual(prepare(context, { tool_input: { action: "implement" } }), {});
+    const caller = prepare(context, { tool_input: { action: "implement", human_decision_receipt: "caller" } });
     assert.equal(caller.permission, "deny");
     const missing = prepare(context);
     assert.equal(missing.permission, "deny");
@@ -174,7 +176,7 @@ test("automation guard is fail-open outside exact human controls and fail-closed
   } finally { rmSync(context.stateRoot, { recursive: true, force: true }); }
 });
 
-test("expired, unavailable, pending, correction, and stop selections follow exact Run state", () => {
+test("expired, unavailable, pending, Review, and Correction selections follow exact Run state", () => {
   const expired = setup();
   try {
     select(expired);
@@ -195,7 +197,7 @@ test("expired, unavailable, pending, correction, and stop selections follow exac
     assert.match(prepare(pending).user_message, /selection-unavailable/);
   } finally { rmSync(pending.stateRoot, { recursive: true, force: true }); }
 
-  for (const [action, lifecycle] of [["approve-correction", "blocked"], ["stop", "implementing"]]) {
+  for (const [action, lifecycle] of [["correct", "correction-needed"], ["review", "review-needed"]]) {
     const context = setup(runRecord({ lifecycle }));
     try {
       select(context, action);
@@ -217,13 +219,13 @@ test("fallback host identities, workspace discovery, and non-Date clocks remain 
     evaluateAutomationGuard({
       ...identity,
       hook_event_name: "beforeSubmitPrompt",
-      command: `/auto-work accept-delivery ${runId}@2`,
+      command: `/auto-work correct ${runId}@2`,
     }, options);
     const guarded = evaluateAutomationGuard({
       ...identity,
       hook_event_name: "preToolUse",
       tool_name: "MCP:workflow_prepare",
-      tool_input: { action: "accept-delivery", run_id: runId, expected_revision: 2, idempotency_key: "fallback" },
+      tool_input: { action: "correct", run_id: runId, expected_revision: 2, idempotency_key: "fallback" },
     }, options);
     assert.match(guarded.updated_input.human_decision_receipt, /^[A-Za-z0-9_-]{43}$/);
     assert.deepEqual(evaluateAutomationGuard({ ...identity, workspace_roots: [defaultRoot, context.stateRoot], hook_event_name: "other" }, options), {});

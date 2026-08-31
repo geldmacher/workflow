@@ -1,107 +1,69 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import test from "node:test";
 import { evaluateCreatePlanGuard } from "../hooks/plan-integrity-guard.mjs";
-import { defaultRoot } from "../scripts/validate-artifact.source.mjs";
+import { nativePlan } from "./support/workflow-fixtures.mjs";
 
-const root = readFileSync(join(defaultRoot, "tests/fixtures/artifacts/work-plan.valid.md"), "utf8");
-const match = root.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-
-function presented(rootText = root) {
-  const parts = rootText.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-  return [
-    "# Retry delivery",
-    "",
-    "## Quick decision",
-    "",
-    "The Schema-6 Root is ready.",
-    "",
-    "### Next step",
-    "",
-    "- Now: Implement Plan",
-    "- How: Select the host-native implementation action.",
-    "- Why: Authorizes delivery inside the Root.",
-    "",
-    "## Details",
-    "",
-    "The project harness chooses execution.",
-    "",
-    "## Agent and machine contract (authoritative)",
-    "",
-    "```yaml artifact-envelope",
-    parts[1],
-    "```",
-    parts[2],
-  ].join("\n");
-}
-
-function nextStepAtDocumentEnd(rootText = root) {
-  return [
-    ...presented(rootText).split("\n").filter((line, index, lines) => {
-      const start = lines.indexOf("### Next step");
-      return index < start || index > start + 5;
-    }),
-    "",
-    "### Next step",
-    "",
-    "The Root is ready. The only action is **Implement Plan**.",
-  ].join("\n");
-}
-
-function event(plan = presented()) {
+function event(plan = nativePlan(), additions = {}) {
   return {
     hook_event_name: "preToolUse",
     tool_name: "CreatePlan",
-    cwd: defaultRoot,
-    workspace_roots: [defaultRoot],
-    tool_input: { name: "Retry delivery", plan, todos: [{ id: "STEP-1", content: "Deliver the approved outcome." }] },
+    tool_input: { name: "Any host title", overview: "Any overview", todos: [], plan, isProject: true },
+    ...additions,
   };
 }
 
-test("CreatePlan accepts one human-presented Schema-6 Root", () => {
-  assert.deepEqual(evaluateCreatePlanGuard(event(), { pluginRoot: defaultRoot }), {});
+test("active Workflow Plan Work accepts free-form Markdown with one generated Core and no host todos", () => {
+  assert.deepEqual(evaluateCreatePlanGuard(event(), { activePlanWork: true }), {});
 });
 
-test("CreatePlan rejects a Next step placed after the authoritative Root", () => {
-  const result = evaluateCreatePlanGuard(event(nextStepAtDocumentEnd()), { pluginRoot: defaultRoot });
+test("active Plan Work rejects text, Core, duplicate, and trailing-content tampering with a repair reason", () => {
+  const cases = [
+    nativePlan().replace("Adaptive retry delivery", "Changed delivery"),
+    nativePlan().replace("risk: medium", "risk: high"),
+    `${nativePlan()}\n${nativePlan().match(/<details>[\s\S]*<\/details>/)[0]}\n`,
+    `${nativePlan()}\nTrailing content.\n`,
+  ];
+  for (const plan of cases) {
+    const result = evaluateCreatePlanGuard(event(plan), { activePlanWork: true });
+    assert.equal(result.permission, "deny");
+    assert.match(result.user_message, /workflow-plan-repair-required/);
+    assert.match(result.user_message, /internally|intern/i);
+  }
+});
+
+test("active Plan Work catches malformed Workflow claims independent of fence label", () => {
+  for (const plan of [
+    "```json\n{\"artifact\":\"work-plan\",\"schema\":6}\n```",
+    "```text\nartifact: work-plan\nschema: 6\n```",
+    "Plan prose claiming a Workflow work-plan without a generated Core.",
+  ]) {
+    const result = evaluateCreatePlanGuard(event(plan), { activePlanWork: true });
+    assert.equal(result.permission, "deny");
+    assert.match(result.user_message, /workflow-plan-repair-required/);
+  }
+});
+
+test("active Plan Work returns a machine-readable repair denial for Authority preflight failures", () => {
+  const result = evaluateCreatePlanGuard(event(), {
+    activePlanWork: true,
+    preflightRootPlan: () => ({
+      feasible: false,
+      blocking_issues: [{ message: "Objective coverage is incomplete.\nRepair the Core." }],
+    }),
+  });
   assert.equal(result.permission, "deny");
-  assert.match(result.user_message, /Next step/);
+  assert.match(result.user_message, /workflow-plan-repair-required/);
+  assert.match(result.user_message, /Authority validation failed: Objective coverage is incomplete\. Repair the Core\./);
+  assert.match(result.user_message, /Repair it internally/);
 });
 
-test("guard never classifies project tools named in non-authoritative prose", () => {
-  const plan = presented().replace(
-    "The project harness chooses execution.",
-    "The project harness may privately choose DDEV, npm, nested shell, or any other project mechanism.",
-  );
-  assert.deepEqual(evaluateCreatePlanGuard(event(plan), { pluginRoot: defaultRoot }), {});
+test("outside active Workflow Plan Work CreatePlan is fail-open even for malformed claims", () => {
+  assert.deepEqual(evaluateCreatePlanGuard(event("artifact: work-plan\nschema: 5"), { activePlanWork: false }), {});
+  assert.deepEqual(evaluateCreatePlanGuard({ hook_event_name: "preToolUse", tool_name: "Other", tool_input: {} }), {});
 });
 
-test("Schema-6 execution fields are rejected by the closed Root schema, not a command classifier", () => {
-  const invalidRoot = root.replace("status: ready", "status: ready\nhost_commands:\n  - ddev exec verify");
-  const result = evaluateCreatePlanGuard(event(presented(invalidRoot)), { pluginRoot: defaultRoot });
-  assert.equal(result.permission, "deny");
-  assert.match(result.user_message, /additional propert|unknown|Schema-6/i);
-  assert.doesNotMatch(result.user_message, /program-not-classified|unapproved-root-check|command mismatch/i);
-});
-
-test("unsupported Workflow schemas are rejected while ordinary plans remain unaffected", () => {
-  const unsupported = evaluateCreatePlanGuard(event(presented(root.replace("schema: 6", "schema: 7"))), { pluginRoot: defaultRoot });
-  assert.equal(unsupported.permission, "deny");
-  assert.match(unsupported.user_message, /Schema-6|schema 6/i);
-  assert.deepEqual(evaluateCreatePlanGuard(event("Implement an ordinary task."), { pluginRoot: defaultRoot }), {});
-});
-
-test("CreatePlan guard counter-probes fail closed only for the targeted Workflow action", () => {
+test("invalid hook input fails closed only when the CreatePlan payload itself is targeted", () => {
   assert.equal(evaluateCreatePlanGuard(null).permission, "deny");
-  assert.deepEqual(evaluateCreatePlanGuard({ hook_event_name: "stop" }), {});
-  assert.deepEqual(evaluateCreatePlanGuard({ hook_event_name: "preToolUse", tool_name: "Shell" }), {});
-  assert.equal(evaluateCreatePlanGuard({ hook_event_name: "preToolUse", tool_name: "CreatePlan", tool_input: null }).permission, "deny");
-  assert.equal(evaluateCreatePlanGuard(event(presented()), {
-    pluginRoot: defaultRoot,
-    preflightRootPlan: () => ({ feasible: false, blocking_issues: [{ message: "Intent cannot be established" }] }),
-  }).permission, "deny");
-  const noTodos = event();
-  noTodos.tool_input = { ...noTodos.tool_input, todos: [] };
-  assert.match(evaluateCreatePlanGuard(noTodos, { pluginRoot: defaultRoot }).user_message, /at least one implementation todo/i);
+  assert.equal(evaluateCreatePlanGuard({ hook_event_name: "preToolUse", tool_name: "CreatePlan", tool_input: null }, { activePlanWork: true }).permission, "deny");
+  assert.deepEqual(evaluateCreatePlanGuard({ hook_event_name: "postToolUse", tool_name: "CreatePlan", tool_input: null }), {});
 });

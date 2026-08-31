@@ -50,3 +50,13 @@ test("generic harness orchestration is conservatively open and potentially destr
   assert.equal(prepare.openWorldHint, true);
   assert.equal(toolAnnotations("workflow_closeout").readOnlyHint, false);
 });
+
+test("generic harness actions are exactly Implement, Review, and Correct with localized presentation", () => {
+  const prepare = toolContract("workflow_prepare").inputSchema;
+  for (const action of ["implement", "review", "correct"]) assert.equal(prepare.action.safeParse(action).success, true, action);
+  for (const removed of ["start", "stop", "accept-delivery", "retry-review"]) assert.equal(prepare.action.safeParse(removed).success, false, removed);
+  assert.equal(prepare.presentation_locale.safeParse("de").success, true);
+  assert.equal(prepare.presentation_locale.safeParse("en").success, true);
+  assert.equal(prepare.presentation_locale.safeParse("fr").success, false);
+  assert.equal(toolContract("workflow_status").inputSchema.presentation_locale.safeParse("de").success, true);
+});

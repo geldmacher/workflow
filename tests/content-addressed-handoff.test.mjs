@@ -15,6 +15,7 @@ import {
   handoffTipPath,
   rootContentHash,
 } from "../src/core/state-paths.mjs";
+import { nativePlan } from "./support/workflow-fixtures.mjs";
 
 const fixture = (name) => readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", name), "utf8");
 
@@ -24,7 +25,7 @@ test("content-addressed handoff isolates identical artifact IDs with different R
   process.env.GELDMACHER_WORKFLOW_HOME = home;
   try {
     const rootA = fixture("work-plan.valid.md");
-    const rootB = rootA.replace("Make transient retry behavior deterministic and observable.", "Make transient retry behavior observable and bounded.");
+    const rootB = nativePlan("manual", { goal: "Implement adaptive retry handling with a separately bound alternate intent." });
     assert.notEqual(rootContentHash(rootA), rootContentHash(rootB));
     const storeA = createContentAddressedHandoffStore(rootA, defaultRoot);
     const storeB = createContentAddressedHandoffStore(rootB, defaultRoot);

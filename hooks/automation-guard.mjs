@@ -12,11 +12,11 @@ import { hashWorkflowIdentifier, workflowStateRoot } from "./workflow-state.mjs"
 const MAX_INPUT_BYTES = 1024 * 1024;
 const SELECTION_TTL_MS = 10 * 60 * 1000;
 const pluginRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-const humanActions = new Set(["accept-delivery", "approve-correction", "stop"]);
+const humanActions = new Set(["review", "correct"]);
 const deny = (user_message) => ({ permission: "deny", user_message });
 
 export function parseAutomationDecisionPrompt(prompt) {
-  const match = String(prompt ?? "").match(/^\s*\/auto-work\s+(accept-delivery|approve-correction|stop)\s+(run-[a-f0-9]{24})@([0-9]+)\s*$/);
+  const match = String(prompt ?? "").match(/^\s*\/auto-work\s+(review|correct)\s+(run-[a-f0-9]{24})@([0-9]+)\s*$/);
   if (!match) return null;
   return { action: match[1], run_id: match[2], revision: Number(match[3]) };
 }
@@ -61,9 +61,7 @@ function writeSelection(path, value) {
 
 function exactDecisionState(action, context) {
   if (context.pending_transition) return false;
-  if (action === "accept-delivery") return context.lifecycle.startsWith("delivery-ready-");
-  if (action === "approve-correction") return context.lifecycle === "blocked";
-  return !["achieved", "accepted-provisional", "stopped"].includes(context.lifecycle);
+  return context.lifecycle === (action === "review" ? "review-needed" : "correction-needed");
 }
 
 function sameContext(selection, context) {

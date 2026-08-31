@@ -24,7 +24,6 @@ export const limits = Object.freeze({
   automationFlows: Object.freeze({
     prepare_or_approve: 1500,
     status: 1500,
-    acceptance: 1500,
   }),
 });
 export const headroomTargets = Object.freeze({
@@ -46,7 +45,6 @@ export const flowMatrix = Object.freeze({
   automation_flows: Object.freeze({
     prepare_or_approve: Object.freeze(["commands/auto-work.md", "skills/work-automation/SKILL.md", "references/automation-contract.md"]),
     status: Object.freeze(["commands/work-status.md", "skills/manual-workflow/SKILL.md"]),
-    acceptance: Object.freeze(["commands/accept-work.md", "skills/manual-workflow/SKILL.md"]),
   }),
 });
 

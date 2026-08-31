@@ -20,6 +20,7 @@ import {
   verificationIntentHash,
 } from "../src/core/harness-attestations.mjs";
 import { captureRepositorySnapshot } from "../src/harness/repository-snapshot.mjs";
+import { supportedCheck } from "./support/workflow-fixtures.mjs";
 
 const rootPlan = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
 
@@ -55,17 +56,15 @@ function reviewEvent() {
     cwd: defaultRoot,
     tool_input: {
       artifact_kind: "work-review",
-      check_evidence: [],
+      check_evidence: [supportedCheck()],
       review_input: {
         schema: 1,
         kind: "review-input",
-        assessment: "provisional",
-        recommended_action: "accept-provisional",
-        assessment_summary: "The exact Root is intact; harness evidence is unavailable.",
-        snapshot_assessment: "consistent",
+        outcome: "achieved",
+        assessment_summary: "The exact Root is supported by repository evidence.",
         snapshot_summary: "The repository can still be inspected.",
         findings: [],
-        missing_evidence: ["CHECK-1"],
+        open_points: [],
       },
     },
   };
@@ -85,11 +84,29 @@ function repositoryFinding(key = "repository-finding", overrides = {}) {
 }
 
 function reviewInputWithFindings(findings, overrides = {}) {
+  const fixes = findings.map((finding) => ({
+    key: `fix-${finding.key}`,
+    finding_keys: [finding.key],
+    required_outcome: `Resolve ${finding.key}.`,
+    evidence: `The correction remains bounded to ${finding.key}.`,
+  }));
   return {
     ...reviewEvent().tool_input.review_input,
-    assessment: findings.length > 0 ? "partially-achieved" : "provisional",
-    recommended_action: findings.length > 0 ? "correct" : "accept-provisional",
+    outcome: findings.length > 0 ? "correction-needed" : "achieved",
     findings,
+    correction: findings.length > 0 ? {
+      fixes,
+      steps: fixes.map((fix) => ({
+        key: `step-${fix.key}`,
+        fix_keys: [fix.key],
+        targets: ["src"],
+        required_outcome: fix.required_outcome,
+        implementation_latitude: "The project harness chooses the concrete implementation.",
+        completion_probe: "The original Root Check is ready for fresh Review.",
+        root_check_ids: ["CHECK-1"],
+        deviation_action: "Report an Open Point if Root authority is insufficient.",
+      })),
+    } : undefined,
     ...overrides,
   };
 }
@@ -171,7 +188,7 @@ test("MCP roots transport failure preserves the receipt-bound Root and canonical
     assert.equal(response.value.root_plan_id, "wp-adaptive-retry");
     assert.equal(response.value.workspace_root, defaultRoot);
     assert.equal(response.value.workspace_binding, "cursor-native-receipt");
-    assert.equal(response.value.delivery_status, "provisional");
+    assert.equal(response.value.outcome, "achieved");
     assert.equal(response.value.task_local_valid, true);
     assert.doesNotMatch(JSON.stringify(response.value), /Root is unavailable|native-plan-unavailable/i);
   } finally {
@@ -186,7 +203,7 @@ test("Cursor protected sealing appends a verified pair without rewriting local p
     const local = buildManualReviewLifecycle({
       rootPlanText: rootPlan,
       reviewInput: reviewEvent().tool_input.review_input,
-      checkEvidence: [],
+      checkEvidence: [supportedCheck()],
       workspaceRoot: defaultRoot,
       pluginRoot: defaultRoot,
       repositoryBaseline: snapshot,
@@ -199,10 +216,7 @@ test("Cursor protected sealing appends a verified pair without rewriting local p
     ];
     const verifiedInput = {
       ...reviewEvent().tool_input.review_input,
-      assessment: "achieved",
-      recommended_action: "none",
       assessment_summary: "Fresh protected evidence satisfies the exact Root.",
-      missing_evidence: [],
     };
     const event = {
       ...reviewEvent(),
@@ -225,7 +239,7 @@ test("Cursor protected sealing appends a verified pair without rewriting local p
     const response = await handlers.closeout(prepared.updated_input);
     assert.equal(response.isError, false, response.value?.error);
     assert.equal(response.value.chain_update, "append-seal");
-    assert.equal(response.value.delivery_status, "verified");
+    assert.equal(response.value.outcome, "achieved");
     assert.equal(response.value.next_action, "none");
     const evidence = inspectArtifactText(response.value.delivery_evidence_artifact, defaultRoot).artifact.fields;
     const review = inspectArtifactText(response.value.artifact, defaultRoot).artifact.fields;
@@ -268,7 +282,7 @@ test("Cursor Review availability failures return non-authoritative Shadow result
     }]);
     assert.equal(missing.value.delivery_evidence_id, undefined);
     assert.equal(missing.value.work_review_id, undefined);
-    assert.equal(missing.value.recovery_action, "establish-formal-review-binding");
+    assert.equal(missing.value.recovery_action, "human-assessment");
 
     const prepared = establishReceipt(stateRoot, {
       workspaceRoot: defaultRoot,

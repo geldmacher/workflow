@@ -210,16 +210,14 @@ test("attestations calibrate passed, missing, failed, and mismatched evidence ho
   assert.equal(verified.fields.overall_grade, "verified");
   assert.equal(verified.fields.check_evidence[0].attestation_hash, "f".repeat(64));
 
-  const provisional = buildDeliveryEvidence({
+  assert.throws(() => buildDeliveryEvidence({
     rootPlanText,
     checkEvidence: [],
     effectiveProfile: "manual",
     workspaceBinding,
     workspaceSnapshotHash: snapshot,
     pluginRoot: defaultRoot,
-  });
-  assert.equal(provisional.fields.status, "provisional");
-  assert.equal(provisional.fields.overall_grade, "unavailable");
+  }), (error) => error.code === "check-observations-incomplete" && error.check_ids?.includes("CHECK-1"));
 
   const failed = buildDeliveryEvidence({
     rootPlanText,

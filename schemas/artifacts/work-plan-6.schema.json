@@ -6,18 +6,20 @@
   "required": [
     "artifact", "schema", "id", "status", "intent_ready",
     "profile_max", "contract_level", "risk", "hard_triggers", "goal", "acceptance",
-    "non_goals", "constraints", "authority"
+    "plan_content_hash", "authority_hash", "non_goals", "constraints", "authority", "extensions"
   ],
   "properties": {
     "artifact": { "const": "work-plan" },
     "schema": { "const": 6 },
     "id": { "type": "string", "pattern": "^wp-[A-Za-z0-9][A-Za-z0-9-]*$" },
-    "status": { "enum": ["ready", "blocked"] },
+    "status": { "const": "ready" },
     "created_at": { "type": "string", "format": "date-time" },
     "source": { "type": "string", "minLength": 1 },
+    "plan_content_hash": { "$ref": "#/$defs/hash" },
+    "authority_hash": { "$ref": "#/$defs/hash" },
     "predecessor_plan_id": { "type": "string", "pattern": "^wp-[A-Za-z0-9][A-Za-z0-9-]*$" },
-    "replan_source_review_id": { "type": "string", "pattern": "^wr-[A-Za-z0-9][A-Za-z0-9-]*$" },
-    "intent_ready": { "type": "boolean" },
+    "source_review_id": { "type": "string", "pattern": "^wr-[A-Za-z0-9][A-Za-z0-9-]*$" },
+    "intent_ready": { "const": true },
     "profile_max": { "enum": ["manual", "supervised", "autonomous"] },
     "contract_level": { "enum": ["lean", "controlled", "certified"] },
     "risk": { "enum": ["low", "medium", "high"] },
@@ -62,14 +64,18 @@
         "certified_region": { "type": "string", "minLength": 1 }
       }
     },
-    "extensions": { "type": "object", "additionalProperties": true }
+    "extensions": {
+      "type": "object",
+      "required": ["workflow_authority_core"],
+      "properties": { "workflow_authority_core": { "const": 1 } },
+      "additionalProperties": true
+    }
   },
   "allOf": [
     {
-      "if": { "anyOf": [{ "required": ["predecessor_plan_id"] }, { "required": ["replan_source_review_id"] }] },
-      "then": { "required": ["predecessor_plan_id", "replan_source_review_id"] }
+      "if": { "anyOf": [{ "required": ["predecessor_plan_id"] }, { "required": ["source_review_id"] }] },
+      "then": { "required": ["predecessor_plan_id", "source_review_id"] }
     },
-    { "if": { "properties": { "status": { "const": "ready" } } }, "then": { "properties": { "intent_ready": { "const": true } } } },
     { "if": { "properties": { "profile_max": { "const": "manual" } }, "required": ["profile_max"] }, "then": { "properties": { "contract_level": { "const": "lean" } } } },
     { "if": { "properties": { "profile_max": { "const": "supervised" } }, "required": ["profile_max"] }, "then": { "properties": { "contract_level": { "const": "controlled" }, "authority": { "required": ["max_active_minutes", "max_total_tokens", "max_cost_usd"] } } } },
     { "if": { "properties": { "profile_max": { "const": "autonomous" } }, "required": ["profile_max"] }, "then": { "required": ["certification"], "properties": { "contract_level": { "const": "certified" }, "authority": { "required": ["max_active_minutes", "max_total_tokens", "max_cost_usd"] } } } }

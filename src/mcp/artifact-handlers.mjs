@@ -60,6 +60,7 @@ export function createArtifactHandlers({
     ...(Array.isArray(error?.attempted_sources) ? { attempted_sources: error.attempted_sources } : {}),
     ...(Array.isArray(error?.candidate_ids) ? { candidate_ids: error.candidate_ids } : {}),
     ...(Array.isArray(error?.rejected_sources) ? { rejected_sources: error.rejected_sources } : {}),
+    ...(Array.isArray(error?.check_ids) ? { check_ids: error.check_ids } : {}),
     ...(typeof error?.resolution === "string" ? { resolution: error.resolution } : {}),
   }, true);
 
@@ -70,14 +71,15 @@ export function createArtifactHandlers({
     return error;
   };
 
-  const shadowReview = (input, reasonCode, limitation, recoveryAction = "establish-formal-review-binding") => {
+  const shadowReview = (input, reasonCode, limitation) => {
     const repositoryFindings = sanitizedShadowFindings(input.review_input);
     const findingLabel = repositoryFindings.length === 1 ? "finding is" : "findings are";
     return toolResult("workflow_closeout", {
       artifact_kind: "work-review",
       mode: "shadow",
       status: "unavailable",
-      assessment: "shadow",
+      outcome: "shadow-review",
+      next_action: "human-assessment",
       ...(input.root_plan_id ? { root_plan_id: input.root_plan_id } : {}),
       repository_outcome: `${repositoryFindings.length} non-authoritative repository ${findingLabel} available; formal Plan conformance was not assessed.`,
       repository_findings_authoritative: false,
@@ -88,7 +90,7 @@ export function createArtifactHandlers({
       artifacts_persisted: false,
       workflow_state_changed: false,
       persistence_scope: "none",
-      recovery_action: recoveryAction,
+      recovery_action: "human-assessment",
       harness_mode: "shadow",
       harness_status: "unavailable",
       harness_limitations: [limitation],
@@ -309,8 +311,9 @@ export function createArtifactHandlers({
     artifact_hash: persisted.artifact_hash ?? createHash("sha256").update(persisted.artifact).digest("hex"),
     review_input_hash: persisted.review_input_hash,
     authoritative_fields: persisted.fields,
-    assessment: persisted.fields.assessment,
-    delivery_status: persisted.fields.delivery_status,
+    outcome: persisted.fields.outcome,
+    findings: persisted.fields.findings,
+    open_points: persisted.fields.open_points,
     next_action: persisted.fields.next_action,
     latest_evidence_id: persisted.fields.latest_evidence_id ?? null,
     predecessor_review_id: persisted.fields.predecessor_review_id ?? null,
@@ -341,8 +344,9 @@ export function createArtifactHandlers({
     artifact_hash: bundle.review.artifact_hash,
     review_input_hash: bundle.review.review_input_hash,
     authoritative_fields: bundle.review.fields,
-    assessment: bundle.review.fields.assessment,
-    delivery_status: bundle.review.fields.delivery_status,
+    outcome: bundle.review.fields.outcome,
+    findings: bundle.review.fields.findings,
+    open_points: bundle.review.fields.open_points,
     evidence_status: bundle.delivery_evidence.fields.status,
     evidence_grade: bundle.delivery_evidence.fields.overall_grade,
     check_evidence: bundle.delivery_evidence.fields.check_evidence ?? [],
@@ -631,7 +635,6 @@ export function createArtifactHandlers({
               input,
               "native-plan-unavailable",
               `No exact current-task Schema-6 Root is available from the formal Review transport. Inspected: ${nativePlan.attempted_sources.join(", ") || "no native source was supplied"}.`,
-              "create-formal-plan-binding",
             );
           }
           throw codedError(
@@ -694,7 +697,7 @@ export function createArtifactHandlers({
           harnessPhaseResult: harnessOrchestration?.result ?? null,
           harnessProtectionHash,
           workspaceBinding: harnessOrchestration?.request?.workspace_binding ?? null,
-          seal: nativeReceipt?.predecessor_mode === "provisional-seal",
+          seal: nativeReceipt?.predecessor_mode === "supported-seal",
         });
         if (!rootPlanId || nativePlan.root_id !== rootPlanId || bundle.root_plan_id !== rootPlanId) {
           throw new Error(`workflow_closeout Root ID mismatch: expected ${rootPlanId ?? "<unavailable>"}, received ${bundle.root_plan_id}`);

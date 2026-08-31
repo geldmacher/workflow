@@ -77,7 +77,7 @@ test("soft classification and hard assertion remain separate", () => {
     },
   };
   const projection = classifyChangedPathAuthority(rootFields, ["README.md", "src/review.mjs"]);
-  assert.equal(projection.status, "provisional-drift");
+  assert.equal(projection.status, "outside-authority");
   assert.deepEqual(projection.outside_allowed_paths, ["README.md"]);
   assert.throws(() => assertChangedPathAuthority(rootFields, ["README.md"], process.cwd()), /outside Root authority/);
 });
