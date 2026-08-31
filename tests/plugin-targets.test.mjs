@@ -44,21 +44,21 @@ test("release installation guide has usable selected-host verification and a com
   if (process.platform !== "win32") {
     const download = mkdtempSync(join(tmpdir(), "workflow-install-checksum-"));
     try {
-      const archive = "geldmacher-workflow-cursor-v6.0.0.zip";
+      const archive = "geldmacher-workflow-cursor-v6.1.0.zip";
       const archiveBytes = Buffer.from("selected cursor archive");
       const provenanceBytes = Buffer.from('{"kind":"github-release-provenance"}\n');
       writeFileSync(join(download, archive), archiveBytes);
       writeFileSync(join(download, "provenance.json"), provenanceBytes);
       writeFileSync(join(download, "SHA256SUMS"), [
         `${sha256(archiveBytes)}  ${archive}`,
-        `${"a".repeat(64)}  geldmacher-workflow-codex-v6.0.0.zip`,
+        `${"a".repeat(64)}  geldmacher-workflow-codex-v6.1.0.zip`,
         `${"b".repeat(64)}  RELEASE_NOTES.md`,
         `${sha256(provenanceBytes)}  provenance.json`,
         "",
       ].join("\n"));
       const result = spawnSync("/bin/sh", ["-c", shell], { cwd: download, encoding: "utf8" });
       assert.equal(result.status, 0, result.stderr || result.stdout);
-      assert.match(result.stdout, /geldmacher-workflow-cursor-v6\.0\.0\.zip: OK/);
+      assert.match(result.stdout, /geldmacher-workflow-cursor-v6\.1\.0\.zip: OK/);
       assert.match(result.stdout, /provenance\.json: OK/);
     } finally {
       rmSync(download, { recursive: true, force: true });
@@ -113,7 +113,7 @@ test("canonical target metadata is Workflow 6 before generation", () => {
   const codex = JSON.parse(readFileSync(join(defaultRoot, "targets", "codex", ".codex-plugin", "plugin.json"), "utf8"));
   const portable = JSON.parse(readFileSync(join(defaultRoot, "targets", "agent-plugins", "plugin.json"), "utf8"));
   for (const manifest of [cursor, codex, portable]) {
-    assert.equal(manifest.version, "6.0.0");
+    assert.equal(manifest.version, "6.1.0");
     assert.match(JSON.stringify(manifest), /Workflow 6|Schema-6/);
     assert.doesNotMatch(JSON.stringify(manifest), /Schema[- ]?[345]|Workflow [345]/i);
   }

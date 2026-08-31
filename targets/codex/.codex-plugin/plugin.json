@@ -1,6 +1,6 @@
 {
   "name": "geldmacher-workflow",
-  "version": "6.0.0",
+  "version": "6.1.0",
   "description": "Workflow 6 human-authorized lifecycle, protected evidence, and harness-owned execution for Codex.",
   "author": {
     "name": "Geldmacher"

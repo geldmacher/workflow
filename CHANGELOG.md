@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 6.1.0
+
+- Replaced rigid native Plan presentation authority with comprehensive free-form Markdown plus one deterministic generated Schema-6 Authority Core, exact content hashing, active-Plan transport repair, and useful read-only Shadow Review for invalid formal bindings.
+- Simplified Review to the three human outcomes Achieved, Correction needed, and Open points; separated supported proof from repository success and removed provisional acceptance, clarify, replan, and retry gates from public contracts and targets.
+- Made implementation and every bounded correction stop at Fresh Review pending, kept repository-read-only Review as a separate human action, reused original Root checks, and confined safe technical retries to the currently authorized phase.
+- Added concise German and English result-first presentation, concrete open-point questions, defensive six-state projection, profile-consistent lifecycle behavior, and synchronized Cursor, Codex, Agent Plugins, documentation, generated bundles, and regression coverage.
+
 ## 6.0.0
 
 - Normalize only current-contract native Plan containers to their single embedded Schema-6 Root before Manual validation, Review, status, and acceptance; preflight Review before repository inspection and align the Plan `Next step` projection with the CreatePlan guard.

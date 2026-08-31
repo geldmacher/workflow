@@ -2,7 +2,7 @@
   "name": "geldmacher-workflow",
   "displayName": "Workflow",
   "description": "Workflow 6 host-neutral lifecycle, authority, lineage, and evidence kernel with project-owned execution harnesses.",
-  "version": "6.0.0",
+  "version": "6.1.0",
   "author": {
     "name": "Dennis Geldmacher",
     "email": "geldmacher.dennis@outlook.de"

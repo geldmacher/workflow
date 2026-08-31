@@ -24,7 +24,7 @@ Local repository deployment is a separate operational action and is not part of 
 
 Current contract versions:
 
-- Plugin 6.0.0
+- Plugin 6.1.0
 - Artifact Schema 6
 - Controller Protocol 6
 - Harness Capability Receipt Schema 1

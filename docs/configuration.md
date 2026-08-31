@@ -4,7 +4,7 @@ Workflow 6 minimizes Workflow-owned configuration. Hosts and project harnesses c
 
 Current versions:
 
-- Plugin 6.0.0
+- Plugin 6.1.0
 - Artifact Schema 6
 - Controller Protocol 6
 - Harness Capability Receipt Schema 1
