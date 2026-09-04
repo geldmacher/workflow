@@ -6,6 +6,14 @@ Plan Work produces a comprehensive human implementation prompt as free-form Mark
 
 The human selects the host-native **Implement Plan** action. Implementation stays inside the exact Root authority and creates no Evidence or state. Its handoff is only **Fresh Review pending**.
 
+### Adaptive project verification
+
+When acceptance needs behavior from a running UI, CLI, service, side-effect boundary, or cross-surface journey beyond established checks, Plan Work may add one non-authoritative `Verification readiness` note. `$workflow-doctor` performs that inspection without changing files or starting the product and returns `ready`, `create-recommended`, `maintenance-recommended`, `not-applicable`, or `blocked`.
+
+`$verification-work` defaults to read-only `inspect`. Its `create`, `maintain`, and explicit `maintain full` forms require an exact approved Root, matching implementation or correction authorization, and authority for the project-local `.agents/skills/verify-<surface>` directory. This is harness preparation, not a Workflow phase, playbook, evidence grade, or new human gate.
+
+Review may use an existing verifier's Drive as a project-harness recipe but never edits it. Raw verifier output remains an observation; changed verifier or repository bytes require fresh evidence, and only exact protected attestation can produce `verified`.
+
 ## Fresh Review
 
 Review is repository-read-only. The harness selects concrete inspection mechanisms and supplies closed repository and Check observations. Workflow validates the exact Root, canonical workspace binding, and predecessor bytes, partitions subject and ambient paths, computes hashes and grades, and atomically builds Evidence plus Review.
@@ -33,3 +41,5 @@ Changed intent, risk, authority, dependencies, or external effects becomes an Op
 Status is only Root ready, Review needed, Correction needed, Achieved, Open points, or Shadow review. Human actions are only Implement Plan, Review Work, Correct Work, a natural assessment, or none. Technical retries stay internal.
 
 Ordinary repository use remains available when Workflow, MCP, adapter, hooks, transport, or harness capabilities fail. Review and explanation never mutate. Deployment, installation, commit, push, release, production access, and learning remain separate actions.
+
+After an achieved chain, Learning classifies stable guidance separately from verifier drift and run-specific observations. Only stable guidance may be persisted by an explicit Learn From Work invocation; verifier drift becomes a future `$verification-work maintain` candidate and is never edited by Learning.

@@ -11,4 +11,6 @@ Workflow availability never gates ordinary host use. Changed intent, scope, risk
 
 Apply outcomes inside Root authority. The harness owns execution and verification.
 
+When the approved Root explicitly covers a project verifier, the harness may apply `verification-work create` or targeted `verification-work maintain` during this phase. Do not infer that scope from behavioral acceptance alone. A full-map maintenance pass, new verifier destination, dependency, product repair, or external effect outside the Root is an Open Point.
+
 Create no Evidence or state. Report outcomes and limits: this phase is complete and fresh `/review-work` is pending. Never claim delivery or Workflow completion. Review is separate.

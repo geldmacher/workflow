@@ -8,13 +8,29 @@ const WORKFLOW_SKILLS = ["plan-work", "correct-work", "review-work", "explain-wo
 const WORKFLOW_SKILL_NAMES = WORKFLOW_SKILLS.join("|");
 const WORKFLOW_TOKEN = new RegExp(`(?:^|[\\s('"\\x60])\\$(?:geldmacher-workflow:)?(${WORKFLOW_SKILL_NAMES})(?=$|[\\s.,;!?')"\\x60]|:(?=\\s|$))`, "gi");
 const WORKFLOW_MARKDOWN_LINK = new RegExp(`\\[\\$(?:geldmacher-workflow:)?(${WORKFLOW_SKILL_NAMES})\\]\\(([^)\\r\\n]+)\\)`, "gi");
+const CODEX_IMPLEMENT_PLAN_PREFIX = /^PLEASE IMPLEMENT THIS PLAN:\r?\n/;
+const PROPOSED_PLAN_OPEN = /^[\t ]*<proposed_plan>[\t ]*\r?$/gim;
+const PROPOSED_PLAN_CLOSE = /^[\t ]*<\/proposed_plan>[\t ]*\r?$/gim;
 
 function hookContinuation(prompt) {
   return /^\s*<hook_prompt\b[^>]*\bhook_run_id\s*=\s*["'][^"']+["'][^>]*>[\s\S]*<\/hook_prompt>\s*$/i.test(String(prompt ?? ""));
 }
 
-function explicitWorkflowCommand(prompt) {
+function workflowInvocationSurface(prompt) {
   const text = String(prompt ?? "");
+  const nativeHandoff = text.match(CODEX_IMPLEMENT_PLAN_PREFIX);
+  if (nativeHandoff && extractRootPlanText(text.slice(nativeHandoff[0].length))) return "";
+  const openings = [...text.matchAll(PROPOSED_PLAN_OPEN)];
+  const closings = [...text.matchAll(PROPOSED_PLAN_CLOSE)];
+  if (openings.length !== 1 || closings.length !== 1 || openings[0].index >= closings[0].index) return text;
+  const containerEnd = closings[0].index + closings[0][0].length;
+  const container = text.slice(openings[0].index, containerEnd);
+  if (!extractRootPlanText(container)) return text;
+  return `${text.slice(0, openings[0].index)}\n${text.slice(containerEnd)}`;
+}
+
+function explicitWorkflowCommand(prompt) {
+  const text = workflowInvocationSurface(prompt);
   const commands = [];
   for (const match of text.matchAll(WORKFLOW_MARKDOWN_LINK)) {
     const command = match[1].toLowerCase();

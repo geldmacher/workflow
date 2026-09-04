@@ -29,7 +29,9 @@ const expectedSkills = [
   "learn-from-work",
   "plan-work",
   "review-work",
+  "verification-work",
   "work-status",
+  "workflow-doctor",
 ];
 const expectedTools = [
   "workflow_artifact_context",
@@ -138,9 +140,10 @@ test("Agent Plugins v1 target is deterministic, closed, and immediately discover
     assert.match(portableReview, /project harness/i);
     assert.match(portableReview, /manual-workflow\.mjs build-review/i);
     assert.match(portableReview, /without MCP, adapters, MCP Roots, hooks, cache, or state/i);
-    assert.match(portableReview, /presentation_locale.*active request is German.*otherwise `en`/i);
-    assert.match(portableReview, /each returned artifact text exactly once, unchanged and unquoted, inside its own default-closed `<details>` block/i);
-    assert.match(portableReview, /only `presentation\.next_action` through the fixed portable mapping/i);
+    assert.match(portableReview, /presentation_locale.*German requests.*otherwise `en`/i);
+    assert.match(portableReview, /one default-closed `<details>`.*Technische Nachweise und Workflow-Artefakte.*Technical evidence and Workflow artifacts/i);
+    assert.match(portableReview, /artifacts once, unchanged and unquoted, in builder order.*Delivery Evidence · <label>.*Work Review · <label>/is);
+    assert.match(portableReview, /only decorate `presentation\.next_action` through the fixed portable mapping/i);
     assert.doesNotMatch(portableReview, /Schema-5|auditor|model pool|planned command/i);
     assert.match(portablePlan, /State readiness, one concrete reason, and exactly one next action: invoke `implement-work` after approval/i);
     assert.match(portablePlan, /recommend exactly one closest playbook/i);

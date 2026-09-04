@@ -13,7 +13,7 @@ import { WORKFLOW_TOOL_ANNOTATIONS } from "../src/mcp/tool-annotations.mjs";
 import { workflowClient } from "./mcp-client.mjs";
 
 const expectedTools = ["workflow_artifact_context", "workflow_artifact_record", "workflow_closeout", "workflow_plan_preflight", "workflow_status"];
-const expectedCodexSkills = ["correct-work", "engineering-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-status"];
+const expectedCodexSkills = ["correct-work", "engineering-work", "explain-work", "learn-from-work", "plan-work", "review-work", "verification-work", "work-status", "workflow-doctor"];
 const rootPlan = readFileSync(join(defaultRoot, "tests", "fixtures", "artifacts", "work-plan.valid.md"), "utf8");
 const manualGuide = readFileSync(join(defaultRoot, "docs", "manual-workflow.md"), "utf8");
 const installationGuide = readFileSync(join(defaultRoot, "docs", "installation.md"), "utf8");
@@ -228,7 +228,7 @@ test("deterministic target build isolates Codex and exposes exactly five Manual 
       assert.equal(result.status, 0, result.stderr || result.stdout);
       const parsed = JSON.parse(result.stdout);
       const english = JSON.parse(localReviewOutputs[index]);
-      assert.match(parsed.human_output, /^## Review-Ergebnis ·/);
+      assert.match(parsed.human_output, /^## Review ·/);
       assert.deepEqual(parsed.artifacts, english.artifacts, "presentation locale must not alter packaged artifact bytes or hashes");
       assert.equal(parsed.root_content_hash, english.root_content_hash);
       assert.equal(parsed.intent_hash, english.intent_hash);
@@ -300,9 +300,10 @@ test("deterministic target build isolates Codex and exposes exactly five Manual 
     assert.match(codexReview, /manual-workflow\.mjs build-review/i);
     assert.match(codexReview, /without MCP, adapters, MCP Roots, hooks, cache, or state/i);
     for (const reviewSkill of [cursorReview, codexReview]) {
-      assert.match(reviewSkill, /presentation_locale(?:: de)?.*active (?:request is German|German request).*(?:otherwise|else) `?en`?/i);
-      assert.match(reviewSkill, /each (?:returned artifact text|artifact).*once, unchanged and unquoted, (?:inside |in )?its own default-closed `<details>`/i);
-      assert.match(reviewSkill, /(?:Decorate|decorate) only `presentation\.next_action`/);
+      assert.match(reviewSkill, /presentation_locale(?:: de)?.*(?:active request is German|German requests?).*(?:otherwise|else) `?en`?/i);
+      assert.match(reviewSkill, /one default-closed `<details>`.*Technische Nachweise und Workflow-Artefakte.*Technical evidence and Workflow artifacts/i);
+      assert.match(reviewSkill, /artifacts once, unchanged and unquoted, in builder order.*Delivery Evidence · <label>.*Work Review · <label>/is);
+      assert.match(reviewSkill, /(?:decorate only|only decorate) `presentation\.next_action`/i);
     }
     assert.match(cursorExecution, /phase is complete and fresh `\/review-work` is pending/i);
     assert.match(cursorExecution, /Never claim (?:that )?delivery or Workflow (?:is complete|completion)/i);
@@ -330,7 +331,7 @@ test("deterministic target build isolates Codex and exposes exactly five Manual 
     assert.match(cursorManual, /closed Cursor map/i);
     assert.match(cursorManual, /`implement-plan`.*`review-work`.*`correct`.*`human-assessment`.*`none`/i);
     assert.match(cursorManual, /No fallback;.*token.*trace/i);
-    assert.match(cursorReview, /Decorate only `presentation\.next_action`.*`correct`.*`human-assessment`.*`none`/is);
+    assert.match(cursorReview, /only decorate `presentation\.next_action`.*`correct`.*otherwise use its named action/is);
     assert.match(codexManualContract, /only human-facing actions are \*\*Implement Plan\*\*.*\*\*Review Work\*\*.*\*\*Correct Work\*\*.*natural assessment.*or none/is);
     assert.doesNotMatch(codexManualContract, /accept-provisional|accept-delivery|retry-review|clarify|provide-artifacts|separate replan action/i);
     assert.doesNotMatch(codexReview, /workflow_[a-z_]+/);

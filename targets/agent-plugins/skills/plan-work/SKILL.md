@@ -10,6 +10,8 @@ Read [portable Manual boundaries](../../references/portable-manual.md), [Manual 
 
 Clarify only material outcome, scope, authority, risk, behavior, or acceptance decisions. Once stable, recommend exactly one closest playbook with ID, fit, intended phase, and authority need, then ask and wait for one explicit inline confirm or decline. Decline continues without a playbook. Keep the choice as human trace outside authority; a material intent change requires a fresh suggestion.
 
+Before the final Root, assess project-verifier readiness only when acceptance needs a running UI, CLI, service, side-effect boundary, or cross-surface journey beyond established checks. Add one concise non-authoritative `Verification readiness` note with `ready`, `create-recommended`, `maintenance-recommended`, `not-applicable`, or `blocked`. If Create or Maintenance belongs to implementation, include its exact `.agents/skills/verify-*` destination and outcome in human scope, acceptance, and Root path authority. This is no second playbook choice or gate and never becomes a Core extension.
+
 Write a complete free-form Markdown implementation prompt. Formatting is not authority. Supply its structured goal, acceptance, boundaries, risk, authority, and verification intents to `${PLUGIN_ROOT}/dist/manual-workflow.mjs build-plan`. Never author hashes or the generated `yaml workflow-authority` block manually. A deliberately new plan from Open Points may include exact predecessor bindings without a separate replan action.
 
 Set locale from the active request. State readiness, one concrete reason, and exactly one next action: invoke `implement-work` after approval. Return exactly the generated `root_plan`. Never implement or add a Review action.

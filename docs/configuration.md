@@ -2,6 +2,8 @@
 
 Workflow 6 minimizes Workflow-owned configuration. Hosts and project harnesses configure their own tools, models, framework commands, sandboxing, worktrees, retries, and verification strategy.
 
+Project verification adds no global Workflow setting. When a repository needs reusable behavioral verification, its authorized verifier lives under the nearest owning surface's `.agents/skills/verify-<surface>/` and records project-specific launch, doctor, drive, evidence, cleanup, isolation, and helper guidance. Workflow neither installs such a verifier globally nor owns its concrete commands.
+
 Current versions:
 
 - Plugin 6.1.0
@@ -31,4 +33,4 @@ Workflow does not own or write Cursor/Codex approval, model, shell, network, or 
 
 A generic Capability Receipt binds Harness identity and version, exact deployment identity, workspace, declared lifecycle capabilities, policy hash, validity interval, optional qualification keys, and protected receipt hash. Autonomous Roots bind one exact Qualification Key, protected Capability hash, verification-intent hash, and certified region. A new deployment hash invalidates the previous Capability and qualification binding even when module paths are unchanged.
 
-There are no Workflow model pools, Verification Profiles, task recipes, controller-owned worktrees, command runners, or retry configurations.
+There are no Workflow model pools, Verification Profiles, task recipes, controller-owned worktrees, command runners, or retry configurations. Project verifier readiness creates none of these surfaces.

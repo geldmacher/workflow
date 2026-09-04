@@ -5,9 +5,27 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { defaultRoot } from "../scripts/validate-artifact.source.mjs";
+import { buildWorkflowAuthorityPlan, parseWorkflowAuthorityPlan } from "../src/core/workflow-authority-core.mjs";
 
 const hook = join(defaultRoot, "dist/codex/workflow-hook.mjs");
 const root = readFileSync(join(defaultRoot, "tests/fixtures/artifacts/work-plan.valid.md"), "utf8");
+
+function implementPlanRoot() {
+  const parsed = parseWorkflowAuthorityPlan(root);
+  const built = buildWorkflowAuthorityPlan(
+    `${parsed.plan_markdown.trimEnd()}\n\nThe native \`<proposed_plan>\` container can mention $learn-from-work only with separate authorization.\n`,
+    { ...parsed.core, source: "$plan-work" },
+  );
+  return built.root_plan;
+}
+
+function proposedPlanHandoff() {
+  return `<proposed_plan>\n${implementPlanRoot()}</proposed_plan>`;
+}
+
+function nativeButtonHandoff() {
+  return `PLEASE IMPLEMENT THIS PLAN:\n${implementPlanRoot()}`;
+}
 
 function run(input, stateRoot) {
   const result = spawnSync(process.execPath, [hook], {
@@ -25,6 +43,20 @@ test("built Codex hook accepts Schema-6 native Plan", () => {
   try {
     run({ hook_event_name: "UserPromptSubmit", collaboration_mode: { mode: "plan" }, prompt: "$plan-work migrate" }, state);
     assert.deepEqual(run({ hook_event_name: "Stop", last_assistant_message: "<proposed_plan>\n" + root + "\n</proposed_plan>" }, state), {});
+  } finally { rmSync(state, { recursive: true, force: true }); }
+});
+
+test("built Codex hook passes the native Implement Plan handoff without creating a turn", () => {
+  const state = mkdtempSync(join(tmpdir(), "workflow-codex-handoff-"));
+  try {
+    assert.deepEqual(run({ hook_event_name: "UserPromptSubmit", prompt: proposedPlanHandoff() }, state), {});
+  } finally { rmSync(state, { recursive: true, force: true }); }
+});
+
+test("built Codex hook passes the actual native button handoff without creating a turn", () => {
+  const state = mkdtempSync(join(tmpdir(), "workflow-codex-native-button-"));
+  try {
+    assert.deepEqual(run({ hook_event_name: "UserPromptSubmit", prompt: nativeButtonHandoff() }, state), {});
   } finally { rmSync(state, { recursive: true, force: true }); }
 });
 

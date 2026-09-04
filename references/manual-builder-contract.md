@@ -21,6 +21,6 @@ Malformed formal binding during `build-review` returns `manual-shadow-review`: s
 
 ## Human output and authority
 
-The first layer names result, exact cause, impact, relevant Open Points, and one next human action. Hashes, schemas, attestations, and proof metadata stay in Details. Review actions are only `none`, `correct`, and `human-assessment`; internal retry is not a human gate.
+The first layer names the repository result, required-Check summary, deviations, scope, proof quality, and one next human action. Findings and Open Points appear only when present. Human Details contain concise Check observations without evidence hashes, distinct additional limitations, and exceptional path categories; fully allowed paths remain a count. IDs, hashes, schemas, attestations, and proof metadata remain in the structured result and exact artifacts instead of competing with the human decision. Review actions are only `none`, `correct`, and `human-assessment`; internal retry is not a human gate.
 
 Subject paths outside Root authority become Authority Open Points and receive no correction authority. Ambient paths remain visible and non-blocking. Protected, approval-required, malformed, overlapping, or escaping paths never gain authority. Optional protected sealing may append stronger Evidence but does not change the three Review outcomes or edit existing artifacts.

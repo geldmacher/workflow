@@ -11941,12 +11941,21 @@ function inspectPresentedRootPlan(rootPlanText, options = {}) {
 }
 
 // src/core/codex-hook-policy.mjs
-var CODEX_PLAN_MARKER = "[workflow-codex-plan-v6]", CODEX_REVIEW_MARKER = "[workflow-codex-review-v6]", CODEX_IMPLEMENTATION_MARKER = "[workflow-codex-implementation-v6]", WORKFLOW_SKILLS = ["plan-work", "correct-work", "review-work", "explain-work", "learn-from-work", "work-status"], WORKFLOW_SKILL_NAMES = WORKFLOW_SKILLS.join("|"), WORKFLOW_TOKEN = new RegExp(`(?:^|[\\s('"\\x60])\\$(?:geldmacher-workflow:)?(${WORKFLOW_SKILL_NAMES})(?=$|[\\s.,;!?')"\\x60]|:(?=\\s|$))`, "gi"), WORKFLOW_MARKDOWN_LINK = new RegExp(`\\[\\$(?:geldmacher-workflow:)?(${WORKFLOW_SKILL_NAMES})\\]\\(([^)\\r\\n]+)\\)`, "gi");
+var CODEX_PLAN_MARKER = "[workflow-codex-plan-v6]", CODEX_REVIEW_MARKER = "[workflow-codex-review-v6]", CODEX_IMPLEMENTATION_MARKER = "[workflow-codex-implementation-v6]", WORKFLOW_SKILLS = ["plan-work", "correct-work", "review-work", "explain-work", "learn-from-work", "work-status"], WORKFLOW_SKILL_NAMES = WORKFLOW_SKILLS.join("|"), WORKFLOW_TOKEN = new RegExp(`(?:^|[\\s('"\\x60])\\$(?:geldmacher-workflow:)?(${WORKFLOW_SKILL_NAMES})(?=$|[\\s.,;!?')"\\x60]|:(?=\\s|$))`, "gi"), WORKFLOW_MARKDOWN_LINK = new RegExp(`\\[\\$(?:geldmacher-workflow:)?(${WORKFLOW_SKILL_NAMES})\\]\\(([^)\\r\\n]+)\\)`, "gi"), CODEX_IMPLEMENT_PLAN_PREFIX = /^PLEASE IMPLEMENT THIS PLAN:\r?\n/, PROPOSED_PLAN_OPEN = /^[\t ]*<proposed_plan>[\t ]*\r?$/gim, PROPOSED_PLAN_CLOSE = /^[\t ]*<\/proposed_plan>[\t ]*\r?$/gim;
 function hookContinuation(prompt) {
   return /^\s*<hook_prompt\b[^>]*\bhook_run_id\s*=\s*["'][^"']+["'][^>]*>[\s\S]*<\/hook_prompt>\s*$/i.test(String(prompt ?? ""));
 }
+function workflowInvocationSurface(prompt) {
+  let text = String(prompt ?? ""), nativeHandoff = text.match(CODEX_IMPLEMENT_PLAN_PREFIX);
+  if (nativeHandoff && extractRootPlanText(text.slice(nativeHandoff[0].length))) return "";
+  let openings = [...text.matchAll(PROPOSED_PLAN_OPEN)], closings = [...text.matchAll(PROPOSED_PLAN_CLOSE)];
+  if (openings.length !== 1 || closings.length !== 1 || openings[0].index >= closings[0].index) return text;
+  let containerEnd = closings[0].index + closings[0][0].length, container = text.slice(openings[0].index, containerEnd);
+  return extractRootPlanText(container) ? `${text.slice(0, openings[0].index)}
+${text.slice(containerEnd)}` : text;
+}
 function explicitWorkflowCommand(prompt) {
-  let text = String(prompt ?? ""), commands = [];
+  let text = workflowInvocationSurface(prompt), commands = [];
   for (let match of text.matchAll(WORKFLOW_MARKDOWN_LINK)) {
     let command = match[1].toLowerCase(), target = match[2].trim().replace(/^<|>$/g, "");
     /(?:^|\/)geldmacher-workflow(?:\/|$)/i.test(target) && new RegExp(`/skills/${command}/SKILL\\.md(?:[?#].*)?$`, "i").test(target) && commands.push(command);

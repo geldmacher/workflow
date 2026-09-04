@@ -22,10 +22,10 @@ const globPattern = /[*?[{]/;
 const expected = Object.freeze({
   commands: ["auto-work", "correct-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-status"],
   agents: [],
-  skills: ["engineering-work", "manual-workflow", "work-automation", "work-execution", "work-explanation", "work-learning", "work-planning", "work-review"],
+  skills: ["engineering-work", "manual-workflow", "verification-work", "work-automation", "work-execution", "work-explanation", "work-learning", "work-planning", "work-review", "workflow-doctor"],
   rules: [],
   artifacts: ["delivery-evidence-6", "work-plan-6", "work-review-6"],
-  references: ["artifact-protocol", "automation-contract", "closeout-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "host-approval-contract", "learning-contract", "manual-builder-contract", "manual-workflow-contract", "plan-container-contract", "review-contract", "state-contract", "work-review-input-contract"],
+  references: ["artifact-protocol", "automation-contract", "closeout-contract", "correction-contract", "delivery-evidence-contract", "delivery-evidence-output-contract", "design-contract", "executable-contract", "explanation-contract", "host-approval-contract", "learning-contract", "manual-builder-contract", "manual-workflow-contract", "plan-container-contract", "project-verifier-template", "review-contract", "state-contract", "verification-work-contract", "work-review-input-contract"],
 });
 
 const readText = (path) => readFileSync(path, "utf8");

@@ -14,4 +14,6 @@ Preserve unrelated changes and remain inside Root authority. New scope, protecte
 
 Implement the approved outcomes. The active project harness chooses all commands, tools, models, working directories, sandboxes, worktrees, retries, and verification strategy. Workflow does not assess or prescribe those choices.
 
+When the approved Root explicitly covers a project verifier, the harness may apply `verification-work create` or targeted `verification-work maintain` during this phase. Do not infer that scope from behavioral acceptance alone. A full-map maintenance pass, new verifier destination, dependency, product repair, or external effect outside the Root is an Open Point.
+
 Report only that the implementation phase is complete and fresh `review-work` is pending, with outcomes and limitations. Never claim that delivery or Workflow is complete. Create no Evidence or Workflow state; Review remains separate. Repository observations become only unprotected local Review input unless optional protected sealing later appends a separate result. Do not merge, push, publish, deploy, install, or create external effects.

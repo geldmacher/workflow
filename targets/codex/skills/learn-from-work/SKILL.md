@@ -9,4 +9,6 @@ Read [Manual Workflow](../../references/manual-workflow-contract.md), [local bui
 
 Treat this invocation as human authorization for bounded repository-guidance edits only. Trailing text is one supplemental Learning, never a selector. Require an exact terminal finding-free Schema-6 Root/Evidence/Review chain whose current evidence is `supported` or `verified`, and confirm it through `../../dist/manual-workflow.mjs status` before mutation. Partial, unavailable, ambiguous, failed, cache-only, or missing state stops.
 
-Confirm each candidate against current repository evidence, deduplicate, preserve unrelated work, and use existing guidance conventions. Report source, destination, changed paths, and proof. Learning never expands Root or harness authority. Do not publish, merge, push, deploy, or install.
+Confirm and classify each candidate against current repository evidence. Stable general guidance or pointers may be persisted through existing conventions and deduplicated only under this invocation. Project-verifier mechanics or feature-map drift are reported as a future `verification-work maintain` candidate and are never edited by Learning. Run-specific observations remain evidence only.
+
+Preserve unrelated work and report source, destination, changed paths, and proof. Learning never expands Root or harness authority or creates circular evidence. Do not publish, merge, push, deploy, or install.

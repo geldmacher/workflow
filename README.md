@@ -45,6 +45,8 @@ The MCP server remains registered for `/auto-work`, automation status, and optio
 
 `$engineering-work suggest` optionally recommends one adapted engineering playbook. `$engineering-work use <playbook-id>` confirms that methodology, but never grants implementation authority or changes Workflow evidence. The curated catalog covers diagnosis, bug and feature work, refactoring, performance, bounded experimentation, skill evaluation, and safe continuity; shipping, merge, deployment, autopilot landing, and destructive cleanup stay outside Workflow.
 
+`$workflow-doctor` optionally inspects, without mutation or application startup, whether behavioral acceptance needs a project-local verifier and whether an existing `.agents/skills/verify-*` is ready. `$verification-work inspect|create|maintain|maintain full` can then inspect or, only inside an approved implementation or correction boundary, create and maintain that harness guidance. Planning may suggest this adaptively; it creates no extra Workflow gate, schema field, evidence grade, or automatic learning path.
+
 `/auto-work implement` advances one protected implementation phase and stops at Review needed. The human then uses `/auto-work review <run-id>@<revision>` for the repository-read-only Review. `/auto-work correct <run-id>@<revision>` applies exactly one bounded Correction and stops again at Fresh Review pending. Only an external Host Adapter can protect Harness provenance; a directly configured Harness remains Shadow Mode. Codex and portable targets remain Manual-only.
 
 Removed in Workflow 6: `/work-models`, `/work-verification`, `/work-watch`, and `/work-control`. Model pools, Verification Profiles, controller-owned workers, worktrees, sandboxes, command runners, and retry recipes are not Workflow responsibilities.
@@ -64,6 +66,7 @@ See [overview](docs/overview.md), [profiles](docs/profiles.md), [Manual Workflow
 ## Components
 
 - Commands and Skills define the Manual lifecycle and collect closed semantic observations.
+- Project-verifier Skills provide optional non-authoritative harness readiness and project-local verification guidance.
 - The bundled `dist/manual-workflow.mjs` program validates and deterministically constructs Manual artifacts without repository discovery, execution, MCP, or state.
 - Schemas and the validator define closed Schema-6 artifacts.
 - Core modules validate authority, lineage, evidence, generic PhaseRequest and PhaseResult contracts.

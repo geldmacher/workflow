@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added adaptive project-local verification through read-only `workflow-doctor`, authority-bound `verification-work`, targeted or explicit full maintenance, Review-safe harness usage, and explicit Learning handoff across Cursor, Codex, and Agent Plugins.
+- Simplified Manual Review output to one decision-first human summary, one compact Details disclosure, and one clearly labelled technical artifact disclosure without changing Schema-6 evidence or authority.
+
 ## 6.1.0
 
 - Replaced rigid native Plan presentation authority with comprehensive free-form Markdown plus one deterministic generated Schema-6 Authority Core, exact content hashing, active-Plan transport repair, and useful read-only Shadow Review for invalid formal bindings.

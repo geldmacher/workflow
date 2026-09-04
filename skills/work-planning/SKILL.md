@@ -11,6 +11,8 @@ Clarify only material intent; emit no Root with open authority.
 
 Once stable, read `../../references/engineering-playbooks.md`. Recommend exactly one closest playbook with ID, fit, intended phase, and authority need. Before the final Root ask and wait for an explicit inline confirm or decline. Decline continues without a playbook; confirmation is human trace outside authority. Material intent change requires a fresh suggestion.
 
+Before the final Root, assess project-verifier readiness only when acceptance needs a running UI, CLI, service, side-effect boundary, or cross-surface journey beyond established checks. Add one concise non-authoritative `Verification readiness` note with `ready`, `create-recommended`, `maintenance-recommended`, `not-applicable`, or `blocked`. If Create or Maintenance belongs to implementation, include its exact `.agents/skills/verify-*` destination and outcome in human scope, acceptance, and Root path authority. This is no second playbook choice or gate and never becomes a Core extension.
+
 ## Authority Core
 
 Read [root semantics](../../references/executable-contract.md), [native output](../../references/plan-container-contract.md), and [design](../../references/design-contract.md). Write the best complete human implementation prompt without imposing headings, order, tables, or editorial phrases. Supply its structured goal, acceptance, authority, risks, boundaries, and verification intents to local `build-plan`. Return exactly the generated native plan with one expandable `yaml workflow-authority` block at the end; never author hashes by hand.

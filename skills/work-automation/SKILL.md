@@ -15,4 +15,6 @@ Missing protection means phase-local Shadow Review. Manual, Supervised, and Auto
 
 Implementation and Correct Work always end as Review needed. They never start Review automatically. Technical recovery stays internal to the currently authorized phase.
 
+An external project harness may create or maintain a project verifier only when the exact Root already authorizes its destination and outcome. Verification readiness is not a new phase, capability, qualification, or evidence grade.
+
 Never push, PR, merge, deploy, integrate, publish, or auto-learn. Report evidence, limitations, and one next action.

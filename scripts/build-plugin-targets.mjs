@@ -22,8 +22,8 @@ const cursorExcludedPaths = new Set([
   "schemas/agent-plugins/1.0.0/mcp.schema.json",
   "schemas/agent-plugins/1.0.0/plugin.schema.json",
 ]);
-const expectedCodexSkills = ["correct-work", "engineering-work", "explain-work", "learn-from-work", "plan-work", "review-work", "work-status"];
-const expectedAgentPluginSkills = ["correct-work", "engineering-work", "explain-work", "implement-work", "learn-from-work", "plan-work", "review-work", "work-status"];
+const expectedCodexSkills = ["correct-work", "engineering-work", "explain-work", "learn-from-work", "plan-work", "review-work", "verification-work", "work-status", "workflow-doctor"];
+const expectedAgentPluginSkills = ["correct-work", "engineering-work", "explain-work", "implement-work", "learn-from-work", "plan-work", "review-work", "verification-work", "work-status", "workflow-doctor"];
 const manualTools = ["workflow_artifact_context", "workflow_artifact_record", "workflow_closeout", "workflow_plan_preflight", "workflow_status"];
 const forbiddenCodexText = [
   "@cursor/sdk",
@@ -56,8 +56,10 @@ const sharedReferences = [
   "manual-builder-contract.md",
   "manual-mcp-output-contract.md",
   "plan-container-contract.md",
+  "project-verifier-template.md",
   "review-contract.md",
   "work-review-input-contract.md",
+  "verification-work-contract.md",
   "state-contract.md",
 ];
 const portableSkillReferences = Object.freeze({
@@ -68,7 +70,9 @@ const portableSkillReferences = Object.freeze({
   "learn-from-work": ["portable-manual.md", "manual-workflow-contract.md", "manual-builder-contract.md", "artifact-protocol.md", "learning-contract.md"],
   "plan-work": ["portable-manual.md", "manual-workflow-contract.md", "manual-builder-contract.md", "artifact-protocol.md", "executable-contract.md", "design-contract.md", "engineering-playbooks.md", "engineering-diagnostic-playbooks.md", "engineering-delivery-playbooks.md", "engineering-continuity-playbooks.md", "plan-container-contract.md"],
   "review-work": ["portable-manual.md", "manual-workflow-contract.md", "manual-builder-contract.md", "artifact-protocol.md", "delivery-evidence-contract.md", "review-contract.md", "work-review-input-contract.md", "explanation-contract.md"],
+  "verification-work": ["portable-manual.md", "verification-work-contract.md", "project-verifier-template.md"],
   "work-status": ["portable-manual.md", "manual-workflow-contract.md", "manual-builder-contract.md", "artifact-protocol.md", "state-contract.md"],
+  "workflow-doctor": ["portable-manual.md", "verification-work-contract.md"],
 });
 
 function inside(base, path) {

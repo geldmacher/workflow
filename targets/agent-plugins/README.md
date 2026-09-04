@@ -1,6 +1,6 @@
 # Workflow — Agent Plugins v1 target
 
-This package provides Workflow's portable Manual profile through 8 Agent Skills and five MCP tools. It targets Agent Plugins Specification 1.0.0.
+This package provides Workflow's portable Manual profile through 10 Agent Skills and five MCP tools. It targets Agent Plugins Specification 1.0.0.
 
 ## Requirements
 
@@ -9,6 +9,8 @@ Use an Agent Plugins v1 client that discovers Agent Skills and supports stdio MC
 The human separately authorizes planning, implementation, each correction, each fresh review, and learning. Plans use free-form Markdown plus one generated Schema-6 Authority Core. Every other artifact schema is unsupported.
 
 Workflow owns lifecycle, intent, authority, lineage, evidence grades, and human gates. The project harness owns commands, tools, models, framework knowledge, sandboxes, worktrees, retries, and verification strategy. The package contains no execution engine, model routing, automatic merge, push, publication, deployment, or host installation logic.
+
+`workflow-doctor` and `verification-work` add optional project-local verifier readiness, creation, and maintenance under `.agents/skills/verify-*`. Their mutating forms require existing Root and phase authority and add no Workflow phase or evidence grade.
 
 This artifact is repository-validated only. A compatible-client smoke, installation, and publication are separate environment-specific steps and are not implied by the build.
 

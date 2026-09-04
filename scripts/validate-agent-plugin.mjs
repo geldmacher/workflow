@@ -25,7 +25,9 @@ const expectedSkills = [
   "learn-from-work",
   "plan-work",
   "review-work",
+  "verification-work",
   "work-status",
+  "workflow-doctor",
 ];
 const expectedTools = [
   "workflow_artifact_context",

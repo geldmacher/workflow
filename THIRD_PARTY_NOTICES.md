@@ -2,11 +2,16 @@
 
 The self-contained runtime validator bundles the following packages. Their notices are reproduced verbatim.
 
-## pstack engineering playbooks
+## pstack engineering playbooks and verification skills
 
 Workflow's `engineering-work` taxonomy and methodology were independently adapted from pstack at commit `bdf7aa355337897f167153e05069aca505dae17c`:
 
 https://github.com/cursor/plugins/tree/bdf7aa355337897f167153e05069aca505dae17c/pstack
+
+Workflow's `workflow-doctor` and `verification-work` contracts selectively adapt ideas from these pstack skills at commit `93b00b89ef425a9c1bac0d0b317dfc49c930ac99`:
+
+- https://github.com/cursor/plugins/tree/93b00b89ef425a9c1bac0d0b317dfc49c930ac99/pstack/skills/create-verification-skill
+- https://github.com/cursor/plugins/tree/93b00b89ef425a9c1bac0d0b317dfc49c930ac99/pstack/skills/maintain-verification-skill
 
 Declared license: MIT
 

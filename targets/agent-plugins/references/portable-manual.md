@@ -8,6 +8,8 @@ Presentation follows the shared Manual Workflow contract; that contract is the s
 
 The project harness owns every repository discovery, command, tool, model, framework, sandbox, worktree, retry strategy, and verification mechanism. Review is read-only. Correct Work mutates only under its exact human authorization and ends Fresh Review pending.
 
+`workflow-doctor` may inspect project-verifier readiness without mutation or product startup. `verification-work` may create or maintain `.agents/skills/verify-*` only when the exact approved Root and current implementation or correction authorization already cover that outcome. Review may use a verifier as a harness recipe but never edit it.
+
 Missing protected proof never masquerades as verified but does not alone prevent Achieved. Missing observations retry internally; explicit limits become Open Points. Invalid binding receives an informative Shadow Review without artifacts or correction authority. Ordinary client use remains available when Workflow infrastructure fails.
 
 No action merges, pushes, publishes, deploys, installs, or learns without a separate explicit request.

@@ -9,4 +9,4 @@ Invocation authorizes only bounded project-guidance edits. Trailing text is Lear
 
 Confirm exact Root/Evidence/Review bytes with local `status`. Continue only for an achieved terminal chain with current `supported` or `verified` evidence; all other proof stops.
 
-Revalidate candidates in the repository. Persist confirmed, deduplicated guidance only under this invocation; preserve unrelated work and report paths and proof. Learning expands no authority.
+Revalidate and classify candidates in the repository. Stable general guidance or pointers may be persisted and deduplicated only under this invocation. Project-verifier mechanics or feature-map drift are reported as a future `verification-work maintain` candidate and are never edited by Learning. Run-specific observations remain evidence only. Preserve unrelated work and report paths and proof. Learning expands no authority and creates no circular evidence.

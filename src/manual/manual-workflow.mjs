@@ -295,6 +295,7 @@ const PRESENTATION_LABELS = Object.freeze({
     decision: "Decision", nextAction: "Next action", actionToken: "Action token", repositoryOutcome: "Repository outcome",
     reason: "Reason", evidenceGrade: "Evidence grade", proofBoundary: "Proof boundary", scope: "Scope",
     findings: "Findings", checks: "Checks", limitations: "Limitations", changedPaths: "Changed paths",
+    deviations: "Deviations", proof: "Proof", details: "Details", exceptionalPaths: "Exceptional paths",
     traceability: "Traceability", planBlockers: "Plan blockers", advisories: "Advisories",
     root: "Root", evidence: "Evidence", review: "Review", artifactHash: "artifact hash",
     rootHash: "Root content hash", intentHash: "Intent hash", workspaceBindingHash: "Workspace binding hash",
@@ -304,6 +305,7 @@ const PRESENTATION_LABELS = Object.freeze({
     decision: "Entscheidung", nextAction: "Nächste Aktion", actionToken: "Aktions-Token", repositoryOutcome: "Repository-Ergebnis",
     reason: "Grund", evidenceGrade: "Evidenzgrad", proofBoundary: "Nachweisgrenze", scope: "Umfang",
     findings: "Feststellungen", checks: "Checks", limitations: "Grenzen", changedPaths: "Geänderte Pfade",
+    deviations: "Abweichungen", proof: "Nachweis", details: "Details", exceptionalPaths: "Besondere Pfade",
     traceability: "Rückverfolgbarkeit", planBlockers: "Planblocker", advisories: "Hinweise",
     root: "Root", evidence: "Evidence", review: "Review", artifactHash: "Artefakt-Hash",
     rootHash: "Root-Inhalts-Hash", intentHash: "Intent-Hash", workspaceBindingHash: "Workspace-Bindungs-Hash",
@@ -516,33 +518,137 @@ function authorityScopePresentation(pathAuthority, locale) {
 function reviewDecision(review, locale) {
   const de = localeOf(locale) === "de";
   if (review.fields.outcome === "achieved") return de
-    ? "Ziel erreicht: Die Akzeptanzziele sind repository-seitig erfüllt."
-    : "Goal achieved: the repository satisfies the acceptance outcomes.";
+    ? "Die genehmigten Akzeptanzziele sind im Repository erfüllt."
+    : "The approved acceptance outcomes are satisfied in the repository.";
   if (review.fields.outcome === "correction-needed") return de
-    ? "Korrektur erforderlich: Die behebbaren Abweichungen sind in einer Correction gebündelt."
-    : "Correction needed: the correctable deviations are bundled into one correction.";
+    ? "Die Umsetzung benötigt eine begrenzte Korrektur der unten genannten Feststellungen."
+    : "The implementation needs one bounded correction for the findings below.";
   return de
-    ? "Offene Punkte: Eine verständliche menschliche Nachbeurteilung ist erforderlich."
-    : "Open points: a clear human assessment is required.";
+    ? "Die Repository-Prüfung ist abgeschlossen; die unten genannten offenen Punkte benötigen eine menschliche Entscheidung."
+    : "Repository inspection is complete; the open points below need a human decision.";
 }
 
-function reviewReason({ review, reviewInput, pathAuthority, checks }, locale) {
+function requiredCheckSummary(requiredCheckIds, checks, locale) {
   const de = localeOf(locale) === "de";
-  if (review.fields.outcome === "correction-needed") return de
-    ? `${counted(reviewInput.findings.filter((finding) => finding.resolution === "correct").length, "behebbare Feststellung ist", "behebbare Feststellungen sind")} innerhalb des Roots korrigierbar.`
-    : `${counted(reviewInput.findings.filter((finding) => finding.resolution === "correct").length, "correctable finding is", "correctable findings are")} correctable within the Root.`;
-  if (review.fields.outcome === "open-points") return reviewInput.open_points[0]?.summary
-    ?? (de ? "Mindestens eine konkrete Grenze bleibt offen." : "At least one concrete limitation remains open.");
-  const weaker = checks.filter((entry) => entry.grade === "supported").length;
-  return de
-    ? `Keine Findings oder offenen Punkte; alle erforderlichen Checks sind mindestens gestützt${weaker > 0 ? ` (${weaker} ohne geschützte Verifikation)` : ""}.`
-    : `No findings or open points; every required Check is at least supported${weaker > 0 ? ` (${weaker} without protected verification)` : ""}.`;
+  const required = new Set(requiredCheckIds);
+  const observed = checks.filter((entry) => required.has(entry.check_id));
+  if (required.size === 0) return de ? "keine erforderlichen Checks" : "no required Checks";
+  const count = (grade) => observed.filter((entry) => entry.grade === grade).length;
+  const verified = count("verified");
+  const supported = count("supported");
+  const sufficient = verified + supported;
+  const missing = required.size - observed.length;
+  const qualifiers = [
+    ...(verified > 0 ? [`${verified} ${de ? "geschützt verifiziert" : "protected and verified"}`] : []),
+    ...(supported > 0 ? [`${supported} ${de ? "manuell gestützt" : "manually supported"}`] : []),
+    ...(count("partial") > 0 ? [`${count("partial")} ${de ? "teilweise" : "partial"}`] : []),
+    ...(count("unavailable") > 0 ? [`${count("unavailable")} ${de ? "nicht verfügbar" : "unavailable"}`] : []),
+    ...(count("failed") > 0 ? [`${count("failed")} ${de ? "fehlgeschlagen" : "failed"}`] : []),
+    ...(missing > 0 ? [`${missing} ${de ? "ohne Beobachtung" : "without observation"}`] : []),
+  ];
+  const base = de
+    ? `${sufficient}/${required.size} ausreichend belegt`
+    : `${sufficient}/${required.size} sufficiently supported`;
+  return qualifiers.length > 0 ? `${base} (${qualifiers.join(", ")})` : base;
 }
 
-function reviewPresentation({ rootFields, rootPlan, evidence, review, reviewInput, repositoryObservation, pathAuthority, trace, locale }) {
+function reviewDeviationSummary(reviewInput, locale) {
+  const de = localeOf(locale) === "de";
+  const findings = reviewInput.findings.length;
+  const openPoints = reviewInput.open_points.length;
+  if (findings === 0 && openPoints === 0) return de ? "keine Feststellungen oder offenen Punkte" : "no findings or open points";
+  return de
+    ? `${findings} ${findings === 1 ? "Feststellung" : "Feststellungen"}; ${openPoints} ${openPoints === 1 ? "offener Punkt" : "offene Punkte"}`
+    : `${findings} ${findings === 1 ? "finding" : "findings"}; ${openPoints} open ${openPoints === 1 ? "point" : "points"}`;
+}
+
+function reviewScopeSummary(pathAuthority, locale) {
+  const de = localeOf(locale) === "de";
+  const allowed = pathAuthority?.allowed_paths?.length ?? 0;
+  const outside = pathAuthority?.outside_allowed_paths?.length ?? 0;
+  const approval = pathAuthority?.approval_required_paths?.length ?? 0;
+  const protectedCount = pathAuthority?.protected_paths?.length ?? 0;
+  const ambient = pathAuthority?.ambient_paths?.length ?? 0;
+  const subject = allowed + outside + approval + protectedCount;
+  const exceptions = outside + approval + protectedCount;
+  const subjectSummary = subject === 0
+    ? (de ? "keine Lieferpfade" : "no subject paths")
+    : (de
+      ? `${allowed}/${subject} Lieferpfade innerhalb der Autorität`
+      : `${allowed}/${subject} subject paths within authority`);
+  const parts = [subjectSummary];
+  if (exceptions > 0) parts.push(de ? `${exceptions} mit Autoritätsabweichung` : `${exceptions} with authority deviations`);
+  if (ambient > 0) parts.push(de
+    ? `${ambient} sichtbare ${ambient === 1 ? "Umgebungsänderung" : "Umgebungsänderungen"}`
+    : `${ambient} visible ambient ${ambient === 1 ? "change" : "changes"}`);
+  return parts.join("; ");
+}
+
+function proofSummary(grade, locale) {
+  const de = localeOf(locale) === "de";
+  const summaries = de ? {
+    verified: "verifiziert – geschützt an Root und Repository-Snapshot gebunden",
+    supported: "gestützt – durch aktuelle manuelle Beobachtungen belegt, aber nicht geschützt verifiziert",
+    partial: "teilweise – die vorhandenen Beobachtungen belegen das Ergebnis nicht vollständig",
+    unavailable: "nicht verfügbar – ein erforderlicher Nachweis konnte nicht erhoben werden",
+    failed: "fehlgeschlagen – mindestens ein erforderlicher Check ist nicht erfüllt",
+  } : {
+    verified: "verified – protected and bound to the Root and repository snapshot",
+    supported: "supported – backed by current manual observations, but not protected and verified",
+    partial: "partial – the available observations do not fully support the outcome",
+    unavailable: "unavailable – required proof could not be obtained",
+    failed: "failed – at least one required Check is not satisfied",
+  };
+  return summaries[grade] ?? displayValue(locale, grade);
+}
+
+function reviewFindingLine(finding) {
+  const key = safeInline(finding.key ?? finding["Finding key"] ?? "finding");
+  const severity = safeInline(finding.severity ?? finding.Severity ?? "unknown").toUpperCase();
+  const summary = concise(finding.reasoning ?? finding.Reasoning ?? finding.evidence ?? finding.Evidence, 260);
+  return `- [${severity}] ${key}: ${summary}`;
+}
+
+function reviewOpenPointLine(point, locale) {
+  const de = localeOf(locale) === "de";
+  return [
+    `- ${safeInline(point.summary)}`,
+    `  - ${de ? "Auswirkung" : "Impact"}: ${safeInline(point.impact)}`,
+    `  - ${de ? "Frage" : "Question"}: ${safeInline(point.question)}`,
+  ].join("\n");
+}
+
+function reviewCheckTable(checks, locale) {
+  const de = localeOf(locale) === "de";
+  const header = de
+    ? "| Check | Grad | Beobachtung |\n|---|---|---|"
+    : "| Check | Grade | Observation |\n|---|---|---|";
+  const rows = checks.map((check) => `| ${safeInline(check.check_id)} | ${displayValue(locale, check.grade)} | ${concise(check.observed, 260).replaceAll("|", "\\|")} |`);
+  return [header, ...rows].join("\n");
+}
+
+function exceptionalPathLines(pathAuthority, locale) {
+  const de = localeOf(locale) === "de";
+  const categories = [
+    [de ? "Außerhalb erlaubter Roots" : "Outside allowed roots", pathAuthority?.outside_allowed_paths],
+    [de ? "Freigabepflichtig" : "Approval required", pathAuthority?.approval_required_paths],
+    [de ? "Geschützt" : "Protected", pathAuthority?.protected_paths],
+    [de ? "Umgebungsänderungen" : "Ambient changes", pathAuthority?.ambient_paths],
+  ];
+  return categories.flatMap(([title, paths]) => (paths ?? []).length > 0
+    ? [`- ${title} (${paths.length})`, ...paths.map((path) => `  - ${safeInline(path)}`)]
+    : []);
+}
+
+function genericProofLimitation(value) {
+  return /unprotected manual observation|cannot establish verified|no protected .*attestation|passing check.*no protected host receipt/i.test(String(value));
+}
+
+function reviewPresentation({ rootFields, evidence, review, reviewInput, repositoryObservation, pathAuthority, requiredCheckIds, locale }) {
   const lang = localeOf(locale);
   const copy = labels(lang);
-  const findings = reviewInput.findings.map((finding) => findingLine(finding, lang));
+  const findings = reviewInput.findings.map(reviewFindingLine);
+  const openPointLines = reviewInput.open_points.map((point) => reviewOpenPointLine(point, lang));
   const scopeLimitation = authorityScopeLimitation(pathAuthority);
   const blockingLimitation = authorityBlockingLimitation(pathAuthority);
   const limitations = unique([
@@ -553,17 +659,12 @@ function reviewPresentation({ rootFields, rootPlan, evidence, review, reviewInpu
     ...(evidence.fields.check_evidence ?? []).flatMap((entry) => entry.limitations ?? []),
   ]);
   const checks = evidence.fields.check_evidence ?? [];
-  const checkLines = checks.map((entry) => checkLine(entry, lang));
   const shownScopeLimitation = authorityScopePresentation(pathAuthority, lang);
-  const proofLimitations = limitations
+  const visibleOpenPointLimits = reviewInput.open_points.map((point) => `${point.summary} ${point.impact}`);
+  const detailLimitations = limitations
     .filter((entry) => entry !== blockingLimitation)
     .map((entry) => entry === scopeLimitation ? shownScopeLimitation : entry)
-    .filter(Boolean);
-  const primaryProofBoundary = evidence.fields.overall_grade !== "verified"
-    ? (lang === "de"
-      ? "Ungeschützte Manual-Beobachtungen können keine verifizierte Lieferung belegen."
-      : "Unprotected Manual observations cannot establish verified delivery.")
-    : null;
+    .filter((entry) => entry && !genericProofLimitation(entry) && !visibleOpenPointLimits.includes(entry));
   const presentation = {
     schema: 1,
     kind: "manual-review-presentation",
@@ -579,44 +680,32 @@ function reviewPresentation({ rootFields, rootPlan, evidence, review, reviewInpu
     path_authority: pathAuthority,
     next_action: review.fields.next_action,
   };
-  const traceLines = [
-    `- ${copy.root}: ${safeInline(rootFields.id)}`,
-    `- ${copy.rootHash}: ${sha256(rootPlan)}`,
-    `- ${copy.intentHash}: ${safeInline(trace.intent_hash)}`,
-    `- ${copy.workspaceBindingHash}: ${safeInline(trace.workspace_binding_hash)}`,
-    `- ${copy.repositorySnapshotHash}: ${safeInline(trace.repository_snapshot_hash)}`,
-    `- ${copy.evidence}: ${safeInline(evidence.fields.id)}`,
-    `- ${copy.evidence} ${copy.artifactHash}: ${safeInline(evidence.artifact_hash)}`,
-    `- ${copy.review}: ${safeInline(review.fields.id)}`,
-    `- ${copy.review} ${copy.artifactHash}: ${safeInline(review.artifact_hash)}`,
+  const exceptionalPaths = exceptionalPathLines(pathAuthority, lang);
+  const detailSections = [
+    ...(checks.length > 0 ? [`### ${copy.checks}\n\n${reviewCheckTable(checks, lang)}`] : []),
+    ...(detailLimitations.length > 0 ? [`### ${copy.limitations}\n\n${detailLimitations.map((entry) => `- ${localizedKnownText(entry, lang)}`).join("\n")}`] : []),
+    ...(exceptionalPaths.length > 0 ? [`### ${copy.exceptionalPaths}\n\n${exceptionalPaths.join("\n")}`] : []),
   ];
-  const detailBlocks = [
-    detailBlock(`${copy.findings} (${findings.length})`, findings),
-    detailBlock(`${copy.checks} (${checkLines.length})`, checkLines),
-    detailBlock(`${copy.limitations} (${proofLimitations.length})`, proofLimitations.map((entry) => `- ${localizedKnownText(entry, lang)}`)),
-    detailBlock(`${copy.changedPaths} (${changedPathCount(pathAuthority)})`, pathLines(pathAuthority, lang)),
-    detailBlock(copy.traceability, traceLines),
-  ].filter(Boolean);
   const decisionLines = [
-    `- ${reviewDecision(review, lang)}`,
-    `- ${copy.reason}: ${reviewReason({ review, reviewInput, pathAuthority, checks }, lang)}`,
-    `- ${copy.repositoryOutcome}: ${concise(reviewInput.assessment_summary)}`,
-    `- ${copy.evidenceGrade}: ${displayValue(lang, evidence.fields.overall_grade)}.`,
-    ...(primaryProofBoundary ? [`- ${copy.proofBoundary}: ${concise(primaryProofBoundary)}`] : []),
-    `- ${copy.scope}: ${scopeSummary(pathAuthority, lang)}.`,
+    `- ${copy.checks}: ${requiredCheckSummary(requiredCheckIds, checks, lang)}.`,
+    `- ${copy.deviations}: ${reviewDeviationSummary(reviewInput, lang)}.`,
+    `- ${copy.scope}: ${reviewScopeSummary(pathAuthority, lang)}.`,
+    `- ${copy.proof}: ${proofSummary(evidence.fields.overall_grade, lang)}.`,
   ];
-  const openPointLines = reviewInput.open_points.map((point) => `- ${safeInline(point.summary)} — ${lang === "de" ? "Auswirkung" : "Impact"}: ${safeInline(point.impact)} ${lang === "de" ? "Frage" : "Question"}: ${safeInline(point.question)}`);
+  const findingsSection = findings.length > 0 ? `### ${copy.findings}\n\n${findings.join("\n")}` : null;
+  const openPointsSection = openPointLines.length > 0
+    ? `### ${lang === "de" ? "Offene Punkte" : "Open points"}\n\n${openPointLines.join("\n")}`
+    : null;
   const humanOutput = [
-    lang === "de"
-      ? `## Review-Ergebnis · ${displayValue(lang, review.fields.outcome)}`
-      : `## Review result · ${displayValue(lang, review.fields.outcome)}`,
-    `### ${copy.decision}`,
+    `## Review · ${displayValue(lang, review.fields.outcome)}`,
+    reviewDecision(review, lang),
     decisionLines.join("\n"),
+    findingsSection,
+    openPointsSection,
     `### ${copy.nextAction}`,
     actionLine(review.fields.next_action, lang),
-    detailBlock(`${lang === "de" ? "Offene Punkte" : "Open points"} (${openPointLines.length})`, openPointLines),
-    ...detailBlocks,
-  ].join("\n\n");
+    detailBlock(copy.details, detailSections),
+  ].filter(Boolean).join("\n\n");
   return { presentation, humanOutput: `${humanOutput}\n` };
 }
 
@@ -814,17 +903,12 @@ function buildReview(request, pluginRoot) {
   });
   const shown = reviewPresentation({
     rootFields: exact.rootFields,
-    rootPlan: request.root_plan,
     evidence,
     review,
     reviewInput: review.normalized_review_input,
     repositoryObservation: request.repository_observation,
     pathAuthority,
-    trace: {
-      intent_hash: contract.authoritative_projection_hash,
-      workspace_binding_hash: hashes.workspaceBindingHash,
-      repository_snapshot_hash: hashes.snapshotHash,
-    },
+    requiredCheckIds,
     locale: request.presentation_locale,
   });
   return {
@@ -913,6 +997,9 @@ function shadowError(operation, input, error) {
       impact: locale === "de" ? "Der repository-read-only Review bleibt informativ, kann aber keine Artefakte oder Korrekturautorität erzeugen." : "The repository-read-only review remains informative but cannot create artifacts or correction authority.",
       question: locale === "de" ? "Soll ein gültiger Authority Core erzeugt werden, bevor eine Korrektur autorisiert wird?" : "Should a valid Authority Core be generated before any correction is authorized?",
     };
+    const findings = (supplied.findings ?? []).map(reviewFindingLine);
+    const openPoints = [...(supplied.open_points ?? []), point];
+    const openPointLines = openPoints.map((entry) => reviewOpenPointLine(entry, locale));
     return {
       schema: 1,
       kind: "manual-shadow-review",
@@ -922,13 +1009,18 @@ function shadowError(operation, input, error) {
       outcome: "shadow-review",
       next_action: "human-assessment",
       findings: supplied.findings ?? [],
-      open_points: [...(supplied.open_points ?? []), point],
+      open_points: openPoints,
       error: { code, message },
       human_output: [
         locale === "de" ? "## Shadow Review · formale Bindung fehlt" : "## Shadow review · formal binding missing",
-        locale === "de" ? `- ${point.summary}\n- ${point.impact}` : `- ${point.summary}\n- ${point.impact}`,
-        locale === "de" ? `- Offene Frage: ${point.question}` : `- Open question: ${point.question}`,
-      ].join("\n\n") + "\n",
+        locale === "de"
+          ? "Die Repository-Prüfung bleibt informativ, kann aber keine autoritativen Artefakte oder Korrekturautorität erzeugen."
+          : "Repository inspection remains informative, but it cannot create authoritative artifacts or correction authority.",
+        findings.length > 0 ? `### ${copy.findings}\n\n${findings.join("\n")}` : null,
+        `### ${locale === "de" ? "Offene Punkte" : "Open points"}\n\n${openPointLines.join("\n")}`,
+        `### ${copy.nextAction}`,
+        actionLine("human-assessment", locale),
+      ].filter(Boolean).join("\n\n") + "\n",
       artifacts: [],
     };
   }

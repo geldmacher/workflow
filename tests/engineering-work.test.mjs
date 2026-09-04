@@ -104,5 +104,8 @@ test("pstack methodology provenance ships with the plugin notice", () => {
   const notice = read("THIRD_PARTY_NOTICES.md");
   assert.match(notice, /pstack engineering playbooks/i);
   assert.match(notice, /bdf7aa355337897f167153e05069aca505dae17c/);
+  assert.match(notice, /create-verification-skill/);
+  assert.match(notice, /maintain-verification-skill/);
+  assert.match(notice, /93b00b89ef425a9c1bac0d0b317dfc49c930ac99/);
   assert.match(notice, /Copyright \(c\) 2026 Lauren Tan/);
 });
