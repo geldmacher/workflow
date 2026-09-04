@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 6.2.0
+
 - Added adaptive project-local verification through read-only `workflow-doctor`, authority-bound `verification-work`, targeted or explicit full maintenance, Review-safe harness usage, and explicit Learning handoff across Cursor, Codex, and Agent Plugins.
 - Simplified Manual Review output to one decision-first human summary, one compact Details disclosure, and one clearly labelled technical artifact disclosure without changing Schema-6 evidence or authority.
 

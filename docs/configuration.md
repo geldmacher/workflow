@@ -6,7 +6,7 @@ Project verification adds no global Workflow setting. When a repository needs re
 
 Current versions:
 
-- Plugin 6.1.0
+- Plugin 6.2.0
 - Artifact Schema 6
 - Controller Protocol 6
 - Harness Capability Receipt Schema 1

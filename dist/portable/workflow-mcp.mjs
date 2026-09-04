@@ -25218,7 +25218,7 @@ function createHarnessLifecycleController({
 }
 
 // src/controller/protocol.mjs
-var PLUGIN_VERSION = "6.1.0";
+var PLUGIN_VERSION = "6.2.0";
 
 // src/harness/module-adapter.mjs
 import { lstatSync as lstatSync3, realpathSync as realpathSync4 } from "node:fs";
