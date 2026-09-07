@@ -1,17 +1,9 @@
-# Workflow — Agent Plugins v1 target
+# Workflow for Agent Plugins
 
-This package provides Workflow's portable Manual profile through 10 Agent Skills and five MCP tools. It targets Agent Plugins Specification 1.0.0.
+Use `plan-work`, then explicitly commission `implement-work`. Commission review, correction, and learning separately. Keep the approved plan and reports in the native task, and supply an explicit handoff when changing tasks.
 
-## Requirements
+The package contains skills and reference documents. It requires no Workflow runtime, Node executable, hooks, or MCP support. Your host controls permissions and execution.
 
-Use an Agent Plugins v1 client that discovers Agent Skills and supports stdio MCP servers. Node.js 22 or newer must be available as the bare `node` executable. When launching the bundled server, the client must provide and expand `PLUGIN_ROOT` and `PLUGIN_DATA` as defined by Agent Plugins v1.
+[Installation](../../docs/installation.md) · [Working guide](../../docs/manual-workflow.md)
 
-The human separately authorizes planning, implementation, each correction, each fresh review, and learning. Plans use free-form Markdown plus one generated Schema-6 Authority Core. Every other artifact schema is unsupported.
-
-Workflow owns lifecycle, intent, authority, lineage, evidence grades, and human gates. The project harness owns commands, tools, models, framework knowledge, sandboxes, worktrees, retries, and verification strategy. The package contains no execution engine, model routing, automatic merge, push, publication, deployment, or host installation logic.
-
-`workflow-doctor` and `verification-work` add optional project-local verifier readiness, creation, and maintenance under `.agents/skills/verify-*`. Their mutating forms require existing Root and phase authority and add no Workflow phase or evidence grade.
-
-This artifact is repository-validated only. A compatible-client smoke, installation, and publication are separate environment-specific steps and are not implied by the build.
-
-See the [Agent Plugins v1 specification](https://github.com/agentplugins/agent-plugins-spec/blob/main/spec/1.0.0.md) and the project [Manual Workflow guide](https://github.com/geldmacher/workflow/blob/main/docs/manual-workflow.md).
+Repository and package validation do not prove that this package was installed or activated in a compatible host.

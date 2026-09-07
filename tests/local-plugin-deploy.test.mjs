@@ -48,8 +48,8 @@ function fixture() {
     const manifestDir = host === "cursor" ? ".cursor-plugin" : ".codex-plugin";
     json(join(bundle, manifestDir, "plugin.json"), { name: plugin, version: baseVersion });
     writeFileSync(join(bundle, "payload.txt"), "first\n");
-    mkdirSync(join(bundle, "hooks"));
-    writeFileSync(join(bundle, "hooks", `${host}.json`), `${host}-hook\n`);
+    mkdirSync(join(bundle, "references"));
+    writeFileSync(join(bundle, "references", `${host}.md`), `${host} instructions\n`);
   }
   const portable = join(repository, ".build", "plugins", "agent-plugins", plugin);
   json(join(portable, "plugin.json"), { name: plugin, version: baseVersion });

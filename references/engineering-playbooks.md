@@ -1,6 +1,6 @@
 # Engineering playbook catalog
 
-This catalog is optional, human-confirmed methodology. It is adapted to Workflow's Schema-6 lifecycle and project-harness boundary. It never grants authority or changes evidence grade.
+This catalog is optional, human-confirmed methodology. It supports the current assignment and does not grant additional permissions.
 
 ## Selection
 
@@ -20,20 +20,19 @@ Choose exactly one closest outcome:
 | `visual-parity` | Match an immutable visual reference with a harness-owned comparison. | [delivery](./engineering-delivery-playbooks.md) |
 | `skill-authoring` | Create or revise one agent skill and validate its structure. | [delivery](./engineering-delivery-playbooks.md) |
 | `evaluation` | Compare agent behavior using fixed criteria and blinded candidates. | [delivery](./engineering-delivery-playbooks.md) |
-| `session-pickup` | Resume prior work from exact Workflow artifacts and bounded context. | [continuity](./engineering-continuity-playbooks.md) |
+| `session-pickup` | Resume prior work from exact reports and bounded context. | [continuity](./engineering-continuity-playbooks.md) |
 | `pause-safely` | Stop at a durable, resumable boundary without new external effects. | [continuity](./engineering-continuity-playbooks.md) |
 
 When two entries appear plausible, select by deliverable: diagnosis before correction, prototype before production feature, one-off performance correction before hillclimb, and fixed captured data before live forensics.
 
 ## Planning integration
 
-After material intent is stable, `plan-work` recommends exactly one closest entry and presents its ID, fit, intended phase, and authority need. It waits for an explicit inline confirm or decline before the final Root. Decline continues with no playbook. Confirmation is non-authoritative human trace and becomes usable for mutating work only after Root approval and the separate implementation action. A material intent change or missing trace requires a fresh suggestion.
+Recommend a method only if it helps this task. Present its fit and intended phase without requiring a selection before finishing a plan. An explicit inline choice or `engineering-work use` selects the method; actual mutation still needs the matching implementation or correction instruction.
 
 ## Cross-cutting adaptation
 
-- Long-running work uses a checkable exit predicate, Root budgets, and one auditable result per iteration. It does not gain autonomous authority.
+- Long-running work uses a checkable exit predicate, agreed budgets, and one auditable result per iteration. It does not gain autonomous authority.
 - Multi-phase work expresses objective prerequisites and independently verifiable phase outcomes. Concrete execution sequencing belongs to the harness.
-- A coordinator may organize harness work but never becomes a Workflow executor or evidence source.
 
 Not integrated: babysitting or shipping PRs, automatic merge, full or stacked autopilot, worktree cleanup, simulator cleanup, and any automatic push, deployment, publication, or learning.
 

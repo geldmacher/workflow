@@ -1,10 +1,6 @@
 ---
 name: learn-from-work
-description: Persist confirmed Workflow learnings in project guidance.
+description: Save explicitly commissioned, confirmed project learnings.
 ---
 
-# /learn-from-work
-
-Designed for Cursor Agent Mode. Treat all trailing text as one supplemental Learning—not a Root or Run selector—and read [work-learning](../skills/work-learning/SKILL.md) completely.
-
-Invocation authorizes only the bounded project-guidance closeout defined there. It never authorizes delivery acceptance, integration, controller-state mutation, or publication.
+Read [learn-from-work](../skills/learn-from-work/SKILL.md) and apply it to the current request.

@@ -1,14 +1,14 @@
 # Delivery engineering playbooks
 
-Every mutating entry requires an approved Schema-6 Root and implementation authority. The project harness chooses all concrete execution. Each claim is limited to the Root's verification intent and available evidence.
+Every mutating entry requires an approved plan and implementation authority. The project harness chooses all concrete execution. Each claim is limited to the planned verification and available evidence.
 
 ## `bug-fix`
 
-Reproduce the symptom on the relevant surface, narrow competing causes, confirm the surviving mechanism, make the smallest Root-authorized correction, and prove the original reproduction no longer fails. Unreproduced or wrong-surface results remain inconclusive; speculative guards do not count as a fix.
+Reproduce the symptom on the relevant surface, narrow competing causes, confirm the surviving mechanism, make the smallest authorized correction, and prove the original reproduction no longer fails. Unreproduced or wrong-surface results remain inconclusive; speculative guards do not count as a fix.
 
 ## `feature`
 
-Ground the affected contract, choose the domain shape before scattered logic, identify independent and shared work, implement within Root authority, and verify the requested behavior plus material boundaries. Design alternatives remain human-readable trace, not Root extensions.
+Ground the affected contract, choose the domain shape before scattered logic, identify independent and shared work, implement within approved scope, and verify the requested behavior plus material boundaries. Design alternatives remain human-readable trace, not a separate contract.
 
 ## `refactoring`
 
@@ -24,11 +24,11 @@ Fix one metric, direction, representative workload, budget, regression floor, an
 
 ## `prototype`
 
-Name the decision first, build only the smallest isolated disposable artifact needed to observe alternatives, compare them on the relevant surface, and return evidence, tradeoffs, and a recommendation. The artifact is never delivery, cannot satisfy Root acceptance, and must be rebuilt through `feature` if selected.
+Name the decision first, build only the smallest isolated disposable artifact needed to observe alternatives, compare them on the relevant surface, and return evidence, tradeoffs, and a recommendation. Judge the prototype against the decision it was commissioned to settle. Production use needs an agreed production scope and its own verification; reuse suitable work when it meets those requirements.
 
 ## `visual-parity`
 
-Bind an immutable reference before change, forbid reference or comparison tampering, change one independently verifiable unit at a time, and let the harness choose the visual comparison. Any non-accepted difference remains a failure or an explicit human decision; visual inspection alone cannot upgrade evidence.
+Bind an immutable reference before change, forbid reference or comparison tampering, change one independently verifiable unit at a time, and let the harness choose the visual comparison. Judge differences against the agreed acceptance and tolerance. Visual inspection proves only what was actually observed.
 
 ## `skill-authoring`
 

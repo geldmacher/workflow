@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Breaking
+
+- Replace the formal Workflow runtime with shared skills and human-readable plans, reports, reviews, corrections, and explicit handoffs.
+- Remove artifact readers/builders, hooks, MCP, automation profiles, protected sealing, and their dependencies without compatibility paths.
+- Keep separately commissioned phases and adapt Cursor, Codex, and portable packages to native host execution; no Node runtime is needed for skill use.
+- Simplify optional engineering and project verification guidance; retain development packaging, release checksums, and isolated installation tests.
+
+
 ## 6.2.0
 
 - Added adaptive project-local verification through read-only `workflow-doctor`, authority-bound `verification-work`, targeted or explicit full maintenance, Review-safe harness usage, and explicit Learning handoff across Cursor, Codex, and Agent Plugins.

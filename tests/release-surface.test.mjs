@@ -3,8 +3,8 @@ import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writ
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
-import { defaultRoot } from "../scripts/validate-artifact.source.mjs";
-import { enumerateReleaseSurface, hashReleaseSurface, loadReleaseSurface, validateReleaseSurfaceClosure } from "../src/controller/release-surface.mjs";
+import { defaultRoot } from "../scripts/validate-plugin.mjs";
+import { enumerateReleaseSurface, hashReleaseSurface, loadReleaseSurface, validateReleaseSurfaceClosure } from "../scripts/release-surface.mjs";
 
 function minimalSurface(manifest = null) {
   const root = mkdtempSync(join(tmpdir(), "workflow-release-contract-"));
@@ -35,16 +35,6 @@ test("release surface ignores development files and binds runtime files", () => 
     writeFileSync(command, `${readFileSync(command, "utf8")}\nchanged\n`);
     assert.notEqual(hashReleaseSurface(copy), baseline);
   } finally { rmSync(copy, { recursive: true, force: true }); }
-});
-
-test("release surface keeps the native file budget separate from portable validation schemas", () => {
-  const paths = enumerateReleaseSurface(defaultRoot, "package_paths").map((entry) => entry.relative_path);
-  const portableSchemas = paths.filter((path) => path.startsWith("schemas/agent-plugins/"));
-  assert.deepEqual(portableSchemas, [
-    "schemas/agent-plugins/1.0.0/mcp.schema.json",
-    "schemas/agent-plugins/1.0.0/plugin.schema.json",
-  ]);
-  assert.ok(paths.length - portableSchemas.length <= 110);
 });
 
 test("release surface rejects malformed inventories, traversal, and symlinks", () => {

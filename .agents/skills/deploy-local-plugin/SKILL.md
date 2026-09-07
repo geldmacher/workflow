@@ -14,8 +14,8 @@ Operate only on the current repository. Never search for or deploy sibling plugi
    - deploy or update: `npm run deploy:local`
    - full deploy or full validation: `npm run deploy:local -- --full`
    Resolve host scope independently: no host request means both hosts; append `--cursor-only` for Cursor only or `--codex-only` for Codex only. The host flags work with status, dry-run, standard, and full paths.
-3. Run from the repository root. Do not manually copy plugin files, edit the personal Marketplace, remove Codex caches, trust hooks, restart Cursor, or restart Codex.
-4. Report the selected hosts, product and local versions, content hashes, destination paths, dirty provenance, applicable Codex cache verification, and whether hook trust needs manual review.
+3. Run from the repository root. Do not manually copy plugin files, edit the personal Marketplace, remove Codex caches, restart Cursor, or restart Codex.
+4. Report the selected hosts, product and local versions, content hashes, destination paths, dirty provenance, applicable Codex cache verification, and remaining host activation steps.
 5. After a real deployment, tell the user to reload Cursor and/or start a new Codex task for the hosts that changed. Do not claim live activation until those host-specific checks happen.
 
-Stop on any manifest identity, path-boundary, symlink, validation, swap, rollback, Marketplace, or Codex cache error. Preserve the deploy command's verified/provisional distinction.
+Stop on any manifest identity, path-boundary, symlink, validation, swap, rollback, Marketplace, or Codex cache error. Distinguish matching installed bytes from live host activation.

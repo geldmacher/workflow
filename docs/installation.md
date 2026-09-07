@@ -1,5 +1,7 @@
 # Installing Workflow from a GitHub Release
 
+The current skills-only redesign is unreleased. Versioned examples below describe the last release and must be replaced with the chosen release version when publishing. New packages contain no Workflow hooks, MCP service, or Node runtime. Replace whole package directories when updating; old package files must not remain mixed into the new version.
+
 Each Workflow GitHub Release contains separate packages for Cursor and Codex. Download only the archive for the intended host plus `SHA256SUMS` and `provenance.json` from the [latest GitHub Release](https://github.com/geldmacher/workflow/releases/latest). You do not need the other host archive or `RELEASE_NOTES.md` to verify this selected download. Do not install an archive until both the selected archive and `provenance.json` match their entries in `SHA256SUMS`.
 
 ## Verify the download
@@ -62,9 +64,9 @@ Install the contents at the local Cursor plugin path:
 - macOS/Linux: `~/.cursor/plugins/local/geldmacher-workflow`
 - Windows: `%USERPROFILE%\.cursor\plugins\local\geldmacher-workflow`
 
-For a first installation, extract the archive to a temporary directory and move its single `geldmacher-workflow` directory to that destination. For an update, keep the current directory as a backup, place the new complete directory at the same path, and do not merge old and new files. Then reload Cursor. Review the plugin's hooks and explicitly approve Hook Trust only after the installed files and source are acceptable. Installation on disk and live hook activation are separate checks.
+For a first installation, extract the archive to a temporary directory and move its single `geldmacher-workflow` directory to that destination. For an update, keep the current directory as a backup, place the new complete directory at the same path, and do not merge old and new files. Then reload Cursor and check the available skills in a fresh task. Installation on disk and live activation are separate checks.
 
-To roll back, move the current directory aside, restore the previously retained complete directory, reload Cursor, and review Hook Trust again if Cursor requests it. Keep the matching old archive, `SHA256SUMS`, and `provenance.json` so the restored bytes remain verifiable.
+To roll back, move the current directory aside, restore the previously retained complete directory, reload Cursor, and check the restored package in a fresh task. Keep the matching old archive, `SHA256SUMS`, and `provenance.json` so the restored bytes remain verifiable.
 
 ## Codex
 
@@ -110,7 +112,7 @@ Source placement is not installation or activation. After creating or changing t
 1. Fully quit and restart the ChatGPT/Codex desktop app; closing only its window is insufficient.
 2. Open the **Plugins Directory**, choose **Geldmacher Plugins** (or the preserved display name of your existing personal Marketplace), and install Workflow. For an update or rollback, use the available refresh or reinstall action there so the host materializes the selected source again.
 3. Confirm that the installed copy exists below `~/.codex/plugins/cache/geldmacher-personal/geldmacher-workflow/local/` on macOS/Linux or `%USERPROFILE%\.codex\plugins\cache\geldmacher-personal\geldmacher-workflow\local\` on Windows. If an existing Marketplace keeps another top-level `name`, that name replaces `geldmacher-personal` in the cache path. Local Marketplace plugins run from this cache copy, not directly from `~/.codex/plugins/geldmacher-workflow`.
-4. Review any plugin trust request before enabling hooks, then start a new Codex task. An already running task does not prove that the refreshed cache copy is active.
+4. Start a new Codex task and check that the expected skills are available. An already running task does not prove that the refreshed cache copy is active.
 
 These Marketplace, cache, restart, Plugins Directory, and new-task boundaries follow the [official OpenAI plugin documentation](https://developers.openai.com/plugins/build/plugins).
 
@@ -120,4 +122,4 @@ For rollback, restore the retained complete old source directory and its verifie
 
 ## Verify the installed layout
 
-After copying, verify that the manifest sits directly below the destination, that its `name` is `geldmacher-workflow`, and that its `version` matches the selected release. The archive checksum proves downloaded bytes; it does not prove that Cursor reloaded, Hook Trust was approved, the Codex Marketplace accepted the entry, or a new Codex task loaded the package. Confirm those host-specific activation steps separately.
+After copying, verify that the manifest sits directly below the destination, that its `name` is `geldmacher-workflow`, and that its `version` matches the selected release. The archive checksum proves downloaded bytes; it does not prove that Cursor reloaded, the Codex Marketplace accepted the entry, or a new Codex task loaded the package. Confirm those host-specific activation steps separately.

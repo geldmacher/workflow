@@ -1,45 +1,31 @@
-# Manual Workflow
+# Working with Workflow
 
-## Plan and Authority Core
+Plan → Implement → Review → Correct → Review is a sequence of separately commissioned phases. The human-readable documents are the shared reference. Use the user's language and as much structure as the task needs.
 
-Plan Work produces a comprehensive human implementation prompt as free-form Markdown. The local `build-plan` operation appends exactly one expandable generated `yaml workflow-authority` block. The Core binds normalized plan content, its own semantic fields, goal, acceptance, risk, hard triggers, authority, and structured verification intent. Formatting is never authority.
+## Plan and implementation
 
-The human selects the host-native **Implement Plan** action. Implementation stays inside the exact Root authority and creates no Evidence or state. Its handoff is only **Fresh Review pending**.
+A useful plan explains the goal and benefit, observable success criteria, scope and exclusions, important decisions, dependencies, risks, and appropriate checks. Technical details are welcome when they remove ambiguity. Small changes need short plans. Significant product and permission decisions must be settled before implementation; routine choices stay with the executor.
 
-### Adaptive project verification
+The human commissions implementation against an identifiable plan version. Material amendments need an explicit decision; editorial improvements do not. The executor preserves unrelated work and reports the actual outcome, changes, deviations, checks and results, working state, and remaining limitations. This report is not a fresh Review.
 
-When acceptance needs behavior from a running UI, CLI, service, side-effect boundary, or cross-surface journey beyond established checks, Plan Work may add one non-authoritative `Verification readiness` note. `$workflow-doctor` performs that inspection without changing files or starting the product and returns `ready`, `create-recommended`, `maintenance-recommended`, `not-applicable`, or `blocked`.
+## Review and correction
 
-`$verification-work` defaults to read-only `inspect`. Its `create`, `maintain`, and explicit `maintain full` forms require an exact approved Root, matching implementation or correction authorization, and authority for the project-local `.agents/skills/verify-<surface>` directory. This is harness preparation, not a Workflow phase, playbook, evidence grade, or new human gate.
+Review identifies the approved plan, relevant reports, and current repository state. It inspects all success criteria and boundaries without changing repository files, including untracked files. Any permitted transient test output belongs outside the repository. Checks with prohibited side effects remain missing evidence.
 
-Review may use an existing verifier's Drive as a project-harness recipe but never edits it. Raw verifier output remains an observation; changed verifier or repository bytes require fresh evidence, and only exact protected attestation can produce `verified`.
+The judgment leads: goal achieved, corrections needed, or open points. Failed necessary checks prevent a positive completion claim. Missing proof remains visible even if other checks pass. Evidence describes actual observations on a named working state; changed work requires reassessing affected conclusions.
 
-## Fresh Review
+An actionable finding explains observed behavior, evidence, impact, expected correction, permitted scope, and recheck. It can directly serve as the correction assignment. The human commissions correction; the executor fixes those findings, preserves unrelated edits, and reports the result. A fresh Review is a separate instruction.
 
-Review is repository-read-only. The harness selects concrete inspection mechanisms and supplies closed repository and Check observations. Workflow validates the exact Root, canonical workspace binding, and predecessor bytes, partitions subject and ambient paths, computes hashes and grades, and atomically builds Evidence plus Review.
+## Handoff
 
-Review exposes exactly:
+Keep the approved plan and reports in the native task. A new task receives the approved plan version, human assignment, useful implementation and review reports, current repository state, unresolved decisions, and next action. Use accessible native references or include the complete relevant text. A descriptive title and task reference may identify the version; no fixed identifier or metadata block is required.
 
-- **Achieved**: no Findings/Open Points and all required Checks at least supported.
-- **Correction needed**: at least one current in-Root correctable Finding and one complete bounded Correction.
-- **Open points**: a concrete evidence, authority, intent, environment, formal-binding, or no-progress point needs natural human assessment.
+An executor compares the handoff with the current repository. Missing plan versions, contradictory assignments, or stale observations call for precise clarification before dependent work. An earlier agent's confidence is not human authorization. Previous technical artifacts do not resume a workflow; start from a clear assignment under the current method.
 
-Evidence grade remains separate. Missing protected attestation alone is a proof limit, not a reason to downgrade Achieved. Failed remains failed.
+## Supporting work
 
-Missing required Check observations create no artifacts and trigger an internal retry naming exact Check IDs. Retry continues only with measurable progress; repeated identical failure becomes a `no-progress` Open Point. Explicit unavailability is an Open Point.
+Status and explanation are read-only accounts of the available documents and their limits. Learning persists confirmed reusable knowledge only when explicitly commissioned. Engineering methods are optional. Verifier inspection is read-only; creation and maintenance need a matching implementation or correction assignment covering the destination and outcome.
 
-Invalid formal binding does not make Review useless. The harness still inspects the human plan repository-read-only; Workflow returns a Shadow Review with Findings and Open Points, no artifacts, and no correction authority.
+## Completion
 
-## Correction loop
-
-One Correct Work invocation is a separate explicit human authorization for only the current exact Correction. Every correctable Finding is covered, targets stay inside Root authority, and steps reuse original Root Check IDs. Correction creates no Evidence or state and ends **Fresh Review pending**. The human separately starts the next Review Work.
-
-Changed intent, risk, authority, dependencies, or external effects becomes an Open Point. The human may stop or deliberately request a new Plan Work invocation; no hidden transition is persisted.
-
-## Human state and failure boundary
-
-Status is only Root ready, Review needed, Correction needed, Achieved, Open points, or Shadow review. Human actions are only Implement Plan, Review Work, Correct Work, a natural assessment, or none. Technical retries stay internal.
-
-Ordinary repository use remains available when Workflow, MCP, adapter, hooks, transport, or harness capabilities fail. Review and explanation never mutate. Deployment, installation, commit, push, release, production access, and learning remain separate actions.
-
-After an achieved chain, Learning classifies stable guidance separately from verifier drift and run-specific observations. Only stable guidance may be persisted by an explicit Learn From Work invocation; verifier drift becomes a future `$verification-work maintain` candidate and is never edited by Learning.
+Report the repository outcome and proof honestly. Installation, release, production access, and host activation are separate facts and actions. Native host permissions enforce execution boundaries; Workflow does not claim its own technical approval or integrity mechanism.

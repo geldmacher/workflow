@@ -4,7 +4,7 @@ import { basename, dirname, extname, join, relative, resolve, sep } from "node:p
 import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const ignoredDirectories = new Set([".git", "node_modules"]);
+const ignoredDirectories = new Set([".git", "node_modules", ".build", ".tests"]);
 
 function files(directory) {
   const result = [];
@@ -58,4 +58,4 @@ function runCli() {
   }
 }
 
-if (resolve(process.argv[1]) === fileURLToPath(import.meta.url)) runCli();
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) runCli();

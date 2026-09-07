@@ -424,14 +424,6 @@ function currentTarget(path, expected) {
   return { current, receipt, manifest: existing.manifest };
 }
 
-function hookHash(path) {
-  const hooks = join(path, "hooks");
-  if (!existsSync(hooks)) return null;
-  const digest = createHash("sha256");
-  for (const entry of walk(hooks)) digest.update(`${entry.relativePath}\0${createHash("sha256").update(readFileSync(entry.path)).digest("hex")}\n`);
-  return digest.digest("hex");
-}
-
 function stageTarget(source, destination, metadata) {
   mkdirSync(dirname(destination), { recursive: true });
   const stageRoot = mkdtempSync(join(dirname(destination), `.${metadata.plugin}.${metadata.host}.deploy-`));
@@ -546,11 +538,6 @@ export function deployPreparedTargets({
     codexBefore = codexStateReader({ home, plugin, version: metadata.codex.localVersion, codexBinary, env });
   }
   const changedHosts = selectedHosts.filter((host) => !existing[host].current);
-  const hooksChanged = Object.fromEntries(selectedHosts.map((host) => {
-    const oldBundle = existingBundle(paths[host], { plugin, host });
-    const oldHash = oldBundle ? hookHash(oldBundle.target) : null;
-    return [host, oldHash !== hookHash(metadata[host].path)];
-  }));
   const plan = {
     plugin,
     source_path: resolve(root),
@@ -564,7 +551,6 @@ export function deployPreparedTargets({
       local_version: metadata[host].localVersion,
       content_sha256: metadata[host].hash,
       change: changedHosts.includes(host),
-      hooks_changed: hooksChanged[host],
     }])),
     marketplace: selectedHosts.includes("codex")
       ? { path: paths.marketplace, source: paths.marketplaceSource, change: marketplaceChanged }
@@ -758,8 +744,6 @@ async function main() {
   });
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   if (!dryRun) {
-    const changedHooks = Object.keys(result.targets).filter((host) => result.targets[host].hooks_changed);
-    if (changedHooks.length) process.stderr.write(`Manual hook trust review required for: ${changedHooks.join(", ")}\n`);
     const nextSteps = [];
     if (hosts.includes("cursor")) nextSteps.push("reload Cursor");
     if (hosts.includes("codex")) nextSteps.push("start a new Codex task");

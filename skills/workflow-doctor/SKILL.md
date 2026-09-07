@@ -1,12 +1,8 @@
 ---
 name: workflow-doctor
-description: Inspect whether a repository needs or has a usable project-local behavioral verifier without changing files or starting the product.
+description: Inspect whether current acceptance needs a usable project verifier.
 ---
 
-# Workflow Doctor
+# workflow-doctor
 
-Read the [project verification contract](../../references/verification-work-contract.md) completely.
-
-Inspect only. Determine whether current acceptance needs a running UI, CLI, service, side-effect boundary, or cross-surface journey beyond established checks. Inspect relevant product surfaces, harness documentation, tests, ignored evidence conventions, and `.agents/skills/verify-*`; do not start an application or mutate anything.
-
-Apply the contract's precedence and return exactly one status: `ready`, `create-recommended`, `maintenance-recommended`, `not-applicable`, or `blocked`. Name the concrete cause, inspected evidence, impact, and one suggested follow-up. Create no Workflow artifact, evidence grade, authority, or runtime-success claim.
+Read the [working agreement](../../references/workflow.md) and [verification guidance](../../references/verification-work.md). Inspect without repository changes or application startup. Determine whether existing checks cover the current acceptance and whether an applicable project verifier is useful and usable. Explain readiness, concrete gaps, inspected evidence, and an appropriate next step. Missing access is an uncertainty, not proof that verification is unnecessary. This inspection neither creates a verifier nor demonstrates runtime success.

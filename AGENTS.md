@@ -1,45 +1,27 @@
 # Workflow north star
 
-Workflow is a host-neutral lifecycle and evidence kernel for trustworthy repository delivery. It standardizes **Plan → Implement → Review → Correct → Review** while preserving human authority, immutable intent, honest evidence, and a repository-only finish line.
+Workflow is a host-neutral working method delivered through skills. People and executors share understandable plans, implementation reports, reviews, correction instructions, and explicit handoffs.
 
-## Workflow owns
+## Responsibilities
 
-- A human-approved Schema-6 Intent Root: goal, acceptance, scope, risk, authority, budgets, protected paths, and external effects.
-- Schema 6 is the only maintained artifact, protocol, status, and runtime world. Other Workflow generations have no readers, compatibility states, migrations, explanations, acceptance, or transitions.
-- Phase transitions, immutable artifact lineage, status derivation, evidence grades, and the human decisions required at material boundaries.
-- The invariants that Review is repository-read-only, known failed required Checks block delivery, and unavailable proof never becomes success.
-- Exact Root, workspace, predecessor, receipt, and snapshot binding. These bindings establish authority and provenance, not execution policy.
+- Define meaningful content requirements; adapt detail and presentation to the task. Documents have no mandatory headings, field names, envelopes, or machine counterpart.
+- The human separately commissions planning, implementation, review, correction, and learning. Preserve approvals already given for the current scope; do not ask again merely to satisfy a format.
+- The approved plan is the reference. Material changes to goals, success criteria, authority, or consequential decisions need an explicit human decision. Editorial changes do not create a new gate.
+- Execution choices belong to the active executor and project environment. Ground useful technical instructions in the repository. The host owns permissions, sandboxing, and enforcement.
+- Review is repository-read-only. Failed necessary checks prevent a positive completion claim; missing proof stays visible. Describe the actual observations and their limits.
+- Keep unrelated changes intact. Implementation and correction end with an honest report; a fresh Review is separately commissioned.
+- The finish line is repository work. Commit, push, PR, merge, deployment, installation, production access, publication, and learning are not automatic consequences of a Workflow phase.
 
-## The project harness owns
+## Sources and handoff
 
-- Repository discovery and every concrete execution choice: commands, programs, tools, models, runners, working directories, environment setup, sandboxes, worktrees, retries, and verification strategy.
-- Enforcement of phase constraints inside the active host and an opaque attestation of what it observed.
-- Project-specific meaning for frameworks such as DDEV, npm, Git, language toolchains, browsers, services, or custom scripts.
+Keep the plan and reports in the native task. A receiving executor needs the approved plan, current assignment, relevant reports, repository state, unresolved decisions, and next action. Use available task references or complete supplied text. Never invent missing approvals, versions, or test results. Reassess affected claims when the repository changes.
 
-Workflow must never parse, classify, allowlist, rewrite, compare, or execute those concrete choices. It may retain opaque trace text for humans, but trace text is never authority. If a rule needs to know a program, tool, model, host, or framework name, it belongs in a harness adapter, not in the Workflow core.
+Ordinary host use is independent of Workflow. This plugin has no execution service, hooks, MCP server, formal state engine, or artifact reader. Do not reintroduce these as optional or compatibility paths.
 
-## Evidence and failure boundary
+## Development
 
-- A protected harness attestation may verify a Check only when it binds the exact Root, verification intent, workspace, and repository snapshot.
-- Missing attestation caps proof at supported. It does not by itself prevent an achieved repository outcome. An attested failure remains failed. A mismatched attestation is rejected.
-- Harness or Workflow availability failures affect only the targeted Workflow phase. Ordinary Cursor and Codex prompts, shell, tasks, browser, and MCP use remain available.
-- No profile automatically pushes, opens or merges a PR, deploys, accesses production, integrates a branch, or publishes learning.
+Keep this file as the single contributor north star. Maintain shared skills under `skills/`; `scripts/build-plugin-targets.mjs` produces host packages with only necessary host-specific instructions. Keep references short and load conditional details only when needed.
 
-## Profiles
+Development scripts may build packages, validate plugin metadata, and test release and installation mechanics in isolated directories. They are not shipped execution policy. Preserve reproducibility, package closure, path safety, checksums, and explicit release/deployment boundaries.
 
-- **Manual is the default:** the human separately authorizes Plan, implementation, Review, each correction, each fresh Review, and learning.
-- **Supervised:** Workflow may orchestrate a compatible harness inside an approved Root; the same three Review outcomes and human correction path apply.
-- **Autonomous:** only an exact previously qualified key may expand harness execution capability; missing capability or qualification proof downgrades to supervised or Shadow Mode without changing Review UX.
-- Profiles change human gates, never the ownership of concrete execution.
-
-## Change guardrails
-
-Keep this root `AGENTS.md` as the one contributor Northstar for Cursor and Codex. Extend the existing lifecycle and artifact contracts before adding surfaces. Core modules must not depend on process execution, host SDKs, model catalogs, command parsers, or project-framework rules. Repository build, test, and deployment scripts are this repository's own development harness and are outside the shipped Workflow runtime boundary.
-
-Manual lifecycle orchestration is Skills-first. The bundled stateless local builder may validate closed inputs, calculate hashes and IDs, enforce Schema-6 lineage and path authority, construct artifacts atomically, and project their presentation. It must not discover or mutate a repository, run Checks or tools, call MCP, depend on hooks or adapters, or persist authority. Registered MCP automation and optional protected sealing remain isolated opt-in capabilities.
-
-Manual path authority is informative before it is punitive: ordinary repository-internal changes outside `allowed_roots` remain fully visible as concrete Authority Open Points and never gain correction authority. Protected paths, approval-required paths, repository escape, and protected sealing outside authority remain hard boundaries. All phases use the same literal, `*`, and segment-level `**` matcher.
-
-## Optional engineering methodology
-
-Workflow may ship human-confirmed engineering playbooks as Skills. They are non-authoritative methodology: suggestion is read-only, application never grants phase or repository authority, and selection never enters Root, Evidence, Review, PhaseRequest, PhaseResult, qualification, or evidence grade. Mutating playbooks require an already approved Root and implementation action. Concrete execution remains entirely project-harness owned.
+Test meaningful packaging behavior and realistic skill decisions. Formatting checks establish discoverability and valid host metadata, not sound plans or truthful reviews. Historical changelog entries remain historical; maintained guidance describes only the current method.

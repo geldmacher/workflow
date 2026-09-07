@@ -114,8 +114,8 @@ function targetBuilder(outputRoot) {
     writeFileSync(join(directory, "README.md"), `# ${host}\n\n[Install](docs/installation.md)\n`);
     writeFileSync(join(directory, "docs", "installation.md"), "# Install\n");
     mkdirSync(join(directory, "scripts"));
-    writeFileSync(join(directory, "scripts", "validate-artifact.mjs"), "#!/usr/bin/env node\n");
-    chmodSync(join(directory, "scripts", "validate-artifact.mjs"), 0o755);
+    writeFileSync(join(directory, "scripts", "fixture-helper.mjs"), "#!/usr/bin/env node\n");
+    chmodSync(join(directory, "scripts", "fixture-helper.mjs"), 0o755);
     result[host] = { path: directory };
   }
   return result;
@@ -727,7 +727,7 @@ test("independent preparations produce byte-identical closed Cursor and Codex re
       assert.equal(entries.some((entry) => entry.name.includes(`/${PLUGIN_NAME}/`)), false, "archive must not be double nested");
       assert.ok(entries.some((entry) => entry.name === `${PLUGIN_NAME}/${host === "cursor" ? ".cursor-plugin" : ".codex-plugin"}/plugin.json`));
       assert.ok(entries.some((entry) => entry.name === `${PLUGIN_NAME}/docs/installation.md`));
-      const executable = entries.find((entry) => entry.name === `${PLUGIN_NAME}/scripts/validate-artifact.mjs`);
+      const executable = entries.find((entry) => entry.name === `${PLUGIN_NAME}/scripts/fixture-helper.mjs`);
       assert.equal(executable.mode & 0o111, 0o111, "executable mode must survive the archive");
       assert.ok(entries.every((entry) => !/[\\/](?:\.agents|\.build|\.cursor|\.git|node_modules|tests?)(?:[\\/]|$)/.test(entry.name)));
       assert.ok(entries.every((entry) => (entry.mode & 0o170000) !== 0o120000), "archive must not contain symlinks");
@@ -751,8 +751,6 @@ test("two production-target preparations from one clean release-cut snapshot are
     assert.equal(first.directory, join(item.repository, ".build", "releases", `v${item.version}`));
     assert.equal(first.receipt, second.receipt);
     assert.equal(first.provenance.version, item.version);
-    assert.ok(first.provenance.targets.cursor.file_count > 50);
-    assert.ok(first.provenance.targets.codex.file_count > 30);
     for (const name of first.provenance.published_assets) {
       assert.deepEqual(readFileSync(join(first.directory, name)), readFileSync(join(second.directory, name)), name);
     }
@@ -760,6 +758,10 @@ test("two production-target preparations from one clean release-cut snapshot are
       const archivePath = join(first.directory, first.provenance.targets[host].archive);
       const entries = zipEntries(archivePath);
       assert.ok(entries.some((entry) => entry.name === `${PLUGIN_NAME}/docs/installation.md`));
+      assert.ok(entries.some((entry) => entry.name === `${PLUGIN_NAME}/skills/plan-work/SKILL.md`));
+      assert.ok(entries.some((entry) => entry.name === `${PLUGIN_NAME}/skills/review-work/SKILL.md`));
+      assert.equal(entries.filter((entry) => !entry.name.endsWith("/")).length, first.provenance.targets[host].file_count);
+      assert.ok(entries.every((entry) => !/\.(?:[cm]?js|py|sh)$/.test(entry.name)));
       assert.ok(entries.every((entry) => !entry.name.startsWith(`${PLUGIN_NAME}/.agents/`)));
       assert.ok(entries.every((entry) => !entry.name.startsWith(`${PLUGIN_NAME}/.cursor/`)));
       assert.match(zipEntryText(archivePath, `${PLUGIN_NAME}/docs/installation.md`), new RegExp(item.marker));

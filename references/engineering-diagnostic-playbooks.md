@@ -1,6 +1,6 @@
 # Diagnostic engineering playbooks
 
-All entries are repository-read-only. They produce findings and limitations, not Workflow artifacts or implementation authority.
+All entries are repository-read-only. They produce findings and limitations, not reports or implementation authority.
 
 ## `investigation`
 

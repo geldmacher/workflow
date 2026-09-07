@@ -1,7 +1,7 @@
 {
   "name": "geldmacher-workflow",
   "version": "6.2.0",
-  "description": "Workflow 6 human-authorized lifecycle, protected evidence, and harness-owned execution for Codex.",
+  "description": "Skills for understandable plans, implementation reports, reviews, corrections, and explicit handoffs.",
   "author": {
     "name": "Geldmacher"
   },
@@ -12,23 +12,26 @@
     "workflow",
     "planning",
     "review",
-    "evidence",
-    "manual"
+    "correction",
+    "skills"
   ],
   "skills": "./skills/",
-  "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Workflow",
     "shortDescription": "Human-authorized delivery workflow",
-    "longDescription": "Workflow 6 keeps intent, authority, lineage, evidence, and human gates host-neutral while the project harness owns every concrete execution choice.",
+    "longDescription": "Skills for understandable plans, implementation reports, reviews, corrections, and explicit handoffs.",
     "developerName": "Geldmacher",
     "category": "Developer Tools",
-    "capabilities": ["Interactive", "Read", "Write"],
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
     "websiteURL": "https://github.com/geldmacher/workflow",
     "defaultPrompt": [
-      "Use $plan-work to create a human-authorized implementation plan.",
-      "Use $review-work in the current task to create evidence and review the delivery.",
-      "Use $work-status to derive status from the exact artifact chain."
+      "Use $plan-work to prepare an actionable plan.",
+      "Use $review-work to assess the approved plan and current changes.",
+      "Use $work-status to explain the documented progress and open questions."
     ],
     "brandColor": "#111827",
     "composerIcon": "./assets/logo.svg",

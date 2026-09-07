@@ -1,7 +1,7 @@
 {
   "name": "geldmacher-workflow",
   "displayName": "Workflow",
-  "description": "Workflow 6 host-neutral lifecycle, authority, lineage, and evidence kernel with project-owned execution harnesses.",
+  "description": "Skills for understandable plans, implementation reports, reviews, corrections, and explicit handoffs.",
   "version": "6.2.0",
   "author": {
     "name": "Dennis Geldmacher",
@@ -13,37 +13,22 @@
   "repository": "https://github.com/geldmacher/workflow",
   "category": "developer-tools",
   "keywords": [
-    "work-plan",
-    "correction",
-    "evidence",
+    "workflow",
     "planning",
     "review",
-    "cursor",
-    "quality",
-    "outer-loop",
-    "intent-readiness",
-    "adaptive-assurance",
-    "progressive-evidence",
-    "tolerant-validation",
-    "economic-efficiency",
-    "workflow-learning",
-    "harness-boundary",
-    "supervised"
-  ],
-  "tags": [
-    "planning",
     "correction",
-    "evidence",
-    "verification",
-    "review",
-    "human-governance",
-    "adaptive-assurance",
-    "progressive-evidence",
-    "learning-closeout",
-    "harness-attestation",
-    "autonomous"
+    "skills"
   ],
   "logo": "assets/logo.svg",
-  "hooks": "./hooks/hooks.json",
-  "mcpServers": "mcp.json"
+  "skills": [
+    "./skills/correct-work/",
+    "./skills/engineering-work/",
+    "./skills/explain-work/",
+    "./skills/learn-from-work/",
+    "./skills/plan-work/",
+    "./skills/review-work/",
+    "./skills/verification-work/",
+    "./skills/work-status/",
+    "./skills/workflow-doctor/"
+  ]
 }

@@ -1,83 +1,37 @@
 # Workflow
 
-Workflow turns AI output into trustworthy repository delivery by standardizing lifecycle, intent, authority, artifact lineage, evidence grades, and human decisions. Workflow 6 is deliberately not an execution engine: the active project harness owns every concrete command, tool, model, framework, sandbox, worktree, retry, and verification strategy.
+Workflow helps people and executors agree on understandable plans, implement them, review the result, and correct concrete findings. The approved plan and human-readable reports stay in the native task.
 
-> [Install Workflow for Cursor or Codex](docs/installation.md) · [Latest GitHub Release](https://github.com/geldmacher/workflow/releases/latest)
+[Installation](docs/installation.md) · [Working guide](docs/manual-workflow.md) · [Latest release](https://github.com/geldmacher/workflow/releases/latest)
 
-## Intent and expectations
+## How it works
 
-The default lifecycle is Plan → Implement → fresh Review → Correct → fresh Review. A human approves the Schema-6 Intent Root. Workflow keeps that authority immutable, reports evidence honestly, and never treats transport or presentation as permission.
+1. Use `/plan-work` in Cursor or `$plan-work` in Codex to prepare an actionable plan. The plan describes outcomes, boundaries, consequential decisions, and verification at the right level of detail.
+2. Start implementation using the host's native implementation action. The executor works within the approved assignment and reports changes, actual checks, deviations, and limitations.
+3. Start `/review-work` or `$review-work` separately. Review inspects the current result without repository changes and explains whether the goal is achieved, corrections are needed, or questions remain open.
+4. Commission `/correct-work` or `$correct-work` for the named findings, then request a fresh Review.
 
-The central contributor Northstar is the root `AGENTS.md`. There is no second Northstar file.
+A receiving task needs an explicit [handoff](docs/manual-workflow.md#handoff): the approved plan, current assignment, reports, working state, and unresolved decisions. Documents have content requirements, while their structure remains appropriate to the task. There is no machine counterpart to maintain.
 
-- Workflow owns lifecycle, Intent, Authority, Lineage, Evidence, artifacts, and human gates.
-- The project harness owns concrete execution.
-- Missing protected harness evidence keeps proof below verified, never disguised success; supported current evidence may still establish achieved repository outcomes.
-- A harness failure blocks only the affected phase; ordinary Cursor and Codex use remains available.
-- The finish line is repository-only. Workflow never pushes, opens or merges PRs, deploys, accesses production, publishes, or learns automatically.
+## Supporting actions
 
-## Installation
+- `work-status` explains documented progress and uncertainties; `explain-work` explains decisions and findings.
+- `learn-from-work` saves explicitly commissioned, confirmed project lessons.
+- `engineering-work` optionally suggests or applies a selected method.
+- `workflow-doctor` inspects verification readiness without product startup; `verification-work` inspects or maintains an authorized project verifier.
 
-Use the [verified release installation guide](docs/installation.md) for Cursor and Codex downloads, checksums, directory layouts, updates, rollback, Hook Trust, Marketplace setup, and activation checks. Versioned packages are available on the [current GitHub Release page](https://github.com/geldmacher/workflow/releases/latest).
+Cursor and Codex use native implementation. Portable clients additionally expose `implement-work`. All three packages share the same source instructions and require only a host capable of using skills. Workflow has no Node runtime requirement, hooks, MCP service, or automation profiles.
 
-Local repository deployment is a separate operational action and is not part of ordinary implementation or GitHub publication.
+## Boundaries
 
-Current contract versions:
+Humans commission phases separately. Existing approval remains valid within its scope; material goal or permission changes need a decision. The executor chooses concrete tools under host and project permissions. Failed necessary checks prevent success; missing proof stays visible. Workflow supplies a working method, not technical enforcement or cryptographic approval guarantees.
 
-- Plugin 6.2.0
-- Artifact Schema 6
-- Controller Protocol 6
-- Harness Capability Receipt Schema 1
-
-## Usage
-
-Manual is the default and has no MCP dependency:
-
-1. `/plan-work <goal>` or `$plan-work <goal>` writes comprehensive free-form Markdown; local `build-plan` appends one generated, content-bound Authority Core.
-2. The host's native implementation action authorizes repository work.
-3. `/review-work` or `$review-work` starts fresh repository-read-only Review. The project harness supplies closed unprotected observations to the bundled stateless local builder.
-4. The local builder validates lineage, separates subject delivery paths from ambient dirty-tree state, computes IDs and hashes, and atomically returns exact Evidence plus Review together with the human presentation. Review ends only as Achieved, Correction needed, or Open points; proof strength remains separate.
-5. Each bounded Correct Work action and the next fresh Review are separately human-authorized. Open Points ask one natural human question; the human may stop or deliberately request a new plan without a separate workflow transition.
-
-The Manual path uses neither MCP, Host Adapter, MCP Roots, Hook Trust, cache, nor persistent Workflow state. Missing required Check observations trigger an internal artifact-free retry. Invalid formal binding still receives a useful read-only Shadow Review with no correction authority. A fresh task must receive exact current bytes explicitly.
-
-The MCP server remains registered for `/auto-work`, automation status, and optional protected sealing. Protected sealing binds an exact local achieved pair through `seal_artifacts` and may append stronger verified Evidence plus an achieved Review; it never edits previously returned artifacts. An incomplete or failed sealing attempt creates no artifacts and changes no Manual status. Automation, adapter, MCP, Roots, timeout, and Hook failures affect only that requested automation phase and never ordinary host use.
-
-`$engineering-work suggest` optionally recommends one adapted engineering playbook. `$engineering-work use <playbook-id>` confirms that methodology, but never grants implementation authority or changes Workflow evidence. The curated catalog covers diagnosis, bug and feature work, refactoring, performance, bounded experimentation, skill evaluation, and safe continuity; shipping, merge, deployment, autopilot landing, and destructive cleanup stay outside Workflow.
-
-`$workflow-doctor` optionally inspects, without mutation or application startup, whether behavioral acceptance needs a project-local verifier and whether an existing `.agents/skills/verify-*` is ready. `$verification-work inspect|create|maintain|maintain full` can then inspect or, only inside an approved implementation or correction boundary, create and maintain that harness guidance. Planning may suggest this adaptively; it creates no extra Workflow gate, schema field, evidence grade, or automatic learning path.
-
-`/auto-work implement` advances one protected implementation phase and stops at Review needed. The human then uses `/auto-work review <run-id>@<revision>` for the repository-read-only Review. `/auto-work correct <run-id>@<revision>` applies exactly one bounded Correction and stops again at Fresh Review pending. Only an external Host Adapter can protect Harness provenance; a directly configured Harness remains Shadow Mode. Codex and portable targets remain Manual-only.
-
-Removed in Workflow 6: `/work-models`, `/work-verification`, `/work-watch`, and `/work-control`. Model pools, Verification Profiles, controller-owned workers, worktrees, sandboxes, command runners, and retry recipes are not Workflow responsibilities.
-
-## Artifact protocol
-
-Schema 6 uses intent-only verification:
-
-`Check ID | Objectives | Verification Intent | Expected Evidence | Required | Evidence Class | Cost Class | Prerequisites`
-
-Authoritative Roots contain no working directory, command, tool, model, route, task recipe, or retry count. Evidence contains Check ID, grade, observation, evidence hashes, limitations, and optional protected harness-attestation hash.
-
-Workflow 6 is the only maintained artifact, protocol, status, and runtime contract. Every other artifact schema is rejected as unsupported; Workflow does not read, explain, convert, resume, or accept it.
-
-See [overview](docs/overview.md), [profiles](docs/profiles.md), [Manual Workflow](docs/manual-workflow.md), and [configuration](docs/configuration.md).
-
-## Components
-
-- Commands and Skills define the Manual lifecycle and collect closed semantic observations.
-- Project-verifier Skills provide optional non-authoritative harness readiness and project-local verification guidance.
-- The bundled `dist/manual-workflow.mjs` program validates and deterministically constructs Manual artifacts without repository discovery, execution, MCP, or state.
-- Schemas and the validator define closed Schema-6 artifacts.
-- Core modules validate authority, lineage, evidence, generic PhaseRequest and PhaseResult contracts.
-- Host adapters bind the exact Root, canonical workspace, Review selection, and protected receipts.
-- Project harness adapters supply concrete execution outside the Workflow core.
-- Generated Cursor, Codex, and portable targets share canonical sources.
+The finish line is repository work. Commit, push, PR, merge, deployment, installation, production, publication, and learning are not automatic phase transitions.
 
 ## Development
 
-Use repository scripts in `package.json` as this repository's development harness. These scripts may use concrete tools because they maintain this repository; they are not shipped Workflow execution policy.
+The contributor north star is `AGENTS.md`. Shared instructions live in `skills/` and `references/`; the target builder adds only necessary host differences. Node.js 22 and npm are needed for development tooling, not skill use.
 
-Architecture tests protect the Core-to-Harness boundary and ensure concrete execution details do not enter authoritative artifacts or Workflow evaluation. Release validation rebuilds runtime validators, host bundles, and portable targets and checks for drift.
+Run `npm ci`, `npm run build:targets`, and `npm run release-check`. Checks cover packaging, links, context, deterministic archives, and isolated deployment behavior. Realistic [behavior exercises](docs/behavior-validation.md) establish skill behavior separately from structural validation.
 
-Ordinary implementation never commits, pushes, deploys, installs, or restarts a host. The repository-only `$release-plugin` is the explicit exception: one no-argument invocation validates the complete candidate and authorizes only its bounded release commit, lightweight tag, atomic `main` push, and verified GitHub Release. Deployment, installation, and activation remain separate.
+This checkout contains an unreleased incompatible redesign. The package version remains at the last release until an explicit version cut. Release and local deployment are separate authorized operations; repository checks do not establish installation or host activation.

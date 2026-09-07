@@ -1,13 +1,9 @@
 # Workflow for Codex
 
-Workflow provides a human-authorized Schema-6 Manual delivery loop for Codex: native `$plan-work`, normal implementation, fresh same-task `$review-work`, acceptance, learning, explanation, and artifact-derived status.
+Use `$plan-work` in Codex Plan mode, then the native Implement Plan action. Commission review, correction, and learning separately. Keep the approved plan and reports in the native task, and supply an explicit handoff when changing tasks.
 
-> [Install Workflow for Cursor or Codex](../../docs/installation.md) · [Latest GitHub Release](https://github.com/geldmacher/workflow/releases/latest)
+The package contains skills and reference documents. It requires no Workflow runtime, Node executable, hooks, or MCP support. Your host controls permissions and execution.
 
-Workflow owns lifecycle, intent, authority, lineage, evidence grades, and human gates. The active project harness owns commands, tools, models, framework knowledge, sandboxes, worktrees, retries, and verification strategy. The package has no execution engine, model routing, automatic merge, push, publication, or deployment.
+[Installation](../../docs/installation.md) · [Working guide](../../docs/manual-workflow.md)
 
-`$workflow-doctor` and `$verification-work` add optional project-local verifier readiness, creation, and maintenance under `.agents/skills/verify-*`. Their mutating forms require existing Root and phase authority and add no Workflow phase or evidence grade.
-
-This target is intended for local installation through the personal Codex Marketplace. Follow the [verified installation guide](../../docs/installation.md). After a Marketplace or source change, fully restart the ChatGPT/Codex desktop app, install or refresh Workflow through the Plugins Directory, verify the installed cache copy below `~/.codex/plugins/cache/`, review plugin trust, and start a new task. Replacing source files alone does not activate them.
-
-Workflow 6 is the only supported artifact and runtime contract. See the bundled [Manual Workflow guide](docs/manual-workflow.md).
+Repository and package validation do not prove that this package was installed or activated in a compatible host.

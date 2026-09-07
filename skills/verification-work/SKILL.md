@@ -1,18 +1,12 @@
 ---
 name: verification-work
-description: Inspect, create, or maintain one project-local behavioral verifier within an approved Workflow implementation or correction boundary.
+description: Inspect, create, or maintain a scoped project verifier.
 ---
 
-# Verification Work
+# verification-work
 
-Read the [project verification contract](../../references/verification-work-contract.md) completely. For Create or Maintenance also read the [project verifier template](../../references/project-verifier-template.md).
+Read the [working agreement](../../references/workflow.md) and [verification guidance](../../references/verification-work.md). Default to read-only `inspect`. `create`, `maintain`, and explicit `maintain full` require an approved plan and matching implementation or correction instruction covering the destination and outcome.
 
-Accept `inspect` by default, `create`, `maintain`, or the explicit full-map form `maintain full`.
+Use existing project harnesses. Create or modify only the authorized verifier surface, with actionable setup, behavior, observations, isolation, and cleanup. Default maintenance covers affected features; `maintain full` covers the agreed full map. Drive at least one relevant feature after creation and each affected behavior after maintenance, within the available permissions. If runtime access is unavailable, report the untested result. Never change an oracle to hide a product regression.
 
-`inspect` is repository-read-only and uses the Doctor status contract. Before `create` or either Maintenance form, require one exact approved Schema-6 Root, matching human implementation or correction authorization, and path authority for the exact `.agents/skills/verify-<surface-slug>` directory. New dependencies, protected paths, product-code changes, external effects, or a broader surface are Open Points, not implicit permission.
-
-Choose the nearest unambiguous product-surface owner and materialize one focused verifier with concrete repository-grounded commands, selectors, oracles, helpers, isolation, evidence, and cleanup. Initial Create covers the current scope and at most three to five high-value features. Leave no template markers. Validate the structure, then run Doctor and Drive for at least one mapped feature through the active project harness.
-
-Default `maintain` inspects and drives only features affected by the Root or repository delta. `maintain full` covers the entire map. Change only the verifier directory and never edit an oracle to hide a product regression. Preserve evidence while cleaning only resources created by the run.
-
-Return exactly `clean`, `changed`, or `blocked` with paths, exercised features, observations, and limitations. `changed` ends with fresh Review pending. Never claim `verified`, reuse stale evidence for a new snapshot, or commit, push, open a PR, merge, deploy, publish, install, access production, or persist Learning.
+Report paths, changes, exercised behavior, observations, and limitations. A changed verifier needs a fresh separately commissioned review. This action does not repair product code unless that work is independently within the current assignment.

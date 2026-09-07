@@ -4,30 +4,17 @@
     ".cursor-plugin/plugin.json",
     "assets",
     "commands",
-    "dist/manual-workflow.mjs",
-    "dist/workflow-mcp.mjs",
-    "hooks",
-    "mcp.json",
-    "npm-shrinkwrap.json",
-    "package.json",
     "references",
     "release-surface.json",
-    "schemas",
-    "scripts/validate-artifact.mjs",
-    "skills",
-    "src/core/protected-record-store.mjs",
-    "src/harness/host-decision-receipts.mjs",
-    "src/harness/host-trust-adapter.mjs",
-    "src/harness/native-automation-state.mjs",
-    "src/harness/native-task-review-state.mjs"
+    "skills"
   ],
   "package_extras": [
     ".cursor-plugin/marketplace.json",
     "CHANGELOG.md",
-    "CONTROLLER_THIRD_PARTY_NOTICES.md",
     "LICENSE",
     "README.md",
     "THIRD_PARTY_NOTICES.md",
-    "docs"
+    "docs",
+    "package.json"
   ]
 }

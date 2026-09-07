@@ -1,21 +1,8 @@
 # Release checklist
 
-- [ ] Schema-6 intent-only Roots pass and execution fields fail as unknown.
-- [ ] Schema 6 is the only artifact contract and every other schema is rejected generically.
-- [ ] No compatibility schemas, readers, fixtures, migrations, or transition tests are shipped.
-- [ ] Generic Capability Receipt, PhaseRequest, PhaseResult, and Check Attestation schemas compile and match runtime validation.
-- [ ] Passing, missing, failed, and mismatched attestations calibrate evidence correctly.
-- [ ] Review preserves active Root, canonical workspace, and selection across recoverable transport failure.
-- [ ] Core architecture contains no command, tool, model, sandbox, worktree, retry, or process policy.
-- [ ] Hooks are availability-first and ordinary host use remains free.
-- [ ] Cursor, Codex, and portable targets rebuild without drift.
-- [ ] `$release-plugin`, `/release-plugin`, metadata, and `release:plugin` expose exactly one explicit no-argument complete-release journey outside every shipped target.
-- [ ] Preflight proves reachable authenticated GitHub access, commit identity, the expected repository, synchronized `main`, safe complete candidate paths, consistent declared versions, and release-ready notes before tracked mutation.
-- [ ] All validated non-ignored tracked and untracked changes enter at most one exact `Release v{version}` commit; the workflow never chooses or bumps a version.
-- [ ] Two preparations of one clean release snapshot produce byte-identical Cursor and Codex archives, provenance, checksums, notes, and receipts.
-- [ ] Prepared archives have one `geldmacher-workflow/` root, canonical manifests and modes, no symlinks, development paths, or recognizable secrets.
-- [ ] The lightweight tag and `main` update atomically before publication; exact retries resume, while conflicts and failed read-back stop without overwrite, deletion, reset, force-push, or clobber.
-- [ ] Both native host packages contain the linked installation guide with checksum, update, rollback, trust, Marketplace, reload, and fresh-task boundaries.
-- [ ] Documentation and public commands expose no removed Workflow execution surfaces.
-- [ ] Repository validation, links, context budgets, and release surface pass.
-- [ ] The explicit release invocation authorizes only its bounded commit, tag, atomic push, and GitHub publication; deployment, installation, and host restart remain excluded.
+1. Finish the repository changes and run `npm run release-check`, including the behavioral exercises appropriate to changed skills.
+2. When explicitly commissioning a release, choose an unused version and cut its changelog entry from Unreleased. Keep source manifests and the development package version aligned.
+3. The release tool validates the immutable candidate, builds separate Cursor and Codex archives, preserves checksums and provenance, and performs only its explicitly commissioned publication actions.
+4. Installation and host activation remain separate. Use the installation guide and a fresh native task; a built package or matching cache proves neither live use nor behavior.
+
+`npm run deploy:local` is a separately authorized local operation. Its preview and tests use isolated directories. Do not merge old package contents into a new installation.
