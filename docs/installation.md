@@ -1,6 +1,6 @@
 # Installing Workflow from a GitHub Release
 
-The current skills-only redesign is unreleased. Versioned examples below describe the last release and must be replaced with the chosen release version when publishing. New packages contain no Workflow hooks, MCP service, or Node runtime. Replace whole package directories when updating; old package files must not remain mixed into the new version.
+New packages contain no Workflow hooks, MCP service, or Node runtime. Replace whole package directories when updating; old package files must not remain mixed into the new version.
 
 Each Workflow GitHub Release contains separate packages for Cursor and Codex. Download only the archive for the intended host plus `SHA256SUMS` and `provenance.json` from the [latest GitHub Release](https://github.com/geldmacher/workflow/releases/latest). You do not need the other host archive or `RELEASE_NOTES.md` to verify this selected download. Do not install an archive until both the selected archive and `provenance.json` match their entries in `SHA256SUMS`.
 
@@ -9,7 +9,7 @@ Each Workflow GitHub Release contains separate packages for Cursor and Codex. Do
 On macOS or Linux, replace the example version and host when necessary, then verify exactly the two downloaded files that are covered by `SHA256SUMS`:
 
 ```sh
-archive="geldmacher-workflow-cursor-v6.2.0.zip"
+archive="geldmacher-workflow-cursor-v7.0.0.zip"
 
 verify_release_file() {
   file="$1"
@@ -31,7 +31,7 @@ verify_release_file "provenance.json"
 On Windows PowerShell, the equivalent check selects the exact two entries before comparing their hashes:
 
 ```powershell
-$archive = "geldmacher-workflow-cursor-v6.2.0.zip"
+$archive = "geldmacher-workflow-cursor-v7.0.0.zip"
 $files = @($archive, "provenance.json")
 $checksumLines = Get-Content -LiteralPath .\SHA256SUMS
 

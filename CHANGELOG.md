@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 7.0.0
+
 ### Breaking
 
 - Replace the formal Workflow runtime with shared skills and human-readable plans, reports, reviews, corrections, and explicit handoffs.
@@ -9,6 +11,7 @@
 - Keep separately commissioned phases and adapt Cursor, Codex, and portable packages to native host execution; no Node runtime is needed for skill use.
 - Simplify optional engineering and project verification guidance; retain development packaging, release checksums, and isolated installation tests.
 
+- Let the repository release skill select the appropriate semantic version and prepare the release automatically before validated publication.
 
 ## 6.2.0
 

@@ -335,12 +335,9 @@ test("release Skill is explicit-only and stays in parity with the Cursor command
     assert.doesNotMatch(skill, new RegExp(`npm run ${legacy}`));
     assert.doesNotMatch(command, new RegExp(`npm run ${legacy}`));
   }
-  for (const source of [skill, command]) {
-    assert.match(source, /no action, version, receipt, or other argument/i);
-    assert.match(source, /atomically|atomic/i);
-    assert.match(source, /--clobber/);
-    assert.match(source, /delete/i);
-  }
+  const sharedSkill = command.match(/\[the shared release skill\]\(([^)]+)\)/);
+  assert.ok(sharedSkill, "Cursor must use the canonical release instructions");
+  assert.equal(readFileSync(join(root, ".cursor", "commands", sharedSkill[1]), "utf8"), skill);
   const legacyCli = spawnSync(process.execPath, [join(root, "scripts", "plugin-github-release.mjs"), "status"], {
     cwd: root,
     encoding: "utf8",
