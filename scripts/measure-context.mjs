@@ -9,6 +9,7 @@ const estimate = (text) => Math.ceil(text.length / 4);
 export const limits = { discoverability: 428, plan: 2000, review: 2150, correction: 2000, learning: 2000, explanation: 1200, status: 1500 };
 const flows = { plan: "plan-work", review: "review-work", correction: "correct-work", learning: "learn-from-work", explanation: "explain-work", status: "work-status" };
 const agreement = "references/workflow.md";
+const learning = "references/learning-work.md";
 const verification = "references/verification-work.md";
 const verificationSkill = "skills/verification-work/SKILL.md";
 const creation = "skills/verification-work/references/create.md";
@@ -52,6 +53,9 @@ export function measureContext(root = defaultRoot) {
       return { ...additional, totalTokens: base.tokens + additional.tokens };
     };
     const conditionalFlows = {
+      ...Object.fromEntries(Object.entries({ ...flowSources, ...supportingFlows }).map(([name, base]) => [
+        `${name}WithLearning`, extend(base, [learning]),
+      ])),
       planVerifierInspection: extend(flowSources.plan, [verification]),
       planVerifierCreation: extend(flowSources.plan, [verification, verificationSkill, creation]),
       planVerifierMaintenance: extend(flowSources.plan, [verification, verificationSkill, maintenance]),

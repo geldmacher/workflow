@@ -11,4 +11,6 @@ Correct the named defects within the approved scope and preserve unrelated chang
 
 Recheck affected behavior and proof invalidated by the changes. Reuse other results only after checking their origin, actual output, coverage, and applicability to current source, dependencies, configuration, and relevant environment; explain the basis briefly. Broaden checks when failures, dependencies, or uncertainty require it. A verification-only correction collects the missing proof without an unnecessary code change.
 
+Capture reusable learning candidates from correction and diagnosis; reconcile lessons affected by changes and carry the complete open collection forward. This does not authorize guidance edits or confirm new lessons without Review.
+
 Report which findings were addressed, what changed, actual checks and results, and unresolved limitations on the current working state. Correction does not establish that a subsequent review passed. Explain that the human next commissions a fresh Review to assess the corrections against the plan.

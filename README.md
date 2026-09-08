@@ -8,17 +8,17 @@ Workflow helps people and executors agree on understandable plans, implement the
 
 1. Use `/plan-work` in Cursor or `$plan-work` in Codex to prepare an actionable plan. The plan describes outcomes, boundaries, consequential decisions, and verification at the right level of detail.
 2. Start implementation using the host's native implementation action. The executor works within the approved assignment and reports changes, actual checks, deviations, and limitations.
-3. Start `/review-work` or `$review-work` separately. Review inspects the current result without repository changes and explains whether the goal is achieved, corrections are needed, or questions remain open.
+3. Start `/review-work` or `$review-work` separately. Review inspects the current result without repository changes, explains whether the goal is achieved, corrections are needed, or questions remain open, and offers any confirmed reusable learnings.
 4. Commission `/correct-work` or `$correct-work` for the named findings, then request a fresh Review.
 
-A receiving task needs an explicit [handoff](docs/manual-workflow.md#handoff): the approved plan, current assignment, reports, working state, and unresolved decisions. Documents have content requirements, while their structure remains appropriate to the task. There is no machine counterpart to maintain.
+A receiving task needs an explicit [handoff](docs/manual-workflow.md#handoff): the approved plan, current assignment, reports, working state, unresolved decisions, and complete open learning collection. Documents have content requirements, while their structure remains appropriate to the task. There is no machine counterpart to maintain.
 
 ## Supporting actions
 
 - `work-status` explains documented progress and uncertainties; `explain-work` explains decisions and findings.
-- `learn-from-work` saves explicitly commissioned, confirmed project lessons.
-- `engineering-work` optionally suggests or applies a selected method.
-- `workflow-doctor` inspects verification readiness without product startup; `verification-work` inspects, creates, or maintains an authorized project verifier. Planning reuses suitable existing coverage and offers concrete creation or maintenance only when useful. The human can accept, decline, or revise it; accepted work runs with implementation, including a closing trial and evidence for a separately commissioned Review.
+- `learn-from-work` reconciles and saves confirmed project lessons when commissioned. Open candidates survive every review/correction round in the reports; each Review offers eligible lessons. A later invocation can apply all still-valid candidates together, checking conflicts and superseded guidance before saving. See [learning across reviews](docs/manual-workflow.md#learning-across-reviews).
+- `engineering-work` offers useful methods and applies only explicit selections. Offers may include several meaningful alternatives, one marked as recommended, plus an explicit option to use none.
+- `workflow-doctor` inspects verification readiness without product startup; `verification-work` inspects, creates, or maintains an authorized project verifier. Planning reuses suitable existing verifiers directly. Creation or maintenance is offered independently of playbooks, with concrete options, one recommendation, and an explicit refusal option. Only actively accepted work enters implementation scope, including its closing trial. Decline or silence excludes the additions without blocking planning. See [supporting work](docs/manual-workflow.md#supporting-work).
 
 Cursor and Codex use native implementation. Portable clients additionally expose `implement-work`. All three packages share the same source instructions and require only a host capable of using skills. Workflow has no Node runtime requirement, hooks, MCP service, or automation profiles.
 

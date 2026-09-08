@@ -4,7 +4,7 @@ This catalog is optional, human-confirmed methodology. It supports the current a
 
 ## Selection
 
-Choose exactly one closest outcome:
+Identify the outcomes that meaningfully help the assignment. Use this catalog to compare plausible options before the human selects a method:
 
 | Playbook ID | Use when | Playbook reference |
 |---|---|---|
@@ -23,11 +23,13 @@ Choose exactly one closest outcome:
 | `session-pickup` | Resume prior work from exact reports and bounded context. | [session-pickup](./session-pickup.md) |
 | `pause-safely` | Stop at a durable, resumable boundary without new external effects. | [pause-safely](./pause-safely.md) |
 
-When two entries appear plausible, select by deliverable: diagnosis before correction, prototype before production feature, one-off performance correction before hillclimb, and fixed captured data before live forensics.
+When several entries are useful, explain their differences by deliverable: diagnosis or correction, prototype or production feature, one-off performance correction or iterative hillclimb, and fixed captured data or live forensics. These distinctions guide the recommendation; they do not authorize choosing on the human's behalf or hiding useful alternatives.
 
 ## Planning integration
 
-Recommend a method only if it helps this task. Present its fit and intended phase without requiring a selection before finishing a plan. An explicit inline choice or `engineering-work use` selects the method; actual mutation still needs the matching implementation or correction instruction.
+Offer only methods that help this task. Briefly explain each option's benefit and intended phase, including multiple alternatives when useful and no artificial extras. Mark exactly one substantive option as recommended: the best fit for the goal, scope, and repository. Always include an explicit decline-all option meaning none of the offered playbooks will be used, and allow a revised proposal. Use the user's language, including "Empfohlen" and "Nein, nicht machen" in German.
+
+An explicit inline choice or `engineering-work use` selects the method. A recommendation, silence, or acceptance of a separate verifier offer is not selection. Preserve prior explicit approval; decline or no answer excludes the unselected additions without blocking plan completion or repeating the offer for that scope. Read full method references and put methods into the binding plan only after explicit selection. Actual mutation still needs the matching implementation or correction instruction.
 
 ## Cross-cutting adaptation
 

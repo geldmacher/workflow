@@ -10,6 +10,7 @@ Workflow is a host-neutral working method delivered through skills. People and e
 - Execution choices belong to the active executor and project environment. Ground useful technical instructions in the repository. The host owns permissions, sandboxing, and enforcement.
 - Review is repository-read-only. Failed necessary checks prevent a positive completion claim; missing proof stays visible. Describe the actual observations and their limits.
 - Keep unrelated changes intact. Implementation and correction end with an honest report; a fresh Review is separately commissioned.
+- Capture reusable learning candidates and carry the complete open collection through phase reports and handoffs. Each Review reconciles earlier and new lessons and offers confirmed ones without changing its judgment. Learning remains separately commissioned; recheck evidence, conflicts, and previously saved lessons before integration.
 - The finish line is repository work. Commit, push, PR, merge, deployment, installation, production access, publication, and learning are not automatic consequences of a Workflow phase.
 
 ## Sources and handoff

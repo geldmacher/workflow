@@ -55,6 +55,7 @@ export function hostInstruction(host, skill) {
   if (host === "cursor" && ["review-work", "explain-work", "work-status", "workflow-doctor"].includes(skill)) instructions.push("Use Cursor Ask Mode for this read-only task.");
   if (["correct-work", "implement-work", "verification-work"].includes(skill)) instructions.push(`After commissioned changes, recommend ${invoke("review-work")}${host === "cursor" ? " in Ask Mode" : ""} for the human to start a separate review.`);
   if (skill === "review-work") instructions.push(`For actionable corrections, recommend ${invoke("correct-work")}${host === "cursor" ? " in Agent Mode" : ""} for the human to commission them.`);
+  if (skill === "review-work") instructions.push(`For eligible lessons, offer ${invoke("learn-from-work")}${host === "cursor" ? " in Agent Mode" : ""} as optional learning.`);
   if (skill === "work-status") instructions.push(host === "agent-plugins"
     ? "Name the skill matching the documented next action; implementation uses implement-work."
     : `Name the matching ${host === "cursor" ? "/skill-name command" : "$skill-name skill"} for the documented next action; implementation uses Implement Plan.`);

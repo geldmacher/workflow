@@ -59,7 +59,7 @@ test("phase handoffs name skills available in the receiving host package", () =>
   try {
     const built = buildPluginTargets(parent);
     for (const host of ["cursor", "codex", "agent-plugins"]) {
-      const pairs = [["plan-work", "review-work"], ["correct-work", "review-work"], ["review-work", "correct-work"], ["verification-work", "review-work"]];
+      const pairs = [["plan-work", "review-work"], ["correct-work", "review-work"], ["review-work", "correct-work"], ["review-work", "learn-from-work"], ["verification-work", "review-work"]];
       if (host === "agent-plugins") pairs.push(["plan-work", "implement-work"], ["implement-work", "review-work"]);
       for (const [source, destination] of pairs) {
         const prefix = host === "cursor" ? "/" : host === "codex" ? "$" : "";
@@ -263,7 +263,7 @@ test("context decreases in aggregate without increasing existing phase limits", 
   for (const target of Object.values(measurement.targets)) assert.ok(target.total < measurement.previousTotal);
 });
 
-test("context inventories count packaged base instructions and conditional verifier reads once", () => {
+test("context inventories count packaged base instructions and conditional learning and verifier reads once", () => {
   const parent = temp();
   try {
     const root = sourceFixture(parent);
@@ -283,6 +283,12 @@ test("context inventories count packaged base instructions and conditional verif
       assert.ok(!conditional.planVerifierCreation.documents.includes("commands/verification-work.md"));
       assert.equal(conditional.planVerifierCreation.totalTokens, target.flows.plan + conditional.planVerifierCreation.tokens);
       assert.equal(Boolean(target.supportingFlows.implementation), host === "agent-plugins");
+      for (const [name, base] of Object.entries({ ...target.flowSources, ...target.supportingFlows })) {
+        const withLearning = conditional[`${name}WithLearning`];
+        assert.deepEqual(withLearning.documents, ["references/learning-work.md"]);
+        assert.equal(withLearning.totalTokens, base.tokens + withLearning.tokens);
+        assert.equal(withLearning.tokens, Math.ceil(readFileSync(join(built[host].path, "references/learning-work.md"), "utf8").length / 4));
+      }
     }
     const guide = join(root, "references/verification-work.md");
     writeFileSync(guide, `${readFileSync(guide, "utf8")}${"x".repeat(400)}`);
@@ -296,6 +302,20 @@ test("context inventories count packaged base instructions and conditional verif
       assert.equal(current.conditionalFlows.verificationCreation.totalTokens - previous.conditionalFlows.verificationCreation.totalTokens, 100);
       assert.equal(current.conditionalFlows.verificationCreation.tokens, previous.conditionalFlows.verificationCreation.tokens);
       assert.equal(current.conditionalFlows.reviewVerifier.totalTokens - previous.conditionalFlows.reviewVerifier.totalTokens, 100);
+    }
+    const learningGuide = join(root, "references/learning-work.md");
+    writeFileSync(learningGuide, `${readFileSync(learningGuide, "utf8")}${"x".repeat(400)}`);
+    const afterLearning = measureContext(root);
+    for (const host of Object.keys(after.targets)) {
+      const previous = after.targets[host];
+      const current = afterLearning.targets[host];
+      assert.deepEqual(current.flows, previous.flows);
+      assert.deepEqual(current.supportingFlows, previous.supportingFlows);
+      for (const name of Object.keys({ ...current.flowSources, ...current.supportingFlows })) {
+        const key = `${name}WithLearning`;
+        assert.equal(current.conditionalFlows[key].tokens - previous.conditionalFlows[key].tokens, 100);
+        assert.equal(current.conditionalFlows[key].totalTokens - previous.conditionalFlows[key].totalTokens, 100);
+      }
     }
   } finally { rmSync(parent, { recursive: true, force: true }); }
 });
