@@ -2,7 +2,7 @@
   "name": "geldmacher-workflow",
   "displayName": "Workflow",
   "description": "Skills for understandable plans, implementation reports, reviews, corrections, handoffs, and verified Workflow release installation.",
-  "version": "7.2.0",
+  "version": "7.3.0",
   "author": {
     "name": "Dennis Geldmacher",
     "email": "geldmacher.dennis@outlook.de"
