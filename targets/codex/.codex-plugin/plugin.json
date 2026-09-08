@@ -1,6 +1,6 @@
 {
   "name": "geldmacher-workflow",
-  "version": "7.0.0",
+  "version": "7.1.0",
   "description": "Skills for understandable plans, implementation reports, reviews, corrections, and explicit handoffs.",
   "author": {
     "name": "Geldmacher"

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 7.1.0
+
+- Make phase results easier to understand with clear next actions, host-specific handoffs, and English examples while preserving flexible documents and separately commissioned phases.
+- Bound planning research and reuse current, supported check results instead of automatically repeating every check; report conditional instruction costs without claiming a measured runtime improvement.
+- Expand the fourteen optional engineering playbooks into focused references loaded only for the selected method, with complete license notices and behavioral validation scenarios.
+- Add detailed project-verifier creation and maintenance guidance, explicit acceptance of concrete proposals, native implementation handoffs, and a closing end-to-end trial with retained evidence.
+- Extend package and context validation for nested references, valid host transitions, and separate base and conditional instruction inventories.
+
 ## 7.0.0
 
 ### Breaking

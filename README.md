@@ -34,4 +34,4 @@ The contributor north star is `AGENTS.md`. Shared instructions live in `skills/`
 
 Run `npm ci`, `npm run build:targets`, and `npm run release-check`. Checks cover packaging, links, context, deterministic archives, and isolated deployment behavior. Realistic [behavior exercises](docs/behavior-validation.md) establish skill behavior separately from structural validation.
 
-This checkout contains an unreleased incompatible redesign. The package version remains at the last release until an explicit version cut. Release and local deployment are separate authorized operations; repository checks do not establish installation or host activation.
+Release and local deployment are separate authorized operations; repository checks do not establish installation or host activation.
