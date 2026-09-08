@@ -11,7 +11,7 @@
     {
       "name": "geldmacher-workflow",
       "source": ".",
-      "description": "Understandable plans, reviews, corrections, and handoffs through native Cursor skills."
+      "description": "Understandable plans, reviews, corrections, handoffs, and verified Workflow release installation through native Cursor skills."
     }
   ]
 }

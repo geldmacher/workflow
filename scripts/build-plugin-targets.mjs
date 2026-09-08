@@ -6,7 +6,7 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const defaultRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-export const publicSkills = ["correct-work", "engineering-work", "explain-work", "learn-from-work", "plan-work", "review-work", "verification-work", "work-status", "workflow-doctor"];
+export const publicSkills = ["correct-work", "engineering-work", "explain-work", "install-release", "learn-from-work", "plan-work", "review-work", "verification-work", "work-status", "workflow-doctor"];
 export const hostSkills = (host) => host === "agent-plugins" ? [...publicSkills, "implement-work"].sort() : publicSkills;
 export const manifestPaths = { cursor: ".cursor-plugin/plugin.json", codex: ".codex-plugin/plugin.json", "agent-plugins": "plugin.json" };
 const packageDocs = ["docs/behavior-validation.md", "docs/installation.md", "docs/manual-workflow.md", "docs/release-checklist.md"];

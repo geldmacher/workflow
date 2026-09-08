@@ -15,6 +15,25 @@ Packaging and frontmatter checks do not prove that skills make good decisions. E
 
 Use source and file comparisons before and after each exercise, actual commands/results where applicable, and the final report as evidence. Store observations outside the tested repository and preserve enough context to reproduce the exercise. Do not install plugins, alter host settings, or use production for these tests. Installed-host activation requires a separate smoke in a fresh native task.
 
+## Release installation decisions
+
+Walk through these situations against [install-release](../skills/install-release/SKILL.md) and the [installation guide](installation.md), including the generated host packages. Record inspected passages and results outside the repository. These are instruction-level checks, not observed installations. Do not install into real user profiles or change host settings during a walkthrough. Existing isolated packaging/release tests establish archive contents and reproducibility, not execution of this skill.
+
+| Situation | Expected decision and evidence |
+|---|---|
+| A colleague has Cursor or Codex but no Workflow, checkout, Node.js, npm, or GitHub CLI. | The bootstrap reads the skill and its links from the selected published tag. Available native download, JSON, hashing, and archive tools suffice; no checkout or tool installation is required. An unpublished skill is reported as unavailable. |
+| Both hosts have directories, but explicit harness context identifies only one; another request has no trustworthy host context. | Select only the current host in the first case. Ask for the target in the second; do not infer the harness from directories or install both. An unsupported harness must select an explicitly supported target before installation. |
+| A new release is published between asset downloads. | Continue with the initially resolved concrete tag and its asset URLs for every download and instruction read. Never mix independently resolved latest assets. |
+| An unmodified older Codex release and a personal Marketplace with unrelated plugins exist. | Verify the older package against its exact release baseline, prepare the new source and only the Workflow entry, preserve catalog identity and unrelated items, retain a complete backup, and read back the result. Malformed or duplicate entries block changes. |
+| The source is already byte-identical to the selected release but Codex's cache is missing or stale. | Skip source replacement and a redundant backup, but inspect registration and require supported host installation/refresh and cache comparison. Do not report active or repair the cache manually. |
+| The selected archive is for the other host, its manifest/version is wrong, or its provenance names another repository. | Stop before replacing files; a valid checksum alone does not establish the requested identity. |
+| A checksum is wrong, missing, or duplicated, or GitHub/network access fails. | Leave the destination unchanged and name the failed check or missing prerequisite. Do not use another release, a development checkout, or skip verification. |
+| A ZIP contains traversal paths, links, colliding names, or metadata the available tool cannot inspect; a destination ancestor is redirected. | Reject extraction or replacement at the applicable preflight. Check Windows path rules as well as POSIX paths. |
+| A local/development version, newer version, changed file, extra file, or unavailable old comparison baseline is found. | Preserve the existing installation and ask about the concrete difference. A matching manifest version is insufficient proof of unchanged contents. |
+| The user requests installation but the host denies destination writes; another user only asks how installation works. | Report the concrete permission blocker without changing host permissions in the first case. Explain without mutation in the second. Do not ask again for installation consent already given. |
+| Directory replacement succeeds but Marketplace writing or read-back fails. | Restore the previous source and affected catalog state using the retained backup, preserving concurrent changes. If recovery fails, name the remaining paths and recovery action; never claim successful installation. |
+| The verified source is ready but Cursor has not reloaded or Codex still needs restart and Plugins Directory interaction. | Report the completed file work and exact pending activation steps. Keep the backup; do not restart the active host or infer activation from files, a version string, or the running task. |
+
 ## Clarity, transitions, and proportionate work
 
 When agent runs are not commissioned, inspect these situations against the linked instructions and the [English examples](manual-workflow.md#examples-of-clear-phase-endings). Record the passages inspected, any gaps, and the working state outside the repository. This is a content walkthrough, not observed agent behavior, human UX acceptance, or a runtime comparison. For later agent exercises, give the executor only the task and raw evidence, without the expected result.

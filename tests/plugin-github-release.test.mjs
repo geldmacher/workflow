@@ -757,6 +757,9 @@ test("two production-target preparations from one clean release-cut snapshot are
       assert.ok(entries.some((entry) => entry.name === `${PLUGIN_NAME}/docs/installation.md`));
       assert.ok(entries.some((entry) => entry.name === `${PLUGIN_NAME}/skills/plan-work/SKILL.md`));
       assert.ok(entries.some((entry) => entry.name === `${PLUGIN_NAME}/skills/review-work/SKILL.md`));
+      assert.equal(zipEntryText(archivePath, `${PLUGIN_NAME}/skills/install-release/SKILL.md`), readFileSync(join(item.repository, "skills/install-release/SKILL.md"), "utf8"));
+      assert.equal(entries.some((entry) => entry.name === `${PLUGIN_NAME}/commands/install-release.md`), host === "cursor");
+      if (host === "cursor") assert.equal(zipEntryText(archivePath, `${PLUGIN_NAME}/commands/install-release.md`), readFileSync(join(item.repository, "commands/install-release.md"), "utf8"));
       assert.equal(entries.filter((entry) => !entry.name.endsWith("/")).length, first.provenance.targets[host].file_count);
       assert.ok(entries.every((entry) => !/\.(?:[cm]?js|py|sh)$/.test(entry.name)));
       assert.ok(entries.every((entry) => !entry.name.startsWith(`${PLUGIN_NAME}/.agents/`)));

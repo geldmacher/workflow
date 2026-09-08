@@ -1,7 +1,7 @@
 {
   "name": "geldmacher-workflow",
   "version": "7.2.0",
-  "description": "Skills for understandable plans, implementation reports, reviews, corrections, and explicit handoffs.",
+  "description": "Skills for understandable plans, implementation reports, reviews, corrections, handoffs, and verified Workflow release installation.",
   "author": {
     "name": "Geldmacher"
   },
@@ -19,7 +19,7 @@
   "interface": {
     "displayName": "Workflow",
     "shortDescription": "Human-authorized delivery workflow",
-    "longDescription": "Skills for understandable plans, implementation reports, reviews, corrections, and explicit handoffs.",
+    "longDescription": "Skills for understandable plans, implementation reports, reviews, corrections, handoffs, and verified Workflow release installation.",
     "developerName": "Geldmacher",
     "category": "Developer Tools",
     "capabilities": [

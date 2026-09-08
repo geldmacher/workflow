@@ -1,7 +1,7 @@
 {
   "name": "geldmacher-workflow",
   "displayName": "Workflow",
-  "description": "Skills for understandable plans, implementation reports, reviews, corrections, and explicit handoffs.",
+  "description": "Skills for understandable plans, implementation reports, reviews, corrections, handoffs, and verified Workflow release installation.",
   "version": "7.2.0",
   "author": {
     "name": "Dennis Geldmacher",
@@ -24,6 +24,7 @@
     "./skills/correct-work/",
     "./skills/engineering-work/",
     "./skills/explain-work/",
+    "./skills/install-release/",
     "./skills/learn-from-work/",
     "./skills/plan-work/",
     "./skills/review-work/",

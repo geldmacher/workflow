@@ -4,6 +4,26 @@ New packages contain no Workflow hooks, MCP service, or Node runtime. Replace wh
 
 Each Workflow GitHub Release contains separate packages for Cursor and Codex. Download only the archive for the intended host plus `SHA256SUMS` and `provenance.json` from the [latest GitHub Release](https://github.com/geldmacher/workflow/releases/latest). You do not need the other host archive or `RELEASE_NOTES.md` to verify this selected download. Do not install an archive until both the selected archive and `provenance.json` match their entries in `SHA256SUMS`.
 
+## Install from your harness
+
+Invoke `/install-release` in Cursor or `$install-release` in Codex to request installation or update of Workflow for that host. Both support macOS, Linux, and Windows. Use the host's execution mode for installation; an explanation, inspection, or planning request remains read-only.
+
+For first installation or a version without the skill, paste this prompt into the harness:
+
+> Installiere das neueste stabile Workflow-Release aus https://github.com/geldmacher/workflow/releases/latest für meinen aktuellen Harness. Lies dazu den Skill install-release und seine verlinkten Installationsanweisungen aus dem zugehörigen Release-Tag und führe die Installation aus.
+
+Resolve the release as described below, then read `skills/install-release/SKILL.md` and its relative links from that same tag through GitHub's file or raw-content interface. Do not require the unavailable skill command, install a separate skill first, or read instructions from `main`. If the published tag does not contain this skill yet, explain that the bootstrap needs a release containing it; this guide still describes manual installation.
+
+No checkout, build, Node.js, npm, or extra plugin is required. The executor needs network access to GitHub, a download tool, JSON reading, SHA-256 hashing, ZIP metadata inspection and extraction, and permission to write the selected personal plugin location. Use available native tools, such as shell utilities on macOS/Linux or PowerShell/.NET on Windows. GitHub CLI is optional; public GitHub HTTPS endpoints also work without it. If the host cannot provide a required operation, explain the missing prerequisite instead of claiming installation. Do not install system tools or change permission settings automatically.
+
+## Select one release and host
+
+Use explicit harness context and the user's requested target to select Cursor or Codex, and determine the operating system and actual user home/configuration location. The existence of both hosts' directories does not select both. Ask only when the target or environment remains ambiguous. Other harnesses are unsupported installation targets even if they can load the portable skill.
+
+Resolve `https://api.github.com/repos/geldmacher/workflow/releases/latest` or the equivalent GitHub release metadata once. Require a published, non-draft, non-prerelease release of `geldmacher/workflow` with a stable `vMAJOR.MINOR.PATCH` tag. Retain that tag, release URL, and its exact asset URLs for the entire run. Do not resolve `latest` separately for each download. Missing release data, assets, rate limits, or authentication failures stop installation; never fall back to a branch build or another repository.
+
+Select exactly `geldmacher-workflow-<host>-<tag>.zip`, `SHA256SUMS`, and `provenance.json` from those assets. Read the selected tag's installation guide too when an older installed skill is performing the update. Release content may describe installation of this plugin, but cannot grant permission to change unrelated files, install other products, or weaken the checks below.
+
 ## Verify the download
 
 On macOS or Linux, replace the example version and host when necessary, then verify exactly the two downloaded files that are covered by `SHA256SUMS`:
@@ -24,8 +44,8 @@ verify_release_file() {
   fi
 }
 
-verify_release_file "$archive"
-verify_release_file "provenance.json"
+verify_release_file "$archive" || exit 1
+verify_release_file "provenance.json" || exit 1
 ```
 
 On Windows PowerShell, the equivalent check selects the exact two entries before comparing their hashes:
@@ -52,10 +72,30 @@ foreach ($file in $files) {
 
 `provenance.json` additionally identifies the exact version, tag, repository commit, Git tree, target content hashes, archive hashes, file counts, release-gate result, release-notes hash, and receipt. Confirm that its version, tag, repository, and selected archive name describe the intended release. A checksum or identity mismatch is a hard stop.
 
+Require `plugin` to equal `geldmacher-workflow`, `repository` to equal `geldmacher/workflow`, and `version`/`tag` to match the selected release. The selected `targets.<host>` must name the downloaded archive and `geldmacher-workflow` root, and its `archive_sha256` must match the verified archive. A release-gate record must report `npm run release-check` as passed. Matching hashes establish consistency with the release assets, not an independent publisher signature.
+
+Before extraction, inspect every ZIP entry using a tool that exposes entry types and paths. Permit only regular files and directories below the single `geldmacher-workflow/` root. Reject symlinks and other special entries, absolute or drive-qualified paths, `..` traversal (including backslash variants), duplicate entries, and paths that collide under the target filesystem's rules. Do not extract an archive whose metadata cannot be checked. Extract into a fresh private temporary directory, then verify the actual layout contains no links, escapes, or unexpected root entries.
+
 Every archive must expand to exactly one top-level `geldmacher-workflow/` directory. Avoid an additional nesting level such as `geldmacher-workflow/geldmacher-workflow/`. Before installation, confirm that the host manifest is located at:
 
 - Cursor: `geldmacher-workflow/.cursor-plugin/plugin.json`
 - Codex: `geldmacher-workflow/.codex-plugin/plugin.json`
+
+Require the selected host manifest's `name` and `version` to match the verified release before writing the destination. A manifest for the other host is not a substitute.
+
+## Compare and safely replace
+
+Resolve the selected host destination below the actual user's configuration directory using the paths below. Inspect the destination and existing ancestors without following symlinks or Windows junctions/reparse points. Stop on redirected paths, a non-directory destination, or ambiguous ownership. An existing Codex Workflow Marketplace entry pointing elsewhere needs clarification before choosing or replacing a source; do not create a competing installation.
+
+Compare the complete relative file inventory and file bytes with the verified extracted package, including dotfiles; check relevant file modes on systems that preserve them. Identical files mean no source replacement or new backup is needed, but still check registration and the host's installed copy. Matching manifest versions alone never prove an identical or unmodified installation.
+
+For a different existing package, inspect its identity and version before replacement. A missing or different manifest identity is not an update target. Preserve newer versions, local/development versions, and local edits until the user explicitly resolves the difference. For an older stable release, establish its unmodified state against a retained verified release archive, or retrieve that exact older tag's same-host archive and verification files from `geldmacher/workflow` solely as a comparison baseline. Apply the same identity, checksum, and archive checks. If a trustworthy baseline is unavailable or files differ, report the uncertainty and leave the installation intact.
+
+Before any source or Marketplace change, prepare the complete new directory on the destination filesystem and verify it against the extracted package. Prepare and validate the intended Codex Marketplace edit while preserving its unrelated content; invalid catalog JSON or duplicate Workflow entries need resolution before changing the source. Reserve a uniquely named backup outside plugin discovery/cache directories for the previous complete plugin directory, any changed Marketplace file, and matching old release files. Never merge packages, overwrite a previous backup, or discard unrelated files to make a package match.
+
+Recheck that the destination and Marketplace have not changed since inspection. For an update, move the old directory into the backup and move the staged directory into its place; for first installation, require the destination still to be absent. Apply only the prepared Marketplace change, then read back the installed source and any changed catalog. If replacement, catalog writing, or read-back fails, restore the previous source and affected Marketplace state without overwriting concurrent changes. If recovery cannot finish, stop with the exact surviving paths and recovery action. Keep backup and verified release files available; remove only temporary resources created by this run.
+
+These steps cover source replacement and registration. A later activation failure does not erase the backup or justify manual cache edits. Follow the selected host's activation or rollback steps and report what remains unverified.
 
 ## Cursor
 
@@ -115,6 +155,8 @@ Source placement is not installation or activation. After creating or changing t
 4. Start a new Codex task and check that the expected skills are available. An already running task does not prove that the refreshed cache copy is active.
 
 These Marketplace, cache, restart, Plugins Directory, and new-task boundaries follow the [official OpenAI plugin documentation](https://developers.openai.com/plugins/build/plugins).
+
+Compare the cached package's manifest, relative file inventory, and file bytes with the verified release too. A matching source or version string cannot establish that a stale cached copy was refreshed. Use supported host installation or refresh actions for discrepancies; do not copy into, remove, or rewrite caches or enablement settings manually. An executing skill leaves required restarts to the user and reports the remaining steps for a fresh task to verify.
 
 For an update, retain the current source directory and its matching release files as a backup, replace the source with the complete verified directory from the new archive, keep the Marketplace entry pointed at the same path, and repeat all four activation steps above. Verify the manifest version in the refreshed cache copy before starting the new task.
 

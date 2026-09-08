@@ -4,6 +4,16 @@ Workflow helps people and executors agree on understandable plans, implement the
 
 [Installation](docs/installation.md) · [Working guide](docs/manual-workflow.md) · [Latest release](https://github.com/geldmacher/workflow/releases/latest)
 
+## Install or update from your harness
+
+Use `/install-release` in Cursor or `$install-release` in Codex to install the latest stable Workflow release for the current host. The skill verifies the selected download and preserves a recoverable previous installation. It requires no repository checkout, Node.js, or npm. See the [installation guide](docs/installation.md#install-from-your-harness) for prerequisites and host activation.
+
+For a first installation, or an older version without this skill, paste this prompt into your harness:
+
+> Installiere das neueste stabile Workflow-Release aus https://github.com/geldmacher/workflow/releases/latest für meinen aktuellen Harness. Lies dazu den Skill install-release und seine verlinkten Installationsanweisungen aus dem zugehörigen Release-Tag und führe die Installation aus.
+
+This bootstrap becomes available with the first published release containing `install-release`. It does not need Workflow to be installed already. File installation and host activation are separate: follow the reported reload or restart, Plugins Directory, and fresh-task steps.
+
 ## How it works
 
 1. Use `/plan-work` in Cursor or `$plan-work` in Codex to prepare an actionable plan. The plan describes outcomes, boundaries, consequential decisions, and verification at the right level of detail.

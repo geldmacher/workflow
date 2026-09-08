@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add the public `install-release` skill and Cursor command for first installation and updates from the latest stable Workflow GitHub Release, with a checkout-free bootstrap prompt.
+- Guide verified host-specific downloads, safe full-directory replacement and recovery, preservation of local changes and unrelated Marketplace entries, and separate installed-copy and activation checks.
+
 ## 7.2.0
 
 - Offer confirmed reusable lessons after every Review and carry the complete open collection through native phase reports and handoffs, including multiple correction rounds.
