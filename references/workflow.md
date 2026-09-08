@@ -1,11 +1,15 @@
 # Shared working agreement
 
-Read the approved plan and current assignment. Planning, implementation, review, correction, and learning are separately commissioned. Reuse authorization already given for this scope. A phase does not commission the next one.
+Read the assignment and approved plan when available. Humans commission planning, implementation, review, correction, and learning separately. Preserve existing authorization; a phase does not start the next one.
 
-Keep the approved plan as the reference. Material changes to goals, acceptance, permissions, or consequential decisions need a human decision; editorial changes do not. Resolve only ambiguities that prevent correct, authorized work. Routine technical decisions belong to the executor.
+The approved plan is the reference. Material changes to goals, success criteria, permissions, or consequential decisions need a human decision; editorial changes do not. Resolve blocking ambiguities; routine technical choices belong to the executor.
 
-Keep documents in the native task. Use available task references or complete supplied text to identify their versions. A fresh task needs the approved plan, current assignment, relevant reports, repository state, open decisions, and next action. If these disagree or are missing, name the specific uncertainty; never invent approval or reconstruct workflow state from technical artifacts.
+Keep documents in the native task, identified by accessible task references or complete supplied text. A handoff needs the approved plan version, assignment, relevant reports, repository state, open decisions, and next action. Name missing or conflicting information; never invent approval or reconstruct workflow state from technical artifacts.
 
-Preserve unrelated work. Host and project permissions govern tools and side effects. Review is repository-read-only. Commit, push, PR, merge, deployment, installation, production, publication, and learning require separate authorization.
+Preserve unrelated work. Host and project permissions govern execution. Review is repository-read-only. Commit, push, PR, merge, deployment, installation, production, publication, and learning need separate authorization.
 
-Write in the user's language. Lead with the result and explain the evidence and implications once. Use the structure and detail that help this task; documents have no required headings, fields, metadata blocks, or machine version. Name a next action only when useful. Failed necessary checks prevent success; missing proof and changed working states must remain visible.
+Reuse applicable instructions already read; load conditional references only when needed. Report after sufficient necessary work and checks. Further investigation or checks need a concrete unresolved question.
+
+Write in the user's language: result and meaning first, familiar terms, necessary jargon explained once. Keep evidence near claims and technical details that inform a decision or check. Use short paragraphs, with headings or lists for complex work. Small tasks need short answers. Avoid repetition and extra summaries. No fixed headings, fields, metadata blocks, or machine version. Failed necessary checks prevent success; missing proof and changed states stay visible.
+
+End each phase with what is complete and the human's next action, explaining why when useful. For an established achieved goal, state completion without another required step. Status and explanations give only actions relevant to the question.

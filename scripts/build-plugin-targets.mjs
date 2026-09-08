@@ -9,6 +9,7 @@ export const defaultRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 export const publicSkills = ["correct-work", "engineering-work", "explain-work", "learn-from-work", "plan-work", "review-work", "verification-work", "work-status", "workflow-doctor"];
 export const hostSkills = (host) => host === "agent-plugins" ? [...publicSkills, "implement-work"].sort() : publicSkills;
 export const manifestPaths = { cursor: ".cursor-plugin/plugin.json", codex: ".codex-plugin/plugin.json", "agent-plugins": "plugin.json" };
+const packageDocs = ["docs/behavior-validation.md", "docs/installation.md", "docs/manual-workflow.md", "docs/release-checklist.md"];
 function inside(base, path) {
   const item = relative(base, path);
   return item === "" || (item !== ".." && !item.startsWith(`..${sep}`));
@@ -44,13 +45,20 @@ export function contentDigest(directory) {
 }
 
 export function hostInstruction(host, skill) {
+  const invoke = (name) => host === "cursor" ? `/${name}` : host === "codex" ? `$${name}` : name;
   if (skill === "plan-work") {
-    if (host === "codex") return "Use Codex Plan mode. Return the complete human plan inside one native <proposed_plan> block. The human starts implementation with the native Implement Plan action.";
-    if (host === "cursor") return "Use Cursor Plan Mode and its native plan. The human starts implementation with Implement Plan.";
-    return "Return the complete human plan in the task. A human instruction to implement it starts implement-work.";
+    if (host === "codex") return "Use Codex Plan mode. Return the complete human plan inside one native <proposed_plan> block. Direct the human to check the plan and use Implement Plan. Include the closing recommendation to commission $review-work in the implementation handoff.";
+    if (host === "cursor") return "Use Cursor Plan Mode and its native plan. Direct the human to check the plan and use Implement Plan. Include the closing recommendation to commission /review-work in Ask Mode in the implementation handoff.";
+    return "Return the complete human plan in the task. Direct the human to check it and instruct implement-work to implement it; the implementation handoff recommends a separate review-work afterward.";
   }
-  if (host === "cursor" && ["review-work", "explain-work", "work-status", "workflow-doctor"].includes(skill)) return "Use Cursor Ask Mode for this read-only task.";
-  return "";
+  const instructions = [];
+  if (host === "cursor" && ["review-work", "explain-work", "work-status", "workflow-doctor"].includes(skill)) instructions.push("Use Cursor Ask Mode for this read-only task.");
+  if (["correct-work", "implement-work", "verification-work"].includes(skill)) instructions.push(`After commissioned changes, recommend ${invoke("review-work")}${host === "cursor" ? " in Ask Mode" : ""} for the human to start a separate review.`);
+  if (skill === "review-work") instructions.push(`For actionable corrections, recommend ${invoke("correct-work")}${host === "cursor" ? " in Agent Mode" : ""} for the human to commission them.`);
+  if (skill === "work-status") instructions.push(host === "agent-plugins"
+    ? "Name the skill matching the documented next action; implementation uses implement-work."
+    : `Name the matching ${host === "cursor" ? "/skill-name command" : "$skill-name skill"} for the documented next action; implementation uses Implement Plan.`);
+  return instructions.join(" ");
 }
 
 function sourceManifest(root, host) {
@@ -62,7 +70,7 @@ function buildHost(root, destination, host, version) {
   if (manifest.name !== "geldmacher-workflow" || manifest.version !== version) throw new Error(`${host} source manifest identity/version mismatch`);
   if (manifest.hooks || manifest.mcpServers) throw new Error(`${host} manifest registers a removed runtime`);
   copyRegular(sourceManifest(root, host), join(destination, manifestPaths[host]), root);
-  for (const name of ["assets", "references", "docs", "LICENSE", "THIRD_PARTY_NOTICES.md"]) copyRegular(join(root, name), join(destination, name), root);
+  for (const name of ["assets", "references", ...packageDocs, "LICENSE", "THIRD_PARTY_NOTICES.md"]) copyRegular(join(root, name), join(destination, name), root);
   const readme = host === "cursor" ? join(root, "README.md") : join(root, "targets", host, "README.md");
   copyRegular(readme, join(destination, "README.md"), root);
   const readmePath = join(destination, "README.md");
@@ -74,12 +82,14 @@ function buildHost(root, destination, host, version) {
     const path = join(destination, "skills", skill, "SKILL.md");
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, output);
+    const references = join(root, "skills", skill, "references");
+    if (existsSync(references)) copyRegular(references, join(destination, "skills", skill, "references"), root);
   }
   if (host === "cursor") copyRegular(join(root, "commands"), join(destination, "commands"), root);
   const surface = {
     schema: 1,
     runtime_paths: [manifestPaths[host], "assets", ...(host === "cursor" ? ["commands"] : []), "references", "release-surface.json", "skills"].sort(),
-    package_extras: ["LICENSE", "README.md", "THIRD_PARTY_NOTICES.md", "docs"].sort(),
+    package_extras: ["LICENSE", "README.md", "THIRD_PARTY_NOTICES.md", ...packageDocs].sort(),
   };
   writeFileSync(join(destination, "release-surface.json"), `${JSON.stringify(surface, null, 2)}\n`);
   files(destination);

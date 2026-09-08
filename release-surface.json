@@ -14,7 +14,10 @@
     "LICENSE",
     "README.md",
     "THIRD_PARTY_NOTICES.md",
-    "docs",
+    "docs/behavior-validation.md",
+    "docs/installation.md",
+    "docs/manual-workflow.md",
+    "docs/release-checklist.md",
     "package.json"
   ]
 }

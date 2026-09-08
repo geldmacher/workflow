@@ -18,7 +18,7 @@ A receiving task needs an explicit [handoff](docs/manual-workflow.md#handoff): t
 - `work-status` explains documented progress and uncertainties; `explain-work` explains decisions and findings.
 - `learn-from-work` saves explicitly commissioned, confirmed project lessons.
 - `engineering-work` optionally suggests or applies a selected method.
-- `workflow-doctor` inspects verification readiness without product startup; `verification-work` inspects or maintains an authorized project verifier.
+- `workflow-doctor` inspects verification readiness without product startup; `verification-work` inspects, creates, or maintains an authorized project verifier. Planning reuses suitable existing coverage and offers concrete creation or maintenance only when useful. The human can accept, decline, or revise it; accepted work runs with implementation, including a closing trial and evidence for a separately commissioned Review.
 
 Cursor and Codex use native implementation. Portable clients additionally expose `implement-work`. All three packages share the same source instructions and require only a host capable of using skills. Workflow has no Node runtime requirement, hooks, MCP service, or automation profiles.
 
