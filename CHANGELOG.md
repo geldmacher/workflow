@@ -2,9 +2,12 @@
 
 ## Unreleased
 
+## 7.2.0
+
 - Offer confirmed reusable lessons after every Review and carry the complete open collection through native phase reports and handoffs, including multiple correction rounds.
 - Reconcile new, conflicting, superseded, and previously integrated lessons before bounded learning updates; preserve unresolved and partially saved work, and reuse applicable saved guidance in later planning.
 - Add host-specific learning handoffs, multi-round behavioral scenarios, and separately measured conditional learning instructions without increasing existing context limits.
+- Offer useful playbook and verifier-change alternatives independently, with one recommendation and an explicit refusal option; include only active selections in the plan while reusing suitable existing verifiers directly.
 
 ## 7.1.0
 
