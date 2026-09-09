@@ -1,3 +1,5 @@
+<img src="assets/logo.svg" alt="Design" width="64" height="64">
+
 # Workflow
 
 **Clear plans. Reviewed results. You set the direction.**
