@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 7.4.1
+
+- Replace the Workflow plugin icon with a simplified blue W that matches the Design and Efficiency branding family.
+- Add light and monochrome logo variants and a matching social preview with the Geldmacher signature, supplied as SVG and PNG assets.
+
 ## 7.4.0
 
 - Clarify the product promise, working modes, and practical entry points across the README and host plugin descriptions.
