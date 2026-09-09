@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 7.4.0
+
+- Clarify the product promise, working modes, and practical entry points across the README and host plugin descriptions.
+- Explain how reviewed learning improves future project work, how engineering playbooks are offered, and how accepted verifier maintenance stays part of implementation.
 - Add Light and Dark Auto-Work with explicit mode switches, fresh native reviewers, bounded corrections, and optional commissioned delivery.
 - Preserve standalone phases while sharing implementation requirements and distinguishing Light acceptance from technically gated Dark delivery.
 - Add an isolated project verifier and package/context coverage for the new flows without shipping a runtime.

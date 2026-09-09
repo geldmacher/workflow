@@ -1,6 +1,6 @@
 {
   "name": "geldmacher-workflow",
-  "version": "7.3.0",
+  "version": "7.4.0",
   "description": "Plan, implement, review, and refine changes with your coding agent. Commission each step yourself, or use Auto-Work for a sequence with independent review and bounded correction rounds.",
   "author": {
     "name": "Geldmacher"
