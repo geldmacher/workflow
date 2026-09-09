@@ -1,11 +1,11 @@
 ---
 name: review-work
-description: Assess an approved plan and current work without repository changes.
+description: Assess the applicable plan and current work without repository changes.
 ---
 
 # review-work
 
-Read the [working agreement](../../references/workflow.md). Identify the approved plan version, implementation or correction report, and current working state.
+Read the [working agreement](../../references/workflow.md). Identify the applicable plan, implementation or correction report, and current working state. A delegated Auto-Work review follows the same rubric; return its result to the executor without requiring the human to change host modes.
 
 Remain repository-read-only, including tracked and untracked files. Select inspections and tests whose effects are permitted; put any permitted transient outputs outside the repository. If a necessary check would mutate the repository or cross another permission boundary, record the missing evidence. Do not fix code, tests, documents, or verifiers during Review.
 
@@ -17,4 +17,4 @@ Lead with a reasoned judgment: goal achieved, corrections needed, or open points
 
 Assess inherited and new learning candidates from the reviewed work. When any exist, follow the learning guidance linked by the working agreement: reconcile the whole collection and offer eligible lessons after every Review, independently of required corrections. Keep Review read-only.
 
-For each actionable defect, explain the observed behavior, supporting evidence, impact on the plan, required correction, permitted scope, and recheck. This can serve as the correction assignment; avoid duplicating it. Recommend that the human commission the named corrections. For missing proof, name the missing check and a permitted way to obtain it; verification-only correction needs no code change. If access or a consequential decision is missing, ask precisely with a reasoned recommendation. Do not ask the human to attest a result the executor can collect under an authorized assignment. When the goal is achieved, state completion without another required step. Finish without starting correction.
+For each actionable defect, explain observed behavior, evidence, impact on the plan, required correction, permitted scope, and recheck. This can serve as the correction assignment. In standalone work, recommend that the human commission the corrections. In Auto-Work, return findings to the commissioned loop. For missing proof, name the check and a permitted way to obtain it; verification-only correction needs no code change. Consequential decisions or missing access remain explicit. Do not ask the human to attest evidence the executor can collect under its assignment. A positive Review establishes repository acceptance criteria, not Auto-Work's remaining human acceptance or delivery. Finish without starting correction or delivery.

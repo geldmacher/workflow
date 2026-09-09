@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add Light and Dark Auto-Work with explicit mode switches, fresh native reviewers, bounded corrections, and optional commissioned delivery.
+- Preserve standalone phases while sharing implementation requirements and distinguishing Light acceptance from technically gated Dark delivery.
+- Add an isolated project verifier and package/context coverage for the new flows without shipping a runtime.
+
 ## 7.3.0
 
 - Add the public `install-release` skill and Cursor command for first installation and updates from the latest stable Workflow GitHub Release, with a checkout-free bootstrap prompt.

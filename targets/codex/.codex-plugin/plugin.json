@@ -1,7 +1,7 @@
 {
   "name": "geldmacher-workflow",
   "version": "7.3.0",
-  "description": "Skills for understandable plans, implementation reports, reviews, corrections, handoffs, and verified Workflow release installation.",
+  "description": "Plan, implement, review, and refine changes with your coding agent. Commission each step yourself, or use Auto-Work for a sequence with independent review and bounded correction rounds.",
   "author": {
     "name": "Geldmacher"
   },
@@ -18,8 +18,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "Workflow",
-    "shortDescription": "Human-authorized delivery workflow",
-    "longDescription": "Skills for understandable plans, implementation reports, reviews, corrections, handoffs, and verified Workflow release installation.",
+    "shortDescription": "Clear plans and reviewed results for AI coding.",
+    "longDescription": "Plan, implement, review, and refine changes with your coding agent. Commission each step yourself, or use Auto-Work for a sequence with independent review and bounded correction rounds.",
     "developerName": "Geldmacher",
     "category": "Developer Tools",
     "capabilities": [
@@ -29,9 +29,10 @@
     ],
     "websiteURL": "https://github.com/geldmacher/workflow",
     "defaultPrompt": [
-      "Use $plan-work to prepare an actionable plan.",
-      "Use $review-work to assess the approved plan and current changes.",
-      "Use $work-status to explain the documented progress and open questions."
+      "Use $plan-work to turn my goal into an actionable implementation plan.",
+      "Use $review-work to check the current changes against the plan and explain what remains open.",
+      "Use $work-status to explain what is done and what needs attention.",
+      "Use $auto-work light to plan and implement my goal, with independent review and at most three correction rounds."
     ],
     "brandColor": "#111827",
     "composerIcon": "./assets/logo.svg",

@@ -1,6 +1,6 @@
 # feature
 
-Use to add or intentionally change behavior. The approved plan defines the requested outcome and acceptance. Apply design work during planning and repository changes only with the matching implementation or correction instruction.
+Use to add or intentionally change behavior. The applicable plan defines the requested outcome and acceptance. Apply design work during planning and repository changes only with the matching implementation or correction instruction.
 
 ## Establish the design
 
@@ -14,7 +14,7 @@ Use to add or intentionally change behavior. The approved plan defines the reque
 5. Implement one coherent unit at a time within the approved scope. Keep tightly coupled code under clear ownership. The executor and host select tools, sequencing, and any authorized collaboration.
 6. Carry changes to shared primitives through all affected consumers and verify the behavior each depends on. Respect agreed compatibility; consequential contract changes require a human decision.
 7. Verify the requested behavior on the relevant surface, including material failure paths and regressions. Choose checks that exercise the user's result. Build or type checks alone cannot establish an interaction they never drive.
-8. Inspect the resulting diff and evidence. If a needed surface or check is unavailable, state what remains unproven. Implementation self-checks do not commission or replace a fresh Workflow Review.
+8. Inspect the resulting diff and evidence. If a needed surface or check is unavailable, state what remains unproven. Implementation self-checks do not replace a fresh Workflow Review. In manual work it is separately commissioned; an explicit Auto-Work sequence delegates it.
 
 ## Result
 

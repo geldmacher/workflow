@@ -1,6 +1,6 @@
 # hillclimb
 
-Use for sustained improvement of one measurable outcome under an agreed budget and checkable stop condition. A one-off fix belongs to [performance](./performance.md) or [bug-fix](./bug-fix.md). An approved plan and execution instruction are required for changes; the method creates no unattended execution or scheduling authority.
+Use for sustained improvement of one measurable outcome under an agreed budget and checkable stop condition. A one-off fix belongs to [performance](./performance.md) or [bug-fix](./bug-fix.md). An applicable plan and execution instruction are required for changes; the method creates no unattended execution or scheduling authority.
 
 ## Establish a trustworthy experiment
 

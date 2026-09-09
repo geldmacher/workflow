@@ -33,7 +33,7 @@ An explicit inline choice or `engineering-work use` selects the method. A recomm
 
 ## Cross-cutting adaptation
 
-- Long-running work uses a checkable exit predicate, agreed budgets, and one auditable result per iteration. It does not gain autonomous authority.
+- Long-running work uses a checkable exit predicate, agreed budgets, and one auditable result per iteration. The selected method itself grants no authority; an explicit Auto-Work assignment governs any automatic phase transitions.
 - Multi-phase work expresses objective prerequisites and independently verifiable phase outcomes. Concrete execution sequencing belongs to the harness.
 
-Not integrated: babysitting or shipping PRs, automatic merge, full or stacked autopilot, worktree cleanup, simulator cleanup, and any automatic push, deployment, publication, or learning.
+Playbooks do not commission PR operations, cleanup, delivery, or learning. Expressly commissioned Auto-Work delivery follows its own acceptance and gate rules; selecting a method grants none of those permissions.

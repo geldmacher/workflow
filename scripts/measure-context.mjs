@@ -12,6 +12,8 @@ const agreement = "references/workflow.md";
 const learning = "references/learning-work.md";
 const verification = "references/verification-work.md";
 const verificationSkill = "skills/verification-work/SKILL.md";
+const implementation = "references/implementation-work.md";
+const autoReferences = "skills/auto-work/references";
 const creation = "skills/verification-work/references/create.md";
 const maintenance = "skills/verification-work/references/maintain.md";
 const playbookDirectory = "skills/engineering-work/references";
@@ -47,7 +49,9 @@ export function measureContext(root = defaultRoot) {
       verificationInspect: entry("verification-work", [verification]),
       methodSuggestion: entry("engineering-work", [catalogPath]),
     };
-    if (host === "agent-plugins") supportingFlows.implementation = entry("implement-work");
+    if (host === "agent-plugins") supportingFlows.implementation = entry("implement-work", [implementation]);
+    const autoWork = entry("auto-work", [`${autoReferences}/operation.md`]);
+    const autoExecution = [implementation, "skills/plan-work/SKILL.md", "skills/review-work/SKILL.md", "skills/correct-work/SKILL.md", `${autoReferences}/reviewer.md`];
     const extend = (base, paths) => {
       const additional = measure(paths.filter((path) => !base.documents.includes(path)));
       return { ...additional, totalTokens: base.tokens + additional.tokens };
@@ -57,6 +61,7 @@ export function measureContext(root = defaultRoot) {
         `${name}WithLearning`, extend(base, [learning]),
       ])),
       planVerifierInspection: extend(flowSources.plan, [verification]),
+      planImplementationHandoff: extend(flowSources.plan, [implementation]),
       planVerifierCreation: extend(flowSources.plan, [verification, verificationSkill, creation]),
       planVerifierMaintenance: extend(flowSources.plan, [verification, verificationSkill, maintenance]),
       reviewVerifier: extend(flowSources.review, [verification]),
@@ -70,7 +75,16 @@ export function measureContext(root = defaultRoot) {
       conditionalFlows.implementationVerifierCreation = extend(supportingFlows.implementation, [verification, verificationSkill, creation]);
       conditionalFlows.implementationVerifierMaintenance = extend(supportingFlows.implementation, [verification, verificationSkill, maintenance]);
     }
-    targets[host] = { discovery, flows: measured, flowSources, total: Object.values(measured).reduce((a, b) => a + b, 0), supportingFlows, conditionalFlows };
+    const autoWorkFlows = {
+      entry: autoWork,
+      light: extend(autoWork, autoExecution),
+      dark: extend(autoWork, autoExecution),
+      delivery: extend(autoWork, [...autoExecution, `${autoReferences}/delivery.md`]),
+      withLearning: extend(autoWork, [...autoExecution, learning]),
+      withVerifierCreation: extend(autoWork, [...autoExecution, verification, verificationSkill, creation]),
+      withVerifierMaintenance: extend(autoWork, [...autoExecution, verification, verificationSkill, maintenance]),
+    };
+    targets[host] = { discovery, flows: measured, flowSources, total: Object.values(measured).reduce((a, b) => a + b, 0), supportingFlows, conditionalFlows, autoWorkFlows };
   }
   const previous = {
     plan: baseline.phase_flows.plan_oneshot, review: baseline.phase_flows.review_base,
@@ -87,7 +101,7 @@ export function measureContext(root = defaultRoot) {
   const catalog = estimate(read(catalogPath));
   const playbooks = Object.fromEntries(readdirSync(join(root, playbookDirectory)).filter((name) => name.endsWith(".md") && name !== "catalog.md").sort().map((name) => [name.slice(0, -3), estimate(read(`${playbookDirectory}/${name}`))]));
   const optionalMethods = { catalog, playbooks, documents: { catalog: catalogPath, playbooks: Object.fromEntries(Object.keys(playbooks).map((name) => [name, `${playbookDirectory}/${name}.md`])) }, selectedMethodRange: { min: catalog + Math.min(...Object.values(playbooks)), max: catalog + Math.max(...Object.values(playbooks)) } };
-  return { method: "Estimated tokens: characters / 4 rounded per document and host suffix, counted once per path. Inventories describe the required instructions for each illustrated case, not all Markdown links. Existing limits and the historical aggregate cover only the six base flows; supporting and conditional flows have no gate here. Conditional documents/tokens are additional to their base; totalTokens includes that base. Optional methods add the catalog plus one selected playbook to planning, or just the playbook after methodSuggestion already loaded the catalog. Task context, tool output, reasoning, and provider latency are excluded. This is not a runtime measurement or evidence of speed improvement.", previous, previousTotal, targets, optionalMethods, limits, failures };
+  return { method: "Estimated tokens: characters / 4 rounded per document and host suffix, counted once per path. Inventories describe the required instructions for each illustrated case, not all Markdown links. Existing limits and the historical aggregate cover only the six base flows; supporting and conditional flows have no gate here. Conditional documents/tokens are additional to their base; totalTokens includes that base. Optional methods add the catalog plus one selected playbook to planning, or just the playbook after methodSuggestion already loaded the catalog. Auto-Work inventories add operation, planning, implementation, review and correction once per illustrated sequence; light and dark share instructions but differ in acceptance behavior. Delivery, learning and verifier details are conditional. Task context, repeated agent contexts, tool output, reasoning, and provider latency are excluded. This is not a runtime measurement or evidence of speed improvement.", previous, previousTotal, targets, optionalMethods, limits, failures };
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const result = measureContext();

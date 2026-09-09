@@ -6,7 +6,7 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const defaultRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-export const publicSkills = ["correct-work", "engineering-work", "explain-work", "install-release", "learn-from-work", "plan-work", "review-work", "verification-work", "work-status", "workflow-doctor"];
+export const publicSkills = ["auto-work", "correct-work", "engineering-work", "explain-work", "install-release", "learn-from-work", "plan-work", "review-work", "verification-work", "work-status", "workflow-doctor"];
 export const hostSkills = (host) => host === "agent-plugins" ? [...publicSkills, "implement-work"].sort() : publicSkills;
 export const manifestPaths = { cursor: ".cursor-plugin/plugin.json", codex: ".codex-plugin/plugin.json", "agent-plugins": "plugin.json" };
 const packageDocs = ["docs/behavior-validation.md", "docs/installation.md", "docs/manual-workflow.md", "docs/release-checklist.md"];
@@ -46,19 +46,20 @@ export function contentDigest(directory) {
 
 export function hostInstruction(host, skill) {
   const invoke = (name) => host === "cursor" ? `/${name}` : host === "codex" ? `$${name}` : name;
+  if (skill === "auto-work") return `Run this expressly commissioned sequence using native execution and fresh separate native reviewers, with inherited model settings and available read restrictions. Keep phase reports in the task and wait for delegated results. Do not require manual mode switches for internal phases. ${host === "cursor" ? "Use Cursor Agent Mode for the sequence; Ask Mode applies to standalone Review, not its delegated review step." : host === "codex" ? "Use the active native execution capabilities for the sequence; an actual read-only Plan mode still cannot implement, so hand off the authorized sequence to native implementation when needed." : "Use only delegation capabilities actually offered by the client; missing independent delegation blocks the review boundary."}`;
   if (skill === "plan-work") {
-    if (host === "codex") return "Use Codex Plan mode. Return the complete human plan inside one native <proposed_plan> block. Direct the human to check the plan and use Implement Plan. Include the closing recommendation to commission $review-work in the implementation handoff.";
-    if (host === "cursor") return "Use Cursor Plan Mode and its native plan. Direct the human to check the plan and use Implement Plan. Include the closing recommendation to commission /review-work in Ask Mode in the implementation handoff.";
-    return "Return the complete human plan in the task. Direct the human to check it and instruct implement-work to implement it; the implementation handoff recommends a separate review-work afterward.";
+    if (host === "codex") return "For standalone planning, use Codex Plan mode and return the complete plan inside one native <proposed_plan> block. Direct the human to check it and use Implement Plan, then commission $review-work. Within expressly commissioned Auto-Work, apply its Light or Dark plan approval rules; never bypass an actual host read-only mode.";
+    if (host === "cursor") return "For standalone planning, use Cursor Plan Mode and its native plan. Direct the human to check it and use Implement Plan, then commission /review-work in Ask Mode. Within expressly commissioned Auto-Work, use its plan approval rules and native execution without requesting a manual phase-mode switch.";
+    return "Return the complete human plan in the task. In standalone work, direct the human to check it and instruct implement-work, then commission review-work. Within expressly commissioned Auto-Work, apply its Light or Dark plan approval rules.";
   }
   const instructions = [];
-  if (host === "cursor" && ["review-work", "explain-work", "work-status", "workflow-doctor"].includes(skill)) instructions.push("Use Cursor Ask Mode for this read-only task.");
-  if (["correct-work", "implement-work", "verification-work"].includes(skill)) instructions.push(`After commissioned changes, recommend ${invoke("review-work")}${host === "cursor" ? " in Ask Mode" : ""} for the human to start a separate review.`);
-  if (skill === "review-work") instructions.push(`For actionable corrections, recommend ${invoke("correct-work")}${host === "cursor" ? " in Agent Mode" : ""} for the human to commission them.`);
+  if (host === "cursor" && ["review-work", "explain-work", "work-status", "workflow-doctor"].includes(skill)) instructions.push("Use Cursor Ask Mode for a standalone read-only task. A delegated Auto-Work review uses native read restrictions without a manual mode switch.");
+  if (["correct-work", "implement-work", "verification-work"].includes(skill)) instructions.push(`After standalone commissioned changes, recommend ${invoke("review-work")}${host === "cursor" ? " in Ask Mode" : ""} for the human to start a separate review. Within Auto-Work, return the report to its independent review step.`);
+  if (skill === "review-work") instructions.push(`For standalone actionable corrections, recommend ${invoke("correct-work")}${host === "cursor" ? " in Agent Mode" : ""} for the human to commission them. A delegated Auto-Work review returns findings to the existing assignment.`);
   if (skill === "review-work") instructions.push(`For eligible lessons, offer ${invoke("learn-from-work")}${host === "cursor" ? " in Agent Mode" : ""} as optional learning.`);
   if (skill === "work-status") instructions.push(host === "agent-plugins"
     ? "Name the skill matching the documented next action; implementation uses implement-work."
-    : `Name the matching ${host === "cursor" ? "/skill-name command" : "$skill-name skill"} for the documented next action; implementation uses Implement Plan.`);
+    : `For Auto-Work, name its mode, remaining acceptance and next actor. Otherwise name the matching ${host === "cursor" ? "/skill-name command" : "$skill-name skill"} for the documented next action; implementation uses Implement Plan.`);
   return instructions.join(" ");
 }
 
@@ -75,7 +76,7 @@ function buildHost(root, destination, host, version) {
   const readme = host === "cursor" ? join(root, "README.md") : join(root, "targets", host, "README.md");
   copyRegular(readme, join(destination, "README.md"), root);
   const readmePath = join(destination, "README.md");
-  writeFileSync(readmePath, readFileSync(readmePath, "utf8").replaceAll("../../docs/", "docs/"));
+  writeFileSync(readmePath, readFileSync(readmePath, "utf8").replaceAll("../../docs/", "docs/").replaceAll("../../skills/", "skills/"));
   for (const skill of hostSkills(host)) {
     const source = readFileSync(join(root, "skills", skill, "SKILL.md"), "utf8");
     const instruction = hostInstruction(host, skill);

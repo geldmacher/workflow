@@ -1,7 +1,7 @@
 {
   "name": "geldmacher-workflow",
   "displayName": "Workflow",
-  "description": "Skills for understandable plans, implementation reports, reviews, corrections, handoffs, and verified Workflow release installation.",
+  "description": "Plan, implement, review, and refine changes with your coding agent. Commission each step yourself, or use Auto-Work for a sequence with independent review and bounded correction rounds.",
   "version": "7.3.0",
   "author": {
     "name": "Dennis Geldmacher",
@@ -21,6 +21,7 @@
   ],
   "logo": "assets/logo.svg",
   "skills": [
+    "./skills/auto-work/",
     "./skills/correct-work/",
     "./skills/engineering-work/",
     "./skills/explain-work/",

@@ -1,6 +1,6 @@
 # visual-parity
 
-Use to match a fixed visual reference or preserve appearance during a UI or styling migration. Changes require the approved plan and execution instruction. A parity claim needs a comparison against the agreed baseline; visual inspection alone proves only what was observed.
+Use to match a fixed visual reference or preserve appearance during a UI or styling migration. Changes require the applicable plan and execution instruction. A parity claim needs a comparison against the agreed baseline; visual inspection alone proves only what was observed.
 
 ## Bind the reference, then compare
 

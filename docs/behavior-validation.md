@@ -131,3 +131,22 @@ Use these cases for a documented content walkthrough of [planning](../skills/pla
 | During maintenance, a broken readiness recipe is corrected but the UI remains stuck. | Retry Doctor once after the scoped correction, reset or relaunch an owned stuck instance where needed, and stop with the blocker if readiness still fails. Re-drive corrected harness behavior and preserve evidence through cleanup. |
 | Review finds that the verifier passes by bypassing a user action required in the initial plan. | Compare accepted proposal, plan, actual product path, and evidence. Report the coverage or oracle defect without modifying the verifier or product. |
 | Review receives a passing trial report followed by relevant product or verifier changes. | Recheck affected claims where permitted; otherwise report missing current proof. A prior success summary does not establish current acceptance. |
+
+
+## Auto-Work behavioral acceptance
+
+Exercise built packages in isolated temporary projects. The repository-only `verify-auto-work` skill supplies concrete recipes and local delivery simulations; it is not a shipped execution service. Inspect actual task events, separate reviewer identities, file snapshots, checks and gate outcomes. A wording walkthrough alone does not demonstrate native behavior.
+
+| Scenario | Observable acceptance |
+|---|---|
+| Light goal without approved plan | No product edit before plan approval; after independent Review, no completion or delivery before result acceptance. |
+| Dark bounded goal | Planning and implementation proceed within scope; a separate reviewer returns actual evidence. |
+| Seeded implementation defect | Reviewer detects it without editing; correction consumes a round and a fresh reviewer checks the corrected candidate. |
+| Explicit switches | Mode changes apply to remaining actions, preserving scope, permissions, budget and applicable evidence; Light reintroduces result acceptance. |
+| Missing or failed prerequisites | Reviewer absence, required missing proof and consequential questions remain blockers; Dark delivery rejects missing, stale or bypassable gates. |
+| Exhausted budget or repeated stalled finding | Loop stops with consumed rounds and open findings, without a positive completion claim. |
+| Resume after source change or uncertain delivery | Affected evidence is rechecked; actual destination state prevents duplicate effects. |
+| Manual invocation and unrelated work | Standalone phase stops and pre-existing edits remain intact; Auto-Work is not inferred from ordinary work. |
+| Learning over rounds | Every open candidate and its evidence survives correction and handoff; capture and offers do not save guidance. |
+
+Run package/context checks for all targets. Initial native trials use the available Codex host; unexercised Cursor and portable behavior stays explicitly unverified. Local delivery simulation proves only the exercised mechanism, not production protection or deployment. Preserve raw evidence outside the repository after removing owned fixture workspaces.

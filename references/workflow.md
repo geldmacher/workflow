@@ -1,17 +1,15 @@
 # Shared working agreement
 
-Read the assignment and available approved plan. Humans commission phases, including learning, separately. Preserve authorization; do not start the next phase.
+Humans commission phases separately or expressly commission an [Auto-Work sequence](../skills/auto-work/SKILL.md). Only that sequence authorizes its in-scope transitions. Learning needs its own assignment.
 
-The approved plan governs. Material goal, success-criterion, permission, or consequential decision changes need a human decision; editorial changes do not. Resolve blocking ambiguities; routine technical choices belong to the executor.
+Follow the applicable plan: human-approved in standalone work and Light, or prepared within a commissioned Dark goal. Material changes to goals, acceptance, authority, or consequential choices need a human decision. Preserve existing approvals; routine technical choices belong to the executor.
 
-Keep documents in the native task. Handoffs include the approved plan version, assignment, reports, repository state, open decisions, and next action via accessible references or complete text. Name gaps and conflicts; never invent approval or reconstruct workflow state from technical artifacts.
+Keep plans and reports in the native task. Handoffs carry the plan, assignment, current state, evidence, open decisions, next action, and complete learning collection through accessible references or supplied text. Never invent missing approval or history.
 
-When learning candidates arise or a collection is inherited, read the [learning guidance](learning-work.md). Carry every open candidate in phase reports and handoffs, with evidence references; no separate store. Status and explanation describe documented learning without new offers.
+When learning arises or is inherited, follow [learning guidance](learning-work.md). Keep every open candidate and its evidence through subsequent reports. No separate store; status does not renew offers.
 
-Preserve unrelated work. Host and project permissions govern. Review is repository-read-only. Commit, push, PR, merge, deployment, installation, production, publication, and learning need separate authorization.
+Preserve unrelated work. Host permissions govern; Review is repository-read-only. Git writes, installation, production, delivery, publication, and learning need explicit authorization. Auto-Work may carry commissioned delivery; its mode grants none.
 
-Reuse applicable instructions; load conditional references only when needed. Report after sufficient work and checks; further investigation needs a concrete unresolved question.
+Reuse applicable instructions and sufficient current proof; load conditional detail only when needed. Further work needs a concrete unresolved question. Failed necessary checks prevent success; missing proof and changed states stay visible.
 
-Use the user's language: result and meaning first, familiar terms, necessary jargon explained once. Keep evidence near claims and technical detail relevant to decisions or checks. Short paragraphs; lists or headings when useful. Scale detail to the task. No repetition, extra summaries, required format, or machine version. Failed necessary checks prevent success; missing proof and changed states stay visible.
-
-End with completion and the human's next action, explaining why when useful. Achieved goals need no further required step. Status and explanations give only actions relevant to the question.
+Use the user's language: result and meaning first, evidence beside claims. Scale detail to the task; avoid fixed formats. End with the actual outcome and next relevant action. Achieved goals need no further phase; Auto-Work distinguishes repository outcome, human acceptance, and delivery.

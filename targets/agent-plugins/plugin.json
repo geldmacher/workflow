@@ -2,7 +2,7 @@
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "geldmacher-workflow",
   "version": "7.3.0",
-  "description": "Skills for understandable plans, implementation reports, reviews, corrections, handoffs, and Workflow release installation for Cursor or Codex.",
+  "description": "Plan, implement, review, and refine changes with your coding agent. Commission each step yourself, or use Auto-Work for a sequence with independent review and bounded correction rounds.",
   "author": {
     "name": "Geldmacher"
   },

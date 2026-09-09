@@ -1,6 +1,6 @@
 # Working with Workflow
 
-Plan → Implement → Review → Correct → Review is a sequence of separately commissioned phases. The human-readable documents are the shared reference. Use the user's language and as much structure as the task needs.
+In manual work, Plan → Implement → Review → Correct → Review is a sequence of separately commissioned phases. Alternatively, expressly commission [Auto-Work](../skills/auto-work/SKILL.md) to run the sequence within one assignment. The manual phase endings and examples below apply to standalone invocations; Auto-Work returns phase reports to its loop and follows its Light or Dark acceptance rules. The human-readable documents are the shared reference. Use the user's language and as much structure as the task needs.
 
 Each phase ends with its result and the human's next useful action. Explain why that action matters when it is not obvious. Small tasks need a short answer; longer results benefit from headings or lists that fit their content. Use familiar terms and keep evidence beside the claim it supports. There is no fixed response template or extra summary to fill in.
 
@@ -30,6 +30,10 @@ An executor compares the handoff with the current repository. Missing plan versi
 
 ## Learning across reviews
 
+Learning makes demonstrated project knowledge available to the next task. Instead of repeatedly rediscovering setup steps, conventions, or successful diagnosis techniques, future planning can start from reviewed guidance in the project. This is a deliberate improvement to project instructions and skills, not model training or automatic code repair.
+
+The process is: capture during implementation and correction, confirm and offer during Review, save through an explicitly commissioned `learn-from-work`, then consult and recheck the saved guidance in later planning. You do not need to request candidate collection separately. Accepting the learning offer is what authorizes saving; Auto-Work does not include that permission by default.
+
 Implementation and correction capture reusable insights with their future benefit, evidence, scope and conditions, proposed change, and destination. Every subsequent phase report and handoff carries all open candidates, including those offered but not taken up. The collection lives in the existing task documents; there is no separate log or required layout. Missing earlier reports or evidence remain an explicit gap, not a reconstructed history.
 
 Every Review checks inherited and new candidates against current work and offers all independently confirmed, applicable lessons together. An overall judgment of corrections needed does not prevent an offer supported by the lesson's own evidence. Necessary corrections and missing proof remain prominent. No eligible lessons means no offer; learning never becomes a required completion step. Status and explanation describe documented learning when relevant without renewing offers.
@@ -41,6 +45,24 @@ Commission `$learn-from-work` in Codex, `/learn-from-work` in Cursor Agent Mode,
 The learning report identifies actual saved paths and evidence, merged or retired candidates and reasons, and every still-open item. Read-back must confirm the combined saved guidance before claiming integration. Partial failures preserve unfinished work. Repeating learning checks the actual destination first, so an interrupted report does not cause duplicate rules. Later planning reads applicable saved guidance and verifies that it still fits. The [learning guidance](../references/learning-work.md) defines these decisions for executors.
 
 ## Supporting work
+
+Planning considers engineering methods and verification needs proactively, so you do not need to remember their skill names. A playbook helps the agent approach the task; a verifier helps establish whether the resulting behavior meets the plan. These are separate decisions, each based on what the current project and assignment need.
+
+### Engineering playbooks in the process
+
+For a reproducible defect, planning might recommend `bug-fix`; for an unexplained live symptom, `runtime-forensics` may be useful first. A feature, behavior-preserving refactoring, or disposable prototype calls for a different approach. The [catalog](../skills/engineering-work/references/catalog.md) describes all available methods and their intended outcomes.
+
+The offer explains the useful alternatives and where each applies. After selection, the agent reads the chosen playbook and applies it within the commissioned phase. A method does not become a permanent project mode or authorize additional phases. You can also request suggestions directly with `engineering-work suggest`, or select a known method with `engineering-work use <playbook-id>`.
+
+### Verification in the process
+
+A verifier preserves a practical recipe for exercising product behavior: prerequisites, launch and readiness checks, actions, expected observations, evidence, and cleanup. `workflow-doctor` inspects whether that verification is ready without starting the product. `verification-work` supplies inspection, creation, and maintenance. Existing tests and suitable verifiers remain the first choice.
+
+Planning automatically considers whether existing coverage fits the affected behavior. It reuses suitable checks directly and offers creation or maintenance for a concrete gap. Once accepted and commissioned for implementation, that verifier work runs alongside the product changes and ends with a trial when both are ready. Review checks the accepted scope, actual coverage, and retained evidence. Later plans can detect further drift and offer another update.
+
+This makes maintenance part of accepted implementation work, rather than a follow-up the human must remember to invoke. It is not continuous background maintenance or permission to edit verifiers without an assignment. Existing approval for the same scope is preserved. Default maintenance covers affected features; `maintain full` requires an explicit assignment for the agreed full map. A verifier defect can be corrected within that scope; a product regression must be reported and must not be hidden by weakening the expected result.
+
+### Selection and execution
 
 Status and explanation are read-only accounts of the available documents and their limits. Learning persists confirmed reusable knowledge only when explicitly commissioned. Engineering methods are optional. Verifier inspection is read-only; creation and maintenance need a matching implementation or correction assignment covering the destination and outcome.
 

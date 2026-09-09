@@ -1,6 +1,6 @@
 # refactoring
 
-Use for a structural change that preserves agreed behavior: rename, extract, inline, deduplicate, move, or reshape. New behavior belongs to [feature](./feature.md); correcting a defect belongs to [bug-fix](./bug-fix.md). Changes require the approved plan and matching execution instruction.
+Use for a structural change that preserves agreed behavior: rename, extract, inline, deduplicate, move, or reshape. New behavior belongs to [feature](./feature.md); correcting a defect belongs to [bug-fix](./bug-fix.md). Changes require the applicable plan and matching execution instruction.
 
 ## Hold the behavior while changing structure
 

@@ -1,6 +1,6 @@
 # performance
 
-Use for one measured slowness. A sustained search against a metric belongs to [hillclimb](./hillclimb.md). Repository changes require an approved plan and implementation or correction authority; measurement access follows the project and host permissions.
+Use for one measured slowness. A sustained search against a metric belongs to [hillclimb](./hillclimb.md). Repository changes require an applicable plan and implementation or correction authority; measurement access follows the project and host permissions.
 
 ## Measure before choosing a fix
 
