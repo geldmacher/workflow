@@ -1,6 +1,6 @@
 {
   "name": "@geldmacher/workflow-plugin-development",
-  "version": "7.4.1",
+  "version": "7.4.2",
   "private": true,
   "description": "Development and packaging for Workflow skills.",
   "files": [

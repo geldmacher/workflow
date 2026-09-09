@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 7.4.2
+
+- Display the Workflow logo at the top of the README.
+
 ## 7.4.1
 
 - Replace the Workflow plugin icon with a simplified blue W that matches the Design and Efficiency branding family.
