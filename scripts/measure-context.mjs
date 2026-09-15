@@ -1,110 +1,98 @@
 #!/usr/bin/env node
-import { readFileSync, readdirSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { defaultRoot, parseFrontmatter } from "./validate-plugin.mjs";
-import { hostSkills, hostInstruction, publicSkills } from "./build-plugin-targets.mjs";
+import { buildPluginTargets, defaultRoot, hostSkills } from "./build-plugin-targets.mjs";
+import { parseFrontmatter } from "./validate-plugin.mjs";
 
 const estimate = (text) => Math.ceil(text.length / 4);
-export const limits = { discoverability: 428, plan: 2000, review: 2150, correction: 2000, learning: 2000, explanation: 1200, status: 1500 };
-const flows = { plan: "plan-work", review: "review-work", correction: "correct-work", learning: "learn-from-work", explanation: "explain-work", status: "work-status" };
+const skill = (name) => `skills/${name}/SKILL.md`;
 const agreement = "references/workflow.md";
 const learning = "references/learning-work.md";
 const verification = "references/verification-work.md";
-const verificationSkill = "skills/verification-work/SKILL.md";
 const implementation = "references/implementation-work.md";
-const autoReferences = "skills/auto-work/references";
+const catalog = "skills/engineering-work/references/catalog.md";
 const creation = "skills/verification-work/references/create.md";
 const maintenance = "skills/verification-work/references/maintain.md";
-const playbookDirectory = "skills/engineering-work/references";
-const catalogPath = `${playbookDirectory}/catalog.md`;
+const auto = "skills/auto-work/references";
 
-export function measureContext(root = defaultRoot) {
-  const baseline = JSON.parse(readFileSync(join(root, "scripts/context-baseline.json"), "utf8"));
-  const read = (path) => readFileSync(join(root, path), "utf8");
-  const targets = {};
-  for (const host of ["cursor", "codex", "agent-plugins"]) {
-    const measure = (paths) => {
-      const documents = [...new Set(paths)];
-      const hostInstructionTokens = documents.reduce((total, path) => {
-        const skill = /^skills\/([^/]+)\/SKILL\.md$/.exec(path)?.[1];
-        return total + (skill ? estimate(hostInstruction(host, skill)) : 0);
-      }, 0);
-      return { documents, hostInstructionTokens, tokens: documents.reduce((total, path) => total + estimate(read(path)), 0) + hostInstructionTokens };
-    };
-    const entry = (skill, references = []) => measure([
-      agreement, `skills/${skill}/SKILL.md`, ...references,
-      ...(host === "cursor" ? [`commands/${skill}.md`] : []),
-    ]);
-    const discoveryFiles = hostSkills(host).map((skill) => `skills/${skill}/SKILL.md`);
-    if (host === "cursor") discoveryFiles.push(...publicSkills.map((skill) => `commands/${skill}.md`));
-    const discovery = discoveryFiles.reduce((total, path) => {
-      const data = parseFrontmatter(join(root, path));
-      return total + estimate(`${data.name}: ${data.description}`);
-    }, 0);
-    const flowSources = Object.fromEntries(Object.entries(flows).map(([name, skill]) => [name, entry(skill)]));
-    const measured = Object.fromEntries(Object.entries(flowSources).map(([name, value]) => [name, value.tokens]));
-    const supportingFlows = {
-      doctor: entry("workflow-doctor", [verification]),
-      verificationInspect: entry("verification-work", [verification]),
-      methodSuggestion: entry("engineering-work", [catalogPath]),
-    };
-    if (host === "agent-plugins") supportingFlows.implementation = entry("implement-work", [implementation]);
-    const autoWork = entry("auto-work", [`${autoReferences}/operation.md`]);
-    const autoExecution = [implementation, "skills/plan-work/SKILL.md", "skills/review-work/SKILL.md", "skills/correct-work/SKILL.md", `${autoReferences}/reviewer.md`];
-    const extend = (base, paths) => {
-      const additional = measure(paths.filter((path) => !base.documents.includes(path)));
-      return { ...additional, totalTokens: base.tokens + additional.tokens };
-    };
-    const conditionalFlows = {
-      ...Object.fromEntries(Object.entries({ ...flowSources, ...supportingFlows }).map(([name, base]) => [
-        `${name}WithLearning`, extend(base, [learning]),
-      ])),
-      planVerifierInspection: extend(flowSources.plan, [verification]),
-      planImplementationHandoff: extend(flowSources.plan, [implementation]),
-      planVerifierCreation: extend(flowSources.plan, [verification, verificationSkill, creation]),
-      planVerifierMaintenance: extend(flowSources.plan, [verification, verificationSkill, maintenance]),
-      reviewVerifier: extend(flowSources.review, [verification]),
-      correctionVerifierCreation: extend(flowSources.correction, [verification, verificationSkill, creation]),
-      correctionVerifierMaintenance: extend(flowSources.correction, [verification, verificationSkill, maintenance]),
-      planMethodSuggestion: extend(flowSources.plan, [catalogPath]),
-      verificationCreation: extend(supportingFlows.verificationInspect, [verification, creation]),
-      verificationMaintenance: extend(supportingFlows.verificationInspect, [verification, maintenance]),
-    };
-    if (supportingFlows.implementation) {
-      conditionalFlows.implementationVerifierCreation = extend(supportingFlows.implementation, [verification, verificationSkill, creation]);
-      conditionalFlows.implementationVerifierMaintenance = extend(supportingFlows.implementation, [verification, verificationSkill, maintenance]);
-    }
-    const autoWorkFlows = {
-      entry: autoWork,
-      light: extend(autoWork, autoExecution),
-      dark: extend(autoWork, autoExecution),
-      delivery: extend(autoWork, [...autoExecution, `${autoReferences}/delivery.md`]),
-      withLearning: extend(autoWork, [...autoExecution, learning]),
-      withVerifierCreation: extend(autoWork, [...autoExecution, verification, verificationSkill, creation]),
-      withVerifierMaintenance: extend(autoWork, [...autoExecution, verification, verificationSkill, maintenance]),
-    };
-    targets[host] = { discovery, flows: measured, flowSources, total: Object.values(measured).reduce((a, b) => a + b, 0), supportingFlows, conditionalFlows, autoWorkFlows };
-  }
-  const previous = {
-    plan: baseline.phase_flows.plan_oneshot, review: baseline.phase_flows.review_base,
-    correction: baseline.phase_flows.correction, learning: baseline.phase_flows.learning,
-    explanation: baseline.phase_flows.explanation, status: baseline.automation_flows.status,
+function scenarios(root, host) {
+  const entry = (name, references = []) => [agreement, skill(name), ...references, ...(host === "cursor" ? [`commands/${name}.md`] : [])];
+  const plan = entry("plan-work", [catalog, implementation]);
+  const inspect = entry("verification-work", [verification]);
+  const cases = {
+    plan, review: entry("review-work"), correction: entry("correct-work"),
+    learning: entry("learn-from-work", [learning]), explanation: entry("explain-work"), status: entry("work-status"),
+    doctor: entry("workflow-doctor", [verification]),
+    verificationInspect: inspect, methodSuggestion: entry("engineering-work", [catalog]),
+    planVerifierInspection: [...plan, verification],
+    planVerifierCreation: [...plan, verification, skill("verification-work"), creation],
+    planVerifierMaintenance: [...plan, verification, skill("verification-work"), maintenance],
+    reviewVerifier: [...entry("review-work"), verification],
+    correctionVerifierCreation: [...entry("correct-work"), verification, skill("verification-work"), creation],
+    correctionVerifierMaintenance: [...entry("correct-work"), verification, skill("verification-work"), maintenance],
+    verificationCreation: [...inspect, creation], verificationMaintenance: [...inspect, maintenance],
   };
-  const previousTotal = Object.values(previous).reduce((a, b) => a + b, 0);
-  const failures = [];
-  for (const [host, target] of Object.entries(targets)) {
-    if (target.discovery > limits.discoverability) failures.push(`${host} discoverability exceeds ${limits.discoverability}`);
-    for (const [flow, value] of Object.entries(target.flows)) if (value > limits[flow]) failures.push(`${host} ${flow} exceeds ${limits[flow]}`);
-    if (target.total >= previousTotal) failures.push(`${host} total phase context did not decrease against ${previousTotal}`);
+  if (host === "agent-plugins") {
+    cases.implementation = entry("implement-work", [implementation]);
+    cases.implementationVerifierCreation = [...cases.implementation, verification, skill("verification-work"), creation];
+    cases.implementationVerifierMaintenance = [...cases.implementation, verification, skill("verification-work"), maintenance];
   }
-  const catalog = estimate(read(catalogPath));
-  const playbooks = Object.fromEntries(readdirSync(join(root, playbookDirectory)).filter((name) => name.endsWith(".md") && name !== "catalog.md").sort().map((name) => [name.slice(0, -3), estimate(read(`${playbookDirectory}/${name}`))]));
-  const optionalMethods = { catalog, playbooks, documents: { catalog: catalogPath, playbooks: Object.fromEntries(Object.keys(playbooks).map((name) => [name, `${playbookDirectory}/${name}.md`])) }, selectedMethodRange: { min: catalog + Math.min(...Object.values(playbooks)), max: catalog + Math.max(...Object.values(playbooks)) } };
-  return { method: "Estimated tokens: characters / 4 rounded per document and host suffix, counted once per path. Inventories describe the required instructions for each illustrated case, not all Markdown links. Existing limits and the historical aggregate cover only the six base flows; supporting and conditional flows have no gate here. Conditional documents/tokens are additional to their base; totalTokens includes that base. Optional methods add the catalog plus one selected playbook to planning, or just the playbook after methodSuggestion already loaded the catalog. Auto-Work inventories add operation, planning, implementation, review and correction once per illustrated sequence; light and dark share instructions but differ in acceptance behavior. Delivery, learning and verifier details are conditional. Task context, repeated agent contexts, tool output, reasoning, and provider latency are excluded. This is not a runtime measurement or evidence of speed improvement.", previous, previousTotal, targets, optionalMethods, limits, failures };
+  for (const name of ["plan", "review", "correction", "explanation", "status", "doctor", "verificationInspect", "methodSuggestion", ...(host === "agent-plugins" ? ["implementation"] : [])]) cases[`${name}WithLearning`] = [...cases[name], learning];
+  cases.autoWorkEntry = entry("auto-work", [`${auto}/operation.md`]);
+  cases.autoWork = [...cases.autoWorkEntry, skill("plan-work"), catalog, implementation, skill("review-work"), skill("correct-work"), `${auto}/reviewer.md`];
+  cases.autoWorkDelivery = [...cases.autoWork, `${auto}/delivery.md`];
+  cases.autoWorkWithLearning = [...cases.autoWork, learning];
+  cases.autoWorkVerifierCreation = [...cases.autoWork, verification, skill("verification-work"), creation];
+  cases.autoWorkVerifierMaintenance = [...cases.autoWork, verification, skill("verification-work"), maintenance];
+  for (const name of readdirSync(join(root, "skills/engineering-work/references")).filter(name => name.endsWith(".md") && name !== "catalog.md").sort()) {
+    cases[`planMethod:${name.slice(0, -3)}`] = [...plan, skill("engineering-work"), `skills/engineering-work/references/${name}`];
+  }
+  return cases;
 }
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+
+export function measureContext(root = defaultRoot, budgets = JSON.parse(readFileSync(join(root, "scripts/context-limits.json"), "utf8")).limits) {
+  const temporary = mkdtempSync(join(tmpdir(), "workflow-context-"));
+  try {
+    const built = buildPluginTargets(temporary, root);
+    const targets = {};
+    const failures = [];
+    for (const host of ["cursor", "codex", "agent-plugins"]) {
+      const packageRoot = built[host].path;
+      const discoveryDocuments = hostSkills(host).flatMap(name => [skill(name), ...(host === "cursor" ? [`commands/${name}.md`] : [])]);
+      const discovery = discoveryDocuments.reduce((total, path) => {
+        const metadata = parseFrontmatter(join(packageRoot, path));
+        return total + estimate(`${metadata.name}: ${metadata.description}`);
+      }, 0);
+      const measurements = { discovery: { documents: discoveryDocuments, tokens: discovery } };
+      for (const [name, paths] of Object.entries(scenarios(packageRoot, host))) {
+        const documents = [...new Set(paths)];
+        measurements[name] = { documents, tokens: documents.reduce((total, path) => total + estimate(readFileSync(join(packageRoot, path), "utf8")), 0) };
+      }
+      for (const [name, measured] of Object.entries(measurements)) {
+        const limit = budgets[name];
+        measured.limit = limit ?? null;
+        if (!Number.isSafeInteger(limit) || limit <= 0) failures.push(`${host} ${name}: missing positive context limit`);
+        else if (measured.tokens > limit) failures.push(`${host} ${name}: ${measured.tokens} estimated tokens exceeds ${limit}`);
+      }
+      targets[host] = measurements;
+    }
+    for (const name of Object.keys(budgets)) if (!Object.values(targets).some(target => name in target)) failures.push(`unused context limit: ${name}`);
+    return { method: "Estimated tokens: characters / 4 rounded per packaged document, counted once per scenario. Light and Dark use the same Auto-Work instructions. Scenario limits cover instruction size, not repeated agent contexts, task history, tool output, reasoning or latency.", targets, failures };
+  } finally { rmSync(temporary, { recursive: true, force: true }); }
+}
+
+export function formatContext(result) {
+  const hosts = Object.keys(result.targets);
+  const names = [...new Set(Object.values(result.targets).flatMap(target => Object.keys(target)))];
+  return ["Estimated instruction tokens (not runtime usage)", `Scenario | ${hosts.join(" | ")} | Limit`, ...names.map(name => `${name} | ${hosts.map(host => result.targets[host][name]?.tokens ?? "-").join(" | ")} | ${hosts.map(host => result.targets[host][name]?.limit).find(limit => limit != null) ?? "missing"}`), ...result.failures, result.failures.length ? "Context budget failed." : "Context budget passed."].join("\n");
+}
+
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const args = process.argv.slice(2);
+  if (args.some(arg => !["--check", "--json"].includes(arg))) throw new Error("Use --check and/or --json");
   const result = measureContext();
-  console.log(JSON.stringify(result, null, 2));
-  if (process.argv.includes("--check") && result.failures.length) process.exitCode = 1;
+  console.log(args.includes("--json") ? JSON.stringify(result, null, 2) : formatContext(result));
+  if (args.includes("--check") && result.failures.length) process.exitCode = 1;
 }

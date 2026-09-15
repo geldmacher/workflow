@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Describe current skill, reporting, and host behavior directly; remove obsolete exclusions and keep documentation aligned when capabilities are removed.
+
+- Execute development CLIs through physical path aliases, remove unused compatibility remnants, and share package safety and remote-tag checks.
+- Run the full deployment check suite once before building deployment packages; exclude ignored scratch evidence from source link checks while checking complete packages.
+- Consolidate deployment and verifier entry instructions and remove nine unused image variants from the repository.
+
+- Simplify distribution around the host packages: remove the separate npm archive and obsolete release-surface machinery, validate complete target inventories, and ship only the referenced logo.
+- Preserve valid personal Marketplace identities throughout local deployment, status, installation IDs, and cache verification; new catalogs use `geldmacher-personal`.
+- Keep public skill and command names while deriving packaged Cursor descriptions from skills and sharing read-only verifier inspection with `workflow-doctor`.
+- Replace historical context totals with fixed limits for complete phase, playbook, learning, verifier, and Auto-Work scenarios; show a compact report by default and detailed inventories with `--json`.
+
 ## 7.4.2
 
 - Display the Workflow logo at the top of the README.

@@ -1,4 +1,4 @@
-<img src="assets/logo.svg" alt="Design" width="64" height="64">
+<img src="assets/logo.svg" alt="Workflow" width="64" height="64">
 
 # Workflow
 
@@ -75,7 +75,7 @@ Once you accept that work and commission implementation, verifier changes and th
 
 For the CSV export, accepted verifier work could document how to set filters, trigger the download, and check its columns and rows. If an approved change later alters the download flow, planning can identify and offer the necessary verifier update. Product regressions remain findings; maintenance must not change expected results just to make a failing check pass.
 
-**Automatic reuse and maintenance offers; verifier edits after acceptance.** Workflow preserves approval already given for the scope. It does not run a background maintenance service. See [verification in the process](docs/manual-workflow.md#verification-in-the-process).
+**Automatic reuse and maintenance offers; verifier edits after acceptance.** Workflow preserves approval already given for the scope. See [verification in the process](docs/manual-workflow.md#verification-in-the-process).
 
 ### Use a method that fits the task
 
@@ -95,7 +95,7 @@ Playbook and verifier offers are independent: you can choose either, both, or ne
 
 ## Scope and permissions
 
-Workflow supplies skills and reference documents. Your coding agent runs the work under its host and project permissions. No Workflow runtime, Node.js, hooks, or MCP service is required. Auto-Work runs in the active task; it provides no background worker or restart guarantee.
+Workflow supplies skills and reference documents. Your coding agent runs the work under its host and project permissions. Auto-Work runs in the active task and uses the host's native execution and resumption capabilities.
 
 Plans and reports stay in your task. Existing approval remains valid within its scope; material changes to goals or permissions need your decision. Failed necessary checks prevent successful completion, and missing proof stays visible.
 
@@ -105,6 +105,6 @@ The default finish line is repository work. Commit, push, PR, merge, deployment,
 
 The contributor north star is `AGENTS.md`. Shared instructions live in `skills/` and `references/`; the target builder adds only necessary host differences. Node.js 22 and npm are needed for development tooling, not skill use.
 
-Run `npm ci`, `npm run build:targets`, and `npm run release-check`. Checks cover packaging, links, context, deterministic archives, and isolated deployment behavior. Realistic [behavior exercises](docs/behavior-validation.md) establish skill behavior separately from structural validation.
+Run `npm ci`, `npm run build:targets`, and `npm run release-check`. npm manages development dependencies and checks; distribution uses the generated host packages. `check:targets` builds and validates all three host formats in temporary directories. Checks cover packaging, links, context, deterministic archives, and isolated deployment behavior. Realistic [behavior exercises](docs/behavior-validation.md) establish skill behavior separately from structural validation.
 
 Release and local deployment are separate authorized operations; repository checks do not establish installation or host activation.

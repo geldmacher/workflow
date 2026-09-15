@@ -93,7 +93,7 @@ export function cleanupFixture(base) {
   return { evidence: join(root, 'evidence'), workspaceRemoved: !existsSync(join(root, 'workspace')) };
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const [action, base, reviewedDigest, authorization] = process.argv.slice(2);
   const result = action === 'prepare' ? prepareFixture() : action === 'inspect' ? inspectFixture(base)
     : action === 'deliver' ? deliverFixture(base, reviewedDigest, authorization === 'authorized-local-simulation')

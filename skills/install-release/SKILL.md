@@ -3,7 +3,7 @@ name: install-release
 description: Install or update Workflow from its latest stable GitHub Release for Cursor or Codex.
 ---
 
-# Install New Release from Repo
+# Install Workflow Release
 
 Install Workflow for the requested host using the [installation guide](../../docs/installation.md). Read its release selection, verification, safe replacement, and selected host sections before changing installed files. This skill works without a repository checkout or development tools.
 

@@ -1,6 +1,6 @@
 # Installing Workflow from a GitHub Release
 
-New packages contain no Workflow hooks, MCP service, or Node runtime. Replace whole package directories when updating; old package files must not remain mixed into the new version.
+Workflow installs as a host-specific package of skills and reference documents. Replace whole package directories when updating; old package files must not remain mixed into the new version.
 
 Each Workflow GitHub Release contains separate packages for Cursor and Codex. Download only the archive for the intended host plus `SHA256SUMS` and `provenance.json` from the [latest GitHub Release](https://github.com/geldmacher/workflow/releases/latest). You do not need the other host archive or `RELEASE_NOTES.md` to verify this selected download. Do not install an archive until both the selected archive and `provenance.json` match their entries in `SHA256SUMS`.
 
@@ -145,7 +145,7 @@ For a first installation, this is a complete personal Marketplace document. The 
 }
 ```
 
-If `marketplace.json` already exists, preserve its top-level `name`, `interface`, and every unrelated item in `plugins`. Add or replace only the `geldmacher-workflow` item shown above; do not replace the whole catalog merely to install this plugin.
+If `marketplace.json` already exists, preserve its top-level `name`, `interface`, and every unrelated item in `plugins`. Add or replace only the `geldmacher-workflow` item shown above; do not replace the whole catalog merely to install this plugin. Local development deployment follows the same identity rule: a new catalog uses `geldmacher-personal`; an existing valid name, including `personal`, is retained and used for plugin installation and cache checks.
 
 Source placement is not installation or activation. After creating or changing the Marketplace entry or its source directory:
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { developmentRoots, secretPatterns } from "./package-safety.mjs";
 import { createHash, randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import {
@@ -12,7 +13,6 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
-  readlinkSync,
   realpathSync,
   renameSync,
   rmSync,
@@ -25,16 +25,6 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 export const RECEIPT_NAME = ".local-deploy.json";
 export const HOSTS = ["cursor", "codex"];
-const DEVELOPMENT_ROOTS = new Set([".agents", ".build", ".cursor", ".git", "node_modules", "test", "tests"]);
-const PREVIEW_SECRET_PATTERNS = [
-  /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/,
-  /\bAKIA[A-Z0-9]{16}\b/,
-  /\bgh[opsu]_[A-Za-z0-9]{20,}\b/,
-  /\bgithub_pat_[A-Za-z0-9_]{20,}\b/,
-  /\bsk-[A-Za-z0-9]{20,}\b/,
-  /\bsk-proj-[A-Za-z0-9_-]{20,}\b/,
-  /\bsk_(?:live|test)_[A-Za-z0-9]{16,}\b/,
-];
 const scriptPath = fileURLToPath(import.meta.url);
 const repositoryRoot = dirname(dirname(scriptPath));
 
@@ -51,11 +41,6 @@ function manifestRelative(host) {
   if (host === "cursor") return ".cursor-plugin/plugin.json";
   if (host === "codex") return ".codex-plugin/plugin.json";
   throw new Error(`unsupported plugin host: ${host}`);
-}
-
-function repositoryCodexManifestPath(root) {
-  const direct = join(root, ".codex-plugin", "plugin.json");
-  return existsSync(direct) ? direct : join(root, "targets", "codex", ".codex-plugin", "plugin.json");
 }
 
 function walk(directory, base = directory) {
@@ -140,7 +125,7 @@ export function validateBundle(directory, { plugin, host, allowedVersions }) {
   const rootStat = lstatSync(root);
   if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) throw new Error(`plugin bundle must be a physical directory: ${root}`);
   for (const name of readdirSync(root)) {
-    if (DEVELOPMENT_ROOTS.has(name)) throw new Error(`development surface is not deployable: ${name}`);
+    if (developmentRoots.has(name)) throw new Error(`development surface is not deployable: ${name}`);
   }
   walk(root);
   const manifestPath = join(root, manifestRelative(host));
@@ -218,7 +203,7 @@ function copyPreviewFile(sourceRoot, snapshotRoot, item, { inspectSecrets }) {
   const bytes = readFileSync(source);
   if (inspectSecrets) {
     const text = bytes.toString("utf8");
-    if (PREVIEW_SECRET_PATTERNS.some((pattern) => pattern.test(text))) {
+    if (secretPatterns.some((pattern) => pattern.test(text))) {
       throw new Error(`preview untracked source contains recognizable secret material: ${item}`);
     }
   }
@@ -283,14 +268,12 @@ function createDeploymentPreviewSnapshot(root) {
 
 export function withPreparedDeploymentRoot({ root, dryRun, full = false, npmRunner = npmScript }, callback) {
   if (!dryRun) {
-    npmRunner("deploy:prepare", root);
-    if (full) npmRunner("release-check", root);
+    for (const script of full ? ["release-check", "build:targets"] : ["deploy:prepare"]) npmRunner(script, root);
     return callback(resolve(root));
   }
   const snapshot = createDeploymentPreviewSnapshot(root);
   try {
-    npmRunner("deploy:prepare", snapshot.root);
-    if (full) npmRunner("release-check", snapshot.root);
+    for (const script of full ? ["release-check", "build:targets"] : ["deploy:prepare"]) npmRunner(script, snapshot.root);
     return callback(snapshot.root);
   } finally {
     rmSync(snapshot.tempRoot, { recursive: true, force: true });
@@ -315,8 +298,7 @@ export function deploymentPaths(home, plugin) {
   };
 }
 
-function assertDestination(path, expected, home) {
-  if (resolve(path) !== resolve(expected)) throw new Error(`deployment target differs from the canonical path: ${path}`);
+function assertDestination(path, home) {
   const root = resolve(home);
   if (!isInside(root, path)) throw new Error(`deployment target is outside the selected home: ${path}`);
   let cursor = root;
@@ -338,7 +320,7 @@ function existingBundle(path, identity) {
     throw new Error(`existing plugin target is not a directory: ${path}`);
   }
   const manifest = validateExistingBundle(target, identity);
-  return { path, target, manifest, symbolicLink: stat.isSymbolicLink(), link: stat.isSymbolicLink() ? readlinkSync(path) : null };
+  return { manifest, symbolicLink: stat.isSymbolicLink() };
 }
 
 function lstatExists(path) {
@@ -359,19 +341,24 @@ function validateExistingBundle(directory, { plugin, host }) {
   return manifest;
 }
 
+function marketplaceName(document, plugin) {
+  if (!document || typeof document.name !== "string" || !/^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*$/.test(document.name) || !Array.isArray(document.plugins)) {
+    throw new Error("Marketplace must have a valid name and expose a plugins array");
+  }
+  if (document.plugins.filter(entry => entry?.name === plugin).length > 1) throw new Error(`Marketplace contains duplicate ${plugin} entries`);
+  return document.name;
+}
+
 export function updateMarketplaceDocument(document, plugin, sourcePath) {
   if (document === null) {
     document = {
-      name: "personal",
-      interface: { displayName: "Personal" },
+      name: "geldmacher-personal",
+      interface: { displayName: "Geldmacher Plugins" },
       plugins: [],
     };
   }
-  if (document?.name !== "personal" || !Array.isArray(document.plugins)) {
-    throw new Error("personal Marketplace must be named personal and expose a plugins array");
-  }
+  marketplaceName(document, plugin);
   const matches = document.plugins.filter((entry) => entry?.name === plugin);
-  if (matches.length > 1) throw new Error(`personal Marketplace contains duplicate ${plugin} entries`);
   if (matches.length === 0) {
     document.plugins.push({
       name: plugin,
@@ -437,20 +424,21 @@ function backupPath(destination) {
   return join(dirname(destination), `.${basename(destination)}.backup-${process.pid}-${randomUUID()}`);
 }
 
-function cachePath(codexHome, plugin, version) {
-  return join(codexHome, "plugins", "cache", "personal", plugin, version);
+function cachePath(codexHome, marketplace, plugin, version) {
+  return join(codexHome, "plugins", "cache", marketplace, plugin, version);
 }
 
-export function codexInstallationState({ home, plugin, version, codexBinary = "codex", env = process.env }) {
+export function codexInstallationState({ home, plugin, version, marketplace, codexBinary = "codex", env = process.env }) {
+  marketplaceName({ name: marketplace, plugins: [] }, plugin);
   let list;
   try {
     list = runJson(codexBinary, ["plugin", "list", "--json"], { env: { ...env, HOME: home } });
   } catch (error) {
     return { current: false, error: error.message, installed: null, cachePath: null };
   }
-  const installed = list.installed?.find((entry) => entry.pluginId === `${plugin}@personal`) || null;
+  const installed = list.installed?.find((entry) => entry.pluginId === `${plugin}@${marketplace}`) || null;
   const codexHome = resolve(env.CODEX_HOME || join(home, ".codex"));
-  const expectedCache = cachePath(codexHome, plugin, version);
+  const expectedCache = cachePath(codexHome, marketplace, plugin, version);
   let cacheManifest = null;
   try {
     cacheManifest = readJson(join(expectedCache, ".codex-plugin", "plugin.json"));
@@ -465,10 +453,10 @@ export function codexInstallationState({ home, plugin, version, codexBinary = "c
   return { current, installed, cachePath: expectedCache, cacheManifest };
 }
 
-function installCodexDefault({ home, plugin, version, codexBinary, env }) {
-  run(codexBinary, ["plugin", "add", `${plugin}@personal`, "--json"], { env: { ...env, HOME: home } });
-  const state = codexInstallationState({ home, plugin, version, codexBinary, env });
-  if (!state.current) throw new Error(`Codex did not activate ${plugin} ${version} from its canonical source/cache`);
+function installCodexDefault({ home, plugin, version, marketplace, codexBinary, env }) {
+  run(codexBinary, ["plugin", "add", `${plugin}@${marketplace}`, "--json"], { env: { ...env, HOME: home } });
+  const state = codexInstallationState({ home, plugin, version, marketplace, codexBinary, env });
+  if (!state.current) throw new Error(`Codex did not install ${plugin} ${version} from its canonical source/cache`);
   return state;
 }
 
@@ -523,19 +511,23 @@ export function deployPreparedTargets({
     throw new Error(`deployment hosts must be one or more of: ${HOSTS.join(", ")}`);
   }
   const paths = deploymentPaths(home, plugin);
-  for (const host of selectedHosts) assertDestination(paths[host], paths[host], paths.home);
+  for (const host of selectedHosts) assertDestination(paths[host], paths.home);
   const metadata = prepareMetadata({ root, targetsRoot, plugin, baseVersion, gitHead, gitDirty, deployedAt });
   const existing = Object.fromEntries(selectedHosts.map((host) => [host, currentTarget(paths[host], metadata[host])]));
   let marketplaceOriginal = null;
   let marketplaceBytes = null;
   let marketplaceChanged = false;
+  let selectedMarketplace = null;
   let codexBefore = { current: true, skipped: true };
   if (selectedHosts.includes("codex")) {
     marketplaceOriginal = lstatExists(paths.marketplace) ? readFileSync(paths.marketplace) : null;
-    const marketplace = updateMarketplaceDocument(marketplaceOriginal ? JSON.parse(marketplaceOriginal) : null, plugin, paths.marketplaceSource);
+    const document = marketplaceOriginal === null ? null : JSON.parse(marketplaceOriginal);
+    if (marketplaceOriginal !== null) marketplaceName(document, plugin);
+    const marketplace = updateMarketplaceDocument(document, plugin, paths.marketplaceSource);
+    selectedMarketplace = marketplaceName(marketplace, plugin);
     marketplaceBytes = Buffer.from(`${JSON.stringify(marketplace, null, 2)}\n`);
     marketplaceChanged = marketplaceOriginal === null || !marketplaceOriginal.equals(marketplaceBytes);
-    codexBefore = codexStateReader({ home, plugin, version: metadata.codex.localVersion, codexBinary, env });
+    codexBefore = codexStateReader({ home, plugin, version: metadata.codex.localVersion, marketplace: selectedMarketplace, codexBinary, env });
   }
   const changedHosts = selectedHosts.filter((host) => !existing[host].current);
   const plan = {
@@ -553,10 +545,10 @@ export function deployPreparedTargets({
       change: changedHosts.includes(host),
     }])),
     marketplace: selectedHosts.includes("codex")
-      ? { path: paths.marketplace, source: paths.marketplaceSource, change: marketplaceChanged }
+      ? { path: paths.marketplace, name: selectedMarketplace, source: paths.marketplaceSource, change: marketplaceChanged }
       : null,
     codex: selectedHosts.includes("codex")
-      ? { change: !codexBefore.current, cache_path: cachePath(resolve(env.CODEX_HOME || paths.codexHome), plugin, metadata.codex.localVersion) }
+      ? { change: !codexBefore.current, cache_path: cachePath(resolve(env.CODEX_HOME || paths.codexHome), selectedMarketplace, plugin, metadata.codex.localVersion) }
       : null,
   };
   if (dryRun) return plan;
@@ -593,10 +585,11 @@ export function deployPreparedTargets({
         home,
         plugin,
         version: metadata.codex.localVersion,
+        marketplace: selectedMarketplace,
         codexBinary,
         env,
         source: paths.codex,
-        cache: cachePath(resolve(env.CODEX_HOME || paths.codexHome), plugin, metadata.codex.localVersion),
+        cache: cachePath(resolve(env.CODEX_HOME || paths.codexHome), selectedMarketplace, plugin, metadata.codex.localVersion),
       })
       : null;
     if (simulateFailure === "after-codex-add") throw new Error("simulated failure after Codex add");
@@ -661,12 +654,17 @@ export async function deploymentStatus({ root = repositoryRoot, home = process.e
     };
   }
   let marketplaceCurrent = true;
+  let selectedMarketplace = null;
   let codex = null;
   if (selectedHosts.includes("codex")) {
-    const marketplace = lstatExists(paths.marketplace) ? readJson(paths.marketplace) : null;
-    const entries = marketplace?.plugins?.filter((entry) => entry?.name === plugin) || [];
+    const present = lstatExists(paths.marketplace);
+    const marketplace = present ? readJson(paths.marketplace) : null;
+    selectedMarketplace = present ? marketplaceName(marketplace, plugin) : null;
+    const entries = marketplace?.plugins.filter((entry) => entry?.name === plugin) || [];
     marketplaceCurrent = entries.length === 1 && entries[0].source?.source === "local" && entries[0].source.path === paths.marketplaceSource;
-    codex = codexInstallationState({ home, plugin, version: expected.codex.localVersion, codexBinary, env });
+    codex = selectedMarketplace === null
+      ? { current: false, installed: null, cachePath: null, error: "personal Marketplace is missing" }
+      : codexInstallationState({ home, plugin, version: expected.codex.localVersion, marketplace: selectedMarketplace, codexBinary, env });
   }
   return {
     plugin,
@@ -676,7 +674,7 @@ export async function deploymentStatus({ root = repositoryRoot, home = process.e
     selected_hosts: selectedHosts,
     targets,
     marketplace: selectedHosts.includes("codex")
-      ? { path: paths.marketplace, expected_source: paths.marketplaceSource, current: marketplaceCurrent }
+      ? { path: paths.marketplace, name: selectedMarketplace, expected_source: paths.marketplaceSource, current: marketplaceCurrent }
       : null,
     codex,
     current: selectedHosts.every((host) => targets[host].current)
@@ -722,7 +720,7 @@ async function main() {
   const { dryRun, full, hosts } = parseDeployArguments(args);
   const packageManifest = readJson(join(repositoryRoot, "package.json"));
   const cursorManifest = readJson(join(repositoryRoot, ".cursor-plugin", "plugin.json"));
-  const codexManifest = readJson(repositoryCodexManifestPath(repositoryRoot));
+  const codexManifest = readJson(join(repositoryRoot, "targets", "codex", ".codex-plugin", "plugin.json"));
   if (cursorManifest.name !== codexManifest.name) throw new Error("Cursor and Codex plugin names differ");
   if (cursorManifest.version !== packageManifest.version || codexManifest.version !== packageManifest.version) {
     throw new Error("repository manifests must keep the regular package product version");
@@ -751,7 +749,7 @@ async function main() {
   }
 }
 
-const direct = process.argv[1] && resolve(process.argv[1]) === scriptPath;
+const direct = process.argv[1] && realpathSync(process.argv[1]) === scriptPath;
 if (direct) main().catch((error) => {
   process.stderr.write(`${error.stack || error.message}\n`);
   process.exitCode = 1;

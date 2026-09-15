@@ -53,7 +53,7 @@ For each example ask: What is the result? What does it mean for the goal? What f
 | Necessary work and checks are sufficient; no concrete question remains. | Deliver the phase report without another search or test loop. Reuse applicable instructions; load optional references only for the relevant case. | [Working agreement](../references/workflow.md) |
 | A current Review establishes that the goal is achieved. | State completion without adding a required learning, release, or other phase. Status repeats only a relevant next action and does not reopen finished work. | [Review](../skills/review-work/SKILL.md), [status](../skills/work-status/SKILL.md), settings example |
 
-`npm run context-budget` estimates instruction size from characters. It lists required source documents and generated host instructions for base flows, supporting actions, and conditional learning, verifier, or method guidance. Conditional documents are counted once per illustrated path. Base learning resolves whether candidates are available; a run evaluating or saving candidates also loads the learning guidance and is measured under `learningWithLearning`. The other `WithLearning` paths cover inherited collections or new candidates in their respective phases. The historical aggregate and existing limits cover only the original six base flows; supporting and conditional paths are reported separately, not certified by those limits. A base-flow comparison is not the total cost of processing learnings. Repository context figures exclude task history, tool results, model reasoning, and provider latency. They cannot establish a speed improvement. Record actual timings only from separately commissioned comparable agent runs.
+`npm run context-budget` estimates instruction size from the built host packages. Its flat scenarios cover required planning references, individual phases, selected playbooks, learning, verifier inspection/creation/maintenance, and Auto-Work including delivery. Shared documents count once per scenario. Every scenario has a fixed limit; missing or obsolete limits fail validation. Limits were frozen from the complete pre-cleanup scenarios: largest host value plus 10%, rounded up to 100 estimated tokens. Normal checks never update them. The default output is a compact table; `npm run context-budget -- --json` includes full document inventories. Light and Dark share instruction content and one size scenario. These estimates exclude repeated agent contexts, task history, tool results, model reasoning, and provider latency; they do not establish speed or observed agent behavior.
 
 ## Learning through repeated Reviews
 
@@ -135,7 +135,7 @@ Use these cases for a documented content walkthrough of [planning](../skills/pla
 
 ## Auto-Work behavioral acceptance
 
-Exercise built packages in isolated temporary projects. The repository-only `verify-auto-work` skill supplies concrete recipes and local delivery simulations; it is not a shipped execution service. Inspect actual task events, separate reviewer identities, file snapshots, checks and gate outcomes. A wording walkthrough alone does not demonstrate native behavior.
+Exercise built packages in isolated temporary projects. The repository-only `verify-auto-work` skill supplies concrete recipes and local delivery simulations. Inspect actual task events, separate reviewer identities, file snapshots, checks and gate outcomes. A wording walkthrough alone does not demonstrate native behavior.
 
 | Scenario | Observable acceptance |
 |---|---|
@@ -150,3 +150,5 @@ Exercise built packages in isolated temporary projects. The repository-only `ver
 | Learning over rounds | Every open candidate and its evidence survives correction and handoff; capture and offers do not save guidance. |
 
 Run package/context checks for all targets. Initial native trials use the available Codex host; unexercised Cursor and portable behavior stays explicitly unverified. Local delivery simulation proves only the exercised mechanism, not production protection or deployment. Preserve raw evidence outside the repository after removing owned fixture workspaces.
+
+Source link checks cover existing tracked and non-ignored new Markdown files; ignored local evidence is excluded. Built packages are checked recursively without Git filtering. Full local deployment runs `release-check` once, then `build:targets` to prepare the deployment payload. CLI regression tests exercise physical and aliased paths without publishing or installing.

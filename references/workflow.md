@@ -6,7 +6,7 @@ Follow the applicable plan: human-approved in standalone work and Light, or prep
 
 Keep plans and reports in the native task. Handoffs carry the plan, assignment, current state, evidence, open decisions, next action, and complete learning collection through accessible references or supplied text. Never invent missing approval or history.
 
-When learning arises or is inherited, follow [learning guidance](learning-work.md). Keep every open candidate and its evidence through subsequent reports. No separate store; status does not renew offers.
+When learning arises or is inherited, follow [learning guidance](learning-work.md). Keep every open candidate and its evidence through subsequent reports. Status does not renew offers.
 
 Preserve unrelated work. Host permissions govern; Review is repository-read-only. Git writes, installation, production, delivery, publication, and learning need explicit authorization. Auto-Work may carry commissioned delivery; its mode grants none.
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { developmentRoots, secretPatterns } from "./package-safety.mjs";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import {
@@ -9,6 +10,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   readdirSync,
   renameSync,
   rmSync,
@@ -24,16 +26,6 @@ export const RELEASE_HOSTS = Object.freeze(["cursor", "codex"]);
 const scriptPath = fileURLToPath(import.meta.url);
 export const defaultRoot = dirname(dirname(scriptPath));
 const fixedArchiveTime = "2000-01-01T00:00:00Z";
-const developmentRoots = new Set([".agents", ".build", ".cursor", ".git", "node_modules", "test", "tests"]);
-const secretPatterns = [
-  /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/,
-  /\bAKIA[A-Z0-9]{16}\b/,
-  /\bgh[opsu]_[A-Za-z0-9]{20,}\b/,
-  /\bgithub_pat_[A-Za-z0-9_]{20,}\b/,
-  /\bsk-[A-Za-z0-9]{20,}\b/,
-  /\bsk-proj-[A-Za-z0-9_-]{20,}\b/,
-  /\bsk_(?:live|test)_[A-Za-z0-9]{16,}\b/,
-];
 
 function slash(path) {
   return path.split(sep).join("/");
@@ -129,7 +121,6 @@ function changelogSections(source) {
   const headings = [...source.matchAll(/^##[ \t]+(?:\[([^\]]+)\]|([^\s]+))(?:[ \t].*)?$/gm)];
   return headings.map((match, index) => ({
     name: match[1] ?? match[2],
-    start: match.index,
     headingEnd: match.index + match[0].length,
     end: headings[index + 1]?.index ?? source.length,
     body: source.slice(match.index + match[0].length, headings[index + 1]?.index ?? source.length).trim(),
@@ -565,14 +556,7 @@ function parseReleaseView(result, tag) {
 }
 
 function remoteTagCommit(root, runner, tag) {
-  const output = runChecked(runner, "git", ["ls-remote", "--tags", "origin", `refs/tags/${tag}`, `refs/tags/${tag}^{}`], {
-    cwd: root,
-    env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
-  }, "remote tag lookup");
-  const lines = output.split(/\r?\n/).filter(Boolean).map((line) => line.split(/\s+/, 2));
-  const peeled = lines.find(([, ref]) => ref === `refs/tags/${tag}^{}`);
-  const direct = lines.find(([, ref]) => ref === `refs/tags/${tag}`);
-  const commit = peeled?.[0] ?? direct?.[0];
+  const commit = optionalRemoteTagCommit(root, runner, tag);
   if (!commit) throw new Error(`remote tag ${tag} does not exist on origin`);
   return commit;
 }
@@ -1071,7 +1055,7 @@ function runCli() {
   process.stdout.write(`${JSON.stringify(completeRelease(), null, 2)}\n`);
 }
 
-const direct = process.argv[1] && resolve(process.argv[1]) === scriptPath;
+const direct = process.argv[1] && realpathSync(process.argv[1]) === scriptPath;
 if (direct) {
   try { runCli(); }
   catch (error) {

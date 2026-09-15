@@ -1,14 +1,13 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync, readdirSync, lstatSync } from "node:fs";
-import { dirname, join, relative, resolve, sep } from "node:path";
+import { realpathSync, existsSync, readFileSync, readdirSync, lstatSync } from "node:fs";
+import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv from "ajv";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import { parseDocument } from "yaml";
 import { checkMarkdownLinks } from "./check-markdown-links.mjs";
-import { publicSkills, hostSkills, manifestPaths, files } from "./build-plugin-targets.mjs";
-import { validateReleaseSurfaceClosure } from "./release-surface.mjs";
+import { publicSkills, hostSkills, manifestPaths, files, packageEntries } from "./build-plugin-targets.mjs";
 
 export const defaultRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const readJson = (path) => JSON.parse(readFileSync(path, "utf8"));
@@ -57,7 +56,7 @@ function manifestAt(path, host, version, failures) {
   return manifest;
 }
 
-export function validateTarget(root, host, version) {
+export function validateTarget(root, host, version, sourceRoot = defaultRoot) {
   const failures = [];
   try {
     const manifest = manifestAt(join(root, manifestPaths[host]), host, version, failures);
@@ -74,7 +73,7 @@ export function validateTarget(root, host, version) {
       if (/\.(?:[cm]?js|py|sh)$/.test(item) || /^(?:dist|hooks|src|schemas|node_modules|scripts)\//.test(item) || /(?:^|\/)\.?mcp\.json$/.test(item)) failures.push(`unexpected runtime content: ${item}`);
       if (/\.md$/.test(item) && /yaml workflow-authority|Schema[- ]6|seal_artifacts|workflow_prepare|validate-artifact/.test(readFileSync(path, "utf8"))) failures.push(`obsolete Workflow instructions: ${item}`);
     }
-    const inventory = validateReleaseSurfaceClosure(root).map((entry) => entry.relative_path).sort();
+    const inventory = packageEntries(sourceRoot, host).map(entry => entry.target).sort();
     const actual = files(root).map((path) => relative(root, path)).sort();
     if (inventory.join() !== actual.join()) failures.push("target inventory does not cover exact package contents");
     failures.push(...checkMarkdownLinks(root));
@@ -93,7 +92,6 @@ export function validatePlugin(root = defaultRoot) {
     metadataSchema(join(root, ".cursor-plugin", "marketplace.json"), "marketplace.schema.json", failures);
     skillsAt(root, [...publicSkills, "implement-work"], failures);
     for (const name of publicSkills) parseFrontmatter(join(root, "commands", `${name}.md`), failures);
-    validateReleaseSurfaceClosure(root);
     for (const name of ["src", "dist", "hooks", "mcp.json", "schemas/artifacts", "schemas/manual-workflow"]) if (existsSync(join(root, name))) failures.push(`obsolete source surface: ${name}`);
     for (const dir of ["skills", "references", "commands", "docs", "targets"]) {
       for (const path of files(join(root, dir))) {
@@ -105,7 +103,7 @@ export function validatePlugin(root = defaultRoot) {
   return failures;
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const failures = validatePlugin();
   if (failures.length) { console.error(failures.join("\n")); process.exitCode = 1; }
   else console.log("Plugin source validation passed.");

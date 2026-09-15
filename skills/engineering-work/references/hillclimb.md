@@ -11,7 +11,7 @@ Use for sustained improvement of one measurable outcome under an agreed budget a
 
 ## Iterate one hypothesis at a time
 
-5. Keep a concise decision trail in the native task: hypothesis, bounded change, before/after result, relevant checks, and keep-or-revert decision. Read prior attempts so the search accumulates evidence. No fixed file, schema, or commit is required.
+5. Keep a concise decision trail in the native task: hypothesis, bounded change, before/after result, relevant checks, and keep-or-revert decision. Read prior attempts so the search accumulates evidence.
 6. Ground each hypothesis in a specific mechanism. Make one bounded change, measure with the fixed procedure, and run the regression gate. Accept improvement only beyond noise with the guardrails green. A simplification with equivalent performance can be retained only if the approved scope includes that benefit; it is not a metric win.
 7. Remove a failed attempt's own changes before proceeding. Do not revert pre-existing work or combine unmeasured changes. Any parallel experiments need authorized collaboration and isolated mutable state, chosen by the executor.
 8. On a plateau, inspect rejected ideas and reconsider the cost mechanism. Try another justified strategy while budget and useful hypotheses remain. Do not lower correctness or success criteria to claim progress.

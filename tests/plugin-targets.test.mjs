@@ -8,8 +8,6 @@ import test from "node:test";
 import { buildPluginTargets, contentDigest, defaultRoot, files, hostInstruction, hostSkills } from "../scripts/build-plugin-targets.mjs";
 import { parseFrontmatter, validatePlugin, validateTarget } from "../scripts/validate-plugin.mjs";
 import { checkMarkdownLinks } from "../scripts/check-markdown-links.mjs";
-import { limits, measureContext } from "../scripts/measure-context.mjs";
-import { enumerateReleaseSurface } from "../scripts/release-surface.mjs";
 
 const temp = () => mkdtempSync(join(tmpdir(), "workflow-package-test-"));
 function sourceFixture(parent) {
@@ -85,9 +83,6 @@ test("methodology provenance stays in the repository while license notices and p
     const license = notice.slice(notice.indexOf("MIT License\n"));
     assert.equal(createHash("sha256").update(license).digest("hex"), "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e");
     writeFileSync(join(root, "docs/future-methodology.md"), "# Repository methodology\n\nPonytail\n");
-    const npmFiles = enumerateReleaseSurface(root, "package_paths").map((entry) => entry.relative_path);
-    assert.ok(!npmFiles.includes(provenance));
-    assert.ok(!npmFiles.includes("docs/future-methodology.md"));
     const built = buildPluginTargets(join(parent, "packages"), root);
     for (const host of ["cursor", "codex", "agent-plugins"]) {
       const packageRoot = built[host].path;
@@ -103,30 +98,6 @@ test("methodology provenance stays in the repository while license notices and p
       }
       assert.deepEqual(checkMarkdownLinks(packageRoot), []);
     }
-  } finally { rmSync(parent, { recursive: true, force: true }); }
-});
-
-test("npm archive includes playbook and verification references and the complete notice without methodology documentation", () => {
-  const parent = temp();
-  try {
-    const root = sourceFixture(parent);
-    const command = process.env.npm_execpath ? process.execPath : "npm";
-    const args = [...(process.env.npm_execpath ? [process.env.npm_execpath] : []), "pack", "--json", "--ignore-scripts", "--offline", "--cache", join(parent, "cache"), "--pack-destination", parent];
-    const packed = spawnSync(command, args, { cwd: root, encoding: "utf8", env: { ...process.env, npm_config_update_notifier: "false" } });
-    assert.equal(packed.status, 0, packed.stderr || packed.stdout);
-    const report = JSON.parse(packed.stdout)[0];
-    const archive = join(parent, report.filename);
-    const listing = spawnSync("tar", ["-tzf", archive], { encoding: "utf8" });
-    assert.equal(listing.status, 0, listing.stderr);
-    const entries = listing.stdout.trim().split("\n");
-    const expected = ["THIRD_PARTY_NOTICES.md", "references/verification-work.md", ...["engineering-work", "verification-work"].flatMap((skill) => files(join(root, "skills", skill, "references")).map((path) => relative(root, path)))];
-    for (const name of expected) {
-      assert.ok(entries.includes(`package/${name}`), name);
-      const extracted = spawnSync("tar", ["-xOzf", archive, `package/${name}`]);
-      assert.equal(extracted.status, 0, extracted.stderr.toString());
-      assert.deepEqual(extracted.stdout, readFileSync(join(root, name)), name);
-    }
-    assert.ok(!entries.includes("package/docs/methodology-sources.md"));
   } finally { rmSync(parent, { recursive: true, force: true }); }
 });
 
@@ -153,7 +124,7 @@ test("playbook references are complete and nested skill references survive every
         assert.equal(contentDigest(destination), contentDigest(source));
       }
       assert.equal(existsSync(join(built[host].path, "skills/implement-work")), host === "agent-plugins");
-      assert.deepEqual(validateTarget(built[host].path, host, built.version), []);
+      assert.deepEqual(validateTarget(built[host].path, host, built.version, root), []);
       assert.deepEqual(checkMarkdownLinks(built[host].path), []);
     }
   } finally { rmSync(parent, { recursive: true, force: true }); }
@@ -238,6 +209,51 @@ test("invalid sources do not remove the previous generated package", () => {
   } finally { rmSync(parent, { recursive: true, force: true }); }
 });
 
+test("an external README symlink is rejected without replacing any host package", () => {
+  const parent = temp();
+  try {
+    const root = sourceFixture(parent);
+    const destination = join(parent, "packages");
+    const before = buildPluginTargets(destination, root);
+    const external = join(parent, "external.md");
+    writeFileSync(external, "# Outside the source repository\n");
+    rmSync(join(root, "README.md"));
+    symlinkSync(external, join(root, "README.md"));
+    assert.throws(() => buildPluginTargets(destination, root), /symlink/);
+    for (const host of ["cursor", "codex", "agent-plugins"]) assert.equal(contentDigest(before[host].path), before[host].hash);
+    assert.equal(readFileSync(external, "utf8"), "# Outside the source repository\n");
+  } finally { rmSync(parent, { recursive: true, force: true }); }
+});
+
+test("invalid command metadata leaves every existing host package unchanged", () => {
+  const parent = temp();
+  try {
+    const root = sourceFixture(parent);
+    const destination = join(parent, "packages");
+    const before = buildPluginTargets(destination, root);
+    const path = join(root, "skills/review-work/SKILL.md");
+    writeFileSync(path, readFileSync(path, "utf8").replace(/^description:.*$/m, "description: [unterminated"));
+    assert.throws(() => buildPluginTargets(destination, root), /invalid skill metadata: review-work/);
+    for (const host of ["cursor", "codex", "agent-plugins"]) assert.equal(contentDigest(before[host].path), before[host].hash);
+  } finally { rmSync(parent, { recursive: true, force: true }); }
+});
+
+test("Cursor descriptions preserve literal replacement patterns and the command body", () => {
+  const parent = temp();
+  try {
+    const root = sourceFixture(parent);
+    const path = join(root, "skills/review-work/SKILL.md");
+    const description = 'Explain $&, $$, $`, $\' and $1: "literally".';
+    writeFileSync(path, readFileSync(path, "utf8").replace(/^description:.*$/m, () => `description: ${JSON.stringify(description)}`));
+    const built = buildPluginTargets(join(parent, "packages"), root);
+    const source = readFileSync(join(root, "commands/review-work.md"), "utf8");
+    const command = join(built.cursor.path, "commands/review-work.md");
+    assert.equal(parseFrontmatter(command).description, description);
+    assert.equal(readFileSync(command, "utf8"), source.replace(/^description:.*$/m, () => `description: ${JSON.stringify(description)}`));
+    assert.deepEqual(validateTarget(built.cursor.path, "cursor", built.version, root), []);
+  } finally { rmSync(parent, { recursive: true, force: true }); }
+});
+
 test("validation rejects runtime registration, missing links, and malformed discovery metadata", () => {
   const parent = temp();
   try {
@@ -256,66 +272,54 @@ test("validation rejects runtime registration, missing links, and malformed disc
   } finally { rmSync(parent, { recursive: true, force: true }); }
 });
 
-test("context decreases in aggregate without increasing existing phase limits", () => {
-  assert.deepEqual(limits, { discoverability: 428, plan: 2000, review: 2150, correction: 2000, learning: 2000, explanation: 1200, status: 1500 });
-  const measurement = measureContext();
-  assert.deepEqual(measurement.failures, []);
-  for (const target of Object.values(measurement.targets)) assert.ok(target.total < measurement.previousTotal);
+
+test("target inventories reject extra and missing files and ship only the referenced logo", () => {
+  const parent = temp();
+  try {
+    const built = buildPluginTargets(parent);
+    for (const host of ["cursor", "codex", "agent-plugins"]) {
+      const root = built[host].path;
+      assert.deepEqual(files(join(root, "assets")).map(path => relative(root, path)), ["assets/logo.svg"]);
+      assert.equal(existsSync(join(root, "release-surface.json")), false);
+      writeFileSync(join(root, "extra.md"), "unexpected\n");
+      assert.ok(validateTarget(root, host, built.version).some(message => message.includes("exact package contents")));
+      rmSync(join(root, "extra.md"));
+      rmSync(join(root, "THIRD_PARTY_NOTICES.md"));
+      assert.ok(validateTarget(root, host, built.version).some(message => message.includes("exact package contents")));
+    }
+  } finally { rmSync(parent, { recursive: true, force: true }); }
 });
 
-test("context inventories count packaged base instructions and conditional learning and verifier reads once", () => {
+test("Cursor command descriptions follow changed skill metadata while source aliases retain host hints", () => {
   const parent = temp();
   try {
     const root = sourceFixture(parent);
+    const skillPath = join(root, "skills/review-work/SKILL.md");
+    writeFileSync(skillPath, readFileSync(skillPath, "utf8").replace(/^description:.*$/m, 'description: "Review: changed discovery contract"'));
     const built = buildPluginTargets(join(parent, "packages"), root);
-    const before = measureContext(root);
-    for (const [host, target] of Object.entries(before.targets)) {
-      for (const [name, source] of Object.entries(target.flowSources)) {
-        const packagedCharacters = source.documents.reduce((total, path) => total + readFileSync(join(built[host].path, path), "utf8").length, 0);
-        assert.equal(source.tokens, target.flows[name]);
-        // Per-document rounding and generated separating newlines account for this small difference.
-        assert.ok(Math.abs(source.tokens - packagedCharacters / 4) <= source.documents.length + 2);
-      }
-      const conditional = target.conditionalFlows;
-      assert.deepEqual(conditional.verificationCreation.documents, ["skills/verification-work/references/create.md"]);
-      assert.deepEqual(conditional.verificationMaintenance.documents, ["skills/verification-work/references/maintain.md"]);
-      assert.ok(!conditional.planVerifierCreation.documents.includes("skills/verification-work/references/maintain.md"));
-      assert.ok(!conditional.planVerifierCreation.documents.includes("commands/verification-work.md"));
-      assert.equal(conditional.planVerifierCreation.totalTokens, target.flows.plan + conditional.planVerifierCreation.tokens);
-      assert.equal(Boolean(target.supportingFlows.implementation), host === "agent-plugins");
-      for (const [name, base] of Object.entries({ ...target.flowSources, ...target.supportingFlows })) {
-        const withLearning = conditional[`${name}WithLearning`];
-        assert.deepEqual(withLearning.documents, ["references/learning-work.md"]);
-        assert.equal(withLearning.totalTokens, base.tokens + withLearning.tokens);
-        assert.equal(withLearning.tokens, Math.ceil(readFileSync(join(built[host].path, "references/learning-work.md"), "utf8").length / 4));
-      }
+    const command = join(built.cursor.path, "commands/review-work.md");
+    assert.equal(parseFrontmatter(command).description, "Review: changed discovery contract");
+    for (const name of hostSkills("cursor")) {
+      const skill = parseFrontmatter(join(built.cursor.path, "skills", name, "SKILL.md"));
+      const alias = parseFrontmatter(join(built.cursor.path, "commands", `${name}.md`));
+      assert.equal(alias.name, skill.name);
+      assert.equal(alias.description, skill.description);
     }
-    const guide = join(root, "references/verification-work.md");
-    writeFileSync(guide, `${readFileSync(guide, "utf8")}${"x".repeat(400)}`);
-    const after = measureContext(root);
-    for (const host of Object.keys(before.targets)) {
-      const previous = before.targets[host];
-      const current = after.targets[host];
-      assert.deepEqual(current.flows, previous.flows);
-      assert.equal(current.supportingFlows.doctor.tokens - previous.supportingFlows.doctor.tokens, 100);
-      assert.equal(current.conditionalFlows.planVerifierCreation.totalTokens - previous.conditionalFlows.planVerifierCreation.totalTokens, 100);
-      assert.equal(current.conditionalFlows.verificationCreation.totalTokens - previous.conditionalFlows.verificationCreation.totalTokens, 100);
-      assert.equal(current.conditionalFlows.verificationCreation.tokens, previous.conditionalFlows.verificationCreation.tokens);
-      assert.equal(current.conditionalFlows.reviewVerifier.totalTokens - previous.conditionalFlows.reviewVerifier.totalTokens, 100);
-    }
-    const learningGuide = join(root, "references/learning-work.md");
-    writeFileSync(learningGuide, `${readFileSync(learningGuide, "utf8")}${"x".repeat(400)}`);
-    const afterLearning = measureContext(root);
-    for (const host of Object.keys(after.targets)) {
-      const previous = after.targets[host];
-      const current = afterLearning.targets[host];
-      assert.deepEqual(current.flows, previous.flows);
-      assert.deepEqual(current.supportingFlows, previous.supportingFlows);
-      for (const name of Object.keys({ ...current.flowSources, ...current.supportingFlows })) {
-        const key = `${name}WithLearning`;
-        assert.equal(current.conditionalFlows[key].tokens - previous.conditionalFlows[key].tokens, 100);
-        assert.equal(current.conditionalFlows[key].totalTokens - previous.conditionalFlows[key].totalTokens, 100);
-      }
-    }
+    assert.ok(readFileSync(command, "utf8").includes("Use Cursor Ask Mode."));
+    assert.deepEqual(validateTarget(built.cursor.path, "cursor", built.version, root), []);
+  } finally { rmSync(parent, { recursive: true, force: true }); }
+});
+
+test("check:targets rejects invalid Cursor discovery through the real CLI", () => {
+  const parent = temp();
+  try {
+    const root = sourceFixture(parent);
+    symlinkSync(join(defaultRoot, "node_modules"), join(root, "node_modules"));
+    const path = join(root, ".cursor-plugin/plugin.json");
+    writeFileSync(path, JSON.stringify({ ...JSON.parse(readFileSync(path)), skills: [] }));
+    const checked = spawnSync(process.execPath, [join(root, "scripts/build-plugin-targets.mjs"), "--check"], { encoding: "utf8" });
+    assert.notEqual(checked.status, 0);
+    assert.match(checked.stderr, /Cursor skill discovery differs/);
+    assert.equal(existsSync(join(root, ".build")), false);
   } finally { rmSync(parent, { recursive: true, force: true }); }
 });

@@ -22,6 +22,7 @@ import {
   contentHash,
   deployPreparedTargets,
   deploymentPaths,
+  deploymentStatus,
   deploymentReceipt,
   isInside,
   localVersion,
@@ -29,6 +30,8 @@ import {
   validateBundle,
   withPreparedDeploymentRoot,
 } from "../scripts/local-plugin-deploy.mjs";
+
+import { buildPluginTargets, defaultRoot } from "../scripts/build-plugin-targets.mjs";
 
 const plugin = "geldmacher-test";
 const baseVersion = "1.2.3";
@@ -174,10 +177,10 @@ test("Marketplace updates preserve every unrelated entry", () => {
   assert.equal(result.plugins[1].source.path, `./.codex/plugins/${plugin}`);
   assert.equal(result.plugins[1].extra, "preserve");
   const created = updateMarketplaceDocument(null, plugin, `./.codex/plugins/${plugin}`);
-  assert.equal(created.name, "personal");
+  assert.equal(created.name, "geldmacher-personal");
   assert.equal(created.plugins[0].name, plugin);
   assert.equal(created.plugins[0].source.path, `./.codex/plugins/${plugin}`);
-  assert.throws(() => updateMarketplaceDocument({ name: "other", plugins: [] }, plugin, "./x"), /named personal/);
+  assert.equal(updateMarketplaceDocument({ name: "other", plugins: [] }, plugin, "./x").name, "other");
 });
 
 test("dry-run preparation uses a Git-visible snapshot, preserves modes, and always cleans it", () => {
@@ -212,7 +215,7 @@ test("dry-run preparation uses a Git-visible snapshot, preserves modes, and alwa
       return "prepared";
     });
     assert.equal(result, "prepared");
-    assert.deepEqual(scripts.map(([name]) => name), ["deploy:prepare", "release-check"]);
+    assert.deepEqual(scripts.map(([name]) => name), ["release-check", "build:targets"]);
     assert.equal(scripts.every(([, root]) => root === successRoot), true);
     assert.equal(existsSync(successRoot), false);
 
@@ -271,8 +274,8 @@ test("real preparation stays on the canonical checkout", () => {
     }, (root) => root);
     assert.equal(result, resolve(item.repository));
     assert.deepEqual(calls, [
-      ["deploy:prepare", item.repository],
       ["release-check", item.repository],
+      ["build:targets", item.repository],
     ]);
   } finally {
     rmSync(item.root, { recursive: true, force: true });
@@ -342,7 +345,7 @@ test("Codex-only first install creates its Marketplace entry without touching Cu
     assert.equal(existsSync(paths.cursor), false);
     assert.equal(readFileSync(join(paths.codex, ".codex-plugin", "plugin.json"), "utf8").includes("+local.codex."), true);
     const marketplace = JSON.parse(readFileSync(paths.marketplace, "utf8"));
-    assert.equal(marketplace.name, "personal");
+    assert.equal(marketplace.name, "geldmacher-personal");
     assert.equal(marketplace.plugins[0].source.path, `./.codex/plugins/${plugin}`);
   } finally {
     rmSync(item.root, { recursive: true, force: true });
@@ -433,4 +436,120 @@ test("a failure after both swaps restores both targets and Marketplace", () => {
   } finally {
     rmSync(item.root, { recursive: true, force: true });
   }
+});
+
+for (const name of ["personal", "geldmacher-personal", "Team_tools"]) {
+  test(`Codex adapter installation, no-op and status retain Marketplace ${name}`, async () => {
+    const parent = mkdtempSync(join(tmpdir(), "workflow-marketplace-test-"));
+    try {
+      const home = join(parent, "home");
+      const built = buildPluginTargets(join(parent, ".build/plugins"));
+      const product = "geldmacher-workflow";
+      const paths = deploymentPaths(home, product);
+      const unrelated = { name: "unrelated", source: { source: "local", path: "./other" }, extra: "keep" };
+      json(paths.marketplace, { name, interface: { displayName: "My tools" }, plugins: [unrelated] });
+      const binary = join(parent, "codex");
+      writeFileSync(binary, `#!${process.execPath}
+const fs = require('node:fs');
+const path = require('node:path');
+const [command, action, id] = process.argv.slice(2);
+const stateFile = path.join(__dirname, 'installed.json');
+if (command !== 'plugin') throw new Error('unexpected command');
+if (action === 'list') {
+  console.log(JSON.stringify({installed: fs.existsSync(stateFile) ? JSON.parse(fs.readFileSync(stateFile)) : []}));
+} else if (action === 'add') {
+  const [plugin, marketplace] = id.split('@');
+  const source = path.join(process.env.HOME, '.codex/plugins', plugin);
+  const manifest = JSON.parse(fs.readFileSync(path.join(source, '.codex-plugin/plugin.json')));
+  const cache = path.join(process.env.CODEX_HOME, 'plugins/cache', marketplace, plugin, manifest.version);
+  fs.cpSync(source, cache, {recursive:true});
+  fs.writeFileSync(stateFile, JSON.stringify([{pluginId:id, version:manifest.version, source:{path:source}}]));
+  fs.appendFileSync(path.join(__dirname, 'calls.txt'), id+'\\n');
+  console.log('{}');
+} else throw new Error('unexpected action');
+`, { mode: 0o755 });
+      const env = { ...process.env, CODEX_HOME: paths.codexHome };
+      const options = { root: defaultRoot, targetsRoot: parent, plugin: product, baseVersion: built.version, home, gitHead, gitDirty: true, hosts: ["codex"], codexBinary: binary, env };
+      const deployed = deployPreparedTargets(options);
+      assert.equal(deployed.no_op, false);
+      assert.equal(deployed.marketplace.name, name);
+      assert.equal(deployed.codex.installed.pluginId, `${product}@${name}`);
+      assert.equal(deployed.codex.cachePath, join(paths.codexHome, "plugins/cache", name, product, deployed.targets.codex.local_version));
+      const catalog = JSON.parse(readFileSync(paths.marketplace));
+      assert.equal(catalog.name, name);
+      assert.deepEqual(catalog.interface, { displayName: "My tools" });
+      assert.deepEqual(catalog.plugins[0], unrelated);
+      assert.equal(deployPreparedTargets(options).no_op, true);
+      assert.equal(readFileSync(join(parent, "calls.txt"), "utf8"), `${product}@${name}\n`);
+      const status = await deploymentStatus({ root: defaultRoot, home, hosts: ["codex"], codexBinary: binary, env });
+      assert.equal(status.current, true);
+      assert.equal(status.marketplace.name, name);
+      assert.equal(status.codex.installed.pluginId, `${product}@${name}`);
+    } finally { rmSync(parent, { recursive: true, force: true }); }
+  });
+}
+
+for (const document of [
+  null, [], { plugins: [] }, { name: "../escape", plugins: [] }, { name: "", plugins: [] },
+  { name: "personal" }, { name: "personal", plugins: [{name: plugin}, {name: plugin}] },
+]) {
+  test(`invalid Marketplace stops before staging or native installation: ${JSON.stringify(document)}`, () => {
+    const item = fixture();
+    try {
+      json(item.marketplace, document);
+      const before = readFileSync(item.marketplace);
+      assert.throws(() => deployPreparedTargets({ ...metadata(item.repository), home: item.home, hosts: ["codex"],
+        codexStateReader: () => assert.fail("must not call Codex before catalog validation"),
+        codexInstaller: () => assert.fail("must not install"),
+      }), /Marketplace.*(?:valid name|duplicate)/);
+      assert.deepEqual(readFileSync(item.marketplace), before);
+      assert.equal(existsSync(deploymentPaths(item.home, plugin).codex), false);
+    } finally { rmSync(item.root, { recursive: true, force: true }); }
+  });
+}
+
+for (const name of ["geldmacher-personal", "team.tools"]) {
+  test(`failed deployment restores the existing ${name} catalog`, () => {
+    const item = fixture();
+    try {
+      const catalog = JSON.parse(readFileSync(item.marketplace));
+      catalog.name = name;
+      json(item.marketplace, catalog);
+      const before = readFileSync(item.marketplace);
+      assert.throws(() => deployPreparedTargets({ ...metadata(item.repository), home: item.home, hosts: ["codex"],
+        codexStateReader: neverCurrent, codexInstaller: successfulInstaller, simulateFailure: "after-marketplace",
+      }), /rolled back/);
+      assert.deepEqual(readFileSync(item.marketplace), before);
+      assert.equal(existsSync(deploymentPaths(item.home, plugin).codex), false);
+    } finally { rmSync(item.root, { recursive: true, force: true }); }
+  });
+}
+
+test("preparation selects one gate sequence and never deploys after a failed gate", () => {
+  const item = previewFixture();
+  try {
+    for (const dryRun of [false, true]) {
+      for (const full of [false, true]) {
+        const expected = full ? ["release-check", "build:targets"] : ["deploy:prepare"];
+        const calls = [];
+        withPreparedDeploymentRoot({ root: item.repository, dryRun, full,
+          npmRunner: name => calls.push(name),
+        }, () => calls.push("ready"));
+        assert.deepEqual(calls, [...expected, "ready"]);
+        for (const failing of expected) {
+          const failedCalls = [];
+          let preparedRoot;
+          assert.throws(() => withPreparedDeploymentRoot({ root: item.repository, dryRun, full,
+            npmRunner(name, root) {
+              preparedRoot = root;
+              failedCalls.push(name);
+              if (name === failing) throw new Error("gate failed");
+            },
+          }, () => assert.fail("deployment must not run")), /gate failed/);
+          assert.deepEqual(failedCalls, expected.slice(0, expected.indexOf(failing) + 1));
+          assert.equal(existsSync(preparedRoot), !dryRun);
+        }
+      }
+    }
+  } finally { rmSync(item.root, { recursive: true, force: true }); }
 });

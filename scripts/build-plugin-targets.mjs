@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 import { createHash } from "node:crypto";
-import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseDocument } from "yaml";
 
 export const defaultRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 export const publicSkills = ["auto-work", "correct-work", "engineering-work", "explain-work", "install-release", "learn-from-work", "plan-work", "review-work", "verification-work", "work-status", "workflow-doctor"];
@@ -15,26 +16,14 @@ function inside(base, path) {
   return item === "" || (item !== ".." && !item.startsWith(`..${sep}`));
 }
 
-function copyRegular(source, destination, projectRoot) {
-  const stat = lstatSync(source);
-  if (stat.isSymbolicLink()) throw new Error(`target source may not be a symlink: ${relative(projectRoot, source)}`);
-  if (stat.isDirectory()) {
-    mkdirSync(destination, { recursive: true, mode: stat.mode & 0o777 });
-    for (const entry of readdirSync(source).sort()) copyRegular(join(source, entry), join(destination, entry), projectRoot);
-    return;
-  }
-  if (!stat.isFile()) throw new Error(`target source must be a regular file: ${relative(projectRoot, source)}`);
-  mkdirSync(dirname(destination), { recursive: true });
-  writeFileSync(destination, readFileSync(source), { mode: stat.mode & 0o777 });
-  chmodSync(destination, stat.mode & 0o777);
-}
-
 export function files(directory) {
   if (lstatSync(directory).isSymbolicLink()) throw new Error(`package source may not be a symlink: ${directory}`);
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const path = join(directory, entry.name);
     if (entry.isSymbolicLink()) throw new Error(`package source may not be a symlink: ${path}`);
-    return entry.isDirectory() ? files(path) : [path];
+    if (entry.isDirectory()) return files(path);
+    if (!entry.isFile()) throw new Error(`package source must be a regular file: ${path}`);
+    return [path];
   }).sort();
 }
 
@@ -67,34 +56,48 @@ function sourceManifest(root, host) {
   return host === "cursor" ? join(root, manifestPaths[host]) : join(root, "targets", host, manifestPaths[host]);
 }
 
-function buildHost(root, destination, host, version) {
-  const manifest = JSON.parse(readFileSync(sourceManifest(root, host), "utf8"));
-  if (manifest.name !== "geldmacher-workflow" || manifest.version !== version) throw new Error(`${host} source manifest identity/version mismatch`);
-  if (manifest.hooks || manifest.mcpServers) throw new Error(`${host} manifest registers a removed runtime`);
-  copyRegular(sourceManifest(root, host), join(destination, manifestPaths[host]), root);
-  for (const name of ["assets", "references", ...packageDocs, "LICENSE", "THIRD_PARTY_NOTICES.md"]) copyRegular(join(root, name), join(destination, name), root);
-  const readme = host === "cursor" ? join(root, "README.md") : join(root, "targets", host, "README.md");
-  copyRegular(readme, join(destination, "README.md"), root);
-  const readmePath = join(destination, "README.md");
-  writeFileSync(readmePath, readFileSync(readmePath, "utf8").replaceAll("../../docs/", "docs/").replaceAll("../../skills/", "skills/"));
-  for (const skill of hostSkills(host)) {
-    const source = readFileSync(join(root, "skills", skill, "SKILL.md"), "utf8");
-    const instruction = hostInstruction(host, skill);
-    const output = instruction ? `${source.trimEnd()}\n\n${instruction}\n` : source;
-    const path = join(destination, "skills", skill, "SKILL.md");
-    mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, output);
-    const references = join(root, "skills", skill, "references");
-    if (existsSync(references)) copyRegular(references, join(destination, "skills", skill, "references"), root);
-  }
-  if (host === "cursor") copyRegular(join(root, "commands"), join(destination, "commands"), root);
-  const surface = {
-    schema: 1,
-    runtime_paths: [manifestPaths[host], "assets", ...(host === "cursor" ? ["commands"] : []), "references", "release-surface.json", "skills"].sort(),
-    package_extras: ["LICENSE", "README.md", "THIRD_PARTY_NOTICES.md", ...packageDocs].sort(),
+// One source-to-target inventory drives copying and exact target validation.
+export function packageEntries(root, host) {
+  if (!Object.hasOwn(manifestPaths, host)) throw new Error(`unsupported host: ${host}`);
+  const entries = [];
+  const add = (source, target = source, kind = "copy") => {
+    const absolute = join(root, source);
+    if (lstatSync(absolute).isDirectory()) {
+      for (const path of files(absolute)) entries.push({ source: path, target: join(target, relative(absolute, path)), kind });
+    } else entries.push({ source: absolute, target, kind });
   };
-  writeFileSync(join(destination, "release-surface.json"), `${JSON.stringify(surface, null, 2)}\n`);
-  files(destination);
+  add(relative(root, sourceManifest(root, host)), manifestPaths[host]);
+  for (const name of ["assets/logo.svg", "references", ...packageDocs, "LICENSE", "THIRD_PARTY_NOTICES.md"]) add(name);
+  add(host === "cursor" ? "README.md" : `targets/${host}/README.md`, "README.md", "readme");
+  for (const name of hostSkills(host)) {
+    add(`skills/${name}/SKILL.md`, `skills/${name}/SKILL.md`, "skill");
+    const references = `skills/${name}/references`;
+    if (existsSync(join(root, references))) add(references);
+    if (host === "cursor") add(`commands/${name}.md`, `commands/${name}.md`, "command");
+  }
+  return entries.sort((a, b) => a.target.localeCompare(b.target));
+}
+
+function prepareHost(root, host) {
+  return packageEntries(root, host).map(entry => {
+    const stat = lstatSync(entry.source);
+    if (stat.isSymbolicLink()) throw new Error(`target source may not be a symlink: ${relative(root, entry.source)}`);
+    if (!stat.isFile()) throw new Error(`target source must be a regular file: ${relative(root, entry.source)}`);
+    let content = readFileSync(entry.source, entry.kind === "copy" ? null : "utf8");
+    if (entry.kind === "readme") content = content.replaceAll("../../docs/", "docs/").replaceAll("../../skills/", "skills/");
+    if (entry.kind === "skill") {
+      const instruction = hostInstruction(host, entry.target.split(sep)[1]);
+      if (instruction) content = `${content.trimEnd()}\n\n${instruction}\n`;
+    }
+    if (entry.kind === "command") {
+      const name = entry.target.split(sep).at(-1).slice(0, -3);
+      const source = readFileSync(join(root, "skills", name, "SKILL.md"), "utf8");
+      const document = parseDocument(source.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? "");
+      if (document.errors.length || typeof document.toJS()?.description !== "string") throw new Error(`invalid skill metadata: ${name}`);
+      content = content.replace(/^description:.*$/m, () => `description: ${JSON.stringify(document.toJS().description)}`);
+    }
+    return { target: entry.target, content, mode: stat.mode & 0o777 };
+  });
 }
 
 export function buildPluginTargets(outputRoot = join(defaultRoot, ".build", "plugins"), root = defaultRoot) {
@@ -115,19 +118,34 @@ export function buildPluginTargets(outputRoot = join(defaultRoot, ".build", "plu
     const manifest = JSON.parse(readFileSync(sourceManifest(projectRoot, host), "utf8"));
     if (manifest.name !== "geldmacher-workflow" || manifest.version !== version || manifest.hooks || manifest.mcpServers) throw new Error(`${host} source manifest identity/version or registration mismatch`);
   }
+  // Finish source reads and transformations for every host before replacing prior output.
+  const prepared = Object.fromEntries(Object.keys(manifestPaths).map(host => [host, prepareHost(projectRoot, host)]));
   if (existsSync(destination)) rmSync(destination, { recursive: true });
   const result = { version };
   for (const host of Object.keys(manifestPaths)) {
     const path = join(destination, host, "geldmacher-workflow");
-    buildHost(projectRoot, path, host, version);
+    for (const entry of prepared[host]) {
+      const target = join(path, entry.target);
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, entry.content, { mode: entry.mode });
+      chmodSync(target, entry.mode);
+    }
     result[host] = { path, hash: contentDigest(path), files: files(path).length };
   }
   return result;
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+async function runCli() {
   const check = process.argv.includes("--check");
   const output = check ? mkdtempSync(join(tmpdir(), "workflow-target-check-")) : join(defaultRoot, ".build", "plugins");
-  try { console.log(JSON.stringify(buildPluginTargets(output), null, 2)); }
+  try {
+    const built = buildPluginTargets(output);
+    const { validateTarget } = await import("./validate-plugin.mjs");
+    const failures = Object.keys(manifestPaths).flatMap(host => validateTarget(built[host].path, host, built.version));
+    if (failures.length) throw new Error(failures.join("\n"));
+    console.log(JSON.stringify(built, null, 2));
+  }
   finally { if (check) rmSync(output, { recursive: true, force: true }); }
 }
+
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) runCli().catch(error => { console.error(error.message); process.exitCode = 1; });

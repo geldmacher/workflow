@@ -1,15 +1,14 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { realpathSync, existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, dirname, extname, join, relative, resolve, sep } from "node:path";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const ignoredDirectories = new Set([".git", "node_modules", ".build", ".tests"]);
 
 function files(directory) {
   const result = [];
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    if (entry.isDirectory() && ignoredDirectories.has(entry.name)) continue;
     const path = join(directory, entry.name);
     if (entry.isDirectory()) result.push(...files(path));
     else if ([".md", ".mdc"].includes(extname(path))) result.push(path);
@@ -19,10 +18,15 @@ function files(directory) {
 
 const slug = (heading) => heading.trim().toLowerCase().replace(/[`*_~]/g, "").replace(/[^\p{L}\p{N}\s-]/gu, "").replace(/\s+/g, "-").replace(/-+/g, "-");
 
-export function checkMarkdownLinks(pluginRoot = root) {
+export function checkMarkdownLinks(pluginRoot = root, { source = false } = {}) {
   const failures = [];
   const rootPath = resolve(pluginRoot);
-  for (const file of files(rootPath)) {
+  const selected = source
+    ? [...new Set(execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "-z"], { cwd: rootPath, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).split("\0").filter(Boolean))]
+      .map((path) => join(rootPath, path))
+      .filter((path) => [".md", ".mdc"].includes(extname(path)) && existsSync(path))
+    : files(rootPath);
+  for (const file of selected) {
     const text = readFileSync(file, "utf8");
     for (const match of text.matchAll(/!?\[[^\]]*\]\((<[^>]+>|[^)\s]+)(?:\s+["'][^"']*["'])?\)/g)) {
       let target = match[1].replace(/^<|>$/g, "");
@@ -48,7 +52,7 @@ export function checkMarkdownLinks(pluginRoot = root) {
 }
 
 function runCli() {
-  const failures = checkMarkdownLinks(root);
+  const failures = checkMarkdownLinks(root, { source: true });
   if (failures.length > 0) {
     console.error("Markdown link validation failed:");
     for (const failure of failures) console.error(`- ${failure}`);
@@ -58,4 +62,4 @@ function runCli() {
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) runCli();
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) runCli();

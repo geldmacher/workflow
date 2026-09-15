@@ -14,4 +14,4 @@ A source-only finding does not establish runtime behavior that has not been obse
 
 ## Result
 
-Lead with the answer or recommendation, then give the evidence and tradeoffs that support it. Distinguish observations, inferences, and unresolved questions. Use a comparison table only when it helps the decision; no fixed report structure is required.
+Lead with the answer or recommendation, then give the evidence and tradeoffs that support it. Distinguish observations, inferences, and unresolved questions. Choose a report structure that helps the decision, using a comparison table when useful.

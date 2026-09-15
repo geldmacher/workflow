@@ -3,22 +3,6 @@
   "version": "7.4.2",
   "private": true,
   "description": "Development and packaging for Workflow skills.",
-  "files": [
-    ".cursor-plugin",
-    "assets",
-    "CHANGELOG.md",
-    "commands",
-    "docs/behavior-validation.md",
-    "docs/installation.md",
-    "docs/manual-workflow.md",
-    "docs/release-checklist.md",
-    "LICENSE",
-    "README.md",
-    "references",
-    "release-surface.json",
-    "skills",
-    "THIRD_PARTY_NOTICES.md"
-  ],
   "engines": {
     "node": ">=22"
   },
@@ -29,13 +13,11 @@
     "link-check": "node scripts/check-markdown-links.mjs",
     "build:targets": "node scripts/build-plugin-targets.mjs",
     "check:targets": "node scripts/build-plugin-targets.mjs --check",
-    "check:agent-plugin": "node scripts/validate-agent-plugin.mjs --build",
-    "deploy:prepare": "npm run build:targets && npm run validate && npm run check:agent-plugin && node --test tests/plugin-targets.test.mjs tests/local-plugin-deploy.test.mjs",
+    "deploy:prepare": "npm run build:targets && npm run validate && node --test tests/plugin-targets.test.mjs tests/local-plugin-deploy.test.mjs",
     "deploy:status": "node scripts/local-plugin-deploy.mjs status",
     "deploy:local": "node scripts/local-plugin-deploy.mjs deploy",
     "release:plugin": "node scripts/plugin-github-release.mjs",
-    "release:surface": "node scripts/verify-release-surface.mjs",
-    "release-check": "npm run validate && npm run check:targets && npm run check:agent-plugin && npm test && npm run context-budget && npm run link-check && npm run release:surface"
+    "release-check": "npm run validate && npm run check:targets && npm test && npm run context-budget && npm run link-check"
   },
   "devDependencies": {
     "ajv": "^8.17.1",

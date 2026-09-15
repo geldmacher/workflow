@@ -5,7 +5,7 @@ description: Build, inspect, dry-run, or deploy the current repository's host-sp
 
 # Deploy Local Plugin
 
-Operate only on the current repository. Never search for or deploy sibling plugins, and never invent an `--all` mode.
+Operate only on the current repository using the documented commands and host options below.
 
 1. Confirm the current repository contains `package.json`, `.cursor-plugin/plugin.json`, and `scripts/local-plugin-deploy.mjs`.
 2. Treat an invocation without a requested action as a standard deployment. Map the user's request exactly:

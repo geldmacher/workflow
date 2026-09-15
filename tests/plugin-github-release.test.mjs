@@ -759,7 +759,13 @@ test("two production-target preparations from one clean release-cut snapshot are
       assert.ok(entries.some((entry) => entry.name === `${PLUGIN_NAME}/skills/review-work/SKILL.md`));
       assert.equal(zipEntryText(archivePath, `${PLUGIN_NAME}/skills/install-release/SKILL.md`), readFileSync(join(item.repository, "skills/install-release/SKILL.md"), "utf8"));
       assert.equal(entries.some((entry) => entry.name === `${PLUGIN_NAME}/commands/install-release.md`), host === "cursor");
-      if (host === "cursor") assert.equal(zipEntryText(archivePath, `${PLUGIN_NAME}/commands/install-release.md`), readFileSync(join(item.repository, "commands/install-release.md"), "utf8"));
+      if (host === "cursor") {
+        const command = zipEntryText(archivePath, `${PLUGIN_NAME}/commands/install-release.md`);
+        const skill = readFileSync(join(item.repository, "skills/install-release/SKILL.md"), "utf8");
+        const metadata = text => parseDocument(text.split("---")[1]).toJSON();
+        assert.equal(metadata(command).description, metadata(skill).description);
+        assert.equal(command.split("---").slice(2).join("---"), readFileSync(join(item.repository, "commands/install-release.md"), "utf8").split("---").slice(2).join("---"));
+      }
       assert.equal(entries.filter((entry) => !entry.name.endsWith("/")).length, first.provenance.targets[host].file_count);
       assert.ok(entries.every((entry) => !/\.(?:[cm]?js|py|sh)$/.test(entry.name)));
       assert.ok(entries.every((entry) => !entry.name.startsWith(`${PLUGIN_NAME}/.agents/`)));
@@ -1040,4 +1046,25 @@ test("post-create read-back mismatch fails without deleting or overwriting the r
   } finally {
     rmSync(item.fixtureRoot, { recursive: true, force: true });
   }
+});
+
+test("publication resolves annotated tags and rejects malformed remote hashes", () => {
+  const item = repositoryFixture();
+  try {
+    const prepared = prepareFixture(item);
+    const commit = prepared.provenance.source.commit_sha;
+    const tag = prepared.provenance.tag;
+    const stub = publicationRunner(prepared, { tagCommit: commit, views: [exactView(prepared), exactView(prepared)] });
+    const annotated = (command, args, options) => command === "git" && args[0] === "ls-remote"
+      ? { status: 0, stdout: `${"a".repeat(40)}\trefs/tags/${tag}\n${commit}\trefs/tags/${tag}^{}\n`, stderr: "" }
+      : stub.runner(command, args, options);
+    assert.doesNotThrow(() => publishRelease(prepared.receipt, {
+      root: item.repository, releaseRoot: join(item.fixtureRoot, "releases"), runner: annotated,
+    }));
+    const malformed = publicationRunner(prepared, { tagCommit: "invalid-hash" });
+    assert.throws(() => publishRelease(prepared.receipt, {
+      root: item.repository, releaseRoot: join(item.fixtureRoot, "releases"), runner: malformed.runner,
+    }), /remote tag.*(?:SHA|hex|hash)/i);
+    assert.equal(malformed.calls.some(([command, args]) => command === "gh" && args[1] === "create"), false);
+  } finally { rmSync(item.fixtureRoot, { recursive: true, force: true }); }
 });

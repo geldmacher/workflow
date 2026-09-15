@@ -13,12 +13,12 @@ Use `$auto-work` for an expressly commissioned Light or Dark sequence. Light is 
 Workflow also helps the project improve from one task to the next:
 
 - **Keep demonstrated lessons.** Implementation and correction carry reusable discoveries through the reports. Every review confirms applicable lessons and offers `learn-from-work`; when commissioned, it reconciles and saves them in project guidance or skills. Later planning reads and rechecks that knowledge.
-- **Keep verification aligned.** Planning reuses suitable checks and proactively offers verifier creation or maintenance for concrete gaps. Accepted verifier work becomes part of implementation, including a closing trial. `workflow-doctor` inspects readiness; `verification-work` handles inspection and commissioned creation or maintenance. There is no background maintenance service.
+- **Keep verification aligned.** Planning reuses suitable checks and proactively offers verifier creation or maintenance for concrete gaps. Accepted verifier work becomes part of implementation, including a closing trial. `workflow-doctor` inspects readiness; `verification-work` handles inspection and commissioned creation or maintenance.
 - **Choose a useful approach.** Planning offers relevant engineering playbooks, such as `bug-fix`, `feature`, or `performance`, with a recommendation and an option to use none. Only selected methods enter the plan; playbook and verifier offers are independent.
 
 See [learning across reviews](../../docs/manual-workflow.md#learning-across-reviews), [verification in the process](../../docs/manual-workflow.md#verification-in-the-process), and the [playbook catalog](../../skills/engineering-work/references/catalog.md).
 
-The package contains skills and reference documents. It requires no Workflow runtime, Node executable, hooks, or MCP support. Your host controls permissions and execution.
+The package contains skills and reference documents. Your host controls permissions and execution.
 
 [Installation](../../docs/installation.md) · [Working guide](../../docs/manual-workflow.md)
 

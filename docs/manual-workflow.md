@@ -2,7 +2,7 @@
 
 In manual work, Plan → Implement → Review → Correct → Review is a sequence of separately commissioned phases. Alternatively, expressly commission [Auto-Work](../skills/auto-work/SKILL.md) to run the sequence within one assignment. The manual phase endings and examples below apply to standalone invocations; Auto-Work returns phase reports to its loop and follows its Light or Dark acceptance rules. The human-readable documents are the shared reference. Use the user's language and as much structure as the task needs.
 
-Each phase ends with its result and the human's next useful action. Explain why that action matters when it is not obvious. Small tasks need a short answer; longer results benefit from headings or lists that fit their content. Use familiar terms and keep evidence beside the claim it supports. There is no fixed response template or extra summary to fill in.
+Each phase ends with its result and the human's next useful action. Explain why that action matters when it is not obvious. Small tasks need a short answer; longer results benefit from headings or lists that fit their content. Use familiar terms and keep evidence beside the claim it supports.
 
 ## Plan and implementation
 
@@ -24,7 +24,7 @@ For missing proof, name the check and a permitted way to collect it. The human c
 
 ## Handoff
 
-Keep the approved plan and reports in the native task. A new task receives the approved plan version, human assignment, useful implementation and review reports, current repository state, unresolved decisions, next action, and the complete compact content of every open learning candidate with evidence references. Retain accessible outcomes for integrated or retired lessons, including reasons and successors. A reference to "earlier learnings" alone is insufficient. Use accessible native references for supporting documents or include their relevant text when unavailable to the recipient. A descriptive title and task reference may identify the version; no fixed identifier or metadata block is required.
+Keep the approved plan and reports in the native task. A new task receives the approved plan version, human assignment, useful implementation and review reports, current repository state, unresolved decisions, next action, and the complete compact content of every open learning candidate with evidence references. Retain accessible outcomes for integrated or retired lessons, including reasons and successors. A reference to "earlier learnings" alone is insufficient. Use accessible native references for supporting documents or include their relevant text when unavailable to the recipient. A descriptive title and task reference may identify the version.
 
 An executor compares the handoff with the current repository. Missing plan versions, contradictory assignments, or stale observations call for precise clarification before dependent work. An earlier agent's confidence is not human authorization. Previous technical artifacts do not resume a workflow; start from a clear assignment under the current method.
 
@@ -34,7 +34,7 @@ Learning makes demonstrated project knowledge available to the next task. Instea
 
 The process is: capture during implementation and correction, confirm and offer during Review, save through an explicitly commissioned `learn-from-work`, then consult and recheck the saved guidance in later planning. You do not need to request candidate collection separately. Accepting the learning offer is what authorizes saving; Auto-Work does not include that permission by default.
 
-Implementation and correction capture reusable insights with their future benefit, evidence, scope and conditions, proposed change, and destination. Every subsequent phase report and handoff carries all open candidates, including those offered but not taken up. The collection lives in the existing task documents; there is no separate log or required layout. Missing earlier reports or evidence remain an explicit gap, not a reconstructed history.
+Implementation and correction capture reusable insights with their future benefit, evidence, scope and conditions, proposed change, and destination. Every subsequent phase report and handoff carries all open candidates, including those offered but not taken up. The collection lives in the existing task documents. Missing earlier reports or evidence remain an explicit gap, not a reconstructed history.
 
 Every Review checks inherited and new candidates against current work and offers all independently confirmed, applicable lessons together. An overall judgment of corrections needed does not prevent an offer supported by the lesson's own evidence. Necessary corrections and missing proof remain prominent. No eligible lessons means no offer; learning never becomes a required completion step. Status and explanation describe documented learning when relevant without renewing offers.
 
@@ -60,7 +60,7 @@ A verifier preserves a practical recipe for exercising product behavior: prerequ
 
 Planning automatically considers whether existing coverage fits the affected behavior. It reuses suitable checks directly and offers creation or maintenance for a concrete gap. Once accepted and commissioned for implementation, that verifier work runs alongside the product changes and ends with a trial when both are ready. Review checks the accepted scope, actual coverage, and retained evidence. Later plans can detect further drift and offer another update.
 
-This makes maintenance part of accepted implementation work, rather than a follow-up the human must remember to invoke. It is not continuous background maintenance or permission to edit verifiers without an assignment. Existing approval for the same scope is preserved. Default maintenance covers affected features; `maintain full` requires an explicit assignment for the agreed full map. A verifier defect can be corrected within that scope; a product regression must be reported and must not be hidden by weakening the expected result.
+This makes maintenance part of accepted implementation work, rather than a follow-up the human must remember to invoke. Verifier edits require the accepted implementation or correction assignment. Existing approval for the same scope is preserved. Default maintenance covers affected features; `maintain full` requires an explicit assignment for the agreed full map. A verifier defect can be corrected within that scope; a product regression must be reported and must not be hidden by weakening the expected result.
 
 ### Selection and execution
 

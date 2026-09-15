@@ -1,11 +1,10 @@
 import assert from 'node:assert/strict';
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { tmpdir } from 'node:os';
 import test from 'node:test';
-import { buildPluginTargets, defaultRoot, files } from '../scripts/build-plugin-targets.mjs';
+import { buildPluginTargets, files } from '../scripts/build-plugin-targets.mjs';
 import { validateTarget } from '../scripts/validate-plugin.mjs';
-import { measureContext } from '../scripts/measure-context.mjs';
 import { prepareFixture, inspectFixture, deliverFixture, cleanupFixture, correctSource } from '../.agents/skills/verify-auto-work/scripts/fixture.mjs';
 
 test('Auto-Work references close over every package without shipping the project verifier', () => {
@@ -20,32 +19,6 @@ test('Auto-Work references close over every package without shipping the project
       assert.deepEqual(validateTarget(root, host, built.version), []);
       rmSync(join(root, 'references/implementation-work.md'));
       assert.ok(validateTarget(root, host, built.version).some(error => error.includes('implementation-work.md')));
-    }
-  } finally { rmSync(parent, { recursive: true, force: true }); }
-});
-
-test('Auto-Work context isolates delivery and counts shared execution instructions once', () => {
-  const parent = mkdtempSync(join(tmpdir(), 'workflow-auto-context-'));
-  try {
-    const root = join(parent, 'source');
-    cpSync(defaultRoot, root, { recursive: true, filter: path => !['.git', '.build', 'node_modules'].includes(relative(defaultRoot, path).split(/[\\/]/)[0]) });
-    const before = measureContext(root);
-    for (const target of Object.values(before.targets)) {
-      const { entry, light, dark, delivery } = target.autoWorkFlows;
-      assert.deepEqual(light, dark);
-      assert.equal(light.totalTokens, entry.tokens + light.tokens);
-      assert.equal(new Set([...entry.documents, ...light.documents]).size, entry.documents.length + light.documents.length);
-      assert.ok(light.documents.includes('references/implementation-work.md'));
-      assert.ok(!light.documents.some(path => path.endsWith('/delivery.md')));
-      assert.ok(delivery.documents.some(path => path.endsWith('/delivery.md')));
-    }
-    const path = join(root, 'skills/auto-work/references/delivery.md');
-    writeFileSync(path, readFileSync(path, 'utf8') + 'x'.repeat(400));
-    const after = measureContext(root);
-    for (const host of Object.keys(before.targets)) {
-      assert.deepEqual(after.targets[host].flows, before.targets[host].flows);
-      assert.deepEqual(after.targets[host].autoWorkFlows.light, before.targets[host].autoWorkFlows.light);
-      assert.equal(after.targets[host].autoWorkFlows.delivery.totalTokens - before.targets[host].autoWorkFlows.delivery.totalTokens, 100);
     }
   } finally { rmSync(parent, { recursive: true, force: true }); }
 });

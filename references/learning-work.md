@@ -1,6 +1,6 @@
 # Learning across the workflow
 
-Keep learning in the native task's existing reports and handoffs. Reading this guidance, recording candidates, or offering learning does not commission it. Do not create a separate log, state engine, or required document format.
+Keep learning in the native task's existing reports and handoffs. Reading this guidance, recording candidates, or offering learning does not commission it.
 
 Capture reusable insights from the work, including successful corrections and diagnosis. For each candidate, explain the lesson, future benefit, supporting observations, scope and conditions, and proposed change with its destination. Use recognizable names, not formal IDs. Keep unconfirmed candidates distinct from review-confirmed lessons; a one-off observation is not a permanent rule.
 
