@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 7.4.3
+
 - Describe current skill, reporting, and host behavior directly; remove obsolete exclusions and keep documentation aligned when capabilities are removed.
 
 - Execute development CLIs through physical path aliases, remove unused compatibility remnants, and share package safety and remote-tag checks.
