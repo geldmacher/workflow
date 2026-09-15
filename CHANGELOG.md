@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 7.4.4
+
+- Clarify skill descriptions and task boundaries so Codex and Cursor can select Workflow skills from natural-language requests without starting unrequested phases.
+- Keep existing repository reports and check logs unchanged unless their modification is commissioned.
+- Document matching requests, likely misroutes, and native selection trials; verify discovery accounting without increasing context budgets.
+- Improve repository-only trial guidance for CLI/model compatibility and nested macOS sandbox diagnosis.
+
 ## 7.4.3
 
 - Describe current skill, reporting, and host behavior directly; remove obsolete exclusions and keep documentation aligned when capabilities are removed.
