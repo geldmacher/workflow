@@ -4,6 +4,16 @@ In manual work, Plan → Implement → Review → Correct → Review is a sequen
 
 Each phase ends with its result and the human's next useful action. Explain why that action matters when it is not obvious. Small tasks need a short answer; longer results benefit from headings or lists that fit their content. Use familiar terms and keep evidence beside the claim it supports.
 
+## Choosing a skill
+
+Codex and Cursor can select a skill from its name and description when the request matches its task. Natural language is enough: "Create an implementation plan for the CSV export" requests planning, and "Fix the findings from this review" requests correction. To choose a skill directly, use `$skill-name` in Codex or `/skill-name` in Cursor. Explicit invocation still follows the current assignment and host permissions.
+
+Ask "Do our checks cover this change?" for verification readiness, or "Update our export verifier instructions" for work on a concrete verifier. Ordinary test execution does not need an additional verifier-management phase. "Explain this review finding" requests an explanation; "What is complete and what remains?" requests documented status. Neither starts a fresh Review.
+
+A request to implement an approved plan uses native implementation in Codex and Cursor. It does not commission Auto-Work. Request the sequence explicitly, for example "Use Light Auto-Work to plan, implement, independently review, and correct this change." A request for suitable engineering methods permits recommendations; applying a playbook requires its selection. Saving reviewed lessons needs its own request.
+
+Workflow uses native skill discovery without additional always-applied rules or a plugin `AGENTS.md` bootstrap. Instructions and relevant references load with the selected skill; conditional references are read only when needed. Discovery does not authorize another phase or replace missing task context.
+
 ## Plan and implementation
 
 A useful plan explains the goal and benefit, observable success criteria, scope and exclusions, important decisions, dependencies, risks, and appropriate checks. Read relevant saved project lessons and check their current applicability. Investigate until those decisions, key interfaces, and checks are clear enough for implementation. Technical details are welcome when they remove ambiguity; routine choices stay with the executor. Significant product and permission decisions must be settled before implementation. A clear assignment needs no interview. The human next checks the plan and starts its implementation.

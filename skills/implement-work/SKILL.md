@@ -1,6 +1,6 @@
 ---
 name: implement-work
-description: Implement an approved plan within the current assignment.
+description: "Implement an approved plan within the current assignment."
 ---
 
 # implement-work

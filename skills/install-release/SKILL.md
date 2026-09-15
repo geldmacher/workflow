@@ -1,6 +1,6 @@
 ---
 name: install-release
-description: Install or update Workflow from its latest stable GitHub Release for Cursor or Codex.
+description: "Install or update Workflow from its latest stable GitHub Release for Cursor or Codex."
 ---
 
 # Install Workflow Release

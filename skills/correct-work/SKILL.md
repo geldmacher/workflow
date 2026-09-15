@@ -1,11 +1,11 @@
 ---
 name: correct-work
-description: Fix commissioned review findings within the approved scope.
+description: "Fix requested review findings within the approved plan."
 ---
 
 # correct-work
 
-Read the [working agreement](../../references/workflow.md). Read the applicable plan, latest relevant review, and human correction instruction or expressly commissioned Auto-Work assignment with remaining correction budget. Identify the commissioned findings and their expected fixes and rechecks. Compare them with the current repository; resolve stale or conflicting instructions before dependent changes.
+Read the [working agreement](../../references/workflow.md). A natural-language request to fix review findings suffices; an unrelated bug report does not select this review-correction phase. Read the applicable plan, latest relevant review, and human correction instruction or expressly commissioned Auto-Work assignment with remaining correction budget. Identify the commissioned findings and their expected fixes and rechecks. Compare them with the current repository; resolve stale or conflicting instructions before dependent changes.
 
 Correct the named defects within the approved scope and preserve unrelated changes. Investigate routine technical details yourself. Do not broaden the goal, modify protected work without permission, weaken tests to hide a defect, or treat an unrelated improvement as part of the assignment.
 

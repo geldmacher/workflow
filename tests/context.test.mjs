@@ -4,6 +4,7 @@ import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync }
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import test from "node:test";
+import { parse } from "yaml";
 import { buildPluginTargets, defaultRoot } from "../scripts/build-plugin-targets.mjs";
 import { measureContext, formatContext } from "../scripts/measure-context.mjs";
 
@@ -38,6 +39,37 @@ test("context covers packaged instructions once, including required planning and
       assert.ok(!scenarios.autoWork.documents.includes("skills/auto-work/references/delivery.md"));
       assert.ok(scenarios.autoWorkDelivery.documents.includes("skills/auto-work/references/delivery.md"));
       assert.ok(!scenarios.verificationCreation.documents.includes("skills/verification-work/references/maintain.md"));
+    }
+  } finally { rmSync(item.parent, { recursive: true, force: true }); }
+});
+
+test("discovery counts parsed descriptions per host entry and ignores skill body growth", () => {
+  const item = fixture();
+  try {
+    const path = join(item.root, "skills/auto-work/SKILL.md");
+    const source = readFileSync(path, "utf8");
+    const description = parse(source.match(/^---\n([\s\S]*?)\n---/)[1]).description;
+    const before = measureContext(item.root);
+    // YAML quoting and instruction text are not part of the advertised description.
+    const bodyOnly = source.replace(/^description:.*$/m, `description: '${description.replaceAll("'", "''")}'`) + "\n" + "body ".repeat(80);
+    writeFileSync(path, bodyOnly);
+    const afterBody = measureContext(item.root);
+    for (const host of Object.keys(before.targets)) {
+      assert.deepEqual(afterBody.targets[host].discovery, before.targets[host].discovery);
+    }
+
+    // Eight advertised characters add two estimated tokens per entry, regardless of rounding.
+    writeFileSync(path, bodyOnly.replace(/^description:.*$/m, `description: ${JSON.stringify(description + "12345678")}`));
+    const afterDescription = measureContext(item.root);
+    for (const [host, delta] of [["cursor", 4], ["codex", 2], ["agent-plugins", 2]]) {
+      assert.equal(afterDescription.targets[host].discovery.tokens - before.targets[host].discovery.tokens, delta);
+    }
+
+    writeFileSync(path, source.replace(/^description:.*$/m, `description: ${JSON.stringify("x".repeat(4000))}`));
+    const overflow = measureContext(item.root);
+    for (const host of Object.keys(before.targets)) {
+      assert.ok(overflow.failures.some(message => message.startsWith(`${host} discovery:`)));
+      assert.equal(overflow.targets[host].discovery.limit, before.targets[host].discovery.limit);
     }
   } finally { rmSync(item.parent, { recursive: true, force: true }); }
 });

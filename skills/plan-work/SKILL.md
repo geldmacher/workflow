@@ -1,11 +1,11 @@
 ---
 name: plan-work
-description: Plan repository work when the user asks for an implementation plan.
+description: "Create an implementation plan when repository planning is requested."
 ---
 
 # plan-work
 
-Read the [working agreement](../../references/workflow.md). Inspect the repository and applicable saved project lessons, checking their current relevance, before asking questions it can answer. Planning is read-only; verification inspection does not start the product.
+Read the [working agreement](../../references/workflow.md). A natural-language request for an implementation plan selects planning; routine reasoning within implementation does not start a separate planning phase. Inspect the repository and applicable saved project lessons, checking their current relevance, before asking questions it can answer. Planning is read-only; verification inspection does not start the product.
 
 Stop investigating once the goal, boundaries, key interfaces, and suitable checks are clear enough for implementation. Ask about consequential human choices with a reasoned recommendation. A clear assignment needs no interview or advance design of routine implementation details.
 

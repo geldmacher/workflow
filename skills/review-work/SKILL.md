@@ -1,11 +1,11 @@
 ---
 name: review-work
-description: Assess the applicable plan and current work without repository changes.
+description: "Review implementation or corrections against the plan and acceptance criteria, read-only."
 ---
 
 # review-work
 
-Read the [working agreement](../../references/workflow.md). Identify the applicable plan, implementation or correction report, and current working state. A delegated Auto-Work review follows the same rubric; return its result to the executor without requiring the human to change host modes.
+Read the [working agreement](../../references/workflow.md). Use for a requested assessment of implementation or corrections, not merely an explanation of existing findings or a progress summary. Identify the applicable plan, implementation or correction report, and current working state. A delegated Auto-Work review follows the same rubric; return its result to the executor without requiring the human to change host modes.
 
 Remain repository-read-only, including tracked and untracked files. Select inspections and tests whose effects are permitted; put any permitted transient outputs outside the repository. If a necessary check would mutate the repository or cross another permission boundary, record the missing evidence. Do not fix code, tests, documents, or verifiers during Review.
 

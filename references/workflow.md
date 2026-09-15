@@ -4,7 +4,7 @@ Humans commission phases separately or expressly commission an [Auto-Work sequen
 
 Follow the applicable plan: human-approved in standalone work and Light, or prepared within a commissioned Dark goal. Material changes to goals, acceptance, authority, or consequential choices need a human decision. Preserve existing approvals; routine technical choices belong to the executor.
 
-Keep plans and reports in the native task. Handoffs carry the plan, assignment, current state, evidence, open decisions, next action, and complete learning collection through accessible references or supplied text. Never invent missing approval or history.
+Keep plans and reports in the native task. Existing repository reports and check logs are inputs; change them only when the assignment includes those files. Handoffs carry the plan, assignment, current state, evidence, open decisions, next action, and complete learning collection through accessible references or supplied text. Never invent missing approval or history.
 
 When learning arises or is inherited, follow [learning guidance](learning-work.md). Keep every open candidate and its evidence through subsequent reports. Status does not renew offers.
 

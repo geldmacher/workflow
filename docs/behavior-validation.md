@@ -34,6 +34,31 @@ Walk through these situations against [install-release](../skills/install-releas
 | Directory replacement succeeds but Marketplace writing or read-back fails. | Restore the previous source and affected catalog state using the retained backup, preserving concurrent changes. If recovery fails, name the remaining paths and recovery action; never claim successful installation. |
 | The verified source is ready but Cursor has not reloaded or Codex still needs restart and Plugins Directory interaction. | Report the completed file work and exact pending activation steps. Keep the backup; do not restart the active host or infer activation from files, a version string, or the running task. |
 
+## Skill selection
+
+Use the [selection guidance](manual-workflow.md#choosing-a-skill) and built skill descriptions for this walkthrough. Each positive request assumes the necessary plan, assignment, reports, and repository evidence are supplied. Missing context must stay visible; selecting a skill does not invent approval. Check these distinctions in both host packages, including the Cursor command aliases. The portable package also includes `implement-work`.
+
+| Skill | Matching request | Boundary or likely misroute |
+|---|---|---|
+| `plan-work` | "Create an implementation plan for the CSV export." | "Implement this approved plan" does not start a separate planning phase. |
+| `review-work` | "Review the implementation against the approved plan." | "Explain this existing review finding" requests explanation, not a fresh judgment. |
+| `correct-work` | "Fix the missing escaping identified in this review." | An unrelated bug report is not a commissioned review correction. |
+| `auto-work` | "Use Light Auto-Work to plan, implement, independently review, and correct this change." | Ordinary implementation or bug-fix requests do not commission the sequence. |
+| `engineering-work` | "Recommend a suitable engineering playbook for this task." | A recommendation does not select a playbook; a method keyword in code is not a request to apply it. |
+| `workflow-doctor` | "Do our existing checks cover this change?" | Assess readiness without running the product or editing verifier instructions. |
+| `verification-work` | "Update the instructions for our export verifier." | Routine test execution needs no verifier-management skill; task-level coverage questions use Doctor. |
+| `explain-work` | "Explain why this review finding matters." | General code explanations need no Workflow phase; progress summaries use Status. |
+| `work-status` | "What is complete and what remains in this task?" | Summarize available reports without a fresh Review or restarting an active Auto-Work assignment. |
+| `learn-from-work` | "Save these review-confirmed lessons in the project guidance." | Noticing a lesson, offering learning, or requesting a lesson summary does not authorize saving. |
+| `install-release` | "Update Workflow to its latest stable release for Cursor." | Publishing a release, deploying a development checkout, or updating another product is outside this skill. |
+| `implement-work` (portable only) | "Implement this approved plan." | Codex and Cursor use native implementation; do not route to an unavailable skill or infer Auto-Work. |
+
+For commissioned native selection trials, use a fresh isolated workspace and session per request. Load the built Cursor package with the local CLI's supported `--plugin-dir`; stage the built Codex skills and their relative references under the fixture's `.agents` directory. Keep the observer's expected answers and this table outside the subject workspace. Do not explicitly invoke or name the expected skill in the subject prompt. Supply realistic raw task context and inspect actual skill reads and first actions, not just a final claim about which skill was used.
+
+Run the readiness, verifier-update, review, explanation, status, and approved-implementation cases in both hosts. Keep work bounded to owned fixture files, use the host's read restrictions for read-only cases, and retain raw events, final messages, and before/after file evidence outside the repository. Record host versions, the candidate package digest, visible skill inventory when available, and any competing installed skills or instructions that limit attribution. Clean only owned fixture workspaces after preserving evidence.
+
+Report each outcome as observed selection, observed misroute, or unavailable evidence. Staging Codex skills proves the exercised local skill-discovery path, not installed-plugin activation. A Cursor CLI trial does not establish IDE behavior. Missing access, a timeout, or a failed necessary action remains an open acceptance item. Neither this walkthrough nor the instruction-size estimate establishes statistically reliable selection rates or runtime savings.
+
 ## Clarity, transitions, and proportionate work
 
 When agent runs are not commissioned, inspect these situations against the linked instructions and the [English examples](manual-workflow.md#examples-of-clear-phase-endings). Record the passages inspected, any gaps, and the working state outside the repository. This is a content walkthrough, not observed agent behavior, human UX acceptance, or a runtime comparison. For later agent exercises, give the executor only the task and raw evidence, without the expected result.

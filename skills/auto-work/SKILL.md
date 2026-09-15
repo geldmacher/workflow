@@ -1,11 +1,11 @@
 ---
 name: auto-work
-description: Run requested Auto-Work.
+description: "Run explicitly requested Light or Dark Auto-Work: plan, implement, independently review, correct."
 ---
 
 # auto-work
 
-Read the [working agreement](../../references/workflow.md) and [operating rules](references/operation.md). Resolve one human assignment: goal or applicable plan, scope, mode, correction limit, and any explicitly commissioned delivery steps and destinations. Use natural-language instructions. Default a new assignment to Light and three correction rounds; preserve the documented mode and consumed rounds when resuming. Ordinary implementation requests do not commission Auto-Work.
+Read the [working agreement](../../references/workflow.md) and [operating rules](references/operation.md). Resolve one human assignment: goal or applicable plan, scope, mode, correction limit, and any explicitly commissioned delivery steps and destinations. A natural-language request for this sequence suffices; ordinary implementation or bug-fix requests do not commission Auto-Work. Default a new assignment to Light and three correction rounds; preserve the documented mode and consumed rounds when resuming.
 
 Inspect the repository, inherited reports, and actual native delegation capabilities before starting. Identify missing prerequisites early. Use a fresh separate native reviewer for every review; missing delegation prevents crossing the review boundary, never authorizes self-review. Inherit model settings, use available host read restrictions, and do not install agents or change host configuration.
 
