@@ -1,5 +1,7 @@
 # Behavioral validation
 
+This guide is for contributors checking how Workflow skills behave after a change. For everyday use, start with the [working guide](manual-workflow.md). Each scenario below describes a task to try and the outcome to inspect; it is not a record of a completed test.
+
 Packaging and frontmatter checks do not prove that skills make good decisions. Exercise the built package in an isolated temporary repository using the following tasks and judge observable outcomes rather than exact wording. Give a receiving executor only the skill, assignment, and necessary raw documents. Do not reveal the expected findings in its prompt.
 
 | Exercise | Task and observation |

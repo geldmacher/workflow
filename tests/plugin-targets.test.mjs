@@ -89,7 +89,7 @@ test("methodology provenance stays in the repository while license notices and p
       assert.equal(existsSync(join(packageRoot, provenance)), false);
       assert.equal(existsSync(join(packageRoot, "docs/future-methodology.md")), false);
       assert.equal(readFileSync(join(packageRoot, "THIRD_PARTY_NOTICES.md"), "utf8"), notice);
-      for (const name of ["behavior-validation.md", "installation.md", "manual-workflow.md", "release-checklist.md"]) {
+      for (const name of ["auto-work.md", "project-improvement.md", "behavior-validation.md", "installation.md", "manual-workflow.md", "release-checklist.md"]) {
         assert.deepEqual(readFileSync(join(packageRoot, "docs", name)), readFileSync(join(root, "docs", name)));
       }
       for (const path of files(packageRoot).filter((path) => /\.mdc?$/.test(path))) {

@@ -1,20 +1,65 @@
-# Installing Workflow from a GitHub Release
+# Install Workflow
+
+Install Workflow in Cursor or Codex, then start a fresh task to use its skills. You do not need a repository checkout, Node.js, or npm.
+
+## Install from your harness
+
+Here, **host** means the coding environment you use: Cursor or Codex. Both installation targets support macOS, Linux, and Windows.
+
+### First installation
+
+Open your host in a mode that can make changes and paste:
+
+> Install the latest stable Workflow release from https://github.com/geldmacher/workflow/releases/latest for my current host. Read the install-release skill and its linked installation instructions from the matching release tag, then perform the installation.
+
+Your agent finds one stable release, checks its download, and prepares the plugin for your current host. It reports the selected version, what changed, and any activation steps you still need to take. You do not need to install a separate skill first.
+
+The prompt needs a published release containing `install-release`. If the selected tag does not contain it, the agent must explain that limitation. The [technical instructions](#technical-installation-reference) below also describe manual installation.
+
+### Update an existing installation
+
+Use `/install-release` in Cursor or `$install-release` in Codex. The agent compares the release with the existing installation, keeps a recoverable backup before an applicable update, and preserves unrelated settings. An identical source needs no replacement, but activation may still need attention.
+
+If you have local edits, a development version, or a newer version, the agent reports the difference before replacing anything. You can ask for an explanation or inspection instead; that does not authorize installation.
+
+### Activate in Cursor
+
+After file installation, reload Cursor and start a fresh task. Check that the expected Workflow skills are available, for example `/plan-work`. See [Cursor details and rollback](#cursor) for paths and recovery.
+
+### Activate in Codex
+
+After the agent prepares the plugin source and personal Marketplace entry:
+
+1. Fully quit and restart the desktop app; closing its window is insufficient.
+2. In **Plugins Directory**, open **Geldmacher Plugins**, or your existing personal Marketplace's display name, and install or refresh Workflow.
+3. Confirm that the installed copy matches the selected release using the [Codex verification steps](#codex).
+4. Start a new task and check that Workflow skills such as `$plan-work` are available.
+
+The agent leaves required restarts to you. Copying files alone does not activate the plugin. Codex runs its installed cache copy, which the host's installation interface must refresh.
+
+### If installation cannot finish
+
+| What you see | What to do next |
+|---|---|
+| Missing network access, file permission, or a required tool | Resolve the reported prerequisite before retrying; the agent must not silently bypass it. |
+| A checksum, archive, or release-identity mismatch | Leave the current installation intact and resolve the failed verification. |
+| A local change, newer version, or uncertain existing installation | Review the reported difference and decide which installation to keep. |
+| Files installed, but skills still unavailable | Complete the activation steps above and check the installed copy in a fresh task. |
+| An interrupted replacement or registration | Follow the reported recovery paths; retain backups until recovery is confirmed. |
+
+Your agent needs GitHub access, download and JSON-reading tools, SHA-256 hashing, ZIP inspection and extraction, and permission to write the selected plugin location. Available shell tools or PowerShell/.NET can provide these; GitHub CLI is optional. Missing tools or permissions must be reported, not installed or changed automatically. Other hosts are not supported installation targets.
+
+Once activated, follow the [working guide](manual-workflow.md) or try [Light Auto-Work](auto-work.md#start-with-a-concrete-task).
+
+## Technical installation reference
+
+The following sections are the detailed installation procedure, also read by the `install-release` skill. Executors must follow release selection, verification, safe replacement, and the selected host's steps before claiming installation.
+
+Read the skill and linked instructions from the selected release tag through GitHub's file or raw-content interface, not from `main`. Keep that same tag throughout the run. Do not require an unavailable skill command or install another plugin as a bootstrap.
 
 Workflow installs as a host-specific package of skills and reference documents. Replace whole package directories when updating; old package files must not remain mixed into the new version.
 
 Each Workflow GitHub Release contains separate packages for Cursor and Codex. Download only the archive for the intended host plus `SHA256SUMS` and `provenance.json` from the [latest GitHub Release](https://github.com/geldmacher/workflow/releases/latest). You do not need the other host archive or `RELEASE_NOTES.md` to verify this selected download. Do not install an archive until both the selected archive and `provenance.json` match their entries in `SHA256SUMS`.
-
-## Install from your harness
-
-Invoke `/install-release` in Cursor or `$install-release` in Codex to request installation or update of Workflow for that host. Both support macOS, Linux, and Windows. Use the host's execution mode for installation; an explanation, inspection, or planning request remains read-only.
-
-For first installation or a version without the skill, paste this prompt into the harness:
-
-> Installiere das neueste stabile Workflow-Release aus https://github.com/geldmacher/workflow/releases/latest für meinen aktuellen Harness. Lies dazu den Skill install-release und seine verlinkten Installationsanweisungen aus dem zugehörigen Release-Tag und führe die Installation aus.
-
-Resolve the release as described below, then read `skills/install-release/SKILL.md` and its relative links from that same tag through GitHub's file or raw-content interface. Do not require the unavailable skill command, install a separate skill first, or read instructions from `main`. If the published tag does not contain this skill yet, explain that the bootstrap needs a release containing it; this guide still describes manual installation.
-
-No checkout, build, Node.js, npm, or extra plugin is required. The executor needs network access to GitHub, a download tool, JSON reading, SHA-256 hashing, ZIP metadata inspection and extraction, and permission to write the selected personal plugin location. Use available native tools, such as shell utilities on macOS/Linux or PowerShell/.NET on Windows. GitHub CLI is optional; public GitHub HTTPS endpoints also work without it. If the host cannot provide a required operation, explain the missing prerequisite instead of claiming installation. Do not install system tools or change permission settings automatically.
 
 ## Select one release and host
 

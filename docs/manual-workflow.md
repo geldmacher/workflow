@@ -1,133 +1,136 @@
 # Working with Workflow
 
-In manual work, Plan → Implement → Review → Correct → Review is a sequence of separately commissioned phases. Alternatively, expressly commission [Auto-Work](../skills/auto-work/SKILL.md) to run the sequence within one assignment. The manual phase endings and examples below apply to standalone invocations; Auto-Work returns phase reports to its loop and follows its Light or Dark acceptance rules. The human-readable documents are the shared reference. Use the user's language and as much structure as the task needs.
+Workflow turns a development task into a clear sequence: **plan → implement → review → correct if needed → review again**. A skill is a set of instructions your coding agent uses for one of these jobs.
 
-Each phase ends with its result and the human's next useful action. Explain why that action matters when it is not obvious. Small tasks need a short answer; longer results benefit from headings or lists that fit their content. Use familiar terms and keep evidence beside the claim it supports.
+You can request each step yourself, or ask [Auto-Work](auto-work.md) to run the sequence. In either case, the plan and reports stay in your task, so you can see what was agreed, what happened, and what comes next.
+
+New here? Start with [installation](installation.md), then follow the CSV-export example below. To explore optional help, see [project knowledge, checks, and methods](project-improvement.md).
 
 ## Choosing a skill
 
-Codex and Cursor can select a skill from its name and description when the request matches its task. Natural language is enough: "Create an implementation plan for the CSV export" requests planning, and "Fix the findings from this review" requests correction. To choose a skill directly, use `$skill-name` in Codex or `/skill-name` in Cursor. Explicit invocation still follows the current assignment and host permissions.
+You can use ordinary language, such as “Create an implementation plan for CSV export.” To select a skill directly, use `$skill-name` in Codex or `/skill-name` in Cursor. Other compatible clients use the skill name without a prefix.
 
-Ask "Do our checks cover this change?" for verification readiness, or "Update our export verifier instructions" for work on a concrete verifier. Ordinary test execution does not need an additional verifier-management phase. "Explain this review finding" requests an explanation; "What is complete and what remains?" requests documented status. Neither starts a fresh Review.
+| What you want | Skill or action |
+|---|---|
+| Plan a change | `plan-work` |
+| Implement an approved plan | Native **Implement Plan** in Cursor/Codex; `implement-work` in portable clients |
+| Run planning, implementation, review, and correction together | `auto-work` |
+| Check the result against the plan | `review-work` |
+| Fix findings from a review | `correct-work` |
+| Understand a finding or decision | `explain-work` |
+| See what is done and what remains | `work-status` |
+| Save reviewed project lessons | `learn-from-work` |
+| Find a suitable working method | `engineering-work` |
+| Check whether verification is ready | `workflow-doctor` |
+| Inspect, create, or update reusable verification instructions | `verification-work` |
 
-A request to implement an approved plan uses native implementation in Codex and Cursor. It does not commission Auto-Work. Request the sequence explicitly, for example "Use Light Auto-Work to plan, implement, independently review, and correct this change." A request for suitable engineering methods permits recommendations; applying a playbook requires its selection. Saving reviewed lessons needs its own request.
+Requesting implementation does not start Auto-Work. Ask for that sequence explicitly if you want it. Explaining a finding or asking for status does not start a new review. Running existing tests does not require a separate verifier-management step.
 
-Workflow uses native skill discovery without additional always-applied rules or a plugin `AGENTS.md` bootstrap. Instructions and relevant references load with the selected skill; conditional references are read only when needed. Discovery does not authorize another phase or replace missing task context.
+In Cursor, use Plan Mode for planning, Ask Mode for standalone review, and Agent Mode for implementation, correction, and learning. In Codex, use Plan mode for planning, then Implement Plan. A read-only mode cannot make changes.
 
 ## Plan and implementation
 
-A useful plan explains the goal and benefit, observable success criteria, scope and exclusions, important decisions, dependencies, risks, and appropriate checks. Read relevant saved project lessons and check their current applicability. Investigate until those decisions, key interfaces, and checks are clear enough for implementation. Technical details are welcome when they remove ambiguity; routine choices stay with the executor. Significant product and permission decisions must be settled before implementation. A clear assignment needs no interview. The human next checks the plan and starts its implementation.
+### 1. Describe the change
 
-The human commissions implementation against an identifiable plan version. Material amendments need an explicit decision; editorial improvements do not. The executor preserves unrelated work and reports the actual outcome, changes, deviations, checks and results, working state, and remaining limitations. The report recommends a separately commissioned Review against the plan; it does not establish that Review passed. Native implementation receives these reporting expectations, learning capture and carry-forward instructions, the current collection, and the host's review invocation through the plan handoff, even when no implementation skill is available.
+For example, in Codex:
+
+> $plan-work Add CSV export to the orders page. Export only the currently filtered orders, using the visible columns. An empty export should contain the column headers. Follow the existing download conventions.
+
+In Cursor, replace `$plan-work` with `/plan-work`.
+
+The agent inspects your project and prepares a plan. It explains the intended result, scope, important decisions, risks, and checks. It also reads relevant saved project lessons and checks that they still apply. Questions should resolve real uncertainty; a clear, small task should produce a proportionate plan.
+
+For this example, look for checks covering filtered orders, visible columns, and empty exports. Resolve important choices before approving the plan. Planning may also offer optional [methods or verifier work](project-improvement.md).
+
+### 2. Approve and implement
+
+Check the plan, then use **Implement Plan** in Cursor or Codex. In a portable client, explicitly request `implement-work` against that plan.
+
+The implementation follows the approved scope and preserves unrelated changes. Its report explains what changed, checks and results, deviations, and anything still open. Useful project lessons are carried forward for review. Important changes to the goal or permissions need your decision; routine implementation choices stay with the agent.
+
+A successful implementation report is the input to review. It does not mean review has already happened.
 
 ## Review and correction
 
-Review identifies the approved plan, relevant reports, and current repository state. It inspects all success criteria and boundaries without changing repository files, including untracked files. Any permitted transient test output belongs outside the repository. Checks with prohibited side effects remain missing evidence.
+### 3. Request a review
 
-The judgment leads: goal achieved, corrections needed, or open points. Failed necessary checks prevent a positive completion claim. Missing proof remains visible even if other checks pass. Evidence describes actual observations on a named working state; changed work requires reassessing affected conclusions.
+> $review-work Review the CSV export against the approved plan and the implementation report.
 
-Review covers every success criterion, starting with the smallest sufficient inspection. Before reusing a result, inspect its origin, actual output, coverage, and applicability to the current source, dependencies, configuration, and relevant environment. Inspecting evidence does not mean rerunning every check. Recheck affected or uncertain proof and widen checks when dependencies, failures, or unresolved risks warrant it. State the reuse basis briefly; an earlier success summary alone is insufficient. The same principle applies after corrections.
+Review checks the result without changing repository files. It can use still-applicable evidence after checking its origin, output, and relevance; changed or uncertain evidence needs a fresh check. It must cover the whole plan, not just the tests that happened to pass. Test output may only be created outside the repository, and checks that cannot run within those limits remain visible gaps.
 
-An actionable finding explains observed behavior, evidence, impact, expected correction, permitted scope, and recheck. It can directly serve as the correction assignment. The human commissions correction; the executor fixes those findings, preserves unrelated edits, and reports the result. A fresh Review is a separate instruction.
+The result tells you whether the goal is achieved, corrections are needed, or proof is missing. A finding explains the observed problem, why it matters, what should change, and how to check the fix.
 
-For missing proof, name the check and a permitted way to collect it. The human can commission a verification-only correction without unnecessary code changes. Ask for a human decision only when the executor cannot resolve the access, scope, or product choice within the assignment. Once the goal is established as achieved, no further Workflow phase is required.
+### 4. Correct findings, then review again
+
+Suppose review finds that the export ignores the active filter:
+
+> $correct-work Fix the review finding about filtered CSV exports. Preserve the visible-column selection and check both filtered and empty exports.
+
+Correction addresses the requested findings and reports the result. Then request `review-work` again. In manual work, each review is a separate request.
+
+Sometimes only a check is missing. You can ask `correct-work` to collect that evidence without changing code unless the check reveals a defect. A failed necessary check or missing required proof prevents a positive completion claim.
 
 ## Handoff
 
-Keep the approved plan and reports in the native task. A new task receives the approved plan version, human assignment, useful implementation and review reports, current repository state, unresolved decisions, next action, and the complete compact content of every open learning candidate with evidence references. Retain accessible outcomes for integrated or retired lessons, including reasons and successors. A reference to "earlier learnings" alone is insufficient. Use accessible native references for supporting documents or include their relevant text when unavailable to the recipient. A descriptive title and task reference may identify the version.
+When continuing in a new task or with another executor, supply:
 
-An executor compares the handoff with the current repository. Missing plan versions, contradictory assignments, or stale observations call for precise clarification before dependent work. An earlier agent's confidence is not human authorization. Previous technical artifacts do not resume a workflow; start from a clear assignment under the current method.
+- The approved plan and current assignment.
+- Relevant implementation and review reports, with their evidence.
+- The current repository state, open decisions, and next action.
+- The complete open learning collection: each lesson, its evidence, and proposed destination. Include reasons and replacements for retired lessons where relevant.
+
+Use accessible task references or paste the relevant content. “Continue where we left off” is insufficient when the new executor cannot read the earlier task. The receiver compares the handoff with the actual repository; missing or contradictory context must be resolved before dependent work.
+
+For an Auto-Work handoff, also preserve the mode, correction budget already used, pending acceptance, and any delivery assignment. See [pause and resume](auto-work.md#pause-and-resume).
 
 ## Learning across reviews
 
-Learning makes demonstrated project knowledge available to the next task. Instead of repeatedly rediscovering setup steps, conventions, or successful diagnosis techniques, future planning can start from reviewed guidance in the project. This is a deliberate improvement to project instructions and skills, not model training or automatic code repair.
-
-The process is: capture during implementation and correction, confirm and offer during Review, save through an explicitly commissioned `learn-from-work`, then consult and recheck the saved guidance in later planning. You do not need to request candidate collection separately. Accepting the learning offer is what authorizes saving; Auto-Work does not include that permission by default.
-
-Implementation and correction capture reusable insights with their future benefit, evidence, scope and conditions, proposed change, and destination. Every subsequent phase report and handoff carries all open candidates, including those offered but not taken up. The collection lives in the existing task documents. Missing earlier reports or evidence remain an explicit gap, not a reconstructed history.
-
-Every Review checks inherited and new candidates against current work and offers all independently confirmed, applicable lessons together. An overall judgment of corrections needed does not prevent an offer supported by the lesson's own evidence. Necessary corrections and missing proof remain prominent. No eligible lessons means no offer; learning never becomes a required completion step. Status and explanation describe documented learning when relevant without renewing offers.
-
-Later rounds may refine a lesson, merge duplicates, distinguish different conditions, or supersede it. Newer statements do not override earlier evidence by default. Retired candidates retain a reason and successor where appropriate. Unresolved conflicts stay open, withholding only the affected changes. If later work invalidates already saved guidance, propose an update or removal for a subsequent learning assignment.
-
-Commission `$learn-from-work` in Codex, `/learn-from-work` in Cursor Agent Mode, or `learn-from-work` in a portable client. Unless you narrow the assignment, it considers every open candidate from the available collection. It checks current Review evidence, later changes, existing guidance, and interactions across the proposed batch before saving. Independent confirmed lessons can be saved while consequential conflicts or unclear destinations await a decision. Only bounded project guidance or appropriate skill updates belong to learning; broader code, tooling, verifier, or plugin improvements become concrete future development assignments and stay pending until separately handled or rejected. Personal memory requires its own explicit request.
-
-The learning report identifies actual saved paths and evidence, merged or retired candidates and reasons, and every still-open item. Read-back must confirm the combined saved guidance before claiming integration. Partial failures preserve unfinished work. Repeating learning checks the actual destination first, so an interrupted report does not cause duplicate rules. Later planning reads applicable saved guidance and verifies that it still fits. The [learning guidance](../references/learning-work.md) defines these decisions for executors.
+Review can offer to save useful project knowledge, such as the verified download helper for CSV exports. Saving remains your choice. See [how learning works](project-improvement.md#save-project-knowledge).
 
 ## Supporting work
 
-Planning considers engineering methods and verification needs proactively, so you do not need to remember their skill names. A playbook helps the agent approach the task; a verifier helps establish whether the resulting behavior meets the plan. These are separate decisions, each based on what the current project and assignment need.
+Planning may offer a suitable method or help with repeatable checks. You can accept either, both, or neither. See [how to choose](project-improvement.md#what-you-choose).
 
 ### Engineering playbooks in the process
 
-For a reproducible defect, planning might recommend `bug-fix`; for an unexplained live symptom, `runtime-forensics` may be useful first. A feature, behavior-preserving refactoring, or disposable prototype calls for a different approach. The [catalog](../skills/engineering-work/references/catalog.md) describes all available methods and their intended outcomes.
-
-The offer explains the useful alternatives and where each applies. After selection, the agent reads the chosen playbook and applies it within the commissioned phase. A method does not become a permanent project mode or authorize additional phases. You can also request suggestions directly with `engineering-work suggest`, or select a known method with `engineering-work use <playbook-id>`.
+A playbook gives the agent a method suited to the task. See [methods and examples](project-improvement.md#choose-a-working-method).
 
 ### Verification in the process
 
-A verifier preserves a practical recipe for exercising product behavior: prerequisites, launch and readiness checks, actions, expected observations, evidence, and cleanup. `workflow-doctor` inspects whether that verification is ready without starting the product. `verification-work` supplies inspection, creation, and maintenance. Existing tests and suitable verifiers remain the first choice.
-
-Planning automatically considers whether existing coverage fits the affected behavior. It reuses suitable checks directly and offers creation or maintenance for a concrete gap. Once accepted and commissioned for implementation, that verifier work runs alongside the product changes and ends with a trial when both are ready. Review checks the accepted scope, actual coverage, and retained evidence. Later plans can detect further drift and offer another update.
-
-This makes maintenance part of accepted implementation work, rather than a follow-up the human must remember to invoke. Verifier edits require the accepted implementation or correction assignment. Existing approval for the same scope is preserved. Default maintenance covers affected features; `maintain full` requires an explicit assignment for the agreed full map. A verifier defect can be corrected within that scope; a product regression must be reported and must not be hidden by weakening the expected result.
+A verifier records how to exercise real behavior and recognize a correct result. See [creating and maintaining checks](project-improvement.md#keep-checks-useful).
 
 ### Selection and execution
 
-Status and explanation are read-only accounts of the available documents and their limits. Learning persists confirmed reusable knowledge only when explicitly commissioned. Engineering methods are optional. Verifier inspection is read-only; creation and maintenance need a matching implementation or correction assignment covering the destination and outcome.
-
-During planning, independently assess whether engineering playbooks and verifier creation or maintenance help. Either, both, or neither may be offered. Present useful options with a brief reason, including several alternatives when meaningful and no artificial extras. Mark exactly one substantive option per offer as recommended for the goal, scope, and repository. Include an explicit decline-all option and allow revisions. In German these labels are "Empfohlen" and "Nein, nicht machen"; use equivalents in the user's language.
-
-Only actively selected methods and accepted verifier work enter the binding plan. Recommendation, silence, and consent to the other offer are not selection. Preserve earlier explicit approval. Declining playbooks means none of those methods is used. Declined or unanswered offers do not block plan completion or trigger repeat offers for the same scope. Read full playbook references only for selected methods.
-
-Reuse suitable existing checks, harnesses, and verifiers without a separate offer, consent question, or justification; ordinary check planning and results can still name them. Offer concrete creation or maintenance only for an actual gap or update need. Each option identifies its benefit, destination, affected features, change scope, and closing trial. Without active acceptance, do not edit verifier files. After a decline, name remaining gaps, alternatives, and acceptance limits; stale guidance does not become reliable evidence and success criteria are not silently waived.
-
-The plan carries the accepted verifier assignment and applicable [creation](../skills/verification-work/references/create.md) or [maintenance](../skills/verification-work/references/maintain.md) reference into native implementation. Planning does not create files or start the product. The implementation instruction starts the agreed work, including the first end-to-end trial at its close when product and verifier are ready together. Preserve trial evidence through cleanup; failed or unavailable necessary checks leave verification incomplete. A separately commissioned Review checks the verifier against the accepted proposal, approved plan, implemented behavior, and current evidence, without modifying it.
+Offers explain their benefit and scope; only selected additions enter the plan. See [selection and execution](project-improvement.md#what-you-choose) for approval and maintenance details.
 
 ## Completion
 
-After sufficient necessary work and checks, report the repository outcome and proof honestly. Further investigation or checks need a concrete unresolved question. Reuse still-applicable instructions already read, and load optional methods or verifier details only when the task needs them. Installation, release, production access, and host activation are separate facts and actions. Native host permissions enforce execution boundaries; Workflow does not claim its own technical approval or integrity mechanism.
+When the goal is achieved and the required checks support it, no further Workflow phase is needed. Reports distinguish actual results from missing proof. They use your language and enough detail for the task, without a fixed document template.
+
+The default outcome is work in your repository. Commit, push, pull requests, merge, deployment, installation, production access, publication, and learning require explicit authorization. Workflow supplies instructions; your coding environment controls execution and permissions.
 
 ## Examples of clear phase endings
 
-These are fictional examples, not required wording or evidence of executed checks. Real plans and reports retain the details their task needs. Codex uses `$skill-name`; Cursor uses `/skill-name`, with Plan Mode for planning, Ask Mode for Review, and Agent Mode for correction and learning. Portable clients use the corresponding skill names and `implement-work` for implementation.
+These are fictional reports illustrating the kind of information you receive, not executed checks or required wording. Real reports include their actual evidence.
 
 ### Add an empty CSV export
 
-The user has specified that an empty export must contain its column headers. A small plan explains that change, the existing export entrypoint, and checks for empty and populated exports. It ends:
+After implementation:
 
-> The plan is ready: empty CSV exports will contain their column headers. Exports with data will remain unchanged. Check the plan and start implementation with Implement Plan. After implementation, commission a separate review with `$review-work`.
+> Empty exports now contain column headers. The empty and populated export checks pass. Request `$review-work` to check the result against the plan.
 
-After implementation, the report names the changed file and the actual output from the existing tests:
+If review finds a missed requirement:
 
-> Empty exports now contain the column headers. The existing automated tests pass. Start `$review-work` to check the implementation against the plan.
+> Correction needed: filtered exports still include hidden orders. The downloaded rows do not match the active filter. Fix the selection and recheck filtered and empty exports.
 
-Review exercises a populated export and finds that the existing tests missed a lost row. It names the affected export code and recheck:
+After correction, request a fresh review. A positive review might conclude:
 
-> A correction is needed: exports with data lose their first row. This fails the second goal in the plan. Commission `$correct-work` with the described fix and checks for both export cases.
-
-After the commissioned fix and successful rechecks:
-
-> Exports include the first data row again. The checks for empty and populated exports pass. Start `$review-work` to check the correction against the plan.
+> The goal is achieved. Exported rows match the active filter, columns match the visible selection, and empty exports retain their headers. The required checks support the current change.
 
 ### Review a resumed settings change
 
-Review receives actual earlier test output. Source, dependencies, configuration, and relevant test conditions are unchanged. The approved plan also requires a keyboard check for which no result exists:
-
-> The saved-settings tests still support this change: their output covers the requirement, and the code and test conditions they depend on are unchanged. The required keyboard check is missing, so completion is still unconfirmed. Commission `$correct-work` to run that check in the local test app and report the result; no code change is needed unless a defect is found.
-
-If a consequential product choice blocks the check, the question states the choice and recommendation:
-
-> The plan gives conflicting instructions for Escape: keep the edited value or restore the saved value. I recommend restoring the saved value so Escape cancels the edit. Which behavior should the check require?
-
-After the human decides, commissions the check, and requests a fresh Review with current passing evidence:
-
-> The goal is achieved. Saving works and the keyboard check confirms the agreed Escape behavior. The required checks support the current change; no further Workflow step is needed.
+> Earlier save-test results still apply to the unchanged code and test conditions. The required keyboard check is missing, so completion is unconfirmed. Request that check; no code change is needed unless it reveals a defect.
 
 ### Keep export lessons through correction rounds
 
-In this fictional repository, an initial Review confirms two guidance candidates: "Export command location" documents that the command currently runs from the backend directory; "Isolated export data" documents the demonstrated temporary-data recipe. Their report carries the observed commands and results, scope, benefit, and proposed project-guide destinations. It offers learning while naming an unrelated export correction. The human commissions only correction, so both candidates remain open.
-
-Correction introduces a verified root-level command wrapper. The next Review replaces "Export command location" with "Use the root export wrapper", recording why the earlier recipe is obsolete. It confirms a new "Wait for export readiness" lesson from the observed ready signal. A duplicate isolated-data suggestion is merged with the existing candidate. The report carries the full content and evidence for all three open candidates and again offers learning.
-
-A fresh executor receives that collection, the replacement reason, approved plan, reports, and current assignment. A later commissioned learn-from-work checks the three candidates together against current guidance and saves all three when their evidence still applies. It reports the retired backend-directory recipe instead of installing both command rules. If the ready-signal evidence is now missing, the two independent lessons can still be integrated while that candidate remains explicitly open.
+Lessons remain in the reports even if you choose to fix code first. See the [worked learning example](project-improvement.md#example-lessons-through-corrections).

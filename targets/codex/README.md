@@ -2,24 +2,46 @@
 
 **Clear plans. Reviewed results. You set the direction.**
 
-Workflow brings structure to AI-assisted development in Codex. Turn a goal into an actionable plan, implement it, review the changes, and resolve findings—with clear reports of what changed, what was checked, and what remains open.
+Workflow helps your coding agent plan a change, implement it, review the result, and fix findings in Codex.
 
-Use `$install-release` to install or update from the latest stable Workflow GitHub Release. The skill verifies the download and prepares the personal plugin source and Marketplace entry. Restart, Plugins Directory installation or refresh, cache verification, and a fresh task complete activation. For a first installation without the skill, use the [bootstrap prompt](../../docs/installation.md#install-from-your-harness).
+- **Agree on the work first:** define the goal and how to check it.
+- **Understand the result:** see what changed, checks performed, and open issues.
+- **Choose how much to delegate:** request individual steps or an Auto-Work sequence.
 
-Use `$plan-work` in Codex Plan mode, then the native Implement Plan action. For manual work, commission review, correction, and learning separately. Keep the approved plan and reports in the native task, and supply an explicit handoff when changing tasks.
+## Install or update
 
-Use `$auto-work` for an expressly commissioned Light or Dark sequence. Light is the default and waits for plan approval and final result acceptance. Explicit Dark can plan within the human goal and complete verified repository work automatically. Both require a fresh separate native reviewer, default to three correction rounds, and preserve scope and budget across explicit mode switches. Optional delivery needs a specific assignment; Dark delivery additionally needs existing technically enforced project gates. Native capabilities and permissions control what can actually run. See [Auto-Work](../../skills/auto-work/SKILL.md).
+**First installation:** paste this into Codex in a mode that can make changes:
 
-Workflow also helps the project improve from one task to the next:
+> Install the latest stable Workflow release from https://github.com/geldmacher/workflow/releases/latest for my current host. Read the install-release skill and its linked installation instructions from the matching release tag, then perform the installation.
 
-- **Keep demonstrated lessons.** Implementation and correction carry reusable discoveries through the reports. Every review confirms applicable lessons and offers `learn-from-work`; when commissioned, it reconciles and saves them in project guidance or skills. Later planning reads and rechecks that knowledge.
-- **Keep verification aligned.** Planning reuses suitable checks and proactively offers verifier creation or maintenance for concrete gaps. Accepted verifier work becomes part of implementation, including a closing trial. `workflow-doctor` inspects readiness; `verification-work` handles inspection and commissioned creation or maintenance.
-- **Choose a useful approach.** Planning offers relevant engineering playbooks, such as `bug-fix`, `feature`, or `performance`, with a recommendation and an option to use none. Only selected methods enter the plan; playbook and verifier offers are independent.
+No repository checkout, Node.js, or npm is needed. The agent needs GitHub access and installation permissions; the selected release must contain `install-release`. **Already installed?** Use `$install-release` to update.
 
-See [learning across reviews](../../docs/manual-workflow.md#learning-across-reviews), [verification in the process](../../docs/manual-workflow.md#verification-in-the-process), and the [playbook catalog](../../skills/engineering-work/references/catalog.md).
+Follow the reported activation steps: fully restart the app, install or refresh Workflow in the Plugins Directory, check the installed copy, and start a fresh task. The [installation guide](../../docs/installation.md) covers each step and recovery.
 
-The package contains skills and reference documents. Your host controls permissions and execution.
+## Try your first task
 
-[Installation](../../docs/installation.md) · [Working guide](../../docs/manual-workflow.md)
+Open a project and ask:
 
-Repository and package validation do not prove that this package was installed or activated in a compatible host.
+> Use auto-work light to add CSV export to the orders page. Export the currently filtered orders using the visible columns. Follow the existing download conventions and use at most three correction rounds.
+
+You approve the plan. The agent implements it, delegates review to a fresh separate agent, and addresses findings within the limit. You then receive the result and its checks for acceptance. Auto-Work requires native delegation to a separate reviewer. [Follow the walkthrough](../../docs/auto-work.md).
+
+## Choose how to work
+
+| Mode | Your involvement |
+|---|---|
+| Manual | Request each phase separately. |
+| Light | Approve the plan and accept the reviewed result. |
+| Dark | Define the goal and scope; delegate planning and the review/correction sequence. |
+
+Both Auto-Work modes pause for important unresolved decisions. Publishing or deploying needs an explicit assignment.
+
+Prefer manual work? Use `$plan-work`, approve the plan, and select **Implement Plan**. Then request `$review-work`; use `$correct-work` for findings and request a fresh review afterward. See the [working guide](../../docs/manual-workflow.md).
+
+## Make future tasks easier
+
+- [Save reviewed lessons](../../docs/project-improvement.md#save-project-knowledge) in project guidance when you request it.
+- [Keep checks repeatable](../../docs/project-improvement.md#keep-checks-useful) with practical verification instructions.
+- [Choose a fitting method](../../docs/project-improvement.md#choose-a-working-method) for the task through optional playbooks.
+
+Your coding environment controls execution and permissions. Workflow supplies the skills and reference documents.

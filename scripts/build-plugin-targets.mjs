@@ -10,7 +10,7 @@ export const defaultRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 export const publicSkills = ["auto-work", "correct-work", "engineering-work", "explain-work", "install-release", "learn-from-work", "plan-work", "review-work", "verification-work", "work-status", "workflow-doctor"];
 export const hostSkills = (host) => host === "agent-plugins" ? [...publicSkills, "implement-work"].sort() : publicSkills;
 export const manifestPaths = { cursor: ".cursor-plugin/plugin.json", codex: ".codex-plugin/plugin.json", "agent-plugins": "plugin.json" };
-const packageDocs = ["docs/behavior-validation.md", "docs/installation.md", "docs/manual-workflow.md", "docs/release-checklist.md"];
+const packageDocs = ["docs/auto-work.md", "docs/project-improvement.md", "docs/behavior-validation.md", "docs/installation.md", "docs/manual-workflow.md", "docs/release-checklist.md"];
 function inside(base, path) {
   const item = relative(base, path);
   return item === "" || (item !== ".." && !item.startsWith(`..${sep}`));
