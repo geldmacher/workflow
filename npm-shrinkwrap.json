@@ -1,12 +1,12 @@
 {
   "name": "@geldmacher/workflow-plugin-development",
-  "version": "7.4.4",
+  "version": "7.4.5",
   "lockfileVersion": 3,
   "requires": true,
   "packages": {
     "": {
       "name": "@geldmacher/workflow-plugin-development",
-      "version": "7.4.4",
+      "version": "7.4.5",
       "devDependencies": {
         "ajv": "^8.17.1",
         "ajv-formats": "^3.0.1",

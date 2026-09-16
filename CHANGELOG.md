@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 7.4.5
+
+- Focus installation and updates on stable GitHub Releases, with explicit manual steps and copyable agent prompts using install-release.
+- Simplify the entry documentation and add packaged walkthroughs for Auto-Work, learning, verification, and engineering playbooks.
+- Clarify installation prerequisites, host activation, recovery, and contributor checks while preserving the existing release verification procedure.
+
 ## 7.4.4
 
 - Clarify skill descriptions and task boundaries so Codex and Cursor can select Workflow skills from natural-language requests without starting unrequested phases.
