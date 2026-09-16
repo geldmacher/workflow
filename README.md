@@ -10,15 +10,22 @@ Workflow helps your coding agent plan a change, implement it, review the result,
 - **Understand what you get.** See what changed, what was checked, and what still needs attention.
 - **Choose how much to delegate.** Request each step yourself or let Auto-Work run the sequence with independent review.
 
-## Install or update
+## Install or update from a release
 
-**First installation:** paste this into Cursor or Codex in a mode that can make changes:
+Use the [latest stable GitHub Release](https://github.com/geldmacher/workflow/releases/latest) for installation and updates. Choose manual installation or let your own agent handle it. No repository checkout, Node.js, or npm is needed.
+
+**Manually:** download the release archive for Cursor or Codex together with `SHA256SUMS` and `provenance.json`, verify the files, and follow the [manual installation steps](docs/installation.md#manual-installation). For updates, follow the [manual update steps](docs/installation.md#manual-update) to back up and replace the complete package.
+
+**With your agent:** for a first installation, paste this into Cursor or Codex in a mode that can make changes:
 
 > Install the latest stable Workflow release from https://github.com/geldmacher/workflow/releases/latest for my current host. Read the install-release skill and its linked installation instructions from the matching release tag, then perform the installation.
 
-No repository checkout, Node.js, or npm is needed. Your agent needs GitHub access and permission to install the plugin. The prompt requires a published release containing `install-release`; the guide also covers manual installation.
+Your agent needs GitHub access and permission to install the plugin. The selected release must contain `install-release`.
 
-**Already installed?** Use `/install-release` in Cursor or `$install-release` in Codex to update.
+**Update with your agent:** use the included `install-release` skill:
+
+- Cursor: `/install-release Update Workflow to the latest stable release for Cursor.`
+- Codex: `$install-release Update Workflow to the latest stable release for Codex.`
 
 Follow the reported activation steps: reload Cursor; in Codex, restart the app and install or refresh Workflow in the Plugins Directory. Then start a fresh task. See the [installation guide](docs/installation.md) for details and troubleshooting.
 

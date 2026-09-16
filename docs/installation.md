@@ -1,12 +1,34 @@
-# Install Workflow
+# Install and update Workflow from releases
 
-Install Workflow in Cursor or Codex, then start a fresh task to use its skills. You do not need a repository checkout, Node.js, or npm.
-
-## Install from your harness
+Use the [latest stable GitHub Release](https://github.com/geldmacher/workflow/releases/latest) to install or update Workflow in Cursor or Codex. Both paths use the same verified release packages. You do not need a repository checkout, Node.js, or npm.
 
 Here, **host** means the coding environment you use: Cursor or Codex. Both installation targets support macOS, Linux, and Windows.
 
-### First installation
+| Task | Manually | With your own agent |
+|---|---|---|
+| First installation | [Download, verify, and install](#manual-installation) | [Copy the installation prompt](#first-installation-with-your-agent) |
+| Update | [Back up and replace the package](#manual-update) | [Use the install-release skill](#update-with-your-agent) |
+
+## Manual installation
+
+1. Open the [latest stable release](https://github.com/geldmacher/workflow/releases/latest) and keep its version and tag for all following steps.
+2. Under **Assets**, download `geldmacher-workflow-cursor-<tag>.zip` for Cursor or `geldmacher-workflow-codex-<tag>.zip` for Codex, plus `SHA256SUMS` and `provenance.json` from that same release. Use the host archive, not GitHub's automatically generated source-code archives.
+3. [Verify the download](#verify-the-download): check the archive and `provenance.json` against `SHA256SUMS`, confirm the release identity, and inspect the archive before extracting it into a temporary directory.
+4. Follow [safe placement](#compare-and-safely-replace) and the instructions for [Cursor](#cursor) or [Codex](#codex). Move the complete `geldmacher-workflow` directory to the documented plugin path, including its hidden files. For Codex, also register the source in your personal Marketplace as described there.
+5. Complete [Cursor activation](#activate-in-cursor) or [Codex activation](#activate-in-codex), then start a fresh task.
+
+The [technical reference](#technical-installation-reference) below supplies the checks, paths, and Codex Marketplace example for these steps.
+
+## Manual update
+
+1. Download and verify the new stable release exactly as in [manual installation](#manual-installation).
+2. [Compare it with your existing installation](#compare-and-safely-replace). If the source files are identical, no replacement is needed. Resolve local edits, development versions, or a newer installed version before replacing anything.
+3. Prepare the complete new package and retain the previous package, its verified release files, and any changed Marketplace file as a recoverable backup outside plugin discovery/cache directories. Follow the [safe replacement procedure](#compare-and-safely-replace); replace the whole directory instead of merging files.
+4. Complete the host's activation steps again. In Codex, refresh or reinstall through the Plugins Directory and verify the installed copy. Keep the backup until the update is confirmed; the [Cursor](#cursor) and [Codex](#codex) sections also describe rollback.
+
+## Install or update with your agent
+
+### First installation with your agent
 
 Open your host in a mode that can make changes and paste:
 
@@ -14,21 +36,30 @@ Open your host in a mode that can make changes and paste:
 
 Your agent finds one stable release, checks its download, and prepares the plugin for your current host. It reports the selected version, what changed, and any activation steps you still need to take. You do not need to install a separate skill first.
 
-The prompt needs a published release containing `install-release`. If the selected tag does not contain it, the agent must explain that limitation. The [technical instructions](#technical-installation-reference) below also describe manual installation.
+The prompt needs a published release containing `install-release`. If the selected tag does not contain it, the agent must explain that limitation; use the [manual installation steps](#manual-installation).
 
-### Update an existing installation
+### Update with your agent
 
-Use `/install-release` in Cursor or `$install-release` in Codex. The agent compares the release with the existing installation, keeps a recoverable backup before an applicable update, and preserves unrelated settings. An identical source needs no replacement, but activation may still need attention.
+Use the included `install-release` skill in a mode that can make changes. Copy the prompt for your host:
+
+- Cursor: `/install-release Update Workflow to the latest stable release for Cursor.`
+- Codex: `$install-release Update Workflow to the latest stable release for Codex.`
+
+If the skill is unavailable in your current installation, use this prompt to read it from the selected release tag:
+
+> Update my existing Workflow installation to the latest stable release from https://github.com/geldmacher/workflow/releases/latest for my current host. Read the install-release skill and its linked installation instructions from the matching release tag, then perform the update.
+
+The agent compares the release with the existing installation, keeps a recoverable backup before an applicable update, and preserves unrelated settings. An identical source needs no replacement, but activation may still need attention.
 
 If you have local edits, a development version, or a newer version, the agent reports the difference before replacing anything. You can ask for an explanation or inspection instead; that does not authorize installation.
 
-### Activate in Cursor
+## Activate in Cursor
 
 After file installation, reload Cursor and start a fresh task. Check that the expected Workflow skills are available, for example `/plan-work`. See [Cursor details and rollback](#cursor) for paths and recovery.
 
-### Activate in Codex
+## Activate in Codex
 
-After the agent prepares the plugin source and personal Marketplace entry:
+After preparing the plugin source and personal Marketplace entry, manually or with your agent:
 
 1. Fully quit and restart the desktop app; closing its window is insufficient.
 2. In **Plugins Directory**, open **Geldmacher Plugins**, or your existing personal Marketplace's display name, and install or refresh Workflow.
@@ -37,7 +68,7 @@ After the agent prepares the plugin source and personal Marketplace entry:
 
 The agent leaves required restarts to you. Copying files alone does not activate the plugin. Codex runs its installed cache copy, which the host's installation interface must refresh.
 
-### If installation cannot finish
+## If installation cannot finish
 
 | What you see | What to do next |
 |---|---|

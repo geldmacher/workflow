@@ -8,13 +8,21 @@ Workflow helps your coding agent plan a change, implement it, review the result,
 - **Understand the result:** see what changed, checks performed, and open issues.
 - **Choose how much to delegate:** request individual steps or an Auto-Work sequence.
 
-## Install or update
+## Install or update from a release
 
-**First installation:** paste this into Codex in a mode that can make changes:
+Use the [latest stable GitHub Release](https://github.com/geldmacher/workflow/releases/latest) for installation and updates. No repository checkout, Node.js, or npm is needed.
+
+**Manually:** download `geldmacher-workflow-codex-<tag>.zip`, `SHA256SUMS`, and `provenance.json` from the same release, then follow the [manual installation](../../docs/installation.md#manual-installation) or [manual update](../../docs/installation.md#manual-update) steps.
+
+**With your agent:** for a first installation, paste this into Codex in a mode that can make changes:
 
 > Install the latest stable Workflow release from https://github.com/geldmacher/workflow/releases/latest for my current host. Read the install-release skill and its linked installation instructions from the matching release tag, then perform the installation.
 
-No repository checkout, Node.js, or npm is needed. The agent needs GitHub access and installation permissions; the selected release must contain `install-release`. **Already installed?** Use `$install-release` to update.
+The agent needs GitHub access and installation permissions; the selected release must contain `install-release`.
+
+**Update with your agent:** use the included skill:
+
+> $install-release Update Workflow to the latest stable release for Codex.
 
 Follow the reported activation steps: fully restart the app, install or refresh Workflow in the Plugins Directory, check the installed copy, and start a fresh task. The [installation guide](../../docs/installation.md) covers each step and recovery.
 
