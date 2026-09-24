@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 7.4.6
+
+- Note optional second-order effects on material plans for architecture, breaking changes, several surfaces, or schema and deploy. Omit the note for routine fixes and small plans.
+
 ## 7.4.5
 
 - Focus installation and updates on stable GitHub Releases, with explicit manual steps and copyable agent prompts using install-release.
