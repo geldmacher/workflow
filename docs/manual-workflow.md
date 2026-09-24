@@ -38,7 +38,7 @@ For example, in Codex:
 
 In Cursor, replace `$plan-work` with `/plan-work`.
 
-The agent inspects your project and prepares a plan. It explains the intended result, scope, important decisions, risks, and checks. It also reads relevant saved project lessons and checks that they still apply. Questions should resolve real uncertainty; a clear, small task should produce a proportionate plan.
+The agent inspects your project and prepares a plan. It explains the intended result, scope, important decisions, risks, and checks. It also reads relevant saved project lessons and checks that they still apply. Questions should resolve real uncertainty; a clear, small task should produce a proportionate plan. When the change is material (architecture, a breaking change, several surfaces, or schema and deploy), the plan also notes second-order effects in one line each where relevant: caller impact, data or migration, deploy and rollback, and security or auth. Speculation is marked as speculation. A routine fix or small plan leaves that note out.
 
 For this example, look for checks covering filtered orders, visible columns, and empty exports. Resolve important choices before approving the plan. Planning may also offer optional [methods or verifier work](project-improvement.md).
 
