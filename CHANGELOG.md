@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 7.4.7
+
 - Load the working agreement, playbook catalog, and Marketplace identity only when the task needs them, and narrow review and verifier skill selection.
 - Keep one learning collection in the task. Later reports carry changes and a reference, and an unchanged learning offer returns on a final positive review.
 - Authorize a direct edit of this repository by that request. Workflow phases, a failed release, and full native Auto-Work acceptance keep their existing boundaries.
