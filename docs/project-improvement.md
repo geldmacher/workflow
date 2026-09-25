@@ -38,7 +38,7 @@ This is a fictional sequence:
 
 If one lesson lacks evidence, it stays open while independent confirmed lessons can be saved. Conflicts are resolved from evidence and scope, not merely by choosing the newest statement. If saved guidance has become wrong, review can propose its later update or removal.
 
-All open candidates travel through reports and handoffs with their content, evidence, benefit, scope, and proposed destination. Missing earlier reports remain a visible gap. You can defer saving without discarding the collection; learning is never a required completion step. Status and explanation can describe it without repeating the offer.
+One complete collection stays in the task. Later reports carry changes and a reference to that collection, and include each candidate's content, evidence, benefit, scope, and proposed destination when the receiver cannot open the reference. Missing earlier reports remain a visible gap. You can defer saving without discarding the collection; learning is never a required completion step. Status and explanation can describe it without repeating the offer.
 
 See the [executor learning guidance](../references/learning-work.md) for reconciliation details.
 

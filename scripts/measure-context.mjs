@@ -19,7 +19,7 @@ const auto = "skills/auto-work/references";
 
 function scenarios(root, host) {
   const entry = (name, references = []) => [agreement, skill(name), ...references, ...(host === "cursor" ? [`commands/${name}.md`] : [])];
-  const plan = entry("plan-work", [catalog, implementation]);
+  const plan = entry("plan-work", [implementation]);
   const inspect = entry("verification-work", [verification]);
   const cases = {
     plan, review: entry("review-work"), correction: entry("correct-work"),
@@ -41,13 +41,13 @@ function scenarios(root, host) {
   }
   for (const name of ["plan", "review", "correction", "explanation", "status", "doctor", "verificationInspect", "methodSuggestion", ...(host === "agent-plugins" ? ["implementation"] : [])]) cases[`${name}WithLearning`] = [...cases[name], learning];
   cases.autoWorkEntry = entry("auto-work", [`${auto}/operation.md`]);
-  cases.autoWork = [...cases.autoWorkEntry, skill("plan-work"), catalog, implementation, skill("review-work"), skill("correct-work"), `${auto}/reviewer.md`];
+  cases.autoWork = [...cases.autoWorkEntry, skill("plan-work"), implementation, skill("review-work"), skill("correct-work"), `${auto}/reviewer.md`];
   cases.autoWorkDelivery = [...cases.autoWork, `${auto}/delivery.md`];
   cases.autoWorkWithLearning = [...cases.autoWork, learning];
   cases.autoWorkVerifierCreation = [...cases.autoWork, verification, skill("verification-work"), creation];
   cases.autoWorkVerifierMaintenance = [...cases.autoWork, verification, skill("verification-work"), maintenance];
   for (const name of readdirSync(join(root, "skills/engineering-work/references")).filter(name => name.endsWith(".md") && name !== "catalog.md").sort()) {
-    cases[`planMethod:${name.slice(0, -3)}`] = [...plan, skill("engineering-work"), `skills/engineering-work/references/${name}`];
+    cases[`planMethod:${name.slice(0, -3)}`] = [...plan, catalog, skill("engineering-work"), `skills/engineering-work/references/${name}`];
   }
   return cases;
 }

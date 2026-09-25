@@ -26,7 +26,7 @@ You can use ordinary language, such as “Create an implementation plan for CSV 
 
 Requesting implementation does not start Auto-Work. Ask for that sequence explicitly if you want it. Explaining a finding or asking for status does not start a new review. Running existing tests does not require a separate verifier-management step.
 
-In Cursor, use Plan Mode for planning, Ask Mode for standalone review, and Agent Mode for implementation, correction, and learning. In Codex, use Plan mode for planning, then Implement Plan. A read-only mode cannot make changes.
+In Cursor, use Plan Mode for planning, Ask Mode for standalone review, and Agent Mode for implementation, correction, and learning. In Codex, use Plan mode for planning, then Implement Plan. A read-only mode cannot make changes. An agent already in a mode that can do the read-only work should not ask for a switch only to match this preference.
 
 ## Plan and implementation
 

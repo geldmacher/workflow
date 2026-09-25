@@ -43,7 +43,7 @@ Use the [selection guidance](manual-workflow.md#choosing-a-skill) and built skil
 | Skill | Matching request | Boundary or likely misroute |
 |---|---|---|
 | `plan-work` | "Create an implementation plan for the CSV export." | "Implement this approved plan" does not start a separate planning phase. |
-| `review-work` | "Review the implementation against the approved plan." | "Explain this existing review finding" requests explanation, not a fresh judgment. |
+| `review-work` | "Review the implementation against the approved plan." | "Explain this existing review finding" requests explanation, not a fresh judgment. A generic code review without a Workflow plan is not this skill. |
 | `correct-work` | "Fix the missing escaping identified in this review." | An unrelated bug report is not a commissioned review correction. |
 | `auto-work` | "Use Light Auto-Work to plan, implement, independently review, and correct this change." | Ordinary implementation or bug-fix requests do not commission the sequence. |
 | `engineering-work` | "Recommend a suitable engineering playbook for this task." | A recommendation does not select a playbook; a method keyword in code is not a request to apply it. |
@@ -69,7 +69,7 @@ For each example ask: What is the result? What does it mean for the goal? What f
 
 | Situation | Expected decision | Instructions to inspect |
 |---|---|---|
-| A small change has a clear goal, known entrypoint, and suitable existing checks. | Stop planning research when the meaningful decisions are settled. Give a short actionable plan, no interview or blanket verifier offer, and direct the human to the native implementation action. Omit the second-order note. | [Planning](../skills/plan-work/SKILL.md) |
+| A small change has a clear goal, known entrypoint, and suitable existing checks. | Stop planning research when the meaningful decisions are settled. Give a short actionable plan, no interview or blanket verifier offer, and direct the human to the native implementation action. Omit the second-order note. Do not load the playbook catalog unless the user asks about methods or a concrete methodological choice would materially help. | [Planning](../skills/plan-work/SKILL.md) |
 | A material change affects architecture, a breaking contract, several surfaces, or schema and deploy. | Note second-order effects in one line each where relevant: caller impact, data or migration, deploy and rollback, and security or auth. Mark speculation as speculation. | [Planning](../skills/plan-work/SKILL.md) |
 | A product choice changes the expected behavior or scope. | Ask the decisive question with a reasoned recommendation before dependent work; do not turn routine technical choices into approval gates. | [Planning](../skills/plan-work/SKILL.md), [working agreement](../references/workflow.md) |
 | Native implementation has only the approved plan and assignment. | The plan carries reporting expectations and the host's review invocation. The executor reports actual checks and recommends a separately commissioned Review, without claiming it passed. | [Planning](../skills/plan-work/SKILL.md), [implementation handoff](manual-workflow.md#plan-and-implementation), built host instructions |
@@ -89,8 +89,8 @@ Use these scenarios for an instruction-level walkthrough of the [working agreeme
 
 | Situation | Expected decision and evidence |
 |---|---|
-| Review confirms two candidates; the human commissions only correction. A second Review adds another candidate. | Both reports offer eligible learning, and correction plus the second Review carry the full open collection, not only the latest additions. Learning is not silently commissioned. |
-| Native implementation has no implement-work skill; a later executor receives only the latest complete handoff and referenced evidence. | The plan conveys capture and retention instructions. The handoff includes every open candidate's content, benefit, basis, scope, proposed change, and destination; the recipient can evaluate the whole collection. |
+| Review confirms two candidates; the human commissions only correction. A second Review adds another candidate. | The first Review offers both lessons. The correction does not restate that offer. The second Review offers the new lesson and references the unchanged ones, including the full collection when the receiver cannot access that reference. Learning is not silently commissioned. |
+| Native implementation has no implement-work skill; a later executor receives only the latest complete handoff and referenced evidence. | The plan conveys capture and retention instructions. When the recipient cannot open an earlier reference, the handoff includes every open candidate's content, benefit, basis, scope, proposed change, and destination. |
 | A correction replaces the command underlying an early lesson; two later candidates duplicate a different lesson. | Recheck evidence, replace the outdated recipe with a reason and successor, and merge duplicates without losing their valid scope or basis. A final learning assignment can integrate every surviving lesson once. |
 | Two recipes differ because one concerns the CLI and one the service, while a newer unsupported statement contradicts the CLI recipe. | Distinguish conditions and scopes. Do not choose a winner by date; leave the unsupported contradiction unresolved rather than saving incompatible rules. |
 | Two proposed rules conflict on the same behavior and require a product decision; a third has independent current proof. | Withhold the conflicting changes, ask about the consequential choice, and allow the independent authorized guidance update. Report both remaining candidates and the conflict. |
@@ -175,8 +175,8 @@ Exercise built packages in isolated temporary projects. The repository-only `ver
 | Exhausted budget or repeated stalled finding | Loop stops with consumed rounds and open findings, without a positive completion claim. |
 | Resume after source change or uncertain delivery | Affected evidence is rechecked; actual destination state prevents duplicate effects. |
 | Manual invocation and unrelated work | Standalone phase stops and pre-existing edits remain intact; Auto-Work is not inferred from ordinary work. |
-| Learning over rounds | Every open candidate and its evidence survives correction and handoff; capture and offers do not save guidance. |
+| Learning over rounds | Every open candidate and its evidence stays available through the native collection or a supplied full handoff; capture and offers do not save guidance. |
 
-Run package/context checks for all targets. Initial native trials use the available Codex host; unexercised Cursor and portable behavior stays explicitly unverified. Local delivery simulation proves only the exercised mechanism, not production protection or deployment. Preserve raw evidence outside the repository after removing owned fixture workspaces.
+Run package/context checks for all targets. At implementation close, run Light and Dark, including one seeded-defect correction and fresh re-review, when the change affects mode selection, plan approval, result acceptance, the correction loop, review delegation, or delivery. Otherwise run the affected recipes and name the close-out behaviors that were not exercised. Initial native trials use the available Codex host; unexercised Cursor and portable behavior stays explicitly unverified. Local delivery simulation proves only the exercised mechanism, not production protection or deployment. Preserve raw evidence outside the repository after removing owned fixture workspaces.
 
 Source link checks cover existing tracked and non-ignored new Markdown files; ignored local evidence is excluded. Built packages are checked recursively without Git filtering. Full local deployment runs `release-check` once, then `build:targets` to prepare the deployment payload. CLI regression tests exercise physical and aliased paths without publishing or installing.

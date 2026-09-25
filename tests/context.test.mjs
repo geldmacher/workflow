@@ -32,9 +32,11 @@ test("context covers packaged instructions once, including required planning and
       }
       for (const name of ["plan", "autoWork"]) {
         assert.ok(scenarios[name].documents.includes("references/implementation-work.md"));
-        assert.ok(scenarios[name].documents.includes("skills/engineering-work/references/catalog.md"));
+        assert.ok(!scenarios[name].documents.includes("skills/engineering-work/references/catalog.md"));
       }
       assert.ok(scenarios.learning.documents.includes("references/learning-work.md"));
+      assert.ok(scenarios.methodSuggestion.documents.includes("skills/engineering-work/references/catalog.md"));
+      assert.ok(scenarios["planMethod:refactoring"].documents.includes("skills/engineering-work/references/catalog.md"));
       assert.ok(scenarios["planMethod:refactoring"].documents.includes("skills/engineering-work/references/refactoring.md"));
       assert.ok(!scenarios.autoWork.documents.includes("skills/auto-work/references/delivery.md"));
       assert.ok(scenarios.autoWorkDelivery.documents.includes("skills/auto-work/references/delivery.md"));

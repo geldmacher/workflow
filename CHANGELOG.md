@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Load the working agreement, playbook catalog, and Marketplace identity only when the task needs them, and narrow review and verifier skill selection.
+- Keep one learning collection in the task. Later reports carry changes and a reference, and an unchanged learning offer returns on a final positive review.
+- Authorize a direct edit of this repository by that request. Workflow phases, a failed release, and full native Auto-Work acceptance keep their existing boundaries.
+- Run the full Light and Dark close, including a seeded defect and fresh re-review, when Auto-Work semantics change; otherwise name the close-out behaviors that were not exercised.
+
 ## 7.4.6
 
 - Note optional second-order effects on material plans for architecture, breaking changes, several surfaces, or schema and deploy. Omit the note for routine fixes and small plans.

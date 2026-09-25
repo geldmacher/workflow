@@ -1,6 +1,6 @@
 # Independent review in Auto-Work
 
-For each initial or post-correction Review, start a fresh separate native agent. Give it the applicable plan and assignment, active mode, implementation or correction report, exact current workspace or revision, relevant raw evidence, and complete learning collection. Give access to the packaged [review skill](../../review-work/SKILL.md) and its linked references. A copied implementation conclusion is not independent evidence. Do not give the reviewer the answer it should reach.
+For each initial or post-correction Review, start a fresh separate native agent. Give it the applicable plan and assignment, active mode, implementation or correction report, exact current workspace or revision, relevant raw evidence, and the learning collection through an accessible reference, or the full collection when the reviewer cannot access that reference. Give access to the packaged [review skill](../../review-work/SKILL.md) and its linked references. A copied implementation conclusion is not independent evidence. Do not give the reviewer the answer it should reach.
 
 Use available host read-only restrictions and explicitly require repository-read-only behavior, including untracked files. Inherit the parent's model settings. Do not create global agent configurations, weaken host permissions, or substitute a self-review when delegation is unavailable. A separate context provides separation of judgment, not a guarantee of correctness or a new sandbox; describe actual host restrictions honestly.
 

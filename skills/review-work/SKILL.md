@@ -1,11 +1,11 @@
 ---
 name: review-work
-description: "Review implementation or corrections against the plan and acceptance criteria, read-only."
+description: "Review a Workflow implementation or correction against its applicable plan, read-only."
 ---
 
 # review-work
 
-Read the [working agreement](../../references/workflow.md). Use for a requested assessment of implementation or corrections, not merely an explanation of existing findings or a progress summary. Identify the applicable plan, implementation or correction report, and current working state. A delegated Auto-Work review follows the same rubric; return its result to the executor without requiring the human to change host modes.
+Apply the [working agreement](../../references/workflow.md); read it if missing or uncertain. Use for a requested assessment of implementation or corrections, not merely an explanation of existing findings or a progress summary. Identify the applicable plan, implementation or correction report, and current working state. A delegated Auto-Work review follows the same rubric; return its result to the executor without requiring the human to change host modes.
 
 Remain repository-read-only, including tracked and untracked files. Select inspections and tests whose effects are permitted; put any permitted transient outputs outside the repository. If a necessary check would mutate the repository or cross another permission boundary, record the missing evidence. Do not fix code, tests, documents, or verifiers during Review.
 
@@ -15,6 +15,6 @@ Match optional methods and verifier edits to active selections. When a project v
 
 Lead with a reasoned judgment: goal achieved, corrections needed, or open points. Failed necessary checks prevent goal achieved. Missing necessary proof, unclear scope, or missing plan versions remain explicit, even when there are also correctable defects.
 
-Assess inherited and new learning candidates from the reviewed work. When any exist, follow the learning guidance linked by the working agreement: reconcile the whole collection and offer eligible lessons after every Review, independently of required corrections. Keep Review read-only.
+Assess inherited and new learning candidates from the reviewed work. When any exist, follow the learning guidance linked by the working agreement: reconcile the whole collection and offer newly confirmed or materially changed lessons. On a final positive Review, surface an unchanged eligible offer once if it was neither accepted nor rejected; do not restate it on an intermediate correction Review. Keep Review read-only.
 
 For each actionable defect, explain observed behavior, evidence, impact on the plan, required correction, permitted scope, and recheck. This can serve as the correction assignment. In standalone work, recommend that the human commission the corrections. In Auto-Work, return findings to the commissioned loop. For missing proof, name the check and a permitted way to obtain it; verification-only correction needs no code change. Consequential decisions or missing access remain explicit. Do not ask the human to attest evidence the executor can collect under its assignment. A positive Review establishes repository acceptance criteria, not Auto-Work's remaining human acceptance or delivery. Finish without starting correction or delivery.
