@@ -12,6 +12,8 @@ A task can leave more than working code: knowledge the next agent can reuse, a r
 
 During implementation and correction, Workflow records useful discoveries as **learning candidates**: proposed lessons with evidence, a future benefit, where they apply, and where they could be saved. Collection happens as part of the work; it does not silently change project instructions.
 
+When the same correction comes back after it was fixed, or after the project guide already states it, use the first change that can work. Remove the class, for example by making the invalid state unrepresentable. Otherwise add a lint or test that fails in CI if the class returns. Otherwise add or revise a project rule. Leaving the class for a later human review is last. A one-time finding stays a normal correction. Planning can include a structural change or a check when that work was requested. Saving still writes guidance only on request, and only when a written rule is the first change that fits.
+
 Every review checks earlier and new candidates against the current work. If any lessons are confirmed and useful, it offers `learn-from-work`. A lesson can be sound even when an unrelated code correction remains; the learning offer does not change the review judgment. If there is nothing useful to save, there is no offer.
 
 For example, review might establish that the existing download helper correctly handles CSV filenames. A fictional offer could say:

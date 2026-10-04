@@ -33,6 +33,10 @@ Creation retains repository-grounded launch, doctor, drive, evidence, cleanup, i
 
 Maintenance retains index hygiene, source comparison, user-path recipes, live coverage, diagnosis after surprises, evidence-preserving cleanup, and the distinction between documentation drift, harness gaps, and product regressions. Workflow defaults to affected features; explicitly selected full maintenance covers the agreed full map. It does not import mandatory subagents, fixed outcome codes, branches, or PRs. Review separately checks the verifier against the accepted proposal, approved plan, actual implementation, and current trial evidence without editing it. Creation and maintenance details load only for the applicable action.
 
+## Repeated corrections
+
+The preference order for a repeated correction is adapted from Lauren Tan's description of pstack 0.15.9 `/correct` (<https://x.com/poteto/status/2106542593656111276>): eliminate the class through architecture or data structures, then a lint or test that CI catches, then a skill or rule, then human review. Workflow keeps that order inside existing planning and learning. It does not import poteto-mode, the Grok Bot prompt, `/architect`, or a separate correction command. The playbook adaptations above are unchanged. A one-off finding remains a commissioned correction. Learning still writes guidance only when that phase is commissioned, and only when a bounded skill or rule is the first feasible rung. Product, tool, and verifier changes stay future assignments.
+
 ## Shared integration decisions
 
 Each method remains one reference file. Catalog and skill entrypoints load only the selected method. The playbooks describe useful result content, not mandatory user-document headings, metadata, or machine state.

@@ -85,7 +85,7 @@ For an Auto-Work handoff, also preserve the mode, correction budget already used
 
 ## Learning across reviews
 
-Review can offer to save useful project knowledge, such as the verified download helper for CSV exports. Saving remains your choice. See [how learning works](project-improvement.md#save-project-knowledge).
+Review can offer to save useful project knowledge, such as the verified download helper for CSV exports. Saving remains your choice. If the same correction has already come back, the offer prefers a structural change or a CI check over another paragraph in the project guide. See [how learning works](project-improvement.md#save-project-knowledge).
 
 ## Supporting work
 

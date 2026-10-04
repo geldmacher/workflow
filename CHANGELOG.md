@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- When the same correction recurs, record the first feasible change that removes the class: architecture or a data structure, then a lint or test that fails in CI, then a bounded skill or rule, then human review. A one-off finding stays a correction. Learning still writes guidance only when asked, and only when a written rule is that first change.
+
 ## 7.4.7
 
 - Load the working agreement, playbook catalog, and Marketplace identity only when the task needs them, and narrow review and verifier skill selection.
