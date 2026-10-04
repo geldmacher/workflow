@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- When the same correction recurs, record the first feasible change that removes the class: architecture or a data structure, then a lint or test that fails in CI, then a bounded skill or rule, then human review. A one-off finding stays a correction. Learning still writes guidance only when asked, and only when a written rule is that first change.
+- Prefer sufficiently effective prevention proportionate to effort and commissioned scope when corrections recur; allow in-scope prevention for a first finding. Keep learning limited to explicitly commissioned, supported guidance updates.
 
 ## 7.4.7
 

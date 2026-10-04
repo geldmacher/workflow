@@ -9,7 +9,7 @@ Apply the [working agreement](../../references/workflow.md); read it if missing 
 
 Stop investigating once the goal, boundaries, key interfaces, and suitable checks are clear enough for implementation. Ask about consequential human choices with a reasoned recommendation. A clear assignment needs no interview or advance design of routine implementation details.
 
-For a repeated correction, read the [learning guidance](../../references/learning-work.md) and plan its first feasible rung. A one-off finding does not widen the plan.
+For a repeated correction, read the [learning guidance](../../references/learning-work.md) and plan prevention proportionate to the assignment.
 
 Explain the goal and benefit, observable success criteria, scope and exclusions, material risks and dependencies, key decisions, and appropriate checks. Include files, interfaces, commands, examples, or sequencing where they remove ambiguity. A small change may need only a few paragraphs. When the change is material (architecture, a breaking change, several surfaces, or schema and deploy), note second-order effects in one line each where relevant: caller impact, data or migration, deploy and rollback, and security or auth. Mark speculation as speculation. Omit this for a routine fix or a small plan.
 
