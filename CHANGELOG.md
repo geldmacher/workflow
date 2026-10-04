@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 7.4.8
+
 - Prefer sufficiently effective prevention proportionate to effort and commissioned scope when corrections recur; allow in-scope prevention for a first finding. Keep learning limited to explicitly commissioned, supported guidance updates.
 
 ## 7.4.7
