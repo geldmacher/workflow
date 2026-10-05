@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Learn from the session or its log about navigation, wasteful tool use, and steering instructions that do not change behavior. Mechanical lessons become checks; judgment lessons become standards the reviewer applies, so implementation context stays lean. Review keeps plan or spec deviation separate from repository standards or simplicity.
+
 ## 7.7.0
 
 - When a planning assignment is vague or underspecified, allow an optional short decision round with a recommendation. Clear assignments still need no interview. Raise the plan-and-readiness context limit to hold that instruction.

@@ -60,7 +60,7 @@ A successful implementation report is the input to review. It does not mean revi
 
 Review checks the result without changing repository files. It can use still-applicable evidence after checking its origin, output, and relevance; changed or uncertain evidence needs a fresh check. It must cover the whole plan, not just the tests that happened to pass. Test output may only be created outside the repository, and checks that cannot run within those limits remain visible gaps.
 
-The result tells you whether the goal is achieved, corrections are needed, or proof is missing. A finding explains the observed problem, why it matters, what should change, and how to check the fix.
+The result tells you whether the goal is achieved, corrections are needed, or proof is missing. A finding explains the observed problem, why it matters, what should change, and how to check the fix. Keep a miss against the plan or spec separate from a break with repository standards or simplicity, so one does not hide the other.
 
 ### 4. Correct findings, then review again
 
@@ -87,7 +87,7 @@ For an Auto-Work handoff, also preserve the mode, correction budget already used
 
 ## Learning across reviews
 
-Review can offer to save useful project knowledge, such as the verified download helper for CSV exports. Saving remains your choice. If the same correction has already come back, a structural change or a CI check is preferred over another guidance paragraph when it is sufficiently effective and proportionate to the assignment. See [how learning works](project-improvement.md#save-project-knowledge).
+Review can offer to save useful project knowledge, such as the verified download helper for CSV exports. Saving remains your choice. If the same correction has already come back, a structural change or a CI check is preferred over another guidance paragraph when it is sufficiently effective and proportionate to the assignment. A session can also show a navigation failure, wasteful tool use, or a steering instruction that does not change behavior. See [how learning works](project-improvement.md#save-project-knowledge).
 
 ## Supporting work
 
