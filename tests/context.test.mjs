@@ -34,6 +34,33 @@ test("context covers packaged instructions once, including required planning and
         assert.ok(scenarios[name].documents.includes("references/implementation-work.md"));
         assert.ok(!scenarios[name].documents.includes("skills/engineering-work/references/catalog.md"));
       }
+      for (const name of ["plan", "review", "correction", "status", "explanation", "autoWork"]) {
+        assert.ok(!scenarios[name].documents.includes("references/project-readiness.md"), name);
+      }
+      for (const name of ["setupInspection", "setupImplementation", "maintenanceInspection", "maintenanceUpdate", "planSetupGap", "doctorSetupGap", "reviewSetup", "correctionSetup", "autoWorkSetup", "autoWorkMaintenance", "autoWorkSetupVerifierCreation", "autoWorkMaintenanceVerifierUpdate", "setupVerifierCreation", "maintenanceVerifierUpdate"]) {
+        assert.ok(scenarios[name].documents.includes("references/project-readiness.md"), name);
+      }
+      assert.ok(scenarios.autoWorkSetup.documents.includes("skills/setup-workflow/SKILL.md"));
+      assert.ok(scenarios.autoWorkMaintenanceVerifierUpdate.documents.includes("skills/maintain-workflow/SKILL.md"));
+      assert.ok(scenarios.autoWorkMaintenanceVerifierUpdate.documents.includes("skills/verification-work/references/maintain.md"));
+      assert.ok(scenarios.setupVerifierCreation.documents.includes("skills/verification-work/references/create.md"));
+      assert.ok(!scenarios.setupVerifierCreation.documents.includes("skills/verification-work/references/maintain.md"));
+      assert.ok(scenarios.maintenanceVerifierUpdate.documents.includes("skills/verification-work/references/maintain.md"));
+      const setupReferences = "skills/setup-workflow/references/";
+      for (const name of ["plan", "review", "correction", "status", "explanation", "autoWork", "setupInspection", "maintenanceInspection"]) {
+        assert.ok(!scenarios[name].documents.some(path => path.startsWith(setupReferences)), name);
+      }
+      for (const name of ["setupMethodAssessment", "maintenanceMethodAssessment"]) {
+        assert.deepEqual(scenarios[name].documents.filter(path => path.startsWith(setupReferences)), [setupReferences + "catalog.md"]);
+      }
+      for (const prefix of ["setupMethod:", "maintenanceMethod:"]) for (const [name, scenario] of Object.entries(scenarios).filter(([name]) => name.startsWith(prefix))) {
+        assert.deepEqual(scenario.documents.filter(path => path.startsWith(setupReferences)), [setupReferences + "catalog.md", setupReferences + name.slice(prefix.length) + ".md"]);
+      }
+      assert.ok(scenarios.setupPackageVerifier.documents.includes("skills/verification-work/references/create.md"));
+      assert.ok(!scenarios.setupPackageVerifier.documents.includes("skills/verification-work/references/maintain.md"));
+      assert.ok(scenarios.maintenancePackageVerifier.documents.includes("skills/verification-work/references/maintain.md"));
+      assert.ok(!scenarios.setupPackage.documents.includes("skills/engineering-work/references/catalog.md"));
+      assert.equal(scenarios.setupAllSelectedMethods.documents.filter(path => path.startsWith(setupReferences)).length, 10);
       assert.ok(scenarios.learning.documents.includes("references/learning-work.md"));
       assert.ok(scenarios.methodSuggestion.documents.includes("skills/engineering-work/references/catalog.md"));
       assert.ok(scenarios["planMethod:refactoring"].documents.includes("skills/engineering-work/references/catalog.md"));
@@ -81,6 +108,9 @@ for (const [path, scenario, unaffected] of [
   ["references/verification-work.md", "verificationInspect", "review"],
   ["skills/auto-work/references/delivery.md", "autoWorkDelivery", "autoWork"],
   ["references/learning-work.md", "learning", "plan"],
+  ["references/project-readiness.md", "setupImplementation", "plan"],
+  ["skills/setup-workflow/references/catalog.md", "setupMethodAssessment", "setupInspection"],
+  ["skills/setup-workflow/references/behavior-tests.md", "setupMethod:behavior-tests", "setupMethodAssessment"],
   ["skills/engineering-work/references/refactoring.md", "planMethod:refactoring", "plan"],
 ]) {
   test(`context growth in ${path} fails its fixed gate without inflating unrelated scenarios`, () => {
@@ -120,11 +150,12 @@ test("context CLI is compact by default and exposes full inventories with --json
   const command = join(defaultRoot, "scripts/measure-context.mjs");
   const compact = spawnSync(process.execPath, [command, "--check"], { encoding: "utf8" });
   assert.equal(compact.status, 0, compact.stderr);
-  assert.ok(compact.stdout.split("\n").length < 80);
   const detailed = spawnSync(process.execPath, [command, "--check", "--json"], { encoding: "utf8" });
   assert.equal(detailed.status, 0, detailed.stderr);
   const result = JSON.parse(detailed.stdout);
   assert.deepEqual(result.failures, []);
+  const scenarioCount = new Set(Object.values(result.targets).flatMap(target => Object.keys(target))).size;
+  assert.equal(compact.stdout.trimEnd().split("\n").length, scenarioCount + 3);
   assert.equal(compact.stdout.trimEnd(), formatContext(result));
   assert.ok(result.targets.codex.autoWork.documents.length > 0);
 });

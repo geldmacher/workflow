@@ -12,7 +12,10 @@ const agreement = "references/workflow.md";
 const learning = "references/learning-work.md";
 const verification = "references/verification-work.md";
 const implementation = "references/implementation-work.md";
+const readiness = "references/project-readiness.md";
 const catalog = "skills/engineering-work/references/catalog.md";
+const setupReferences = "skills/setup-workflow/references";
+const setupCatalog = `${setupReferences}/catalog.md`;
 const creation = "skills/verification-work/references/create.md";
 const maintenance = "skills/verification-work/references/maintain.md";
 const auto = "skills/auto-work/references";
@@ -46,6 +49,44 @@ function scenarios(root, host) {
   cases.autoWorkWithLearning = [...cases.autoWork, learning];
   cases.autoWorkVerifierCreation = [...cases.autoWork, verification, skill("verification-work"), creation];
   cases.autoWorkVerifierMaintenance = [...cases.autoWork, verification, skill("verification-work"), maintenance];
+  cases.setupInspection = entry("setup-workflow", [readiness]);
+  cases.setupImplementation = [...cases.setupInspection, implementation];
+  cases.maintenanceInspection = entry("maintain-workflow", [readiness]);
+  cases.maintenanceUpdate = [...cases.maintenanceInspection, implementation];
+  cases.planSetupGap = [...plan, readiness];
+  cases.doctorSetupGap = [...cases.doctor, readiness];
+  cases.reviewSetup = [...cases.review, readiness];
+  cases.correctionSetup = [...cases.correction, readiness];
+  cases.autoWorkSetup = [...cases.autoWork, readiness, skill("setup-workflow")];
+  cases.autoWorkMaintenance = [...cases.autoWork, readiness, skill("maintain-workflow")];
+  cases.autoWorkSetupVerifierCreation = [...cases.autoWorkSetup, verification, skill("verification-work"), creation];
+  cases.autoWorkMaintenanceVerifierUpdate = [...cases.autoWorkMaintenance, verification, skill("verification-work"), maintenance];
+  cases.setupVerifierCreation = [...cases.setupImplementation, verification, skill("verification-work"), creation];
+  cases.maintenanceVerifierUpdate = [...cases.maintenanceUpdate, verification, skill("verification-work"), maintenance];
+  cases.setupMethodAssessment = [...cases.setupInspection, setupCatalog];
+  cases.maintenanceMethodAssessment = [...cases.maintenanceInspection, setupCatalog];
+  cases.planSetupProposal = [...cases.planSetupGap, setupCatalog];
+  cases.doctorSetupProposal = [...cases.doctorSetupGap, setupCatalog];
+  const setupMethods = readdirSync(join(root, setupReferences)).filter(name => name.endsWith(".md") && name !== "catalog.md").sort().map(name => `${setupReferences}/${name}`);
+  for (const path of setupMethods) {
+    const name = path.split("/").at(-1).slice(0, -3);
+    cases[`setupMethod:${name}`] = [...cases.setupImplementation, setupCatalog, path];
+    cases[`maintenanceMethod:${name}`] = [...cases.maintenanceUpdate, setupCatalog, path];
+  }
+  const packageMethods = ["behavior-tests", "check-commands-ci", "project-guidance"].map(name => `${setupReferences}/${name}.md`);
+  const verifierMethods = ["user-journeys", "project-skills"].map(name => `${setupReferences}/${name}.md`);
+  for (const [name, base] of Object.entries({ setupPackage: cases.setupImplementation, maintenancePackage: cases.maintenanceUpdate, reviewSetupPackage: cases.reviewSetup, correctionSetupPackage: cases.correctionSetup, autoWorkSetupPackage: cases.autoWorkSetup, autoWorkMaintenancePackage: cases.autoWorkMaintenance })) {
+    cases[name] = [...base, setupCatalog, ...packageMethods];
+  }
+  for (const [name, base, mode] of [
+    ["setupPackageVerifier", cases.setupPackage, creation],
+    ["maintenancePackageVerifier", cases.maintenancePackage, maintenance],
+    ["autoWorkSetupPackageVerifier", cases.autoWorkSetupPackage, creation],
+    ["autoWorkMaintenancePackageVerifier", cases.autoWorkMaintenancePackage, maintenance],
+  ]) cases[name] = [...base, ...verifierMethods, verification, skill("verification-work"), mode];
+  // Upper bounds for an explicitly selected broad package, not default loading.
+  cases.setupAllSelectedMethods = [...cases.setupImplementation, setupCatalog, ...setupMethods, verification, skill("verification-work"), creation];
+  cases.maintenanceAllSelectedMethods = [...cases.maintenanceUpdate, setupCatalog, ...setupMethods, verification, skill("verification-work"), maintenance];
   for (const name of readdirSync(join(root, "skills/engineering-work/references")).filter(name => name.endsWith(".md") && name !== "catalog.md").sort()) {
     cases[`planMethod:${name.slice(0, -3)}`] = [...plan, catalog, skill("engineering-work"), `skills/engineering-work/references/${name}`];
   }

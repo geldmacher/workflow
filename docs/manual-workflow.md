@@ -21,7 +21,9 @@ You can use ordinary language, such as “Create an implementation plan for CSV 
 | See what is done and what remains | `work-status` |
 | Save reviewed project lessons | `learn-from-work` |
 | Find a suitable working method | `engineering-work` |
-| Check whether verification is ready | `workflow-doctor` |
+| Establish project checks and agent guidance | `setup-workflow` |
+| Inspect or update existing project setup | `maintain-workflow` |
+| Check task prerequisites and verification readiness | `workflow-doctor` |
 | Inspect, create, or update reusable verification instructions | `verification-work` |
 
 Requesting implementation does not start Auto-Work. Ask for that sequence explicitly if you want it. Explaining a finding or asking for status does not start a new review. Running existing tests does not require a separate verifier-management step.
@@ -40,7 +42,7 @@ In Cursor, replace `$plan-work` with `/plan-work`.
 
 The agent inspects your project and prepares a plan. It explains the intended result, scope, important decisions, risks, and checks. It also reads relevant saved project lessons and checks that they still apply. Questions should resolve real uncertainty; a clear, small task should produce a proportionate plan. When the change is material (architecture, a breaking change, several surfaces, or schema and deploy), the plan also notes second-order effects in one line each where relevant: caller impact, data or migration, deploy and rollback, and security or auth. Speculation is marked as speculation. A routine fix or small plan leaves that note out.
 
-For this example, look for checks covering filtered orders, visible columns, and empty exports. Resolve important choices before approving the plan. Planning may also offer optional [methods or verifier work](project-improvement.md).
+For this example, look for checks covering filtered orders, visible columns, and empty exports. Resolve important choices before approving the plan. Planning may also offer optional [setup, maintenance, methods, or verifier work](project-improvement.md) for concrete task-relevant needs.
 
 ### 2. Approve and implement
 
@@ -76,7 +78,7 @@ When continuing in a new task or with another executor, supply:
 
 - The approved plan and current assignment.
 - Relevant implementation and review reports, with their evidence.
-- The current repository state, open decisions, and next action.
+- The current repository state, open decisions (including accepted, declined, or unanswered setup offers), and next action.
 - The complete open learning collection: each lesson, its evidence, and proposed destination. Include reasons and replacements for retired lessons where relevant.
 
 Use accessible task references or paste the relevant content. “Continue where we left off” is insufficient when the new executor cannot read the earlier task. The receiver compares the handoff with the actual repository; missing or contradictory context must be resolved before dependent work.
@@ -134,3 +136,7 @@ After correction, request a fresh review. A positive review might conclude:
 ### Keep export lessons through correction rounds
 
 Lessons remain in the reports even if you choose to fix code first. See the [worked learning example](project-improvement.md#example-lessons-through-corrections).
+
+## Select a project feedback setup
+
+Use setup-workflow for a new basis and maintain-workflow to inspect or update existing checks and guidance. Their shared [playbooks](../skills/setup-workflow/references/catalog.md) support a reasoned package offer, partial selection and decline. For example: "Accept the code checks and project guidance; leave CI and subagents out." Carry that choice into the applicable plan. Matching approved scope needs no repeated approval, and suitable maintenance may finish without changes. See [examples](project-improvement.md#choose-setup-playbooks).

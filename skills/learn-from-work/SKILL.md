@@ -1,6 +1,6 @@
 ---
 name: learn-from-work
-description: "Save review-confirmed project lessons when explicitly requested."
+description: "Save review-confirmed lessons when requested."
 ---
 
 # learn-from-work

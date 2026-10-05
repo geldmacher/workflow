@@ -1,6 +1,6 @@
 ---
 name: review-work
-description: "Review a Workflow implementation or correction against its applicable plan, read-only."
+description: "Review Workflow implementation or corrections against its plan, read-only."
 ---
 
 # review-work
@@ -11,7 +11,7 @@ Remain repository-read-only, including tracked and untracked files. Select inspe
 
 Assess every success criterion and relevant boundary against actual work; distinguish task changes from unrelated edits. Start with the smallest sufficient inspection. Before reusing a check result, inspect its origin, actual output, coverage, and applicability to current source, dependencies, configuration, and relevant environment. Explain the reuse basis briefly. A command list or success summary alone is insufficient. Reviewing evidence does not require rerunning every check. Recheck affected or uncertain proof; widen checks when dependencies, failures, or unresolved risk warrant it. Relevant changes during inspection invalidate affected conclusions; reassess or report the gap.
 
-Match optional methods and verifier edits to active selections. When a project verifier supports acceptance or changed in this assignment, read the [verification guidance](../../references/verification-work.md). Compare the verifier, covered user paths, and evidence with the plan and implementation; for commissioned changes, also inspect the accepted proposal and closing trial. Report defects without fixing them.
+Match optional methods and verifier edits to active selections. For setup changes or gaps affecting acceptance, assess [project readiness](../../references/project-readiness.md) read-only. When a project verifier supports acceptance or changed in this assignment, read the [verification guidance](../../references/verification-work.md). Compare the verifier, covered user paths, and evidence with the plan and implementation; for commissioned changes, also inspect the accepted proposal and closing trial. Report defects without fixing them.
 
 Lead with a reasoned judgment: goal achieved, corrections needed, or open points. Failed necessary checks prevent goal achieved. Missing necessary proof, unclear scope, or missing plan versions remain explicit, even when there are also correctable defects.
 

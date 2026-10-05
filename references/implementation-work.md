@@ -2,7 +2,7 @@
 
 Apply the [working agreement](workflow.md); read it if missing or uncertain. Resolve the applicable plan and implementation assignment, including material amendments. Inspect the current repository before editing; clarify consequential gaps or contradictions. In expressly commissioned Dark Auto-Work, its in-scope plan is authorized by the human goal assignment; standalone implementation still requires an approved plan.
 
-Implement the planned outcomes, preserving unrelated edits. Choose concrete tools, technical steps, and proportionate checks using project guidance. Investigate and fix bounded implementation problems within this phase. New goals, permissions, out-of-scope dependencies, or material tradeoffs need a human decision.
+Implement the planned outcomes, preserving unrelated edits. Choose concrete tools, technical steps, and proportionate checks using project guidance. Investigate and fix bounded implementation problems within this phase. New goals, permissions, out-of-scope dependencies, or material tradeoffs need a human decision. For concrete prerequisite or feedback gaps, follow [project readiness](project-readiness.md); repair commissioned setup work and offer only additions outside that scope.
 
 For explicitly accepted verifier creation or maintenance in the plan, follow its assignment through [verification-work](../skills/verification-work/SKILL.md). Complete the first required end-to-end trial at implementation close when product and verifier are ready together. Preserve evidence through cleanup and report failed or missing necessary proof. An unaccepted suggestion does not authorize verifier edits.
 

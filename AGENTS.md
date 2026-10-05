@@ -21,11 +21,11 @@ Workflow supplies skills and reference documents. The host executes the work and
 
 ## Development
 
-Keep this file as the single contributor north star. Maintain shared skills under `skills/`; `scripts/build-plugin-targets.mjs` produces host packages with only necessary host-specific instructions. Keep references short and load conditional details only when needed.
+Keep this file as the single contributor north star. Maintain shared skills under `skills/`; `scripts/build-plugin-targets.mjs` produces host packages with only necessary host-specific instructions. Keep references short and load conditional details only when needed. Project setup and maintenance reuse existing feedback routes; Workflow offers additions only for concrete task-relevant gaps, carrying decisions across phases. Verifier instructions remain owned by verification-work.
 
 Development scripts may build packages, validate plugin metadata, and test release and installation mechanics in isolated directories. They are not shipped execution policy. Preserve reproducibility, package closure, path safety, checksums, and explicit release/deployment boundaries.
 
-- For CLI entrypoint changes, test real subprocesses through physical and aliased paths with invalid input. Assert diagnostics and exit status; imported-function tests cannot detect a silently skipped CLI. Keep module imports free of CLI side effects.
+- For CLI entrypoint changes, test real subprocesses through physical and aliased paths with invalid input. Assert diagnostics and exit status; imported-function tests cannot detect a silently skipped CLI. Keep module imports free of CLI side effects. For importable Node helpers, also test imports from a stdin module (`node --input-type=module -`), asserting clean exit and no CLI output or side effects.
 - When working on Marketplace integration, installation, deployment, or cache and status handling, read existing Marketplace identity once and carry it through plugin IDs, installation, cache lookup, and status. Preserve valid names, display metadata, and unrelated entries; reject invalid identity or duplicate plugin entries before changes.
 - Validate source files and transformations for every host before replacing existing packages. Rejected symlinks or malformed metadata must leave all previous packages intact.
 - Source link checks use existing tracked and non-ignored new files. Package link checks cover the complete package independently of Git; ignored local evidence must not affect source checks.

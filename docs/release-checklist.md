@@ -16,6 +16,8 @@ npm run release-check
 
 The build generates packages for Cursor, Codex, and Agent Plugins. `release-check` validates metadata, package contents, tests, context limits, and Markdown links. Its `check:targets` step builds and validates all three formats in temporary directories. Packaging tests also cover reproducible archives and isolated deployment behavior.
 
+Context limits remain hard gates. Follow the [context budget guidance](behavior-validation.md#context-budgets) when a commissioned extension or necessary clarification warrants a documented adjustment; ordinary checks never raise limits.
+
 These checks establish package correctness. Use appropriate [behavior exercises](behavior-validation.md) to assess changed skill decisions. Passing repository checks does not establish installation or activation in a live host.
 
 ## Edit installation documentation

@@ -1,6 +1,6 @@
 ---
 name: engineering-work
-description: "Recommend engineering playbooks; apply only human-selected ones."
+description: "Recommend playbooks; apply human-selected methods."
 ---
 
 # engineering-work

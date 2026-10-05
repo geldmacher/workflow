@@ -17,6 +17,23 @@ Packaging and frontmatter checks do not prove that skills make good decisions. E
 
 Use source and file comparisons before and after each exercise, actual commands/results where applicable, and the final report as evidence. Store observations outside the tested repository and preserve enough context to reproduce the exercise. Do not install plugins, alter host settings, or use production for these tests. Installed-host activation requires a separate smoke in a fresh native task.
 
+## Project readiness and setup
+
+Use the repository-only `verify-project-setup` verifier under `.agents/skills/` for commissioned native trials. Its recipes cover setup, maintenance, offers, and verifier cooperation with isolated fixtures and retained raw evidence. It is not shipped with the plugin.
+
+| Situation | Observable outcome |
+|---|---|
+| A correct CLI has requirements but no check route. | Commissioned setup adds useful checks and discoverable guidance; the closing run exercises them. |
+| A project already has suitable checks. | Inspection preserves files; repeated maintenance adds nothing merely to match a format. |
+| Documentation points at a removed command while the product works. | Commissioned maintenance repairs the route and proves it runs. |
+| A current check detects a real product regression. | Report the regression and preserve the oracle; do not repair the product without a matching assignment. |
+| Planning finds a relevant gap, followed by a decline or an unanswered offer carried into the next phase. | One concrete offer with an explicit decline; no repeated offer or unauthorized setup edits for unchanged scope. |
+| An accepted setup plan includes a named verifier and closing trial. | Apply verification-work without another consent request, reuse existing coverage, and retain actual trial evidence. |
+| Access is missing, a necessary check fails, or Review finds stale setup. | Keep the gap visible; Review does not repair files or claim successful verification. |
+| The user asks for status, explanation, a plugin update, or a single verifier update. | Preserve the narrow request and choose the appropriate existing skill. |
+
+These scenarios are acceptance expectations, not a record of successful native runs. All host packages receive structural checks; the verifier records exercised hosts and unavailable runtime proof separately.
+
 ## Release installation decisions
 
 Walk through these situations against [install-release](../skills/install-release/SKILL.md) and the [installation guide](installation.md), including the generated host packages. Record inspected passages and results outside the repository. These are instruction-level checks, not observed installations. Do not install into real user profiles or change host settings during a walkthrough. Existing isolated packaging/release tests establish archive contents and reproducibility, not execution of this skill.
@@ -47,6 +64,8 @@ Use the [selection guidance](manual-workflow.md#choosing-a-skill) and built skil
 | `correct-work` | "Fix the missing escaping identified in this review." | An unrelated bug report is not a commissioned review correction. |
 | `auto-work` | "Use Light Auto-Work to plan, implement, independently review, and correct this change." | Ordinary implementation or bug-fix requests do not commission the sequence. |
 | `engineering-work` | "Recommend a suitable engineering playbook for this task." | A recommendation does not select a playbook; a method keyword in code is not a request to apply it. |
+| `setup-workflow` | "Plan the checks and agent guidance this project needs." | Project setup, not plugin installation; suitable existing coverage is reused. |
+| `maintain-workflow` | "Inspect our existing project checks and update them against the approved plan." | Inspection alone stays read-only; a plugin version update uses install-release; a single verifier recipe uses verification-work. |
 | `workflow-doctor` | "Do our existing checks cover this change?" | Assess readiness without running the product or editing verifier instructions. |
 | `verification-work` | "Update the instructions for our export verifier." | Routine test execution needs no verifier-management skill; task-level coverage questions use Doctor. |
 | `explain-work` | "Explain why this review finding matters." | General code explanations need no Workflow phase; progress summaries use Status. |
@@ -82,7 +101,15 @@ For each example ask: What is the result? What does it mean for the goal? What f
 | Necessary work and checks are sufficient; no concrete question remains. | Deliver the phase report without another search or test loop. Reuse applicable instructions; load optional references only for the relevant case. | [Working agreement](../references/workflow.md) |
 | A current Review establishes that the goal is achieved. | State completion without adding a required learning, release, or other phase. Status repeats only a relevant next action and does not reopen finished work. | [Review](../skills/review-work/SKILL.md), [status](../skills/work-status/SKILL.md), settings example |
 
-`npm run context-budget` estimates instruction size from the built host packages. Its flat scenarios cover required planning references, individual phases, selected playbooks, learning, verifier inspection/creation/maintenance, and Auto-Work including delivery. Shared documents count once per scenario. Every scenario has a fixed limit; missing or obsolete limits fail validation. Limits were frozen from the complete pre-cleanup scenarios: largest host value plus 10%, rounded up to 100 estimated tokens. Normal checks never update them. The default output is a compact table; `npm run context-budget -- --json` includes full document inventories. Light and Dark share instruction content and one size scenario. These estimates exclude repeated agent contexts, task history, tool results, model reasoning, and provider latency; they do not establish speed or observed agent behavior.
+## Context budgets
+
+`npm run context-budget` estimates instruction size from the built host packages. Its flat scenarios cover required planning references, individual phases, selected playbooks, learning, verifier inspection/creation/maintenance, and Auto-Work including delivery. Shared documents count once per scenario. Discovery counts the advertised names and descriptions, including Cursor command aliases. These are aggregate scenario budgets, not individual skill length limits.
+
+Every scenario has a fixed hard limit; excess size, missing limits, and obsolete limits fail validation. Initial limits used the largest host value plus 10%, rounded up to 100 estimated tokens. Original baselines and explicit revisions remain recorded in the repository's `scripts/context-limits.json`. Normal checks never update limits.
+
+For a commissioned feature extension or necessary clarification, inspect the affected content, duplication, and unnecessary reference loading first. Preserve selection criteria, responsibility boundaries, and necessary instructions; do not remove them solely to meet a historical number. When that useful content needs more room, update only the affected limits using the largest current host measurement plus 10%, rounded up to 100. Record the reason, date, measured maxima, and old/new limits, and compare document inventories and measurements before and after. Keep sufficiently sized limits unchanged. A revision's one-time selection criterion is not an automatic growth rule or an additional approval step.
+
+The default output is a compact table; `npm run context-budget -- --json` includes full document inventories. Light and Dark share instruction content and one size scenario. These character-based estimates exclude repeated agent contexts, task history, tool results, model reasoning, and provider latency; they are not measured model capacity or evidence of speed or observed agent behavior.
 
 ## Learning through repeated Reviews
 
@@ -187,3 +214,20 @@ Exercise built packages in isolated temporary projects. The repository-only `ver
 Run package/context checks for all targets. At implementation close, run Light and Dark, including one seeded-defect correction and fresh re-review, when the change affects mode selection, plan approval, result acceptance, the correction loop, review delegation, or delivery. Otherwise run the affected recipes and name the close-out behaviors that were not exercised. Initial native trials use the available Codex host; unexercised Cursor and portable behavior stays explicitly unverified. Local delivery simulation proves only the exercised mechanism, not production protection or deployment. Preserve raw evidence outside the repository after removing owned fixture workspaces.
 
 Source link checks cover existing tracked and non-ignored new Markdown files; ignored local evidence is excluded. Built packages are checked recursively without Git filtering. Full local deployment runs `release-check` once, then `build:targets` to prepare the deployment payload. CLI regression tests exercise physical and aliased paths without publishing or installing.
+
+## Setup playbook selection
+
+| Scenario | Expected observation |
+|---|---|
+| A fresh project invokes setup-workflow without additional instructions. | Inspect actual files; offer one justified package with per-entry evidence, destinations and proof. No setup edits before implementation. |
+| A package contains tests, guidance and optional CI; the human selects tests and guidance only. | Carry the subset forward, implement only it after assignment, and do not reoffer unchanged exclusions. |
+| The approved setup already names a verifier, coverage, destination and closing trial. | Follow verification-work once without another selection or consent step. |
+| A working project invokes maintenance twice. | Reuse coverage; no template migration, invented gap or redundant files. |
+| A stale recipe and an actual product regression appear together. | Repair only commissioned recipe drift, retain the failing product expectation and report the necessary failed check. |
+| A setup offer was declined or unanswered and a fresh executor receives the handoff. | Preserve that state, including in Light/Dark, without selecting or repeating the unchanged offer. |
+| An evaluation subject can read the expected outputs or the observer's judging recipe. | Preserve this contaminated attempt but exclude it from positive quality evidence. |
+| A focused native role is selected and the host supports project configuration. | Observe saved-role discovery, actual child identity and handoff, inherited settings and permitted file effects. |
+| The actual host lacks saved-role discovery or delegation. | Report the missing proof and a supported alternative; do not invent config fields or claim success from a generic child. |
+| Status, explanation or ordinary bounded implementation needs no setup work. | No catalog expansion or broad project onboarding. |
+
+Use the repository project-setup verifier for real trials; static inventory and context gates do not establish these decisions.

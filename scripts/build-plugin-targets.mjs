@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { parseDocument } from "yaml";
 
 export const defaultRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-export const publicSkills = ["auto-work", "correct-work", "engineering-work", "explain-work", "install-release", "learn-from-work", "plan-work", "review-work", "verification-work", "work-status", "workflow-doctor"];
+export const publicSkills = ["auto-work", "correct-work", "engineering-work", "explain-work", "install-release", "learn-from-work", "maintain-workflow", "plan-work", "review-work", "setup-workflow", "verification-work", "work-status", "workflow-doctor"];
 export const hostSkills = (host) => host === "agent-plugins" ? [...publicSkills, "implement-work"].sort() : publicSkills;
 export const manifestPaths = { cursor: ".cursor-plugin/plugin.json", codex: ".codex-plugin/plugin.json", "agent-plugins": "plugin.json" };
 const packageDocs = ["docs/auto-work.md", "docs/project-improvement.md", "docs/behavior-validation.md", "docs/installation.md", "docs/manual-workflow.md", "docs/release-checklist.md"];
@@ -43,7 +43,7 @@ export function hostInstruction(host, skill) {
   }
   const instructions = [];
   if (host === "cursor" && ["review-work", "explain-work", "work-status", "workflow-doctor"].includes(skill)) instructions.push("Stay read-only. Use Cursor Ask Mode when active or required; do not switch only for format. Delegated Auto-Work review needs no mode switch.");
-  if (["correct-work", "implement-work", "verification-work"].includes(skill)) instructions.push(`After standalone commissioned changes, recommend ${invoke("review-work")}${host === "cursor" ? " in Ask Mode" : ""} for the human to start a separate review. Within Auto-Work, return the report to its independent review step.`);
+  if (["correct-work", "implement-work", "verification-work", "setup-workflow", "maintain-workflow"].includes(skill)) instructions.push(`After standalone commissioned changes, recommend ${invoke("review-work")}${host === "cursor" ? " in Ask Mode" : ""} for the human to start a separate review. Within Auto-Work, return the report to its independent review step.`);
   if (skill === "review-work") instructions.push(`For standalone actionable corrections, recommend ${invoke("correct-work")}${host === "cursor" ? " in Agent Mode" : ""} for the human to commission them. A delegated Auto-Work review returns findings to the existing assignment.`);
   if (skill === "review-work") instructions.push(`For eligible lessons, offer ${invoke("learn-from-work")}${host === "cursor" ? " in Agent Mode" : ""} as optional learning.`);
   if (skill === "work-status") instructions.push(host === "agent-plugins"

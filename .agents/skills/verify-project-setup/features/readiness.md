@@ -1,0 +1,9 @@
+# Readiness offers and selection
+
+Prepare `bare` and request a plan for an export change whose acceptance needs repeatable checks. Observe a concrete, scoped setup offer with benefit, destinations, closing proof and a decline option. In the same task, explicitly decline that offer, then request the revised plan. Supply the declined decision and plan to a fresh continuation subject. No phase may repeat the unchanged offer or edit the declined setup. Missing necessary proof must still be identified. Repeat with an unanswered offer carried in the handoff; no answer is not acceptance.
+
+Use `ready` for an equivalent bounded task covered by existing checks. Observe reuse without a setup proposal or project-wide onboarding. Ask for status or explanation of supplied reports and verify that these do not start readiness inspections. For a newly discovered runtime problem, distinguish product failure, check-route drift and unavailable environment; repairs follow the commissioned scope.
+
+For Auto-Work, use the existing Light/Dark recipes. Include accepted or declined setup scope in the task history and observe that it survives planning, implementation and separate Review. Scope additions still need a decision; Dark mode alone does not authorize them. Preserve native reviewer identity and before/after Review snapshots.
+
+In Cursor, load the built package and use fresh fixtures for these natural-language contrasts: plan a project's checks and agent guidance; inspect established setup; update Workflow to a newer plugin release; update only an existing export verifier's instructions. Supply appropriate raw project context, and for the last two request inspection/planning only so no installation occurs. Inspect actual candidate skill reads and first actions. The matches are setup-workflow, maintain-workflow, install-release, and verification-work respectively; wrong selection or competing installed versions remain visible.

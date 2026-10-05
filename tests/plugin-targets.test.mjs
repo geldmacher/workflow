@@ -57,7 +57,7 @@ test("phase handoffs name skills available in the receiving host package", () =>
   try {
     const built = buildPluginTargets(parent);
     for (const host of ["cursor", "codex", "agent-plugins"]) {
-      const pairs = [["plan-work", "review-work"], ["correct-work", "review-work"], ["review-work", "correct-work"], ["review-work", "learn-from-work"], ["verification-work", "review-work"]];
+      const pairs = [["plan-work", "review-work"], ["correct-work", "review-work"], ["review-work", "correct-work"], ["review-work", "learn-from-work"], ["verification-work", "review-work"], ["setup-workflow", "review-work"], ["maintain-workflow", "review-work"]];
       if (host === "agent-plugins") pairs.push(["plan-work", "implement-work"], ["implement-work", "review-work"]);
       for (const [source, destination] of pairs) {
         const prefix = host === "cursor" ? "/" : host === "codex" ? "$" : "";

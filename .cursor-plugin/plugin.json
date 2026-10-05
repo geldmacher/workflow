@@ -2,7 +2,7 @@
   "name": "geldmacher-workflow",
   "displayName": "Workflow",
   "description": "Plan, implement, review, and refine changes with your coding agent. Commission each step yourself, or use Auto-Work for a sequence with independent review and bounded correction rounds.",
-  "version": "7.4.8",
+  "version": "7.5.0",
   "author": {
     "name": "Dennis Geldmacher",
     "email": "geldmacher.dennis@outlook.de"
@@ -27,8 +27,10 @@
     "./skills/explain-work/",
     "./skills/install-release/",
     "./skills/learn-from-work/",
+    "./skills/maintain-workflow/",
     "./skills/plan-work/",
     "./skills/review-work/",
+    "./skills/setup-workflow/",
     "./skills/verification-work/",
     "./skills/work-status/",
     "./skills/workflow-doctor/"

@@ -1,13 +1,13 @@
 ---
 name: auto-work
-description: "Run explicitly requested Light or Dark Auto-Work: plan, implement, independently review, correct."
+description: "Run requested Light/Dark planning, implementation, independent review and correction."
 ---
 
 # auto-work
 
 Apply the [working agreement](../../references/workflow.md); read it if missing or uncertain. Read the [operating rules](references/operation.md). Resolve one human assignment: goal or applicable plan, scope, mode, correction limit, and any explicitly commissioned delivery steps and destinations. A natural-language request for this sequence suffices; ordinary implementation or bug-fix requests do not commission Auto-Work. Default a new assignment to Light and three correction rounds. When Light is selected or defaulted, state its plan-approval and result-acceptance gates. Preserve the documented mode and consumed rounds when resuming.
 
-Inspect the repository, inherited reports, and actual native delegation capabilities before starting. Identify missing prerequisites early. Use a fresh separate native reviewer for every review; missing delegation prevents crossing the review boundary, never authorizes self-review. Inherit model settings, use available host read restrictions, and do not install agents or change host configuration.
+Inspect the repository, inherited reports, and actual native delegation capabilities before starting. Check task-relevant prerequisites and feedback routes, reusing current evidence. For concrete gaps, follow [project readiness](../../references/project-readiness.md). Use a fresh separate native reviewer for every review; missing delegation prevents crossing the review boundary, never authorizes self-review. Inherit model settings, use available host read restrictions, and do not install agents or change host configuration.
 
 For a goal without an applicable plan, apply [planning](../plan-work/SKILL.md). Light waits for human plan approval; expressly commissioned Dark may establish the plan within the assigned goal and continue. Both pause for consequential unresolved decisions. Use the shared [implementation requirements](../../references/implementation-work.md), then delegate under the [reviewer instructions](references/reviewer.md). Apply [correction](../correct-work/SKILL.md) to actionable findings within the remaining budget and repeat independent review. Each phase reports its actual result into the task; an internal report is not an instruction to end the whole assignment.
 

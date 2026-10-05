@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 7.5.0
+
+- Add nine shared setup playbooks with reasoned package offers, partial selection, concrete quality practices and optional project-local subagent roles.
+
+- Add project feedback setup and maintenance skills with task-relevant readiness offers and shared verifier handoffs.
+- Add a repository-only project-setup verifier for isolated native behavior trials.
+- Preserve correction review and approved-plan discovery hints, and restore headroom in 30 hard context budgets with documented baselines and adjustment guidance.
+
 ## 7.4.8
 
 - Prefer sufficiently effective prevention proportionate to effort and commissioned scope when corrections recur; allow in-scope prevention for a first finding. Keep learning limited to explicitly commissioned, supported guidance updates.

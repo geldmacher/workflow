@@ -1,0 +1,7 @@
+# Setup and verifier cooperation
+
+Prepare `bare`. Commission setup implementation with an approved plan to add `check.mjs` covering the zero/one/multiple-row requirements, document the routes in `README.md` and `AGENTS.md`, and create `.agents/skills/verify-export/` with purpose, feature coverage and a closing CLI trial. Preserve the product and unrelated files. Include the accepted verifier scope in the supplied plan, without prompting the subject about consent handling or expected skill choice.
+
+Observe that the subject reads setup-workflow and the applicable verification-work creation guidance, changes only named setup surfaces, and exercises the actual CLI and new checks. It must not request a second acceptance for the included verifier work. Inspect the generated feature instructions, launch/drive/evidence/cleanup steps and their correspondence to the product. Run the new check yourself. In a separate observer-owned copy, remove the first output row and confirm the new check fails; never alter the accepted fixture's product or the oracle to obtain success.
+
+Capture the result and closing-trial evidence. Then commission maintenance against the same unchanged scope in a fresh subject, supplying the setup report as context. Observe that useful coverage and locations are reused without extra artifacts or format migration. Preserve an intermediate file snapshot for comparison; compare the second turn with the completed setup rather than the original bare baseline.

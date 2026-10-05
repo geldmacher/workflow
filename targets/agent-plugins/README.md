@@ -38,6 +38,8 @@ Prefer manual work? Use `plan-work`, approve the plan, and request `implement-wo
 
 ## Make future tasks easier
 
+- [Set up or maintain project feedback](../../docs/project-improvement.md#set-up-and-maintain-project-feedback) with useful checks and agent guidance.
+
 - [Save reviewed lessons](../../docs/project-improvement.md#save-project-knowledge) in project guidance when you request it.
 - [Keep checks repeatable](../../docs/project-improvement.md#keep-checks-useful) with practical verification instructions.
 - [Choose a fitting method](../../docs/project-improvement.md#choose-a-working-method) for the task through optional playbooks.

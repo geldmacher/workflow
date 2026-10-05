@@ -56,55 +56,323 @@
     }
   },
   "limits": {
-    "discovery": 500,
+    "discovery": 600,
     "plan": 2900,
-    "review": 1600,
+    "review": 1800,
     "correction": 1200,
-    "learning": 2000,
-    "explanation": 800,
-    "status": 1000,
-    "doctor": 2400,
+    "learning": 2200,
+    "explanation": 900,
+    "status": 1100,
+    "doctor": 2600,
     "verificationInspect": 2700,
     "methodSuggestion": 2000,
     "planVerifierInspection": 4500,
     "planVerifierCreation": 6100,
     "planVerifierMaintenance": 6100,
-    "reviewVerifier": 3200,
+    "reviewVerifier": 3400,
     "correctionVerifierCreation": 4400,
     "correctionVerifierMaintenance": 4300,
     "verificationCreation": 3800,
     "verificationMaintenance": 3700,
     "planWithLearning": 4100,
-    "reviewWithLearning": 2800,
-    "correctionWithLearning": 2400,
-    "explanationWithLearning": 2000,
-    "statusWithLearning": 2200,
-    "doctorWithLearning": 3600,
+    "reviewWithLearning": 3100,
+    "correctionWithLearning": 2600,
+    "explanationWithLearning": 2200,
+    "statusWithLearning": 2500,
+    "doctorWithLearning": 3900,
     "verificationInspectWithLearning": 3900,
-    "methodSuggestionWithLearning": 3200,
-    "autoWorkEntry": 2700,
+    "methodSuggestionWithLearning": 3400,
+    "autoWorkEntry": 2900,
     "autoWork": 7100,
     "autoWorkDelivery": 7800,
     "autoWorkWithLearning": 8300,
     "autoWorkVerifierCreation": 10400,
     "autoWorkVerifierMaintenance": 10300,
-    "planMethod:bug-fix": 4000,
-    "planMethod:evaluation": 4000,
-    "planMethod:feature": 3900,
-    "planMethod:hillclimb": 4100,
-    "planMethod:investigation": 3800,
-    "planMethod:pause-safely": 3800,
-    "planMethod:performance": 4100,
-    "planMethod:prototype": 3900,
-    "planMethod:refactoring": 3900,
-    "planMethod:runtime-forensics": 3900,
-    "planMethod:session-pickup": 3900,
-    "planMethod:skill-authoring": 3900,
-    "planMethod:trace-forensics": 3900,
-    "planMethod:visual-parity": 3900,
-    "implementation": 1200,
+    "planMethod:bug-fix": 4400,
+    "planMethod:evaluation": 4400,
+    "planMethod:feature": 4300,
+    "planMethod:hillclimb": 4500,
+    "planMethod:investigation": 4200,
+    "planMethod:pause-safely": 4200,
+    "planMethod:performance": 4500,
+    "planMethod:prototype": 4300,
+    "planMethod:refactoring": 4300,
+    "planMethod:runtime-forensics": 4300,
+    "planMethod:session-pickup": 4300,
+    "planMethod:skill-authoring": 4300,
+    "planMethod:trace-forensics": 4300,
+    "planMethod:visual-parity": 4300,
+    "implementation": 1300,
     "implementationVerifierCreation": 4400,
     "implementationVerifierMaintenance": 4300,
-    "implementationWithLearning": 2400
-  }
+    "implementationWithLearning": 2700,
+    "setupInspection": 2400,
+    "setupImplementation": 3000,
+    "maintenanceInspection": 2500,
+    "maintenanceUpdate": 3000,
+    "planSetupGap": 3500,
+    "doctorSetupGap": 3900,
+    "reviewSetup": 3100,
+    "correctionSetup": 2600,
+    "autoWorkSetup": 8600,
+    "setupVerifierCreation": 6100,
+    "maintenanceVerifierUpdate": 6100,
+    "autoWorkMaintenance": 8600,
+    "autoWorkSetupVerifierCreation": 11700,
+    "autoWorkMaintenanceVerifierUpdate": 11700,
+    "setupMethodAssessment": 3400,
+    "maintenanceMethodAssessment": 3400,
+    "planSetupProposal": 4500,
+    "doctorSetupProposal": 4900,
+    "setupMethod:behavior-tests": 4400,
+    "maintenanceMethod:behavior-tests": 4500,
+    "setupMethod:check-commands-ci": 4500,
+    "maintenanceMethod:check-commands-ci": 4500,
+    "setupMethod:code-checks": 4400,
+    "maintenanceMethod:code-checks": 4500,
+    "setupMethod:evaluations": 4600,
+    "maintenanceMethod:evaluations": 4600,
+    "setupMethod:project-guidance": 4400,
+    "maintenanceMethod:project-guidance": 4500,
+    "setupMethod:project-skills": 4500,
+    "maintenanceMethod:project-skills": 4600,
+    "setupMethod:subagent-roles": 4600,
+    "maintenanceMethod:subagent-roles": 4700,
+    "setupMethod:test-data-isolation": 4400,
+    "maintenanceMethod:test-data-isolation": 4500,
+    "setupMethod:user-journeys": 4500,
+    "maintenanceMethod:user-journeys": 4500,
+    "setupPackage": 5500,
+    "maintenancePackage": 5600,
+    "reviewSetupPackage": 5600,
+    "correctionSetupPackage": 5100,
+    "autoWorkSetupPackage": 11100,
+    "autoWorkMaintenancePackage": 11100,
+    "setupPackageVerifier": 9700,
+    "maintenancePackageVerifier": 9700,
+    "autoWorkSetupPackageVerifier": 15300,
+    "autoWorkMaintenancePackageVerifier": 15300,
+    "setupAllSelectedMethods": 12100,
+    "maintenanceAllSelectedMethods": 12100
+  },
+  "additions": {
+    "projectSetup": {
+      "method": "Initial largest host scenario plus 10%, rounded up to 100 estimated tokens. Frozen after introduction; existing limits unchanged.",
+      "maxima": {
+        "setupInspection": 2168,
+        "setupImplementation": 2671,
+        "maintenanceInspection": 2220,
+        "maintenanceUpdate": 2723,
+        "planSetupGap": 3176,
+        "doctorSetupGap": 3526,
+        "reviewSetup": 2775,
+        "correctionSetup": 2349,
+        "autoWorkSetup": 7751,
+        "setupVerifierCreation": 5489,
+        "maintenanceVerifierUpdate": 5485,
+        "autoWorkMaintenance": 7798,
+        "autoWorkSetupVerifierCreation": 10569,
+        "autoWorkMaintenanceVerifierUpdate": 10560
+      }
+    },
+    "setupPlaybooks": {
+      "method": "Initial largest host scenario plus 10%, rounded up to 100 estimated tokens. Frozen after introduction; existing limits unchanged.",
+      "maxima": {
+        "setupMethodAssessment": 3015,
+        "maintenanceMethodAssessment": 3079,
+        "planSetupProposal": 4024,
+        "doctorSetupProposal": 4374,
+        "setupMethod:behavior-tests": 3967,
+        "maintenanceMethod:behavior-tests": 4031,
+        "setupMethod:check-commands-ci": 4025,
+        "maintenanceMethod:check-commands-ci": 4089,
+        "setupMethod:code-checks": 3978,
+        "maintenanceMethod:code-checks": 4042,
+        "setupMethod:evaluations": 4104,
+        "maintenanceMethod:evaluations": 4168,
+        "setupMethod:project-guidance": 3981,
+        "maintenanceMethod:project-guidance": 4045,
+        "setupMethod:project-skills": 4063,
+        "maintenanceMethod:project-skills": 4127,
+        "setupMethod:subagent-roles": 4170,
+        "maintenanceMethod:subagent-roles": 4234,
+        "setupMethod:test-data-isolation": 3965,
+        "maintenanceMethod:test-data-isolation": 4029,
+        "setupMethod:user-journeys": 4016,
+        "maintenanceMethod:user-journeys": 4080,
+        "setupPackage": 4937,
+        "maintenancePackage": 5001,
+        "reviewSetupPackage": 5042,
+        "correctionSetupPackage": 4616,
+        "autoWorkSetupPackage": 10024,
+        "autoWorkMaintenancePackage": 10083,
+        "setupPackageVerifier": 8798,
+        "maintenancePackageVerifier": 8806,
+        "autoWorkSetupPackageVerifier": 13885,
+        "autoWorkMaintenancePackageVerifier": 13888,
+        "setupAllSelectedMethods": 10943,
+        "maintenanceAllSelectedMethods": 10951
+      }
+    }
+  },
+  "revisions": [
+    {
+      "date": "2026-10-05",
+      "reason": "Restore editing headroom after commissioned Workflow extensions and clarified skill discovery without removing selection criteria or necessary instructions.",
+      "selection": "One-time selection of the 30 scenarios whose largest current host measurement used more than 95% of its limit. The other 68 limits remain unchanged. This criterion does not trigger future automatic changes or approvals.",
+      "method": "Largest current host measurement plus 10%, rounded up to 100 estimated tokens. Existing baselines are retained; normal checks never update limits.",
+      "scenarios": {
+        "discovery": {
+          "maximum": 500,
+          "previousLimit": 500,
+          "limit": 600
+        },
+        "review": {
+          "maximum": 1561,
+          "previousLimit": 1600,
+          "limit": 1800
+        },
+        "learning": {
+          "maximum": 1960,
+          "previousLimit": 2000,
+          "limit": 2200
+        },
+        "explanation": {
+          "maximum": 769,
+          "previousLimit": 800,
+          "limit": 900
+        },
+        "status": {
+          "maximum": 974,
+          "previousLimit": 1000,
+          "limit": 1100
+        },
+        "doctor": {
+          "maximum": 2304,
+          "previousLimit": 2400,
+          "limit": 2600
+        },
+        "reviewVerifier": {
+          "maximum": 3086,
+          "previousLimit": 3200,
+          "limit": 3400
+        },
+        "reviewWithLearning": {
+          "maximum": 2781,
+          "previousLimit": 2800,
+          "limit": 3100
+        },
+        "correctionWithLearning": {
+          "maximum": 2352,
+          "previousLimit": 2400,
+          "limit": 2600
+        },
+        "explanationWithLearning": {
+          "maximum": 1989,
+          "previousLimit": 2000,
+          "limit": 2200
+        },
+        "statusWithLearning": {
+          "maximum": 2194,
+          "previousLimit": 2200,
+          "limit": 2500
+        },
+        "doctorWithLearning": {
+          "maximum": 3524,
+          "previousLimit": 3600,
+          "limit": 3900
+        },
+        "methodSuggestionWithLearning": {
+          "maximum": 3066,
+          "previousLimit": 3200,
+          "limit": 3400
+        },
+        "autoWorkEntry": {
+          "maximum": 2571,
+          "previousLimit": 2700,
+          "limit": 2900
+        },
+        "planMethod:bug-fix": {
+          "maximum": 3952,
+          "previousLimit": 4000,
+          "limit": 4400
+        },
+        "planMethod:evaluation": {
+          "maximum": 3977,
+          "previousLimit": 4000,
+          "limit": 4400
+        },
+        "planMethod:feature": {
+          "maximum": 3897,
+          "previousLimit": 3900,
+          "limit": 4300
+        },
+        "planMethod:hillclimb": {
+          "maximum": 4015,
+          "previousLimit": 4100,
+          "limit": 4500
+        },
+        "planMethod:investigation": {
+          "maximum": 3774,
+          "previousLimit": 3800,
+          "limit": 4200
+        },
+        "planMethod:pause-safely": {
+          "maximum": 3757,
+          "previousLimit": 3800,
+          "limit": 4200
+        },
+        "planMethod:performance": {
+          "maximum": 4004,
+          "previousLimit": 4100,
+          "limit": 4500
+        },
+        "planMethod:prototype": {
+          "maximum": 3842,
+          "previousLimit": 3900,
+          "limit": 4300
+        },
+        "planMethod:refactoring": {
+          "maximum": 3897,
+          "previousLimit": 3900,
+          "limit": 4300
+        },
+        "planMethod:runtime-forensics": {
+          "maximum": 3854,
+          "previousLimit": 3900,
+          "limit": 4300
+        },
+        "planMethod:session-pickup": {
+          "maximum": 3821,
+          "previousLimit": 3900,
+          "limit": 4300
+        },
+        "planMethod:skill-authoring": {
+          "maximum": 3827,
+          "previousLimit": 3900,
+          "limit": 4300
+        },
+        "planMethod:trace-forensics": {
+          "maximum": 3820,
+          "previousLimit": 3900,
+          "limit": 4300
+        },
+        "planMethod:visual-parity": {
+          "maximum": 3826,
+          "previousLimit": 3900,
+          "limit": 4300
+        },
+        "implementation": {
+          "maximum": 1158,
+          "previousLimit": 1200,
+          "limit": 1300
+        },
+        "implementationWithLearning": {
+          "maximum": 2378,
+          "previousLimit": 2400,
+          "limit": 2700
+        }
+      }
+    }
+  ]
 }

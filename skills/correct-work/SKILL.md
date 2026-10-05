@@ -9,7 +9,7 @@ Apply the [working agreement](../../references/workflow.md); read it if missing 
 
 Correct the named defects within the approved scope and preserve unrelated changes. Investigate routine technical details yourself. Do not broaden the goal, modify protected work without permission, weaken tests to hide a defect, or treat an unrelated improvement as part of the assignment.
 
-Recheck affected behavior and proof invalidated by the changes. Reuse other results only after checking their origin, actual output, coverage, and applicability to current source, dependencies, configuration, and relevant environment; explain the basis briefly. Broaden checks when failures, dependencies, or uncertainty require it. A verification-only correction collects the missing proof without an unnecessary code change.
+Recheck affected behavior and proof invalidated by the changes. Reuse other results only after checking their origin, actual output, coverage, and applicability to current source, dependencies, configuration, and relevant environment; explain the basis briefly. Broaden checks when failures, dependencies, or uncertainty require it. A verification-only correction collects missing proof without unnecessary code changes. For setup or prerequisite gaps, follow [project readiness](../../references/project-readiness.md) within the correction scope.
 
 Capture reusable learning candidates from correction and diagnosis; reconcile lessons affected by changes and carry the open collection forward under the working agreement. This does not authorize guidance edits or confirm new lessons without Review.
 
