@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 7.6.0
+
 - Establish and maintain project north stars through setup and explicit user decisions, carrying pending updates across read-only phases without duplicate approval. Add isolated project-direction verification scenarios.
 
 ## 7.5.0
