@@ -64,7 +64,7 @@ Use the [selection guidance](manual-workflow.md#choosing-a-skill) and built skil
 | `correct-work` | "Fix the missing escaping identified in this review." | An unrelated bug report is not a commissioned review correction. |
 | `auto-work` | "Use Light Auto-Work to plan, implement, independently review, and correct this change." | Ordinary implementation or bug-fix requests do not commission the sequence. |
 | `engineering-work` | "Recommend a suitable engineering playbook for this task." | A recommendation does not select a playbook; a method keyword in code is not a request to apply it. |
-| `setup-workflow` | "Plan the checks and agent guidance this project needs." | Project setup, not plugin installation; suitable existing coverage is reused. |
+| `setup-workflow` | "Plan the project direction, checks and agent guidance we need." | Project setup, not plugin installation; suitable existing coverage is reused. |
 | `maintain-workflow` | "Inspect our existing project checks and update them against the approved plan." | Inspection alone stays read-only; a plugin version update uses install-release; a single verifier recipe uses verification-work. |
 | `workflow-doctor` | "Do our existing checks cover this change?" | Assess readiness without running the product or editing verifier instructions. |
 | `verification-work` | "Update the instructions for our export verifier." | Routine test execution needs no verifier-management skill; task-level coverage questions use Doctor. |
@@ -231,3 +231,7 @@ Source link checks cover existing tracked and non-ignored new Markdown files; ig
 | Status, explanation or ordinary bounded implementation needs no setup work. | No catalog expansion or broad project onboarding. |
 
 Use the repository project-setup verifier for real trials; static inventory and context gates do not establish these decisions.
+
+## North-star continuity
+
+Use the repository project-setup verifier's north-star recipe for isolated native trials. Assess existing descriptions by substance; do not require a filename or template. Cover missing/vague direction, reuse, conflicting sources, explicit direction changes, read-only planning and Review, fresh continuation, declined/unanswered offers, routine scope and Light/Dark continuity. Observe actual file effects and candidate skill reads. Package checks establish packaging and fixture mechanics, not these judgments. Cursor authentication or unavailable native delegation remains missing proof.

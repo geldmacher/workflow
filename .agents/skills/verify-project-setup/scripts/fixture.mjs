@@ -9,7 +9,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const marker = 'workflow-project-setup-fixture-v1';
-export const scenarios = ['bare', 'ready', 'stale', 'regression', 'access'];
+export const scenarios = ['bare', 'ready', 'stale', 'regression', 'access', 'northstar-missing', 'northstar-vague', 'northstar-ready', 'northstar-conflict'];
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const product = "export function exportRows(rows) { return 'value\\n' + rows.map(String).join('\\n') + (rows.length ? '\\n' : ''); }\n";
 const check = "import assert from 'node:assert/strict';\nimport { exportRows } from './csv.mjs';\nassert.equal(exportRows([]), 'value\\n');\nassert.equal(exportRows(['alpha']), 'value\\nalpha\\n');\nassert.equal(exportRows(['alpha','beta']), 'value\\nalpha\\nbeta\\n');\nconsole.log('export checks passed');\n";
@@ -50,6 +50,17 @@ export function prepareFixture(scenario) {
   writeFileSync(join(workspace, 'AGENTS.md'), '# Export project\n\nUse the supplied candidate Workflow instructions. Preserve REQUIREMENTS.md, csv.mjs, cli.mjs and unrelated.txt unless the assignment explicitly includes them. All changes belong inside this workspace. External delivery, plugin installation and host configuration are outside this assignment.\n');
   const command = scenario === 'stale' ? 'node old-check.mjs' : 'node check.mjs';
   writeFileSync(join(workspace, 'README.md'), '# CSV exporter\n\nRun `node cli.mjs alpha beta`.\n' + (scenario === 'bare' ? '\nNo repeatable check route has been established.\n' : `\nRun \`${command}\` after export changes. It checks zero, one and multiple rows.\n`) + (scenario === 'access' ? '\nRelease acceptance also requires a live vendor-service check. No vendor endpoint, credential, or fixture service is available. Local checks cover only the exporter.\n' : ''));
+  if (!['northstar-missing', 'northstar-vague'].includes(scenario)) {
+    const boundary = scenario === 'access'
+      ? 'It runs locally, with release acceptance requiring an agreed live check that a vendor service can consume its exports.'
+      : 'It is a local tool; vendor-service integration is outside its purpose.';
+    writeFileSync(join(workspace, 'PROJECT.md'), `# Project direction\n\nThis exporter helps operations staff transfer complete, ordered records into existing spreadsheets. Predictability matters more than advanced formatting. ${boundary}\n`);
+  } else if (scenario === 'northstar-vague') {
+    writeFileSync(join(workspace, 'PROJECT.md'), '# Project direction\n\nBuild the best export experience.\n');
+  }
+  if (scenario === 'northstar-conflict') {
+    writeFileSync(join(workspace, 'PROPOSAL.md'), '# Proposed direction\n\nReplace local operations exports with a hosted vendor analytics service for marketing teams. No decision has been recorded.\n');
+  }
   if (scenario !== 'bare') writeFileSync(join(workspace, 'check.mjs'), check);
   writeFileSync(join(evidence, 'baseline.json'), JSON.stringify({ scenario, files: snapshot(workspace) }, null, 2));
   return { base, workspace, evidence, scenario };

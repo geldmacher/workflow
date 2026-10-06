@@ -21,7 +21,7 @@ You can use ordinary language, such as “Create an implementation plan for CSV 
 | See what is done and what remains | `work-status` |
 | Save reviewed project lessons | `learn-from-work` |
 | Find a suitable working method | `engineering-work` |
-| Establish project checks and agent guidance | `setup-workflow` |
+| Establish project purpose, checks and agent guidance | `setup-workflow` |
 | Inspect or update existing project setup | `maintain-workflow` |
 | Check task prerequisites and verification readiness | `workflow-doctor` |
 | Inspect, create, or update reusable verification instructions | `verification-work` |
@@ -139,4 +139,4 @@ Lessons remain in the reports even if you choose to fix code first. See the [wor
 
 ## Select a project feedback setup
 
-Use setup-workflow for a new basis and maintain-workflow to inspect or update existing checks and guidance. Their shared [playbooks](../skills/setup-workflow/references/catalog.md) support a reasoned package offer, partial selection and decline. For example: "Accept the code checks and project guidance; leave CI and subagents out." Carry that choice into the applicable plan. Matching approved scope needs no repeated approval, and suitable maintenance may finish without changes. See [examples](project-improvement.md#choose-setup-playbooks).
+Use setup-workflow for a new basis and maintain-workflow to inspect or update project direction, checks and guidance. Setup assesses the north star with you, reusing an existing suitable definition. Explicit direction changes include their documentation in the related implementation; planning and Review carry pending updates read-only. Their shared [playbooks](../skills/setup-workflow/references/catalog.md) support a reasoned package offer, partial selection and decline. For example: "Accept the code checks and project guidance; leave CI and subagents out." Carry that choice into the applicable plan. Matching approved scope needs no repeated approval, and suitable maintenance may finish without changes. See [examples](project-improvement.md#choose-setup-playbooks).

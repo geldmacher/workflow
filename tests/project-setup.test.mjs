@@ -71,6 +71,28 @@ test('cleanup preserves actual final files and probe evidence and can repeat saf
   } finally { rmSync(item.base,{recursive:true,force:true}); }
 });
 
+test('north-star fixtures isolate direction gaps from healthy product behavior and retain documentation edits', () => {
+  for (const scenario of ['northstar-missing','northstar-vague','northstar-ready','northstar-conflict']) {
+    const item = prepareFixture(scenario);
+    try {
+      assert.deepEqual(inspectFixture(item.base).changed, []);
+      assert.equal(probeFixture(item.base).passed, true);
+      assert.equal(existsSync(join(item.workspace,'PROJECT.md')), scenario !== 'northstar-missing');
+      assert.equal(existsSync(join(item.workspace,'PROPOSAL.md')), scenario === 'northstar-conflict');
+      const destination = scenario === 'northstar-missing' ? 'README.md' : 'PROJECT.md';
+      const before = readFileSync(join(item.workspace,destination),'utf8');
+      writeFileSync(join(item.workspace,destination),before+'\nAn explicitly accepted audience change.\n');
+      const state = inspectFixture(item.base);
+      assert.deepEqual(state.changed,[destination]);
+      assert.equal(state.productPreserved,true);
+      assert.equal(state.unrelatedPreserved,true);
+      assert.equal(probeFixture(item.base).passed,true);
+      const final = cleanupFixture(item.base);
+      assert.equal(JSON.parse(readFileSync(join(final.evidence,'final-files.json')))[destination],before+'\nAn explicitly accepted audience change.\n');
+    } finally { rmSync(item.base,{recursive:true,force:true}); }
+  }
+});
+
 test('fixture cleanup rejects foreign or redirected resources and preserves broken-trial evidence', () => {
   const item = prepareFixture('ready');
   const other = mkdtempSync(join(tmpdir(),'workflow-foreign-'));

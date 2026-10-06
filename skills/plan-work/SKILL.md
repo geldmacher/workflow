@@ -7,7 +7,7 @@ description: "Plan repository implementation when requested."
 
 Apply the [working agreement](../../references/workflow.md); read it if missing or uncertain. A natural-language request for an implementation plan selects planning; routine reasoning within implementation does not start a separate planning phase. Inspect the repository and applicable saved project lessons, checking their current relevance, before asking questions it can answer. Planning is read-only; verification inspection does not start the product.
 
-Stop investigating when goal, boundaries, interfaces, and checks suffice for implementation. Ask about consequential choices with a reasoned recommendation. Clear assignments need no interview or advance design of routine details.
+Check relevant plan choices against the north star, assignment and success criteria; resolve consequential conflicts with the user. Stop when goal, boundaries, interfaces and checks suffice. Clear assignments need no interview or advance design of routine details.
 
 For a repeated correction, read the [learning guidance](../../references/learning-work.md) and plan prevention proportionate to the assignment.
 

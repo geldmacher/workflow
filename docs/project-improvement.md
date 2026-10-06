@@ -10,7 +10,7 @@ A task can leave more than working code: knowledge the next agent can reuse, a r
 
 ## Set up and maintain project feedback
 
-Use `setup-workflow` to prepare a project's tests, evals where useful, check scripts, project-local CI configuration, and agent guidance. It starts from the important user journeys and project requirements, reuses suitable coverage, and proposes only concrete improvements. Runtime prerequisites and missing access stay visible. Machine-wide installation, host settings, and external CI changes need their own assignment.
+Use `setup-workflow` to establish project direction and prepare a project's tests, evals where useful, check scripts, project-local CI configuration, and agent guidance. It starts from the important user journeys and project requirements, reuses suitable coverage, and proposes only concrete improvements. Runtime prerequisites and missing access stay visible. Machine-wide installation, host settings, and external CI changes need their own assignment.
 
 For example:
 
@@ -27,6 +27,18 @@ For an approved update plan:
 > $maintain-workflow Implement the approved update to the export check command and its project instructions. Preserve the expected CSV behavior.
 
 A suitable setup needs no edits. Partial setup is extended where useful; existing locations are retained. A broken check route, a product regression, and missing access require different responses. Maintenance never changes expected behavior just to obtain a passing result.
+
+### Keep project direction useful
+
+Setup always checks the project's **north star**: whom it serves, why it exists, the intended benefit, and the principles and boundaries that guide decisions. A clear existing definition is reused wherever it lives. Missing or vague direction is drafted from known requirements and refined with you; the agent asks about consequential gaps instead of inventing goals. The agreed text belongs in the existing project description, or a short README section if none exists, with an agent-guidance link where useful.
+
+> This exporter helps operations staff transfer complete, ordered records into existing spreadsheets. Predictability matters more than advanced formatting. It remains a local tool with no vendor-service dependency.
+
+Planning compares relevant choices with that direction and your task. If you explicitly change the project direction, its documentation is included in the related implementation or correction without another approval or learning phase. Planning and Review keep the files unchanged and carry the decision, its basis, destination and pending update forward. Maintenance compares actual text with your decisions and leaves suitable content unchanged.
+
+> We have decided to serve external auditors as well as our operations team. Update the project description as part of the approved documentation work; the export format and local-only boundary stay the same.
+
+A task-specific exception or technical choice does not redefine the project. Unresolved conflicts are brought to you with their impact. Declined or unanswered proposals are retained without repeated offers; a bounded routine task needs no project-wide redefinition. Review reports a missed agreed update without editing it. Reusable lessons still use the separate learning process.
 
 ### Offers during ordinary Workflow work
 

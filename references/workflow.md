@@ -4,6 +4,8 @@ Humans commission phases separately or expressly commission an [Auto-Work sequen
 
 Follow the applicable plan: human-approved in standalone work and Light, or prepared within a commissioned Dark goal. Material changes to goals, acceptance, authority, or consequential choices need a human decision. Preserve existing approvals; routine technical choices belong to the executor.
 
+Align consequential choices with the project's north star. For missing direction or explicit changes, use [project readiness](project-readiness.md); carry decisions and pending updates through handoffs.
+
 Keep plans and reports in the native task. Repository reports and check logs are inputs; edit them only when assigned. Handoffs carry the plan, assignment, current state, evidence, open decisions (including setup offers), and next action through accessible references or supplied text. Keep one learning collection in the native task. Later handoffs carry its changes and a reference, or the full text when that reference is unreachable. Never invent missing approval or history.
 
 When learning arises or is inherited, follow [learning guidance](learning-work.md). Keep every open candidate and its evidence available through that collection. Status does not renew offers.

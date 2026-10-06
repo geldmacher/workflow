@@ -9,5 +9,6 @@ Use the [verifier](../SKILL.md) for build, isolation, evidence and cleanup.
 | Relevant offers, decisions, phase limits and skill selection | [Readiness and selection](readiness.md) |
 | Setup playbook packages, subsets and method quality | [Playbooks](playbooks.md) |
 | Supported project roles and observed native delegation | [Subagent roles](subagents.md) |
+| Joint project direction, explicit changes and phase continuity | [North star](north-star.md) |
 
 Package tests prove structure and fixture mechanics. Native subjects establish the exercised behavior, not installed-plugin activation, remote CI enforcement or general success rates.

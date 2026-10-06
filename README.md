@@ -51,7 +51,7 @@ Both Auto-Work modes pause for important unresolved decisions. Publishing or dep
 
 ## Make future tasks easier
 
-- [Set up or maintain project feedback](docs/project-improvement.md#set-up-and-maintain-project-feedback) with useful checks and agent guidance.
+- [Set up or maintain project feedback](docs/project-improvement.md#set-up-and-maintain-project-feedback) with clear project purpose, useful checks and agent guidance.
 
 - **Save useful lessons** in project guidance after review, when you request it. [Learning](docs/project-improvement.md#save-project-knowledge)
 - **Keep checks repeatable** with documented steps for testing real behavior. [Verification](docs/project-improvement.md#keep-checks-useful)

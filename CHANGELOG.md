@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Establish and maintain project north stars through setup and explicit user decisions, carrying pending updates across read-only phases without duplicate approval. Add isolated project-direction verification scenarios.
+
 ## 7.5.0
 
 - Add nine shared setup playbooks with reasoned package offers, partial selection, concrete quality practices and optional project-local subagent roles.
