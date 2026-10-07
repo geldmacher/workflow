@@ -15,6 +15,8 @@ Match optional methods and verifier edits to active selections. For setup change
 
 Lead with a reasoned judgment: goal achieved, corrections needed, or open points. Failed necessary checks prevent goal achieved. Missing necessary proof, unclear scope, or missing plan versions remain explicit, even when there are also correctable defects.
 
+Keep both axes visible: plan or spec deviation, and repository standards or simplicity. On a simplicity question, use available Efficiency guidance.
+
 Assess inherited and new learning candidates from the reviewed work. When any exist, follow the learning guidance linked by the working agreement: reconcile the whole collection and offer newly confirmed or materially changed lessons. On a final positive Review, surface an unchanged eligible offer once if it was neither accepted nor rejected; do not restate it on an intermediate correction Review. Keep Review read-only.
 
 For each actionable defect, explain observed behavior, evidence, impact on the plan, required correction, permitted scope, and recheck. This can serve as the correction assignment. In standalone work, recommend that the human commission the corrections. In Auto-Work, return findings to the commissioned loop. For missing proof, name the check and a permitted way to obtain it; verification-only correction needs no code change. Consequential decisions or missing access remain explicit. Do not ask the human to attest evidence the executor can collect under its assignment. A positive Review establishes repository acceptance criteria, not Auto-Work's remaining human acceptance or delivery. Finish without starting correction or delivery.
