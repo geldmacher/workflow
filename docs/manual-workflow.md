@@ -52,6 +52,14 @@ The implementation follows the approved scope and preserves unrelated changes. I
 
 A successful implementation report is the input to review. It does not mean review has already happened.
 
+### When another task already uses this repository
+
+At the start of planning, the agent checks this repository for another active plan or implementation. A git worktree counts when it has uncommitted work, or a handoff or host task names that checkout. Commits that only exist on its branch do not. An unfinished plan for this repository also counts. A clean idle worktree does not. The same branch checked out twice, a documented unfinished task, or unrelated edits that implementation would otherwise change also count. A clean checkout with no other active work continues as usual. Planning does not create a worktree, and a plan does not have to use one.
+
+When there is overlap, you get a warning and three choices: continue carefully in this checkout, wait, or isolate the work on its own branch and git worktree. Waiting is the recommendation when the other task is mid-edit on the same files. Isolation is the recommendation when someone else is already changing this repository, or when your checkout has unrelated edits that should stay untouched, and a later review can read that worktree. When a review could not see it, the recommendation stays in the current checkout and says why. You can still choose otherwise.
+
+The plan records the choice. Implementation follows that record, and creates the worktree only after the plan allows isolate. Review and correction use that same checkout. Merging the branch back, or removing the worktree after you discard the attempt, happens only when you ask.
+
 ## Review and correction
 
 ### 3. Request a review
@@ -128,6 +136,10 @@ If review finds a missed requirement:
 After correction, request a fresh review. A positive review might conclude:
 
 > The goal is achieved. Exported rows match the active filter, columns match the visible selection, and empty exports retain their headers. The required checks support the current change.
+
+### Plan while another task is in progress
+
+> Another worktree already has an orders export in progress, and this checkout has unrelated edits. I recommend isolating this plan on its own branch and worktree. You can continue carefully here, or wait until that export lands. Say which you want. A worktree is only for this overlap, not for every plan.
 
 ### Review a resumed settings change
 

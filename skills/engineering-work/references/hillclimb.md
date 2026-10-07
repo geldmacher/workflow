@@ -13,7 +13,7 @@ Use for sustained improvement of one measurable outcome under an agreed budget a
 
 5. Keep a concise decision trail in the native task: hypothesis, bounded change, before/after result, relevant checks, and keep-or-revert decision. Read prior attempts so the search accumulates evidence.
 6. Ground each hypothesis in a specific mechanism. Make one bounded change, measure with the fixed procedure, and run the regression gate. Accept improvement only beyond noise with the guardrails green. A simplification with equivalent performance can be retained only if the approved scope includes that benefit; it is not a metric win.
-7. Remove a failed attempt's own changes before proceeding. Do not revert pre-existing work or combine unmeasured changes. Any parallel experiments need authorized collaboration and isolated mutable state, chosen by the executor.
+7. Remove a failed attempt's own changes before proceeding. Do not revert pre-existing work or combine unmeasured changes. Any parallel experiments need authorized collaboration and isolated mutable state, chosen by the executor. When that isolation is another checkout of this repository, use [concurrent work](../../../references/concurrent-work.md).
 8. On a plateau, inspect rejected ideas and reconsider the cost mechanism. Try another justified strategy while budget and useful hypotheses remain. Do not lower correctness or success criteria to claim progress.
 9. Stop when the target is met, the budget is exhausted, a real blocker prevents useful work, or remaining ideas do not justify their marginal cost. Explain which condition ended the run. A budget stop or plateau is not success when the target remains unmet.
 

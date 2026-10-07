@@ -49,6 +49,10 @@ Session-environment lessons and the split between plan or spec deviation and rep
 
 Automated checks were already on the ladder. This adaptation does not add a `/retro` command, a required `CODING_STANDARDS.md`, parallel review subagents, or the Fowler smell baseline. It does not adopt `/implement-spec`, which conflicts with Auto-Work, the written plan handoff, and host-configured models. Grill-me, grill-with-docs, and a required glossary stay out, as [Vague-scope planning](#vague-scope-planning) already records. Packaged instructions remain original Workflow wording. This note attributes the ideas; it does not load the upstream skills.
 
+## Concurrent checkouts
+
+Optional git worktrees for overlapping tasks are original instructions in `references/concurrent-work.md`. They are not a playbook and not a separate skill. A clean idle worktree is not overlap. The first matching rule recommends wait, then isolate only when this host can start a child workspace outside the current checkout, then continue. Planning stays read-only. The native plan is the cold-start record Implement follows, including the continue, wait, or isolate choice and whether the other owner and overlapping files are clear. Creating the worktree is the first implementation step, and only when that field says clear. A missing field pauses. Commits that only exist on another branch are not overlap. The removed controller worktrees, sandboxes, and sealed plan artifacts stay removed. Visual parity still has no mandatory worktree. A repeated checkout collision stays an environment lesson under the existing correction ladder: prefer a check, or this shared procedure, over a new project rule that copies the steps.
+
 ## Shared integration decisions
 
 Each method remains one reference file. Catalog and skill entrypoints load only the selected method. The playbooks describe useful result content, not mandatory user-document headings, metadata, or machine state.

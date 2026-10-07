@@ -5,7 +5,7 @@ description: "Fix requested review findings within the approved plan."
 
 # correct-work
 
-Apply the [working agreement](../../references/workflow.md); read it if missing or uncertain. A natural-language request to fix review findings suffices; an unrelated bug report does not select this review-correction phase. Read the applicable plan, latest relevant review, and human correction instruction or expressly commissioned Auto-Work assignment with remaining correction budget. Identify the commissioned findings and their expected fixes and rechecks. Compare them with the current repository; resolve stale or conflicting instructions before dependent changes.
+Apply the [working agreement](../../references/workflow.md); read it if missing or uncertain. A natural-language request to fix review findings suffices; an unrelated bug report does not select this review-correction phase. Read the applicable plan, latest relevant review, and human correction instruction or expressly commissioned Auto-Work assignment with remaining correction budget. Identify the commissioned findings and their expected fixes and rechecks. Compare them with the current repository; resolve stale or conflicting instructions before dependent changes. When that plan records another branch or worktree, read [concurrent work](../../references/concurrent-work.md) and correct there.
 
 Correct named defects and pending north-star updates from explicit user decisions within the assignment. Preserve unrelated changes and resolve routine details yourself. Do not broaden the goal, modify protected work without permission, weaken tests to hide a defect, or include unrelated improvements.
 

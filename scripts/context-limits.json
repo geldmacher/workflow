@@ -59,7 +59,7 @@
     "discovery": 600,
     "plan": 2900,
     "review": 1800,
-    "correction": 1200,
+    "correction": 1400,
     "learning": 2200,
     "explanation": 900,
     "status": 1100,
@@ -109,11 +109,11 @@
     "setupInspection": 2400,
     "setupImplementation": 3000,
     "maintenanceInspection": 2500,
-    "maintenanceUpdate": 3000,
+    "maintenanceUpdate": 3400,
     "planSetupGap": 3900,
     "doctorSetupGap": 3900,
     "reviewSetup": 3100,
-    "correctionSetup": 2600,
+    "correctionSetup": 2900,
     "autoWorkSetup": 8600,
     "setupVerifierCreation": 6100,
     "maintenanceVerifierUpdate": 6100,
@@ -122,7 +122,7 @@
     "autoWorkMaintenanceVerifierUpdate": 11700,
     "setupMethodAssessment": 3400,
     "maintenanceMethodAssessment": 3400,
-    "planSetupProposal": 4500,
+    "planSetupProposal": 5100,
     "doctorSetupProposal": 4900,
     "setupMethod:behavior-tests": 4400,
     "maintenanceMethod:behavior-tests": 4500,
@@ -153,7 +153,14 @@
     "autoWorkSetupPackageVerifier": 15300,
     "autoWorkMaintenancePackageVerifier": 15300,
     "setupAllSelectedMethods": 12100,
-    "maintenanceAllSelectedMethods": 12100
+    "maintenanceAllSelectedMethods": 12100,
+    "planConcurrent": 5200,
+    "reviewConcurrent": 4500,
+    "correctionConcurrent": 4000,
+    "autoWorkConcurrent": 10000,
+    "learningConcurrent": 4900,
+    "verificationConcurrent": 5300,
+    "implementationConcurrent": 4100
   },
   "additions": {
     "projectSetup": {
@@ -212,6 +219,18 @@
         "autoWorkMaintenancePackageVerifier": 13888,
         "setupAllSelectedMethods": 10943,
         "maintenanceAllSelectedMethods": 10951
+      }
+    },
+    "concurrentWork": {
+      "method": "Initial largest host scenario plus 10%, rounded up to 100 estimated tokens. Frozen after introduction; existing limits unchanged.",
+      "maxima": {
+        "planConcurrent": 4644,
+        "reviewConcurrent": 4035,
+        "correctionConcurrent": 3559,
+        "autoWorkConcurrent": 9027,
+        "learningConcurrent": 4427,
+        "verificationConcurrent": 4763,
+        "implementationConcurrent": 3637
       }
     }
   },
@@ -384,6 +403,34 @@
           "maximum": 3519,
           "previousLimit": 3500,
           "limit": 3900
+        }
+      }
+    },
+    {
+      "date": "2026-10-07",
+      "reason": "Hold a short concurrency pointer in plan, correction, and shared implementation instructions. The concurrent-work reference itself stays in separate upper-bound scenarios. Document lists for these four scenarios are unchanged.",
+      "selection": "Only correction, correctionSetup, maintenanceUpdate, and planSetupProposal exceeded their limits after those pointers. The other existing limits remain unchanged. This criterion does not trigger future automatic changes or approvals.",
+      "method": "Largest current host measurement plus 10%, rounded up to 100 estimated tokens. Existing baselines are retained; normal checks never update limits.",
+      "scenarios": {
+        "correction": {
+          "maximum": 1218,
+          "previousLimit": 1200,
+          "limit": 1400
+        },
+        "correctionSetup": {
+          "maximum": 2605,
+          "previousLimit": 2600,
+          "limit": 2900
+        },
+        "maintenanceUpdate": {
+          "maximum": 3022,
+          "previousLimit": 3000,
+          "limit": 3400
+        },
+        "planSetupProposal": {
+          "maximum": 4574,
+          "previousLimit": 4500,
+          "limit": 5100
         }
       }
     }

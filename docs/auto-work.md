@@ -27,7 +27,7 @@ For Dark, say “Use auto-work dark” and give the same concrete goal, scope, a
 
 ## What happens next
 
-1. **Plan:** the agent inspects the project and defines the change and its checks. In Light, you approve it before implementation. Existing approval for the same plan and scope remains valid.
+1. **Plan:** the agent inspects the project and defines the change and its checks. In Light, you approve it before implementation. Existing approval for the same plan and scope remains valid. If another task is already changing this repository, or your checkout has unrelated edits, planning uses the same warn-and-choose check as [manual planning](manual-workflow.md#when-another-task-already-uses-this-repository): continue carefully, wait, or isolate on a branch and worktree. The plan records the choice. Review reads that checkout and does not merge it.
 2. **Implement:** the agent makes the agreed changes and reports the checks and result.
 3. **Review:** a fresh separate agent checks the work against the plan without changing it. The implementation stays unchanged while it is being reviewed.
 4. **Correct if needed:** the executor addresses findings, then a fresh reviewer checks the result again. A correction can also collect missing proof without changing code.
