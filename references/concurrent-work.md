@@ -11,8 +11,8 @@ The plan in the native task is the cold-start record. Implementation, review, co
 1. Identify the repository by its git common directory (`git rev-parse --git-common-dir`) and list checkouts with `git worktree list --porcelain`. Linked worktrees of that common directory are the same repository.
 2. Stay read-only while detecting. Use status and listing only.
 3. Inspect other worktrees and the branches they have checked out, this checkout's branch and uncommitted changes, unfinished plans or implementation reports already in this task or supplied with it that name this repository, and host-visible sessions for this repository when the host already exposes them. Do not search unrelated private conversations.
-4. Overlap is uncommitted changes this assignment did not make when the next edit would land in that checkout, a documented unfinished plan or implementation that names this repository, or this branch checked out in another worktree that has those changes or that unfinished task. Another worktree counts only when that checkout has uncommitted changes, or commits the branch this task would use does not contain and a handoff, a host-visible task, or that checkout's current work identifies.
-5. A clean idle worktree is not overlap. A local branch with no worktree, no unfinished handoff, and no host-visible task is not overlap. This assignment's own recorded worktree is not a new overlap.
+4. Overlap is uncommitted changes this assignment did not make when the next edit would land in that checkout, or a documented unfinished plan or implementation that names this repository. Another worktree counts only when that checkout has uncommitted changes, or when a handoff or host-visible task names both this repository and that checkout. The same branch checked out in another worktree counts when that checkout has those changes or that unfinished task.
+5. A clean idle worktree is not overlap. Commits that only exist on its branch do not count. A local branch with no worktree, no unfinished handoff, and no host-visible task is not overlap. This assignment's own recorded worktree is not a new overlap.
 
 ## Choose
 
@@ -21,6 +21,8 @@ When overlap exists, warn and offer three options. Mark one as the recommendatio
 - **Continue carefully.** Edit this checkout. Preserve unrelated changes. A later merge may be messier, and that is acceptable when the human wants one checkout.
 - **Wait.** The plan can still be finished. Hold edits until the other workstream releases the checkout or the overlapping files. Name who is in the way and what to recheck. Do not poll without a new request.
 - **Isolate.** Use a dedicated branch and a git worktree so this workstream does not edit the other checkout.
+
+A fresh reviewer can use the intended worktree when this host can start a child agent with a workspace outside the current checkout. When that is unclear, it cannot. Do not assume a sibling directory is visible.
 
 Use the first matching rule. One recommendation.
 
@@ -37,7 +39,7 @@ Silence while planning is still read-only is not approval to create a worktree. 
 - choice: continue, wait, or isolate
 - for continue: which unrelated changes must be preserved
 - for wait: what blocks edits
-- for isolate: base revision, branch, worktree path, and whether the worktree has been created
+- for isolate: base revision, branch, worktree path, whether the worktree has been created, and whether the other owner and the overlapping files are clear
 - that review, correction, learning, verification, and reconcile follow this reference
 
 A later executor that has only the plan uses these fields and does not repeat the choice.
@@ -57,9 +59,9 @@ Isolation keeps the other checkout intact. Later merge conflicts remain possible
 
 ## Implement
 
-Edit only the checkout the plan names. When the choice is isolate and the worktree is missing, create it before the first product edit. When the shell is in a different checkout, move to the recorded path before editing. When the choice is continue, preserve the unrelated changes named in the plan. When the choice is wait, do not edit until the recorded blocker has cleared, then re-read the checkout and continue in the recorded place.
+Edit only the checkout the plan names. When the choice is isolate and the worktree is missing, create it before the first product edit only if the plan says the other owner and the overlapping files are clear. When that field is missing or unclear, pause and leave the worktree uncreated. When the shell is in a different checkout, move to the recorded path before editing. When the choice is continue, preserve the unrelated changes named in the plan. When the choice is wait, do not edit until the recorded blocker has cleared, then re-read the checkout and continue in the recorded place.
 
-A cold start follows the plan's fields. It does not open a new choice unless those fields are missing and this checkout now has other in-flight work.
+A cold start follows the plan's fields, including that clarity field. It does not open a new choice unless those fields are missing and this checkout now has other in-flight work. A missing clarity field is a pause, not permission to create the worktree.
 
 ## Review
 

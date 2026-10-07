@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Warn at plan start when another plan or implementation is already active on the same repository, and offer continue, wait, or an optional git worktree. A clean idle worktree is not overlap. Wait wins when the same files are mid-edit. Isolate only when a reviewer can use that checkout, and create it at the first implementation step. Review, correction, learning, and verification follow that checkout; merge and worktree removal stay explicitly requested.
+- Warn at plan start when another plan or implementation is already active on the same repository, and offer continue, wait, or an optional git worktree. A clean idle worktree is not overlap, and commits that only exist on its branch do not count. Wait wins when the same files are mid-edit. Isolate only when this host can start a reviewer outside the current checkout. The plan records whether the other owner and overlapping files are clear, and implementation creates the worktree only then. Review, correction, learning, and verification follow that checkout; merge and worktree removal stay explicitly requested.
 
 ## 7.8.0
 
