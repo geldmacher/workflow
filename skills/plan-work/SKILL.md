@@ -9,6 +9,8 @@ Apply the [working agreement](../../references/workflow.md); read it if missing 
 
 Check relevant plan choices against the north star, assignment and success criteria; resolve consequential conflicts with the user. Stop when goal, boundaries, interfaces and checks suffice. Clear assignments need no interview or advance design of routine details.
 
+When the assignment is vague or underspecified (missing the goal, boundaries, interfaces, success checks, or a material trade-off that would change the plan), an optional short decision round may ask only what blocks a sound plan. Offer a concrete recommendation the user can accept or steer, in a few focused questions. Do not add a separate skill for that round, require a glossary, expand a design tree, or turn planning or Auto-Work into an interview gate.
+
 For a repeated correction, read the [learning guidance](../../references/learning-work.md) and plan prevention proportionate to the assignment.
 
 Explain the goal, benefit, observable success criteria, scope, exclusions, material risks, dependencies, decisions, and checks. Add files, interfaces, commands or sequencing where needed. A small change may need only a few paragraphs. When the change is material (architecture, a breaking change, several surfaces, or schema and deploy), note second-order effects in one line each where relevant: caller impact, data or migration, deploy and rollback, and security or auth. Mark speculation as speculation. Omit this for a routine fix or a small plan.

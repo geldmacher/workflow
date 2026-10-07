@@ -110,7 +110,7 @@
     "setupImplementation": 3000,
     "maintenanceInspection": 2500,
     "maintenanceUpdate": 3000,
-    "planSetupGap": 3500,
+    "planSetupGap": 3900,
     "doctorSetupGap": 3900,
     "reviewSetup": 3100,
     "correctionSetup": 2600,
@@ -371,6 +371,19 @@
           "maximum": 2378,
           "previousLimit": 2400,
           "limit": 2700
+        }
+      }
+    },
+    {
+      "date": "2026-10-07",
+      "reason": "Hold the optional vague-scope decision round in plan-work. The instruction stays; only the plan-and-readiness scenario needed more room.",
+      "selection": "Only planSetupGap exceeded its limit after that clarification. The other limits remain unchanged. This criterion does not trigger future automatic changes or approvals.",
+      "method": "Largest current host measurement plus 10%, rounded up to 100 estimated tokens. Existing baselines are retained; normal checks never update limits.",
+      "scenarios": {
+        "planSetupGap": {
+          "maximum": 3519,
+          "previousLimit": 3500,
+          "limit": 3900
         }
       }
     }
