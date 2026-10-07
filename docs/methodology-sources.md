@@ -51,7 +51,7 @@ Automated checks were already on the ladder. This adaptation does not add a `/re
 
 ## Concurrent checkouts
 
-Optional git worktrees for overlapping tasks are original instructions in `references/concurrent-work.md`. They are not a playbook and not a separate skill. Planning stays read-only. The native plan is the cold-start record Implement follows, including the continue, wait, or isolate choice. The removed controller worktrees, sandboxes, and sealed plan artifacts stay removed. Visual parity still has no mandatory worktree. A repeated checkout collision stays an environment lesson under the existing correction ladder: prefer a check, or this shared procedure, over a new project rule that copies the steps.
+Optional git worktrees for overlapping tasks are original instructions in `references/concurrent-work.md`. They are not a playbook and not a separate skill. A clean idle worktree is not overlap. The first matching rule recommends wait, then isolate only when a reviewer can use that checkout as its workspace, then continue. Planning stays read-only. The native plan is the cold-start record Implement follows, including the continue, wait, or isolate choice. Creating the worktree is the first implementation step, and Dark pauses when the other owner or the overlapping files are unclear. The removed controller worktrees, sandboxes, and sealed plan artifacts stay removed. Visual parity still has no mandatory worktree. A repeated checkout collision stays an environment lesson under the existing correction ladder: prefer a check, or this shared procedure, over a new project rule that copies the steps.
 
 ## Shared integration decisions
 

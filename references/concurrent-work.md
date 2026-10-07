@@ -11,8 +11,8 @@ The plan in the native task is the cold-start record. Implementation, review, co
 1. Identify the repository by its git common directory (`git rev-parse --git-common-dir`) and list checkouts with `git worktree list --porcelain`. Linked worktrees of that common directory are the same repository.
 2. Stay read-only while detecting. Use status and listing only.
 3. Inspect other worktrees and the branches they have checked out, this checkout's branch and uncommitted changes, unfinished plans or implementation reports already in this task or supplied with it that name this repository, and host-visible sessions for this repository when the host already exposes them. Do not search unrelated private conversations.
-4. Overlap is another worktree of this repository, this branch checked out in more than one worktree, a documented unfinished plan or implementation for this repository, or uncommitted changes this assignment did not make when the next edit would land in that checkout.
-5. Local branches with no worktree, no unfinished handoff, and no host-visible task are not overlap. This assignment's own recorded worktree is not a new overlap.
+4. Overlap is uncommitted changes this assignment did not make when the next edit would land in that checkout, a documented unfinished plan or implementation that names this repository, or this branch checked out in another worktree that has those changes or that unfinished task. Another worktree counts only when that checkout has uncommitted changes, or commits the branch this task would use does not contain and a handoff, a host-visible task, or that checkout's current work identifies.
+5. A clean idle worktree is not overlap. A local branch with no worktree, no unfinished handoff, and no host-visible task is not overlap. This assignment's own recorded worktree is not a new overlap.
 
 ## Choose
 
@@ -22,9 +22,14 @@ When overlap exists, warn and offer three options. Mark one as the recommendatio
 - **Wait.** The plan can still be finished. Hold edits until the other workstream releases the checkout or the overlapping files. Name who is in the way and what to recheck. Do not poll without a new request.
 - **Isolate.** Use a dedicated branch and a git worktree so this workstream does not edit the other checkout.
 
-Recommend **isolate** when another workstream is active on this repository, or when implementation would otherwise change a dirty checkout this task must leave untouched. Recommend **wait** when that other workstream is mid-edit on the same files and branching from that state would drop their unfinished work. Recommend **continue carefully** when the human wants one checkout, or when a worktree cannot be created.
+Use the first matching rule. One recommendation.
 
-Standalone and Light planning record the choice and do not create the worktree. Light approval of the plan accepts the recorded choice. Dark Auto-Work records the recommendation and may follow it when the commissioned goal did not pick otherwise. Pause before edits when the other owner or the overlapping files are unclear. An explicit continue, wait, or isolate from the human overrides the recommendation.
+1. The other workstream is mid-edit on files this task must change, and a branch from that state would drop their unfinished work. Recommend **wait**.
+2. Another workstream is active, or implementation would change a dirty checkout this task must leave untouched, and a fresh reviewer can use the intended worktree as its workspace. Recommend **isolate**.
+3. That same overlap exists, and a fresh reviewer cannot use the intended worktree as its workspace. Recommend **continue carefully**, and say that independent review would be unable to read the isolated checkout. Still offer wait.
+4. The human wants one checkout, or a worktree cannot be created. Recommend **continue carefully**.
+
+Standalone and Light planning record the recommendation and do not create the worktree. Light approval of the plan accepts the recorded choice. `git worktree add` runs only as the first implementation step, and only for the branch and path named in the plan. That step still does not authorize commit, push, merge, or deletion. Dark may take it when the commissioned sequence's plan recommends isolate and both the other owner and the overlapping files are clear. When either is unclear, pause and do not create the worktree. An explicit continue, wait, or isolate from the human overrides the recommendation.
 
 Silence while planning is still read-only is not approval to create a worktree. Record the decision in the plan:
 
@@ -39,7 +44,7 @@ A later executor that has only the plan uses these fields and does not repeat th
 
 ## Isolate
 
-Create the branch and worktree at the start of implementation, after the plan records isolate. That recorded choice authorizes this bounded git setup only. It does not authorize commit, push, merge, or deletion.
+Create the branch and worktree as the first implementation step, after the plan records isolate and the other owner and overlapping files are clear. Light approval or that clear Dark continuation authorizes this bounded git setup only. It does not authorize commit, push, merge, or deletion. When the owner or the files are unclear, pause and leave the worktree uncreated.
 
 1. Choose a base that excludes unrelated dirty work. A clean HEAD can be the base. When the checkout is dirty, use the committed HEAD or the branch the plan names, and leave that dirty checkout untouched.
 2. Create a branch named for this assignment. Leave a branch that is checked out elsewhere, or that holds commits the plan did not accept, as it is.
@@ -58,9 +63,9 @@ A cold start follows the plan's fields. It does not open a new choice unless tho
 
 ## Review
 
-Review the branch and worktree the plan records. A primary checkout that does not contain the change is the wrong tree. Stay read-only: leave merge, commit, worktree removal, and copying files back for an explicitly requested reconcile. When the recorded path is unavailable, report that missing checkout as missing proof.
+Review the branch and worktree the plan records. A primary checkout that does not contain the change is the wrong tree. Stay read-only: leave merge, commit, worktree removal, and copying files back for an explicitly requested reconcile. Start a delegated reviewer with that worktree as its workspace. When the recorded path cannot be read, report that missing checkout as missing proof.
 
-Auto-Work gives the reviewer the path, branch, and this reference. The executor still makes no concurrent writes to that worktree while review runs.
+Auto-Work gives the reviewer the path, branch, and this reference, and starts it in that workspace when the host can. The executor still makes no concurrent writes to that worktree while review runs.
 
 ## Correct
 

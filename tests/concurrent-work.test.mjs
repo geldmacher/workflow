@@ -10,10 +10,12 @@ test("concurrent work is a shared reference, not a new skill or a mandatory work
   assert.ok(!publicSkills.includes("worktree-isolation"));
   assert.ok(!publicSkills.includes("reconcile-worktree"));
   const reference = read("references/concurrent-work.md");
-  for (const phrase of ["Continue carefully", "**Wait.**", "**Isolate.**", "does not lock the repository", "git worktree add -b", "Reconcile or abandon", "cold-start record"]) {
+  for (const phrase of ["Continue carefully", "**Wait.**", "**Isolate.**", "does not lock the repository", "git worktree add -b", "Reconcile or abandon", "cold-start record", "A clean idle worktree is not overlap.", "Use the first matching rule.", "as its workspace", "first implementation step"]) {
     assert.ok(reference.includes(phrase), phrase);
   }
   assert.match(read("skills/plan-work/SKILL.md"), /clean sole checkout needs no worktree/);
+  assert.match(read("skills/plan-work/SKILL.md"), /clean idle worktree is not another workstream/);
+  assert.match(read("skills/auto-work/references/reviewer.md"), /as its workspace/);
   for (const path of [
     "skills/plan-work/SKILL.md",
     "skills/review-work/SKILL.md",

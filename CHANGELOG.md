@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Warn at plan start when another plan or implementation is already active on the same repository, and offer continue, wait, or an optional git worktree. Review, correction, learning, and verification follow that checkout; merge and worktree removal stay explicitly requested.
+- Warn at plan start when another plan or implementation is already active on the same repository, and offer continue, wait, or an optional git worktree. A clean idle worktree is not overlap. Wait wins when the same files are mid-edit. Isolate only when a reviewer can use that checkout, and create it at the first implementation step. Review, correction, learning, and verification follow that checkout; merge and worktree removal stay explicitly requested.
 
 ## 7.8.0
 
