@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 7.8.0
+
 - Learn from the session or its log about navigation, wasteful tool use, and steering instructions that do not change behavior. Mechanical lessons become checks; judgment lessons become standards the reviewer applies, so implementation context stays lean. Review keeps plan or spec deviation separate from repository standards or simplicity.
 
 ## 7.7.0
