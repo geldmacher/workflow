@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Warn at plan start when another plan or implementation is already active on the same repository, and offer continue, wait, or an optional git worktree. Review, correction, learning, and verification follow that checkout; merge and worktree removal stay explicitly requested.
+
 ## 7.8.0
 
 - Learn from the session or its log about navigation, wasteful tool use, and steering instructions that do not change behavior. Mechanical lessons become checks; judgment lessons become standards the reviewer applies, so implementation context stays lean. Review keeps plan or spec deviation separate from repository standards or simplicity.

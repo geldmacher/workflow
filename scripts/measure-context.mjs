@@ -90,6 +90,15 @@ function scenarios(root, host) {
   for (const name of readdirSync(join(root, "skills/engineering-work/references")).filter(name => name.endsWith(".md") && name !== "catalog.md").sort()) {
     cases[`planMethod:${name.slice(0, -3)}`] = [...plan, catalog, skill("engineering-work"), `skills/engineering-work/references/${name}`];
   }
+  // Upper bounds for an overlap or an already isolated checkout. Default phases omit this reference.
+  const concurrent = "references/concurrent-work.md";
+  cases.planConcurrent = [...plan, concurrent];
+  cases.reviewConcurrent = [...cases.review, concurrent];
+  cases.correctionConcurrent = [...cases.correction, concurrent];
+  cases.autoWorkConcurrent = [...cases.autoWork, concurrent];
+  cases.learningConcurrent = [...cases.learning, concurrent];
+  cases.verificationConcurrent = [...cases.verificationInspect, concurrent];
+  if (host === "agent-plugins") cases.implementationConcurrent = [...cases.implementation, concurrent];
   return cases;
 }
 

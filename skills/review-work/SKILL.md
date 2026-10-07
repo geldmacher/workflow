@@ -5,7 +5,7 @@ description: "Review Workflow implementation or corrections against its plan, re
 
 # review-work
 
-Apply the [working agreement](../../references/workflow.md); read it if missing or uncertain. Use for a requested assessment of implementation or corrections, not merely an explanation of existing findings or a progress summary. Identify the applicable plan, implementation or correction report, and current working state. A delegated Auto-Work review follows the same rubric; return its result to the executor without requiring the human to change host modes.
+Apply the [working agreement](../../references/workflow.md); read it if missing or uncertain. Use for a requested assessment of implementation or corrections, not merely an explanation of existing findings or a progress summary. Identify the applicable plan, implementation or correction report, and current working state. When that plan records another branch or worktree, read [concurrent work](../../references/concurrent-work.md) and review that checkout. A delegated Auto-Work review follows the same rubric; return its result to the executor without requiring the human to change host modes.
 
 Remain repository-read-only, including tracked and untracked files. Select inspections and tests whose effects are permitted; put any permitted transient outputs outside the repository. If a necessary check would mutate the repository or cross another permission boundary, record the missing evidence. Do not fix code, tests, documents, or verifiers during Review.
 

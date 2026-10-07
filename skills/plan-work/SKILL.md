@@ -7,6 +7,8 @@ description: "Plan repository implementation when requested."
 
 Apply the [working agreement](../../references/workflow.md); read it if missing or uncertain. A natural-language request for an implementation plan selects planning; routine reasoning within implementation does not start a separate planning phase. Inspect the repository and applicable saved project lessons, checking their current relevance, before asking questions it can answer. Planning is read-only; verification inspection does not start the product.
 
+Before questions, inspect this repository's worktrees, this checkout's uncommitted changes, and any unfinished plan or implementation already documented for it. When another workstream is active, or this checkout is dirty with work this task must leave untouched, read [concurrent work](../../references/concurrent-work.md) and record continue, wait, or isolate in the plan so implementation can cold-start. A clean sole checkout needs no worktree and no extra question.
+
 Check relevant plan choices against the north star, assignment and success criteria; resolve consequential conflicts with the user. Stop when goal, boundaries, interfaces and checks suffice. Clear assignments need no interview or advance design of routine details.
 
 When the assignment is vague or underspecified (missing the goal, boundaries, interfaces, success checks, or a material trade-off that would change the plan), an optional short decision round may ask only what blocks a sound plan. Offer a concrete recommendation the user can accept or steer, in a few focused questions. Do not add a separate skill for that round, require a glossary, expand a design tree, or turn planning or Auto-Work into an interview gate.

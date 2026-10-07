@@ -67,6 +67,19 @@ test("context covers packaged instructions once, including required planning and
       assert.ok(scenarios["planMethod:refactoring"].documents.includes("skills/engineering-work/references/refactoring.md"));
       assert.ok(!scenarios.autoWork.documents.includes("skills/auto-work/references/delivery.md"));
       assert.ok(scenarios.autoWorkDelivery.documents.includes("skills/auto-work/references/delivery.md"));
+      const concurrent = "references/concurrent-work.md";
+      for (const name of ["plan", "review", "correction", "autoWork", "learning", "verificationInspect"]) {
+        assert.ok(!scenarios[name].documents.includes(concurrent), `${host} ${name}`);
+      }
+      for (const [name, base] of [["planConcurrent", "plan"], ["reviewConcurrent", "review"], ["correctionConcurrent", "correction"], ["autoWorkConcurrent", "autoWork"], ["learningConcurrent", "learning"], ["verificationConcurrent", "verificationInspect"]]) {
+        assert.ok(scenarios[name].documents.includes(concurrent), `${host} ${name}`);
+        for (const path of scenarios[base].documents) assert.ok(scenarios[name].documents.includes(path), `${host} ${name} ${path}`);
+      }
+      assert.equal(scenarios.implementationConcurrent === undefined, host !== "agent-plugins");
+      if (host === "agent-plugins") {
+        assert.ok(!scenarios.implementation.documents.includes(concurrent));
+        assert.ok(scenarios.implementationConcurrent.documents.includes(concurrent));
+      }
       assert.ok(!scenarios.verificationCreation.documents.includes("skills/verification-work/references/maintain.md"));
     }
   } finally { rmSync(item.parent, { recursive: true, force: true }); }
