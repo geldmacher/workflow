@@ -37,6 +37,12 @@ Maintenance retains index hygiene, source comparison, user-path recipes, live co
 
 The preference order for a repeated correction is adapted from Lauren Tan's description of pstack 0.15.9 `/correct` (<https://x.com/poteto/status/2106542593656111276>): eliminate the class through architecture or data structures, then a lint or test that CI catches, then a skill or rule, then human review. Workflow applies it through the [learning guidance](../references/learning-work.md), considering effectiveness, effort, and commissioned scope rather than the first technically feasible rung. A first finding can also justify in-scope prevention. It does not import poteto-mode, the Grok Bot prompt, `/architect`, or a separate correction command. The playbook adaptations above are unchanged. Learning saves supported, bounded guidance only when commissioned and appropriate. Product, tool, and verifier repairs outside the assignment stay future assignments.
 
+## Vague-scope planning
+
+An optional short decision round for a vague or underspecified assignment is the lean alternative to Matt Pocock's grill-me specialization (<https://x.com/mattpocockuk/status/2107376343537385946>). It stays inside [plan-work](../skills/plan-work/SKILL.md): ask only what blocks a sound plan, and offer a concrete recommendation the user can accept or steer. Clear assignments still need no interview.
+
+Workflow does not add a grill-me or grill-with-docs skill, a required glossary, a product-design interview, or a mandatory interview before planning or Auto-Work. Product-design judgment stays with the Design plugin when that plugin is in use. Material security or auth effects stay on plan-work's existing second-order line. Change sketches stay with Efficiency's change-communication. Packaged instructions remain original Workflow wording. This note attributes the idea; it does not load an upstream skill.
+
 ## Shared integration decisions
 
 Each method remains one reference file. Catalog and skill entrypoints load only the selected method. The playbooks describe useful result content, not mandatory user-document headings, metadata, or machine state.
