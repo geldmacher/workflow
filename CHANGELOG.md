@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- When a planning assignment is vague or underspecified, allow an optional short decision round with a recommendation. Clear assignments still need no interview.
+- When a planning assignment is vague or underspecified, allow an optional short decision round with a recommendation. Clear assignments still need no interview. Raise the plan-and-readiness context limit to hold that instruction.
 
 ## 7.6.0
 
