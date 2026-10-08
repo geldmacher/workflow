@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 7.10.0
+
 - Require Auto-Work phase children to validate the original plan/boundaries block before work, through the shared working agreement. Collect genuine pre-edit evidence for new/resumed preservation periods without confusing them with missing earlier history or requesting human attestation.
 - Resolve task-local Auto-Work agents, models and supported settings before phases in Codex and Cursor. Delegate Plan, Implement, Review and Correct through the active native schema, preserve selections across handoffs, and distinguish accepted invocation from host-confirmed execution. Add host guidance and targeted native-verification recipes without a model registry or agent configuration changes.
 - Reconcile model evidence in the first Auto-Work outcome report, keep unproven historical settings unknown, and verify complete Review handoffs and necessary preservation evidence before accepting a positive judgment.
