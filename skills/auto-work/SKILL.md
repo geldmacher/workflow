@@ -5,12 +5,18 @@ description: "Run requested Light/Dark planning, implementation, independent rev
 
 # auto-work
 
-Apply the [working agreement](../../references/workflow.md); read it if missing or uncertain. Read the [operating rules](references/operation.md). Resolve one human assignment: goal or applicable plan, scope, mode, correction limit, and any explicitly commissioned delivery steps and destinations. A natural-language request for this sequence suffices; ordinary implementation or bug-fix requests do not commission Auto-Work. Default a new assignment to Light and three correction rounds. When Light is selected or defaulted, state its plan-approval and result-acceptance gates. Preserve the documented mode and consumed rounds when resuming.
+Before repository access, read [agreement](../../references/workflow.md), [handoffs](references/handoff.md) and supplied rules at assignment cwd. Resolve links from their file; goal/plan, scope, mode, rounds, delivery; default Light/3.
 
-Inspect the repository, inherited reports, and actual native delegation capabilities before starting. Check task-relevant prerequisites and feedback routes, reusing current evidence. For concrete gaps, follow [project readiness](../../references/project-readiness.md). Use a fresh separate native reviewer for every review; missing delegation prevents crossing the review boundary, never authorizes self-review. Inherit model settings, use available host read restrictions, and do not install agents or change host configuration.
+Stay here. Read [agents](references/agents.md); resolve Plan/Implement/Review/Correct with the human before phases. Prerequisites use [readiness](../../references/project-readiness.md).
 
-For a goal without an applicable plan, apply [planning](../plan-work/SKILL.md). Light waits for human plan approval; expressly commissioned Dark may establish the plan within the assigned goal and continue. Both pause for consequential unresolved decisions. Use the shared [implementation requirements](../../references/implementation-work.md), then delegate under the [reviewer instructions](references/reviewer.md). Apply [correction](../correct-work/SKILL.md) to actionable findings within the remaining budget and repeat independent review. Each phase reports its actual result into the task; an internal report is not an instruction to end the whole assignment.
+Read [operation](references/operation.md); delegate Plan → Implement → fresh Review → Correct within budget → fresh Review. Continue commissioned transitions; children return, coordinator never implements/corrects. Light awaits plan approval; Dark plans within its goal. Pause consequential choices.
 
-Light requires human acceptance of the reviewed result before final completion or delivery. Dark may complete repository work on sufficient evidence and positive independent review. Only when delivery is expressly commissioned, read [delivery](references/delivery.md); mode alone grants no Git or external authority. Failed or missing necessary proof prevents successful completion.
+Valid positive Review/proof precedes Light acceptance or Dark completion. Invalid/open Review blocks both despite working code. Only commissioned delivery loads [delivery](references/delivery.md); mode grants no external/Git authority.
 
-Keep the task's reports and complete learning collection available across the loop. Status questions do not cancel the assignment. Pauses, switches, cancellation, resumption, and stopping follow the operating rules. Report the actual repository outcome separately from acceptance and any delivery outcome. Learning remains separately commissioned. Execution and technical enforcement use the host and existing project gates.
+## Handoffs
+
+Reuse the [dispatch template](references/handoff.md) for every child, including Correct/final Review. Validate original proof before transitions. No Review writers. Release children if supported.
+
+## Phase records
+
+Record selection, accepted arguments/ID and execution separately. History gaps stay unknown. Execution: `unconfirmed` without effective host proof; calls/IDs/assertions cannot confirm. Accepted calls suffice; known mismatches block.

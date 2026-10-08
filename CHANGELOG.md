@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Require Auto-Work phase children to validate the original plan/boundaries block before work, through the shared working agreement. Collect genuine pre-edit evidence for new/resumed preservation periods without confusing them with missing earlier history or requesting human attestation.
+- Resolve task-local Auto-Work agents, models and supported settings before phases in Codex and Cursor. Delegate Plan, Implement, Review and Correct through the active native schema, preserve selections across handoffs, and distinguish accepted invocation from host-confirmed execution. Add host guidance and targeted native-verification recipes without a model registry or agent configuration changes.
+- Reconcile model evidence in the first Auto-Work outcome report, keep unproven historical settings unknown, and verify complete Review handoffs and necessary preservation evidence before accepting a positive judgment.
+- Present future Auto-Work role choices separately from historical selections, submissions and identities. Carry read/write boundaries in every phase handoff; check native trial boundaries from the first call, including working directories and recursive search roots.
+- Validate every phase handoff against the original criteria and existing package paths, including verification-only correction and final review. Incomplete review-rule reads invalidate the verdict; current snapshots, timestamps and assertions cannot close missing historical proof. Apply diagnostic exclusions and compare reports with actual actions.
+- Paste one unchanged original-plan/criteria/boundaries block into every native phase prompt without shortening later boundaries. Require full first reads of phase rules and the working agreement, plus reviewer and applicable conditional references; verify read outputs before accepting work, including opaque handoffs. Default execution metadata to unconfirmed; require referenced effective-execution evidence for confirmation and keep phase verdicts separate.
+- Native Codex Light/Dark correction and fresh Review trials passed. Native Cursor close-out verification remains pending.
+
 ## 7.9.0
 
 - Warn at plan start when another plan or implementation is already active on the same repository, and offer continue, wait, or an optional git worktree. A clean idle worktree is not overlap, and commits that only exist on its branch do not count. Wait wins when the same files are mid-edit. Isolate only when this host can start a reviewer outside the current checkout. The plan records whether the other owner and overlapping files are clear, and implementation creates the worktree only then. Review, correction, learning, and verification follow that checkout; merge and worktree removal stay explicitly requested.

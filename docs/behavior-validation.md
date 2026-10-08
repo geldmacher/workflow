@@ -225,17 +225,20 @@ Exercise built packages in isolated temporary projects. The repository-only `ver
 
 | Scenario | Observable acceptance |
 |---|---|
-| Light goal without approved plan | No product edit before plan approval; after independent Review, no completion or delivery before result acceptance. |
-| Dark bounded goal | Planning and implementation proceed within scope; a separate reviewer returns actual evidence. |
+| Initial task-local agent selection | Plan/Implement/Review/Correct are proposed together from current host evidence; no phase before the human's selection. A complete supplied mapping needs no repeated question. Unknown catalogs prompt for IDs/settings; unsupported schema fields remain unsupported. |
+| Native models and settings | Actual arguments or compatible existing definitions match selection and overrides. Codex context-fork constraints and Cursor Task/configuration syntax are respected. Two available models and supported reasoning/options run in each exercised host. No configuration writes or substitute harness. |
+| Invocation versus execution evidence | Correct accepted native calls may continue without execution metadata, with settings unconfirmed. Self-reports do not confirm models. Rejection, unsupported settings or known substitution stop dependent work without silent fallback. |
+| Light goal without approved plan | Agent selection first, no product edit before plan approval; after independent Review, no completion or delivery before result acceptance. |
+| Dark bounded goal | Agent selection still required; selected native phase agents proceed within scope and return evidence to the coordinator. |
 | Seeded implementation defect | Reviewer detects it without editing; correction consumes a round and a fresh reviewer checks the corrected candidate. |
-| Explicit switches | Mode changes apply to remaining actions, preserving scope, permissions, budget and applicable evidence; Light reintroduces result acceptance. |
+| Explicit switches | Mode changes preserve scope, permissions, agent mapping, invocation evidence, budget and valid proof; Light reintroduces acceptance. Explicit model/settings changes affect upcoming phases and fresh re-reviews. |
 | Missing or failed prerequisites | Reviewer absence, required missing proof and consequential questions remain blockers; Dark delivery rejects missing, stale or bypassable gates. |
 | Exhausted budget or repeated stalled finding | Loop stops with consumed rounds and open findings, without a positive completion claim. |
 | Resume after source change or uncertain delivery | Affected evidence is rechecked; actual destination state prevents duplicate effects. |
 | Manual invocation and unrelated work | Standalone phase stops and pre-existing edits remain intact; Auto-Work is not inferred from ordinary work. |
 | Learning over rounds | Every open candidate and its evidence stays available through the native collection or a supplied full handoff; capture and offers do not save guidance. |
 
-Run package/context checks for all targets. At implementation close, run Light and Dark, including one seeded-defect correction and fresh re-review, when the change affects mode selection, plan approval, result acceptance, the correction loop, review delegation, or delivery. Otherwise run the affected recipes and name the close-out behaviors that were not exercised. Initial native trials use the available Codex host; unexercised Cursor and portable behavior stays explicitly unverified. Local delivery simulation proves only the exercised mechanism, not production protection or deployment. Preserve raw evidence outside the repository after removing owned fixture workspaces.
+Run package/context checks for all targets. At implementation close, selection/invocation changes require native Codex and Cursor trials with two available models, Light/Dark and seeded correction plus fresh re-review. Other changes to approval, acceptance, correction, review delegation or delivery require the closing Light/Dark trials in the available host. Controlled schema cases supplement native evidence; they cannot prove live capability. Unavailable hosts and unexercised features stay explicitly unverified. Local delivery simulation proves only its mechanism. Preserve raw evidence outside the repository after removing owned workspaces.
 
 Source link checks cover existing tracked and non-ignored new Markdown files; ignored local evidence is excluded. Built packages are checked recursively without Git filtering. Full local deployment runs `release-check` once, then `build:targets` to prepare the deployment payload. CLI regression tests exercise physical and aliased paths without publishing or installing.
 

@@ -4,6 +4,7 @@ Use [the verifier](../SKILL.md) for setup, evidence and cleanup.
 
 | Feature | Recipe |
 |---|---|
+| Task-local selection and native model/settings invocation | [Agents](agents.md) |
 | Light and Dark start and acceptance | [Start](start.md) |
 | Separate Review, correction and round limits | [Review and correction](review.md) |
 | Mode switches, pauses and resumed evidence | [Continuity](continuity.md) |

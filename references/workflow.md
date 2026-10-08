@@ -1,17 +1,19 @@
 # Shared working agreement
 
-Humans commission phases separately or expressly commission an [Auto-Work sequence](../skills/auto-work/SKILL.md). Only that sequence authorizes its in-scope transitions. Learning needs its own assignment.
+Humans commission phases separately or expressly commission [Auto-Work](../skills/auto-work/SKILL.md); only that sequence authorizes transitions. Learning needs its own assignment.
 
-Follow the applicable plan: human-approved in standalone work and Light, or prepared within a commissioned Dark goal. Material changes to goals, acceptance, authority, or consequential choices need a human decision. Preserve existing approvals; routine technical choices belong to the executor.
+A supplied `BEGIN PLAN AND BOUNDARIES`: validate three values before repository access; a reference permits its exact read first. Blank: only named rule reads at explicit cwd, then return unchanged/missing fields; no lookup/fill. Read rules before `pwd`/`ls`/Glob/AGENTS.md or repository access. Auto-Work children follow [handoffs](../skills/auto-work/SKILL.md#handoffs); never coordinate.
 
-Align consequential choices with the project's north star. For missing direction or explicit changes, use [project readiness](project-readiness.md); carry decisions and pending updates through handoffs.
+Follow the applicable plan: human-approved in standalone/Light, or prepared within a commissioned Dark goal. Material goal, acceptance, authority or consequential changes need a human decision. Preserve approvals; routine technical choices belong to the executor.
 
-Keep plans and reports in the native task. Repository reports and check logs are inputs; edit them only when assigned. Handoffs carry the plan, assignment, current state, evidence, open decisions (including setup offers), and next action through accessible references or supplied text. Keep one learning collection in the native task. Later handoffs carry its changes and a reference, or the full text when that reference is unreachable. Never invent missing approval or history.
+Align consequential choices with the north star. Missing direction or explicit changes use [project readiness](project-readiness.md); carry decisions/pending updates through handoffs.
 
-When learning arises or is inherited, follow [learning guidance](learning-work.md). Keep every open candidate and its evidence available through that collection. Status does not renew offers.
+Keep plans, reports and one learning collection in the native task; repository reports/logs only when assigned. Handoffs carry plan, assignment, state, evidence, decisions/setup offers, next action and learning changes/reference; supply full text when unreachable. Never invent approval/history.
 
-Preserve unrelated work. Host permissions govern; Review is repository-read-only. Git writes, installation, production, delivery, publication, and learning need explicit authorization. Auto-Work may carry commissioned delivery; its mode grants none.
+For new/inherited learning, follow [learning guidance](learning-work.md). Keep all open candidates/evidence accessible. Status does not renew offers.
 
-Reuse applicable instructions and sufficient current proof; load conditional detail only when needed. Further work needs a concrete unresolved question. Failed necessary checks prevent success; missing proof and changed states stay visible.
+Preserve unrelated work. Host permissions govern; Review is repository-read-only. Git writes, installation, production, delivery, publication and learning need explicit authorization. Auto-Work carries only commissioned delivery.
 
-Use the user's language: result and meaning first, evidence beside claims. Scale detail to the task; avoid fixed formats. End with the actual outcome and next relevant action. Achieved goals need no further phase; Auto-Work distinguishes repository outcome, human acceptance, and delivery.
+Reuse applicable instructions/current proof; load conditional detail when needed. Further work needs a concrete unresolved question. Failed necessary checks prevent success; missing proof/changed states stay visible.
+
+Use the user's language: result first, evidence beside claims. Scale detail, not fixed formats. End with outcome/next action. Achieved goals need no further phase; Auto-Work separates repository outcome, human acceptance and delivery.

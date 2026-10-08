@@ -1,27 +1,27 @@
 # Auto-Work operating rules
 
-Light and Dark share the same phases and evidence requirements. Light places human judgment at plan approval and acceptance of the reviewed result. Dark delegates those individual decisions only within an expressly commissioned goal; it does not grant general authority. The human still owns scope, consequential choices, and delivery permissions.
+Light requires plan approval/result acceptance; Dark works within its commissioned goal. Scope, consequential choices and delivery authority remain human decisions.
 
 ## Start and transitions
 
-Use one identifiable assignment and plan in the native task. Existing applicable approvals remain valid. Before mutation, resolve consequential product, architecture, scope, permission, and acceptance ambiguities. In Dark, a sufficiently specified human goal authorizes preparing its implementation plan without a second approval; it never authorizes inventing consequential missing requirements. Plan-only requests remain read-only in either mode.
+Preserve assignment/plan and approvals in the task. Resolve consequential ambiguity before edits; Dark cannot invent requirements. Plan-only stays read-only.
 
-Before the first edit, use the plan's recorded continue, wait, or isolate choice. When it is missing, apply the concurrency check in [planning](../../plan-work/SKILL.md). After planning, Light waits for approval unless the applicable plan is already approved. Implement, report, obtain independent Review, correct named findings, and re-review. A verification-only correction may collect missing proof without code changes. Each phase remains distinct, but the Auto-Work assignment commissions its in-scope transitions in advance. The reviewer returns its judgment to the executor; it does not repair findings or run delivery.
+Before edits follow recorded continue, wait, or isolate; otherwise [planning's concurrency check](../../plan-work/SKILL.md). Selected [agents](agents.md) implement, Review, Correct named findings and re-review; Correct may collect proof only. Children return; the sequence commissions transitions within scope.
 
-After positive Review, Light presents the result and supporting evidence for human acceptance. Plan approval, silence, a status question, or approval of one earlier revision is not acceptance of a changed result. Once the reviewed result is accepted, finish repository work or execute the already commissioned delivery. Dark can finish repository work after positive Review and necessary checks; delivery has its own requirements.
+After valid positive Review/checks, Dark may finish; Light presents evidence and waits for acceptance. Plan approval, silence, questions or earlier acceptance cannot accept a changed result. Delivery has separate requirements.
 
 ## Limits and progress
 
-The default is the initial implementation and Review, followed by at most three correction rounds, each including its subsequent Review. The human may set a different nonnegative whole-number limit. Record a round when correction begins, including verification-only correction; retain consumed rounds if interrupted. The final permitted correction still receives its Review. An exhausted budget with unresolved findings stops the loop, not its reporting. Stop earlier when the same finding recurs without new evidence or an effective correction, or when required access or a consequential decision is missing. Host time, token, cancellation, and permission limits remain controlling; do not invent unavailable usage measurements.
+Default: implementation/Review then up to 3 Correct/Review rounds; limits are nonnegative integers. Count at Correct start, including proof-only; retain spent rounds and Review the last round. Stop open on exhausted budget, recurrence without new proof/effective fix, missing access or consequential decisions. Host limits govern; no invented usage.
 
-A reviewer failure is missing review evidence, not approval. A bounded retry is useful only for a concrete transient failure; do not bypass an unavailable reviewer or run endless infrastructure retries. A new budget requires an explicit human instruction, not a mode change, renamed task, or resumed conversation.
+Reviewer failure is missing evidence. Retry only bounded concrete transient failures. New budget requires human instruction; switches/rename/resume cannot reset it.
 
 ## Switch, pause, and resume
 
-An explicit switch to Light or Dark changes only remaining steps. Preserve the plan, scope, permissions, consumed rounds, findings, and still-applicable proof. Before entering Dark, check the assignment's completeness, reviewer availability, and any requested delivery prerequisites. An unavailable required capability leaves the switch pending with the specific gap; do not silently enter Dark. A question during Dark pauses for that decision without silently switching to Light. A switch to Light requires acceptance of the resulting reviewed work before completion, even if implementation began in Dark.
+Switches change remaining steps only; retain plan/scope/permissions, agents, rounds and findings/proof. Dark needs a complete goal, agents and commissioned delivery prerequisites; gaps leave it pending. Questions do not switch mode. Light needs acceptance even after Dark implementation.
 
-Apply new instructions before the next affected action. For cancellation, stop initiating work, use available native cancellation for owned in-flight agents or operations, and report any operation whose outcome is still uncertain. Do not claim an external action was undone. Rollback requires an applicable assignment and project mechanism.
+Apply new instructions before affected actions. Cancellation stops new work; cancel owned agents/operations natively, report uncertain effects. Never claim effects undone. Rollback needs an assignment/project mechanism.
 
-At a pause or handoff, preserve the assignment, plan, active or pending mode, current working state, consumed and remaining rounds, open findings, setup offers, selected/excluded methods and decisions, actual evidence, acceptance still needed, delivery actions and outcomes, learning collection, and next action. Use task reports with detail and presentation suited to the receiving executor. References must be accessible to the receiver; otherwise supply the relevant text. Carry collection changes with an accessible reference, or the full collection when the receiver cannot access it. Missing history is a gap, not permission to reset the budget or reconstruct approvals.
+Use [handoffs](handoff.md); progress includes workspace/revision, invocation proof, findings, setup offers, methods and pending mode/acceptance/delivery. Missing history cannot recreate approval/budget.
 
-On resume, compare the reports with the actual repository and external state. Relevant changes invalidate affected evidence and acceptance. Recheck before dependent work; do not repeat uncertain delivery effects without observing whether they already happened. Native task resumption needs no new approval for unchanged scope. Continuation depends on the host's available task and resumption capabilities.
+On resume, compare reports/capabilities with actual repository/external state. Changes invalidate affected proof/acceptance; recheck. Observe uncertain delivery effects before repeating. Unchanged scope needs no new approval; use native resumption capabilities.

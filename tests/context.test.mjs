@@ -67,6 +67,12 @@ test("context covers packaged instructions once, including required planning and
       assert.ok(scenarios["planMethod:refactoring"].documents.includes("skills/engineering-work/references/refactoring.md"));
       assert.ok(!scenarios.autoWork.documents.includes("skills/auto-work/references/delivery.md"));
       assert.ok(scenarios.autoWorkDelivery.documents.includes("skills/auto-work/references/delivery.md"));
+      for (const name of ["autoWorkEntry", "autoWork", "autoWorkConcurrent", "autoWorkMaintenance"]) {
+        assert.ok(scenarios[name].documents.includes("skills/auto-work/references/agents.md"));
+        assert.ok(scenarios[name].documents.includes("skills/auto-work/references/handoff.md"));
+        for (const target of ["codex", "cursor"]) assert.equal(scenarios[name].documents.includes(`skills/auto-work/references/${target}.md`), host === target);
+      }
+      for (const name of ["plan", "review", "correction"]) assert.ok(!scenarios[name].documents.includes("skills/auto-work/references/agents.md"));
       const concurrent = "references/concurrent-work.md";
       for (const name of ["plan", "review", "correction", "autoWork", "learning", "verificationInspect"]) {
         assert.ok(!scenarios[name].documents.includes(concurrent), `${host} ${name}`);
@@ -118,6 +124,8 @@ test("discovery counts parsed descriptions per host entry and ignores skill body
 
 for (const [path, scenario, unaffected] of [
   ["skills/auto-work/references/operation.md", "autoWork", "plan"],
+  ["skills/auto-work/references/agents.md", "autoWorkEntry", "plan"],
+  ["skills/auto-work/references/handoff.md", "autoWorkEntry", "plan"],
   ["references/verification-work.md", "verificationInspect", "review"],
   ["skills/auto-work/references/delivery.md", "autoWorkDelivery", "autoWork"],
   ["references/learning-work.md", "learning", "plan"],

@@ -62,4 +62,4 @@ function runCli() {
   }
 }
 
-if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) runCli();
+if (process.argv[1] && process.argv[1] !== "-" && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) runCli();

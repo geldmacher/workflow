@@ -13,10 +13,15 @@ test('Auto-Work references close over every package without shipping the project
     const built = buildPluginTargets(parent);
     for (const host of ['cursor', 'codex', 'agent-plugins']) {
       const root = built[host].path;
-      for (const path of ['skills/auto-work/SKILL.md', 'references/implementation-work.md', ...['operation', 'reviewer', 'delivery'].map(name => `skills/auto-work/references/${name}.md`)]) assert.ok(existsSync(join(root, path)), `${host}: ${path}`);
+      for (const path of ['skills/auto-work/SKILL.md', 'references/implementation-work.md', ...['operation', 'reviewer', 'delivery', 'agents', 'handoff', 'codex', 'cursor'].map(name => `skills/auto-work/references/${name}.md`)]) assert.ok(existsSync(join(root, path)), `${host}: ${path}`);
       const entries = files(root).map(path => relative(root, path));
       assert.ok(!entries.some(path => path.includes('verify-auto-work') || path.endsWith('fixture.mjs')));
       assert.deepEqual(validateTarget(root, host, built.version), []);
+      const selection = join(root, 'skills/auto-work/references/agents.md');
+      const content = readFileSync(selection);
+      rmSync(selection);
+      assert.ok(validateTarget(root, host, built.version).some(error => error.includes('agents.md')));
+      writeFileSync(selection, content);
       rmSync(join(root, 'references/implementation-work.md'));
       assert.ok(validateTarget(root, host, built.version).some(error => error.includes('implementation-work.md')));
     }

@@ -17,7 +17,7 @@ test("development CLIs execute through physical and aliased paths; imports stay 
   const alias = join(parent, "alias");
   try {
     mkdirSync(root);
-    for (const name of ["scripts", "schemas", "skills", "references", "commands", "docs", "targets", ".cursor-plugin", ".agents", "package.json"]) {
+    for (const name of ["scripts", "schemas", "skills", "references", "commands", "docs", "targets", "assets", ".cursor-plugin", ".agents", "package.json"]) {
       cpSync(join(defaultRoot, name), join(root, name), { recursive: true });
     }
     symlinkSync(join(defaultRoot, "node_modules"), join(root, "node_modules"));
@@ -29,6 +29,8 @@ test("development CLIs execute through physical and aliased paths; imports stay 
     manifest.version = "999.0.0";
     writeFileSync(manifestPath, JSON.stringify(manifest));
     const cases = [
+      ["scripts/build-plugin-targets.mjs", ["--check"], /identity\/version or registration mismatch/],
+      ["scripts/measure-context.mjs", ["--invalid-argument"], /Use --check/],
       ["scripts/validate-plugin.mjs", [], /identity or version mismatch/],
       ["scripts/check-markdown-links.mjs", [], /missing link target/],
       ["scripts/local-plugin-deploy.mjs", ["invalid-command"], /unsupported command/],
@@ -47,6 +49,19 @@ test("development CLIs execute through physical and aliased paths; imports stay 
       assert.equal(imported.status, 0, imported.stderr);
       assert.equal(imported.stdout + imported.stderr, "");
     }
+  } finally { rmSync(parent, { recursive: true, force: true }); }
+});
+
+test("packaging and context helpers import from stdin without CLI output or package writes", () => {
+  const parent = mkdtempSync(join(tmpdir(), "workflow-stdin-import-"));
+  try {
+    const result = spawnSync(process.execPath, ["--input-type=module", "-"], {
+      cwd: parent, encoding: "utf8",
+      input: [...["build-plugin-targets", "measure-context", "validate-plugin", "check-markdown-links"].map(name => `scripts/${name}.mjs`), ".agents/skills/verify-auto-work/scripts/fixture.mjs"].map(path => `await import(${JSON.stringify(pathToFileURL(join(defaultRoot, path)).href)});`).join("\n"),
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout + result.stderr, "");
+    assert.equal(existsSync(join(parent, ".build")), false);
   } finally { rmSync(parent, { recursive: true, force: true }); }
 });
 

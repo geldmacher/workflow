@@ -1,6 +1,6 @@
 # Switches and resumption
 
-Use an existing native fixture task after saving its current plan, review and round consumption. Instruct it to switch to Light; inspect that the next completion requires acceptance while the same scope and consumed rounds remain. Then explicitly switch remaining work to Dark and verify that prerequisites are checked, previous rounds remain spent, and delivery permissions have not expanded. Do not grant extra rounds merely by resuming the task.
+Use an existing fixture task after saving plan, review, agent mapping, invocation evidence and spent rounds. Switch to Light: completion requires acceptance while scope, agents/settings and spent rounds remain. Switch remaining work to Dark: prerequisites are checked, agents and budget persist, delivery authority stays unchanged. Explicitly change one upcoming role and observe its next native call; completed phases retain their original evidence. Resume grants no extra rounds.
 
 Pause a fixture after a reviewed result, save the source digest, and make an observer-owned change to the product source inside the fixture. Resume with that change disclosed as current repository state. The subject must invalidate affected proof rather than reuse the old positive conclusion. Preserve old and new snapshots in evidence.
 

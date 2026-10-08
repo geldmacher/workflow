@@ -43,7 +43,7 @@ function scenarios(root, host) {
     cases.implementationVerifierMaintenance = [...cases.implementation, verification, skill("verification-work"), maintenance];
   }
   for (const name of ["plan", "review", "correction", "explanation", "status", "doctor", "verificationInspect", "methodSuggestion", ...(host === "agent-plugins" ? ["implementation"] : [])]) cases[`${name}WithLearning`] = [...cases[name], learning];
-  cases.autoWorkEntry = entry("auto-work", [`${auto}/operation.md`]);
+  cases.autoWorkEntry = entry("auto-work", [`${auto}/operation.md`, `${auto}/agents.md`, `${auto}/handoff.md`, ...(["codex", "cursor"].includes(host) ? [`${auto}/${host}.md`] : [])]);
   cases.autoWork = [...cases.autoWorkEntry, skill("plan-work"), implementation, skill("review-work"), skill("correct-work"), `${auto}/reviewer.md`];
   cases.autoWorkDelivery = [...cases.autoWork, `${auto}/delivery.md`];
   cases.autoWorkWithLearning = [...cases.autoWork, learning];
@@ -139,7 +139,7 @@ export function formatContext(result) {
   return ["Estimated instruction tokens (not runtime usage)", `Scenario | ${hosts.join(" | ")} | Limit`, ...names.map(name => `${name} | ${hosts.map(host => result.targets[host][name]?.tokens ?? "-").join(" | ")} | ${hosts.map(host => result.targets[host][name]?.limit).find(limit => limit != null) ?? "missing"}`), ...result.failures, result.failures.length ? "Context budget failed." : "Context budget passed."].join("\n");
 }
 
-if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && process.argv[1] !== "-" && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
   if (args.some(arg => !["--check", "--json"].includes(arg))) throw new Error("Use --check and/or --json");
   const result = measureContext();

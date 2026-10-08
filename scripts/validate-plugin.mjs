@@ -103,7 +103,7 @@ export function validatePlugin(root = defaultRoot) {
   return failures;
 }
 
-if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && process.argv[1] !== "-" && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const failures = validatePlugin();
   if (failures.length) { console.error(failures.join("\n")); process.exitCode = 1; }
   else console.log("Plugin source validation passed.");
