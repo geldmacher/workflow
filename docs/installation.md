@@ -80,7 +80,7 @@ The agent leaves required restarts to you. Copying files alone does not activate
 
 Your agent needs GitHub access, download and JSON-reading tools, SHA-256 hashing, ZIP inspection and extraction, and permission to write the selected plugin location. Available shell tools or PowerShell/.NET can provide these; GitHub CLI is optional. Missing tools or permissions must be reported, not installed or changed automatically. Other hosts are not supported installation targets.
 
-Once activated, follow the [working guide](manual-workflow.md) or try [Light Auto-Work](auto-work.md#start-with-a-concrete-task).
+Once activated, follow the [manual working guide](manual-workflow.md) for your first task. The optional [experimental Auto-Work approach](auto-work.md) is explained separately.
 
 ## Technical installation reference
 

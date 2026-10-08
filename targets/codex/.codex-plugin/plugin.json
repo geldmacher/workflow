@@ -1,7 +1,7 @@
 {
   "name": "geldmacher-workflow",
-  "version": "7.10.0",
-  "description": "Plan, implement, review, and refine changes with your coding agent. Commission each step yourself, or use Auto-Work for a sequence with independent review and bounded correction rounds.",
+  "version": "7.10.1",
+  "description": "Plan, implement, review, and correct changes with your coding agent. Request each phase separately, follow an agreed plan, and check the result before moving on.",
   "author": {
     "name": "Geldmacher"
   },
@@ -19,7 +19,7 @@
   "interface": {
     "displayName": "Workflow",
     "shortDescription": "Clear plans and reviewed results for AI coding.",
-    "longDescription": "Plan, implement, review, and refine changes with your coding agent. Commission each step yourself, or use Auto-Work for a sequence with independent review and bounded correction rounds.",
+    "longDescription": "Plan, implement, review, and correct changes with your coding agent. Request each phase separately, follow an agreed plan, and check the result before moving on.",
     "developerName": "Geldmacher",
     "category": "Developer Tools",
     "capabilities": [
@@ -31,8 +31,7 @@
     "defaultPrompt": [
       "Use $plan-work to turn my goal into an actionable implementation plan.",
       "Use $review-work to check the current changes against the plan and explain what remains open.",
-      "Use $work-status to explain what is done and what needs attention.",
-      "Use $auto-work light to plan and implement my goal, with independent review and at most three correction rounds."
+      "Use $work-status to explain what is done and what needs attention."
     ],
     "brandColor": "#111827",
     "composerIcon": "./assets/logo.svg",

@@ -56,7 +56,7 @@ For example, a fresh TYPO3/DDEV site might benefit from existing Composer checks
 
 > Accept behavior-tests and project-guidance from your proposal. Leave CI and subagent roles out. Include the named export verifier and its closing CLI trial. Use this selection in the setup plan.
 
-After plan approval, commission implementation normally. An already approved matching assignment needs no additional playbook selection; included verifier work gets no second approval. The setup choice does not select Engineering playbooks. Declined or unanswered entries are carried through handoffs and are not reoffered for unchanged scope, including Auto-Work.
+After plan approval, commission implementation normally. An already approved matching assignment needs no additional playbook selection; included verifier work gets no second approval. The setup choice does not select Engineering playbooks. Declined or unanswered entries are carried through handoffs and are not reoffered for unchanged scope, including experimental Auto-Work.
 
 > $maintain-workflow Inspect whether the existing setup still fits our exporter after the command rename. Reuse working coverage and report any drift.
 
@@ -147,6 +147,6 @@ Playbook selection is independent of setup and verifier offers. Setup can includ
 
 A recommendation or silence does not count as acceptance. Declined or unanswered offers are left out of the plan, do not block planning, and are not repeated for that scope. Existing approval remains valid. Suitable existing checks can be reused without a new offer.
 
-Declining additional verifier work does not remove the need to prove the agreed result. Remaining gaps, alternatives, and limits stay visible. Learning is a separate choice after review, even in Auto-Work.
+Declining additional verifier work does not remove the need to prove the agreed result. Remaining gaps, alternatives, and limits stay visible. Learning is a separate choice after review, even in experimental Auto-Work.
 
-Return to the [working guide](manual-workflow.md) or [Auto-Work walkthrough](auto-work.md).
+Return to the [working guide](manual-workflow.md). The optional [experimental Auto-Work approach](auto-work.md) is explained separately.

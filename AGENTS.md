@@ -2,6 +2,8 @@
 
 Workflow is a host-neutral working method delivered through skills. People and executors share understandable plans, implementation reports, reviews, correction instructions, and explicit handoffs.
 
+The recommended entry point is the manually commissioned phase sequence. Auto-Work is experimental: keep its explanation separate and mention it only as an optional experimental approach in introductory documentation.
+
 ## Responsibilities
 
 - Define meaningful content requirements; adapt detail and presentation to the task.

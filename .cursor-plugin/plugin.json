@@ -1,8 +1,8 @@
 {
   "name": "geldmacher-workflow",
   "displayName": "Workflow",
-  "description": "Plan, implement, review, and refine changes with your coding agent. Commission each step yourself, or use Auto-Work for a sequence with independent review and bounded correction rounds.",
-  "version": "7.10.0",
+  "description": "Plan, implement, review, and correct changes with your coding agent. Request each phase separately, follow an agreed plan, and check the result before moving on.",
+  "version": "7.10.1",
   "author": {
     "name": "Dennis Geldmacher",
     "email": "geldmacher.dennis@outlook.de"

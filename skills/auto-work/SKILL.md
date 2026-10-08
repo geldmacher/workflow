@@ -1,9 +1,9 @@
 ---
 name: auto-work
-description: "Run requested Light/Dark planning, implementation, independent review and correction."
+description: "Experimental: run requested Light/Dark sequences with independent review."
 ---
 
-# auto-work
+# auto-work (experimental)
 
 Before repository access, read [agreement](../../references/workflow.md), [handoffs](references/handoff.md) and supplied rules at assignment cwd. Resolve links from their file; goal/plan, scope, mode, rounds, delivery; default Light/3.
 

@@ -62,7 +62,7 @@ Use the [selection guidance](manual-workflow.md#choosing-a-skill) and built skil
 | `plan-work` | "Create an implementation plan for the CSV export." | "Implement this approved plan" does not start a separate planning phase. |
 | `review-work` | "Review the implementation against the approved plan." | "Explain this existing review finding" requests explanation, not a fresh judgment. A generic code review without a Workflow plan is not this skill. |
 | `correct-work` | "Fix the missing escaping identified in this review." | An unrelated bug report is not a commissioned review correction. |
-| `auto-work` | "Use Light Auto-Work to plan, implement, independently review, and correct this change." | Ordinary implementation or bug-fix requests do not commission the sequence. |
+| `auto-work` (experimental) | "Use Light Auto-Work to plan, implement, independently review, and correct this change." | Ordinary implementation or bug-fix requests do not commission the sequence. |
 | `engineering-work` | "Recommend a suitable engineering playbook for this task." | A recommendation does not select a playbook; a method keyword in code is not a request to apply it. |
 | `setup-workflow` | "Plan the project direction, checks and agent guidance we need." | Project setup, not plugin installation; suitable existing coverage is reused. |
 | `maintain-workflow` | "Inspect our existing project checks and update them against the approved plan." | Inspection alone stays read-only; a plugin version update uses install-release; a single verifier recipe uses verification-work. |
@@ -219,7 +219,7 @@ Use these cases for a documented content walkthrough of [planning](../skills/pla
 | Review receives a passing trial report followed by relevant product or verifier changes. | Recheck affected claims where permitted; otherwise report missing current proof. A prior success summary does not establish current acceptance. |
 
 
-## Auto-Work behavioral acceptance
+## Experimental Auto-Work behavioral acceptance
 
 Exercise built packages in isolated temporary projects. The repository-only `verify-auto-work` skill supplies concrete recipes and local delivery simulations. Inspect actual task events, separate reviewer identities, file snapshots, checks and gate outcomes. A wording walkthrough alone does not demonstrate native behavior.
 

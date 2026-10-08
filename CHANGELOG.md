@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 7.10.1
+
+- Make the manual phase sequence the recommended starting point, with copyable feature and bug-fix examples and guidance on efficient use. Present Auto-Work separately as experimental in user guides and skill discovery; remove it from default plugin start prompts.
+
 ## 7.10.0
 
 - Require Auto-Work phase children to validate the original plan/boundaries block before work, through the shared working agreement. Collect genuine pre-edit evidence for new/resumed preservation periods without confusing them with missing earlier history or requesting human attestation.

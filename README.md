@@ -8,7 +8,7 @@ Workflow helps your coding agent plan a change, implement it, review the result,
 
 - **Agree on the work first.** Clarify the goal, important decisions, and how to check the result.
 - **Understand what you get.** See what changed, what was checked, and what still needs attention.
-- **Choose how much to delegate.** Request each step yourself or let Auto-Work run the sequence with independent review.
+- **Control the next step.** Request planning, implementation, review, and correction separately.
 
 ## Install or update from a release
 
@@ -29,32 +29,37 @@ Your agent needs GitHub access and permission to install the plugin. The selecte
 
 Follow the reported activation steps: reload Cursor; in Codex, restart the app and install or refresh Workflow in the Plugins Directory. Then start a fresh task. See the [installation guide](docs/installation.md) for details and troubleshooting.
 
-## Try your first task
+## Start with the manual workflow
 
-Open a project and ask:
+The recommended starting point is **plan → implement → review → correct if needed → review again**. Open a project and request each phase separately.
 
-> Use auto-work light to add CSV export to the orders page. Export the currently filtered orders using the visible columns. Follow the existing download conventions and use at most three correction rounds.
+**1. Plan the change.** Ask:
 
-You approve the plan. Workflow implements it, asks a separate agent to review it, and addresses findings within the agreed limit. You then receive the result, checks, and any remaining issues. In Light mode, you accept the reviewed result before completion.
+> Use plan-work to add CSV export to the orders page. Export only the currently filtered orders, using the visible columns. Empty exports should contain headers. Follow the existing download conventions.
 
-Auto-Work needs a host that can delegate to a separate reviewer. [Follow the walkthrough](docs/auto-work.md).
+Ordinary language works. To select the skill directly, use `$plan-work` in Codex, `/plan-work` in Cursor, or `plan-work` in portable clients. Use the same prefix for the skills below.
 
-## Choose how to work
+**2. Approve and implement.** Check the proposed behavior, scope, and checks, then select **Implement Plan** in Cursor or Codex. In a portable client, ask `implement-work` to implement the approved plan. You receive the changes, checks, and any open issues.
 
-| Mode | Your involvement |
-|---|---|
-| Manual | Request planning, implementation, review, and correction separately. |
-| Light | Approve the plan and accept the reviewed result; delegate the steps between. |
-| Dark | Define the goal and scope; delegate planning and the review/correction sequence. |
+**3. Request review.** After implementation, ask:
 
-Both Auto-Work modes pause for important unresolved decisions. Publishing or deploying changes requires an explicit request. [Compare the modes](docs/auto-work.md#choose-light-or-dark) or [follow the manual guide](docs/manual-workflow.md).
+> Use review-work to review the CSV export against the approved plan and implementation report.
+
+**4. Correct if needed.** If review finds an issue, ask:
+
+> Use correct-work to fix the CSV export findings from this review and run the affected checks.
+
+Then request `review-work` again. A positive review with the required proof completes the repository work. Publishing or deploying needs an explicit request.
+
+For a small, obvious edit, a direct request to your agent may be enough. For the full sequence, a bug-fix example, and tips on reusing checks, follow the [working guide](docs/manual-workflow.md).
 
 ## Make future tasks easier
 
 - [Set up or maintain project feedback](docs/project-improvement.md#set-up-and-maintain-project-feedback) with clear project purpose, useful checks and agent guidance.
-
 - **Save useful lessons** in project guidance after review, when you request it. [Learning](docs/project-improvement.md#save-project-knowledge)
 - **Keep checks repeatable** with documented steps for testing real behavior. [Verification](docs/project-improvement.md#keep-checks-useful)
 - **Choose a fitting method** for a bug fix, feature, or performance problem. [Playbooks](docs/project-improvement.md#choose-a-working-method)
 
 [Working guide](docs/manual-workflow.md) · [Development and releases](docs/release-checklist.md) · [Latest release](https://github.com/geldmacher/workflow/releases/latest)
+
+**Experimental: Auto-Work.** An optional approach connects the phases through native agents. Its Light/Dark modes, requirements, and limits are explained in the [separate guide](docs/auto-work.md).

@@ -1,4 +1,6 @@
-# Let Auto-Work run the sequence
+# Experimental: Auto-Work
+
+**Auto-Work is experimental.** Start with the [manual workflow](manual-workflow.md) for everyday use. This separate guide explains the optional approach, its requirements, and its limits.
 
 Auto-Work connects planning, implementation, independent review, and correction in one request. You define the task and how much to delegate. It reports what was achieved, what was checked, and what remains open.
 
