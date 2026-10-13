@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 7.10.2
+
 - Name concrete planning triggers for playbook offers, such as unexplained defects, traces, performance targets, refactoring, design questions, and resumed work, so useful methods are offered without loading the catalog for routine changes.
 - Name concrete planning triggers for setup gaps and verifier work, and read the working agreement whenever it is not already in the task's context instead of only when uncertain.
 - Restore context budget headroom with a one-time revision to the largest measurement plus 20%, warn above 90% of a limit without failing, and prefer readable instructions over compression to meet a limit.
