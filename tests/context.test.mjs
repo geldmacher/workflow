@@ -167,6 +167,17 @@ test("missing and stale context limits fail closed", () => {
   assert.ok(result.failures.includes("unused context limit: obsoleteScenario"));
 });
 
+test("scenarios above 90% of their limit warn without failing", () => {
+  const budgets = JSON.parse(readFileSync(join(defaultRoot, "scripts/context-limits.json"), "utf8")).limits;
+  const baseline = measureContext(defaultRoot, budgets);
+  const largest = Math.max(...Object.values(baseline.targets).map(target => target.plan.tokens));
+  budgets.plan = Math.ceil(largest / 0.95);
+  const result = measureContext(defaultRoot, budgets);
+  assert.ok(!result.failures.some(message => message.includes(" plan:")));
+  assert.ok(result.warnings.some(message => message.includes(" plan uses ")));
+  assert.match(formatContext(result), /warning: \S+ plan uses \d+ of \d+ estimated tokens/);
+});
+
 test("context CLI is compact by default and exposes full inventories with --json", () => {
   const command = join(defaultRoot, "scripts/measure-context.mjs");
   const compact = spawnSync(process.execPath, [command, "--check"], { encoding: "utf8" });
@@ -176,7 +187,7 @@ test("context CLI is compact by default and exposes full inventories with --json
   const result = JSON.parse(detailed.stdout);
   assert.deepEqual(result.failures, []);
   const scenarioCount = new Set(Object.values(result.targets).flatMap(target => Object.keys(target))).size;
-  assert.equal(compact.stdout.trimEnd().split("\n").length, scenarioCount + 3);
+  assert.equal(compact.stdout.trimEnd().split("\n").length, scenarioCount + 3 + result.warnings.length);
   assert.equal(compact.stdout.trimEnd(), formatContext(result));
   assert.ok(result.targets.codex.autoWork.documents.length > 0);
 });

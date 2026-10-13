@@ -58,109 +58,109 @@
   "limits": {
     "discovery": 600,
     "plan": 2900,
-    "review": 1800,
-    "correction": 1400,
-    "learning": 2200,
-    "explanation": 900,
-    "status": 1100,
-    "doctor": 2600,
-    "verificationInspect": 2700,
-    "methodSuggestion": 2000,
-    "planVerifierInspection": 4500,
-    "planVerifierCreation": 6100,
-    "planVerifierMaintenance": 6100,
-    "reviewVerifier": 3400,
-    "correctionVerifierCreation": 4400,
-    "correctionVerifierMaintenance": 4300,
-    "verificationCreation": 3800,
-    "verificationMaintenance": 3700,
-    "planWithLearning": 4100,
-    "reviewWithLearning": 3100,
-    "correctionWithLearning": 2600,
-    "explanationWithLearning": 2200,
-    "statusWithLearning": 2500,
-    "doctorWithLearning": 3900,
-    "verificationInspectWithLearning": 3900,
-    "methodSuggestionWithLearning": 3400,
-    "autoWorkEntry": 2900,
-    "autoWork": 7100,
-    "autoWorkDelivery": 7800,
-    "autoWorkWithLearning": 8300,
-    "autoWorkVerifierCreation": 10400,
-    "autoWorkVerifierMaintenance": 10300,
-    "planMethod:bug-fix": 4400,
-    "planMethod:evaluation": 4400,
-    "planMethod:feature": 4300,
-    "planMethod:hillclimb": 4500,
-    "planMethod:investigation": 4200,
-    "planMethod:pause-safely": 4200,
-    "planMethod:performance": 4500,
-    "planMethod:prototype": 4300,
-    "planMethod:refactoring": 4300,
-    "planMethod:runtime-forensics": 4300,
-    "planMethod:session-pickup": 4300,
-    "planMethod:skill-authoring": 4300,
-    "planMethod:trace-forensics": 4300,
-    "planMethod:visual-parity": 4300,
-    "implementation": 1300,
-    "implementationVerifierCreation": 4400,
-    "implementationVerifierMaintenance": 4300,
-    "implementationWithLearning": 2700,
-    "setupInspection": 2400,
-    "setupImplementation": 3000,
-    "maintenanceInspection": 2500,
-    "maintenanceUpdate": 3400,
-    "planSetupGap": 3900,
-    "doctorSetupGap": 3900,
-    "reviewSetup": 3100,
-    "correctionSetup": 2900,
-    "autoWorkSetup": 8600,
-    "setupVerifierCreation": 6100,
-    "maintenanceVerifierUpdate": 6100,
-    "autoWorkMaintenance": 8600,
-    "autoWorkSetupVerifierCreation": 11700,
-    "autoWorkMaintenanceVerifierUpdate": 11700,
-    "setupMethodAssessment": 3400,
-    "maintenanceMethodAssessment": 3400,
-    "planSetupProposal": 5100,
-    "doctorSetupProposal": 4900,
-    "setupMethod:behavior-tests": 4400,
-    "maintenanceMethod:behavior-tests": 4500,
-    "setupMethod:check-commands-ci": 4500,
-    "maintenanceMethod:check-commands-ci": 4500,
-    "setupMethod:code-checks": 4400,
-    "maintenanceMethod:code-checks": 4500,
-    "setupMethod:evaluations": 4600,
-    "maintenanceMethod:evaluations": 4600,
-    "setupMethod:project-guidance": 4400,
-    "maintenanceMethod:project-guidance": 4500,
-    "setupMethod:project-skills": 4500,
-    "maintenanceMethod:project-skills": 4600,
-    "setupMethod:subagent-roles": 4600,
-    "maintenanceMethod:subagent-roles": 4700,
-    "setupMethod:test-data-isolation": 4400,
-    "maintenanceMethod:test-data-isolation": 4500,
-    "setupMethod:user-journeys": 4500,
-    "maintenanceMethod:user-journeys": 4500,
-    "setupPackage": 5500,
-    "maintenancePackage": 5600,
-    "reviewSetupPackage": 5600,
-    "correctionSetupPackage": 5100,
-    "autoWorkSetupPackage": 11100,
-    "autoWorkMaintenancePackage": 11100,
-    "setupPackageVerifier": 9700,
-    "maintenancePackageVerifier": 9700,
-    "autoWorkSetupPackageVerifier": 15300,
-    "autoWorkMaintenancePackageVerifier": 15300,
-    "setupAllSelectedMethods": 12100,
-    "maintenanceAllSelectedMethods": 12100,
-    "planConcurrent": 5200,
-    "reviewConcurrent": 4500,
-    "correctionConcurrent": 4000,
-    "autoWorkConcurrent": 10000,
-    "learningConcurrent": 4900,
-    "verificationConcurrent": 5300,
-    "implementationConcurrent": 4100
+    "review": 2100,
+    "correction": 1500,
+    "learning": 2600,
+    "explanation": 1000,
+    "status": 1300,
+    "doctor": 2900,
+    "verificationInspect": 3000,
+    "methodSuggestion": 2300,
+    "planVerifierInspection": 4800,
+    "planVerifierCreation": 6400,
+    "planVerifierMaintenance": 6300,
+    "reviewVerifier": 3900,
+    "correctionVerifierCreation": 4900,
+    "correctionVerifierMaintenance": 4900,
+    "verificationCreation": 4200,
+    "verificationMaintenance": 4100,
+    "planWithLearning": 4400,
+    "reviewWithLearning": 3600,
+    "correctionWithLearning": 3000,
+    "explanationWithLearning": 2500,
+    "statusWithLearning": 2800,
+    "doctorWithLearning": 4400,
+    "verificationInspectWithLearning": 4500,
+    "methodSuggestionWithLearning": 3800,
+    "autoWorkEntry": 3500,
+    "autoWork": 8200,
+    "autoWorkDelivery": 8900,
+    "autoWorkWithLearning": 9700,
+    "autoWorkVerifierCreation": 11700,
+    "autoWorkVerifierMaintenance": 11600,
+    "planMethod:bug-fix": 5300,
+    "planMethod:evaluation": 5400,
+    "planMethod:feature": 5300,
+    "planMethod:hillclimb": 5400,
+    "planMethod:investigation": 5100,
+    "planMethod:pause-safely": 5200,
+    "planMethod:performance": 5400,
+    "planMethod:prototype": 5200,
+    "planMethod:refactoring": 5300,
+    "planMethod:runtime-forensics": 5200,
+    "planMethod:session-pickup": 5200,
+    "planMethod:skill-authoring": 5200,
+    "planMethod:trace-forensics": 5200,
+    "planMethod:visual-parity": 5200,
+    "implementation": 1600,
+    "implementationVerifierCreation": 5000,
+    "implementationVerifierMaintenance": 5000,
+    "implementationWithLearning": 3100,
+    "setupInspection": 2900,
+    "setupImplementation": 3600,
+    "maintenanceInspection": 3000,
+    "maintenanceUpdate": 3700,
+    "planSetupGap": 4600,
+    "doctorSetupGap": 4500,
+    "reviewSetup": 3700,
+    "correctionSetup": 3200,
+    "autoWorkSetup": 10400,
+    "setupVerifierCreation": 7000,
+    "maintenanceVerifierUpdate": 7000,
+    "autoWorkMaintenance": 10500,
+    "autoWorkSetupVerifierCreation": 13800,
+    "autoWorkMaintenanceVerifierUpdate": 13800,
+    "setupMethodAssessment": 4000,
+    "maintenanceMethodAssessment": 4100,
+    "planSetupProposal": 5600,
+    "doctorSetupProposal": 5600,
+    "setupMethod:behavior-tests": 5200,
+    "maintenanceMethod:behavior-tests": 5300,
+    "setupMethod:check-commands-ci": 5300,
+    "maintenanceMethod:check-commands-ci": 5300,
+    "setupMethod:code-checks": 5200,
+    "maintenanceMethod:code-checks": 5300,
+    "setupMethod:evaluations": 5400,
+    "maintenanceMethod:evaluations": 5400,
+    "setupMethod:project-guidance": 5200,
+    "maintenanceMethod:project-guidance": 5300,
+    "setupMethod:project-skills": 5300,
+    "maintenanceMethod:project-skills": 5400,
+    "setupMethod:subagent-roles": 5400,
+    "maintenanceMethod:subagent-roles": 5500,
+    "setupMethod:test-data-isolation": 5200,
+    "maintenanceMethod:test-data-isolation": 5300,
+    "setupMethod:user-journeys": 5300,
+    "maintenanceMethod:user-journeys": 5300,
+    "setupPackage": 6400,
+    "maintenancePackage": 6400,
+    "reviewSetupPackage": 6500,
+    "correctionSetupPackage": 5900,
+    "autoWorkSetupPackage": 13200,
+    "autoWorkMaintenancePackage": 13200,
+    "setupPackageVerifier": 11000,
+    "maintenancePackageVerifier": 11100,
+    "autoWorkSetupPackageVerifier": 17800,
+    "autoWorkMaintenancePackageVerifier": 17800,
+    "setupAllSelectedMethods": 13600,
+    "maintenanceAllSelectedMethods": 13600,
+    "planConcurrent": 6200,
+    "reviewConcurrent": 5400,
+    "correctionConcurrent": 4800,
+    "autoWorkConcurrent": 11500,
+    "learningConcurrent": 5800,
+    "verificationConcurrent": 6200,
+    "implementationConcurrent": 4900
   },
   "additions": {
     "projectSetup": {
@@ -431,6 +431,529 @@
           "maximum": 4574,
           "previousLimit": 4500,
           "limit": 5100
+        }
+      }
+    },
+    {
+      "date": "2026-10-13",
+      "reason": "Restore durable editing headroom after repeated near-limit revisions and concrete planning triggers for playbook, setup, and verifier offers. Readable instructions take precedence over compression to meet a number; growth above 90% of a limit now appears as a warning before it fails.",
+      "selection": "One-time selection of the 103 scenarios whose largest current host measurement plus 20% exceeded the existing limit. The other 2 limits remain unchanged. This criterion does not trigger future automatic changes or approvals.",
+      "method": "Largest current host measurement plus 20%, rounded up to 100 estimated tokens. Existing baselines are retained; normal checks never update limits.",
+      "scenarios": {
+        "review": {
+          "maximum": 1694,
+          "previousLimit": 1800,
+          "limit": 2100
+        },
+        "correction": {
+          "maximum": 1219,
+          "previousLimit": 1400,
+          "limit": 1500
+        },
+        "learning": {
+          "maximum": 2086,
+          "previousLimit": 2200,
+          "limit": 2600
+        },
+        "explanation": {
+          "maximum": 820,
+          "previousLimit": 900,
+          "limit": 1000
+        },
+        "status": {
+          "maximum": 1044,
+          "previousLimit": 1100,
+          "limit": 1300
+        },
+        "doctor": {
+          "maximum": 2356,
+          "previousLimit": 2600,
+          "limit": 2900
+        },
+        "verificationInspect": {
+          "maximum": 2422,
+          "previousLimit": 2700,
+          "limit": 3000
+        },
+        "methodSuggestion": {
+          "maximum": 1898,
+          "previousLimit": 2000,
+          "limit": 2300
+        },
+        "planVerifierInspection": {
+          "maximum": 3918,
+          "previousLimit": 4500,
+          "limit": 4800
+        },
+        "planVerifierCreation": {
+          "maximum": 5252,
+          "previousLimit": 6100,
+          "limit": 6400
+        },
+        "planVerifierMaintenance": {
+          "maximum": 5196,
+          "previousLimit": 6100,
+          "limit": 6300
+        },
+        "reviewVerifier": {
+          "maximum": 3219,
+          "previousLimit": 3400,
+          "limit": 3900
+        },
+        "correctionVerifierCreation": {
+          "maximum": 4078,
+          "previousLimit": 4400,
+          "limit": 4900
+        },
+        "correctionVerifierMaintenance": {
+          "maximum": 4022,
+          "previousLimit": 4300,
+          "limit": 4900
+        },
+        "verificationCreation": {
+          "maximum": 3452,
+          "previousLimit": 3800,
+          "limit": 4200
+        },
+        "verificationMaintenance": {
+          "maximum": 3396,
+          "previousLimit": 3700,
+          "limit": 4100
+        },
+        "planWithLearning": {
+          "maximum": 3646,
+          "previousLimit": 4100,
+          "limit": 4400
+        },
+        "reviewWithLearning": {
+          "maximum": 2947,
+          "previousLimit": 3100,
+          "limit": 3600
+        },
+        "correctionWithLearning": {
+          "maximum": 2472,
+          "previousLimit": 2600,
+          "limit": 3000
+        },
+        "explanationWithLearning": {
+          "maximum": 2073,
+          "previousLimit": 2200,
+          "limit": 2500
+        },
+        "statusWithLearning": {
+          "maximum": 2297,
+          "previousLimit": 2500,
+          "limit": 2800
+        },
+        "doctorWithLearning": {
+          "maximum": 3609,
+          "previousLimit": 3900,
+          "limit": 4400
+        },
+        "verificationInspectWithLearning": {
+          "maximum": 3675,
+          "previousLimit": 3900,
+          "limit": 4500
+        },
+        "methodSuggestionWithLearning": {
+          "maximum": 3151,
+          "previousLimit": 3400,
+          "limit": 3800
+        },
+        "autoWorkEntry": {
+          "maximum": 2895,
+          "previousLimit": 2900,
+          "limit": 3500
+        },
+        "autoWork": {
+          "maximum": 6813,
+          "previousLimit": 7100,
+          "limit": 8200
+        },
+        "autoWorkDelivery": {
+          "maximum": 7410,
+          "previousLimit": 7800,
+          "limit": 8900
+        },
+        "autoWorkWithLearning": {
+          "maximum": 8066,
+          "previousLimit": 8300,
+          "limit": 9700
+        },
+        "autoWorkVerifierCreation": {
+          "maximum": 9672,
+          "previousLimit": 10400,
+          "limit": 11700
+        },
+        "autoWorkVerifierMaintenance": {
+          "maximum": 9616,
+          "previousLimit": 10300,
+          "limit": 11600
+        },
+        "planMethod:bug-fix": {
+          "maximum": 4394,
+          "previousLimit": 4400,
+          "limit": 5300
+        },
+        "planMethod:evaluation": {
+          "maximum": 4419,
+          "previousLimit": 4400,
+          "limit": 5400
+        },
+        "planMethod:feature": {
+          "maximum": 4339,
+          "previousLimit": 4300,
+          "limit": 5300
+        },
+        "planMethod:hillclimb": {
+          "maximum": 4487,
+          "previousLimit": 4500,
+          "limit": 5400
+        },
+        "planMethod:investigation": {
+          "maximum": 4216,
+          "previousLimit": 4200,
+          "limit": 5100
+        },
+        "planMethod:pause-safely": {
+          "maximum": 4253,
+          "previousLimit": 4200,
+          "limit": 5200
+        },
+        "planMethod:performance": {
+          "maximum": 4446,
+          "previousLimit": 4500,
+          "limit": 5400
+        },
+        "planMethod:prototype": {
+          "maximum": 4284,
+          "previousLimit": 4300,
+          "limit": 5200
+        },
+        "planMethod:refactoring": {
+          "maximum": 4339,
+          "previousLimit": 4300,
+          "limit": 5300
+        },
+        "planMethod:runtime-forensics": {
+          "maximum": 4296,
+          "previousLimit": 4300,
+          "limit": 5200
+        },
+        "planMethod:session-pickup": {
+          "maximum": 4313,
+          "previousLimit": 4300,
+          "limit": 5200
+        },
+        "planMethod:skill-authoring": {
+          "maximum": 4269,
+          "previousLimit": 4300,
+          "limit": 5200
+        },
+        "planMethod:trace-forensics": {
+          "maximum": 4262,
+          "previousLimit": 4300,
+          "limit": 5200
+        },
+        "planMethod:visual-parity": {
+          "maximum": 4268,
+          "previousLimit": 4300,
+          "limit": 5200
+        },
+        "implementation": {
+          "maximum": 1296,
+          "previousLimit": 1300,
+          "limit": 1600
+        },
+        "implementationVerifierCreation": {
+          "maximum": 4152,
+          "previousLimit": 4400,
+          "limit": 5000
+        },
+        "implementationVerifierMaintenance": {
+          "maximum": 4096,
+          "previousLimit": 4300,
+          "limit": 5000
+        },
+        "implementationWithLearning": {
+          "maximum": 2549,
+          "previousLimit": 2700,
+          "limit": 3100
+        },
+        "setupInspection": {
+          "maximum": 2397,
+          "previousLimit": 2400,
+          "limit": 2900
+        },
+        "setupImplementation": {
+          "maximum": 2958,
+          "previousLimit": 3000,
+          "limit": 3600
+        },
+        "maintenanceInspection": {
+          "maximum": 2464,
+          "previousLimit": 2500,
+          "limit": 3000
+        },
+        "maintenanceUpdate": {
+          "maximum": 3025,
+          "previousLimit": 3400,
+          "limit": 3700
+        },
+        "planSetupGap": {
+          "maximum": 3780,
+          "previousLimit": 3900,
+          "limit": 4600
+        },
+        "doctorSetupGap": {
+          "maximum": 3743,
+          "previousLimit": 3900,
+          "limit": 4500
+        },
+        "reviewSetup": {
+          "maximum": 3081,
+          "previousLimit": 3100,
+          "limit": 3700
+        },
+        "correctionSetup": {
+          "maximum": 2606,
+          "previousLimit": 2900,
+          "limit": 3200
+        },
+        "autoWorkSetup": {
+          "maximum": 8615,
+          "previousLimit": 8600,
+          "limit": 10400
+        },
+        "setupVerifierCreation": {
+          "maximum": 5817,
+          "previousLimit": 6100,
+          "limit": 7000
+        },
+        "maintenanceVerifierUpdate": {
+          "maximum": 5828,
+          "previousLimit": 6100,
+          "limit": 7000
+        },
+        "autoWorkMaintenance": {
+          "maximum": 8680,
+          "previousLimit": 8600,
+          "limit": 10500
+        },
+        "autoWorkSetupVerifierCreation": {
+          "maximum": 11474,
+          "previousLimit": 11700,
+          "limit": 13800
+        },
+        "autoWorkMaintenanceVerifierUpdate": {
+          "maximum": 11483,
+          "previousLimit": 11700,
+          "limit": 13800
+        },
+        "setupMethodAssessment": {
+          "maximum": 3281,
+          "previousLimit": 3400,
+          "limit": 4000
+        },
+        "maintenanceMethodAssessment": {
+          "maximum": 3348,
+          "previousLimit": 3400,
+          "limit": 4100
+        },
+        "planSetupProposal": {
+          "maximum": 4664,
+          "previousLimit": 5100,
+          "limit": 5600
+        },
+        "doctorSetupProposal": {
+          "maximum": 4627,
+          "previousLimit": 4900,
+          "limit": 5600
+        },
+        "setupMethod:behavior-tests": {
+          "maximum": 4291,
+          "previousLimit": 4400,
+          "limit": 5200
+        },
+        "maintenanceMethod:behavior-tests": {
+          "maximum": 4358,
+          "previousLimit": 4500,
+          "limit": 5300
+        },
+        "setupMethod:check-commands-ci": {
+          "maximum": 4349,
+          "previousLimit": 4500,
+          "limit": 5300
+        },
+        "maintenanceMethod:check-commands-ci": {
+          "maximum": 4416,
+          "previousLimit": 4500,
+          "limit": 5300
+        },
+        "setupMethod:code-checks": {
+          "maximum": 4302,
+          "previousLimit": 4400,
+          "limit": 5200
+        },
+        "maintenanceMethod:code-checks": {
+          "maximum": 4369,
+          "previousLimit": 4500,
+          "limit": 5300
+        },
+        "setupMethod:evaluations": {
+          "maximum": 4428,
+          "previousLimit": 4600,
+          "limit": 5400
+        },
+        "maintenanceMethod:evaluations": {
+          "maximum": 4495,
+          "previousLimit": 4600,
+          "limit": 5400
+        },
+        "setupMethod:project-guidance": {
+          "maximum": 4305,
+          "previousLimit": 4400,
+          "limit": 5200
+        },
+        "maintenanceMethod:project-guidance": {
+          "maximum": 4372,
+          "previousLimit": 4500,
+          "limit": 5300
+        },
+        "setupMethod:project-skills": {
+          "maximum": 4387,
+          "previousLimit": 4500,
+          "limit": 5300
+        },
+        "maintenanceMethod:project-skills": {
+          "maximum": 4454,
+          "previousLimit": 4600,
+          "limit": 5400
+        },
+        "setupMethod:subagent-roles": {
+          "maximum": 4494,
+          "previousLimit": 4600,
+          "limit": 5400
+        },
+        "maintenanceMethod:subagent-roles": {
+          "maximum": 4561,
+          "previousLimit": 4700,
+          "limit": 5500
+        },
+        "setupMethod:test-data-isolation": {
+          "maximum": 4289,
+          "previousLimit": 4400,
+          "limit": 5200
+        },
+        "maintenanceMethod:test-data-isolation": {
+          "maximum": 4356,
+          "previousLimit": 4500,
+          "limit": 5300
+        },
+        "setupMethod:user-journeys": {
+          "maximum": 4340,
+          "previousLimit": 4500,
+          "limit": 5300
+        },
+        "maintenanceMethod:user-journeys": {
+          "maximum": 4407,
+          "previousLimit": 4500,
+          "limit": 5300
+        },
+        "setupPackage": {
+          "maximum": 5261,
+          "previousLimit": 5500,
+          "limit": 6400
+        },
+        "maintenancePackage": {
+          "maximum": 5328,
+          "previousLimit": 5600,
+          "limit": 6400
+        },
+        "reviewSetupPackage": {
+          "maximum": 5384,
+          "previousLimit": 5600,
+          "limit": 6500
+        },
+        "correctionSetupPackage": {
+          "maximum": 4909,
+          "previousLimit": 5100,
+          "limit": 5900
+        },
+        "autoWorkSetupPackage": {
+          "maximum": 10918,
+          "previousLimit": 11100,
+          "limit": 13200
+        },
+        "autoWorkMaintenancePackage": {
+          "maximum": 10983,
+          "previousLimit": 11100,
+          "limit": 13200
+        },
+        "setupPackageVerifier": {
+          "maximum": 9163,
+          "previousLimit": 9700,
+          "limit": 11000
+        },
+        "maintenancePackageVerifier": {
+          "maximum": 9174,
+          "previousLimit": 9700,
+          "limit": 11100
+        },
+        "autoWorkSetupPackageVerifier": {
+          "maximum": 14820,
+          "previousLimit": 15300,
+          "limit": 17800
+        },
+        "autoWorkMaintenancePackageVerifier": {
+          "maximum": 14829,
+          "previousLimit": 15300,
+          "limit": 17800
+        },
+        "setupAllSelectedMethods": {
+          "maximum": 11308,
+          "previousLimit": 12100,
+          "limit": 13600
+        },
+        "maintenanceAllSelectedMethods": {
+          "maximum": 11319,
+          "previousLimit": 12100,
+          "limit": 13600
+        },
+        "planConcurrent": {
+          "maximum": 5137,
+          "previousLimit": 5200,
+          "limit": 6200
+        },
+        "reviewConcurrent": {
+          "maximum": 4438,
+          "previousLimit": 4500,
+          "limit": 5400
+        },
+        "correctionConcurrent": {
+          "maximum": 3963,
+          "previousLimit": 4000,
+          "limit": 4800
+        },
+        "autoWorkConcurrent": {
+          "maximum": 9557,
+          "previousLimit": 10000,
+          "limit": 11500
+        },
+        "learningConcurrent": {
+          "maximum": 4830,
+          "previousLimit": 4900,
+          "limit": 5800
+        },
+        "verificationConcurrent": {
+          "maximum": 5166,
+          "previousLimit": 5300,
+          "limit": 6200
+        },
+        "implementationConcurrent": {
+          "maximum": 4040,
+          "previousLimit": 4100,
+          "limit": 4900
         }
       }
     }

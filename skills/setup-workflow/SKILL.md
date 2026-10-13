@@ -5,7 +5,7 @@ description: "Establish project purpose, checks and agent guidance."
 
 # setup-workflow
 
-Apply the [working agreement](../../references/workflow.md); read it if missing or uncertain. Use to establish or complete project setup. Read [project readiness](../../references/project-readiness.md). Plugin installation and version updates use [install-release](../install-release/SKILL.md).
+Read the [working agreement](../../references/workflow.md) unless it is already in this task's context. Use to establish or complete project setup. Read [project readiness](../../references/project-readiness.md). Plugin installation and version updates use [install-release](../install-release/SKILL.md).
 
 Always assess the north star; jointly fill gaps and reuse suitable direction. Inspect user journeys, requirements, checks, prerequisites and guidance. For method assessment, proposals or selected work, read the [setup catalog](references/catalog.md) and relevant entries. Reuse coverage; explain gaps, changes, destinations and closing proof. Tests alone do not define correct behavior.
 

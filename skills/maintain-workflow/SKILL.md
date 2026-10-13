@@ -5,7 +5,7 @@ description: "Maintain project purpose, checks and agent guidance."
 
 # maintain-workflow
 
-Apply the [working agreement](../../references/workflow.md); read it if missing or uncertain. Read [project readiness](../../references/project-readiness.md). Use for the project's existing feedback system; Workflow plugin versions use [install-release](../install-release/SKILL.md).
+Read the [working agreement](../../references/workflow.md) unless it is already in this task's context. Read [project readiness](../../references/project-readiness.md). Use for the project's existing feedback system; Workflow plugin versions use [install-release](../install-release/SKILL.md).
 
 Default to read-only inspection without launching the product. Compare the north star with explicit project decisions, and scope with requirements, source, checks, prerequisites, CI and guidance. For method assessment, proposals or selected work, read the shared [setup catalog](../setup-workflow/references/catalog.md) and relevant entries. Report drift, coverage, missing proof and next action. Keep conventions; no setup marker is required. If setup is absent, propose [setup-workflow](../setup-workflow/SKILL.md), retaining useful coverage.
 
