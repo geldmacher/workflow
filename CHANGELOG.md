@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- During review, report an in-scope band-aid (a symptom patch, special case, duplicated logic, or stacked workaround) as an actionable finding with the cleaner alternative, so correction replaces the patch. Leave a redesign outside the approved plan as a recommendation for the human.
+
 ## 7.10.2
 
 - Name concrete planning triggers for playbook offers, such as unexplained defects, traces, performance targets, refactoring, design questions, and resumed work, so useful methods are offered without loading the catalog for routine changes.
