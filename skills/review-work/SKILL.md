@@ -15,7 +15,7 @@ Match optional methods and verifier edits to active selections. For setup change
 
 Lead with a reasoned judgment: goal achieved, corrections needed, or open points. Failed necessary checks prevent goal achieved. Missing necessary proof, unclear scope, or missing plan versions remain explicit, even when there are also correctable defects.
 
-Keep both axes visible: plan or spec deviation, and repository standards or simplicity. On a simplicity question, use available Efficiency guidance.
+Keep both axes visible: plan or spec deviation, and repository standards or simplicity. On a simplicity question, use available Efficiency guidance. When a change or fix is a band-aid, such as a symptom patch, special case, duplicated logic, or stacked workaround, and a cleaner solution fits the approved plan, report an actionable finding with the evidence and that alternative. A redesign outside that scope stays a recommendation for the human; it does not expand correction or block a positive review.
 
 Assess inherited and new learning candidates from the reviewed work. When any exist, follow the learning guidance linked by the working agreement: reconcile the whole collection and offer newly confirmed or materially changed lessons. On a final positive Review, surface an unchanged eligible offer once if it was neither accepted nor rejected; do not restate it on an intermediate correction Review. Keep Review read-only.
 
