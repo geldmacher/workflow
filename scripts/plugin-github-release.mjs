@@ -1064,7 +1064,7 @@ function runCli() {
   process.stdout.write(`${JSON.stringify(completeRelease(), null, 2)}\n`);
 }
 
-const direct = process.argv[1] && realpathSync(process.argv[1]) === scriptPath;
+const direct = process.argv[1] && process.argv[1] !== "-" && realpathSync(process.argv[1]) === scriptPath;
 if (direct) {
   try { runCli(); }
   catch (error) {

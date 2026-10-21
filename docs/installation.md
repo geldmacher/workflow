@@ -274,7 +274,7 @@ The OpenCode manifest's `opencodeCompatibility` value is `2.1.2`. Do not add `CL
 
 For an update, back up the complete package directory. Back up `opencode.json` and each Workflow command file before changing them. Replace the whole package directory. Keep the skills path and every unrelated config entry. Replace only Workflow command files. Start a new session and check `@plan-work`, `/plan-work`, `@implement-work`, and `/implement-work`.
 
-For rollback, restore the retained package directory. Remove only this plugin's skills entry from `opencode.json`, and remove or restore only the command files this plugin owns. Leave other keys, other plugins' skills entries, `opencode.jsonc`, and unrelated commands in place. Do not replace the shared config with an older full-file backup after other plugins may have changed it, and do not combine files from different versions.
+For rollback after an update, restore the retained package directory and its matching command files. Keep or restore this plugin's skills entry so the previous version remains registered. To undo a first installation, remove only this plugin's skills entry, command files, and package. Leave other keys, other plugins' skills entries, `opencode.jsonc`, and unrelated commands in place. Do not replace the shared config with an older full-file backup after other plugins may have changed it, and do not combine files from different versions. The local deploy CLI has no rollback command; `deploy:uninstall` removes the installation rather than restoring a previous version.
 
 ## Verify the installed layout
 

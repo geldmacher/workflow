@@ -524,15 +524,17 @@ function removeStaleAtomicTemps(directory, filename) {
   }
 }
 
-function atomicWrite(path, bytes, { simulateFailure } = {}) {
+function atomicWrite(path, bytes, { simulateFailure, mode } = {}) {
   const directory = dirname(path);
   const filename = basename(path);
   mkdirSync(directory, { recursive: true });
   removeStaleAtomicTemps(directory, filename);
+  const fileMode = mode ?? (lstatExists(path) ? lstatSync(path).mode & 0o777 : undefined);
   const temp = join(directory, `.${filename}.${process.pid}.${randomUUID()}.tmp`);
   let writeError = null;
   try {
-    writeFileSync(temp, bytes);
+    writeFileSync(temp, bytes, { mode: fileMode });
+    if (fileMode !== undefined) chmodSync(temp, fileMode);
     if (simulateFailure === "during-atomic-write") throw new Error("simulated atomic write failure");
     renameSync(temp, path);
   } catch (error) {
@@ -570,7 +572,7 @@ function safeBackupName(name) {
   return name;
 }
 
-function writeOpenCodeBackup({ home, plugin, root, createdAt, reason, files }) {
+function writeOpenCodeBackup({ home, plugin, root, createdAt, reason, files, packageRoot = null }) {
   assertDestination(join(root, "manifest.json"), home);
   mkdirSync(root, { recursive: true });
   const rootStat = lstatSync(root);
@@ -585,12 +587,19 @@ function writeOpenCodeBackup({ home, plugin, root, createdAt, reason, files }) {
       const target = resolve(stage, backup);
       if (!isInside(stage, target)) throw new Error(`OpenCode backup escapes its directory: ${backup}`);
       assertDestination(file.path, home);
+      const mode = file.existed ? lstatSync(file.path).mode & 0o777 : null;
       if (file.existed) {
         if (file.bytes === null || file.bytes === undefined) throw new Error(`OpenCode backup is missing bytes for ${file.path}`);
         mkdirSync(dirname(target), { recursive: true });
-        writeFileSync(target, file.bytes);
+        writeFileSync(target, file.bytes, { mode });
+        chmodSync(target, mode);
       }
-      manifestFiles.push({ kind: file.kind, path: file.path, existed: Boolean(file.existed), backup: file.existed ? backup : null });
+      manifestFiles.push({ kind: file.kind, path: file.path, existed: Boolean(file.existed), backup: file.existed ? backup : null, mode });
+    }
+    if (packageRoot !== null) {
+      assertDestination(packageRoot, home);
+      walk(packageRoot);
+      cpSync(packageRoot, join(stage, "package"), { recursive: true, preserveTimestamps: true });
     }
     writeJson(join(stage, "manifest.json"), {
       schema: 1,
@@ -598,6 +607,7 @@ function writeOpenCodeBackup({ home, plugin, root, createdAt, reason, files }) {
       created_at: new Date(createdAt).toISOString(),
       reason,
       files: manifestFiles,
+      package: packageRoot === null ? null : { path: packageRoot, backup: "package" },
     });
     renameSync(stage, directory);
     return directory;
@@ -627,10 +637,29 @@ function restoreOpenCodeBackup(directory, { plugin, home }) {
         if (!isInside(directory, source) || !lstatExists(source) || !lstatSync(source).isFile() || lstatSync(source).isSymbolicLink()) {
           throw new Error(`OpenCode backup file is missing: ${file.backup}`);
         }
-        atomicWrite(target, readFileSync(source));
+        atomicWrite(target, readFileSync(source), { mode: file.mode });
       } else if (lstatExists(target)) {
         rmSync(target, { force: true });
       }
+    } catch (error) {
+      restoreErrors.push(error);
+    }
+  }
+  if (manifest.package) {
+    try {
+      const target = resolve(manifest.package.path);
+      if (target !== deploymentPaths(home, plugin).opencode) throw new Error("OpenCode package restore target is outside this plugin's directory");
+      assertDestination(target, home);
+      const source = resolve(directory, safeBackupName(manifest.package.backup));
+      if (!isInside(directory, source) || !lstatExists(source) || lstatSync(source).isSymbolicLink() || !lstatSync(source).isDirectory()) {
+        throw new Error("OpenCode package backup is missing or is not a physical directory");
+      }
+      walk(source);
+      if (lstatExists(target)) {
+        if (lstatSync(target).isSymbolicLink() || !lstatSync(target).isDirectory()) throw new Error("OpenCode package restore target is not a physical directory");
+        renameSync(target, join(directory, `incomplete-package-${randomUUID()}`));
+      }
+      cpSync(source, target, { recursive: true, preserveTimestamps: true });
     } catch (error) {
       restoreErrors.push(error);
     }
@@ -1126,9 +1155,15 @@ export function uninstallOpenCodeDeployment({ plugin, home, env = process.env, d
     },
   };
   if (!files.length && !owned.present) return { ...result, no_op: true };
-  const backup = files.length
-    ? writeOpenCodeBackup({ home: paths.home, plugin, root: paths.opencodeBackups, createdAt: deployedAt, reason: "uninstall", files })
-    : null;
+  const backup = writeOpenCodeBackup({
+    home: paths.home,
+    plugin,
+    root: paths.opencodeBackups,
+    createdAt: deployedAt,
+    reason: "uninstall",
+    files,
+    packageRoot: owned.present ? paths.opencode : null,
+  });
   try {
     if (plan.configChange) atomicWrite(paths.opencodeConfig, plan.nextBytes);
     for (const file of plan.commands) rmSync(file.destination, { force: true });
@@ -1241,7 +1276,7 @@ async function main() {
   }
 }
 
-const direct = process.argv[1] && realpathSync(process.argv[1]) === scriptPath;
+const direct = process.argv[1] && process.argv[1] !== "-" && realpathSync(process.argv[1]) === scriptPath;
 if (direct) main().catch((error) => {
   process.stderr.write(`${error.stack || error.message}\n`);
   process.exitCode = 1;

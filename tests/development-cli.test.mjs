@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -52,16 +52,16 @@ test("development CLIs execute through physical and aliased paths; imports stay 
   } finally { rmSync(parent, { recursive: true, force: true }); }
 });
 
-test("packaging and context helpers import from stdin without CLI output or package writes", () => {
+test("development helpers import from stdin without CLI output or package writes", () => {
   const parent = mkdtempSync(join(tmpdir(), "workflow-stdin-import-"));
   try {
     const result = spawnSync(process.execPath, ["--input-type=module", "-"], {
       cwd: parent, encoding: "utf8",
-      input: [...["build-plugin-targets", "measure-context", "validate-plugin", "check-markdown-links"].map(name => `scripts/${name}.mjs`), ".agents/skills/verify-auto-work/scripts/fixture.mjs"].map(path => `await import(${JSON.stringify(pathToFileURL(join(defaultRoot, path)).href)});`).join("\n"),
+      input: [...["build-plugin-targets", "measure-context", "validate-plugin", "check-markdown-links", "local-plugin-deploy", "plugin-github-release"].map(name => `scripts/${name}.mjs`), ".agents/skills/verify-auto-work/scripts/fixture.mjs"].map(path => `await import(${JSON.stringify(pathToFileURL(join(defaultRoot, path)).href)});`).join("\n"),
     });
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout + result.stderr, "");
-    assert.equal(existsSync(join(parent, ".build")), false);
+    assert.deepEqual(readdirSync(parent), []);
   } finally { rmSync(parent, { recursive: true, force: true }); }
 });
 

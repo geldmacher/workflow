@@ -737,6 +737,7 @@ test("OpenCode deploy merges a shared config under an isolated XDG_CONFIG_HOME, 
     const uninstallBackup = afterBackups.find((name) => name !== backups[0]);
     const uninstallManifest = JSON.parse(readFileSync(join(paths.opencodeBackups, uninstallBackup, "manifest.json"), "utf8"));
     assert.equal(uninstallManifest.reason, "uninstall");
+    assert.equal(contentHash(join(paths.opencodeBackups, uninstallBackup, "package"), { host: "opencode", baseVersion }), first.targets.opencode.content_sha256);
     assert.ok(JSON.parse(readFileSync(join(paths.opencodeBackups, uninstallBackup, "opencode.json"), "utf8")).skills.includes(skillsPath));
     const afterBytes = readFileSync(paths.opencodeConfig);
     const again = uninstallOpenCodeDeployment({ plugin, home: item.home, env, deployedAt: "2026-08-10T14:00:00.000Z" });
@@ -781,6 +782,78 @@ test("failed OpenCode deploy restores the shared config from its persistent back
     assert.equal(manifest.files.find((file) => file.kind === "opencode-command" && file.path.endsWith("plan-work.md")).existed, true);
     assert.equal(readFileSync(join(paths.opencodeBackups, backups[0], "commands", "plan-work.md"), "utf8"), previousCommand);
   } finally {
+    rmSync(item.root, { recursive: true, force: true });
+  }
+});
+
+test("OpenCode config and command modes survive deploy, rollback, and uninstall", { skip: process.platform === "win32" }, () => {
+  const item = fixture();
+  try {
+    const env = isolatedOpenCodeEnv(item.home);
+    const paths = deploymentPaths(item.home, plugin);
+    mkdirSync(paths.opencodeCommands, { recursive: true });
+    const command = join(paths.opencodeCommands, "plan-work.md");
+    const originalCommand = "Load the `plan-work` skill and apply it to the current request.\nprevious\n";
+    const originalConfig = `${JSON.stringify({ model: "keep", skills: ["./other/skills"] })}\n`;
+    writeFileSync(paths.opencodeConfig, originalConfig);
+    writeFileSync(command, originalCommand);
+    chmodSync(paths.opencodeConfig, 0o600);
+    chmodSync(command, 0o640);
+    const options = { ...metadata(item.repository), home: item.home, hosts: ["opencode"], env };
+    assert.throws(() => deployPreparedTargets({ ...options, simulateFailure: "after-opencode-commands" }), /deployment rolled back/);
+    assert.equal(readFileSync(paths.opencodeConfig, "utf8"), originalConfig);
+    assert.equal(readFileSync(command, "utf8"), originalCommand);
+    assert.equal(lstatSync(paths.opencodeConfig).mode & 0o777, 0o600);
+    assert.equal(lstatSync(command).mode & 0o777, 0o640);
+    deployPreparedTargets(options);
+    assert.equal(lstatSync(paths.opencodeConfig).mode & 0o777, 0o600);
+    assert.equal(lstatSync(command).mode & 0o777, 0o640);
+    uninstallOpenCodeDeployment({ plugin, home: item.home, env });
+    assert.equal(lstatSync(paths.opencodeConfig).mode & 0o777, 0o600);
+  } finally {
+    rmSync(item.root, { recursive: true, force: true });
+  }
+});
+
+test("failed OpenCode uninstall restores the complete package after a partial deletion", {
+  skip: process.platform === "win32" || process.getuid?.() === 0,
+}, () => {
+  const item = fixture();
+  function unlockDirectories(path) {
+    if (!existsSync(path)) return;
+    chmodSync(path, 0o700);
+    for (const entry of readdirSync(path, { withFileTypes: true })) {
+      if (entry.isDirectory()) unlockDirectories(join(path, entry.name));
+    }
+  }
+  try {
+    const env = isolatedOpenCodeEnv(item.home);
+    const paths = deploymentPaths(item.home, plugin);
+    deployPreparedTargets({ ...metadata(item.repository), home: item.home, hosts: ["opencode"], env });
+    const protectedDir = join(paths.opencode, "zzz-protected");
+    mkdirSync(protectedDir);
+    writeFileSync(join(protectedDir, "payload.txt"), "retain the complete installed package\n");
+    chmodSync(protectedDir, 0o555);
+    const command = join(paths.opencodeCommands, "plan-work.md");
+    chmodSync(paths.opencodeConfig, 0o600);
+    chmodSync(command, 0o640);
+    const originalConfig = readFileSync(paths.opencodeConfig);
+    const originalCommand = readFileSync(command);
+    const originalHash = contentHash(paths.opencode, { host: "opencode", baseVersion });
+    assert.throws(() => uninstallOpenCodeDeployment({ plugin, home: item.home, env }), /uninstall rolled back/);
+    assert.equal(contentHash(paths.opencode, { host: "opencode", baseVersion }), originalHash);
+    assert.ok(readFileSync(paths.opencodeConfig).equals(originalConfig));
+    assert.ok(readFileSync(command).equals(originalCommand));
+    assert.equal(lstatSync(paths.opencodeConfig).mode & 0o777, 0o600);
+    assert.equal(lstatSync(command).mode & 0o777, 0o640);
+    assert.equal(lstatSync(protectedDir).mode & 0o777, 0o555);
+    const backup = backupDirectories(paths.opencodeBackups).find((name) => {
+      return JSON.parse(readFileSync(join(paths.opencodeBackups, name, "manifest.json"), "utf8")).reason === "uninstall";
+    });
+    assert.ok(backup);
+    assert.equal(contentHash(join(paths.opencodeBackups, backup, "package"), { host: "opencode", baseVersion }), originalHash);
+  } finally {
+    unlockDirectories(item.root);
     rmSync(item.root, { recursive: true, force: true });
   }
 });
