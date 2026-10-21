@@ -492,11 +492,69 @@ export function updateMarketplaceDocument(document, plugin, sourcePath) {
   return document;
 }
 
-function atomicWrite(path, bytes) {
-  mkdirSync(dirname(path), { recursive: true });
-  const temp = join(dirname(path), `.${basename(path)}.${process.pid}.${randomUUID()}.tmp`);
-  writeFileSync(temp, bytes);
-  renameSync(temp, path);
+function processAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error.code === "EPERM";
+  }
+}
+
+function atomicTempPid(filename, name) {
+  const prefix = `.${filename}.`;
+  if (!name.startsWith(prefix) || !name.endsWith(".tmp")) return null;
+  const pid = name.slice(prefix.length, -".tmp".length).split(".")[0];
+  if (!/^[0-9]+$/.test(pid)) return null;
+  return Number(pid);
+}
+
+function removeStaleAtomicTemps(directory, filename) {
+  if (!lstatExists(directory)) return;
+  const stat = lstatSync(directory);
+  if (stat.isSymbolicLink() || !stat.isDirectory()) return;
+  for (const name of readdirSync(directory)) {
+    const pid = atomicTempPid(filename, name);
+    if (pid === null || pid === process.pid || processAlive(pid)) continue;
+    const candidate = join(directory, name);
+    const item = lstatSync(candidate);
+    if (item.isSymbolicLink() || !item.isFile()) continue;
+    rmSync(candidate, { force: true });
+  }
+}
+
+function atomicWrite(path, bytes, { simulateFailure } = {}) {
+  const directory = dirname(path);
+  const filename = basename(path);
+  mkdirSync(directory, { recursive: true });
+  removeStaleAtomicTemps(directory, filename);
+  const temp = join(directory, `.${filename}.${process.pid}.${randomUUID()}.tmp`);
+  let writeError = null;
+  try {
+    writeFileSync(temp, bytes);
+    if (simulateFailure === "during-atomic-write") throw new Error("simulated atomic write failure");
+    renameSync(temp, path);
+  } catch (error) {
+    writeError = error;
+  } finally {
+    if (lstatExists(temp)) {
+      try {
+        rmSync(temp, { force: true });
+      } catch (cleanupError) {
+        const cleanup = new Error(`temporary cleanup failed: ${cleanupError.message}`, { cause: cleanupError });
+        if (writeError) {
+          throw new AggregateError(
+            [writeError, cleanup],
+            `atomic write failed and temporary cleanup was incomplete: ${writeError.message}; cleanup failure: ${cleanupError.message}`,
+            { cause: writeError },
+          );
+        }
+        throw cleanup;
+      }
+    }
+  }
+  if (writeError) throw writeError;
 }
 
 function backupStamp(createdAt) {
@@ -556,21 +614,32 @@ function restoreOpenCodeBackup(directory, { plugin, home }) {
   }
   const configPath = join(resolve(home), ".config", "opencode", "opencode.json");
   const commandsRoot = join(resolve(home), ".config", "opencode", "commands");
+  const restoreErrors = [];
   for (const file of manifest.files) {
-    const target = resolve(file.path);
-    if (target !== configPath && !isInside(commandsRoot, target)) throw new Error(`OpenCode backup restore target is outside the shared config: ${file.path}`);
-    assertDestination(target, home);
-    if (lstatExists(target) && lstatSync(target).isSymbolicLink()) throw new Error(`OpenCode restore target is a symlink: ${target}`);
-    if (file.existed) {
-      const backup = safeBackupName(file.backup);
-      const source = resolve(directory, backup);
-      if (!isInside(directory, source) || !lstatExists(source) || !lstatSync(source).isFile() || lstatSync(source).isSymbolicLink()) {
-        throw new Error(`OpenCode backup file is missing: ${file.backup}`);
+    try {
+      const target = resolve(file.path);
+      if (target !== configPath && !isInside(commandsRoot, target)) throw new Error(`OpenCode backup restore target is outside the shared config: ${file.path}`);
+      assertDestination(target, home);
+      if (lstatExists(target) && lstatSync(target).isSymbolicLink()) throw new Error(`OpenCode restore target is a symlink: ${target}`);
+      if (file.existed) {
+        const backup = safeBackupName(file.backup);
+        const source = resolve(directory, backup);
+        if (!isInside(directory, source) || !lstatExists(source) || !lstatSync(source).isFile() || lstatSync(source).isSymbolicLink()) {
+          throw new Error(`OpenCode backup file is missing: ${file.backup}`);
+        }
+        atomicWrite(target, readFileSync(source));
+      } else if (lstatExists(target)) {
+        rmSync(target, { force: true });
       }
-      atomicWrite(target, readFileSync(source));
-    } else if (lstatExists(target)) {
-      rmSync(target, { force: true });
+    } catch (error) {
+      restoreErrors.push(error);
     }
+  }
+  if (restoreErrors.length > 0) {
+    throw new AggregateError(
+      restoreErrors,
+      `OpenCode backup restore failed: ${restoreErrors.map((error) => error.message).join("; ")}`,
+    );
   }
 }
 
@@ -754,6 +823,7 @@ export function deployPreparedTargets({
   codexStateReader = codexInstallationState,
   hosts = HOSTS,
   simulateFailure,
+  simulateRollbackFailures = [],
 }) {
   const selectedHosts = [...new Set(hosts)];
   if (selectedHosts.length === 0 || selectedHosts.some((host) => !HOSTS.includes(host))) {
@@ -847,7 +917,7 @@ export function deployPreparedTargets({
       if (simulateFailure === `after-${host}-swap`) throw new Error(`simulated failure after ${host} swap`);
     }
     if (selectedHosts.includes("codex") && marketplaceChanged) {
-      atomicWrite(paths.marketplace, marketplaceBytes);
+      atomicWrite(paths.marketplace, marketplaceBytes, { simulateFailure });
       marketplaceWritten = true;
     }
     if (simulateFailure === "after-marketplace") throw new Error("simulated failure after Marketplace update");
@@ -863,12 +933,12 @@ export function deployPreparedTargets({
           files,
         });
       }
-      if (!opencodeConfig.registered) atomicWrite(paths.opencodeConfig, opencodeConfig.bytes);
+      if (!opencodeConfig.registered) atomicWrite(paths.opencodeConfig, opencodeConfig.bytes, { simulateFailure });
     }
     if (simulateFailure === "after-opencode-config") throw new Error("simulated failure after OpenCode config update");
     if (selectedHosts.includes("opencode")) {
       mkdirSync(paths.opencodeCommands, { recursive: true });
-      for (const file of opencodeCommands.files.filter((item) => item.change)) atomicWrite(file.destination, file.source);
+      for (const file of opencodeCommands.files.filter((item) => item.change)) atomicWrite(file.destination, file.source, { simulateFailure });
     }
     if (simulateFailure === "after-opencode-commands") throw new Error("simulated failure after OpenCode command update");
     const codex = selectedHosts.includes("codex")
@@ -896,15 +966,36 @@ export function deployPreparedTargets({
     for (const item of swapped) if (item.backup) rmSync(item.backup, { recursive: true, force: true });
     return { ...plan, no_op: false, codex, opencode: plan.opencode ? { ...plan.opencode, backup: opencodeBackup } : null };
   } catch (error) {
+    const rollbackErrors = [];
+    const forced = new Set(simulateRollbackFailures);
+    const attempt = (label, action) => {
+      try {
+        if (forced.has(label)) throw new Error(`simulated ${label} restore failure`);
+        action();
+      } catch (rollbackError) {
+        rollbackErrors.push(new Error(`${label} restore failed: ${rollbackError.message}`, { cause: rollbackError }));
+      }
+    };
     for (const item of [...swapped].reverse()) {
-      if (lstatExists(item.destination)) rmSync(item.destination, { recursive: true, force: true });
-      if (item.backup && lstatExists(item.backup)) renameSync(item.backup, item.destination);
+      attempt(item.host, () => {
+        if (lstatExists(item.destination)) rmSync(item.destination, { recursive: true, force: true });
+        if (item.backup && lstatExists(item.backup)) renameSync(item.backup, item.destination);
+      });
     }
     if (marketplaceWritten) {
-      if (marketplaceOriginal === null) rmSync(paths.marketplace, { force: true });
-      else atomicWrite(paths.marketplace, marketplaceOriginal);
+      attempt("marketplace", () => {
+        if (marketplaceOriginal === null) rmSync(paths.marketplace, { force: true });
+        else atomicWrite(paths.marketplace, marketplaceOriginal);
+      });
     }
-    if (opencodeBackup) restoreOpenCodeBackup(opencodeBackup, { plugin, home: paths.home });
+    if (opencodeBackup) attempt("opencode", () => restoreOpenCodeBackup(opencodeBackup, { plugin, home: paths.home }));
+    if (rollbackErrors.length > 0) {
+      throw new AggregateError(
+        [error, ...rollbackErrors],
+        `local plugin deployment failed and rollback was incomplete: original failure: ${error.message}; rollback failures: ${rollbackErrors.map((item) => item.message).join("; ")}`,
+        { cause: error },
+      );
+    }
     throw new Error(`local plugin deployment rolled back: ${error.message}`, { cause: error });
   } finally {
     for (const stage of Object.values(staged)) if (lstatExists(stage.stageRoot)) rmSync(stage.stageRoot, { recursive: true, force: true });
@@ -1046,7 +1137,21 @@ export function uninstallOpenCodeDeployment({ plugin, home, env = process.env, d
     result.opencode.backup = backup;
     return result;
   } catch (error) {
-    if (backup) restoreOpenCodeBackup(backup, { plugin, home: paths.home });
+    const rollbackErrors = [];
+    if (backup) {
+      try {
+        restoreOpenCodeBackup(backup, { plugin, home: paths.home });
+      } catch (rollbackError) {
+        rollbackErrors.push(rollbackError);
+      }
+    }
+    if (rollbackErrors.length > 0) {
+      throw new AggregateError(
+        [error, ...rollbackErrors],
+        `OpenCode uninstall failed and rollback was incomplete: original failure: ${error.message}; rollback failures: ${rollbackErrors.map((item) => item.message).join("; ")}`,
+        { cause: error },
+      );
+    }
     throw new Error(`OpenCode uninstall rolled back: ${error.message}`, { cause: error });
   }
 }

@@ -15,8 +15,9 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
+import { randomUUID } from "node:crypto";
 import { homedir, tmpdir } from "node:os";
-import { basename, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import test from "node:test";
 import {
   contentHash,
@@ -832,6 +833,77 @@ test("OpenCode uninstall CLI removes only this plugin under an isolated XDG_CONF
     assert.equal(existsSync(leaked), leakedBefore);
   } finally {
     rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("rollback reports every failed restore instead of stopping at the first", () => {
+  const item = fixture();
+  try {
+    const env = isolatedOpenCodeEnv(item.home);
+    const options = {
+      ...metadata(item.repository),
+      home: item.home,
+      env,
+      codexStateReader: neverCurrent,
+      codexInstaller: successfulInstaller,
+    };
+    deployPreparedTargets({ ...options, deployedAt: "2026-08-10T12:00:00.000Z" });
+    const paths = deploymentPaths(item.home, plugin);
+    const previousCommand = readFileSync(join(paths.opencodeCommands, "plan-work.md"), "utf8");
+    writeFileSync(join(item.repository, ".build", "plugins", "cursor", plugin, "payload.txt"), "cursor-second\n");
+    writeFileSync(join(item.repository, ".build", "plugins", "codex", plugin, "payload.txt"), "codex-second\n");
+    writeFileSync(join(item.repository, ".build", "plugins", "opencode", plugin, "commands", "plan-work.md"), `${previousCommand}changed\n`);
+    assert.throws(() => deployPreparedTargets({
+      ...options,
+      deployedAt: "2026-08-10T12:02:00.000Z",
+      simulateFailure: "after-opencode-commands",
+      simulateRollbackFailures: ["cursor", "codex"],
+    }), (error) => {
+      assert.equal(error instanceof AggregateError, true);
+      assert.match(error.message, /rollback was incomplete/);
+      assert.match(error.message, /simulated failure after OpenCode command update/);
+      assert.match(error.message, /cursor restore failed: simulated cursor restore failure/);
+      assert.match(error.message, /codex restore failed: simulated codex restore failure/);
+      assert.equal(error.errors.length, 3);
+      return true;
+    });
+    assert.equal(readFileSync(join(paths.cursor, "payload.txt"), "utf8"), "cursor-second\n");
+    assert.equal(readFileSync(join(paths.codex, "payload.txt"), "utf8"), "codex-second\n");
+    assert.equal(readFileSync(join(paths.opencode, "payload.txt"), "utf8"), "first\n");
+    assert.equal(readFileSync(join(paths.opencodeCommands, "plan-work.md"), "utf8"), previousCommand);
+  } finally {
+    rmSync(item.root, { recursive: true, force: true });
+  }
+});
+
+test("an interrupted atomic write removes its temporary file and stale leftovers", () => {
+  const item = fixture();
+  try {
+    const env = isolatedOpenCodeEnv(item.home);
+    const paths = deploymentPaths(item.home, plugin);
+    mkdirSync(dirname(paths.opencodeConfig), { recursive: true });
+    const original = `${JSON.stringify({ model: "keep", skills: ["./efficiency/skills"] }, null, 2)}\n`;
+    writeFileSync(paths.opencodeConfig, original);
+    const directory = dirname(paths.opencodeConfig);
+    const stale = join(directory, `.opencode.json.999999999.${randomUUID()}.tmp`);
+    const live = join(directory, `.opencode.json.${process.pid}.${randomUUID()}.tmp`);
+    writeFileSync(stale, "stale");
+    writeFileSync(live, "live");
+    assert.throws(() => deployPreparedTargets({
+      ...metadata(item.repository),
+      home: item.home,
+      hosts: ["opencode"],
+      env,
+      deployedAt: "2026-08-10T12:00:00.000Z",
+      simulateFailure: "during-atomic-write",
+    }), /deployment rolled back: simulated atomic write failure/);
+    assert.equal(existsSync(stale), false);
+    assert.equal(readFileSync(live, "utf8"), "live");
+    assert.deepEqual(readdirSync(directory).filter((name) => name.endsWith(".tmp")), [basename(live)]);
+    assert.equal(readFileSync(paths.opencodeConfig, "utf8"), original);
+    assert.equal(existsSync(paths.opencode), false);
+  } finally {
+    rmSync(item.root, { recursive: true, force: true });
   }
 });
 

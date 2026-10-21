@@ -113,10 +113,11 @@ function normalizeRepository(value) {
   const normalized = value.trim()
     .replace(/^git@github\.com:/, "https://github.com/")
     .replace(/^ssh:\/\/git@github\.com\//, "https://github.com/")
+    .replace(/^https:\/\/[^@/\s]+@github\.com\//i, "https://github.com/")
     .replace(/\.git$/, "")
     .replace(/\/$/, "");
   const match = normalized.match(/^https:\/\/github\.com\/([^/]+\/[^/]+)$/i);
-  if (!match) throw new Error(`repository must identify one GitHub repository: ${value}`);
+  if (!match) throw new Error(`repository must identify one GitHub repository: ${value.replace(/\/\/[^/\s@]+@/g, "//")}`);
   return match[1];
 }
 

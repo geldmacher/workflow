@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Keep OpenCode deployment safe for the shared `opencode.json` and command directory. Merge this plugin's skills path without duplicating it or dropping other plugins' keys, skills, or commands; write a timestamped backup before every changing update; and uninstall only this plugin's own entries. Patch-level fix. This change does not publish a release.
+- Keep OpenCode deployment safe for the shared `opencode.json` and command directory. Merge this plugin's skills path without duplicating it or dropping other plugins' keys, skills, or commands; write a timestamped backup before every changing update; and uninstall only this plugin's own entries. A failed deploy or uninstall reports every rollback error together, and an interrupted atomic write removes its temporary file. The next write also removes stale temporary files left by a dead process. A credentialed GitHub remote still identifies the repository, and the credential is not included in the error. Patch-level fix. This change does not publish a release.
 
 ## 7.12.0 - 2026-10-21
 
