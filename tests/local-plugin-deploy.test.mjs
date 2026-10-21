@@ -27,6 +27,7 @@ import {
   isInside,
   localVersion,
   updateMarketplaceDocument,
+  updateOpenCodeDocument,
   validateBundle,
   withPreparedDeploymentRoot,
 } from "../scripts/local-plugin-deploy.mjs";
@@ -46,13 +47,17 @@ function fixture() {
   const root = mkdtempSync(join(tmpdir(), "local-plugin-deploy-test-"));
   const repository = join(root, "repository");
   const home = join(root, "home");
-  for (const host of ["cursor", "codex"]) {
+  for (const host of ["cursor", "codex", "opencode"]) {
     const bundle = join(repository, ".build", "plugins", host, plugin);
-    const manifestDir = host === "cursor" ? ".cursor-plugin" : ".codex-plugin";
+    const manifestDir = host === "cursor" ? ".cursor-plugin" : host === "codex" ? ".codex-plugin" : ".opencode-plugin";
     json(join(bundle, manifestDir, "plugin.json"), { name: plugin, version: baseVersion });
     writeFileSync(join(bundle, "payload.txt"), "first\n");
     mkdirSync(join(bundle, "references"));
     writeFileSync(join(bundle, "references", `${host}.md`), `${host} instructions\n`);
+    if (host === "opencode") {
+      mkdirSync(join(bundle, "commands"));
+      writeFileSync(join(bundle, "commands", "plan-work.md"), "---\ndescription: \"Plan\"\n---\n\nLoad the `plan-work` skill and apply it to the current request.\n\n$ARGUMENTS\n");
+    }
   }
   const portable = join(repository, ".build", "plugins", "agent-plugins", plugin);
   json(join(portable, "plugin.json"), { name: plugin, version: baseVersion });
@@ -324,6 +329,8 @@ test("Cursor-only first install needs neither Codex nor a personal Marketplace",
     assert.equal(readFileSync(join(paths.cursor, ".cursor-plugin", "plugin.json"), "utf8").includes("+local.cursor."), true);
     assert.equal(existsSync(paths.codex), false);
     assert.equal(existsSync(paths.marketplace), false);
+    assert.equal(existsSync(paths.opencode), false);
+    assert.equal(existsSync(paths.opencodeConfig), false);
   } finally {
     rmSync(item.root, { recursive: true, force: true });
   }
@@ -343,6 +350,7 @@ test("Codex-only first install creates its Marketplace entry without touching Cu
     const paths = deploymentPaths(item.home, plugin);
     assert.deepEqual(result.selected_hosts, ["codex"]);
     assert.equal(existsSync(paths.cursor), false);
+    assert.equal(existsSync(paths.opencode), false);
     assert.equal(readFileSync(join(paths.codex, ".codex-plugin", "plugin.json"), "utf8").includes("+local.codex."), true);
     const marketplace = JSON.parse(readFileSync(paths.marketplace, "utf8"));
     assert.equal(marketplace.name, "geldmacher-personal");
@@ -363,7 +371,7 @@ test("first install is physical and a second identical deploy is a no-op", () =>
       codexInstaller: successfulInstaller,
     });
     assert.equal(first.no_op, false);
-    assert.deepEqual(Object.keys(first.targets).sort(), ["codex", "cursor"]);
+    assert.deepEqual(Object.keys(first.targets).sort(), ["codex", "cursor", "opencode"]);
     assert.equal(readFileSync(join(item.repository, ".build", "plugins", "agent-plugins", plugin, "payload.txt"), "utf8"), "portable-only\n");
     const paths = deploymentPaths(item.home, plugin);
     assert.equal(JSON.parse(readFileSync(join(paths.cursor, ".cursor-plugin", "plugin.json"))).version, first.targets.cursor.local_version);
@@ -433,6 +441,84 @@ test("a failure after both swaps restores both targets and Marketplace", () => {
     assert.equal(readFileSync(item.marketplace, "utf8"), oldMarketplace);
     assert.equal(readFileSync(join(paths.cursor, "payload.txt"), "utf8"), "first\n");
     assert.equal(readFileSync(join(paths.codex, "payload.txt"), "utf8"), "first\n");
+  } finally {
+    rmSync(item.root, { recursive: true, force: true });
+  }
+});
+
+test("OpenCode-only install registers skills and commands without touching Cursor or Codex", () => {
+  const item = fixture();
+  try {
+    const result = deployPreparedTargets({
+      ...metadata(item.repository),
+      home: item.home,
+      hosts: ["opencode"],
+      codexStateReader: () => { throw new Error("OpenCode-only deploy must not inspect Codex"); },
+      codexInstaller: () => { throw new Error("OpenCode-only deploy must not install Codex"); },
+    });
+    const paths = deploymentPaths(item.home, plugin);
+    assert.equal(result.opencode.config_change, true);
+    assert.equal(result.opencode.command_change, true);
+    assert.equal(existsSync(paths.cursor), false);
+    assert.equal(existsSync(paths.codex), false);
+    const config = JSON.parse(readFileSync(paths.opencodeConfig, "utf8"));
+    assert.deepEqual(config.skills, [result.opencode.skills]);
+    assert.equal(readFileSync(join(paths.opencodeCommands, "plan-work.md"), "utf8"), readFileSync(join(paths.opencode, "commands", "plan-work.md"), "utf8"));
+    const second = deployPreparedTargets({
+      ...metadata(item.repository),
+      home: item.home,
+      hosts: ["opencode"],
+      deployedAt: "2026-08-11T12:00:00.000Z",
+    });
+    assert.equal(second.no_op, true);
+  } finally {
+    rmSync(item.root, { recursive: true, force: true });
+  }
+});
+
+test("OpenCode install preserves JSONC and refuses an unrelated command", () => {
+  const item = fixture();
+  try {
+    const paths = deploymentPaths(item.home, plugin);
+    mkdirSync(paths.opencodeCommands, { recursive: true });
+    const jsonc = "{\n  // keep this comment\n  \"skills\": [\"./team\"]\n}\n";
+    writeFileSync(paths.opencodeConfigComments, jsonc);
+    writeFileSync(join(paths.opencodeCommands, "plan-work.md"), "user command\n");
+    assert.throws(() => deployPreparedTargets({
+      ...metadata(item.repository),
+      home: item.home,
+      hosts: ["opencode"],
+    }), /not a Workflow command/);
+    assert.equal(readFileSync(paths.opencodeConfigComments, "utf8"), jsonc);
+    assert.equal(existsSync(paths.opencodeConfig), false);
+    assert.equal(existsSync(paths.opencode), false);
+  } finally {
+    rmSync(item.root, { recursive: true, force: true });
+  }
+});
+
+test("OpenCode config and command writes roll back with the package", () => {
+  const item = fixture();
+  try {
+    const paths = deploymentPaths(item.home, plugin);
+    mkdirSync(join(paths.opencodeConfig, ".."), { recursive: true });
+    const original = `${JSON.stringify({ model: "keep", skills: ["./team"] }, null, 2)}\n`;
+    writeFileSync(paths.opencodeConfig, original);
+    deployPreparedTargets({ ...metadata(item.repository), home: item.home, hosts: ["opencode"] });
+    const installed = readFileSync(paths.opencodeConfig, "utf8");
+    assert.notEqual(installed, original);
+    assert.deepEqual(updateOpenCodeDocument(JSON.parse(original), JSON.parse(installed).skills.at(-1)).skills, JSON.parse(installed).skills);
+    writeFileSync(join(item.repository, ".build", "plugins", "opencode", plugin, "payload.txt"), "second\n");
+    assert.throws(() => deployPreparedTargets({
+      ...metadata(item.repository),
+      home: item.home,
+      hosts: ["opencode"],
+      deployedAt: "2026-08-10T12:02:00.000Z",
+      simulateFailure: "after-opencode-commands",
+    }), /rolled back/);
+    assert.equal(readFileSync(paths.opencodeConfig, "utf8"), installed);
+    assert.equal(readFileSync(join(paths.opencode, "payload.txt"), "utf8"), "first\n");
+    assert.match(readFileSync(join(paths.opencodeCommands, "plan-work.md"), "utf8"), /Load the `plan-work` skill/);
   } finally {
     rmSync(item.root, { recursive: true, force: true });
   }

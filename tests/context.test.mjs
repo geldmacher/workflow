@@ -70,7 +70,7 @@ test("context covers packaged instructions once, including required planning and
       for (const name of ["autoWorkEntry", "autoWork", "autoWorkConcurrent", "autoWorkMaintenance"]) {
         assert.ok(scenarios[name].documents.includes("skills/auto-work/references/agents.md"));
         assert.ok(scenarios[name].documents.includes("skills/auto-work/references/handoff.md"));
-        for (const target of ["codex", "cursor"]) assert.equal(scenarios[name].documents.includes(`skills/auto-work/references/${target}.md`), host === target);
+        for (const target of ["codex", "cursor", "opencode"]) assert.equal(scenarios[name].documents.includes(`skills/auto-work/references/${target}.md`), host === target);
       }
       for (const name of ["plan", "review", "correction"]) assert.ok(!scenarios[name].documents.includes("skills/auto-work/references/agents.md"));
       const concurrent = "references/concurrent-work.md";
@@ -109,7 +109,7 @@ test("discovery counts parsed descriptions per host entry and ignores skill body
     // Eight advertised characters add two estimated tokens per entry, regardless of rounding.
     writeFileSync(path, bodyOnly.replace(/^description:.*$/m, `description: ${JSON.stringify(description + "12345678")}`));
     const afterDescription = measureContext(item.root);
-    for (const [host, delta] of [["cursor", 4], ["codex", 2], ["agent-plugins", 2]]) {
+    for (const [host, delta] of [["cursor", 4], ["codex", 2], ["agent-plugins", 2], ["opencode", 4]]) {
       assert.equal(afterDescription.targets[host].discovery.tokens - before.targets[host].discovery.tokens, delta);
     }
 

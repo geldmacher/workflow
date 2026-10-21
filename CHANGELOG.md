@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add an OpenCode 2.1.2 package beside the Cursor and Codex packages. Skills stay available for model selection and can also be started with `@skill-id` or `/skill-id`. Provenance schema 2 records the OpenCode archive; schema 1 releases remain valid. The next release should be a minor version, 7.12.0. This change does not publish that version.
+
 ## 7.11.0 - 2026-10-18
 
 - During review, report an in-scope band-aid (a symptom patch, special case, duplicated logic, or stacked workaround) as an actionable finding with the cleaner alternative, so correction replaces the patch. Leave a redesign outside the approved plan as a recommendation for the human.

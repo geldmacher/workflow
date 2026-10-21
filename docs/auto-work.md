@@ -23,7 +23,7 @@ Open the project and use this prompt:
 
 > Use auto-work light to add CSV export to the orders page. Export the currently filtered orders using the visible columns. Empty exports should contain headers. Follow the existing download conventions and use at most three correction rounds.
 
-You can also invoke `$auto-work` in Codex or `/auto-work` in Cursor. Use Cursor Agent Mode for the sequence. In Codex, a read-only Plan mode can prepare the plan but cannot implement it; use native implementation to continue the authorized sequence. Portable clients use `auto-work` and their available execution capabilities.
+You can also invoke `$auto-work` in Codex, `/auto-work` in Cursor, or `@auto-work` and `/auto-work` in OpenCode. Use Cursor Agent Mode for the sequence. In Codex, a read-only Plan mode can prepare the plan but cannot implement it; use native implementation to continue the authorized sequence. In OpenCode 2.1.2, delegate phases with the `subagent` tool. `experimental.subagent_depth` defaults to 1, so a subagent cannot start another subagent; keep nested review on the primary session unless that depth is raised. Portable clients use `auto-work` and their available execution capabilities.
 
 For Dark, say “Use auto-work dark” and give the same concrete goal, scope, and constraints. Asking only for a plan remains read-only in either mode.
 

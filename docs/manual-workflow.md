@@ -20,7 +20,7 @@ The agent inspects your project and relevant saved lessons, then prepares a plan
 
 Check the plan: does it describe the behavior you want, preserve the important boundaries, and explain how to check the result? Resolve consequential choices before approving it. Routine implementation details stay with the agent.
 
-Then use **Implement Plan** in Cursor or Codex. In a portable client, ask:
+Then use **Implement Plan** in Cursor or Codex. In OpenCode, continue with the build agent. In a portable client, ask:
 
 > Use implement-work to implement the approved CSV export plan.
 
@@ -62,7 +62,7 @@ Use the same sequence for a bug. Start with the observed failure and expected be
 
 > $plan-work Fix the settings page losing saved values after reopening. Reproduce the failure first. Saved values must survive reopening the page. Preserve the existing settings format and use the project's existing checks.
 
-Check and approve the plan, then use **Implement Plan** in Cursor or Codex. In a portable client, ask `implement-work` to implement that approved plan. Implementation should report the reproduced failure, the fix, and checks of the agreed behavior.
+Check and approve the plan, then use **Implement Plan** in Cursor or Codex. In OpenCode, continue with the build agent. In a portable client, ask `implement-work` to implement that approved plan. Implementation should report the reproduced failure, the fix, and checks of the agreed behavior.
 
 > $review-work Review the settings fix against the approved plan and implementation report, including the reproduction and reopening checks.
 
@@ -88,7 +88,7 @@ Use this reference when you need a particular action. Planning, implementation, 
 | What you want | Skill or action |
 |---|---|
 | Plan a change | `plan-work` |
-| Implement an approved plan | Native **Implement Plan** in Cursor/Codex; `implement-work` in portable clients |
+| Implement an approved plan | Native **Implement Plan** in Cursor/Codex; the build agent in OpenCode; `implement-work` in portable clients |
 | Check the result against the plan | `review-work` |
 | Fix findings from a review | `correct-work` |
 | Understand a finding or decision | `explain-work` |
@@ -102,7 +102,7 @@ Use this reference when you need a particular action. Planning, implementation, 
 
 Explaining a finding or asking for status does not start a new review. Running existing tests does not require a separate verifier-management step.
 
-In Cursor, use Plan Mode for planning, Ask Mode for standalone review, and Agent Mode for implementation, correction, and learning. In Codex, use Plan mode for planning, then Implement Plan. A read-only mode cannot make changes. An agent already in a mode that can do the read-only work should not ask for a switch only to match this preference.
+In Cursor, use Plan Mode for planning, Ask Mode for standalone review, and Agent Mode for implementation, correction, and learning. In Codex, use Plan mode for planning, then Implement Plan. In OpenCode, use the plan agent for planning and the build agent for implementation. A read-only mode cannot make changes. An agent already in a mode that can do the read-only work should not ask for a switch only to match this preference.
 
 ## Decisions during planning
 

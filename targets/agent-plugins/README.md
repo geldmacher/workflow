@@ -12,9 +12,9 @@ Workflow helps your coding agent plan a change, implement it, review the result,
 
 This portable package supplies skills for compatible coding agents. Loading and activating it depends on your client's plugin support; follow that client's package instructions.
 
-The included `install-release` skill installs Workflow releases for **Cursor or Codex only**. It does not install this portable package into another client. For those supported hosts, the [release installation guide](../../docs/installation.md) covers manual installation and updates, prompts for your own agent, and activation. No repository checkout, Node.js, or npm is needed for those release installations.
+The included `install-release` skill installs Workflow releases for **Cursor, Codex, or OpenCode**. It does not install this portable package into another client. For those supported hosts, the [release installation guide](../../docs/installation.md) covers manual installation and updates, prompts for your own agent, and activation. No repository checkout, Node.js, or npm is needed for those release installations.
 
-In Cursor, use `/install-release` for updates; in Codex, use `$install-release`. In another host, explicitly name Cursor or Codex before asking this skill to install anything.
+In Cursor, use `/install-release` for updates; in Codex, use `$install-release`; in OpenCode, use `@install-release`. In another host, explicitly name Cursor, Codex, or OpenCode before asking this skill to install anything.
 
 ## Start with the manual workflow
 
