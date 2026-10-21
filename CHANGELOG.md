@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 7.12.1 - 2026-10-21
+
 - Separate OpenCode rollback guidance from uninstall, retain the complete package for failed-uninstall recovery, and preserve shared config, command file, and package directory permissions during updates and restoration.
 - Keep local deployment and release helpers inert when imported from a stdin module; continue to recognize physical and aliased CLI entrypoints.
 
