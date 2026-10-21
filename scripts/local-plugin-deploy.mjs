@@ -22,6 +22,7 @@ import {
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { parse as parseJsonc } from "jsonc-parser";
 
 export const RECEIPT_NAME = ".local-deploy.json";
 export const HOSTS = ["cursor", "codex", "opencode"];
@@ -303,6 +304,15 @@ export function deploymentPaths(home, plugin) {
   };
 }
 
+function assertOpenCodeConfigDirectory(home, env) {
+  const supported = resolve(home, ".config", "opencode");
+  const configured = resolve(env.OPENCODE_CONFIG_DIR ?? join(env.XDG_CONFIG_HOME || join(resolve(home), ".config"), "opencode"));
+  if (configured !== supported) {
+    const variable = env.OPENCODE_CONFIG_DIR !== undefined ? "OPENCODE_CONFIG_DIR" : "XDG_CONFIG_HOME";
+    throw new Error(`unsupported OpenCode configuration directory from ${variable}: ${configured}; local deployment supports ${supported}`);
+  }
+}
+
 function expandOpenCodePath(entry, home) {
   const text = String(entry).replaceAll("\\", "/");
   const expanded = text.startsWith("~/") ? slash(resolve(home, text.slice(2))) : slash(resolve(text));
@@ -363,9 +373,14 @@ function openCodeConfigPlan(paths, home) {
   }
   const jsonPresent = lstatExists(paths.opencodeConfig);
   const json = jsonPresent ? readJson(paths.opencodeConfig) : null;
-  const comments = lstatExists(paths.opencodeConfigComments) ? readFileSync(paths.opencodeConfigComments, "utf8") : "";
-  const tildePath = `~/.config/opencode/${basename(paths.opencode)}/skills`;
-  const registered = openCodeSkillRegistered(json, skillsPath, home) || comments.includes(skillsPath) || comments.includes(tildePath);
+  let jsonc = null;
+  if (lstatExists(paths.opencodeConfigComments)) {
+    const errors = [];
+    jsonc = parseJsonc(readFileSync(paths.opencodeConfigComments, "utf8"), errors, { allowTrailingComma: true });
+    if (errors.length) throw new Error(`invalid OpenCode JSONC: ${paths.opencodeConfigComments}`);
+    if (jsonc === null || typeof jsonc !== "object" || Array.isArray(jsonc)) throw new Error(`OpenCode config must be a JSON object: ${paths.opencodeConfigComments}`);
+  }
+  const registered = openCodeSkillRegistered(json, skillsPath, home) || openCodeSkillRegistered(jsonc, skillsPath, home);
   const bytes = registered ? null : Buffer.from(`${JSON.stringify(updateOpenCodeDocument(json, skillsPath), null, 2)}\n`);
   return { skillsPath, registered, bytes, original: jsonPresent ? readFileSync(paths.opencodeConfig) : null };
 }
@@ -582,6 +597,7 @@ export function deployPreparedTargets({
   if (selectedHosts.length === 0 || selectedHosts.some((host) => !HOSTS.includes(host))) {
     throw new Error(`deployment hosts must be one or more of: ${HOSTS.join(", ")}`);
   }
+  if (selectedHosts.includes("opencode")) assertOpenCodeConfigDirectory(home, env);
   const paths = deploymentPaths(home, plugin);
   for (const host of selectedHosts) assertDestination(paths[host], paths.home);
   const metadata = prepareMetadata({ root, targetsRoot, plugin, baseVersion, gitHead, gitDirty, deployedAt });
@@ -757,6 +773,7 @@ export async function deploymentStatus({ root = repositoryRoot, home = process.e
   if (selectedHosts.length === 0 || selectedHosts.some((host) => !HOSTS.includes(host))) {
     throw new Error(`status hosts must be one or more of: ${HOSTS.join(", ")}`);
   }
+  if (selectedHosts.includes("opencode")) assertOpenCodeConfigDirectory(home, env);
   const packageManifest = readJson(join(root, "package.json"));
   const cursorManifest = readJson(join(root, ".cursor-plugin", "plugin.json"));
   const plugin = cursorManifest.name;
@@ -856,6 +873,7 @@ async function main() {
   }
   if (command !== "deploy") throw new Error(`unsupported command: ${command}`);
   const { dryRun, full, hosts } = parseDeployArguments(args);
+  if (hosts.includes("opencode")) assertOpenCodeConfigDirectory(home, process.env);
   const packageManifest = readJson(join(repositoryRoot, "package.json"));
   const cursorManifest = readJson(join(repositoryRoot, ".cursor-plugin", "plugin.json"));
   const codexManifest = readJson(join(repositoryRoot, "targets", "codex", ".codex-plugin", "plugin.json"));

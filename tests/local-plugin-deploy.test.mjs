@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import {
   chmodSync,
   cpSync,
@@ -495,6 +495,114 @@ test("OpenCode install preserves JSONC and refuses an unrelated command", () => 
   } finally {
     rmSync(item.root, { recursive: true, force: true });
   }
+});
+
+test("OpenCode registration uses exact active skills entries in JSONC", async () => {
+  const parent = mkdtempSync(join(tmpdir(), "workflow-opencode-registration-"));
+  try {
+    const built = buildPluginTargets(join(parent, ".build/plugins"));
+    const product = "geldmacher-workflow";
+    const skillPath = `~/.config/opencode/${product}/skills`;
+    const scenarios = [
+      { name: "commented", text: `{\n // "skills": ["${skillPath}"]\n "skills": []\n}\n`, registered: false },
+      { name: "different-path", text: JSON.stringify({ skills: [`${skillPath}-backup`] }), registered: false },
+      { name: "unrelated-value", text: JSON.stringify({ instructions: [skillPath], skills: [] }), registered: false },
+      { name: "active", text: `{\n // retain this comment\n "skills": ["${skillPath}",],\n}\n`, registered: true },
+      { name: "escaped", text: JSON.stringify({ skills: [skillPath] }).replace("/skills", "/\\u0073kills"), registered: true },
+    ];
+    for (const scenario of scenarios) {
+      const home = join(parent, scenario.name);
+      const paths = deploymentPaths(home, product);
+      mkdirSync(join(home, ".config/opencode"), { recursive: true });
+      writeFileSync(paths.opencodeConfigComments, scenario.text);
+      const options = { root: defaultRoot, targetsRoot: parent, plugin: product, baseVersion: built.version, home, gitHead, gitDirty: true, hosts: ["opencode"], env: {} };
+      const before = await deploymentStatus(options);
+      assert.equal(before.opencode.registered, scenario.registered, scenario.name);
+      const deployed = deployPreparedTargets(options);
+      assert.equal(deployed.opencode.config_change, !scenario.registered, scenario.name);
+      assert.equal(existsSync(paths.opencodeConfig), !scenario.registered, scenario.name);
+      if (!scenario.registered) {
+        assert.deepEqual(JSON.parse(readFileSync(paths.opencodeConfig, "utf8")).skills, [deployed.opencode.skills]);
+      }
+      assert.equal(readFileSync(paths.opencodeConfigComments, "utf8"), scenario.text, scenario.name);
+      assert.equal((await deploymentStatus(options)).current, true, scenario.name);
+      assert.equal(deployPreparedTargets(options).no_op, true, scenario.name);
+    }
+  } finally { rmSync(parent, { recursive: true, force: true }); }
+});
+
+test("OpenCode malformed JSONC stops deployment and status before installation", async () => {
+  const item = fixture();
+  try {
+    const paths = deploymentPaths(item.home, plugin);
+    mkdirSync(join(item.home, ".config/opencode"), { recursive: true });
+    const malformed = `{ "skills": ["~/.config/opencode/${plugin}/skills", }`;
+    writeFileSync(paths.opencodeConfigComments, malformed);
+    const options = { ...metadata(item.repository), home: item.home, hosts: ["opencode"], env: {} };
+    assert.throws(() => deployPreparedTargets(options), /invalid OpenCode JSONC/);
+    await assert.rejects(deploymentStatus({ ...options, root: defaultRoot }), /invalid OpenCode JSONC/);
+    assert.equal(readFileSync(paths.opencodeConfigComments, "utf8"), malformed);
+    assert.equal(existsSync(paths.opencodeConfig), false);
+    assert.equal(existsSync(paths.opencode), false);
+    assert.equal(existsSync(paths.opencodeCommands), false);
+  } finally { rmSync(item.root, { recursive: true, force: true }); }
+});
+
+test("OpenCode custom config directories stop deploy, preview and status without writes", async () => {
+  const item = fixture();
+  try {
+    const paths = deploymentPaths(item.home, plugin);
+    for (const variable of ["OPENCODE_CONFIG_DIR", "XDG_CONFIG_HOME"]) {
+      const custom = join(item.home, variable);
+      const env = { [variable]: custom };
+      const options = { ...metadata(item.repository), home: item.home, hosts: ["opencode"], env };
+      const diagnostic = /unsupported OpenCode configuration directory/;
+      for (const dryRun of [true, false]) assert.throws(() => deployPreparedTargets({ ...options, dryRun }), diagnostic, variable);
+      await assert.rejects(deploymentStatus(options), diagnostic, variable);
+      assert.equal(existsSync(custom), false, variable);
+      assert.equal(existsSync(paths.opencode), false, variable);
+      assert.equal(existsSync(paths.opencodeConfig), false, variable);
+      assert.equal(existsSync(paths.opencodeCommands), false, variable);
+      // OpenCode settings must not block a separately selected host.
+      assert.deepEqual(deployPreparedTargets({ ...options, hosts: ["cursor"], dryRun: true }).selected_hosts, ["cursor"]);
+    }
+    const standard = join(item.home, ".config/opencode");
+    for (const env of [
+      { OPENCODE_CONFIG_DIR: standard },
+      { XDG_CONFIG_HOME: join(item.home, ".config") },
+      { OPENCODE_CONFIG_DIR: standard, XDG_CONFIG_HOME: join(item.home, "ignored") },
+    ]) {
+      const options = { ...metadata(item.repository), home: item.home, hosts: ["opencode"], env };
+      assert.deepEqual(deployPreparedTargets({ ...options, dryRun: true }).selected_hosts, ["opencode"]);
+      assert.equal((await deploymentStatus({ ...options, root: defaultRoot })).opencode.registered, false);
+    }
+  } finally { rmSync(item.root, { recursive: true, force: true }); }
+});
+
+test("OpenCode config directory diagnostics reach physical and aliased CLIs", () => {
+  const parent = mkdtempSync(join(tmpdir(), "workflow-opencode-cli-"));
+  try {
+    const script = join(defaultRoot, "scripts/local-plugin-deploy.mjs");
+    const alias = join(parent, "deploy.mjs");
+    symlinkSync(script, alias);
+    const home = join(parent, "home");
+    for (const variable of ["OPENCODE_CONFIG_DIR", "XDG_CONFIG_HOME"]) {
+      const env = { ...process.env, LOCAL_PLUGIN_HOME: home };
+      delete env.OPENCODE_CONFIG_DIR;
+      delete env.XDG_CONFIG_HOME;
+      env[variable] = join(home, "custom-config");
+      for (const path of [script, alias]) {
+        for (const args of [["deploy", "--dry-run", "--opencode-only"], ["status", "--opencode-only"]]) {
+          const result = spawnSync(process.execPath, [path, ...args], { env, encoding: "utf8" });
+          assert.equal(result.status, 1, result.stderr);
+          assert.match(result.stderr, /unsupported OpenCode configuration directory/);
+          assert.match(result.stderr, new RegExp(variable));
+          assert.equal(result.stdout, "");
+          assert.equal(existsSync(home), false);
+        }
+      }
+    }
+  } finally { rmSync(parent, { recursive: true, force: true }); }
 });
 
 test("OpenCode config and command writes roll back with the package", () => {

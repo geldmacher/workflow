@@ -34,3 +34,5 @@ The repository test `tests/installation-guide.test.mjs` executes the guide's fir
 4. Installation and host activation remain separate. Use the installation guide and a fresh native task; a built package or matching cache proves neither live use nor behavior.
 
 `npm run deploy:local` is a separately authorized local operation. Its preview and tests use isolated directories. Do not merge old package contents into a new installation.
+
+The OpenCode local deployment and status tools support `~/.config/opencode` below the selected home. If `OPENCODE_CONFIG_DIR` or `XDG_CONFIG_HOME` selects a different OpenCode configuration directory, they stop with a diagnostic before deployment. Overrides resolving to the supported directory are accepted.
