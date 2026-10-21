@@ -14,7 +14,7 @@ npm run build:targets
 npm run release-check
 ```
 
-The build generates packages for Cursor, Codex, and Agent Plugins. `release-check` validates metadata, package contents, tests, context limits, and Markdown links. Its `check:targets` step builds and validates all three formats in temporary directories. Packaging tests also cover reproducible archives and isolated deployment behavior.
+The build generates packages for Cursor, Codex, OpenCode, and Agent Plugins. Every package includes `implement-work` and, on Cursor and OpenCode, a matching command. `release-check` validates metadata, package contents, tests, context limits, and Markdown links. Its `check:targets` step builds and validates every format in temporary directories. Packaging tests also cover reproducible archives and isolated deployment behavior.
 
 Context limits remain hard gates. Follow the [context budget guidance](behavior-validation.md#context-budgets) when a commissioned extension or necessary clarification warrants a documented adjustment; ordinary checks never raise limits.
 
@@ -30,7 +30,9 @@ The repository test `tests/installation-guide.test.mjs` executes the guide's fir
 
 1. Finish the repository changes and run `npm run release-check`, including the behavioral exercises appropriate to changed skills.
 2. When explicitly commissioning a release, choose an unused version and cut its changelog entry from Unreleased. Keep source manifests and the development package version aligned.
-3. The release tool validates the immutable candidate, builds separate Cursor and Codex archives, preserves checksums and provenance, and performs only its explicitly commissioned publication actions.
+3. The release tool validates the immutable candidate, builds separate Cursor, Codex, and OpenCode archives, preserves checksums and schema 2 provenance, and performs only its explicitly commissioned publication actions.
 4. Installation and host activation remain separate. Use the installation guide and a fresh native task; a built package or matching cache proves neither live use nor behavior.
 
 `npm run deploy:local` is a separately authorized local operation. Its preview and tests use isolated directories. Do not merge old package contents into a new installation.
+
+The OpenCode local deployment and status tools support `~/.config/opencode` below the selected home. If `OPENCODE_CONFIG_DIR` or `XDG_CONFIG_HOME` selects a different OpenCode configuration directory, they stop with a diagnostic before deployment. Overrides resolving to the supported directory are accepted.

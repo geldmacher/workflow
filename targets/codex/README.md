@@ -34,7 +34,7 @@ The recommended starting point is **plan → implement → review → correct if
 
 > $plan-work Add CSV export to the orders page. Export only the currently filtered orders, using the visible columns. Empty exports should contain headers. Follow the existing download conventions.
 
-**2. Approve and implement.** Check the proposed behavior, scope, and checks, then select **Implement Plan**. You receive the changes, checks, and any open issues.
+**2. Approve and implement.** Check the proposed behavior, scope, and checks, then select **Implement Plan**. When Plan mode is not used, ask `$implement-work` and supply the plan artefact. You receive the changes, checks, and any open issues.
 
 **3. Request review.** After implementation, ask:
 

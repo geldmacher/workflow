@@ -22,7 +22,10 @@ import { fileURLToPath } from "node:url";
 import { buildPluginTargets } from "./build-plugin-targets.mjs";
 
 export const PLUGIN_NAME = "geldmacher-workflow";
-export const RELEASE_HOSTS = Object.freeze(["cursor", "codex"]);
+export const RELEASE_HOSTS = Object.freeze(["cursor", "codex", "opencode"]);
+// Schema 1 is the historical Cursor+Codex document. Schema 2 adds OpenCode without redefining those two target records.
+const PROVENANCE_HOSTS = Object.freeze({ 1: Object.freeze(["cursor", "codex"]), 2: RELEASE_HOSTS });
+export const PROVENANCE_SCHEMA = 2;
 const scriptPath = fileURLToPath(import.meta.url);
 export const defaultRoot = dirname(dirname(scriptPath));
 const fixedArchiveTime = "2000-01-01T00:00:00Z";
@@ -252,7 +255,20 @@ function materializeGitTree(root, commit, destination, runner) {
 }
 
 function targetManifest(host) {
-  return host === "cursor" ? ".cursor-plugin/plugin.json" : ".codex-plugin/plugin.json";
+  if (host === "cursor") return ".cursor-plugin/plugin.json";
+  if (host === "codex") return ".codex-plugin/plugin.json";
+  if (host === "opencode") return ".opencode-plugin/plugin.json";
+  throw new Error(`unsupported release host: ${host}`);
+}
+
+function hostsForProvenance(provenance) {
+  const hosts = PROVENANCE_HOSTS[provenance?.schema];
+  if (!hosts) throw new Error("provenance.json identity is invalid");
+  return hosts;
+}
+
+function publishedAssetNames(version, hosts) {
+  return [...hosts.map((host) => assetName(host, version)), "RELEASE_NOTES.md", "provenance.json", "SHA256SUMS"];
 }
 
 export function inspectReleaseTarget(directory, host, version) {
@@ -330,12 +346,12 @@ function shaField(value, label, lengths = [64]) {
   if (!lengths.some((length) => new RegExp(`^[0-9a-f]{${length}}$`).test(value ?? ""))) throw new Error(`${label} must be a lowercase hexadecimal digest`);
 }
 
-function validateProvenance(provenance) {
+export function validateProvenance(provenance) {
   exactKeys(provenance, [
     "kind", "plugin", "published_assets", "receipt_sha256", "release_gate", "release_notes_sha256",
     "repository", "schema", "source", "tag", "targets", "version",
   ], "provenance.json");
-  if (provenance.schema !== 1 || provenance.kind !== "github-release-provenance" || provenance.plugin !== PLUGIN_NAME) {
+  if (!Object.hasOwn(PROVENANCE_HOSTS, provenance.schema) || provenance.kind !== "github-release-provenance" || provenance.plugin !== PLUGIN_NAME) {
     throw new Error("provenance.json identity is invalid");
   }
   if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(provenance.version ?? "") || provenance.tag !== `v${provenance.version}`) {
@@ -352,8 +368,9 @@ function validateProvenance(provenance) {
   }
   shaField(provenance.release_notes_sha256, "release notes hash");
   shaField(provenance.receipt_sha256, "release receipt");
-  exactKeys(provenance.targets, RELEASE_HOSTS, "provenance targets");
-  for (const host of RELEASE_HOSTS) {
+  const hosts = hostsForProvenance(provenance);
+  exactKeys(provenance.targets, hosts, "provenance targets");
+  for (const host of hosts) {
     const target = provenance.targets[host];
     exactKeys(target, ["archive", "archive_sha256", "content_sha256", "file_count", "root_directory"], `${host} provenance target`);
     if (target.archive !== assetName(host, provenance.version) || target.root_directory !== PLUGIN_NAME) {
@@ -363,13 +380,7 @@ function validateProvenance(provenance) {
     shaField(target.content_sha256, `${host} content hash`);
     if (!Number.isSafeInteger(target.file_count) || target.file_count < 1) throw new Error(`${host} file count is invalid`);
   }
-  const expectedAssets = [
-    assetName("cursor", provenance.version),
-    assetName("codex", provenance.version),
-    "RELEASE_NOTES.md",
-    "provenance.json",
-    "SHA256SUMS",
-  ];
+  const expectedAssets = publishedAssetNames(provenance.version, hosts);
   if (!Array.isArray(provenance.published_assets) || provenance.published_assets.join("\n") !== expectedAssets.join("\n")) {
     throw new Error("provenance published asset set is invalid");
   }
@@ -380,13 +391,11 @@ function releaseDirectory(base, version) {
 }
 
 function expectedReleasePaths(directory, provenance) {
-  return [
-    provenance.targets.cursor.archive,
-    provenance.targets.codex.archive,
-    "RELEASE_NOTES.md",
-    "provenance.json",
-    "SHA256SUMS",
-  ].map((name) => join(directory, name));
+  return provenance.published_assets.map((name) => join(directory, name));
+}
+
+function checksumNames(provenance) {
+  return [...hostsForProvenance(provenance).map((host) => provenance.targets[host].archive), "RELEASE_NOTES.md", "provenance.json"];
 }
 
 function checksumDocument(directory, names) {
@@ -420,7 +429,7 @@ export function verifyPreparedRelease(directory, expectedReceipt) {
   const expectedNames = expectedReleasePaths(directory, provenance).map((path) => basename(path)).sort();
   const actualNames = readdirSync(directory).sort();
   if (actualNames.join("\n") !== expectedNames.join("\n")) throw new Error(`prepared release files differ: ${actualNames.join(", ")}`);
-  for (const host of RELEASE_HOSTS) {
+  for (const host of hostsForProvenance(provenance)) {
     const target = provenance.targets?.[host];
     const archivePath = join(directory, target?.archive ?? "");
     if (!target || !existsSync(archivePath) || fileSha256(archivePath) !== target.archive_sha256) {
@@ -430,8 +439,7 @@ export function verifyPreparedRelease(directory, expectedReceipt) {
   if (fileSha256(join(directory, "RELEASE_NOTES.md")) !== provenance.release_notes_sha256) {
     throw new Error("RELEASE_NOTES.md differs from provenance.json");
   }
-  const checksumNames = [provenance.targets.cursor.archive, provenance.targets.codex.archive, "RELEASE_NOTES.md", "provenance.json"];
-  if (readFileSync(join(directory, "SHA256SUMS"), "utf8") !== checksumDocument(directory, checksumNames)) {
+  if (readFileSync(join(directory, "SHA256SUMS"), "utf8") !== checksumDocument(directory, checksumNames(provenance))) {
     throw new Error("SHA256SUMS differs from the prepared release files");
   }
   return { provenance, receipt: computedReceipt, paths: expectedReleasePaths(directory, provenance) };
@@ -499,7 +507,7 @@ export function prepareRelease({
     }
     writeFileSync(join(staged, "RELEASE_NOTES.md"), snapshotNotes);
     const provenance = {
-      schema: 1,
+      schema: PROVENANCE_SCHEMA,
       kind: "github-release-provenance",
       plugin: PLUGIN_NAME,
       version: source.version,
@@ -516,11 +524,11 @@ export function prepareRelease({
       },
       release_notes_sha256: fileSha256(join(staged, "RELEASE_NOTES.md")),
       targets,
-      published_assets: [targets.cursor.archive, targets.codex.archive, "RELEASE_NOTES.md", "provenance.json", "SHA256SUMS"],
+      published_assets: publishedAssetNames(source.version, RELEASE_HOSTS),
     };
     provenance.receipt_sha256 = receiptForProvenance(provenance);
     writeJson(join(staged, "provenance.json"), provenance);
-    writeFileSync(join(staged, "SHA256SUMS"), checksumDocument(staged, [targets.cursor.archive, targets.codex.archive, "RELEASE_NOTES.md", "provenance.json"]));
+    writeFileSync(join(staged, "SHA256SUMS"), checksumDocument(staged, checksumNames(provenance)));
     verifyPreparedRelease(staged, provenance.receipt_sha256);
     const finalSource = sourceState(resolve(root), runner, { requireClean: true, requireReleaseCut: true });
     assertSameSource(source, finalSource, "repository drifted while building release assets");

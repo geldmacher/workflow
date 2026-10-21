@@ -22,7 +22,7 @@ const maintenance = "skills/verification-work/references/maintain.md";
 const auto = "skills/auto-work/references";
 
 function scenarios(root, host) {
-  const entry = (name, references = []) => [agreement, skill(name), ...references, ...(host === "cursor" ? [`commands/${name}.md`] : [])];
+  const entry = (name, references = []) => [agreement, skill(name), ...references, ...(["cursor", "opencode"].includes(host) ? [`commands/${name}.md`] : [])];
   const plan = entry("plan-work", [implementation]);
   const inspect = entry("verification-work", [verification]);
   const cases = {
@@ -38,13 +38,11 @@ function scenarios(root, host) {
     correctionVerifierMaintenance: [...entry("correct-work"), verification, skill("verification-work"), maintenance],
     verificationCreation: [...inspect, creation], verificationMaintenance: [...inspect, maintenance],
   };
-  if (host === "agent-plugins") {
-    cases.implementation = entry("implement-work", [implementation]);
-    cases.implementationVerifierCreation = [...cases.implementation, verification, skill("verification-work"), creation];
-    cases.implementationVerifierMaintenance = [...cases.implementation, verification, skill("verification-work"), maintenance];
-  }
-  for (const name of ["plan", "review", "correction", "explanation", "status", "doctor", "verificationInspect", "methodSuggestion", ...(host === "agent-plugins" ? ["implementation"] : [])]) cases[`${name}WithLearning`] = [...cases[name], learning];
-  cases.autoWorkEntry = entry("auto-work", [`${auto}/operation.md`, `${auto}/agents.md`, `${auto}/handoff.md`, ...(["codex", "cursor"].includes(host) ? [`${auto}/${host}.md`] : [])]);
+  cases.implementation = entry("implement-work", [implementation]);
+  cases.implementationVerifierCreation = [...cases.implementation, verification, skill("verification-work"), creation];
+  cases.implementationVerifierMaintenance = [...cases.implementation, verification, skill("verification-work"), maintenance];
+  for (const name of ["plan", "review", "correction", "explanation", "status", "doctor", "verificationInspect", "methodSuggestion", "implementation"]) cases[`${name}WithLearning`] = [...cases[name], learning];
+  cases.autoWorkEntry = entry("auto-work", [`${auto}/operation.md`, `${auto}/agents.md`, `${auto}/handoff.md`, ...(["codex", "cursor", "opencode"].includes(host) ? [`${auto}/${host}.md`] : [])]);
   cases.autoWork = [...cases.autoWorkEntry, skill("plan-work"), implementation, skill("review-work"), skill("correct-work"), `${auto}/reviewer.md`];
   cases.autoWorkDelivery = [...cases.autoWork, `${auto}/delivery.md`];
   cases.autoWorkWithLearning = [...cases.autoWork, learning];
@@ -99,7 +97,7 @@ function scenarios(root, host) {
   cases.autoWorkConcurrent = [...cases.autoWork, concurrent];
   cases.learningConcurrent = [...cases.learning, concurrent];
   cases.verificationConcurrent = [...cases.verificationInspect, concurrent];
-  if (host === "agent-plugins") cases.implementationConcurrent = [...cases.implementation, concurrent];
+  cases.implementationConcurrent = [...cases.implementation, concurrent];
   return cases;
 }
 
@@ -110,9 +108,9 @@ export function measureContext(root = defaultRoot, budgets = JSON.parse(readFile
     const targets = {};
     const failures = [];
     const warnings = [];
-    for (const host of ["cursor", "codex", "agent-plugins"]) {
+    for (const host of ["cursor", "codex", "agent-plugins", "opencode"]) {
       const packageRoot = built[host].path;
-      const discoveryDocuments = hostSkills(host).flatMap(name => [skill(name), ...(host === "cursor" ? [`commands/${name}.md`] : [])]);
+      const discoveryDocuments = hostSkills(host).flatMap(name => [skill(name), ...(["cursor", "opencode"].includes(host) ? [`commands/${name}.md`] : [])]);
       const discovery = discoveryDocuments.reduce((total, path) => {
         const metadata = parseFrontmatter(join(packageRoot, path));
         return total + estimate(`${metadata.name}: ${metadata.description}`);

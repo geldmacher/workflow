@@ -56,7 +56,7 @@
     }
   },
   "limits": {
-    "discovery": 600,
+    "discovery": 700,
     "plan": 2900,
     "review": 2100,
     "correction": 1500,
@@ -102,7 +102,7 @@
     "planMethod:skill-authoring": 5200,
     "planMethod:trace-forensics": 5200,
     "planMethod:visual-parity": 5200,
-    "implementation": 1600,
+    "implementation": 1800,
     "implementationVerifierCreation": 5000,
     "implementationVerifierMaintenance": 5000,
     "implementationWithLearning": 3100,
@@ -954,6 +954,24 @@
           "maximum": 4040,
           "previousLimit": 4100,
           "limit": 4900
+        }
+      }
+    },
+    {
+      "date": "2026-10-21",
+      "reason": "Give the two scenarios above 97% of their limit enough room for the next small edit. Shipping implement-work raised Cursor discovery to 592/600 and Cursor implementation to 1597/1600; OpenCode was at 576/600 and 1551/1600 on the same limits. The selection wording was already complete and was not shortened to fit.",
+      "selection": "Scenarios whose largest host measurement exceeded 97% of the current limit. That selects discovery and implementation. OpenCode's 96–97% readings are those same two scenarios. The other limits, including those between 90% and 97%, stay unchanged.",
+      "method": "Largest current host measurement plus 10%, rounded up to 100 estimated tokens. Existing baselines are retained; normal checks never update limits.",
+      "scenarios": {
+        "discovery": {
+          "maximum": 592,
+          "previousLimit": 600,
+          "limit": 700
+        },
+        "implementation": {
+          "maximum": 1597,
+          "previousLimit": 1600,
+          "limit": 1800
         }
       }
     }

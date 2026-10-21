@@ -1,6 +1,6 @@
 ---
 name: implement-work
-description: "Implement an approved plan within the current assignment."
+description: "Implement a supplied plan artefact outside the host Implement Plan action. An explicit implement-work request or that handoff selects it; approving a plan does not."
 ---
 
 # implement-work

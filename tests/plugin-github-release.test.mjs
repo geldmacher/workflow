@@ -30,6 +30,7 @@ import {
   publishRelease,
   releaseFailureReport,
   releaseNotesFromChangelog,
+  validateProvenance,
   verifyPreparedRelease,
 } from "../scripts/plugin-github-release.mjs";
 
@@ -104,11 +105,18 @@ function productionSnapshotFixture() {
   return { fixtureRoot, marker, repository, version: packageJson.version };
 }
 
+function manifestDirectory(host) {
+  if (host === "cursor") return ".cursor-plugin";
+  if (host === "codex") return ".codex-plugin";
+  if (host === "opencode") return ".opencode-plugin";
+  throw new Error(`unsupported host: ${host}`);
+}
+
 function targetBuilder(outputRoot) {
   const result = { version };
-  for (const host of ["cursor", "codex"]) {
+  for (const host of ["cursor", "codex", "opencode"]) {
     const directory = join(outputRoot, host, PLUGIN_NAME);
-    const manifest = host === "cursor" ? ".cursor-plugin" : ".codex-plugin";
+    const manifest = manifestDirectory(host);
     writeJson(join(directory, manifest, "plugin.json"), { name: PLUGIN_NAME, version });
     mkdirSync(join(directory, "docs"));
     writeFileSync(join(directory, "README.md"), `# ${host}\n\n[Install](docs/installation.md)\n`);
@@ -709,6 +717,7 @@ test("independent preparations produce byte-identical closed Cursor and Codex re
       "SHA256SUMS",
       `geldmacher-workflow-codex-v${version}.zip`,
       `geldmacher-workflow-cursor-v${version}.zip`,
+      `geldmacher-workflow-opencode-v${version}.zip`,
       "provenance.json",
     ]);
     for (const name of readdirSync(first.directory)) {
@@ -718,11 +727,12 @@ test("independent preparations produce byte-identical closed Cursor and Codex re
     assert.equal(verified.provenance.source.commit_sha, git(item.repository, "rev-parse", "HEAD"));
     assert.equal(verified.provenance.source.tree_sha, git(item.repository, "rev-parse", "HEAD^{tree}"));
     assert.equal(verified.provenance.release_gate.result, "passed");
-    for (const host of ["cursor", "codex"]) {
+    assert.equal(verified.provenance.schema, 2);
+    for (const host of ["cursor", "codex", "opencode"]) {
       const entries = zipEntries(join(first.directory, first.provenance.targets[host].archive));
       assert.ok(entries.every((entry) => entry.name === `${PLUGIN_NAME}/` || entry.name.startsWith(`${PLUGIN_NAME}/`)));
       assert.equal(entries.some((entry) => entry.name.includes(`/${PLUGIN_NAME}/`)), false, "archive must not be double nested");
-      assert.ok(entries.some((entry) => entry.name === `${PLUGIN_NAME}/${host === "cursor" ? ".cursor-plugin" : ".codex-plugin"}/plugin.json`));
+      assert.ok(entries.some((entry) => entry.name === `${PLUGIN_NAME}/${manifestDirectory(host)}/plugin.json`));
       assert.ok(entries.some((entry) => entry.name === `${PLUGIN_NAME}/docs/installation.md`));
       const executable = entries.find((entry) => entry.name === `${PLUGIN_NAME}/scripts/fixture-helper.mjs`);
       assert.equal(executable.mode & 0o111, 0o111, "executable mode must survive the archive");
@@ -751,14 +761,19 @@ test("two production-target preparations from one clean release-cut snapshot are
     for (const name of first.provenance.published_assets) {
       assert.deepEqual(readFileSync(join(first.directory, name)), readFileSync(join(second.directory, name)), name);
     }
-    for (const host of ["cursor", "codex"]) {
+    for (const host of ["cursor", "codex", "opencode"]) {
       const archivePath = join(first.directory, first.provenance.targets[host].archive);
       const entries = zipEntries(archivePath);
       assert.ok(entries.some((entry) => entry.name === `${PLUGIN_NAME}/docs/installation.md`));
       assert.ok(entries.some((entry) => entry.name === `${PLUGIN_NAME}/skills/plan-work/SKILL.md`));
       assert.ok(entries.some((entry) => entry.name === `${PLUGIN_NAME}/skills/review-work/SKILL.md`));
       assert.equal(zipEntryText(archivePath, `${PLUGIN_NAME}/skills/install-release/SKILL.md`), readFileSync(join(item.repository, "skills/install-release/SKILL.md"), "utf8"));
-      assert.equal(entries.some((entry) => entry.name === `${PLUGIN_NAME}/commands/install-release.md`), host === "cursor");
+      assert.equal(entries.some((entry) => entry.name === `${PLUGIN_NAME}/commands/install-release.md`), host === "cursor" || host === "opencode");
+      if (host === "opencode") {
+        const command = zipEntryText(archivePath, `${PLUGIN_NAME}/commands/install-release.md`);
+        assert.match(command, /Load the `install-release` skill/);
+        assert.doesNotMatch(command, /opencode\/autoinvoke|opencode\/slash|disable-model-invocation/);
+      }
       if (host === "cursor") {
         const command = zipEntryText(archivePath, `${PLUGIN_NAME}/commands/install-release.md`);
         const skill = readFileSync(join(item.repository, "skills/install-release/SKILL.md"), "utf8");
@@ -789,6 +804,54 @@ test("preparation is idempotent for identical bytes and refuses a conflicting de
   } finally {
     rmSync(item.fixtureRoot, { recursive: true, force: true });
   }
+});
+
+test("schema 1 provenance accepts only Cursor and Codex targets", () => {
+  const version = "7.11.0";
+  const target = (host) => ({
+    archive: `geldmacher-workflow-${host}-v${version}.zip`,
+    archive_sha256: "a".repeat(64),
+    content_sha256: "b".repeat(64),
+    file_count: 2,
+    root_directory: PLUGIN_NAME,
+  });
+  const provenance = {
+    schema: 1,
+    kind: "github-release-provenance",
+    plugin: PLUGIN_NAME,
+    version,
+    tag: `v${version}`,
+    repository: "geldmacher/workflow",
+    source: { clean: true, commit_sha: "c".repeat(40), tree_sha: "d".repeat(40) },
+    release_gate: { command: "npm run release-check", result: "passed" },
+    release_notes_sha256: "e".repeat(64),
+    receipt_sha256: "f".repeat(64),
+    targets: { cursor: target("cursor"), codex: target("codex") },
+    published_assets: [
+      `geldmacher-workflow-cursor-v${version}.zip`,
+      `geldmacher-workflow-codex-v${version}.zip`,
+      "RELEASE_NOTES.md",
+      "provenance.json",
+      "SHA256SUMS",
+    ],
+  };
+  assert.doesNotThrow(() => validateProvenance(provenance));
+  const extraHost = structuredClone(provenance);
+  extraHost.targets.opencode = target("opencode");
+  assert.throws(() => validateProvenance(extraHost), /provenance targets fields differ/);
+  const schema2 = structuredClone(provenance);
+  schema2.schema = 2;
+  assert.throws(() => validateProvenance(schema2), /provenance targets fields differ/);
+  schema2.targets.opencode = target("opencode");
+  schema2.published_assets = [
+    `geldmacher-workflow-cursor-v${version}.zip`,
+    `geldmacher-workflow-codex-v${version}.zip`,
+    `geldmacher-workflow-opencode-v${version}.zip`,
+    "RELEASE_NOTES.md",
+    "provenance.json",
+    "SHA256SUMS",
+  ];
+  assert.doesNotThrow(() => validateProvenance(schema2));
 });
 
 test("prepared provenance is closed, canonical, and cannot redirect an asset path", () => {

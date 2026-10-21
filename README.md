@@ -4,7 +4,7 @@
 
 **Clear plans. Reviewed results. You set the direction.**
 
-Workflow helps your coding agent plan a change, implement it, review the result, and fix the issues it finds. It works with Cursor, Codex, and compatible coding agents.
+Workflow helps your coding agent plan a change, implement it, review the result, and fix the issues it finds. It works with Cursor, Codex, OpenCode, and compatible coding agents.
 
 - **Agree on the work first.** Clarify the goal, important decisions, and how to check the result.
 - **Understand what you get.** See what changed, what was checked, and what still needs attention.
@@ -14,9 +14,9 @@ Workflow helps your coding agent plan a change, implement it, review the result,
 
 Use the [latest stable GitHub Release](https://github.com/geldmacher/workflow/releases/latest) for installation and updates. Choose manual installation or let your own agent handle it. No repository checkout, Node.js, or npm is needed.
 
-**Manually:** download the release archive for Cursor or Codex together with `SHA256SUMS` and `provenance.json`, verify the files, and follow the [manual installation steps](docs/installation.md#manual-installation). For updates, follow the [manual update steps](docs/installation.md#manual-update) to back up and replace the complete package.
+**Manually:** download the release archive for Cursor, Codex, or OpenCode together with `SHA256SUMS` and `provenance.json`, verify the files, and follow the [manual installation steps](docs/installation.md#manual-installation). For updates, follow the [manual update steps](docs/installation.md#manual-update) to back up and replace the complete package.
 
-**With your agent:** for a first installation, paste this into Cursor or Codex in a mode that can make changes:
+**With your agent:** for a first installation, paste this into Cursor, Codex, or OpenCode in a mode that can make changes:
 
 > Install the latest stable Workflow release from https://github.com/geldmacher/workflow/releases/latest for my current host. Read the install-release skill and its linked installation instructions from the matching release tag, then perform the installation.
 
@@ -26,8 +26,9 @@ Your agent needs GitHub access and permission to install the plugin. The selecte
 
 - Cursor: `/install-release Update Workflow to the latest stable release for Cursor.`
 - Codex: `$install-release Update Workflow to the latest stable release for Codex.`
+- OpenCode: `@install-release Update Workflow to the latest stable release for OpenCode.`
 
-Follow the reported activation steps: reload Cursor; in Codex, restart the app and install or refresh Workflow in the Plugins Directory. Then start a fresh task. See the [installation guide](docs/installation.md) for details and troubleshooting.
+Follow the reported activation steps: reload Cursor; in Codex, restart the app and install or refresh Workflow in the Plugins Directory; in OpenCode, start a new session. See the [installation guide](docs/installation.md) for details and troubleshooting.
 
 ## Start with the manual workflow
 
@@ -37,9 +38,9 @@ The recommended starting point is **plan → implement → review → correct if
 
 > Use plan-work to add CSV export to the orders page. Export only the currently filtered orders, using the visible columns. Empty exports should contain headers. Follow the existing download conventions.
 
-Ordinary language works. To select the skill directly, use `$plan-work` in Codex, `/plan-work` in Cursor, or `plan-work` in portable clients. Use the same prefix for the skills below.
+Ordinary language works. To select the skill directly, use `$plan-work` in Codex, `/plan-work` in Cursor, `@plan-work` or `/plan-work` in OpenCode, or `plan-work` in portable clients. Use the same prefix for the skills below.
 
-**2. Approve and implement.** Check the proposed behavior, scope, and checks, then select **Implement Plan** in Cursor or Codex. In a portable client, ask `implement-work` to implement the approved plan. You receive the changes, checks, and any open issues.
+**2. Approve and implement.** Check the proposed behavior, scope, and checks, then select **Implement Plan** in Cursor or Codex. That button stays the default when Plan mode produced the plan. When Plan mode is not used, ask `/implement-work` in Cursor or `$implement-work` in Codex and supply the plan artefact. In OpenCode, switch to the build agent and ask `/implement-work` or `@implement-work` with that plan. You receive the changes, checks, and any open issues.
 
 **3. Request review.** After implementation, ask:
 

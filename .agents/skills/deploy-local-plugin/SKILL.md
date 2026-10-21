@@ -1,6 +1,6 @@
 ---
 name: deploy-local-plugin
-description: Build, inspect, dry-run, or deploy the current repository's host-specific local plugin copies for Cursor and Codex. Use only when the user explicitly invokes $deploy-local-plugin in a plugin development repository.
+description: Build, inspect, dry-run, or deploy the current repository's host-specific local plugin copies for Cursor, Codex, and OpenCode. Use only when the user explicitly invokes $deploy-local-plugin in a plugin development repository.
 ---
 
 # Deploy Local Plugin
@@ -13,9 +13,9 @@ Operate only on the current repository using the documented commands and host op
    - dry run or preview: `npm run deploy:local -- --dry-run`
    - deploy or update: `npm run deploy:local`
    - full deploy or full validation: `npm run deploy:local -- --full`
-   Resolve host scope independently: no host request means both hosts; append `--cursor-only` for Cursor only or `--codex-only` for Codex only. The host flags work with status, dry-run, standard, and full paths.
+   Resolve host scope independently: no host request means Cursor, Codex, and OpenCode; append `--cursor-only`, `--codex-only`, or `--opencode-only` for one host. The host flags are mutually exclusive and work with status, dry-run, standard, and full paths.
 3. Run from the repository root. Do not manually copy plugin files, edit the personal Marketplace, remove Codex caches, restart Cursor, or restart Codex.
 4. Report the selected hosts, product and local versions, content hashes, destination paths, dirty provenance, applicable Codex cache verification, and remaining host activation steps.
-5. After a real deployment, tell the user to reload Cursor and/or start a new Codex task for the hosts that changed. Do not claim live activation until those host-specific checks happen.
+5. After a real deployment, tell the user to reload Cursor, start a new Codex task, and/or start a new OpenCode session for the hosts that changed. Do not claim live activation until those host-specific checks happen.
 
 Stop on any manifest identity, path-boundary, symlink, validation, swap, rollback, Marketplace, or Codex cache error. Distinguish matching installed bytes from live host activation.
