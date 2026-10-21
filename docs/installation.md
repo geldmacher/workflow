@@ -1,8 +1,8 @@
 # Install and update Workflow from releases
 
-Use the [latest stable GitHub Release](https://github.com/geldmacher/workflow/releases/latest) to install or update Workflow in Cursor or Codex. Both paths use the same verified release packages. You do not need a repository checkout, Node.js, or npm.
+Use the [latest stable GitHub Release](https://github.com/geldmacher/workflow/releases/latest) to install or update Workflow in Cursor, Codex, or OpenCode. These paths use the same verified release packages. You do not need a repository checkout, Node.js, or npm.
 
-Here, **host** means the coding environment you use: Cursor or Codex. Both installation targets support macOS, Linux, and Windows.
+Here, **host** means the coding environment you use: Cursor, Codex, or OpenCode. Installation targets support macOS, Linux, and Windows. The OpenCode package targets OpenCode 2.1.2 only (`@opencode/cli`). npm `opencode-ai` remains the OpenCode 1.x line and is not a supported host.
 
 | Task | Manually | With your own agent |
 |---|---|---|
@@ -12,9 +12,9 @@ Here, **host** means the coding environment you use: Cursor or Codex. Both insta
 ## Manual installation
 
 1. Open the [latest stable release](https://github.com/geldmacher/workflow/releases/latest) and keep its version and tag for all following steps.
-2. Under **Assets**, download `geldmacher-workflow-cursor-<tag>.zip` for Cursor or `geldmacher-workflow-codex-<tag>.zip` for Codex, plus `SHA256SUMS` and `provenance.json` from that same release. Use the host archive, not GitHub's automatically generated source-code archives.
+2. Under **Assets**, download `geldmacher-workflow-cursor-<tag>.zip` for Cursor, `geldmacher-workflow-codex-<tag>.zip` for Codex, or `geldmacher-workflow-opencode-<tag>.zip` for OpenCode, plus `SHA256SUMS` and `provenance.json` from that same release. Use the host archive, not GitHub's automatically generated source-code archives.
 3. [Verify the download](#verify-the-download): check the archive and `provenance.json` against `SHA256SUMS`, confirm the release identity, and inspect the archive before extracting it into a temporary directory.
-4. Follow [safe placement](#compare-and-safely-replace) and the instructions for [Cursor](#cursor) or [Codex](#codex). Move the complete `geldmacher-workflow` directory to the documented plugin path, including its hidden files. For Codex, also register the source in your personal Marketplace as described there.
+4. Follow [safe placement](#compare-and-safely-replace) and the instructions for [Cursor](#cursor), [Codex](#codex), or [OpenCode](#opencode). Move the complete `geldmacher-workflow` directory to the documented plugin path, including its hidden files. For Codex, also register the source in your personal Marketplace as described there. For OpenCode, register the packaged `skills/` directory and install the slash commands as described there.
 5. Complete [Cursor activation](#activate-in-cursor) or [Codex activation](#activate-in-codex), then start a fresh task.
 
 The [technical reference](#technical-installation-reference) below supplies the checks, paths, and Codex Marketplace example for these steps.
@@ -24,7 +24,7 @@ The [technical reference](#technical-installation-reference) below supplies the 
 1. Download and verify the new stable release exactly as in [manual installation](#manual-installation).
 2. [Compare it with your existing installation](#compare-and-safely-replace). If the source files are identical, no replacement is needed. Resolve local edits, development versions, or a newer installed version before replacing anything.
 3. Prepare the complete new package and retain the previous package, its verified release files, and any changed Marketplace file as a recoverable backup outside plugin discovery/cache directories. Follow the [safe replacement procedure](#compare-and-safely-replace); replace the whole directory instead of merging files.
-4. Complete the host's activation steps again. In Codex, refresh or reinstall through the Plugins Directory and verify the installed copy. Keep the backup until the update is confirmed; the [Cursor](#cursor) and [Codex](#codex) sections also describe rollback.
+4. Complete the host's activation steps again. In Codex, refresh or reinstall through the Plugins Directory and verify the installed copy. Keep the backup until the update is confirmed; the [Cursor](#cursor), [Codex](#codex), and [OpenCode](#opencode) sections also describe rollback.
 
 ## Install or update with your agent
 
@@ -44,6 +44,7 @@ Use the included `install-release` skill in a mode that can make changes. Copy t
 
 - Cursor: `/install-release Update Workflow to the latest stable release for Cursor.`
 - Codex: `$install-release Update Workflow to the latest stable release for Codex.`
+- OpenCode: `@install-release Update Workflow to the latest stable release for OpenCode.` `/install-release` sends the same request.
 
 If the skill is unavailable in your current installation, use this prompt to read it from the selected release tag:
 
@@ -68,6 +69,10 @@ After preparing the plugin source and personal Marketplace entry, manually or wi
 
 The agent leaves required restarts to you. Copying files alone does not activate the plugin. Codex runs its installed cache copy, which the host's installation interface must refresh.
 
+## Activate in OpenCode
+
+After the package, skills registration, and commands are in place, start a new OpenCode session. Check that Workflow skills are listed for the model and that `@plan-work` and `/plan-work` both load plan-work. `@implement-work` and `/implement-work` load implement-work. See [OpenCode details and rollback](#opencode) for paths and recovery. An already running session does not prove that the new files are active.
+
 ## If installation cannot finish
 
 | What you see | What to do next |
@@ -78,7 +83,7 @@ The agent leaves required restarts to you. Copying files alone does not activate
 | Files installed, but skills still unavailable | Complete the activation steps above and check the installed copy in a fresh task. |
 | An interrupted replacement or registration | Follow the reported recovery paths; retain backups until recovery is confirmed. |
 
-Your agent needs GitHub access, download and JSON-reading tools, SHA-256 hashing, ZIP inspection and extraction, and permission to write the selected plugin location. Available shell tools or PowerShell/.NET can provide these; GitHub CLI is optional. Missing tools or permissions must be reported, not installed or changed automatically. Other hosts are not supported installation targets.
+Your agent needs GitHub access, download and JSON-reading tools, SHA-256 hashing, ZIP inspection and extraction, and permission to write the selected plugin location. Available shell tools or PowerShell/.NET can provide these; GitHub CLI is optional. Missing tools or permissions must be reported, not installed or changed automatically. Hosts other than Cursor, Codex, and OpenCode 2.1.2 are not supported installation targets.
 
 Once activated, follow the [manual working guide](manual-workflow.md) for your first task. The optional [experimental Auto-Work approach](auto-work.md) is explained separately.
 
@@ -90,11 +95,11 @@ Read the skill and linked instructions from the selected release tag through Git
 
 Workflow installs as a host-specific package of skills and reference documents. Replace whole package directories when updating; old package files must not remain mixed into the new version.
 
-Each Workflow GitHub Release contains separate packages for Cursor and Codex. Download only the archive for the intended host plus `SHA256SUMS` and `provenance.json` from the [latest GitHub Release](https://github.com/geldmacher/workflow/releases/latest). You do not need the other host archive or `RELEASE_NOTES.md` to verify this selected download. Do not install an archive until both the selected archive and `provenance.json` match their entries in `SHA256SUMS`.
+Each Workflow GitHub Release contains separate packages for Cursor, Codex, and OpenCode. Download only the archive for the intended host plus `SHA256SUMS` and `provenance.json` from the [latest GitHub Release](https://github.com/geldmacher/workflow/releases/latest). You do not need the other host archives or `RELEASE_NOTES.md` to verify this selected download. Do not install an archive until both the selected archive and `provenance.json` match their entries in `SHA256SUMS`. Extra checksum lines for the other hosts are expected and are not a mismatch.
 
 ## Select one release and host
 
-Use explicit harness context and the user's requested target to select Cursor or Codex, and determine the operating system and actual user home/configuration location. The existence of both hosts' directories does not select both. Ask only when the target or environment remains ambiguous. Other harnesses are unsupported installation targets even if they can load the portable skill.
+Use explicit harness context and the user's requested target to select Cursor, Codex, or OpenCode, and determine the operating system and actual user home/configuration location. The existence of several hosts' directories does not select all of them. Ask only when the target or environment remains ambiguous. When this guide is read from the selected release tag, OpenCode 2.1.2 is a supported host even if an older installed skill names only Cursor and Codex. Other harnesses are unsupported installation targets even if they can load the portable skill. Do not install this package into `~/.agents/skills` or `~/.claude/skills`.
 
 Resolve `https://api.github.com/repos/geldmacher/workflow/releases/latest` or the equivalent GitHub release metadata once. Require a published, non-draft, non-prerelease release of `geldmacher/workflow` with a stable `vMAJOR.MINOR.PATCH` tag. Retain that tag, release URL, and its exact asset URLs for the entire run. Do not resolve `latest` separately for each download. Missing release data, assets, rate limits, or authentication failures stop installation; never fall back to a branch build or another repository.
 
@@ -150,12 +155,15 @@ foreach ($file in $files) {
 
 Require `plugin` to equal `geldmacher-workflow`, `repository` to equal `geldmacher/workflow`, and `version`/`tag` to match the selected release. The selected `targets.<host>` must name the downloaded archive and `geldmacher-workflow` root, and its `archive_sha256` must match the verified archive. A release-gate record must report `npm run release-check` as passed. Matching hashes establish consistency with the release assets, not an independent publisher signature.
 
+Schema 1 provenance lists exactly `cursor` and `codex` under `targets`. Schema 2 adds `opencode` and keeps the same Cursor and Codex target fields. Installing one host reads `targets.<host>` for that host. Additional target keys are compatible and must not be rejected because an older installer knew a shorter host list. `published_assets` may name the other host archives; verifying the selected archive does not require downloading them.
+
 Before extraction, inspect every ZIP entry using a tool that exposes entry types and paths. Permit only regular files and directories below the single `geldmacher-workflow/` root. Reject symlinks and other special entries, absolute or drive-qualified paths, `..` traversal (including backslash variants), duplicate entries, and paths that collide under the target filesystem's rules. Do not extract an archive whose metadata cannot be checked. Extract into a fresh private temporary directory, then verify the actual layout contains no links, escapes, or unexpected root entries.
 
 Every archive must expand to exactly one top-level `geldmacher-workflow/` directory. Avoid an additional nesting level such as `geldmacher-workflow/geldmacher-workflow/`. Before installation, confirm that the host manifest is located at:
 
 - Cursor: `geldmacher-workflow/.cursor-plugin/plugin.json`
 - Codex: `geldmacher-workflow/.codex-plugin/plugin.json`
+- OpenCode: `geldmacher-workflow/.opencode-plugin/plugin.json`
 
 Require the selected host manifest's `name` and `version` to match the verified release before writing the destination. A manifest for the other host is not a substitute.
 
@@ -238,6 +246,36 @@ For an update, retain the current source directory and its matching release file
 
 For rollback, restore the retained complete old source directory and its verified release files, keep the Marketplace entry unchanged, and repeat the same restart, Plugins Directory refresh or reinstall, cache-version check, and new-task steps. Do not combine files from different versions and do not treat restored source bytes as proof that the cached installed copy changed.
 
+## OpenCode
+
+Install the complete package at:
+
+- macOS/Linux: `~/.config/opencode/geldmacher-workflow`
+- Windows: `%USERPROFILE%\.config\opencode\geldmacher-workflow`
+
+OpenCode 2.1.2 discovers skills from `~/.config/opencode/skills/<id>/SKILL.md` and from directories listed in the `skills` array of `opencode.json` or `opencode.jsonc`. This package stays one directory so shared `references/` files remain beside `skills/<name>/SKILL.md`. Paths such as `../../references/workflow.md` stay relative to the skill directory and are not rewritten. Register that skills directory with an absolute path or `~/.config/opencode/geldmacher-workflow/skills`. Relative paths in `skills` are resolved from the working directory, not from the config file, so do not use a relative entry.
+
+Skill ids are the directory names (`plan-work`, `implement-work`, and the other packaged skills). Model auto-invocation stays enabled. `implement-work` is selected by `@implement-work`, `/implement-work`, or a supplied plan artefact outside a host Implement Plan action; approving a plan does not select it. A user selects any skill with `@name`. The same name is also a slash command: `/plan-work` loads that skill. Commands live in `commands/<name>.md` inside the package and are installed to `~/.config/opencode/commands/<name>.md`. The manual sequence is the plan agent or `/plan-work`, then `/implement-work` in the build agent with the plan artefact.
+
+If `~/.config/opencode/opencode.json` exists, add the skills path to its `skills` array when that path is absent. Preserve every other setting. If only `opencode.jsonc` exists, leave that file unchanged and create `opencode.json` with the one `skills` entry; OpenCode combines skills arrays from both files. If neither file exists, create `opencode.json`:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "skills": ["~/.config/opencode/geldmacher-workflow/skills"]
+}
+```
+
+On Windows, use the absolute package path in `skills` when `~` is not the profile you are installing into. Do not remove unrelated `skills` entries.
+
+Copy each packaged `commands/<name>.md` to `~/.config/opencode/commands/<name>.md`. If a destination file already exists and its text does not load that Workflow skill, stop and report the name collision. Do not delete unrelated commands. A later skill source with the same id overrides this package; project `.opencode/skills` and later `skills` entries win over this global registration. This package does not install into `~/.agents/skills` or `~/.claude/skills`.
+
+The OpenCode manifest's `opencodeCompatibility` value is `2.1.2`. Do not add `CLAUDE.md`, `opencode/slash`, or `opencode/autoinvoke: false`.
+
+For an update, back up the complete package directory, the previous `opencode.json` when it will change, and any command file that will be replaced. Replace the whole package directory. Keep the skills path. Replace only Workflow command files. Start a new session and check `@plan-work`, `/plan-work`, `@implement-work`, and `/implement-work`.
+
+For rollback, restore the retained package directory, restore the previous config bytes or remove a config file this install created, and restore or remove the command files this install changed. Do not combine files from different versions.
+
 ## Verify the installed layout
 
-After copying, verify that the manifest sits directly below the destination, that its `name` is `geldmacher-workflow`, and that its `version` matches the selected release. The archive checksum proves downloaded bytes; it does not prove that Cursor reloaded, the Codex Marketplace accepted the entry, or a new Codex task loaded the package. Confirm those host-specific activation steps separately.
+After copying, verify that the manifest sits directly below the destination, that its `name` is `geldmacher-workflow`, and that its `version` matches the selected release. For OpenCode, also verify that the `skills` entry points at this package's `skills/` directory and that each packaged command is present under `~/.config/opencode/commands/`. The archive checksum proves downloaded bytes; it does not prove that Cursor reloaded, the Codex Marketplace accepted the entry, a new Codex task loaded the package, or a new OpenCode session loaded the skills. Confirm those host-specific activation steps separately.

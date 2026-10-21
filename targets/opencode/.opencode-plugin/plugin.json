@@ -1,0 +1,20 @@
+{
+  "name": "geldmacher-workflow",
+  "version": "7.11.0",
+  "description": "Plan, implement, review, and correct changes with your coding agent. Request each phase separately, follow an agreed plan, and check the result before moving on.",
+  "author": {
+    "name": "Geldmacher"
+  },
+  "homepage": "https://github.com/geldmacher/workflow",
+  "repository": "https://github.com/geldmacher/workflow",
+  "license": "MIT",
+  "keywords": [
+    "workflow",
+    "planning",
+    "review",
+    "correction",
+    "skills"
+  ],
+  "skills": "./skills/",
+  "opencodeCompatibility": "2.1.2"
+}

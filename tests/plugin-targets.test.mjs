@@ -25,15 +25,46 @@ test("all host packages are reproducible, closed, and valid without a runtime", 
     assert.deepEqual(validatePlugin(), []);
     const first = buildPluginTargets(join(parent, "one"));
     const second = buildPluginTargets(join(parent, "two"));
-    for (const host of ["cursor", "codex", "agent-plugins"]) {
+    for (const host of ["cursor", "codex", "agent-plugins", "opencode"]) {
       assert.equal(first[host].hash, second[host].hash);
       assert.deepEqual(validateTarget(first[host].path, host, first.version), []);
       assert.deepEqual(checkMarkdownLinks(first[host].path), []);
       const entries = files(first[host].path).map((path) => relative(first[host].path, path));
       assert.ok(!entries.some((path) => /\.(?:[cm]?js|sh|py)$/.test(path)));
       assert.ok(!entries.some((path) => /^(?:dist|hooks|src|scripts|schemas)[\\/]/.test(path)));
-      assert.equal(existsSync(join(first[host].path, "skills/implement-work")), host === "agent-plugins");
+      assert.equal(existsSync(join(first[host].path, "skills/implement-work")), true);
     }
+  } finally { rmSync(parent, { recursive: true, force: true }); }
+});
+
+test("Cursor and Codex host instructions stay on their existing wording", () => {
+  assert.equal(hostInstruction("cursor", "plan-work"), "For standalone planning, stay read-only and use the native Cursor plan when Plan Mode is active or the host requires it. Do not request a mode switch only to satisfy formatting. Never bypass an actual host read-only mode. Direct the human to check it and use Implement Plan, then commission /review-work in Ask Mode. When Plan mode is not used, /implement-work applies a supplied plan artefact. Within expressly commissioned Auto-Work, use its plan approval rules and native execution without requesting a manual phase-mode switch.");
+  assert.equal(hostInstruction("codex", "plan-work"), "For standalone planning, stay read-only. When Codex Plan mode is active or the host requires it, return the complete plan inside one native <proposed_plan> block. Do not request a mode switch only to satisfy that format. Never bypass an actual host read-only mode. Direct the human to check the plan and use Implement Plan, then commission $review-work. When Plan mode is not used, $implement-work applies a supplied plan artefact. Within expressly commissioned Auto-Work, apply its Light or Dark plan approval rules.");
+  assert.equal(hostInstruction("cursor", "auto-work"), "Read [Cursor delegation](references/cursor.md). Use Agent Mode; standalone Ask Mode does not govern delegated Review. Do not require manual mode switches for internal phases.");
+  assert.equal(hostInstruction("codex", "auto-work"), "Read [Codex delegation](references/codex.md). If read-only Plan mode prevents implementation, hand off the authorized sequence to native implementation. Do not require manual mode switches for internal phases.");
+  assert.match(hostInstruction("opencode", "auto-work"), /references\/opencode\.md/);
+  assert.doesNotMatch(hostInstruction("cursor", "work-status"), /@skill-id|build agent/);
+  assert.match(hostInstruction("codex", "work-status"), /\$skill-name skill/);
+});
+
+test("OpenCode keeps shared reference links and does not copy its host note into other packages", () => {
+  const parent = temp();
+  try {
+    const built = buildPluginTargets(parent);
+    for (const host of ["cursor", "codex", "agent-plugins"]) {
+      assert.equal(existsSync(join(built[host].path, "skills/auto-work/references/opencode.md")), false);
+      assert.equal(existsSync(join(built[host].path, "commands")), host === "cursor");
+    }
+    const skill = readFileSync(join(built.opencode.path, "skills/plan-work/SKILL.md"), "utf8");
+    assert.match(skill, /\.\.\/\.\.\/references\/workflow\.md/);
+    assert.equal(existsSync(join(built.opencode.path, "references/workflow.md")), true);
+    assert.equal(existsSync(join(built.opencode.path, "skills/auto-work/references/opencode.md")), true);
+    assert.equal(existsSync(join(built.opencode.path, "skills/implement-work/SKILL.md")), true);
+    assert.match(readFileSync(join(built.opencode.path, "commands/implement-work.md"), "utf8"), /Load the `implement-work` skill/);
+    const command = readFileSync(join(built.opencode.path, "commands/plan-work.md"), "utf8");
+    assert.match(command, /Load the `plan-work` skill/);
+    assert.doesNotMatch(command, /opencode\/autoinvoke|disable-model-invocation|opencode\/slash/);
+    assert.equal(existsSync(join(built.opencode.path, "CLAUDE.md")), false);
   } finally { rmSync(parent, { recursive: true, force: true }); }
 });
 
@@ -41,7 +72,7 @@ test("every packaged skill preserves the shared content and only adds its host i
   const parent = temp();
   try {
     const built = buildPluginTargets(parent);
-    for (const host of ["cursor", "codex", "agent-plugins"]) {
+    for (const host of ["cursor", "codex", "agent-plugins", "opencode"]) {
       for (const skill of hostSkills(host)) {
         const source = readFileSync(join(defaultRoot, "skills", skill, "SKILL.md"), "utf8");
         const suffix = hostInstruction(host, skill);
@@ -56,18 +87,24 @@ test("phase handoffs name skills available in the receiving host package", () =>
   const parent = temp();
   try {
     const built = buildPluginTargets(parent);
-    for (const host of ["cursor", "codex", "agent-plugins"]) {
+    for (const host of ["cursor", "codex", "agent-plugins", "opencode"]) {
       const pairs = [["plan-work", "review-work"], ["correct-work", "review-work"], ["review-work", "correct-work"], ["review-work", "learn-from-work"], ["verification-work", "review-work"], ["setup-workflow", "review-work"], ["maintain-workflow", "review-work"]];
-      if (host === "agent-plugins") pairs.push(["plan-work", "implement-work"], ["implement-work", "review-work"]);
+      pairs.push(["plan-work", "implement-work"], ["implement-work", "review-work"]);
       for (const [source, destination] of pairs) {
-        const prefix = host === "cursor" ? "/" : host === "codex" ? "$" : "";
+        const prefix = host === "cursor" ? "/" : host === "codex" ? "$" : host === "opencode" ? "@" : "";
         assert.ok(hostInstruction(host, source).includes(`${prefix}${destination}`), `${host}: ${source} -> ${destination}`);
         assert.ok(existsSync(join(built[host].path, "skills", destination, "SKILL.md")));
-        if (host === "cursor") assert.ok(existsSync(join(built[host].path, "commands", `${destination}.md`)));
+        if (host === "cursor" || host === "opencode") assert.ok(existsSync(join(built[host].path, "commands", `${destination}.md`)));
       }
-      if (host !== "agent-plugins") {
+      if (host === "cursor" || host === "codex") {
         assert.ok(hostInstruction(host, "plan-work").includes("Implement Plan"));
-        assert.ok(!hostInstruction(host, "plan-work").includes("implement-work"));
+        assert.ok(hostInstruction(host, "plan-work").includes("implement-work"));
+        assert.match(hostInstruction(host, "implement-work"), /Do not load this skill because Implement Plan/);
+      }
+      if (host === "opencode") {
+        assert.ok(hostInstruction(host, "plan-work").includes("@implement-work"));
+        assert.ok(hostInstruction(host, "plan-work").includes("/implement-work"));
+        assert.ok(!hostInstruction(host, "plan-work").includes("Implement Plan"));
       }
     }
   } finally { rmSync(parent, { recursive: true, force: true }); }
@@ -84,7 +121,7 @@ test("methodology provenance stays in the repository while license notices and p
     assert.equal(createHash("sha256").update(license).digest("hex"), "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e");
     writeFileSync(join(root, "docs/future-methodology.md"), "# Repository methodology\n\nPonytail\n");
     const built = buildPluginTargets(join(parent, "packages"), root);
-    for (const host of ["cursor", "codex", "agent-plugins"]) {
+    for (const host of ["cursor", "codex", "agent-plugins", "opencode"]) {
       const packageRoot = built[host].path;
       assert.equal(existsSync(join(packageRoot, provenance)), false);
       assert.equal(existsSync(join(packageRoot, "docs/future-methodology.md")), false);
@@ -116,14 +153,20 @@ test("playbook references are complete and nested skill references survive every
       writeFileSync(join(nested, "example.md"), "# Nested reference\n\n[Skill](../../SKILL.md)\n");
     }
     const built = buildPluginTargets(join(parent, "packages"), root);
-    for (const host of ["cursor", "codex", "agent-plugins"]) {
+    for (const host of ["cursor", "codex", "agent-plugins", "opencode"]) {
       for (const skill of hostSkills(host)) {
         const source = join(root, "skills", skill, "references");
         if (!existsSync(source)) continue;
         const destination = join(built[host].path, "skills", skill, "references");
-        assert.equal(contentDigest(destination), contentDigest(source));
+        if (host !== "opencode" && skill === "auto-work") {
+          assert.equal(existsSync(join(destination, "opencode.md")), false);
+          for (const path of files(source)) {
+            if (relative(source, path) === "opencode.md") continue;
+            assert.deepEqual(readFileSync(join(destination, relative(source, path))), readFileSync(path));
+          }
+        } else assert.equal(contentDigest(destination), contentDigest(source));
       }
-      assert.equal(existsSync(join(built[host].path, "skills/implement-work")), host === "agent-plugins");
+      assert.equal(existsSync(join(built[host].path, "skills/implement-work")), true);
       assert.deepEqual(validateTarget(built[host].path, host, built.version, root), []);
       assert.deepEqual(checkMarkdownLinks(built[host].path), []);
     }
@@ -142,7 +185,7 @@ test("nested skill reference symlinks are rejected before replacing existing pac
     for (const target of [join(root, "README.md"), join(root, "references")]) {
       symlinkSync(target, link);
       assert.throws(() => buildPluginTargets(destination, root), /symlink/);
-      for (const host of ["cursor", "codex", "agent-plugins"]) assert.equal(contentDigest(built[host].path), built[host].hash);
+      for (const host of ["cursor", "codex", "agent-plugins", "opencode"]) assert.equal(contentDigest(built[host].path), built[host].hash);
       rmSync(link);
     }
   } finally { rmSync(parent, { recursive: true, force: true }); }
@@ -156,7 +199,7 @@ test("rebuild removes obsolete package files rather than overlaying old contents
     const obsolete = join(first.cursor.path, "hooks");
     mkdirSync(obsolete); writeFileSync(join(obsolete, "old.mjs"), "old runtime");
     const oldReferences = ["engineering-playbooks.md", "engineering-diagnostic-playbooks.md", "engineering-delivery-playbooks.md", "engineering-continuity-playbooks.md"];
-    for (const host of ["cursor", "codex", "agent-plugins"]) {
+    for (const host of ["cursor", "codex", "agent-plugins", "opencode"]) {
       for (const name of oldReferences) {
         const path = join(first[host].path, "references", name);
         assert.equal(existsSync(path), false);
@@ -167,7 +210,7 @@ test("rebuild removes obsolete package files rather than overlaying old contents
     const next = buildPluginTargets(parent);
     assert.equal(next.cursor.hash, baseline);
     assert.equal(existsSync(obsolete), false);
-    for (const host of ["cursor", "codex", "agent-plugins"]) {
+    for (const host of ["cursor", "codex", "agent-plugins", "opencode"]) {
       assert.equal(next[host].hash, first[host].hash);
       for (const name of oldReferences) assert.equal(existsSync(join(next[host].path, "references", name)), false);
     }
@@ -220,7 +263,7 @@ test("an external README symlink is rejected without replacing any host package"
     rmSync(join(root, "README.md"));
     symlinkSync(external, join(root, "README.md"));
     assert.throws(() => buildPluginTargets(destination, root), /symlink/);
-    for (const host of ["cursor", "codex", "agent-plugins"]) assert.equal(contentDigest(before[host].path), before[host].hash);
+    for (const host of ["cursor", "codex", "agent-plugins", "opencode"]) assert.equal(contentDigest(before[host].path), before[host].hash);
     assert.equal(readFileSync(external, "utf8"), "# Outside the source repository\n");
   } finally { rmSync(parent, { recursive: true, force: true }); }
 });
@@ -234,7 +277,7 @@ test("invalid command metadata leaves every existing host package unchanged", ()
     const path = join(root, "skills/review-work/SKILL.md");
     writeFileSync(path, readFileSync(path, "utf8").replace(/^description:.*$/m, "description: [unterminated"));
     assert.throws(() => buildPluginTargets(destination, root), /invalid skill metadata: review-work/);
-    for (const host of ["cursor", "codex", "agent-plugins"]) assert.equal(contentDigest(before[host].path), before[host].hash);
+    for (const host of ["cursor", "codex", "agent-plugins", "opencode"]) assert.equal(contentDigest(before[host].path), before[host].hash);
   } finally { rmSync(parent, { recursive: true, force: true }); }
 });
 
@@ -277,7 +320,7 @@ test("target inventories reject extra and missing files and ship only the refere
   const parent = temp();
   try {
     const built = buildPluginTargets(parent);
-    for (const host of ["cursor", "codex", "agent-plugins"]) {
+    for (const host of ["cursor", "codex", "agent-plugins", "opencode"]) {
       const root = built[host].path;
       assert.deepEqual(files(join(root, "assets")).map(path => relative(root, path)), ["assets/logo.svg"]);
       assert.equal(existsSync(join(root, "release-surface.json")), false);

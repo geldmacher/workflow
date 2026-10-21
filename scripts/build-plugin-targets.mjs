@@ -7,9 +7,14 @@ import { fileURLToPath } from "node:url";
 import { parseDocument } from "yaml";
 
 export const defaultRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-export const publicSkills = ["auto-work", "correct-work", "engineering-work", "explain-work", "install-release", "learn-from-work", "maintain-workflow", "plan-work", "review-work", "setup-workflow", "verification-work", "work-status", "workflow-doctor"];
-export const hostSkills = (host) => host === "agent-plugins" ? [...publicSkills, "implement-work"].sort() : publicSkills;
-export const manifestPaths = { cursor: ".cursor-plugin/plugin.json", codex: ".codex-plugin/plugin.json", "agent-plugins": "plugin.json" };
+export const publicSkills = ["auto-work", "correct-work", "engineering-work", "explain-work", "implement-work", "install-release", "learn-from-work", "maintain-workflow", "plan-work", "review-work", "setup-workflow", "verification-work", "work-status", "workflow-doctor"];
+export const hostSkills = () => publicSkills;
+// OpenCode 2.1.2 (npm @opencode/cli). opencode-ai latest remains the 1.x line and is not a target.
+export const OPENCODE_COMPATIBILITY = "2.1.2";
+export const manifestPaths = { cursor: ".cursor-plugin/plugin.json", codex: ".codex-plugin/plugin.json", "agent-plugins": "plugin.json", opencode: ".opencode-plugin/plugin.json" };
+export function openCodeCommand(name, description) {
+  return `---\ndescription: ${JSON.stringify(description)}\n---\n\nLoad the \`${name}\` skill and apply it to the current request.\n\n$ARGUMENTS\n`;
+}
 const packageDocs = ["docs/auto-work.md", "docs/project-improvement.md", "docs/behavior-validation.md", "docs/installation.md", "docs/manual-workflow.md", "docs/release-checklist.md"];
 function inside(base, path) {
   const item = relative(base, path);
@@ -34,21 +39,27 @@ export function contentDigest(directory) {
 }
 
 export function hostInstruction(host, skill) {
-  const invoke = (name) => host === "cursor" ? `/${name}` : host === "codex" ? `$${name}` : name;
-  if (skill === "auto-work") return `${host === "cursor" ? "Read [Cursor delegation](references/cursor.md). Use Agent Mode; standalone Ask Mode does not govern delegated Review." : host === "codex" ? "Read [Codex delegation](references/codex.md). If read-only Plan mode prevents implementation, hand off the authorized sequence to native implementation." : "Use only the client's actual delegation schema and supported settings."} Do not require manual mode switches for internal phases.`;
+  const invoke = (name) => host === "cursor" ? `/${name}` : host === "codex" ? `$${name}` : host === "opencode" ? `@${name}` : name;
+  if (skill === "auto-work") return `${host === "cursor" ? "Read [Cursor delegation](references/cursor.md). Use Agent Mode; standalone Ask Mode does not govern delegated Review." : host === "codex" ? "Read [Codex delegation](references/codex.md). If read-only Plan mode prevents implementation, hand off the authorized sequence to native implementation." : host === "opencode" ? "Read [OpenCode delegation](references/opencode.md). Keep phase delegation on the primary session unless subagent depth allows nesting." : "Use only the client's actual delegation schema and supported settings."} Do not require manual mode switches for internal phases.`;
   if (skill === "plan-work") {
-    if (host === "codex") return "For standalone planning, stay read-only. When Codex Plan mode is active or the host requires it, return the complete plan inside one native <proposed_plan> block. Do not request a mode switch only to satisfy that format. Never bypass an actual host read-only mode. Direct the human to check the plan and use Implement Plan, then commission $review-work. Within expressly commissioned Auto-Work, apply its Light or Dark plan approval rules.";
-    if (host === "cursor") return "For standalone planning, stay read-only and use the native Cursor plan when Plan Mode is active or the host requires it. Do not request a mode switch only to satisfy formatting. Never bypass an actual host read-only mode. Direct the human to check it and use Implement Plan, then commission /review-work in Ask Mode. Within expressly commissioned Auto-Work, use its plan approval rules and native execution without requesting a manual phase-mode switch.";
+    if (host === "codex") return "For standalone planning, stay read-only. When Codex Plan mode is active or the host requires it, return the complete plan inside one native <proposed_plan> block. Do not request a mode switch only to satisfy that format. Never bypass an actual host read-only mode. Direct the human to check the plan and use Implement Plan, then commission $review-work. When Plan mode is not used, $implement-work applies a supplied plan artefact. Within expressly commissioned Auto-Work, apply its Light or Dark plan approval rules.";
+    if (host === "cursor") return "For standalone planning, stay read-only and use the native Cursor plan when Plan Mode is active or the host requires it. Do not request a mode switch only to satisfy formatting. Never bypass an actual host read-only mode. Direct the human to check it and use Implement Plan, then commission /review-work in Ask Mode. When Plan mode is not used, /implement-work applies a supplied plan artefact. Within expressly commissioned Auto-Work, use its plan approval rules and native execution without requesting a manual phase-mode switch.";
+    if (host === "opencode") return "For standalone planning, stay read-only. When the OpenCode plan agent is active, return the complete plan in the task. Do not request a mode switch only to satisfy formatting. Never bypass an actual host read-only mode. Direct the human to check the plan, then continue in the build agent with @implement-work and that plan artefact, and commission @review-work. /implement-work sends the same request. Within expressly commissioned Auto-Work, apply its Light or Dark plan approval rules.";
     return "Return the complete human plan in the task. In standalone work, direct the human to check it and instruct implement-work, then commission review-work. Within expressly commissioned Auto-Work, apply its Light or Dark plan approval rules.";
   }
   const instructions = [];
   if (host === "cursor" && ["review-work", "explain-work", "work-status", "workflow-doctor"].includes(skill)) instructions.push("Stay read-only. Use Cursor Ask Mode when active or required; do not switch only for format. Delegated Auto-Work review needs no mode switch.");
+  if (host === "opencode" && ["review-work", "explain-work", "work-status", "workflow-doctor"].includes(skill)) instructions.push("Stay read-only. Use the OpenCode plan agent when it is active or required; do not switch only for format. Delegated Auto-Work review needs no mode switch.");
+  if (skill === "implement-work" && (host === "cursor" || host === "codex")) instructions.push("Do not load this skill because Implement Plan is available or was used. Use it for an explicit invocation or a plan artefact handed off without that action.");
+  if (skill === "implement-work" && host === "opencode") instructions.push("Apply the supplied plan artefact in the build agent. Planning stays with the plan agent or plan-work.");
   if (["correct-work", "implement-work", "verification-work", "setup-workflow", "maintain-workflow"].includes(skill)) instructions.push(`After standalone commissioned changes, recommend ${invoke("review-work")}${host === "cursor" ? " in Ask Mode" : ""} for the human to start a separate review. Within Auto-Work, return the report to its independent review step.`);
   if (skill === "review-work") instructions.push(`For standalone actionable corrections, recommend ${invoke("correct-work")}${host === "cursor" ? " in Agent Mode" : ""} for the human to commission them. A delegated Auto-Work review returns findings to the existing assignment.`);
   if (skill === "review-work") instructions.push(`For eligible lessons, offer ${invoke("learn-from-work")}${host === "cursor" ? " in Agent Mode" : ""} as optional learning.`);
   if (skill === "work-status") instructions.push(host === "agent-plugins"
     ? "Name the skill matching the documented next action; implementation uses implement-work."
-    : `For Auto-Work, name its mode, remaining acceptance and next actor. Otherwise name the matching ${host === "cursor" ? "/skill-name command" : "$skill-name skill"} for the documented next action; implementation uses Implement Plan.`);
+    : host === "opencode"
+      ? "For Auto-Work, name its mode, remaining acceptance and next actor. Otherwise name the matching @skill-id skill for the documented next action; implementation uses @implement-work in the build agent."
+      : `For Auto-Work, name its mode, remaining acceptance and next actor. Otherwise name the matching ${host === "cursor" ? "/skill-name command" : "$skill-name skill"} for the documented next action; implementation uses Implement Plan, or ${invoke("implement-work")} when Plan mode is not used.`);
   return instructions.join(" ");
 }
 
@@ -60,11 +71,14 @@ function sourceManifest(root, host) {
 export function packageEntries(root, host) {
   if (!Object.hasOwn(manifestPaths, host)) throw new Error(`unsupported host: ${host}`);
   const entries = [];
-  const add = (source, target = source, kind = "copy") => {
+  const add = (source, target = source, kind = "copy", include = () => true) => {
     const absolute = join(root, source);
     if (lstatSync(absolute).isDirectory()) {
-      for (const path of files(absolute)) entries.push({ source: path, target: join(target, relative(absolute, path)), kind });
-    } else entries.push({ source: absolute, target, kind });
+      for (const path of files(absolute)) {
+        if (!include(path)) continue;
+        entries.push({ source: path, target: join(target, relative(absolute, path)), kind });
+      }
+    } else if (include(absolute)) entries.push({ source: absolute, target, kind });
   };
   add(relative(root, sourceManifest(root, host)), manifestPaths[host]);
   for (const name of ["assets/logo.svg", "references", ...packageDocs, "LICENSE", "THIRD_PARTY_NOTICES.md"]) add(name);
@@ -72,8 +86,9 @@ export function packageEntries(root, host) {
   for (const name of hostSkills(host)) {
     add(`skills/${name}/SKILL.md`, `skills/${name}/SKILL.md`, "skill");
     const references = `skills/${name}/references`;
-    if (existsSync(join(root, references))) add(references);
+    if (existsSync(join(root, references))) add(references, references, "copy", (path) => host === "opencode" || relative(join(root, references), path) !== "opencode.md");
     if (host === "cursor") add(`commands/${name}.md`, `commands/${name}.md`, "command");
+    if (host === "opencode") entries.push({ source: join(root, "skills", name, "SKILL.md"), target: `commands/${name}.md`, kind: "opencode-command" });
   }
   return entries.sort((a, b) => a.target.localeCompare(b.target));
 }
@@ -89,12 +104,15 @@ function prepareHost(root, host) {
       const instruction = hostInstruction(host, entry.target.split(sep)[1]);
       if (instruction) content = `${content.trimEnd()}\n\n${instruction}\n`;
     }
-    if (entry.kind === "command") {
+    if (entry.kind === "command" || entry.kind === "opencode-command") {
       const name = entry.target.split(sep).at(-1).slice(0, -3);
       const source = readFileSync(join(root, "skills", name, "SKILL.md"), "utf8");
       const document = parseDocument(source.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? "");
-      if (document.errors.length || typeof document.toJS()?.description !== "string") throw new Error(`invalid skill metadata: ${name}`);
-      content = content.replace(/^description:.*$/m, () => `description: ${JSON.stringify(document.toJS().description)}`);
+      const description = document.toJS()?.description;
+      if (document.errors.length || typeof description !== "string") throw new Error(`invalid skill metadata: ${name}`);
+      content = entry.kind === "opencode-command"
+        ? openCodeCommand(name, description)
+        : content.replace(/^description:.*$/m, () => `description: ${JSON.stringify(description)}`);
     }
     return { target: entry.target, content, mode: stat.mode & 0o777 };
   });

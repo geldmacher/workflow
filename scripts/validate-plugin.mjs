@@ -7,7 +7,7 @@ import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import { parseDocument } from "yaml";
 import { checkMarkdownLinks } from "./check-markdown-links.mjs";
-import { publicSkills, hostSkills, manifestPaths, files, packageEntries } from "./build-plugin-targets.mjs";
+import { publicSkills, hostSkills, manifestPaths, files, packageEntries, OPENCODE_COMPATIBILITY, openCodeCommand } from "./build-plugin-targets.mjs";
 
 export const defaultRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const readJson = (path) => JSON.parse(readFileSync(path, "utf8"));
@@ -53,6 +53,10 @@ function manifestAt(path, host, version, failures) {
   if (host === "cursor") metadataSchema(path, "plugin.schema.json", failures);
   if (host === "agent-plugins") metadataSchema(path, "agent-plugins/1.0.0/plugin.schema.json", failures);
   if (host === "codex" && manifest.skills !== "./skills/") failures.push("Codex must discover the packaged skills directory");
+  if (host === "opencode") {
+    if (manifest.skills !== "./skills/") failures.push("OpenCode must discover the packaged skills directory");
+    if (manifest.opencodeCompatibility !== OPENCODE_COMPATIBILITY) failures.push(`OpenCode package must target OpenCode ${OPENCODE_COMPATIBILITY}`);
+  }
   return manifest;
 }
 
@@ -67,6 +71,19 @@ export function validateTarget(root, host, version, sourceRoot = defaultRoot) {
       const commands = readdirSync(join(root, "commands")).sort();
       if (commands.join() !== publicSkills.map((name) => `${name}.md`).sort().join()) failures.push("Cursor command inventory differs");
       for (const command of commands) parseFrontmatter(join(root, "commands", command), failures);
+    }
+    if (host === "opencode") {
+      const commands = readdirSync(join(root, "commands")).sort();
+      if (commands.join() !== publicSkills.map((name) => `${name}.md`).sort().join()) failures.push("OpenCode command inventory differs");
+      for (const command of commands) {
+        const name = command.slice(0, -3);
+        const skillPath = join(root, "skills", name, "SKILL.md");
+        const skill = parseFrontmatter(skillPath, failures);
+        const text = readFileSync(join(root, "commands", command), "utf8");
+        if (skill.description && text !== openCodeCommand(name, skill.description)) failures.push(`${command}: OpenCode command must load the skill by id`);
+        if (/opencode\/autoinvoke|disable-model-invocation|opencode\/slash/.test(readFileSync(skillPath, "utf8"))) failures.push(`${name}: OpenCode skill must stay auto-invocable and must not use removed slash metadata`);
+      }
+      if (existsSync(join(root, "CLAUDE.md")) || existsSync(join(root, "skills", "CLAUDE.md"))) failures.push("OpenCode package must not add CLAUDE.md");
     }
     for (const path of files(root)) {
       const item = relative(root, path).split(sep).join("/");
@@ -90,7 +107,7 @@ export function validatePlugin(root = defaultRoot) {
       manifestAt(path, host, version, failures);
     }
     metadataSchema(join(root, ".cursor-plugin", "marketplace.json"), "marketplace.schema.json", failures);
-    skillsAt(root, [...publicSkills, "implement-work"], failures);
+    skillsAt(root, publicSkills, failures);
     for (const name of publicSkills) parseFrontmatter(join(root, "commands", `${name}.md`), failures);
     for (const name of ["src", "dist", "hooks", "mcp.json", "schemas/artifacts", "schemas/manual-workflow"]) if (existsSync(join(root, name))) failures.push(`obsolete source surface: ${name}`);
     for (const dir of ["skills", "references", "commands", "docs", "targets"]) {

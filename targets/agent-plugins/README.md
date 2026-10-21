@@ -12,9 +12,9 @@ Workflow helps your coding agent plan a change, implement it, review the result,
 
 This portable package supplies skills for compatible coding agents. Loading and activating it depends on your client's plugin support; follow that client's package instructions.
 
-The included `install-release` skill installs Workflow releases for **Cursor or Codex only**. It does not install this portable package into another client. For those supported hosts, the [release installation guide](../../docs/installation.md) covers manual installation and updates, prompts for your own agent, and activation. No repository checkout, Node.js, or npm is needed for those release installations.
+The included `install-release` skill installs Workflow releases for **Cursor, Codex, or OpenCode**. It does not install this portable package into another client. For those supported hosts, the [release installation guide](../../docs/installation.md) covers manual installation and updates, prompts for your own agent, and activation. No repository checkout, Node.js, or npm is needed for those release installations.
 
-In Cursor, use `/install-release` for updates; in Codex, use `$install-release`. In another host, explicitly name Cursor or Codex before asking this skill to install anything.
+In Cursor, use `/install-release` for updates; in Codex, use `$install-release`; in OpenCode, use `@install-release`. In another host, explicitly name Cursor, Codex, or OpenCode before asking this skill to install anything.
 
 ## Start with the manual workflow
 
@@ -27,6 +27,8 @@ The recommended starting point is **plan → implement → review → correct if
 **2. Approve and implement.** Check the proposed behavior, scope, and checks, then ask:
 
 > Use implement-work to implement the approved CSV export plan.
+
+The same `implement-work` skill is also packaged for Cursor (`/implement-work`), Codex (`$implement-work`), and OpenCode (`@implement-work` or `/implement-work`). On Cursor and Codex, **Implement Plan** remains the default when Plan mode produced the plan.
 
 You receive the changes, checks, and any open issues.
 
