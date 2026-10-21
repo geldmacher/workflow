@@ -113,10 +113,11 @@ function normalizeRepository(value) {
   const normalized = value.trim()
     .replace(/^git@github\.com:/, "https://github.com/")
     .replace(/^ssh:\/\/git@github\.com\//, "https://github.com/")
+    .replace(/^https:\/\/[^@/\s]+@github\.com\//i, "https://github.com/")
     .replace(/\.git$/, "")
     .replace(/\/$/, "");
   const match = normalized.match(/^https:\/\/github\.com\/([^/]+\/[^/]+)$/i);
-  if (!match) throw new Error(`repository must identify one GitHub repository: ${value}`);
+  if (!match) throw new Error(`repository must identify one GitHub repository: ${value.replace(/\/\/[^/\s@]+@/g, "//")}`);
   return match[1];
 }
 
@@ -1063,7 +1064,7 @@ function runCli() {
   process.stdout.write(`${JSON.stringify(completeRelease(), null, 2)}\n`);
 }
 
-const direct = process.argv[1] && realpathSync(process.argv[1]) === scriptPath;
+const direct = process.argv[1] && process.argv[1] !== "-" && realpathSync(process.argv[1]) === scriptPath;
 if (direct) {
   try { runCli(); }
   catch (error) {

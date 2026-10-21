@@ -257,7 +257,7 @@ OpenCode 2.1.2 discovers skills from `~/.config/opencode/skills/<id>/SKILL.md` a
 
 Skill ids are the directory names (`plan-work`, `implement-work`, and the other packaged skills). Model auto-invocation stays enabled. `implement-work` is selected by `@implement-work`, `/implement-work`, or a supplied plan artefact outside a host Implement Plan action; approving a plan does not select it. A user selects any skill with `@name`. The same name is also a slash command: `/plan-work` loads that skill. Commands live in `commands/<name>.md` inside the package and are installed to `~/.config/opencode/commands/<name>.md`. The manual sequence is the plan agent or `/plan-work`, then `/implement-work` in the build agent with the plan artefact.
 
-If `~/.config/opencode/opencode.json` exists, add the skills path to its `skills` array when that path is absent. Preserve every other setting. If only `opencode.jsonc` exists, leave that file unchanged and create `opencode.json` with the one `skills` entry; OpenCode combines skills arrays from both files. If neither file exists, create `opencode.json`:
+The OpenCode config is shared with every other plugin. Merge only, always back up, and touch only this plugin's own entries. If `~/.config/opencode/opencode.json` exists, add this package's skills path to its `skills` array when that path is absent. Keep every other key and every other skills entry, and do not add a duplicate. If only `opencode.jsonc` exists, leave that file unchanged and create `opencode.json` with the one `skills` entry; OpenCode combines skills arrays from both files. If neither file exists, create `opencode.json`:
 
 ```json
 {
@@ -266,15 +266,15 @@ If `~/.config/opencode/opencode.json` exists, add the skills path to its `skills
 }
 ```
 
-On Windows, use the absolute package path in `skills` when `~` is not the profile you are installing into. Do not remove unrelated `skills` entries.
+On Windows, use the absolute package path in `skills` when `~` is not the profile you are installing into.
 
-Copy each packaged `commands/<name>.md` to `~/.config/opencode/commands/<name>.md`. If a destination file already exists and its text does not load that Workflow skill, stop and report the name collision. Do not delete unrelated commands. A later skill source with the same id overrides this package; project `.opencode/skills` and later `skills` entries win over this global registration. This package does not install into `~/.agents/skills` or `~/.claude/skills`.
+Before any write that changes `opencode.json` or a command file, save a timestamped copy of the previous file. Copy each packaged `commands/<name>.md` to `~/.config/opencode/commands/<name>.md`. If a destination file already exists and its text does not load that Workflow skill, stop and report the name collision. Do not delete or replace unrelated commands. A later skill source with the same id overrides this package; project `.opencode/skills` and later `skills` entries win over this global registration. This package does not install into `~/.agents/skills` or `~/.claude/skills`.
 
 The OpenCode manifest's `opencodeCompatibility` value is `2.1.2`. Do not add `CLAUDE.md`, `opencode/slash`, or `opencode/autoinvoke: false`.
 
-For an update, back up the complete package directory, the previous `opencode.json` when it will change, and any command file that will be replaced. Replace the whole package directory. Keep the skills path. Replace only Workflow command files. Start a new session and check `@plan-work`, `/plan-work`, `@implement-work`, and `/implement-work`.
+For an update, back up the complete package directory. Back up `opencode.json` and each Workflow command file before changing them. Replace the whole package directory. Keep the skills path and every unrelated config entry. Replace only Workflow command files. Start a new session and check `@plan-work`, `/plan-work`, `@implement-work`, and `/implement-work`.
 
-For rollback, restore the retained package directory, restore the previous config bytes or remove a config file this install created, and restore or remove the command files this install changed. Do not combine files from different versions.
+For rollback after an update, restore the retained package directory and its matching command files. Keep or restore this plugin's skills entry so the previous version remains registered. To undo a first installation, remove only this plugin's skills entry, command files, and package. Leave other keys, other plugins' skills entries, `opencode.jsonc`, and unrelated commands in place. Do not replace the shared config with an older full-file backup after other plugins may have changed it, and do not combine files from different versions. The local deploy CLI has no rollback command; `deploy:uninstall` removes the installation rather than restoring a previous version.
 
 ## Verify the installed layout
 
