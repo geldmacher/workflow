@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- During implementation, report `any` or a forced cast, a repeated workaround, or parameters or state the plan did not anticipate as a deviation from the plan instead of patching it in. Review treats those signs as a band-aid when a cleaner alternative still fits the plan.
+- When a plan adds or changes an API, CLI, or config format, include a short caller-side usage example and the key signatures. When a short throwaway experiment can settle an open technical question, propose that experiment instead of a longer risk list.
+- For a verification flow that will be driven again, prefer a small project-specific control script over another prose recipe. Keep the script optional and proportional.
+
 ## 7.11.0 - 2026-10-18
 
 - During review, report an in-scope band-aid (a symptom patch, special case, duplicated logic, or stacked workaround) as an actionable finding with the cleaner alternative, so correction replaces the patch. Leave a redesign outside the approved plan as a recommendation for the human.
