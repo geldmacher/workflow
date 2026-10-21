@@ -107,7 +107,7 @@ export function validatePlugin(root = defaultRoot) {
       manifestAt(path, host, version, failures);
     }
     metadataSchema(join(root, ".cursor-plugin", "marketplace.json"), "marketplace.schema.json", failures);
-    skillsAt(root, [...publicSkills, "implement-work"], failures);
+    skillsAt(root, publicSkills, failures);
     for (const name of publicSkills) parseFrontmatter(join(root, "commands", `${name}.md`), failures);
     for (const name of ["src", "dist", "hooks", "mcp.json", "schemas/artifacts", "schemas/manual-workflow"]) if (existsSync(join(root, name))) failures.push(`obsolete source surface: ${name}`);
     for (const dir of ["skills", "references", "commands", "docs", "targets"]) {

@@ -45,7 +45,11 @@ The recommended starting point is **plan → implement → review → correct if
 
 > @plan-work Add CSV export to the orders page. Export only the currently filtered orders, using the visible columns. Empty exports should contain headers. Follow the existing download conventions.
 
-**2. Approve and implement.** Check the proposed behavior, scope, and checks, then continue with the OpenCode build agent. You receive the changes, checks, and any open issues.
+**2. Approve and implement.** Check the proposed behavior, scope, and checks, then switch to the build agent and ask:
+
+> /implement-work Implement the approved CSV export plan.
+
+`@implement-work` loads the same skill. Supply the plan artefact with the request. You receive the changes, checks, and any open issues.
 
 **3. Request review.** After implementation, ask:
 

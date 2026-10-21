@@ -4,4 +4,4 @@ Use OpenCode 2.1.2. Launch child work with the `subagent` tool: agent id, a shor
 
 `experimental.subagent_depth` defaults to 1, so a subagent cannot start another subagent. Delegate Plan, Implement, Review, and Correct from the primary session unless the user has raised that depth. The Cursor and Codex notes in [agents](agents.md) do not apply here.
 
-Select a skill explicitly with `@skill-id` or `/skill-id`. Leave model auto-invocation enabled.
+Select a skill explicitly with `@skill-id` or `/skill-id`. Leave model auto-invocation enabled. After planning, run `@implement-work` or `/implement-work` in the build agent with the plan artefact. Planning stays on the plan agent.

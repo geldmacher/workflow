@@ -81,11 +81,8 @@ test("context covers packaged instructions once, including required planning and
         assert.ok(scenarios[name].documents.includes(concurrent), `${host} ${name}`);
         for (const path of scenarios[base].documents) assert.ok(scenarios[name].documents.includes(path), `${host} ${name} ${path}`);
       }
-      assert.equal(scenarios.implementationConcurrent === undefined, host !== "agent-plugins");
-      if (host === "agent-plugins") {
-        assert.ok(!scenarios.implementation.documents.includes(concurrent));
-        assert.ok(scenarios.implementationConcurrent.documents.includes(concurrent));
-      }
+      assert.ok(!scenarios.implementation.documents.includes(concurrent));
+      assert.ok(scenarios.implementationConcurrent.documents.includes(concurrent));
       assert.ok(!scenarios.verificationCreation.documents.includes("skills/verification-work/references/maintain.md"));
     }
   } finally { rmSync(item.parent, { recursive: true, force: true }); }

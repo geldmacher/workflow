@@ -38,12 +38,10 @@ function scenarios(root, host) {
     correctionVerifierMaintenance: [...entry("correct-work"), verification, skill("verification-work"), maintenance],
     verificationCreation: [...inspect, creation], verificationMaintenance: [...inspect, maintenance],
   };
-  if (host === "agent-plugins") {
-    cases.implementation = entry("implement-work", [implementation]);
-    cases.implementationVerifierCreation = [...cases.implementation, verification, skill("verification-work"), creation];
-    cases.implementationVerifierMaintenance = [...cases.implementation, verification, skill("verification-work"), maintenance];
-  }
-  for (const name of ["plan", "review", "correction", "explanation", "status", "doctor", "verificationInspect", "methodSuggestion", ...(host === "agent-plugins" ? ["implementation"] : [])]) cases[`${name}WithLearning`] = [...cases[name], learning];
+  cases.implementation = entry("implement-work", [implementation]);
+  cases.implementationVerifierCreation = [...cases.implementation, verification, skill("verification-work"), creation];
+  cases.implementationVerifierMaintenance = [...cases.implementation, verification, skill("verification-work"), maintenance];
+  for (const name of ["plan", "review", "correction", "explanation", "status", "doctor", "verificationInspect", "methodSuggestion", "implementation"]) cases[`${name}WithLearning`] = [...cases[name], learning];
   cases.autoWorkEntry = entry("auto-work", [`${auto}/operation.md`, `${auto}/agents.md`, `${auto}/handoff.md`, ...(["codex", "cursor", "opencode"].includes(host) ? [`${auto}/${host}.md`] : [])]);
   cases.autoWork = [...cases.autoWorkEntry, skill("plan-work"), implementation, skill("review-work"), skill("correct-work"), `${auto}/reviewer.md`];
   cases.autoWorkDelivery = [...cases.autoWork, `${auto}/delivery.md`];
@@ -99,7 +97,7 @@ function scenarios(root, host) {
   cases.autoWorkConcurrent = [...cases.autoWork, concurrent];
   cases.learningConcurrent = [...cases.learning, concurrent];
   cases.verificationConcurrent = [...cases.verificationInspect, concurrent];
-  if (host === "agent-plugins") cases.implementationConcurrent = [...cases.implementation, concurrent];
+  cases.implementationConcurrent = [...cases.implementation, concurrent];
   return cases;
 }
 

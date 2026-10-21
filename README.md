@@ -40,7 +40,7 @@ The recommended starting point is **plan → implement → review → correct if
 
 Ordinary language works. To select the skill directly, use `$plan-work` in Codex, `/plan-work` in Cursor, `@plan-work` or `/plan-work` in OpenCode, or `plan-work` in portable clients. Use the same prefix for the skills below.
 
-**2. Approve and implement.** Check the proposed behavior, scope, and checks, then select **Implement Plan** in Cursor or Codex. In OpenCode, continue with the build agent. In a portable client, ask `implement-work` to implement the approved plan. You receive the changes, checks, and any open issues.
+**2. Approve and implement.** Check the proposed behavior, scope, and checks, then select **Implement Plan** in Cursor or Codex. That button stays the default when Plan mode produced the plan. When Plan mode is not used, ask `/implement-work` in Cursor or `$implement-work` in Codex and supply the plan artefact. In OpenCode, switch to the build agent and ask `/implement-work` or `@implement-work` with that plan. You receive the changes, checks, and any open issues.
 
 **3. Request review.** After implementation, ask:
 

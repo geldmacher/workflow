@@ -32,14 +32,14 @@ test("all host packages are reproducible, closed, and valid without a runtime", 
       const entries = files(first[host].path).map((path) => relative(first[host].path, path));
       assert.ok(!entries.some((path) => /\.(?:[cm]?js|sh|py)$/.test(path)));
       assert.ok(!entries.some((path) => /^(?:dist|hooks|src|scripts|schemas)[\\/]/.test(path)));
-      assert.equal(existsSync(join(first[host].path, "skills/implement-work")), host === "agent-plugins");
+      assert.equal(existsSync(join(first[host].path, "skills/implement-work")), true);
     }
   } finally { rmSync(parent, { recursive: true, force: true }); }
 });
 
 test("Cursor and Codex host instructions stay on their existing wording", () => {
-  assert.equal(hostInstruction("cursor", "plan-work"), "For standalone planning, stay read-only and use the native Cursor plan when Plan Mode is active or the host requires it. Do not request a mode switch only to satisfy formatting. Never bypass an actual host read-only mode. Direct the human to check it and use Implement Plan, then commission /review-work in Ask Mode. Within expressly commissioned Auto-Work, use its plan approval rules and native execution without requesting a manual phase-mode switch.");
-  assert.equal(hostInstruction("codex", "plan-work"), "For standalone planning, stay read-only. When Codex Plan mode is active or the host requires it, return the complete plan inside one native <proposed_plan> block. Do not request a mode switch only to satisfy that format. Never bypass an actual host read-only mode. Direct the human to check the plan and use Implement Plan, then commission $review-work. Within expressly commissioned Auto-Work, apply its Light or Dark plan approval rules.");
+  assert.equal(hostInstruction("cursor", "plan-work"), "For standalone planning, stay read-only and use the native Cursor plan when Plan Mode is active or the host requires it. Do not request a mode switch only to satisfy formatting. Never bypass an actual host read-only mode. Direct the human to check it and use Implement Plan, then commission /review-work in Ask Mode. When Plan mode is not used, /implement-work applies a supplied plan artefact. Within expressly commissioned Auto-Work, use its plan approval rules and native execution without requesting a manual phase-mode switch.");
+  assert.equal(hostInstruction("codex", "plan-work"), "For standalone planning, stay read-only. When Codex Plan mode is active or the host requires it, return the complete plan inside one native <proposed_plan> block. Do not request a mode switch only to satisfy that format. Never bypass an actual host read-only mode. Direct the human to check the plan and use Implement Plan, then commission $review-work. When Plan mode is not used, $implement-work applies a supplied plan artefact. Within expressly commissioned Auto-Work, apply its Light or Dark plan approval rules.");
   assert.equal(hostInstruction("cursor", "auto-work"), "Read [Cursor delegation](references/cursor.md). Use Agent Mode; standalone Ask Mode does not govern delegated Review. Do not require manual mode switches for internal phases.");
   assert.equal(hostInstruction("codex", "auto-work"), "Read [Codex delegation](references/codex.md). If read-only Plan mode prevents implementation, hand off the authorized sequence to native implementation. Do not require manual mode switches for internal phases.");
   assert.match(hostInstruction("opencode", "auto-work"), /references\/opencode\.md/);
@@ -59,7 +59,8 @@ test("OpenCode keeps shared reference links and does not copy its host note into
     assert.match(skill, /\.\.\/\.\.\/references\/workflow\.md/);
     assert.equal(existsSync(join(built.opencode.path, "references/workflow.md")), true);
     assert.equal(existsSync(join(built.opencode.path, "skills/auto-work/references/opencode.md")), true);
-    assert.equal(existsSync(join(built.opencode.path, "skills/implement-work")), false);
+    assert.equal(existsSync(join(built.opencode.path, "skills/implement-work/SKILL.md")), true);
+    assert.match(readFileSync(join(built.opencode.path, "commands/implement-work.md"), "utf8"), /Load the `implement-work` skill/);
     const command = readFileSync(join(built.opencode.path, "commands/plan-work.md"), "utf8");
     assert.match(command, /Load the `plan-work` skill/);
     assert.doesNotMatch(command, /opencode\/autoinvoke|disable-model-invocation|opencode\/slash/);
@@ -88,7 +89,7 @@ test("phase handoffs name skills available in the receiving host package", () =>
     const built = buildPluginTargets(parent);
     for (const host of ["cursor", "codex", "agent-plugins", "opencode"]) {
       const pairs = [["plan-work", "review-work"], ["correct-work", "review-work"], ["review-work", "correct-work"], ["review-work", "learn-from-work"], ["verification-work", "review-work"], ["setup-workflow", "review-work"], ["maintain-workflow", "review-work"]];
-      if (host === "agent-plugins") pairs.push(["plan-work", "implement-work"], ["implement-work", "review-work"]);
+      pairs.push(["plan-work", "implement-work"], ["implement-work", "review-work"]);
       for (const [source, destination] of pairs) {
         const prefix = host === "cursor" ? "/" : host === "codex" ? "$" : host === "opencode" ? "@" : "";
         assert.ok(hostInstruction(host, source).includes(`${prefix}${destination}`), `${host}: ${source} -> ${destination}`);
@@ -97,11 +98,12 @@ test("phase handoffs name skills available in the receiving host package", () =>
       }
       if (host === "cursor" || host === "codex") {
         assert.ok(hostInstruction(host, "plan-work").includes("Implement Plan"));
-        assert.ok(!hostInstruction(host, "plan-work").includes("implement-work"));
+        assert.ok(hostInstruction(host, "plan-work").includes("implement-work"));
+        assert.match(hostInstruction(host, "implement-work"), /Do not load this skill because Implement Plan/);
       }
       if (host === "opencode") {
-        assert.ok(hostInstruction(host, "plan-work").includes("build agent"));
-        assert.ok(!hostInstruction(host, "plan-work").includes("implement-work"));
+        assert.ok(hostInstruction(host, "plan-work").includes("@implement-work"));
+        assert.ok(hostInstruction(host, "plan-work").includes("/implement-work"));
         assert.ok(!hostInstruction(host, "plan-work").includes("Implement Plan"));
       }
     }
@@ -164,7 +166,7 @@ test("playbook references are complete and nested skill references survive every
           }
         } else assert.equal(contentDigest(destination), contentDigest(source));
       }
-      assert.equal(existsSync(join(built[host].path, "skills/implement-work")), host === "agent-plugins");
+      assert.equal(existsSync(join(built[host].path, "skills/implement-work")), true);
       assert.deepEqual(validateTarget(built[host].path, host, built.version, root), []);
       assert.deepEqual(checkMarkdownLinks(built[host].path), []);
     }

@@ -28,6 +28,8 @@ The recommended starting point is **plan → implement → review → correct if
 
 > Use implement-work to implement the approved CSV export plan.
 
+The same `implement-work` skill is also packaged for Cursor (`/implement-work`), Codex (`$implement-work`), and OpenCode (`@implement-work` or `/implement-work`). On Cursor and Codex, **Implement Plan** remains the default when Plan mode produced the plan.
+
 You receive the changes, checks, and any open issues.
 
 **3. Request review.** After implementation, ask:

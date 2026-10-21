@@ -71,7 +71,7 @@ The agent leaves required restarts to you. Copying files alone does not activate
 
 ## Activate in OpenCode
 
-After the package, skills registration, and commands are in place, start a new OpenCode session. Check that Workflow skills are listed for the model and that `@plan-work` and `/plan-work` both load plan-work. See [OpenCode details and rollback](#opencode) for paths and recovery. An already running session does not prove that the new files are active.
+After the package, skills registration, and commands are in place, start a new OpenCode session. Check that Workflow skills are listed for the model and that `@plan-work` and `/plan-work` both load plan-work. `@implement-work` and `/implement-work` load implement-work. See [OpenCode details and rollback](#opencode) for paths and recovery. An already running session does not prove that the new files are active.
 
 ## If installation cannot finish
 
@@ -255,7 +255,7 @@ Install the complete package at:
 
 OpenCode 2.1.2 discovers skills from `~/.config/opencode/skills/<id>/SKILL.md` and from directories listed in the `skills` array of `opencode.json` or `opencode.jsonc`. This package stays one directory so shared `references/` files remain beside `skills/<name>/SKILL.md`. Paths such as `../../references/workflow.md` stay relative to the skill directory and are not rewritten. Register that skills directory with an absolute path or `~/.config/opencode/geldmacher-workflow/skills`. Relative paths in `skills` are resolved from the working directory, not from the config file, so do not use a relative entry.
 
-Skill ids are the directory names (`plan-work`, and the other packaged skills). Descriptions are unchanged, and model auto-invocation stays enabled. A user selects a skill with `@plan-work`. The same name is also a slash command: `/plan-work` loads that skill. Commands live in `commands/<name>.md` inside the package and are installed to `~/.config/opencode/commands/<name>.md`.
+Skill ids are the directory names (`plan-work`, `implement-work`, and the other packaged skills). Model auto-invocation stays enabled. `implement-work` is selected by `@implement-work`, `/implement-work`, or a supplied plan artefact outside a host Implement Plan action; approving a plan does not select it. A user selects any skill with `@name`. The same name is also a slash command: `/plan-work` loads that skill. Commands live in `commands/<name>.md` inside the package and are installed to `~/.config/opencode/commands/<name>.md`. The manual sequence is the plan agent or `/plan-work`, then `/implement-work` in the build agent with the plan artefact.
 
 If `~/.config/opencode/opencode.json` exists, add the skills path to its `skills` array when that path is absent. Preserve every other setting. If only `opencode.jsonc` exists, leave that file unchanged and create `opencode.json` with the one `skills` entry; OpenCode combines skills arrays from both files. If neither file exists, create `opencode.json`:
 
@@ -272,7 +272,7 @@ Copy each packaged `commands/<name>.md` to `~/.config/opencode/commands/<name>.m
 
 The OpenCode manifest's `opencodeCompatibility` value is `2.1.2`. Do not add `CLAUDE.md`, `opencode/slash`, or `opencode/autoinvoke: false`.
 
-For an update, back up the complete package directory, the previous `opencode.json` when it will change, and any command file that will be replaced. Replace the whole package directory. Keep the skills path. Replace only Workflow command files. Start a new session and check `@plan-work` and `/plan-work`.
+For an update, back up the complete package directory, the previous `opencode.json` when it will change, and any command file that will be replaced. Replace the whole package directory. Keep the skills path. Replace only Workflow command files. Start a new session and check `@plan-work`, `/plan-work`, `@implement-work`, and `/implement-work`.
 
 For rollback, restore the retained package directory, restore the previous config bytes or remove a config file this install created, and restore or remove the command files this install changed. Do not combine files from different versions.
 

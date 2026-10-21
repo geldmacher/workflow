@@ -14,7 +14,7 @@ npm run build:targets
 npm run release-check
 ```
 
-The build generates packages for Cursor, Codex, OpenCode, and Agent Plugins. `release-check` validates metadata, package contents, tests, context limits, and Markdown links. Its `check:targets` step builds and validates every format in temporary directories. Packaging tests also cover reproducible archives and isolated deployment behavior.
+The build generates packages for Cursor, Codex, OpenCode, and Agent Plugins. Every package includes `implement-work` and, on Cursor and OpenCode, a matching command. `release-check` validates metadata, package contents, tests, context limits, and Markdown links. Its `check:targets` step builds and validates every format in temporary directories. Packaging tests also cover reproducible archives and isolated deployment behavior.
 
 Context limits remain hard gates. Follow the [context budget guidance](behavior-validation.md#context-budgets) when a commissioned extension or necessary clarification warrants a documented adjustment; ordinary checks never raise limits.
 
