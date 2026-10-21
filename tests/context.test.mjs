@@ -30,7 +30,7 @@ test("context covers packaged instructions once, including required planning and
           assert.equal(scenario.tokens, tokens, `${host} ${name}`);
         }
       }
-      for (const name of ["plan", "autoWork"]) {
+      for (const name of ["plan", "autoWork", ...(host === "agent-plugins" ? ["implementation"] : [])]) {
         assert.ok(scenarios[name].documents.includes("references/implementation-work.md"));
         assert.ok(!scenarios[name].documents.includes("skills/engineering-work/references/catalog.md"));
       }

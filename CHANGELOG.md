@@ -2,10 +2,10 @@
 
 ## Unreleased
 
-- During implementation, report `any` or a forced cast, a repeated workaround, or parameters or state the plan did not anticipate as a deviation from the plan instead of patching it in, then stop and hand back until the plan is corrected. Review treats those signs as a band-aid when a cleaner alternative still fits the plan.
+- During implementation, reassess casts, repeated workarounds, and unanticipated parameters or state, resolving ordinary internal details within the plan. Stop affected work for a human decision when a sound solution needs a material plan change or permissions or dependencies outside scope. Review investigates the warning signs in context and reports an evidenced band-aid with a cleaner in-scope alternative.
 - When a plan adds or changes an API, CLI, or config format, include a short caller-side usage example and the key signatures. When a short throwaway experiment can settle an open technical question, propose that experiment instead of a longer risk list.
 - For a verification flow that will be driven again, prefer a small project-specific control script over another prose recipe. Keep the script optional and proportional.
-- Keep those instructions at full length instead of shortening nearby guidance to fit a context limit, and raise the implementation context limit from 1600 to 1900. Raise the implementation-and-learning limit from 3100 to 3300.
+- Keep implementation guidance in one shared reference and retain the existing context limits after deduplication. Document contrasting implementation and review decisions; existing package and context checks cover instruction delivery instead of freezing prose in literal-text tests.
 
 ## 7.11.0 - 2026-10-18
 
