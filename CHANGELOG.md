@@ -6,6 +6,10 @@
 - Add an OpenCode 2.1.2 package beside the Cursor and Codex packages. Skills stay available for model selection and can also be started with `@skill-id` or `/skill-id`. Provenance schema 2 records the OpenCode archive; schema 1 releases remain valid. The next release should be a minor version, 7.12.0. This change does not publish that version.
 - Ship `implement-work` as a skill and command on Cursor, Codex, OpenCode, and Agent Plugins. Implement Plan stays the default on Cursor and Codex when Plan mode is used. `implement-work` applies a supplied plan artefact when that mode is not used, including `/implement-work` in the OpenCode build agent. Approving a plan does not select the skill.
 - Raise the discovery limit from 600 to 700 and the implementation limit from 1600 to 1800. Those scenarios were above 97% of their limits after implement-work shipped. The instructions were not shortened.
+- During implementation, reassess casts, repeated workarounds, and unanticipated parameters or state, resolving ordinary internal details within the plan. Stop affected work for a human decision when a sound solution needs a material plan change or permissions or dependencies outside scope. Review investigates the warning signs in context and reports an evidenced band-aid with a cleaner in-scope alternative.
+- When a plan adds or changes an API, CLI, or config format, include a short caller-side usage example and the key signatures. When a short throwaway experiment can settle an open technical question, propose that experiment instead of a longer risk list.
+- For a verification flow that will be driven again, prefer a small project-specific control script over another prose recipe. Keep the script optional and proportional.
+- Keep implementation guidance in one shared reference. Document contrasting implementation and review decisions; existing package and context checks cover instruction delivery instead of freezing prose in literal-text tests.
 
 ## 7.11.0 - 2026-10-18
 

@@ -10,7 +10,7 @@ Determine what can show actions, outcomes, and side effects: screenshots, termin
 
 ## Write for an executor arriving without prior context
 
-Create the agreed directory with `SKILL.md`, including the host-required `name` and a description identifying the surface and when to use it. Link `features/README.md` from the skill and create one indexed file per agreed feature. Each feature explains its purpose, relevant sub-features, user entry points, concrete driving recipe, observable expected outcome, prerequisites, and gotchas. Cover the agreed meaningful features and name what remains uncovered; do not invent an exhaustive map. Headings can follow the product's conventions.
+Create the agreed directory with `SKILL.md`, including the host-required `name` and a description identifying the surface and when to use it. Link `features/README.md` from the skill and create one indexed file per agreed feature. Each feature explains its purpose, relevant sub-features, user entry points, concrete driving recipe, observable expected outcome, prerequisites, and gotchas. When a control script covers the flow, the recipe is its invocation. Cover the agreed meaningful features and name what remains uncovered; do not invent an exhaustive map. Headings can follow the product's conventions.
 
 The skill must make these operations actionable:
 
@@ -19,7 +19,7 @@ The skill must make these operations actionable:
 - **Drive:** use the actual user path and stable repository-derived handles. Internal setters or test-only shortcuts do not establish the user journey.
 - **Evidence:** capture the action and resulting state, plus relevant side effects. Name the evidence location. Use safe external boundaries and observe their effects; a mode called dry-run may still touch the network or files.
 - **Isolation and cleanup:** track resources created by this exercise; remove only those, including residue after failed attempts. Never kill by process name. Preserve evidence and check its existence after cleanup.
-- **Helpers, when needed:** keep them within the authorized verifier directory, executable, and document their invocation. Do not add a generic verification framework.
+- **Helpers, when needed:** keep them within the authorized verifier directory, executable, and document their invocation. For a flow this verifier will drive again, a small project-specific control script is usually a better lever than another prose recipe: a `doctor` subcommand, JSON output, `--help`, `--dry-run`, and an error that says what to do next are enough. Keep it proportional to the surface, and reuse an existing harness instead of adding a second tool. Do not add a generic verification framework.
 
 Existing suitable verifiers should be reused or proposed for maintenance rather than duplicated to obtain this structure.
 
