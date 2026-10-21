@@ -80,6 +80,7 @@ function metadata(root) {
     baseVersion,
     gitHead,
     gitDirty: true,
+    env: {},
   };
 }
 
@@ -358,6 +359,31 @@ test("Codex-only first install creates its Marketplace entry without touching Cu
   } finally {
     rmSync(item.root, { recursive: true, force: true });
   }
+});
+
+test("fixture deployments ignore inherited OpenCode and XDG config paths", () => {
+  const parent = mkdtempSync(join(tmpdir(), "workflow-deploy-environment-"));
+  try {
+    const opencode = join(parent, "host-opencode");
+    const xdg = join(parent, "host-xdg");
+    const env = { ...process.env, OPENCODE_CONFIG_DIR: opencode, XDG_CONFIG_HOME: xdg };
+    // The subprocess needs its own runner, not the parent's internal child protocol.
+    delete env.NODE_TEST_CONTEXT;
+    const result = spawnSync(process.execPath, [
+      "--test",
+      "--test-reporter=tap",
+      "--test-name-pattern=^first install is physical and a second identical deploy is a no-op$",
+      join(defaultRoot, "tests/local-plugin-deploy.test.mjs"),
+    ], {
+      cwd: parent,
+      env,
+      encoding: "utf8",
+    });
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.match(result.stdout, /^# pass 1$/m);
+    assert.equal(existsSync(opencode), false);
+    assert.equal(existsSync(xdg), false);
+  } finally { rmSync(parent, { recursive: true, force: true }); }
 });
 
 test("first install is physical and a second identical deploy is a no-op", () => {
