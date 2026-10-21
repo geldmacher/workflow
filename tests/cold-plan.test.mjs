@@ -10,13 +10,13 @@ test("implementation reports an architectural mismatch instead of patching the p
   const requirements = read("references/implementation-work.md");
   assert.match(requirements, /`any` or a forced cast, repeating the same workaround in several places/);
   assert.match(requirements, /parameters or state the plan did not anticipate/);
-  assert.match(requirements, /report that as a deviation from the plan instead of patching it in/);
+  assert.match(requirements, /report that as a deviation from the plan instead of patching it in, then stop and hand back until the plan is corrected rather than implementing around it/);
   assert.match(requirements, /those signs usually mean the architecture is wrong/);
   assert.match(requirements, /Before the first edit/);
   assert.match(requirements, /without requesting another phase assignment/);
   const implement = read("skills/implement-work/SKILL.md");
   assert.match(implement, /`any` or a forced cast, the same workaround in several places/);
-  assert.match(implement, /report that deviation from the plan instead of patching it in/);
+  assert.match(implement, /report that deviation from the plan instead of patching it in, then stop and hand back until the plan is corrected rather than implementing around it/);
   assert.match(implement, /human-approved plan/);
   assert.match(implement, /separately commissioned Review/);
   assert.match(implement, /Auto-Work sequence/);

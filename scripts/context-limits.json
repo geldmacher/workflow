@@ -105,7 +105,7 @@
     "implementation": 1900,
     "implementationVerifierCreation": 5000,
     "implementationVerifierMaintenance": 5000,
-    "implementationWithLearning": 3100,
+    "implementationWithLearning": 3300,
     "setupInspection": 2900,
     "setupImplementation": 3600,
     "maintenanceInspection": 3000,
@@ -967,6 +967,19 @@
           "maximum": 1557,
           "previousLimit": 1600,
           "limit": 1900
+        }
+      }
+    },
+    {
+      "date": "2026-10-21",
+      "reason": "The implementation stop now ends the pass and hands back until the plan is corrected. A combined measurement of this branch with the unmerged OpenCode branch put Cursor implementationWithLearning at 2977 of 3100 (96%).",
+      "selection": "Only implementationWithLearning. The same combined measurement put implementationVerifierCreation at 93.7%, and this branch measures it at 90.3%, so that limit stays 5000. This criterion does not trigger future automatic changes.",
+      "method": "Largest reported host measurement, including the separate OpenCode branch, plus about 10%, rounded up to 100. 2977 × 1.1 is 3275, which rounds up to 3300. Existing baselines are retained; normal checks never update limits.",
+      "scenarios": {
+        "implementationWithLearning": {
+          "maximum": 2977,
+          "previousLimit": 3100,
+          "limit": 3300
         }
       }
     }
