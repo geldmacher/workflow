@@ -830,6 +830,7 @@ test("failed OpenCode uninstall restores the complete package after a partial de
     const env = isolatedOpenCodeEnv(item.home);
     const paths = deploymentPaths(item.home, plugin);
     deployPreparedTargets({ ...metadata(item.repository), home: item.home, hosts: ["opencode"], env });
+    chmodSync(paths.opencode, 0o750);
     const protectedDir = join(paths.opencode, "zzz-protected");
     mkdirSync(protectedDir);
     writeFileSync(join(protectedDir, "payload.txt"), "retain the complete installed package\n");
@@ -846,12 +847,16 @@ test("failed OpenCode uninstall restores the complete package after a partial de
     assert.ok(readFileSync(command).equals(originalCommand));
     assert.equal(lstatSync(paths.opencodeConfig).mode & 0o777, 0o600);
     assert.equal(lstatSync(command).mode & 0o777, 0o640);
+    assert.equal(lstatSync(paths.opencode).mode & 0o777, 0o750);
     assert.equal(lstatSync(protectedDir).mode & 0o777, 0o555);
     const backup = backupDirectories(paths.opencodeBackups).find((name) => {
       return JSON.parse(readFileSync(join(paths.opencodeBackups, name, "manifest.json"), "utf8")).reason === "uninstall";
     });
     assert.ok(backup);
-    assert.equal(contentHash(join(paths.opencodeBackups, backup, "package"), { host: "opencode", baseVersion }), originalHash);
+    const snapshot = join(paths.opencodeBackups, backup, "package");
+    assert.equal(contentHash(snapshot, { host: "opencode", baseVersion }), originalHash);
+    assert.equal(lstatSync(snapshot).mode & 0o777, 0o750);
+    assert.equal(lstatSync(join(snapshot, "zzz-protected")).mode & 0o777, 0o555);
   } finally {
     unlockDirectories(item.root);
     rmSync(item.root, { recursive: true, force: true });

@@ -572,6 +572,17 @@ function safeBackupName(name) {
   return name;
 }
 
+function copyOpenCodePackage(source, destination) {
+  cpSync(source, destination, { recursive: true, preserveTimestamps: true });
+  function retainDirectoryModes(from, to) {
+    for (const entry of readdirSync(from, { withFileTypes: true })) {
+      if (entry.isDirectory()) retainDirectoryModes(join(from, entry.name), join(to, entry.name));
+    }
+    chmodSync(to, lstatSync(from).mode & 0o777);
+  }
+  retainDirectoryModes(source, destination);
+}
+
 function writeOpenCodeBackup({ home, plugin, root, createdAt, reason, files, packageRoot = null }) {
   assertDestination(join(root, "manifest.json"), home);
   mkdirSync(root, { recursive: true });
@@ -599,7 +610,7 @@ function writeOpenCodeBackup({ home, plugin, root, createdAt, reason, files, pac
     if (packageRoot !== null) {
       assertDestination(packageRoot, home);
       walk(packageRoot);
-      cpSync(packageRoot, join(stage, "package"), { recursive: true, preserveTimestamps: true });
+      copyOpenCodePackage(packageRoot, join(stage, "package"));
     }
     writeJson(join(stage, "manifest.json"), {
       schema: 1,
@@ -659,7 +670,7 @@ function restoreOpenCodeBackup(directory, { plugin, home }) {
         if (lstatSync(target).isSymbolicLink() || !lstatSync(target).isDirectory()) throw new Error("OpenCode package restore target is not a physical directory");
         renameSync(target, join(directory, `incomplete-package-${randomUUID()}`));
       }
-      cpSync(source, target, { recursive: true, preserveTimestamps: true });
+      copyOpenCodePackage(source, target);
     } catch (error) {
       restoreErrors.push(error);
     }

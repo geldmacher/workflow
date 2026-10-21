@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Separate OpenCode rollback guidance from uninstall, retain the complete package for failed-uninstall recovery, and preserve shared config and command file permissions during updates and restoration.
+- Separate OpenCode rollback guidance from uninstall, retain the complete package for failed-uninstall recovery, and preserve shared config, command file, and package directory permissions during updates and restoration.
 - Keep local deployment and release helpers inert when imported from a stdin module; continue to recognize physical and aliased CLI entrypoints.
 
 - Keep OpenCode deployment safe for the shared `opencode.json` and command directory. Merge this plugin's skills path without duplicating it or dropping other plugins' keys, skills, or commands; write a timestamped backup before every changing update; and uninstall only this plugin's own entries. A failed deploy or uninstall reports every rollback error together, and an interrupted atomic write removes its temporary file. The next write also removes stale temporary files left by a dead process. A credentialed GitHub remote still identifies the repository, and the credential is not included in the error. Patch-level fix. This change does not publish a release.
