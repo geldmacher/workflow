@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Keep OpenCode deployment safe for the shared `opencode.json` and command directory. Merge this plugin's skills path without duplicating it or dropping other plugins' keys, skills, or commands; write a timestamped backup before every changing update; and uninstall only this plugin's own entries. Patch-level fix. This change does not publish a release.
+
 ## 7.12.0 - 2026-10-21
 
 - Check OpenCode JSONC registration through exact active `skills` entries, preserving comments and rejecting malformed JSONC. Local deployment and status reject configuration-directory overrides outside the supported location instead of reporting an unused installation as current.
