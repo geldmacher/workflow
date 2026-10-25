@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 7.13.0 - 2026-10-25
+
 - When designing a side-effecting operation, such as a migration, sync or import job, or deploy, install, or backup script, make it safe to repeat, including after it stops partway, so every run leaves one finished state.
 - When a cheap bug-fix regression test exists, require the failure before the fix to be for the expected reason, not an import error, wrong fixture, or typo.
 

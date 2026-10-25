@@ -1,6 +1,6 @@
 {
   "name": "geldmacher-workflow",
-  "version": "7.12.1",
+  "version": "7.13.0",
   "description": "Plan, implement, review, and correct changes with your coding agent. Request each phase separately, follow an agreed plan, and check the result before moving on.",
   "author": {
     "name": "Geldmacher"
