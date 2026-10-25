@@ -7,7 +7,7 @@ Use to add or intentionally change behavior. The applicable plan defines the req
 1. Trace the affected subsystem, existing behavior, interfaces, and consumers. Describe what changes for the user or caller and what must remain compatible.
 2. Name the domain data and its organizing structure before scattering logic: a state machine for meaningful transitions, a registry for repeated dispatch, or a typed model for shared shape assumptions. Keep an already clear local structure when it fits.
 3. Compare materially different designs when they affect acceptance, authority, compatibility, or maintainability. Preserve the approved choice and its rationale. Do not silently turn an unresolved product decision into an implementation detail.
-4. Establish the useful execution decomposition: blocking prerequisites, independently verifiable work, shared mutable state, and the smallest safe units. Shared primitives come before their consumers. Separate writable state when practical and serialize real shared invariants. A small task may need only one executor; this method mandates neither delegation nor a checkpoint format.
+4. Establish the useful execution decomposition: blocking prerequisites, independently verifiable work, shared mutable state, and the smallest safe units. Shared primitives come before their consumers. Separate writable state when practical and serialize real shared invariants. When an operation has side effects, such as a migration, sync or import job, or deploy, install, or backup script, make it safe to run twice and safe to rerun after a crash halfway through, ending in the same state. A small task may need only one executor; this method mandates neither delegation nor a checkpoint format.
 
 ## Implement and prove the outcome
 
