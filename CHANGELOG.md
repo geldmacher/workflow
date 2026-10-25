@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- When designing a side-effecting operation, such as a migration, sync or import job, or deploy, install, or backup script, make it safe to run twice and safe to rerun after a crash halfway through, ending in the same state.
+- When a cheap bug-fix regression test exists, require the failure before the fix to be for the expected reason, not an import error, wrong fixture, or typo.
+
 ## 7.12.1 - 2026-10-21
 
 - Separate OpenCode rollback guidance from uninstall, retain the complete package for failed-uninstall recovery, and preserve shared config, command file, and package directory permissions during updates and restoration.
