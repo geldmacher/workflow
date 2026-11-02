@@ -7,7 +7,7 @@ Here, **host** means the coding environment you use: Cursor, Codex, or OpenCode.
 | Task | Manually | With your own agent |
 |---|---|---|
 | First installation | [Download, verify, and install](#manual-installation) | [Copy the installation prompt](#first-installation-with-your-agent) |
-| Update | [Back up and replace the package](#manual-update) | [Use the install-release skill](#update-with-your-agent) |
+| Update | [Replace the package](#manual-update) | [Use the install-release skill](#update-with-your-agent) |
 
 ## Manual installation
 
@@ -23,8 +23,8 @@ The [technical reference](#technical-installation-reference) below supplies the 
 
 1. Download and verify the new stable release exactly as in [manual installation](#manual-installation).
 2. [Compare it with your existing installation](#compare-and-safely-replace). If the source files are identical, no replacement is needed. Resolve local edits, development versions, or a newer installed version before replacing anything.
-3. Prepare the complete new package and retain the previous package, its verified release files, and any changed Marketplace file as a recoverable backup outside plugin discovery/cache directories. Follow the [safe replacement procedure](#compare-and-safely-replace); replace the whole directory instead of merging files.
-4. Complete the host's activation steps again. In Codex, refresh or reinstall through the Plugins Directory and verify the installed copy. Keep the backup until the update is confirmed; the [Cursor](#cursor), [Codex](#codex), and [OpenCode](#opencode) sections also describe rollback.
+3. Prepare the complete new package on the destination filesystem. Follow the [safe replacement procedure](#compare-and-safely-replace); replace the whole directory instead of merging files. Do not keep a copy of the previous package.
+4. Complete the host's activation steps again. In Codex, refresh or reinstall through the Plugins Directory and verify the installed copy. The [Cursor](#cursor), [Codex](#codex), and [OpenCode](#opencode) sections describe rollback as installing an older GitHub release.
 
 ## Install or update with your agent
 
@@ -50,7 +50,7 @@ If the skill is unavailable in your current installation, use this prompt to rea
 
 > Update my existing Workflow installation to the latest stable release from https://github.com/geldmacher/workflow/releases/latest for my current host. Read the install-release skill and its linked installation instructions from the matching release tag, then perform the update.
 
-The agent compares the release with the existing installation, keeps a recoverable backup before an applicable update, and preserves unrelated settings. An identical source needs no replacement, but activation may still need attention.
+The agent compares the release with the existing installation and preserves unrelated settings. An identical source needs no replacement, but activation may still need attention. Rollback is installing an older GitHub release with the same verified procedure.
 
 If you have local edits, a development version, or a newer version, the agent reports the difference before replacing anything. You can ask for an explanation or inspection instead; that does not authorize installation.
 
@@ -81,7 +81,7 @@ After the package, skills registration, and commands are in place, start a new O
 | A checksum, archive, or release-identity mismatch | Leave the current installation intact and resolve the failed verification. |
 | A local change, newer version, or uncertain existing installation | Review the reported difference and decide which installation to keep. |
 | Files installed, but skills still unavailable | Complete the activation steps above and check the installed copy in a fresh task. |
-| An interrupted replacement or registration | Follow the reported recovery paths; retain backups until recovery is confirmed. |
+| An interrupted replacement or registration | Stop and follow the reported surviving paths. Recovery is installing an older GitHub release with the normal verified procedure. Do not create a backup directory. |
 
 Your agent needs GitHub access, download and JSON-reading tools, SHA-256 hashing, ZIP inspection and extraction, and permission to write the selected plugin location. Available shell tools or PowerShell/.NET can provide these; GitHub CLI is optional. Missing tools or permissions must be reported, not installed or changed automatically. Hosts other than Cursor, Codex, and OpenCode 2.1.2 are not supported installation targets.
 
@@ -171,15 +171,15 @@ Require the selected host manifest's `name` and `version` to match the verified 
 
 Resolve the selected host destination below the actual user's configuration directory using the paths below. Inspect the destination and existing ancestors without following symlinks or Windows junctions/reparse points. Stop on redirected paths, a non-directory destination, or ambiguous ownership. An existing Codex Workflow Marketplace entry pointing elsewhere needs clarification before choosing or replacing a source; do not create a competing installation.
 
-Compare the complete relative file inventory and file bytes with the verified extracted package, including dotfiles; check relevant file modes on systems that preserve them. Identical files mean no source replacement or new backup is needed, but still check registration and the host's installed copy. Matching manifest versions alone never prove an identical or unmodified installation.
+Compare the complete relative file inventory and file bytes with the verified extracted package, including dotfiles; check relevant file modes on systems that preserve them. Identical files mean no source replacement is needed, but still check registration and the host's installed copy. Matching manifest versions alone never prove an identical or unmodified installation.
 
 For a different existing package, inspect its identity and version before replacement. A missing or different manifest identity is not an update target. Preserve newer versions, local/development versions, and local edits until the user explicitly resolves the difference. For an older stable release, establish its unmodified state against a retained verified release archive, or retrieve that exact older tag's same-host archive and verification files from `geldmacher/workflow` solely as a comparison baseline. Apply the same identity, checksum, and archive checks. If a trustworthy baseline is unavailable or files differ, report the uncertainty and leave the installation intact.
 
-Before any source or Marketplace change, prepare the complete new directory on the destination filesystem and verify it against the extracted package. Prepare and validate the intended Codex Marketplace edit while preserving its unrelated content; invalid catalog JSON or duplicate Workflow entries need resolution before changing the source. Reserve a uniquely named backup outside plugin discovery/cache directories for the previous complete plugin directory, any changed Marketplace file, and matching old release files. Never merge packages, overwrite a previous backup, or discard unrelated files to make a package match.
+Before any source or Marketplace change, prepare the complete new directory on the destination filesystem and verify it against the extracted package. Prepare and validate the intended Codex Marketplace edit while preserving its unrelated content; invalid catalog JSON or duplicate Workflow entries need resolution before changing the source. Do not write a backup of the previous package, Marketplace file, or release files. Never merge packages or discard unrelated files to make a package match.
 
-Recheck that the destination and Marketplace have not changed since inspection. For an update, move the old directory into the backup and move the staged directory into its place; for first installation, require the destination still to be absent. Apply only the prepared Marketplace change, then read back the installed source and any changed catalog. If replacement, catalog writing, or read-back fails, restore the previous source and affected Marketplace state without overwriting concurrent changes. If recovery cannot finish, stop with the exact surviving paths and recovery action. Keep backup and verified release files available; remove only temporary resources created by this run.
+Recheck that the destination and Marketplace have not changed since inspection. For an update, remove the old directory and move the staged directory into its place; for first installation, require the destination still to be absent. Apply only the prepared Marketplace change, then read back the installed source and any changed catalog. If removal has not started, a failed replacement leaves the previous install in place. If the old directory was removed, or catalog writing or read-back fails after the new directory is in place, stop and report the surviving paths. Do not restore the previous package from a saved copy. Recovery is installing an older GitHub release with the normal verified procedure. Remove only temporary resources created by this run.
 
-These steps cover source replacement and registration. A later activation failure does not erase the backup or justify manual cache edits. Follow the selected host's activation or rollback steps and report what remains unverified.
+These steps cover source replacement and registration. A later activation failure does not restore the previous package or justify manual cache edits. Follow the selected host's activation steps, or install an older GitHub release, and report what remains unverified.
 
 ## Cursor
 
@@ -188,9 +188,9 @@ Install the contents at the local Cursor plugin path:
 - macOS/Linux: `~/.cursor/plugins/local/geldmacher-workflow`
 - Windows: `%USERPROFILE%\.cursor\plugins\local\geldmacher-workflow`
 
-For a first installation, extract the archive to a temporary directory and move its single `geldmacher-workflow` directory to that destination. For an update, keep the current directory as a backup, place the new complete directory at the same path, and do not merge old and new files. Then reload Cursor and check the available skills in a fresh task. Installation on disk and live activation are separate checks.
+For a first installation, extract the archive to a temporary directory and move its single `geldmacher-workflow` directory to that destination. For an update, remove the current directory, place the new complete directory at the same path, and do not merge old and new files or keep the old directory. Then reload Cursor and check the available skills in a fresh task. Installation on disk and live activation are separate checks.
 
-To roll back, move the current directory aside, restore the previously retained complete directory, reload Cursor, and check the restored package in a fresh task. Keep the matching old archive, `SHA256SUMS`, and `provenance.json` so the restored bytes remain verifiable.
+To roll back, install an older GitHub release with the same verified procedure: download that tag's archive, verify it, replace the package directory, reload Cursor, and check the installed package in a fresh task. Do not combine files from different versions. Keep that release's archive, `SHA256SUMS`, and `provenance.json` so the installed bytes remain verifiable.
 
 ## Codex
 
@@ -242,9 +242,9 @@ These Marketplace, cache, restart, Plugins Directory, and new-task boundaries fo
 
 Compare the cached package's manifest, relative file inventory, and file bytes with the verified release too. A matching source or version string cannot establish that a stale cached copy was refreshed. Use supported host installation or refresh actions for discrepancies; do not copy into, remove, or rewrite caches or enablement settings manually. An executing skill leaves required restarts to the user and reports the remaining steps for a fresh task to verify.
 
-For an update, retain the current source directory and its matching release files as a backup, replace the source with the complete verified directory from the new archive, keep the Marketplace entry pointed at the same path, and repeat all four activation steps above. Verify the manifest version in the refreshed cache copy before starting the new task.
+For an update, replace the source with the complete verified directory from the new archive. Do not keep the current source directory. Keep the Marketplace entry pointed at the same path, and repeat all four activation steps above. Verify the manifest version in the refreshed cache copy before starting the new task.
 
-For rollback, restore the retained complete old source directory and its verified release files, keep the Marketplace entry unchanged, and repeat the same restart, Plugins Directory refresh or reinstall, cache-version check, and new-task steps. Do not combine files from different versions and do not treat restored source bytes as proof that the cached installed copy changed.
+For rollback, install an older GitHub release with the normal verified procedure. Keep the Marketplace entry pointed at the same path, and repeat the same restart, Plugins Directory refresh or reinstall, cache-version check, and new-task steps. Do not combine files from different versions and do not treat source bytes as proof that the cached installed copy changed.
 
 ## OpenCode
 
@@ -257,7 +257,7 @@ OpenCode 2.1.2 discovers skills from `~/.config/opencode/skills/<id>/SKILL.md` a
 
 Skill ids are the directory names (`plan-work`, `implement-work`, and the other packaged skills). Model auto-invocation stays enabled. `implement-work` is selected by `@implement-work`, `/implement-work`, or a supplied plan artefact outside a host Implement Plan action; approving a plan does not select it. A user selects any skill with `@name`. The same name is also a slash command: `/plan-work` loads that skill. Commands live in `commands/<name>.md` inside the package and are installed to `~/.config/opencode/commands/<name>.md`. The manual sequence is the plan agent or `/plan-work`, then `/implement-work` in the build agent with the plan artefact.
 
-The OpenCode config is shared with every other plugin. Merge only, always back up, and touch only this plugin's own entries. If `~/.config/opencode/opencode.json` exists, add this package's skills path to its `skills` array when that path is absent. Keep every other key and every other skills entry, and do not add a duplicate. If only `opencode.jsonc` exists, leave that file unchanged and create `opencode.json` with the one `skills` entry; OpenCode combines skills arrays from both files. If neither file exists, create `opencode.json`:
+The OpenCode config is shared with every other plugin. Merge only, touch only this plugin's own entries, and never write backups. If `~/.config/opencode/opencode.json` exists, add this package's skills path to its `skills` array when that path is absent. Keep every other key and every other skills entry, and do not add a duplicate. If only `opencode.jsonc` exists, leave that file unchanged and create `opencode.json` with the one `skills` entry; OpenCode combines skills arrays from both files. If neither file exists, create `opencode.json`:
 
 ```json
 {
@@ -268,13 +268,13 @@ The OpenCode config is shared with every other plugin. Merge only, always back u
 
 On Windows, use the absolute package path in `skills` when `~` is not the profile you are installing into.
 
-Before any write that changes `opencode.json` or a command file, save a timestamped copy of the previous file. Copy each packaged `commands/<name>.md` to `~/.config/opencode/commands/<name>.md`. If a destination file already exists and its text does not load that Workflow skill, stop and report the name collision. Do not delete or replace unrelated commands. A later skill source with the same id overrides this package; project `.opencode/skills` and later `skills` entries win over this global registration. This package does not install into `~/.agents/skills` or `~/.claude/skills`.
+Keep the previous text of `opencode.json` and of each Workflow command file in memory only. If a later write in the same run fails, rewrite those files from that memory. Copy nothing to disk as a backup. Copy each packaged `commands/<name>.md` to `~/.config/opencode/commands/<name>.md`. If a destination file already exists and its text does not load that Workflow skill, stop and report the name collision. Do not delete or replace unrelated commands. A later skill source with the same id overrides this package; project `.opencode/skills` and later `skills` entries win over this global registration. This package does not install into `~/.agents/skills` or `~/.claude/skills`.
 
 The OpenCode manifest's `opencodeCompatibility` value is `2.1.2`. Do not add `CLAUDE.md`, `opencode/slash`, or `opencode/autoinvoke: false`.
 
-For an update, back up the complete package directory. Back up `opencode.json` and each Workflow command file before changing them. Replace the whole package directory. Keep the skills path and every unrelated config entry. Replace only Workflow command files. Start a new session and check `@plan-work`, `/plan-work`, `@implement-work`, and `/implement-work`.
+For an update, replace the whole package directory. Do not copy the package, `opencode.json`, or command files aside. Keep the skills path and every unrelated config entry. Replace only Workflow command files. Start a new session and check `@plan-work`, `/plan-work`, `@implement-work`, and `/implement-work`.
 
-For rollback after an update, restore the retained package directory and its matching command files. Keep or restore this plugin's skills entry so the previous version remains registered. To undo a first installation, remove only this plugin's skills entry, command files, and package. Leave other keys, other plugins' skills entries, `opencode.jsonc`, and unrelated commands in place. Do not replace the shared config with an older full-file backup after other plugins may have changed it, and do not combine files from different versions. The local deploy CLI has no rollback command; `deploy:uninstall` removes the installation rather than restoring a previous version.
+For rollback after an update, install an older GitHub release with the normal verified procedure, including that release's package and its Workflow command files. Keep this plugin's skills entry so the selected version stays registered. To undo a first installation, remove only this plugin's skills entry, command files, and package. Leave other keys, other plugins' skills entries, `opencode.jsonc`, and unrelated commands in place. Do not replace the shared config in a way that drops other plugins' entries, and do not combine files from different versions. The local deploy CLI has no rollback command; `deploy:uninstall` removes the installation rather than installing an older release.
 
 ## Verify the installed layout
 
