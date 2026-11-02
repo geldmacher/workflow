@@ -14,7 +14,7 @@ Workflow helps your coding agent plan a change, implement it, review the result,
 
 Use the [latest stable GitHub Release](https://github.com/geldmacher/workflow/releases/latest) for installation and updates. Choose manual installation or let your own agent handle it. No repository checkout, Node.js, or npm is needed.
 
-**Manually:** download the release archive for Cursor, Codex, or OpenCode together with `SHA256SUMS` and `provenance.json`, verify the files, and follow the [manual installation steps](docs/installation.md#manual-installation). For updates, follow the [manual update steps](docs/installation.md#manual-update) to back up and replace the complete package.
+**Manually:** download the release archive for Cursor, Codex, or OpenCode together with `SHA256SUMS` and `provenance.json`, verify the files, and follow the [manual installation steps](docs/installation.md#manual-installation). For updates, follow the [manual update steps](docs/installation.md#manual-update) to replace the complete package. Rollback is installing an older GitHub release.
 
 **With your agent:** for a first installation, paste this into Cursor, Codex, or OpenCode in a mode that can make changes:
 

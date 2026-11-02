@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Install, deploy, and uninstall write no backups. A failed write in the same run rewrites the shared OpenCode config and this plugin's command files from memory and copies nothing to disk. A replaced plugin directory or Marketplace file is left in place and reported. Rollback means installing an older GitHub release.
+
 ## 7.13.0 - 2026-10-25
 
 - When designing a side-effecting operation, such as a migration, sync or import job, or deploy, install, or backup script, make it safe to repeat, including after it stops partway, so every run leaves one finished state.
