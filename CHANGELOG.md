@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 7.14.1
+
+- Review simplicity against project standards and the affected code. Use relevant specialist guidance when available.
+
 ## 7.14.0 - 2026-11-02
 
 - Install, deploy, and uninstall write no backups. A failed write in the same run rewrites the shared OpenCode config and this plugin's command files from memory and copies nothing to disk. A replaced plugin directory or Marketplace file is left in place and reported. Rollback means installing an older GitHub release.
